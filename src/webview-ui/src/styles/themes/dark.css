@@ -1,0 +1,13 @@
+body[data-theme="dark"] {
+  --primary-bg: #1e1e1e;
+  --secondary-bg: #252526;
+  --tertiary-bg: #2d2d30;
+  --hover-bg: #2a2d2e;
+
+  --primary-text: #cccccc;
+  --secondary-text: #858585;
+  --accent-text: #4fc3f7;
+
+  --border-color: #3e3e42;
+  --input-bg: #3c3c3c;
+}

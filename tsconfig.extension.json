@@ -1,0 +1,16 @@
+{
+ "compilerOptions": {
+ "module": "Node16",
+ "target": "ES2022",
+ "lib": ["ES2022"],
+ "sourceMap": true,
+ "rootDir": "src",
+ "strict": true,
+ "skipLibCheck": true,
+ "esModuleInterop": true,
+ "resolveJsonModule": true,
+ "outDir": "dist"
+ },
+ "include": ["src/extension.ts"],
+ "exclude": ["src/webview-ui", "node_modules"]
+}
