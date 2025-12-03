@@ -1,0 +1,564 @@
+{
+  "name": "zen",
+  "displayName": "Zen",
+  "description": "Zen",
+  "version": "1.0.0",
+  "publisher": "khanhromvn",
+  "license": "MIT",
+  "capabilities": {
+    "exportedAPI": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KhanhRomVN/Zen"
+  },
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.50.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "copy",
+    "path",
+    "content",
+    "clipboard",
+    "file",
+    "search",
+    "folder"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "copy-path-with-code.copyPathWithContent",
+        "title": "Copy Path and Content"
+      },
+      {
+        "command": "copy-path-with-code.copyPathWithContentAndError",
+        "title": "Copy Path and Content with Error"
+      },
+      {
+        "command": "copy-path-with-code.clearClipboard",
+        "title": "Clear System Clipboard"
+      },
+      {
+        "command": "copy-path-with-code.createFolder",
+        "title": "Create Folder",
+        "icon": "$(add)"
+      },
+      {
+        "command": "copy-path-with-code.showFolderMenu",
+        "title": "Folder Menu",
+        "icon": "$(kebab-vertical)"
+      },
+      {
+        "command": "copy-path-with-code.expandFolder",
+        "title": "Expand Folder",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "copy-path-with-code.collapseFolder",
+        "title": "Collapse Folder",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "copy-path-with-code.copyFolderContent",
+        "title": "Copy Content",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "copy-path-with-code.renameFolderQuick",
+        "title": "Rename",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "copy-path-with-code.addFileToFolder",
+        "title": "Add Current File to Folder"
+      },
+      {
+        "command": "copy-path-with-code.removeFileFromFolder",
+        "title": "Remove Current File from Folder"
+      },
+      {
+        "command": "copy-path-with-code.openFolderFiles",
+        "title": "Open Folder Files"
+      },
+      {
+        "command": "copy-path-with-code.copyFolderContents",
+        "title": "Copy Folder Contents"
+      },
+      {
+        "command": "copy-path-with-code.deleteFolder",
+        "title": "Delete Folder"
+      },
+      {
+        "command": "copy-path-with-code.renameFolder",
+        "title": "Rename Folder"
+      },
+      {
+        "command": "copy-path-with-code.toggleClipboardDetection",
+        "title": "Toggle Clipboard Detection",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.clearClipboardQueue",
+        "title": "Clear Clipboard Queue",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.openClipboardFile",
+        "title": "Open Clipboard File",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.refreshClipboardView",
+        "title": "Refresh Clipboard View",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.refreshFolderView",
+        "title": "Refresh Folder View",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.showLogs",
+        "title": "Show Extension Logs",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.expandAllDirectories",
+        "title": "Expand All",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "copy-path-with-code.collapseAllDirectories",
+        "title": "Collapse All",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "copy-path-with-code.revealInExplorer",
+        "title": "Reveal in Explorer"
+      },
+      {
+        "command": "copy-path-with-code.toggleFileSelection",
+        "title": "Toggle File Selection"
+      },
+      {
+        "command": "copy-path-with-code.confirmFileManagement",
+        "title": "Confirm Selection"
+      },
+      {
+        "command": "copy-path-with-code.cancelFileManagement",
+        "title": "Cancel"
+      },
+      {
+        "command": "copy-path-with-code.selectAllFilesInFolder",
+        "title": "Select All Files",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "copy-path-with-code.unselectAllFilesInFolder",
+        "title": "Unselect All Files",
+        "icon": "$(close-all)"
+      },
+      {
+        "command": "copy-path-with-code.openFile",
+        "title": "Open"
+      },
+      {
+        "command": "copy-path-with-code.openToSide",
+        "title": "Open to the Side"
+      },
+      {
+        "command": "copy-path-with-code.openWith",
+        "title": "Open With..."
+      },
+      {
+        "command": "copy-path-with-code.openContainingFolder",
+        "title": "Open Containing Folder"
+      },
+      {
+        "command": "copy-path-with-code.copyPath",
+        "title": "Copy Path"
+      },
+      {
+        "command": "copy-path-with-code.copyRelativePath",
+        "title": "Copy Relative Path"
+      },
+      {
+        "command": "copy-path-with-code.revealInFileExplorer",
+        "title": "Reveal in File Explorer"
+      },
+      {
+        "command": "copy-path-with-code.openInIntegratedTerminal",
+        "title": "Open in Integrated Terminal"
+      },
+      {
+        "command": "copy-path-with-code.renameFile",
+        "title": "Rename"
+      },
+      {
+        "command": "copy-path-with-code.deleteFile",
+        "title": "Delete"
+      },
+      {
+        "command": "copy-path-with-code.cutFile",
+        "title": "Cut"
+      },
+      {
+        "command": "copy-path-with-code.copyFile",
+        "title": "Copy"
+      },
+      {
+        "command": "copy-path-with-code.pasteFile",
+        "title": "Paste"
+      },
+      {
+        "command": "copy-path-with-code.newFile",
+        "title": "New File"
+      },
+      {
+        "command": "copy-path-with-code.newFolder",
+        "title": "New Folder"
+      },
+      {
+        "command": "copy-path-with-code.copyIndividualFile",
+        "title": "Copy File Content",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "copy-path-with-code.toggleViewMode",
+        "title": "Toggle View Mode",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "copy-path-with-code.showSearchInput",
+        "title": "Search Files & Folders",
+        "icon": "$(search)",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.clearSearch",
+        "title": "Clear Search Filter",
+        "icon": "$(clear-all)",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.showFileManagementSearch",
+        "title": "Search Files in Workspace",
+        "icon": "$(search)",
+        "category": "Copy Path with Code"
+      },
+      {
+        "command": "copy-path-with-code.clearFileManagementSearch",
+        "title": "Clear Search Filter",
+        "icon": "$(clear-all)",
+        "category": "Copy Path with Code"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "copy-path-with-code.copyPathWithContent",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "copy-path-with-code.copyPathWithContentAndError",
+        "key": "ctrl+alt+a",
+        "mac": "cmd+alt+a",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "copy-path-with-code.clearClipboard",
+        "key": "ctrl+alt+z",
+        "mac": "cmd+alt+z"
+      },
+      {
+        "command": "copy-path-with-code.addFileToFolder",
+        "key": "ctrl+alt+shift+a",
+        "mac": "cmd+alt+shift+a"
+      },
+      {
+        "command": "copy-path-with-code.removeFileFromFolder",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d"
+      },
+      {
+        "command": "copy-path-with-code.clearClipboardQueue",
+        "key": "ctrl+alt+shift+z",
+        "mac": "cmd+alt+shift+z"
+      },
+      {
+        "command": "copy-path-with-code.showSearchInput",
+        "key": "ctrl+alt+f",
+        "mac": "cmd+alt+f",
+        "when": "view == folderManager"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "copy-path-with-code-folders",
+          "title": "Code Folders",
+          "icon": "$(folder-opened)"
+        }
+      ]
+    },
+    "views": {
+      "copy-path-with-code-folders": [
+        {
+          "id": "folderManager",
+          "name": "Code Folders",
+          "contextualTitle": "Code Folders"
+        }
+      ],
+      "explorer": [
+        {
+          "id": "clipboard-detection",
+          "name": "Clipboard Files",
+          "when": "copyPathWithCode.hasClipboardFiles"
+        }
+      ]
+    },
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "copy-path-with-code.showFolderMenu",
+          "when": "view == folderManager && viewItem == folder",
+          "group": "inline@1"
+        },
+        {
+          "command": "copy-path-with-code.expandFolder",
+          "when": "view == folderManager && viewItem == folder",
+          "group": "inline@2"
+        },
+        {
+          "command": "copy-path-with-code.copyFolderContent",
+          "when": "view == folderManager && viewItem == folder",
+          "group": "inline@3"
+        },
+        {
+          "command": "copy-path-with-code.copyIndividualFile",
+          "when": "view == folderManager && viewItem == file",
+          "group": "inline"
+        },
+        {
+          "command": "copy-path-with-code.selectAllFilesInFolder",
+          "when": "view == folderManager && viewItem == fileManagementDirectory",
+          "group": "1_selection@1"
+        },
+        {
+          "command": "copy-path-with-code.unselectAllFilesInFolder",
+          "when": "view == folderManager && viewItem == fileManagementDirectory",
+          "group": "1_selection@2"
+        },
+        {
+          "submenu": "copy-path-with-code.fileContextMenu",
+          "when": "view == folderManager && viewItem == file",
+          "group": "navigation@1"
+        },
+        {
+          "submenu": "copy-path-with-code.folderContextMenu",
+          "when": "view == folderManager && viewItem == directory",
+          "group": "navigation@1"
+        },
+        {
+          "command": "copy-path-with-code.openFile",
+          "when": "view == folderManager && viewItem == file",
+          "group": "1_file@1"
+        },
+        {
+          "command": "copy-path-with-code.openToSide",
+          "when": "view == folderManager && viewItem == file",
+          "group": "1_file@2"
+        },
+        {
+          "command": "copy-path-with-code.openWith",
+          "when": "view == folderManager && viewItem == file",
+          "group": "1_file@3"
+        },
+        {
+          "command": "copy-path-with-code.openContainingFolder",
+          "when": "view == folderManager && (viewItem == file || viewItem == directory)",
+          "group": "2_workspace@1"
+        },
+        {
+          "command": "copy-path-with-code.openInIntegratedTerminal",
+          "when": "view == folderManager && viewItem == directory",
+          "group": "2_workspace@2"
+        },
+        {
+          "command": "copy-path-with-code.copyPath",
+          "when": "view == folderManager && (viewItem == file || viewItem == directory)",
+          "group": "3_compare@1"
+        },
+        {
+          "command": "copy-path-with-code.copyRelativePath",
+          "when": "view == folderManager && (viewItem == file || viewItem == directory)",
+          "group": "3_compare@2"
+        },
+        {
+          "command": "copy-path-with-code.cutFile",
+          "when": "view == folderManager && (viewItem == file || viewItem == directory)",
+          "group": "4_cutcopypaste@1"
+        },
+        {
+          "command": "copy-path-with-code.copyFile",
+          "when": "view == folderManager && (viewItem == file || viewItem == directory)",
+          "group": "4_cutcopypaste@2"
+        },
+        {
+          "command": "copy-path-with-code.pasteFile",
+          "when": "view == folderManager && viewItem == directory && copyPathWithCode.hasClipboardItems",
+          "group": "4_cutcopypaste@3"
+        },
+        {
+          "command": "copy-path-with-code.renameFile",
+          "when": "view == folderManager && (viewItem == file || viewItem == directory)",
+          "group": "5_modification@1"
+        },
+        {
+          "command": "copy-path-with-code.deleteFile",
+          "when": "view == folderManager && (viewItem == file || viewItem == directory)",
+          "group": "5_modification@2"
+        },
+        {
+          "command": "copy-path-with-code.newFile",
+          "when": "view == folderManager && viewItem == directory",
+          "group": "6_new@1"
+        },
+        {
+          "command": "copy-path-with-code.newFolder",
+          "when": "view == folderManager && viewItem == directory",
+          "group": "6_new@2"
+        },
+        {
+          "command": "copy-path-with-code.showFileManagementSearch",
+          "when": "view == folderManager && viewItem == fileManagementHeader",
+          "group": "inline@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "copy-path-with-code.createFolder",
+          "when": "view == folderManager",
+          "group": "navigation@1"
+        },
+        {
+          "command": "copy-path-with-code.toggleViewMode",
+          "when": "view == folderManager",
+          "group": "navigation@2"
+        }
+      ]
+    },
+    "submenus": [
+      {
+        "id": "copy-path-with-code.fileContextMenu",
+        "label": "File Options"
+      },
+      {
+        "id": "copy-path-with-code.folderContextMenu",
+        "label": "Folder Options"
+      }
+    ],
+    "configuration": {
+      "title": "Copy Path with Code",
+      "properties": {
+        "copyPathWithCode.enableClipboardDetection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically detect files from clipboard content"
+        },
+        "copyPathWithCode.showFileCount": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show file count in directory descriptions"
+        },
+        "copyPathWithCode.expandDirectoriesByDefault": {
+          "type": "boolean",
+          "default": false,
+          "description": "Expand directories by default when opening folder"
+        },
+        "copyPathWithCode.searchCaseSensitive": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable case-sensitive search for files and folders"
+        },
+        "copyPathWithCode.searchIncludeExtensions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include file extensions in search results"
+        }
+      }
+    },
+    "colors": [
+      {
+        "id": "copyPathWithCode.folderDifferentWorkspace",
+        "description": "Color for folders from different workspaces",
+        "defaults": {
+          "dark": "#999999",
+          "light": "#666666",
+          "highContrast": "#888888"
+        }
+      },
+      {
+        "id": "copyPathWithCode.currentWorkspaceIndicator",
+        "description": "Color for current workspace indicator",
+        "defaults": {
+          "dark": "#4CAF50",
+          "light": "#2E7D32",
+          "highContrast": "#00FF00"
+        }
+      },
+      {
+        "id": "copyPathWithCode.differentWorkspaceIndicator",
+        "description": "Color for different workspace indicator",
+        "defaults": {
+          "dark": "#FF9800",
+          "light": "#F57C00",
+          "highContrast": "#FFFF00"
+        }
+      },
+      {
+        "id": "copyPathWithCode.searchHighlight",
+        "description": "Color for search result highlights",
+        "defaults": {
+          "dark": "#FFC107",
+          "light": "#FF8F00",
+          "highContrast": "#FFFF00"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.50.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "eslint": "^9.23.0",
+    "typescript": "^5.8.2",
+    "ts-loader": "^9.5.2",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1"
+  }
+}
