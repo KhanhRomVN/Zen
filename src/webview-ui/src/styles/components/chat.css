@@ -2,7 +2,9 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: var(--primary-bg);
+  background-color: var(
+    --secondary-bg
+  ); /* Đổi từ primary-bg sang secondary-bg để đồng nhất với header */
   color: var(--primary-text);
 }
 
@@ -137,120 +139,27 @@
 
 /* Input Area */
 .chat-input-container {
-  border-top: 1px solid var(--border-color);
-  background-color: var(--secondary-bg);
+border-top: 1px solid var(--border-color);
+background-color: var(--secondary-bg);
 }
 
 .auto-approve-bar {
-  padding: var(--spacing-sm) var(--spacing-lg);
-  background-color: var(--tertiary-bg);
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+padding: var(--spacing-sm) var(--spacing-lg);
+background-color: var(
+--secondary-bg
+); /* Đổi từ tertiary-bg sang secondary-bg để đồng nhất */
+border-bottom: 1px solid var(--border-color);
+display: flex;
+align-items: center;
+justify-content: space-between;
 }
 
 .auto-approve-text {
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text);
+font-size: var(--font-size-sm);
+color: var(--secondary-text);
 }
 
-.chat-input-wrapper {
-  display: flex;
-  align-items: center;
-  padding: var(--spacing-md) var(--spacing-lg);
-  gap: var(--spacing-sm);
-}
-
-.input-toolbar-left,
-.input-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.toolbar-btn {
-  background: none;
-  border: none;
-  color: var(--secondary-text);
-  font-size: var(--font-size-lg);
-  cursor: pointer;
-  padding: var(--spacing-sm);
-  border-radius: var(--border-radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.toolbar-btn:hover {
-  background-color: var(--hover-bg);
-  color: var(--primary-text);
-}
-
-.chat-input {
-  flex: 1;
-  background-color: var(--input-bg);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  color: var(--primary-text);
-  font-size: var(--font-size-md);
-  padding: var(--spacing-md);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.chat-input:focus {
-  border-color: var(--accent-text);
-}
-
-.chat-input::placeholder {
-  color: var(--secondary-text);
-}
-
-.chat-context {
-  font-size: var(--font-size-sm);
-  color: var(--secondary-text);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  background-color: var(--tertiary-bg);
-  border-radius: var(--border-radius);
-}
-
-.plan-btn,
-.send-btn {
-  padding: var(--spacing-sm) var(--spacing-lg);
-  border: none;
-  border-radius: var(--border-radius);
-  font-size: var(--font-size-md);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.plan-btn {
-  background-color: var(--button-secondary);
-  color: var(--primary-text);
-}
-
-.plan-btn:hover {
-  background-color: var(--button-secondary-hover);
-}
-
-.send-btn {
-  background-color: var(--button-primary);
-  color: white;
-}
-
-.send-btn:hover {
-  background-color: var(--button-primary-hover);
-}
-
-.input-hint {
-  padding: var(--spacing-sm) var(--spacing-lg);
-  font-size: var(--font-size-xs);
-  color: var(--secondary-text);
-  text-align: center;
-}
+/* ChatInput component mới sử dụng inline styles, không cần CSS ở đây */
 
 /* Scrollbar Styles */
 .chat-messages::-webkit-scrollbar {
@@ -258,14 +167,18 @@
 }
 
 .chat-messages::-webkit-scrollbar-track {
-  background: var(--primary-bg);
+  background: var(
+    --secondary-bg
+  ); /* Đổi từ primary-bg sang secondary-bg để đồng nhất */
 }
 
 .chat-messages::-webkit-scrollbar-thumb {
-  background: var(--tertiary-bg);
+  background: var(--hover-bg); /* Đổi từ tertiary-bg sang hover-bg để phù hợp */
   border-radius: 5px;
 }
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
-  background: var(--hover-bg);
+  background: var(
+    --accent-text
+  ); /* Sử dụng accent color khi hover để nổi bật */
 }

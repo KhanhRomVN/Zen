@@ -23,6 +23,22 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     };
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+    // Gửi theme colors ban đầu
+    this._updateTheme(webviewView.webview);
+
+    // Lắng nghe sự kiện thay đổi theme
+    const themeChangeDisposable = vscode.window.onDidChangeActiveColorTheme(
+      () => {
+        this._updateTheme(webviewView.webview);
+      }
+    );
+
+    // Thêm disposable vào context subscriptions nếu có (cho VS Code API tương thích)
+    const ctx = context as any;
+    if (ctx.subscriptions && Array.isArray(ctx.subscriptions)) {
+      ctx.subscriptions.push(themeChangeDisposable);
+    }
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
@@ -43,6 +59,27 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
  <title>Zen Chat
 </title>
+ <style>
+ /* VS Code sẽ tự động inject CSS variables vào webview */
+ /* Chúng ta sử dụng các variables này trực tiếp */
+ :root {
+ /* Map các variables custom của chúng ta sang VS Code variables */
+ --primary-bg: var(--vscode-editor-background, #1e1e1e);
+ --secondary-bg: var(--vscode-sideBar-background, #252526);
+ --tertiary-bg: var(--vscode-panel-background, #2d2d30);
+ --hover-bg: var(--vscode-list-hoverBackground, #2a2d2e);
+ --primary-text: var(--vscode-foreground, #cccccc);
+ --secondary-text: var(--vscode-descriptionForeground, #858585);
+ --accent-text: var(--vscode-textLink-foreground, #4fc3f7);
+ --border-color: var(--vscode-panel-border, #3e3e42);
+ --input-bg: var(--vscode-input-background, #3c3c3c);
+ --button-primary: var(--vscode-button-background, #0e639c);
+ --button-primary-hover: var(--vscode-button-hoverBackground, #1177bb);
+ --button-secondary: var(--vscode-button-secondaryBackground, var(--vscode-sideBar-background, #2d2d30));
+ --button-secondary-hover: var(--vscode-button-secondaryHoverBackground, #3e3e42);
+ }
+ 
+</style>
 </head>
 <body>
  <div id="root">
@@ -61,6 +98,19 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
     return text;
+  }
+
+  private _updateTheme(webview: vscode.Webview) {
+    // Lấy theme hiện tại
+    const theme = vscode.window.activeColorTheme;
+    const themeKind = theme.kind;
+
+    // VS Code tự động inject CSS variables vào webview
+    // Chúng ta chỉ cần gửi theme kind để webview biết loại theme nào đang được sử dụng
+    webview.postMessage({
+      command: "updateTheme",
+      theme: themeKind,
+    });
   }
 }
 
