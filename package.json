@@ -22,6 +22,34 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "zen-sidebar",
+          "title": "Zen",
+          "icon": "images/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "zen-sidebar": [
+        {
+          "id": "zen-chat",
+          "name": "Chat",
+          "type": "webview",
+          "contextualTitle": "Zen Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "zen.openChat",
+        "title": "Open Zen Chat",
+        "category": "Zen"
+      }
+    ]
+  },
   "main": "./dist/extension.js",
   "browser": "./dist/extension.js",
   "scripts": {
