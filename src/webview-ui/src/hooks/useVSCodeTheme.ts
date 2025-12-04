@@ -25,7 +25,6 @@ export const useVSCodeTheme = () => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data as VSCodeThemeMessage;
       if (message.command === "updateTheme") {
-        console.log("Received theme update:", message);
         setThemeKind(message.theme);
 
         // Không cần áp dụng CSS variables vì VS Code đã tự động inject
@@ -43,7 +42,7 @@ export const useVSCodeTheme = () => {
         const vscode = window.acquireVsCodeApi();
         vscode.postMessage({ command: "ready" });
       } catch (error) {
-        console.log("VS Code API not available in development");
+        // VS Code API not available in development
       }
     }
 

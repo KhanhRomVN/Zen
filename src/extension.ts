@@ -35,15 +35,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private startWebSocketServer(): void {
-    console.log(`[Zen] Starting WebSocket server on port ${this._wsPort}`);
-
     try {
       this._httpServer = http.createServer();
       this._httpServer.on("error", (error: any) => {
         if (error.code === "EADDRINUSE") {
-          console.error(
-            `[Zen] Port ${this._wsPort} already in use, will retry with new port...`
-          );
           // Close current server nếu đang mở
           if (this._httpServer) {
             this._httpServer.close();
@@ -58,8 +53,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           setTimeout(() => {
             this.startWebSocketServer();
           }, 200);
-        } else {
-          console.error("[Zen] HTTP server error:", error);
         }
       });
 
@@ -69,16 +62,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         this._clientCount++;
         this._clients.add(ws);
         const isWebviewClient = this._clientCount === 1; // Client đầu tiên là webview
-
-        if (!isWebviewClient) {
-          console.log(
-            `[Zen] External WebSocket client connected on port ${this._wsPort}`
-          );
-        } else {
-          console.log(
-            `[Zen] WebSocket client connected (webview) on port ${this._wsPort}`
-          );
-        }
 
         // Delay sending connection-established để client có thời gian setup
         setTimeout(() => {
@@ -92,37 +75,40 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           }
         }, 50);
 
+        // 🆕 PING MECHANISM: Gửi ping mỗi 45s để duy trì connection
+        const pingInterval = setInterval(() => {
+          if (ws.readyState === ws.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "ping",
+                timestamp: Date.now(),
+              })
+            );
+          } else {
+            clearInterval(pingInterval);
+          }
+        }, 45000); // 45 seconds
+
         ws.on("message", (message: string) => {
           const messageStr = message.toString();
-          // Chỉ log full message nếu không phải là webview client (để tránh log nhiều)
-          if (!isWebviewClient) {
-            console.log(
-              `[Zen] Received message from external client:`,
-              messageStr
-            );
-          }
 
           try {
             const data = JSON.parse(messageStr);
             this.handleWebSocketMessage(data, ws, isWebviewClient);
           } catch (error) {
-            console.error("[Zen] Error parsing message:", error);
+            // Error parsing message
           }
         });
 
         ws.on("close", () => {
           this._clientCount--;
           this._clients.delete(ws);
-          // Chỉ log khi external client disconnect
-          if (!isWebviewClient) {
-            console.log(`[Zen] External WebSocket client disconnected`);
-          } else {
-            console.log(`[Zen] Webview client disconnected`);
-          }
+          clearInterval(pingInterval); // 🆕 Cleanup interval khi connection đóng
         });
 
         ws.on("error", (error: Error) => {
-          console.error("[Zen] WebSocket error:", error);
+          // WebSocket error
+          clearInterval(pingInterval); // 🆕 Cleanup interval khi có lỗi
         });
       });
 
@@ -150,10 +136,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       });
 
       this._httpServer.listen(this._wsPort, () => {
-        console.log(`[Zen] WebSocket server started on port ${this._wsPort}`);
+        // WebSocket server started
       });
     } catch (error) {
-      console.error("[Zen] Failed to start WebSocket server:", error);
+      // Failed to start WebSocket server
     }
   }
 
@@ -164,8 +150,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   ): void {
     if (data.type === "ping") {
       ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+    } else if (data.type === "pong") {
+      // 🆕 PONG RESPONSE: ZenTab đã reply pong - connection vẫn alive
+      // Log nếu cần debug, hoặc bỏ qua
     } else if (data.type === "prompt") {
-      console.log(`[Zen] Received prompt:`, data.content);
       ws.send(
         JSON.stringify({
           type: "response",
@@ -175,7 +163,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       );
     } else if (data.type === "focusedTabsUpdate" && !isWebviewClient) {
       // Broadcast message từ external client đến TẤT CẢ clients
-      console.log(`[Zen] Broadcasting focusedTabsUpdate to all clients`);
       const messageStr = JSON.stringify(data);
       this._clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -195,10 +182,8 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       const checkBothClosed = () => {
         if (wsServerClosed && httpServerClosed && !resolved) {
           resolved = true;
-          console.log(`[Zen] All servers stopped on port ${oldPort}`);
           // Add extra delay to ensure port is fully released
           setTimeout(() => {
-            console.log(`[Zen] Port ${oldPort} cleanup complete`);
             resolve();
           }, 200);
         }
@@ -207,9 +192,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.log(
-            `[Zen] Server stop timeout, forcing resolve on port ${oldPort}`
-          );
           resolve();
         }
       }, 2000);
@@ -223,14 +205,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         });
 
         this._wsServer.close((err) => {
-          if (err) {
-            console.error(
-              `[Zen] Error closing WebSocket server on port ${oldPort}:`,
-              err
-            );
-          } else {
-            console.log(`[Zen] WebSocket server stopped on port ${oldPort}`);
-          }
           wsServerClosed = true;
           checkBothClosed();
         });
@@ -241,14 +215,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
       if (this._httpServer) {
         this._httpServer.close((err) => {
-          if (err) {
-            console.error(
-              `[Zen] Error closing HTTP server on port ${oldPort}:`,
-              err
-            );
-          } else {
-            console.log(`[Zen] HTTP server stopped on port ${oldPort}`);
-          }
           httpServerClosed = true;
           checkBothClosed();
         });
@@ -282,21 +248,14 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage((message) => {
       if (message.command === "getWorkspacePort") {
-        console.log(`[Zen] Sending workspace port to webview: ${this._wsPort}`);
         webviewView.webview.postMessage({
           command: "workspacePort",
           port: this._wsPort,
         });
       } else if (message.command === "restartServer") {
-        console.log(`[Zen] Restarting server - stopping old server first...`);
-
         this.stopWebSocketServer()
           .then(() => {
-            console.log(
-              `[Zen] Old server fully stopped, generating new port...`
-            );
             this._wsPort = this.generateUniquePort();
-            console.log(`[Zen] New port generated: ${this._wsPort}`);
 
             // Start new server
             this.startWebSocketServer();
@@ -311,9 +270,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
                   clearInterval(checkInterval);
                   if (!resolved) {
                     resolved = true;
-                    console.log(
-                      `[Zen] New server confirmed listening on port ${this._wsPort}`
-                    );
                     resolve();
                   }
                 }
@@ -324,23 +280,19 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
                 clearInterval(checkInterval);
                 if (!resolved) {
                   resolved = true;
-                  console.log(
-                    `[Zen] Server start timeout, sending port anyway`
-                  );
                   resolve();
                 }
               }, 2000);
             });
           })
           .then(() => {
-            console.log(`[Zen] Sending new port ${this._wsPort} to webview`);
             webviewView.webview.postMessage({
               command: "workspacePort",
               port: this._wsPort,
             });
           })
           .catch((error) => {
-            console.error(`[Zen] Error during server restart:`, error);
+            // Error during server restart
           });
       }
     });
@@ -481,10 +433,8 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  console.log("[Zen] Extension deactivating, stopping all servers...");
   if (activeProvider) {
     return activeProvider.stopWebSocketServer().then(() => {
-      console.log("[Zen] All servers stopped during deactivation");
       activeProvider = null;
     });
   }

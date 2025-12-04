@@ -6,7 +6,7 @@ let vscodeApi: any = null;
 try {
   vscodeApi = (window as any).acquireVsCodeApi();
 } catch (error) {
-  console.log("VS Code API not available or already acquired");
+  // VS Code API not available or already acquired
 }
 
 interface ChatInputProps {
@@ -37,16 +37,9 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const MAX_ROWS = 8;
 
   const generateRandomPort = async () => {
-    console.log(
-      "[generateRandomPort] Starting - Current port:",
-      port,
-      "Active port ref:",
-      activePortRef.current
-    );
     setIsPortChecking(true);
 
     if (!vscodeApi) {
-      console.error("VS Code API not available");
       setIsPortChecking(false);
       return;
     }
@@ -55,25 +48,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
       const messageHandler = (event: MessageEvent) => {
         const message = event.data;
         if (message.command === "workspacePort" && message.port) {
-          console.log(
-            "[generateRandomPort] Received workspace port: " + message.port
-          );
-
           // Signal cleanup for old WebSocket before updating port
           if (port !== 0 && port !== message.port) {
-            console.log(
-              "[generateRandomPort] Setting cleanup signal for old port:",
-              port
-            );
             cleanupSignalRef.current = true;
           }
 
           // Update activePortRef immediately before setPort
           activePortRef.current = message.port;
-          console.log(
-            "[generateRandomPort] Updated activePortRef to:",
-            message.port
-          );
 
           setPort(message.port);
           setIsPortChecking(false);
@@ -84,14 +65,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
       window.addEventListener("message", messageHandler);
 
       if (port === 0) {
-        console.log("[generateRandomPort] Initial port request...");
         vscodeApi.postMessage({
           command: "getWorkspacePort",
         });
       } else {
-        console.log(
-          "[generateRandomPort] Requesting server restart with new port..."
-        );
         vscodeApi.postMessage({
           command: "restartServer",
         });
@@ -100,15 +77,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
       setTimeout(() => {
         window.removeEventListener("message", messageHandler);
         if (isPortChecking) {
-          console.warn("[generateRandomPort] Port request timeout");
           setIsPortChecking(false);
         }
       }, 2000);
     } catch (error) {
-      console.error(
-        "[generateRandomPort] Failed to get/restart workspace port:",
-        error
-      );
       setIsPortChecking(false);
     }
   };
@@ -121,16 +93,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const currentPort = port;
     const isCleanupSignaled = cleanupSignalRef.current;
 
-    // activePortRef is already updated in generateRandomPort before setPort
-    console.log(
-      `[WebSocket Effect] Setting up for port ${currentPort}, activePortRef: ${activePortRef.current}, cleanupSignaled: ${isCleanupSignaled}`
-    );
-
     // Chỉ setup WebSocket nếu đây là port đang active
     if (activePortRef.current !== currentPort) {
-      console.log(
-        `[WebSocket Effect] SKIPPING setup - port ${currentPort} is not active port (activePortRef: ${activePortRef.current})`
-      );
       // Clear cleanup signal nếu có
       if (isCleanupSignaled) {
         cleanupSignalRef.current = false;
@@ -141,9 +105,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
     // Clear cleanup signal sau khi verify đây là active port
     if (isCleanupSignaled) {
       cleanupSignalRef.current = false;
-      console.log(
-        `[WebSocket Effect] Cleared cleanup signal for port ${currentPort}`
-      );
     }
 
     // Reset wsConnected trước khi tạo connection mới
@@ -152,137 +113,63 @@ const ChatInput: React.FC<ChatInputProps> = ({
     // Set timestamp cho connection mới
     const connectionTimestamp = Date.now();
     connectionTimestampRef.current = connectionTimestamp;
-    console.log(
-      `[WebSocket Effect] Created new connection with timestamp: ${connectionTimestamp}`
-    );
 
     try {
       ws = new WebSocket(`ws://localhost:${port}`);
 
       ws.onopen = () => {
-        console.log(
-          `[WebSocket onopen] Port ${port}, activePortRef: ${activePortRef.current}`
-        );
+        // WebSocket opened
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log(
-            `[WebSocket onmessage] Port ${port}, data:`,
-            data,
-            "activePortRef:",
-            activePortRef.current,
-            "connectionVerified:",
-            connectionVerified,
-            "connectionTimestamp:",
-            connectionTimestamp,
-            "currentTimestamp:",
-            connectionTimestampRef.current
-          );
 
           // 🆕 CRITICAL: Forward all messages to parent component FIRST
-          console.log(
-            `[WebSocket onmessage] Forwarding message to parent, onWsMessage exists:`,
-            !!onWsMessage
-          );
           if (onWsMessage) {
-            console.log(
-              `[WebSocket onmessage] Calling onWsMessage with data:`,
-              JSON.stringify(data)
-            );
             onWsMessage(data);
-            console.log(
-              `[WebSocket onmessage] onWsMessage called successfully`
-            );
-          } else {
-            console.warn(
-              `[WebSocket onmessage] onWsMessage callback is NOT defined!`
-            );
           }
 
           if (data.type === "connection-established") {
             // connection-established từ server - KHÔNG set wsConnected
             // Chỉ để verify connection đã thiết lập thành công
             connectionVerified = true;
-            console.log(
-              `[WebSocket onmessage] Received connection-established (server handshake), NOT setting wsConnected`
-            );
           } else if (data.type === "response" || data.type === "pong") {
             // Nhận được response hoặc pong từ external client
             // Đây là bằng chứng của external client connection
-            console.log(
-              `[WebSocket onmessage] External client detected via ${data.type}, setting wsConnected to TRUE`
-            );
             setWsConnected(true);
             onWsConnectedChange?.(true);
           } else if (data.type === "focusedTabsUpdate") {
             // Nhận được focusedTabsUpdate từ external client
-            console.log(
-              `[WebSocket onmessage] External client detected via focusedTabsUpdate, setting wsConnected to TRUE`
-            );
             setWsConnected(true);
             onWsConnectedChange?.(true);
-          } else {
-            console.log(
-              `[WebSocket onmessage] Other message type: ${data.type}, verified: ${connectionVerified}`
-            );
           }
         } catch (error) {
-          console.error(
-            `[WebSocket onmessage] Error parsing message on port ${port}:`,
-            error
-          );
+          // Error parsing message
         }
       };
 
       ws.onclose = () => {
-        console.log(
-          `[WebSocket onclose] Port ${port}, activePortRef: ${activePortRef.current}, connectionVerified: ${connectionVerified}, currentPort: ${currentPort}`
-        );
-
         // Set false nếu đây là active port (bất kể connectionVerified)
         if (activePortRef.current === currentPort) {
-          console.log(
-            `[WebSocket onclose] Setting wsConnected to FALSE for port ${port}`
-          );
           setWsConnected(false);
           onWsConnectedChange?.(false);
-        } else {
-          console.log(
-            `[WebSocket onclose] NOT setting wsConnected to false - not active port`
-          );
         }
       };
 
       ws.onerror = (error) => {
-        console.error(
-          `[WebSocket onerror] Port ${port}, activePortRef: ${activePortRef.current}:`,
-          error
-        );
-
         // Chỉ set false nếu port này vẫn là active port
         if (activePortRef.current === currentPort) {
-          console.log(
-            `[WebSocket onerror] Setting wsConnected to FALSE for port ${port}`
-          );
           setWsConnected(false);
         }
       };
     } catch (error) {
-      console.error(
-        `[WebSocket Effect] Failed to connect WebSocket on port ${port}:`,
-        error
-      );
       if (activePortRef.current === currentPort) {
         setWsConnected(false);
       }
     }
 
     return () => {
-      console.log(
-        `[WebSocket cleanup] Cleaning up WebSocket for port ${currentPort}, activePortRef: ${activePortRef.current}`
-      );
       if (ws) {
         ws.close();
       }
@@ -315,9 +202,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim()) {
-      console.log("Sending message:", message);
-      console.log("Using model:", selectedModel);
-      console.log("WebSocket server on port:", port);
       setMessage("");
       setRows(MIN_ROWS);
       if (textareaRef.current) {
@@ -420,19 +304,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
     const text = "localhost:" + port;
     navigator.clipboard.writeText(text).then(
       () => {
-        console.log("Copied to clipboard:", text);
+        // Copied to clipboard
       },
       (err) => {
-        console.error("Failed to :", err);
+        // Failed to copy
       }
     );
   };
 
   const handleModelSelect = (modelId: string) => {
-    console.log("Model selecting:", modelId);
     setSelectedModel(modelId);
     setShowModelDrawer(false);
-    console.log("Model selected:", modelId);
   };
 
   useEffect(() => {
