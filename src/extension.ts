@@ -9,6 +9,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _wsPort: number = 0;
   private _wsServer?: WebSocket.Server;
   private _httpServer?: http.Server;
+  private _clientCount: number = 0;
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._wsPort = this.generateUniquePort();
@@ -63,7 +64,18 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       this._wsServer = new WebSocket.Server({ server: this._httpServer });
 
       this._wsServer.on("connection", (ws: WebSocket) => {
-        console.log(`[Zen] WebSocket client connected on port ${this._wsPort}`);
+        this._clientCount++;
+        const isWebviewClient = this._clientCount === 1; // Client đầu tiên là webview
+
+        if (!isWebviewClient) {
+          console.log(
+            `[Zen] External WebSocket client connected on port ${this._wsPort}`
+          );
+        } else {
+          console.log(
+            `[Zen] WebSocket client connected (webview) on port ${this._wsPort}`
+          );
+        }
 
         // Delay sending connection-established để client có thời gian setup
         setTimeout(() => {
@@ -78,10 +90,17 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         }, 50);
 
         ws.on("message", (message: string) => {
-          console.log(`[Zen] Received message:`, message.toString());
+          const messageStr = message.toString();
+          // Chỉ log full message nếu không phải là webview client (để tránh log nhiều)
+          if (!isWebviewClient) {
+            console.log(
+              `[Zen] Received message from external client:`,
+              messageStr
+            );
+          }
 
           try {
-            const data = JSON.parse(message.toString());
+            const data = JSON.parse(messageStr);
             this.handleWebSocketMessage(data, ws);
           } catch (error) {
             console.error("[Zen] Error parsing message:", error);
@@ -89,7 +108,13 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         });
 
         ws.on("close", () => {
-          console.log(`[Zen] WebSocket client disconnected`);
+          this._clientCount--;
+          // Chỉ log khi external client disconnect
+          if (!isWebviewClient) {
+            console.log(`[Zen] External WebSocket client disconnected`);
+          } else {
+            console.log(`[Zen] Webview client disconnected`);
+          }
         });
 
         ws.on("error", (error: Error) => {
@@ -175,9 +200,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       if (this._wsServer) {
         // Close all active connections first
         this._wsServer.clients.forEach((client) => {
-          console.log(
-            `[Zen] Closing active WebSocket client on port ${oldPort}`
-          );
+          // Không log cho từng client khi stop server
           client.close();
         });
 

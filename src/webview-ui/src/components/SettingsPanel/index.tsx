@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useModels } from "../../hooks/useModels";
 
 interface Model {
   id: string;
@@ -22,12 +23,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
     "models" | "context" | "checkpoints" | "notifications"
   >("models");
 
-  // Models State
-  const [models, setModels] = useState<Model[]>([
-    { id: "gpt-4", name: "GPT-4" },
-    { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
-    { id: "claude-3", name: "Claude 3" },
-  ]);
+  // Models State - Using shared hook
+  const {
+    models,
+    addModel: addModelToStore,
+    updateModel,
+    deleteModel: deleteModelFromStore,
+  } = useModels();
   const [newModelId, setNewModelId] = useState("");
   const [newModelName, setNewModelName] = useState("");
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
@@ -61,14 +63,14 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
   // Model Management Functions
   const addModel = () => {
     if (newModelId && newModelName) {
-      setModels([...models, { id: newModelId, name: newModelName }]);
+      addModelToStore({ id: newModelId, name: newModelName });
       setNewModelId("");
       setNewModelName("");
     }
   };
 
   const deleteModel = (id: string) => {
-    setModels(models.filter((m) => m.id !== id));
+    deleteModelFromStore(id);
   };
 
   const startEditModel = (id: string) => {
@@ -82,11 +84,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
 
   const saveEditModel = () => {
     if (editingModelId && newModelId && newModelName) {
-      setModels(
-        models.map((m) =>
-          m.id === editingModelId ? { id: newModelId, name: newModelName } : m
-        )
-      );
+      updateModel(editingModelId, { id: newModelId, name: newModelName });
       setEditingModelId(null);
       setNewModelId("");
       setNewModelName("");

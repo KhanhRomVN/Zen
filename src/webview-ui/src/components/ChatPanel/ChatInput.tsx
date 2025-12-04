@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useModels } from "../../hooks/useModels";
 
 // CRITICAL: VS Code API chỉ có thể acquire một lần duy nhất
 let vscodeApi: any = null;
@@ -9,9 +10,13 @@ try {
 }
 
 const ChatInput: React.FC = () => {
+  const {
+    models: availableModels,
+    selectedModel,
+    setSelectedModel,
+  } = useModels();
   const [message, setMessage] = useState("");
   const [rows, setRows] = useState(3);
-  const [selectedModel, setSelectedModel] = useState("gpt-4");
   const [port, setPort] = useState(0);
   const [showModelDrawer, setShowModelDrawer] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
@@ -22,14 +27,6 @@ const ChatInput: React.FC = () => {
   const connectionTimestampRef = useRef<number>(0);
   const MIN_ROWS = 2;
   const MAX_ROWS = 8;
-
-  const availableModels = [
-    { id: "gpt-4", name: "GPT-4" },
-    { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo" },
-    { id: "claude-3", name: "Claude 3" },
-    { id: "gemini-pro", name: "Gemini Pro" },
-    { id: "llama-3", name: "Llama 3" },
-  ];
 
   const generateRandomPort = async () => {
     console.log(
@@ -175,17 +172,13 @@ const ChatInput: React.FC = () => {
             "currentTimestamp:",
             connectionTimestampRef.current
           );
-          if (
-            data.type === "connection-established" &&
-            activePortRef.current === currentPort &&
-            connectionTimestampRef.current === connectionTimestamp &&
-            !connectionVerified
-          ) {
+          if (data.type === "connection-established") {
+            // connection-established từ server - KHÔNG set wsConnected
+            // Chỉ để verify connection đã thiết lập thành công
             connectionVerified = true;
             console.log(
-              `[WebSocket onmessage] Received connection-established, but NOT setting wsConnected to TRUE (internal connection)`
+              `[WebSocket onmessage] Received connection-established (server handshake), NOT setting wsConnected`
             );
-            // KHÔNG set wsConnected = true ở đây vì đây có thể là internal connection
           } else if (data.type === "response" || data.type === "pong") {
             // Nhận được response hoặc pong từ external client
             // Đây là bằng chứng của external client connection
@@ -195,13 +188,7 @@ const ChatInput: React.FC = () => {
             setWsConnected(true);
           } else {
             console.log(
-              `[WebSocket onmessage] Skipping connection verification - type: ${
-                data.type
-              }, verified: ${connectionVerified}, activePort match: ${
-                activePortRef.current === currentPort
-              }, timestamp match: ${
-                connectionTimestampRef.current === connectionTimestamp
-              }`
+              `[WebSocket onmessage] Other message type: ${data.type}, verified: ${connectionVerified}`
             );
           }
         } catch (error) {
@@ -404,6 +391,7 @@ const ChatInput: React.FC = () => {
   };
 
   const handleModelSelect = (modelId: string) => {
+    console.log("Model selecting:", modelId);
     setSelectedModel(modelId);
     setShowModelDrawer(false);
     console.log("Model selected:", modelId);
@@ -411,12 +399,23 @@ const ChatInput: React.FC = () => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showModelDrawer) {
+      // Không làm gì nếu drawer đang đóng
+      if (!showModelDrawer) return;
+
+      // Kiểm tra xem click có nằm trong drawer hay backdrop không
+      const target = event.target as HTMLElement;
+      const drawer = document.querySelector('[data-model-drawer="true"]');
+
+      // Nếu click vào backdrop (không phải drawer content), đóng drawer
+      if (drawer && !drawer.contains(target)) {
         setShowModelDrawer(false);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    if (showModelDrawer) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
@@ -442,7 +441,8 @@ const ChatInput: React.FC = () => {
         style={{
           position: "relative",
           width: "100%",
-          padding: "var(--spacing-sm) var(--spacing-lg) 50px var(--spacing-lg)",
+          padding:
+            "var(--spacing-sm) var(--spacing-lg) var(--spacing-sm) var(--spacing-lg)",
           backgroundColor: "var(--secondary-bg)",
         }}
       >
@@ -633,6 +633,7 @@ const ChatInput: React.FC = () => {
 
       {showModelDrawer && (
         <div
+          data-model-drawer="true"
           style={{
             position: "fixed",
             bottom: 0,
@@ -643,7 +644,7 @@ const ChatInput: React.FC = () => {
             borderTopLeftRadius: "12px",
             borderTopRightRadius: "12px",
             padding: "var(--spacing-lg)",
-            zIndex: 1000,
+            zIndex: 999,
             boxShadow: "0 -4px 20px rgba(0, 0, 0, 0.15)",
             transform: "translateY(0)",
             animation: "slideUp 0.3s ease-out",
@@ -788,7 +789,7 @@ const ChatInput: React.FC = () => {
             right: 0,
             bottom: 0,
             backgroundColor: "rgba(0, 0, 0, 0.5)",
-            zIndex: 999,
+            zIndex: 998,
           }}
           onClick={() => setShowModelDrawer(false)}
         />
