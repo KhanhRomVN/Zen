@@ -47,8 +47,45 @@
         "command": "zen.openChat",
         "title": "Open Zen Chat",
         "category": "Zen"
+      },
+      {
+        "command": "zen.settings",
+        "title": "Open Settings",
+        "category": "Zen"
+      },
+      {
+        "command": "zen.history",
+        "title": "Open Chat History",
+        "category": "Zen"
+      },
+      {
+        "command": "zen.newChat",
+        "title": "New Chat",
+        "category": "Zen"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "zen.settings",
+          "when": "view == zen-chat",
+          "group": "navigation",
+          "icon": "$(settings)"
+        },
+        {
+          "command": "zen.history",
+          "when": "view == zen-chat",
+          "group": "navigation",
+          "icon": "$(history)"
+        },
+        {
+          "command": "zen.newChat",
+          "when": "view == zen-chat",
+          "group": "navigation",
+          "icon": "$(add)"
+        }
+      ]
+    }
   },
   "main": "./dist/extension.js",
   "browser": "./dist/extension.js",

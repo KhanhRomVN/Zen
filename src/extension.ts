@@ -112,6 +112,12 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       theme: themeKind,
     });
   }
+
+  public postMessageToWebview(message: any) {
+    if (this._view) {
+      this._view.webview.postMessage(message);
+    }
+  }
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -131,7 +137,32 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(openChatCommand);
+  const settingsCommand = vscode.commands.registerCommand(
+    "zen.settings",
+    () => {
+      // Hiển thị thông báo tạm thời, sau này có thể mở settings panel
+      vscode.window.showInformationMessage("Opening Zen settings...");
+      // Gửi message đến webview để mở settings
+      provider.postMessageToWebview({ command: "openSettings" });
+    }
+  );
+
+  const historyCommand = vscode.commands.registerCommand("zen.history", () => {
+    vscode.window.showInformationMessage("Opening chat history...");
+    provider.postMessageToWebview({ command: "openHistory" });
+  });
+
+  const newChatCommand = vscode.commands.registerCommand("zen.newChat", () => {
+    vscode.window.showInformationMessage("Creating new chat...");
+    provider.postMessageToWebview({ command: "newChat" });
+  });
+
+  context.subscriptions.push(
+    openChatCommand,
+    settingsCommand,
+    historyCommand,
+    newChatCommand
+  );
 }
 
 export function deactivate() {}
