@@ -5,7 +5,22 @@ import TabList from "./TabList";
 import { useModels } from "../../hooks/useModels";
 import { useZenTabConnection } from "../../hooks/useZenTabConnection";
 
-const TabPanel: React.FC = () => {
+interface TabInfo {
+  tabId: number;
+  containerName: string;
+  title: string;
+  url?: string;
+  status: "free" | "busy" | "sleep";
+  canAccept: boolean;
+  requestCount: number;
+  folderPath?: string | null;
+}
+
+interface TabPanelProps {
+  onTabSelect?: (tab: TabInfo) => void;
+}
+
+const TabPanel: React.FC<TabPanelProps> = ({ onTabSelect }) => {
   const { selectedModel } = useModels();
   const [wsConnected, setWsConnected] = useState(false);
 
@@ -49,7 +64,7 @@ const TabPanel: React.FC = () => {
           paddingBottom: "200px",
         }}
       >
-        {shouldShowTabList && <TabList tabs={tabs} />}
+        {shouldShowTabList && <TabList tabs={tabs} onTabSelect={onTabSelect} />}
       </div>
       <TabInput
         onWsConnectedChange={setWsConnected}

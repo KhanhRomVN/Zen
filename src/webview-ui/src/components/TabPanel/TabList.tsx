@@ -13,9 +13,10 @@ interface TabInfo {
 
 interface TabListProps {
   tabs: TabInfo[];
+  onTabSelect?: (tab: TabInfo) => void;
 }
 
-const TabList: React.FC<TabListProps> = ({ tabs }) => {
+const TabList: React.FC<TabListProps> = ({ tabs, onTabSelect }) => {
   const getStatusColor = (status: string): string => {
     if (status === "busy") return "bg-yellow-500";
     if (status === "sleep") return "bg-purple-500";
@@ -96,6 +97,7 @@ const TabList: React.FC<TabListProps> = ({ tabs }) => {
             transition: "all 0.2s",
             cursor: "pointer",
           }}
+          onClick={() => onTabSelect?.(tab)}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = "var(--hover-bg)";
             e.currentTarget.style.borderColor = "var(--accent-text)";
