@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as http from "http";
 import * as WebSocket from "ws";
+import type { WebSocket as WSWebSocket } from "ws";
 
 export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
@@ -10,6 +11,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _wsServer?: WebSocket.Server;
   private _httpServer?: http.Server;
   private _clientCount: number = 0;
+  private _clients: Set<WSWebSocket> = new Set();
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._wsPort = this.generateUniquePort();
@@ -65,6 +67,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
       this._wsServer.on("connection", (ws: WebSocket) => {
         this._clientCount++;
+        this._clients.add(ws);
         const isWebviewClient = this._clientCount === 1; // Client đầu tiên là webview
 
         if (!isWebviewClient) {
@@ -101,7 +104,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
           try {
             const data = JSON.parse(messageStr);
-            this.handleWebSocketMessage(data, ws);
+            this.handleWebSocketMessage(data, ws, isWebviewClient);
           } catch (error) {
             console.error("[Zen] Error parsing message:", error);
           }
@@ -109,6 +112,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
         ws.on("close", () => {
           this._clientCount--;
+          this._clients.delete(ws);
           // Chỉ log khi external client disconnect
           if (!isWebviewClient) {
             console.log(`[Zen] External WebSocket client disconnected`);
@@ -153,7 +157,11 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private handleWebSocketMessage(data: any, ws: WebSocket): void {
+  private handleWebSocketMessage(
+    data: any,
+    ws: WebSocket,
+    isWebviewClient: boolean
+  ): void {
     if (data.type === "ping") {
       ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
     } else if (data.type === "prompt") {
@@ -165,6 +173,15 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           timestamp: Date.now(),
         })
       );
+    } else if (data.type === "focusedTabsUpdate" && !isWebviewClient) {
+      // Broadcast message từ external client đến TẤT CẢ clients
+      console.log(`[Zen] Broadcasting focusedTabsUpdate to all clients`);
+      const messageStr = JSON.stringify(data);
+      this._clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(messageStr);
+        }
+      });
     }
   }
 
@@ -201,6 +218,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         // Close all active connections first
         this._wsServer.clients.forEach((client) => {
           // Không log cho từng client khi stop server
+          this._clients.delete(client);
           client.close();
         });
 

@@ -9,7 +9,15 @@ try {
   console.log("VS Code API not available or already acquired");
 }
 
-const ChatInput: React.FC = () => {
+interface ChatInputProps {
+  onWsConnectedChange?: (connected: boolean) => void;
+  onWsMessage?: (message: any) => void;
+}
+
+const ChatInput: React.FC<ChatInputProps> = ({
+  onWsConnectedChange,
+  onWsMessage,
+}) => {
   const {
     models: availableModels,
     selectedModel,
@@ -172,6 +180,27 @@ const ChatInput: React.FC = () => {
             "currentTimestamp:",
             connectionTimestampRef.current
           );
+
+          // 🆕 CRITICAL: Forward all messages to parent component FIRST
+          console.log(
+            `[WebSocket onmessage] Forwarding message to parent, onWsMessage exists:`,
+            !!onWsMessage
+          );
+          if (onWsMessage) {
+            console.log(
+              `[WebSocket onmessage] Calling onWsMessage with data:`,
+              JSON.stringify(data)
+            );
+            onWsMessage(data);
+            console.log(
+              `[WebSocket onmessage] onWsMessage called successfully`
+            );
+          } else {
+            console.warn(
+              `[WebSocket onmessage] onWsMessage callback is NOT defined!`
+            );
+          }
+
           if (data.type === "connection-established") {
             // connection-established từ server - KHÔNG set wsConnected
             // Chỉ để verify connection đã thiết lập thành công
@@ -186,6 +215,14 @@ const ChatInput: React.FC = () => {
               `[WebSocket onmessage] External client detected via ${data.type}, setting wsConnected to TRUE`
             );
             setWsConnected(true);
+            onWsConnectedChange?.(true);
+          } else if (data.type === "focusedTabsUpdate") {
+            // Nhận được focusedTabsUpdate từ external client
+            console.log(
+              `[WebSocket onmessage] External client detected via focusedTabsUpdate, setting wsConnected to TRUE`
+            );
+            setWsConnected(true);
+            onWsConnectedChange?.(true);
           } else {
             console.log(
               `[WebSocket onmessage] Other message type: ${data.type}, verified: ${connectionVerified}`
@@ -210,6 +247,7 @@ const ChatInput: React.FC = () => {
             `[WebSocket onclose] Setting wsConnected to FALSE for port ${port}`
           );
           setWsConnected(false);
+          onWsConnectedChange?.(false);
         } else {
           console.log(
             `[WebSocket onclose] NOT setting wsConnected to false - not active port`
