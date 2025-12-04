@@ -158,22 +158,6 @@ const ChatInput: React.FC = () => {
         console.log(
           `[WebSocket onopen] Port ${port}, activePortRef: ${activePortRef.current}`
         );
-
-        // Fallback: Set connected after 200ms if no connection-established message
-        setTimeout(() => {
-          if (
-            !connectionVerified &&
-            activePortRef.current === currentPort &&
-            connectionTimestampRef.current === connectionTimestamp &&
-            ws?.readyState === WebSocket.OPEN
-          ) {
-            console.log(
-              `[WebSocket onopen] Fallback: Setting wsConnected to TRUE for port ${port}`
-            );
-            connectionVerified = true;
-            setWsConnected(true);
-          }
-        }, 200);
       };
 
       ws.onmessage = (event) => {
@@ -199,7 +183,14 @@ const ChatInput: React.FC = () => {
           ) {
             connectionVerified = true;
             console.log(
-              `[WebSocket onmessage] Connection verified on port ${port}, setting wsConnected to TRUE`
+              `[WebSocket onmessage] Received connection-established, but NOT setting wsConnected to TRUE (internal connection)`
+            );
+            // KHÔNG set wsConnected = true ở đây vì đây có thể là internal connection
+          } else if (data.type === "response" || data.type === "pong") {
+            // Nhận được response hoặc pong từ external client
+            // Đây là bằng chứng của external client connection
+            console.log(
+              `[WebSocket onmessage] External client detected via ${data.type}, setting wsConnected to TRUE`
             );
             setWsConnected(true);
           } else {
@@ -369,7 +360,7 @@ const ChatInput: React.FC = () => {
     </svg>
   );
 
-  const CopyIcon = () => (
+  const Icon = () => (
     <svg
       width="16"
       height="16"
@@ -400,14 +391,14 @@ const ChatInput: React.FC = () => {
     </svg>
   );
 
-  const copyPortToClipboard = () => {
+  const PortToClipboard = () => {
     const text = "localhost:" + port;
     navigator.clipboard.writeText(text).then(
       () => {
         console.log("Copied to clipboard:", text);
       },
       (err) => {
-        console.error("Failed to copy:", err);
+        console.error("Failed to :", err);
       }
     );
   };
@@ -580,7 +571,7 @@ const ChatInput: React.FC = () => {
               transition: "background-color 0.2s",
               userSelect: "none",
             }}
-            onClick={copyPortToClipboard}
+            onClick={PortToClipboard}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = "var(--hover-bg)";
             }}
@@ -588,7 +579,7 @@ const ChatInput: React.FC = () => {
               e.currentTarget.style.backgroundColor = "transparent";
             }}
           >
-            <CopyIcon />
+            <Icon />
             <span
               style={{
                 color: wsConnected ? "#4ade80" : "inherit",
@@ -805,13 +796,13 @@ const ChatInput: React.FC = () => {
 
       <style>
         {`@keyframes slideUp {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }`}
+ from {
+ transform: translateY(100%);
+ }
+ to {
+ transform: translateY(0);
+ }
+ }`}
       </style>
     </div>
   );
