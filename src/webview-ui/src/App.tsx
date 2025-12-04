@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import ChatPanel from "./components/ChatPanel";
+import TabPanel from "./components/TabPanel";
 import HistoryPanel from "./components/HistoryPanel";
 import SettingsPanel from "./components/SettingsPanel";
 import "./styles/components/chat.css";
@@ -35,7 +35,7 @@ const App: React.FC = () => {
 
   return (
     <div className="app-container">
-      {!showHistory && !showSettings && <ChatPanel />}
+      {!showHistory && !showSettings && <TabPanel />}
       {showHistory && (
         <HistoryPanel
           isOpen={showHistory}

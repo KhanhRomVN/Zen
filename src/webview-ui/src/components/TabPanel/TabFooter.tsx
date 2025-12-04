@@ -9,12 +9,12 @@ try {
   // VS Code API not available or already acquired
 }
 
-interface ChatInputProps {
+interface TabFooterProps {
   onWsConnectedChange?: (connected: boolean) => void;
   onWsMessage?: (message: any) => void;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({
+const TabFooter: React.FC<TabFooterProps> = ({
   onWsConnectedChange,
   onWsMessage,
 }) => {
@@ -23,18 +23,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
     selectedModel,
     setSelectedModel,
   } = useModels();
-  const [message, setMessage] = useState("");
-  const [rows, setRows] = useState(3);
   const [port, setPort] = useState(0);
   const [showModelDrawer, setShowModelDrawer] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [isPortChecking, setIsPortChecking] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const activePortRef = useRef<number>(0);
   const cleanupSignalRef = useRef<boolean>(false);
   const connectionTimestampRef = useRef<number>(0);
-  const MIN_ROWS = 2;
-  const MAX_ROWS = 8;
 
   const generateRandomPort = async () => {
     setIsPortChecking(true);
@@ -289,77 +284,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
     generateRandomPort();
   }, []);
 
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const textarea = e.target;
-    setMessage(textarea.value);
-
-    textarea.style.height = "auto";
-    const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
-    const padding =
-      parseInt(getComputedStyle(textarea).paddingTop) +
-      parseInt(getComputedStyle(textarea).paddingBottom);
-
-    const contentHeight = textarea.scrollHeight - padding;
-    const calculatedRows = Math.floor(contentHeight / lineHeight);
-
-    const newRows = Math.max(MIN_ROWS, Math.min(MAX_ROWS, calculatedRows));
-    setRows(newRows);
-    textarea.style.height = "auto";
-    textarea.style.height = newRows * lineHeight + padding + "px";
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (message.trim()) {
-      setMessage("");
-      setRows(MIN_ROWS);
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-        const lineHeight = parseInt(
-          getComputedStyle(textareaRef.current).lineHeight
-        );
-        const paddingTop = parseInt(
-          getComputedStyle(textareaRef.current).paddingTop
-        );
-        const paddingBottom = parseInt(
-          getComputedStyle(textareaRef.current).paddingBottom
-        );
-        textareaRef.current.style.height =
-          MIN_ROWS * lineHeight + paddingTop + paddingBottom + "px";
-      }
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
-
-  const SendIcon = () => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      style={{
-        cursor: "pointer",
-        color: "var(--accent-text)",
-        transition: "color 0.2s",
-      }}
-      onMouseEnter={(e) =>
-        (e.currentTarget.style.color = "var(--button-primary-hover)")
-      }
-      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--accent-text)")}
-    >
-      <path d="M22 2L11 13" />
-      <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-    </svg>
-  );
-
   const RefreshIcon = () => (
     <svg
       width="16"
@@ -464,80 +388,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
         zIndex: 100,
       }}
     >
-      <form
-        className="chat-input-form"
-        onSubmit={handleSubmit}
-        style={{
-          position: "relative",
-          width: "100%",
-          padding:
-            "var(--spacing-sm) var(--spacing-lg) var(--spacing-sm) var(--spacing-lg)",
-          backgroundColor: "var(--secondary-bg)",
-        }}
-      >
-        <div style={{ position: "relative" }}>
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            rows={rows}
-            placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
-            style={{
-              width: "100%",
-              minHeight: MIN_ROWS * 18 + "px",
-              maxHeight: MAX_ROWS * 18 + "px",
-              resize: "none",
-              padding:
-                "var(--spacing-sm) var(--spacing-md) 35px var(--spacing-md)",
-              backgroundColor: "var(--input-bg-light, var(--input-bg))",
-              color: "var(--primary-text)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--border-radius)",
-              fontSize: "var(--font-size-md)",
-              lineHeight: "1.5",
-              fontFamily: "inherit",
-              outline: "none",
-              transition: "border-color 0.2s, box-shadow 0.2s",
-              boxSizing: "border-box",
-            }}
-            onFocus={(e) => {
-              e.target.style.borderColor = "var(--accent-text)";
-              e.target.style.boxShadow = "0 0 0 1px var(--accent-text)";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "var(--border-color)";
-              e.target.style.boxShadow = "none";
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              right: "12px",
-              bottom: "12px",
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--spacing-sm)",
-            }}
-            onClick={handleSubmit}
-          >
-            <div
-              style={{
-                fontSize: "var(--font-size-xs)",
-                color: "var(--secondary-text)",
-                opacity: message.trim() ? 1 : 0.5,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              <SendIcon />
-            </div>
-          </div>
-        </div>
-      </form>
-
       <div
         style={{
           display: "flex",
@@ -838,4 +688,4 @@ const ChatInput: React.FC<ChatInputProps> = ({
   );
 };
 
-export default ChatInput;
+export default TabFooter;

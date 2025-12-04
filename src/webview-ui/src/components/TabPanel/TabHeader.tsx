@@ -1,6 +1,6 @@
 import React from "react";
 
-const ChatHeader: React.FC = () => {
+const TabHeader: React.FC = () => {
   return (
     <div className="chat-header">
       <div
@@ -44,4 +44,4 @@ const ChatHeader: React.FC = () => {
   );
 };
 
-export default ChatHeader;
+export default TabHeader;
