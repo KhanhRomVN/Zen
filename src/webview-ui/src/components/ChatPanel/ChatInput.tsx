@@ -1,15 +1,27 @@
 import React, { useState, useRef, useEffect } from "react";
 
+// CRITICAL: VS Code API chỉ có thể acquire một lần duy nhất
+let vscodeApi: any = null;
+try {
+  vscodeApi = (window as any).acquireVsCodeApi();
+} catch (error) {
+  console.log("VS Code API not available or already acquired");
+}
+
 const ChatInput: React.FC = () => {
   const [message, setMessage] = useState("");
   const [rows, setRows] = useState(3);
   const [selectedModel, setSelectedModel] = useState("gpt-4");
-  const [port, setPort] = useState(3000);
+  const [port, setPort] = useState(0);
   const [showModelDrawer, setShowModelDrawer] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
   const [isPortChecking, setIsPortChecking] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const MIN_ROWS = 3;
-  const MAX_ROWS = 10;
+  const activePortRef = useRef<number>(0);
+  const cleanupSignalRef = useRef<boolean>(false);
+  const connectionTimestampRef = useRef<number>(0);
+  const MIN_ROWS = 2;
+  const MAX_ROWS = 8;
 
   const availableModels = [
     { id: "gpt-4", name: "GPT-4" },
@@ -19,62 +31,247 @@ const ChatInput: React.FC = () => {
     { id: "llama-3", name: "Llama 3" },
   ];
 
-  const checkPortAvailability = async (port: number): Promise<boolean> => {
-    try {
-      console.log("Checking port " + port + " availability...");
-
-      const commonlyUsedPorts = [
-        3000, 3001, 3002, 3003, 3004, 3005, 3006, 8080, 8081,
-      ];
-
-      if (commonlyUsedPorts.includes(port)) {
-        console.log("Port " + port + " might be in use (commonly used port)");
-        return false;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      console.log("Port " + port + " appears to be available");
-      return true;
-    } catch (error) {
-      console.error("Error checking port:", error);
-      return false;
-    }
-  };
-
   const generateRandomPort = async () => {
+    console.log(
+      "[generateRandomPort] Starting - Current port:",
+      port,
+      "Active port ref:",
+      activePortRef.current
+    );
     setIsPortChecking(true);
-    const min = 3000;
-    const max = 9999;
-    let attempts = 0;
-    const maxAttempts = 10;
 
-    while (attempts < maxAttempts) {
-      const newPort = Math.floor(Math.random() * (max - min + 1)) + min;
-      console.log("Attempt " + (attempts + 1) + ": Trying port " + newPort);
-
-      const isAvailable = await checkPortAvailability(newPort);
-
-      if (isAvailable) {
-        setPort(newPort);
-        console.log("Port " + newPort + " selected and available");
-        setIsPortChecking(false);
-        return;
-      }
-
-      attempts++;
-      console.log("Port " + newPort + " not available, trying again...");
+    if (!vscodeApi) {
+      console.error("VS Code API not available");
+      setIsPortChecking(false);
+      return;
     }
 
-    const fallbackPort = 9999;
-    setPort(fallbackPort);
-    console.log(
-      "Could not find available port after " +
-        maxAttempts +
-        " attempts, using fallback: " +
-        fallbackPort
-    );
-    setIsPortChecking(false);
+    try {
+      const messageHandler = (event: MessageEvent) => {
+        const message = event.data;
+        if (message.command === "workspacePort" && message.port) {
+          console.log(
+            "[generateRandomPort] Received workspace port: " + message.port
+          );
+
+          // Signal cleanup for old WebSocket before updating port
+          if (port !== 0 && port !== message.port) {
+            console.log(
+              "[generateRandomPort] Setting cleanup signal for old port:",
+              port
+            );
+            cleanupSignalRef.current = true;
+          }
+
+          // Update activePortRef immediately before setPort
+          activePortRef.current = message.port;
+          console.log(
+            "[generateRandomPort] Updated activePortRef to:",
+            message.port
+          );
+
+          setPort(message.port);
+          setIsPortChecking(false);
+          window.removeEventListener("message", messageHandler);
+        }
+      };
+
+      window.addEventListener("message", messageHandler);
+
+      if (port === 0) {
+        console.log("[generateRandomPort] Initial port request...");
+        vscodeApi.postMessage({
+          command: "getWorkspacePort",
+        });
+      } else {
+        console.log(
+          "[generateRandomPort] Requesting server restart with new port..."
+        );
+        vscodeApi.postMessage({
+          command: "restartServer",
+        });
+      }
+
+      setTimeout(() => {
+        window.removeEventListener("message", messageHandler);
+        if (isPortChecking) {
+          console.warn("[generateRandomPort] Port request timeout");
+          setIsPortChecking(false);
+        }
+      }, 2000);
+    } catch (error) {
+      console.error(
+        "[generateRandomPort] Failed to get/restart workspace port:",
+        error
+      );
+      setIsPortChecking(false);
+    }
   };
+
+  useEffect(() => {
+    if (port === 0) return;
+
+    let ws: WebSocket | null = null;
+    let connectionVerified = false;
+    const currentPort = port;
+    const isCleanupSignaled = cleanupSignalRef.current;
+
+    // activePortRef is already updated in generateRandomPort before setPort
+    console.log(
+      `[WebSocket Effect] Setting up for port ${currentPort}, activePortRef: ${activePortRef.current}, cleanupSignaled: ${isCleanupSignaled}`
+    );
+
+    // Chỉ setup WebSocket nếu đây là port đang active
+    if (activePortRef.current !== currentPort) {
+      console.log(
+        `[WebSocket Effect] SKIPPING setup - port ${currentPort} is not active port (activePortRef: ${activePortRef.current})`
+      );
+      // Clear cleanup signal nếu có
+      if (isCleanupSignaled) {
+        cleanupSignalRef.current = false;
+      }
+      return;
+    }
+
+    // Clear cleanup signal sau khi verify đây là active port
+    if (isCleanupSignaled) {
+      cleanupSignalRef.current = false;
+      console.log(
+        `[WebSocket Effect] Cleared cleanup signal for port ${currentPort}`
+      );
+    }
+
+    // Reset wsConnected trước khi tạo connection mới
+    setWsConnected(false);
+
+    // Set timestamp cho connection mới
+    const connectionTimestamp = Date.now();
+    connectionTimestampRef.current = connectionTimestamp;
+    console.log(
+      `[WebSocket Effect] Created new connection with timestamp: ${connectionTimestamp}`
+    );
+
+    try {
+      ws = new WebSocket(`ws://localhost:${port}`);
+
+      ws.onopen = () => {
+        console.log(
+          `[WebSocket onopen] Port ${port}, activePortRef: ${activePortRef.current}`
+        );
+
+        // Fallback: Set connected after 200ms if no connection-established message
+        setTimeout(() => {
+          if (
+            !connectionVerified &&
+            activePortRef.current === currentPort &&
+            connectionTimestampRef.current === connectionTimestamp &&
+            ws?.readyState === WebSocket.OPEN
+          ) {
+            console.log(
+              `[WebSocket onopen] Fallback: Setting wsConnected to TRUE for port ${port}`
+            );
+            connectionVerified = true;
+            setWsConnected(true);
+          }
+        }, 200);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(
+            `[WebSocket onmessage] Port ${port}, data:`,
+            data,
+            "activePortRef:",
+            activePortRef.current,
+            "connectionVerified:",
+            connectionVerified,
+            "connectionTimestamp:",
+            connectionTimestamp,
+            "currentTimestamp:",
+            connectionTimestampRef.current
+          );
+          if (
+            data.type === "connection-established" &&
+            activePortRef.current === currentPort &&
+            connectionTimestampRef.current === connectionTimestamp &&
+            !connectionVerified
+          ) {
+            connectionVerified = true;
+            console.log(
+              `[WebSocket onmessage] Connection verified on port ${port}, setting wsConnected to TRUE`
+            );
+            setWsConnected(true);
+          } else {
+            console.log(
+              `[WebSocket onmessage] Skipping connection verification - type: ${
+                data.type
+              }, verified: ${connectionVerified}, activePort match: ${
+                activePortRef.current === currentPort
+              }, timestamp match: ${
+                connectionTimestampRef.current === connectionTimestamp
+              }`
+            );
+          }
+        } catch (error) {
+          console.error(
+            `[WebSocket onmessage] Error parsing message on port ${port}:`,
+            error
+          );
+        }
+      };
+
+      ws.onclose = () => {
+        console.log(
+          `[WebSocket onclose] Port ${port}, activePortRef: ${activePortRef.current}, connectionVerified: ${connectionVerified}, currentPort: ${currentPort}`
+        );
+
+        // Set false nếu đây là active port (bất kể connectionVerified)
+        if (activePortRef.current === currentPort) {
+          console.log(
+            `[WebSocket onclose] Setting wsConnected to FALSE for port ${port}`
+          );
+          setWsConnected(false);
+        } else {
+          console.log(
+            `[WebSocket onclose] NOT setting wsConnected to false - not active port`
+          );
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error(
+          `[WebSocket onerror] Port ${port}, activePortRef: ${activePortRef.current}:`,
+          error
+        );
+
+        // Chỉ set false nếu port này vẫn là active port
+        if (activePortRef.current === currentPort) {
+          console.log(
+            `[WebSocket onerror] Setting wsConnected to FALSE for port ${port}`
+          );
+          setWsConnected(false);
+        }
+      };
+    } catch (error) {
+      console.error(
+        `[WebSocket Effect] Failed to connect WebSocket on port ${port}:`,
+        error
+      );
+      if (activePortRef.current === currentPort) {
+        setWsConnected(false);
+      }
+    }
+
+    return () => {
+      console.log(
+        `[WebSocket cleanup] Cleaning up WebSocket for port ${currentPort}, activePortRef: ${activePortRef.current}`
+      );
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [port]);
 
   useEffect(() => {
     generateRandomPort();
@@ -235,14 +432,26 @@ const ChatInput: React.FC = () => {
   }, [showModelDrawer]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+    <div
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        backgroundColor: "var(--secondary-bg)",
+        zIndex: 100,
+      }}
+    >
       <form
         className="chat-input-form"
         onSubmit={handleSubmit}
         style={{
           position: "relative",
           width: "100%",
-          padding: "var(--spacing-md) var(--spacing-lg) 60px var(--spacing-lg)",
+          padding: "var(--spacing-sm) var(--spacing-lg) 50px var(--spacing-lg)",
           backgroundColor: "var(--secondary-bg)",
         }}
       >
@@ -256,11 +465,11 @@ const ChatInput: React.FC = () => {
             placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
             style={{
               width: "100%",
-              minHeight: MIN_ROWS * 20 + "px",
-              maxHeight: MAX_ROWS * 20 + "px",
+              minHeight: MIN_ROWS * 18 + "px",
+              maxHeight: MAX_ROWS * 18 + "px",
               resize: "none",
               padding:
-                "var(--spacing-md) var(--spacing-lg) 40px var(--spacing-lg)",
+                "var(--spacing-sm) var(--spacing-md) 35px var(--spacing-md)",
               backgroundColor: "var(--input-bg-light, var(--input-bg))",
               color: "var(--primary-text)",
               border: "1px solid var(--border-color)",
@@ -334,6 +543,7 @@ const ChatInput: React.FC = () => {
               borderRadius: "var(--border-radius)",
               transition: "background-color 0.2s",
               userSelect: "none",
+              color: wsConnected ? "#4ade80" : "var(--secondary-text)",
             }}
             onClick={() => setShowModelDrawer(!showModelDrawer)}
             onMouseEnter={(e) => {
@@ -379,7 +589,14 @@ const ChatInput: React.FC = () => {
             }}
           >
             <CopyIcon />
-            <span>localhost:{port}</span>
+            <span
+              style={{
+                color: wsConnected ? "#4ade80" : "inherit",
+                fontWeight: wsConnected ? 600 : 400,
+              }}
+            >
+              localhost:{port}
+            </span>
           </div>
 
           <div
@@ -395,7 +612,11 @@ const ChatInput: React.FC = () => {
               opacity: isPortChecking ? 0.5 : 1,
               pointerEvents: isPortChecking ? "none" : "auto",
             }}
-            onClick={generateRandomPort}
+            onClick={() => {
+              if (!isPortChecking) {
+                generateRandomPort();
+              }
+            }}
             onMouseEnter={(e) => {
               if (!isPortChecking) {
                 e.currentTarget.style.backgroundColor = "var(--hover-bg)";
@@ -567,18 +788,6 @@ const ChatInput: React.FC = () => {
         </div>
       )}
 
-      <div
-        style={{
-          fontSize: "var(--font-size-xs)",
-          color: "var(--secondary-text)",
-          textAlign: "center",
-          padding: "0 var(--spacing-sm) var(--spacing-sm) var(--spacing-sm)",
-          backgroundColor: "var(--secondary-bg)",
-        }}
-      >
-        Press Enter to send • Shift+Enter for new line
-      </div>
-
       {showModelDrawer && (
         <div
           style={{
@@ -598,7 +807,7 @@ const ChatInput: React.FC = () => {
         {`@keyframes slideUp {
           from {
             transform: translateY(100%);
-          }re
+          }
           to {
             transform: translateY(0);
           }

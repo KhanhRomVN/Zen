@@ -1,11 +1,224 @@
 import * as vscode from "vscode";
+import * as http from "http";
+import * as WebSocket from "ws";
 
 export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
 
   private _view?: vscode.WebviewView;
+  private _wsPort: number = 0;
+  private _wsServer?: WebSocket.Server;
+  private _httpServer?: http.Server;
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  constructor(private readonly _extensionUri: vscode.Uri) {
+    this._wsPort = this.generateUniquePort();
+    // Delay để đảm bảo server cũ đã cleanup
+    setTimeout(() => {
+      this.startWebSocketServer();
+    }, 100);
+  }
+
+  private generateUniquePort(): number {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      return 3000 + Math.floor(Math.random() * 1000);
+    }
+
+    const hash = workspaceFolder.uri.fsPath.split("").reduce((acc, char) => {
+      return (acc << 5) - acc + char.charCodeAt(0);
+    }, 0);
+
+    return 3000 + Math.abs(hash % 7000);
+  }
+
+  private startWebSocketServer(): void {
+    console.log(`[Zen] Starting WebSocket server on port ${this._wsPort}`);
+
+    try {
+      this._httpServer = http.createServer();
+      this._httpServer.on("error", (error: any) => {
+        if (error.code === "EADDRINUSE") {
+          console.error(
+            `[Zen] Port ${this._wsPort} already in use, will retry with new port...`
+          );
+          // Close current server nếu đang mở
+          if (this._httpServer) {
+            this._httpServer.close();
+            this._httpServer = undefined;
+          }
+          if (this._wsServer) {
+            this._wsServer.close();
+            this._wsServer = undefined;
+          }
+          // Generate new port và retry
+          this._wsPort = this.generateUniquePort();
+          setTimeout(() => {
+            this.startWebSocketServer();
+          }, 200);
+        } else {
+          console.error("[Zen] HTTP server error:", error);
+        }
+      });
+
+      this._wsServer = new WebSocket.Server({ server: this._httpServer });
+
+      this._wsServer.on("connection", (ws: WebSocket) => {
+        console.log(`[Zen] WebSocket client connected on port ${this._wsPort}`);
+
+        // Delay sending connection-established để client có thời gian setup
+        setTimeout(() => {
+          if (ws.readyState === ws.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: "connection-established",
+                port: this._wsPort,
+              })
+            );
+          }
+        }, 50);
+
+        ws.on("message", (message: string) => {
+          console.log(`[Zen] Received message:`, message.toString());
+
+          try {
+            const data = JSON.parse(message.toString());
+            this.handleWebSocketMessage(data, ws);
+          } catch (error) {
+            console.error("[Zen] Error parsing message:", error);
+          }
+        });
+
+        ws.on("close", () => {
+          console.log(`[Zen] WebSocket client disconnected`);
+        });
+
+        ws.on("error", (error: Error) => {
+          console.error("[Zen] WebSocket error:", error);
+        });
+      });
+
+      this._httpServer.on("request", (req, res) => {
+        const headers = {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, headers);
+          res.end();
+          return;
+        }
+
+        if (req.url === "/health") {
+          res.writeHead(200, headers);
+          res.end(JSON.stringify({ status: "ok", port: this._wsPort }));
+        } else {
+          res.writeHead(404, headers);
+          res.end();
+        }
+      });
+
+      this._httpServer.listen(this._wsPort, () => {
+        console.log(`[Zen] WebSocket server started on port ${this._wsPort}`);
+      });
+    } catch (error) {
+      console.error("[Zen] Failed to start WebSocket server:", error);
+    }
+  }
+
+  private handleWebSocketMessage(data: any, ws: WebSocket): void {
+    if (data.type === "ping") {
+      ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
+    } else if (data.type === "prompt") {
+      console.log(`[Zen] Received prompt:`, data.content);
+      ws.send(
+        JSON.stringify({
+          type: "response",
+          content: "Message received",
+          timestamp: Date.now(),
+        })
+      );
+    }
+  }
+
+  public stopWebSocketServer(): Promise<void> {
+    return new Promise((resolve) => {
+      const oldPort = this._wsPort;
+      let wsServerClosed = false;
+      let httpServerClosed = false;
+      let resolved = false;
+
+      const checkBothClosed = () => {
+        if (wsServerClosed && httpServerClosed && !resolved) {
+          resolved = true;
+          console.log(`[Zen] All servers stopped on port ${oldPort}`);
+          // Add extra delay to ensure port is fully released
+          setTimeout(() => {
+            console.log(`[Zen] Port ${oldPort} cleanup complete`);
+            resolve();
+          }, 200);
+        }
+      };
+
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.log(
+            `[Zen] Server stop timeout, forcing resolve on port ${oldPort}`
+          );
+          resolve();
+        }
+      }, 2000);
+
+      if (this._wsServer) {
+        // Close all active connections first
+        this._wsServer.clients.forEach((client) => {
+          console.log(
+            `[Zen] Closing active WebSocket client on port ${oldPort}`
+          );
+          client.close();
+        });
+
+        this._wsServer.close((err) => {
+          if (err) {
+            console.error(
+              `[Zen] Error closing WebSocket server on port ${oldPort}:`,
+              err
+            );
+          } else {
+            console.log(`[Zen] WebSocket server stopped on port ${oldPort}`);
+          }
+          wsServerClosed = true;
+          checkBothClosed();
+        });
+        this._wsServer = undefined;
+      } else {
+        wsServerClosed = true;
+      }
+
+      if (this._httpServer) {
+        this._httpServer.close((err) => {
+          if (err) {
+            console.error(
+              `[Zen] Error closing HTTP server on port ${oldPort}:`,
+              err
+            );
+          } else {
+            console.log(`[Zen] HTTP server stopped on port ${oldPort}`);
+          }
+          httpServerClosed = true;
+          checkBothClosed();
+        });
+        this._httpServer = undefined;
+      } else {
+        httpServerClosed = true;
+      }
+
+      checkBothClosed();
+    });
+  }
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -24,10 +237,73 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-    // Gửi theme colors ban đầu
     this._updateTheme(webviewView.webview);
 
-    // Lắng nghe sự kiện thay đổi theme
+    webviewView.webview.onDidReceiveMessage((message) => {
+      if (message.command === "getWorkspacePort") {
+        console.log(`[Zen] Sending workspace port to webview: ${this._wsPort}`);
+        webviewView.webview.postMessage({
+          command: "workspacePort",
+          port: this._wsPort,
+        });
+      } else if (message.command === "restartServer") {
+        console.log(`[Zen] Restarting server - stopping old server first...`);
+
+        this.stopWebSocketServer()
+          .then(() => {
+            console.log(
+              `[Zen] Old server fully stopped, generating new port...`
+            );
+            this._wsPort = this.generateUniquePort();
+            console.log(`[Zen] New port generated: ${this._wsPort}`);
+
+            // Start new server
+            this.startWebSocketServer();
+
+            // Wait for server to be ready before sending port to client
+            return new Promise<void>((resolve) => {
+              let resolved = false;
+
+              // Check if server is listening
+              const checkInterval = setInterval(() => {
+                if (this._httpServer && this._httpServer.listening) {
+                  clearInterval(checkInterval);
+                  if (!resolved) {
+                    resolved = true;
+                    console.log(
+                      `[Zen] New server confirmed listening on port ${this._wsPort}`
+                    );
+                    resolve();
+                  }
+                }
+              }, 50);
+
+              // Timeout after 2 seconds
+              const timeoutId = setTimeout(() => {
+                clearInterval(checkInterval);
+                if (!resolved) {
+                  resolved = true;
+                  console.log(
+                    `[Zen] Server start timeout, sending port anyway`
+                  );
+                  resolve();
+                }
+              }, 2000);
+            });
+          })
+          .then(() => {
+            console.log(`[Zen] Sending new port ${this._wsPort} to webview`);
+            webviewView.webview.postMessage({
+              command: "workspacePort",
+              port: this._wsPort,
+            });
+          })
+          .catch((error) => {
+            console.error(`[Zen] Error during server restart:`, error);
+          });
+      }
+    });
+
     const themeChangeDisposable = vscode.window.onDidChangeActiveColorTheme(
       () => {
         this._updateTheme(webviewView.webview);
@@ -56,7 +332,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 <head>
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src http://localhost:* ws://localhost:*; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
  <title>Zen Chat
 </title>
  <style>
@@ -120,8 +396,11 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   }
 }
 
+let activeProvider: ZenChatViewProvider | null = null;
+
 export function activate(context: vscode.ExtensionContext) {
   const provider = new ZenChatViewProvider(context.extensionUri);
+  activeProvider = provider;
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -140,20 +419,15 @@ export function activate(context: vscode.ExtensionContext) {
   const settingsCommand = vscode.commands.registerCommand(
     "zen.settings",
     () => {
-      // Hiển thị thông báo tạm thời, sau này có thể mở settings panel
-      vscode.window.showInformationMessage("Opening Zen settings...");
-      // Gửi message đến webview để mở settings
-      provider.postMessageToWebview({ command: "openSettings" });
+      provider.postMessageToWebview({ command: "showSettings" });
     }
   );
 
   const historyCommand = vscode.commands.registerCommand("zen.history", () => {
-    vscode.window.showInformationMessage("Opening chat history...");
-    provider.postMessageToWebview({ command: "openHistory" });
+    provider.postMessageToWebview({ command: "showHistory" });
   });
 
   const newChatCommand = vscode.commands.registerCommand("zen.newChat", () => {
-    vscode.window.showInformationMessage("Creating new chat...");
     provider.postMessageToWebview({ command: "newChat" });
   });
 
@@ -165,4 +439,12 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-export function deactivate() {}
+export function deactivate() {
+  console.log("[Zen] Extension deactivating, stopping all servers...");
+  if (activeProvider) {
+    return activeProvider.stopWebSocketServer().then(() => {
+      console.log("[Zen] All servers stopped during deactivation");
+      activeProvider = null;
+    });
+  }
+}

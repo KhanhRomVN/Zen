@@ -12,6 +12,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
+    "typeRoots": ["./src/types", "./node_modules/@types"],
     "noEmit": true,
     "isolatedModules": true,
     "declaration": true,
