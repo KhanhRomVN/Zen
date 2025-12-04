@@ -134,6 +134,16 @@ const ChatInput: React.FC<ChatInputProps> = ({
             // connection-established từ server - KHÔNG set wsConnected
             // Chỉ để verify connection đã thiết lập thành công
             connectionVerified = true;
+          } else if (data.type === "ping") {
+            // 🆕 PING RECEIVED: Reply with pong to maintain connection
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: "pong",
+                  timestamp: Date.now(),
+                })
+              );
+            }
           } else if (data.type === "response" || data.type === "pong") {
             // Nhận được response hoặc pong từ external client
             // Đây là bằng chứng của external client connection
