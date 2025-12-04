@@ -12,7 +12,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _httpServer?: http.Server;
   private _clientCount: number = 0;
   private _clients: Set<WSWebSocket> = new Set();
-  private _clientIsWebview: Map<WebSocket, boolean> = new Map(); // 🆕 Track client type
+  private _clientIsWebview: Map<WSWebSocket, boolean> = new Map(); // 🆕 Track client type
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._wsPort = this.generateUniquePort();
@@ -223,10 +223,38 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           timestamp: Date.now(),
         })
       );
+    } else if (data.type === "sendPrompt") {
+      // 🆕 HANDLE sendPrompt từ webview - broadcast đến ZenTab
+      console.log(`[WebSocket] 📤 Broadcasting sendPrompt to external clients`);
+      const messageStr = JSON.stringify(data);
+      this._clients.forEach((client: WSWebSocket) => {
+        // Chỉ gửi đến external clients (không phải webview)
+        if (
+          client.readyState === WebSocket.OPEN &&
+          !this._clientIsWebview.get(client)
+        ) {
+          client.send(messageStr);
+        }
+      });
+    } else if (data.type === "promptResponse" && !isWebviewClient) {
+      // 🆕 HANDLE promptResponse từ ZenTab - forward đến webview
+      console.log(
+        `[WebSocket] 📥 Forwarding promptResponse to webview clients`
+      );
+      const messageStr = JSON.stringify(data);
+      this._clients.forEach((client: WSWebSocket) => {
+        // Chỉ gửi đến webview clients
+        if (
+          client.readyState === WebSocket.OPEN &&
+          this._clientIsWebview.get(client)
+        ) {
+          client.send(messageStr);
+        }
+      });
     } else if (data.type === "focusedTabsUpdate" && !isWebviewClient) {
       // Broadcast message từ external client đến TẤT CẢ clients
       const messageStr = JSON.stringify(data);
-      this._clients.forEach((client) => {
+      this._clients.forEach((client: WSWebSocket) => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(messageStr);
         }

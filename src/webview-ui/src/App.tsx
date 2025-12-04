@@ -5,6 +5,7 @@ import HistoryPanel from "./components/HistoryPanel";
 import SettingsPanel from "./components/SettingsPanel";
 import "./styles/components/chat.css";
 import { useVSCodeTheme } from "./hooks/useVSCodeTheme";
+import { useZenTabConnection } from "./hooks/useZenTabConnection";
 
 interface TabInfo {
   tabId: number;
@@ -22,6 +23,10 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedTab, setSelectedTab] = useState<TabInfo | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+
+  // 🆕 Lift tabs state lên App level để persist khi switch panels
+  const { tabs, handleMessage } = useZenTabConnection();
 
   const handleTabSelect = (tab: TabInfo) => {
     setSelectedTab(tab);
@@ -62,10 +67,22 @@ const App: React.FC = () => {
   return (
     <div className="app-container">
       {!showHistory && !showSettings && !selectedTab && (
-        <TabPanel onTabSelect={handleTabSelect} />
+        <TabPanel
+          onTabSelect={handleTabSelect}
+          tabs={tabs}
+          wsConnected={wsConnected}
+          onWsConnectedChange={setWsConnected}
+          onWsMessage={handleMessage}
+        />
       )}
       {!showHistory && !showSettings && selectedTab && (
-        <ChatPanel selectedTab={selectedTab} onBack={handleBackToTabPanel} />
+        <ChatPanel
+          selectedTab={selectedTab}
+          onBack={handleBackToTabPanel}
+          wsConnected={wsConnected}
+          onWsConnectedChange={setWsConnected}
+          onWsMessage={handleMessage}
+        />
       )}
       {showHistory && (
         <HistoryPanel

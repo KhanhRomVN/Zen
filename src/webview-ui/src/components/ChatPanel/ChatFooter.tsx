@@ -1,7 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useModels } from "../../hooks/useModels";
 
-const ChatFooter: React.FC = () => {
+interface ChatFooterProps {
+  onSendMessage: (message: string) => void;
+  wsConnected: boolean;
+  onWsConnectedChange: (connected: boolean) => void;
+  onWsMessage: (message: any) => void;
+}
+
+const ChatFooter: React.FC<ChatFooterProps> = ({
+  onSendMessage,
+  wsConnected,
+  onWsConnectedChange,
+  onWsMessage,
+}) => {
   const {
     models: availableModels,
     selectedModel,
@@ -13,14 +25,33 @@ const ChatFooter: React.FC = () => {
 
   const handleSend = () => {
     if (message.trim()) {
-      console.log("Sending message:", message);
-      // TODO: Implement send message logic
+      console.log("[ChatFooter] 📤 Sending message:", message);
+      onSendMessage(message);
       setMessage("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
     }
   };
+
+  // 🆕 Listen for messages from ChatPanel to send via WebSocket
+  useEffect(() => {
+    const handlePostMessage = (event: MessageEvent) => {
+      if (event.data.command === "sendWebSocketMessage") {
+        const messageData = event.data.data;
+        console.log(
+          "[ChatFooter] 📡 Forwarding message to WebSocket:",
+          messageData
+        );
+
+        // TODO: Send via actual WebSocket connection
+        // For now, just log (WebSocket connection will be added in next step)
+      }
+    };
+
+    window.addEventListener("message", handlePostMessage);
+    return () => window.removeEventListener("message", handlePostMessage);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
