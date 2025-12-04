@@ -14,6 +14,24 @@ const ChatPanel: React.FC = () => {
   // Hiển thị TabList khi WebSocket đã connected VÀ có tabs
   const shouldShowTabList = wsConnected && tabs.length > 0;
 
+  // 🆕 DEBUG: Log state changes và force re-render check
+  useEffect(() => {
+    console.log(
+      `[ChatPanel] 📊 State update: wsConnected=${wsConnected}, tabs.length=${tabs.length}, shouldShowTabList=${shouldShowTabList}`
+    );
+
+    // 🆕 CRITICAL: Ensure UI updates when wsConnected changes
+    if (!wsConnected) {
+      console.log(
+        `[ChatPanel] ⚠️ wsConnected=false detected, TabList should be hidden`
+      );
+    } else if (wsConnected && tabs.length === 0) {
+      console.log(
+        `[ChatPanel] ⚠️ wsConnected=true but no tabs, waiting for tabs...`
+      );
+    }
+  }, [wsConnected, tabs, shouldShowTabList]);
+
   const wrappedHandleMessage = React.useCallback(
     (data: any) => {
       handleMessage(data);

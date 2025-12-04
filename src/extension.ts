@@ -12,6 +12,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _httpServer?: http.Server;
   private _clientCount: number = 0;
   private _clients: Set<WSWebSocket> = new Set();
+  private _clientIsWebview: Map<WebSocket, boolean> = new Map(); // 🆕 Track client type
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._wsPort = this.generateUniquePort();
@@ -62,6 +63,11 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         this._clientCount++;
         this._clients.add(ws);
         const isWebviewClient = this._clientCount === 1; // Client đầu tiên là webview
+        this._clientIsWebview.set(ws, isWebviewClient);
+
+        console.log(
+          `[WebSocket] New connection, total clients: ${this._clientCount}, isWebviewClient: ${isWebviewClient}`
+        );
 
         // Delay sending connection-established để client có thời gian setup
         setTimeout(() => {
@@ -101,14 +107,65 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         });
 
         ws.on("close", () => {
+          const wasWebviewClient = this._clientIsWebview.get(ws) || false;
+          console.log(
+            `[WebSocket] Client closed, wasWebviewClient: ${wasWebviewClient}, remaining clients: ${
+              this._clients.size - 1
+            }`
+          );
+
           this._clientCount--;
           this._clients.delete(ws);
+          this._clientIsWebview.delete(ws);
           clearInterval(pingInterval); // 🆕 Cleanup interval khi connection đóng
+
+          // 🆕 CRITICAL: Nếu client ngắt là external client (ZenTab), gửi disconnect signal đến webview
+          if (!wasWebviewClient) {
+            console.log(
+              `[WebSocket] External client disconnected, sending disconnect signal to remaining ${this._clients.size} clients`
+            );
+
+            const disconnectMessage = JSON.stringify({
+              type: "focusedTabsUpdate",
+              data: [], // 🆕 EMPTY array = disconnect signal
+              timestamp: Date.now(),
+            });
+
+            this._clients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(disconnectMessage);
+              }
+            });
+          }
         });
 
         ws.on("error", (error: Error) => {
-          // WebSocket error
+          const wasWebviewClient = this._clientIsWebview.get(ws) || false;
+          console.error(
+            `[WebSocket] Client error, wasWebviewClient: ${wasWebviewClient}`,
+            error
+          );
+
           clearInterval(pingInterval); // 🆕 Cleanup interval khi có lỗi
+
+          // 🆕 Cũng gửi disconnect signal nếu là external client
+          if (!wasWebviewClient && this._clients.has(ws)) {
+            console.log(
+              `[WebSocket] External client error, sending disconnect signal`
+            );
+
+            const disconnectMessage = JSON.stringify({
+              type: "focusedTabsUpdate",
+              data: [],
+              timestamp: Date.now(),
+            });
+
+            this._clients.forEach((client) => {
+              if (client.readyState === WebSocket.OPEN && client !== ws) {
+                client.send(disconnectMessage);
+              }
+            });
+          }
         });
       });
 
@@ -148,11 +205,16 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     ws: WebSocket,
     isWebviewClient: boolean
   ): void {
+    console.log(
+      `[WebSocket] Handling message type: ${data.type}, fromWebviewClient: ${isWebviewClient}`
+    );
+
     if (data.type === "ping") {
+      console.log(`[WebSocket] Received PING from client, sending PONG`);
       ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
     } else if (data.type === "pong") {
+      console.log(`[WebSocket] Received PONG from client, connection alive`);
       // 🆕 PONG RESPONSE: ZenTab đã reply pong - connection vẫn alive
-      // Log nếu cần debug, hoặc bỏ qua
     } else if (data.type === "prompt") {
       ws.send(
         JSON.stringify({

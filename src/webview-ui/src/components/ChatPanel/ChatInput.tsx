@@ -115,15 +115,50 @@ const ChatInput: React.FC<ChatInputProps> = ({
     connectionTimestampRef.current = connectionTimestamp;
 
     try {
+      console.log(
+        `[ChatInput] 🚀 Creating WebSocket to: ws://localhost:${currentPort}`
+      );
       ws = new WebSocket(`ws://localhost:${port}`);
 
       ws.onopen = () => {
-        // WebSocket opened
+        console.log(`[ChatInput] ✅ WebSocket OPENED for port ${currentPort}`);
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+
+          console.log(
+            `[ChatInput] 📥 Received message on port ${currentPort}:`,
+            {
+              type: data.type,
+              dataLength: Array.isArray(data.data) ? data.data.length : "N/A",
+              timestamp: data.timestamp,
+              currentActivePort: activePortRef.current,
+            }
+          );
+
+          // 🆕 CRITICAL: Ignore old messages (older than connection timestamp)
+          if (data.timestamp && data.timestamp < connectionTimestamp) {
+            console.warn(
+              `[ChatInput] ⚠️ Ignoring old message (age: ${
+                connectionTimestamp - data.timestamp
+              }ms)`,
+              data.type
+            );
+            return;
+          }
+
+          // 🆕 CRITICAL: Ignore old messages (older than connection timestamp)
+          if (data.timestamp && data.timestamp < connectionTimestamp) {
+            console.warn(
+              `[ChatInput] ⚠️ Ignoring old message (age: ${
+                connectionTimestamp - data.timestamp
+              }ms)`,
+              data.type
+            );
+            return;
+          }
 
           // 🆕 CRITICAL: Forward all messages to parent component FIRST
           if (onWsMessage) {
@@ -150,30 +185,94 @@ const ChatInput: React.FC<ChatInputProps> = ({
             setWsConnected(true);
             onWsConnectedChange?.(true);
           } else if (data.type === "focusedTabsUpdate") {
-            // Nhận được focusedTabsUpdate từ external client
-            setWsConnected(true);
-            onWsConnectedChange?.(true);
+            console.log(`[ChatInput] 🔍 focusedTabsUpdate DETAILS:`, {
+              isArray: Array.isArray(data.data),
+              length: Array.isArray(data.data) ? data.data.length : "N/A",
+              dataSample:
+                Array.isArray(data.data) && data.data.length > 0
+                  ? data.data[0]
+                  : "empty",
+              timestamp: data.timestamp,
+              wsConnected: wsConnected,
+            });
+
+            // 🆕 CRITICAL: Kiểm tra data array - nếu EMPTY thì là disconnect signal
+            if (Array.isArray(data.data) && data.data.length === 0) {
+              console.log(
+                `[ChatInput] 🔴 Received EMPTY focusedTabsUpdate - ZenTab disconnected`
+              );
+              console.log(
+                `[ChatInput] 📊 Setting wsConnected = false, prev=${wsConnected}`
+              );
+
+              // 🆕 FIX: Force update state immediately
+              setWsConnected((prev) => {
+                if (prev !== false) {
+                  console.log(
+                    `[ChatInput] 🔄 State updated: wsConnected ${prev} → false`
+                  );
+                }
+                return false;
+              });
+              onWsConnectedChange?.(false);
+            } else if (Array.isArray(data.data) && data.data.length > 0) {
+              // Nhận được focusedTabsUpdate với tabs → ZenTab connected
+              console.log(
+                `[ChatInput] ✅ Received ${data.data.length} tabs - ZenTab connected`
+              );
+
+              // 🆕 FIX: Force update state immediately
+              setWsConnected((prev) => {
+                if (prev !== true) {
+                  console.log(
+                    `[ChatInput] 🔄 State updated: wsConnected ${prev} → true`
+                  );
+                }
+                return true;
+              });
+              onWsConnectedChange?.(true);
+            }
           }
         } catch (error) {
           // Error parsing message
         }
       };
 
-      ws.onclose = () => {
-        // Set false nếu đây là active port (bất kể connectionVerified)
+      ws.onclose = (event) => {
+        console.log(
+          `[ChatInput] 🔴 WebSocket CLOSED for port ${currentPort}:`,
+          {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+            activePort: activePortRef.current,
+          }
+        );
+
         if (activePortRef.current === currentPort) {
+          console.log(
+            `[ChatInput] 🔄 Setting wsConnected = false (close event)`
+          );
           setWsConnected(false);
           onWsConnectedChange?.(false);
         }
       };
 
       ws.onerror = (error) => {
-        // Chỉ set false nếu port này vẫn là active port
+        console.error(
+          `[ChatInput] ❌ WebSocket ERROR for port ${currentPort}:`,
+          error
+        );
         if (activePortRef.current === currentPort) {
+          console.log(
+            `[ChatInput] 🔄 Setting wsConnected = false (error event)`
+          );
           setWsConnected(false);
+          onWsConnectedChange?.(false);
         }
       };
     } catch (error) {
+      console.error(`[ChatInput] ❌ Exception creating WebSocket:`, error);
       if (activePortRef.current === currentPort) {
         setWsConnected(false);
       }
