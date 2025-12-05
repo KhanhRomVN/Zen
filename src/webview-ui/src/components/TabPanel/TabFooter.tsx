@@ -190,8 +190,19 @@ const TabFooter: React.FC<TabFooterProps> = ({ port, wsConnected }) => {
                 fontWeight: wsConnected ? 600 : 400,
               }}
             >
-              localhost:{port}
+              localhost:{port || 3000} {/* Display 3000 nếu chưa có port */}
             </span>
+            {wsConnected && (
+              <span
+                style={{
+                  fontSize: "10px",
+                  color: "#4ade80",
+                  marginLeft: "4px",
+                }}
+              >
+                (Shared)
+              </span>
+            )}
           </div>
         </div>
       </div>

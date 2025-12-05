@@ -97,6 +97,7 @@ const App: React.FC = () => {
             type: data.type,
             hasTimestamp: !!data.timestamp,
             messageAge: data.timestamp ? Date.now() - data.timestamp : "N/A",
+            folderPath: data.folderPath || "N/A", // 🆕 Log folderPath
           });
 
           // Ignore old messages
@@ -108,6 +109,34 @@ const App: React.FC = () => {
               data.type
             );
             return;
+          }
+
+          // 🆕 CRITICAL: Filter promptResponse by folderPath
+          if (data.type === "promptResponse") {
+            const messageFolderPath = data.folderPath || null;
+            const currentFolderPath =
+              (window as any).__zenWorkspaceFolderPath || null;
+
+            console.log(`[App] 🔍 Folder filtering:`, {
+              messageFolderPath,
+              currentFolderPath,
+              match: messageFolderPath === currentFolderPath,
+            });
+
+            // Reject if folderPath doesn't match
+            if (messageFolderPath !== currentFolderPath) {
+              console.warn(
+                `[App] ⚠️ Rejecting promptResponse: folderPath mismatch`,
+                {
+                  expected: currentFolderPath,
+                  received: messageFolderPath,
+                  requestId: data.requestId,
+                }
+              );
+              return; // ← Ignore this message
+            }
+
+            console.log(`[App] ✅ promptResponse accepted (folderPath match)`);
           }
 
           // 🔥 CRITICAL FIX: Forward ALL messages to child component FIRST

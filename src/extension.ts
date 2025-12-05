@@ -1,328 +1,46 @@
 import * as vscode from "vscode";
-import * as http from "http";
-import * as WebSocket from "ws";
-import type { WebSocket as WSWebSocket } from "ws";
 import { ContextManager } from "./context/ContextManager";
+import { SingletonWSManager } from "./core/SingletonWSManager";
 
 export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
 
   private _view?: vscode.WebviewView;
   private _wsPort: number = 0;
-  private _wsServer?: WebSocket.Server;
-  private _httpServer?: http.Server;
-  private _clientCount: number = 0;
-  private _clients: Set<WSWebSocket> = new Set();
-  private _clientIsWebview: Map<WSWebSocket, boolean> = new Map(); // 🆕 Track client type
+  private _wsManager: SingletonWSManager;
   private _contextManager: ContextManager;
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._contextManager = new ContextManager();
-    this._wsPort = this.generateUniquePort();
-    // Delay để đảm bảo server cũ đã cleanup
-    setTimeout(() => {
-      this.startWebSocketServer();
-    }, 100);
-  }
+    this._wsManager = SingletonWSManager.getInstance();
+    // Initialize singleton server
+    this._wsManager
+      .initialize()
+      .then((port) => {
+        this._wsPort = port;
+        console.log(`[ZenChatViewProvider] ✅ Connected to port ${port}`);
 
-  private generateUniquePort(): number {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-      return 3000 + Math.floor(Math.random() * 1000);
-    }
-
-    const hash = workspaceFolder.uri.fsPath.split("").reduce((acc, char) => {
-      return (acc << 5) - acc + char.charCodeAt(0);
-    }, 0);
-
-    return 3000 + Math.abs(hash % 7000);
-  }
-
-  private startWebSocketServer(): void {
-    try {
-      this._httpServer = http.createServer();
-      this._httpServer.on("error", (error: any) => {
-        if (error.code === "EADDRINUSE") {
-          // Close current server nếu đang mở
-          if (this._httpServer) {
-            this._httpServer.close();
-            this._httpServer = undefined;
-          }
-          if (this._wsServer) {
-            this._wsServer.close();
-            this._wsServer = undefined;
-          }
-          // Generate new port và retry
-          this._wsPort = this.generateUniquePort();
-          setTimeout(() => {
-            this.startWebSocketServer();
-          }, 200);
-        }
-      });
-
-      this._wsServer = new WebSocket.Server({ server: this._httpServer });
-
-      this._wsServer.on("connection", (ws: WebSocket) => {
-        this._clientCount++;
-        this._clients.add(ws);
-        const isWebviewClient = this._clientCount === 1; // Client đầu tiên là webview
-        this._clientIsWebview.set(ws, isWebviewClient);
-
-        // Delay sending connection-established để client có thời gian setup
-        setTimeout(() => {
-          if (ws.readyState === ws.OPEN) {
-            ws.send(
-              JSON.stringify({
-                type: "connection-established",
-                port: this._wsPort,
-              })
-            );
-          }
-        }, 50);
-
-        // 🆕 PING MECHANISM: Gửi ping mỗi 45s để duy trì connection
-        const pingInterval = setInterval(() => {
-          if (ws.readyState === ws.OPEN) {
-            ws.send(
-              JSON.stringify({
-                type: "ping",
-                timestamp: Date.now(),
-              })
-            );
-          } else {
-            clearInterval(pingInterval);
-          }
-        }, 45000); // 45 seconds
-
-        ws.on("message", (message: string) => {
-          const messageStr = message.toString();
-
-          try {
-            const data = JSON.parse(messageStr);
-            this.handleWebSocketMessage(data, ws, isWebviewClient);
-          } catch (error) {
-            // Error parsing message
-          }
-        });
-
-        ws.on("close", () => {
-          const wasWebviewClient = this._clientIsWebview.get(ws) || false;
-          this._clientCount--;
-          this._clients.delete(ws);
-          this._clientIsWebview.delete(ws);
-          clearInterval(pingInterval);
-
-          if (!wasWebviewClient) {
-            const disconnectMessage = JSON.stringify({
-              type: "focusedTabsUpdate",
-              data: [],
-              timestamp: Date.now(),
-            });
-
-            this._clients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN) {
-                client.send(disconnectMessage);
-              }
-            });
-          }
-        });
-
-        ws.on("error", (error: Error) => {
-          const wasWebviewClient = this._clientIsWebview.get(ws) || false;
-          console.error(
-            `[WebSocket] Client error, wasWebviewClient: ${wasWebviewClient}`,
-            error
-          );
-
-          clearInterval(pingInterval);
-
-          if (!wasWebviewClient && this._clients.has(ws)) {
-            const disconnectMessage = JSON.stringify({
-              type: "focusedTabsUpdate",
-              data: [],
-              timestamp: Date.now(),
-            });
-
-            this._clients.forEach((client) => {
-              if (client.readyState === WebSocket.OPEN && client !== ws) {
-                client.send(disconnectMessage);
-              }
-            });
-          }
-        });
-      });
-
-      this._httpServer.on("request", (req, res) => {
-        const headers = {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        };
-
-        if (req.method === "OPTIONS") {
-          res.writeHead(204, headers);
-          res.end();
-          return;
-        }
-
-        if (req.url === "/health") {
-          res.writeHead(200, headers);
-          res.end(JSON.stringify({ status: "ok", port: this._wsPort }));
-        } else {
-          res.writeHead(404, headers);
-          res.end();
-        }
-      });
-
-      this._httpServer.listen(this._wsPort, () => {
-        // WebSocket server started
-      });
-    } catch (error) {
-      // Failed to start WebSocket server
-    }
-  }
-
-  private handleWebSocketMessage(
-    data: any,
-    ws: WebSocket,
-    isWebviewClient: boolean
-  ): void {
-    if (data.type === "ping") {
-      ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
-    } else if (data.type === "pong") {
-    } else if (data.type === "requestContext") {
-      // Generate context và gửi về webview
-      this._contextManager
-        .generateContext(data.task || "")
-        .then((context) => {
-          ws.send(
-            JSON.stringify({
-              type: "contextResponse",
-              requestId: data.requestId,
-              context: context,
-              timestamp: Date.now(),
-            })
-          );
-        })
-        .catch((error) => {
-          ws.send(
-            JSON.stringify({
-              type: "contextResponse",
-              requestId: data.requestId,
-              error: error.message,
-              timestamp: Date.now(),
-            })
-          );
-        });
-    } else if (data.type === "requestFocusedTabs") {
-      // Broadcast request to all external clients (ZenTab)
-      this._clients.forEach((client: WSWebSocket) => {
-        if (
-          client.readyState === WebSocket.OPEN &&
-          !this._clientIsWebview.get(client)
-        ) {
-          client.send(
-            JSON.stringify({
-              type: "requestFocusedTabs",
-              timestamp: Date.now(),
-            })
+        // 🆕 Store workspace folder path for filtering
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+          const folderPath = workspaceFolder.uri.fsPath;
+          console.log(`[ZenChatViewProvider] 📂 Workspace folder:`, folderPath);
+          // Store in context for later use
+          vscode.commands.executeCommand(
+            "setContext",
+            "zen.workspaceFolderPath",
+            folderPath
           );
         }
+      })
+      .catch((error) => {
+        console.error(`[ZenChatViewProvider] ❌ Failed to initialize:`, error);
       });
-    } else if (data.type === "prompt") {
-      ws.send(
-        JSON.stringify({
-          type: "response",
-          content: "Message received",
-          timestamp: Date.now(),
-        })
-      );
-    } else if (data.type === "sendPrompt") {
-      const messageStr = JSON.stringify(data);
-      this._clients.forEach((client: WSWebSocket) => {
-        if (
-          client.readyState === WebSocket.OPEN &&
-          !this._clientIsWebview.get(client)
-        ) {
-          client.send(messageStr);
-        }
-      });
-    } else if (data.type === "promptResponse" && !isWebviewClient) {
-      const messageStr = JSON.stringify(data);
-      this._clients.forEach((client: WSWebSocket) => {
-        // Chỉ gửi đến webview clients
-        if (
-          client.readyState === WebSocket.OPEN &&
-          this._clientIsWebview.get(client)
-        ) {
-          client.send(messageStr);
-        }
-      });
-    } else if (data.type === "focusedTabsUpdate" && !isWebviewClient) {
-      // Broadcast message từ external client đến TẤT CẢ clients
-      const messageStr = JSON.stringify(data);
-      this._clients.forEach((client: WSWebSocket) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(messageStr);
-        }
-      });
-    }
   }
 
   public stopWebSocketServer(): Promise<void> {
-    return new Promise((resolve) => {
-      const oldPort = this._wsPort;
-      let wsServerClosed = false;
-      let httpServerClosed = false;
-      let resolved = false;
-
-      const checkBothClosed = () => {
-        if (wsServerClosed && httpServerClosed && !resolved) {
-          resolved = true;
-          // Add extra delay to ensure port is fully released
-          setTimeout(() => {
-            resolve();
-          }, 200);
-        }
-      };
-
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          resolve();
-        }
-      }, 2000);
-
-      if (this._wsServer) {
-        // Close all active connections first
-        this._wsServer.clients.forEach((client) => {
-          // Không log cho từng client khi stop server
-          this._clients.delete(client);
-          client.close();
-        });
-
-        this._wsServer.close((err) => {
-          wsServerClosed = true;
-          checkBothClosed();
-        });
-        this._wsServer = undefined;
-      } else {
-        wsServerClosed = true;
-      }
-
-      if (this._httpServer) {
-        this._httpServer.close((err) => {
-          httpServerClosed = true;
-          checkBothClosed();
-        });
-        this._httpServer = undefined;
-      } else {
-        httpServerClosed = true;
-      }
-
-      checkBothClosed();
-    });
+    console.log(`[ZenChatViewProvider] 🛑 Stopping WebSocket connection`);
+    return this._wsManager.stop();
   }
 
   public resolveWebviewView(
@@ -351,47 +69,11 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           port: this._wsPort,
         });
       } else if (message.command === "restartServer") {
-        this.stopWebSocketServer()
-          .then(() => {
-            this._wsPort = this.generateUniquePort();
-
-            // Start new server
-            this.startWebSocketServer();
-
-            // Wait for server to be ready before sending port to client
-            return new Promise<void>((resolve) => {
-              let resolved = false;
-
-              // Check if server is listening
-              const checkInterval = setInterval(() => {
-                if (this._httpServer && this._httpServer.listening) {
-                  clearInterval(checkInterval);
-                  if (!resolved) {
-                    resolved = true;
-                    resolve();
-                  }
-                }
-              }, 50);
-
-              // Timeout after 2 seconds
-              const timeoutId = setTimeout(() => {
-                clearInterval(checkInterval);
-                if (!resolved) {
-                  resolved = true;
-                  resolve();
-                }
-              }, 2000);
-            });
-          })
-          .then(() => {
-            webviewView.webview.postMessage({
-              command: "workspacePort",
-              port: this._wsPort,
-            });
-          })
-          .catch((error) => {
-            // Error during server restart
-          });
+        // Singleton server không cần restart, chỉ cần gửi lại port
+        webviewView.webview.postMessage({
+          command: "workspacePort",
+          port: this._wsPort,
+        });
       }
     });
 
@@ -418,14 +100,24 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     );
     const nonce = this.getNonce();
 
+    // 🆕 Get workspace folder path
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const folderPath = workspaceFolder?.uri.fsPath || null;
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src http://localhost:* ws://localhost:*; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src http://localhost:* ws://localhost:*; style-src ${
+   webview.cspSource
+ } 'unsafe-inline'; script-src 'nonce-${nonce}';">
  <title>Zen Chat
 </title>
+ <script nonce="${nonce}">
+   // 🆕 Inject workspace folder path into global scope
+   window.__zenWorkspaceFolderPath = ${JSON.stringify(folderPath)};
+ </script>
  <style>
  /* VS Code sẽ tự động inject CSS variables vào webview */
  /* Chúng ta sử dụng các variables này trực tiếp */
