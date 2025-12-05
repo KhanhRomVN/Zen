@@ -149,6 +149,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           };
           setMessages((prev) => [...prev, errorMessage]);
         }
+      } else if (data.type === "contextResponse") {
+        // Forward to context response handler
+        if ((window as any).__contextResponseHandler) {
+          (window as any).__contextResponseHandler(data);
+        }
       }
 
       // Forward all messages to parent
@@ -164,7 +169,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     };
   }, [onWsMessage]);
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     console.log(`[ChatPanel] 📤 User sending message:`, {
       content: content.substring(0, 100),
       contentLength: content.length,
@@ -173,6 +178,57 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       canAccept: selectedTab.canAccept,
       status: selectedTab.status,
     });
+
+    // 🆕 REQUEST CONTEXT trước khi gửi
+    console.log(`[ChatPanel] 📋 Requesting context for task...`);
+    const requestId = `ctx-${Date.now()}`;
+
+    // Send context request via WebSocket
+    if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
+      wsInstance.send(
+        JSON.stringify({
+          type: "requestContext",
+          task: content,
+          requestId: requestId,
+          timestamp: Date.now(),
+        })
+      );
+
+      // Wait for context response (with timeout)
+      const contextPromise = new Promise<string>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error("Context request timeout"));
+        }, 5000); // 5s timeout
+
+        const handleContextResponse = (data: any) => {
+          if (data.type === "contextResponse" && data.requestId === requestId) {
+            clearTimeout(timeout);
+            if (data.error) {
+              reject(new Error(data.error));
+            } else {
+              resolve(data.context);
+            }
+            // Cleanup listener
+            delete (window as any).__contextResponseHandler;
+          }
+        };
+
+        (window as any).__contextResponseHandler = handleContextResponse;
+      });
+
+      try {
+        const contextString = await contextPromise;
+        console.log(
+          `[ChatPanel] ✅ Context received, length: ${contextString.length}`
+        );
+
+        // Update content with context
+        content = contextString;
+      } catch (error) {
+        console.error(`[ChatPanel] ❌ Failed to get context:`, error);
+        // Continue without context
+      }
+    }
 
     // 🆕 VALIDATION 1: Check tab status trước
     if (!selectedTab.canAccept) {

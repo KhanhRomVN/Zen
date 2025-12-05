@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import * as http from "http";
 import * as WebSocket from "ws";
 import type { WebSocket as WSWebSocket } from "ws";
+import { ContextManager } from "./context/ContextManager";
 
 export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
@@ -13,8 +14,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _clientCount: number = 0;
   private _clients: Set<WSWebSocket> = new Set();
   private _clientIsWebview: Map<WSWebSocket, boolean> = new Map(); // 🆕 Track client type
+  private _contextManager: ContextManager;
 
   constructor(private readonly _extensionUri: vscode.Uri) {
+    this._contextManager = new ContextManager();
     this._wsPort = this.generateUniquePort();
     // Delay để đảm bảo server cũ đã cleanup
     setTimeout(() => {
@@ -188,6 +191,30 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     if (data.type === "ping") {
       ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
     } else if (data.type === "pong") {
+    } else if (data.type === "requestContext") {
+      // Generate context và gửi về webview
+      this._contextManager
+        .generateContext(data.task || "")
+        .then((context) => {
+          ws.send(
+            JSON.stringify({
+              type: "contextResponse",
+              requestId: data.requestId,
+              context: context,
+              timestamp: Date.now(),
+            })
+          );
+        })
+        .catch((error) => {
+          ws.send(
+            JSON.stringify({
+              type: "contextResponse",
+              requestId: data.requestId,
+              error: error.message,
+              timestamp: Date.now(),
+            })
+          );
+        });
     } else if (data.type === "requestFocusedTabs") {
       // Broadcast request to all external clients (ZenTab)
       this._clients.forEach((client: WSWebSocket) => {
