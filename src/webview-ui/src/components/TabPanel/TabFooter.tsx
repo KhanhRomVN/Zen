@@ -110,29 +110,19 @@ const TabFooter: React.FC<TabFooterProps> = ({
     connectionTimestampRef.current = connectionTimestamp;
 
     try {
-      console.log(
-        `[ChatInput] 🚀 Creating WebSocket to: ws://localhost:${currentPort}`
-      );
       ws = new WebSocket(`ws://localhost:${port}`);
 
       ws.onopen = () => {
-        console.log(`[ChatInput] ✅ WebSocket OPENED for port ${currentPort}`);
+        console.log(`[TabFooter] ✅ WebSocket opened for port ${port}`);
       };
 
       ws.onmessage = (event) => {
+        console.log(`[TabFooter] 📨 WebSocket message received:`, {
+          port: port,
+          dataLength: event.data?.length || 0,
+        });
         try {
           const data = JSON.parse(event.data);
-
-          console.log(
-            `[ChatInput] 📥 Received message on port ${currentPort}:`,
-            {
-              type: data.type,
-              dataLength: Array.isArray(data.data) ? data.data.length : "N/A",
-              timestamp: data.timestamp,
-              currentActivePort: activePortRef.current,
-            }
-          );
-
           // 🆕 CRITICAL: Ignore old messages (older than connection timestamp)
           if (data.timestamp && data.timestamp < connectionTimestamp) {
             console.warn(
@@ -163,17 +153,8 @@ const TabFooter: React.FC<TabFooterProps> = ({
           if (data.type === "connection-established") {
             // 🔥 CRITICAL FIX: Set wsConnected = true NGAY khi nhận connection-established
             connectionVerified = true;
-
-            console.log(
-              `[ChatInput] ✅ Connection established, setting wsConnected = true`
-            );
             setWsConnected(true);
             onWsConnectedChange?.(true);
-
-            // Request backend to resend focusedTabsUpdate để cập nhật tabs data
-            console.log(
-              `[ChatInput] 🔄 Requesting focusedTabsUpdate after reconnect...`
-            );
             if (ws && ws.readyState === WebSocket.OPEN) {
               ws.send(
                 JSON.stringify({
@@ -193,53 +174,19 @@ const TabFooter: React.FC<TabFooterProps> = ({
               );
             }
           } else if (data.type === "response" || data.type === "pong") {
-            // Nhận được response hoặc pong từ external client
-            // Đây là bằng chứng của external client connection
             setWsConnected(true);
             onWsConnectedChange?.(true);
           } else if (data.type === "focusedTabsUpdate") {
-            console.log(`[ChatInput] 🔍 focusedTabsUpdate DETAILS:`, {
-              isArray: Array.isArray(data.data),
-              length: Array.isArray(data.data) ? data.data.length : "N/A",
-              dataSample:
-                Array.isArray(data.data) && data.data.length > 0
-                  ? data.data[0]
-                  : "empty",
-              timestamp: data.timestamp,
-              wsConnected: wsConnected,
-            });
-
-            // 🆕 CRITICAL: Kiểm tra data array - nếu EMPTY thì là disconnect signal
             if (Array.isArray(data.data) && data.data.length === 0) {
-              console.log(
-                `[ChatInput] 🔴 Received EMPTY focusedTabsUpdate - ZenTab disconnected`
-              );
-              console.log(
-                `[ChatInput] 📊 Setting wsConnected = false, prev=${wsConnected}`
-              );
-
-              // 🆕 FIX: Force update state immediately
               setWsConnected((prev) => {
                 if (prev !== false) {
-                  console.log(
-                    `[ChatInput] 🔄 State updated: wsConnected ${prev} → false`
-                  );
                 }
                 return false;
               });
               onWsConnectedChange?.(false);
             } else if (Array.isArray(data.data) && data.data.length > 0) {
-              // Nhận được focusedTabsUpdate với tabs → ZenTab connected
-              console.log(
-                `[ChatInput] ✅ Received ${data.data.length} tabs - ZenTab connected`
-              );
-
-              // 🆕 FIX: Force update state immediately
               setWsConnected((prev) => {
                 if (prev !== true) {
-                  console.log(
-                    `[ChatInput] 🔄 State updated: wsConnected ${prev} → true`
-                  );
                 }
                 return true;
               });
@@ -252,20 +199,7 @@ const TabFooter: React.FC<TabFooterProps> = ({
       };
 
       ws.onclose = (event) => {
-        console.log(
-          `[ChatInput] 🔴 WebSocket CLOSED for port ${currentPort}:`,
-          {
-            code: event.code,
-            reason: event.reason,
-            wasClean: event.wasClean,
-            activePort: activePortRef.current,
-          }
-        );
-
         if (activePortRef.current === currentPort) {
-          console.log(
-            `[ChatInput] 🔄 Setting wsConnected = false (close event)`
-          );
           setWsConnected(false);
           onWsConnectedChange?.(false);
         }
@@ -277,9 +211,6 @@ const TabFooter: React.FC<TabFooterProps> = ({
           error
         );
         if (activePortRef.current === currentPort) {
-          console.log(
-            `[ChatInput] 🔄 Setting wsConnected = false (error event)`
-          );
           setWsConnected(false);
           onWsConnectedChange?.(false);
         }

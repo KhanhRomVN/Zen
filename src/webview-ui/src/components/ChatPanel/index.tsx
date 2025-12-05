@@ -39,18 +39,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🆕 Listen for WebSocket messages (promptResponse)
   useEffect(() => {
     const handleIncomingMessage = (data: any) => {
-      console.log(`[ChatPanel] 📥 Received WebSocket message:`, data.type);
-
       if (data.type === "promptResponse") {
-        console.log(`[ChatPanel] ✅ Received promptResponse:`, {
-          requestId: data.requestId,
-          success: data.success,
-          hasResponse: !!data.response,
-        });
-
         if (data.success && data.response) {
           try {
             // Parse OpenAI response format
@@ -111,7 +102,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [onWsMessage]);
 
   const handleSendMessage = (content: string) => {
-    console.log(`[ChatPanel] 📤 Sending message:`, content);
+    console.log(`[ChatPanel] 📤 User sending message:`, {
+      content: content.substring(0, 100),
+      contentLength: content.length,
+      selectedTabId: selectedTab.tabId,
+      folderPath: selectedTab.folderPath,
+    });
 
     // Add user message to UI
     const userMessage: Message = {
@@ -136,10 +132,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       timestamp: Date.now(),
     };
 
-    console.log(
-      `[ChatPanel] 📡 Sending sendPrompt via WebSocket:`,
-      sendPromptMessage
-    );
+    console.log(`[ChatPanel] 🔄 Posting message to window:`, {
+      command: "sendWebSocketMessage",
+      messageType: sendPromptMessage.type,
+      requestId: sendPromptMessage.requestId,
+      tabId: sendPromptMessage.tabId,
+    });
 
     // Post message to parent window (will be sent via WebSocket in TabFooter)
     window.postMessage(
@@ -149,6 +147,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       },
       "*"
     );
+
+    console.log(`[ChatPanel] ✅ Message posted to window successfully`);
   };
 
   return (

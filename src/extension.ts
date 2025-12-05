@@ -65,10 +65,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         const isWebviewClient = this._clientCount === 1; // Client đầu tiên là webview
         this._clientIsWebview.set(ws, isWebviewClient);
 
-        console.log(
-          `[WebSocket] New connection, total clients: ${this._clientCount}, isWebviewClient: ${isWebviewClient}`
-        );
-
         // Delay sending connection-established để client có thời gian setup
         setTimeout(() => {
           if (ws.readyState === ws.OPEN) {
@@ -108,26 +104,15 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
         ws.on("close", () => {
           const wasWebviewClient = this._clientIsWebview.get(ws) || false;
-          console.log(
-            `[WebSocket] Client closed, wasWebviewClient: ${wasWebviewClient}, remaining clients: ${
-              this._clients.size - 1
-            }`
-          );
-
           this._clientCount--;
           this._clients.delete(ws);
           this._clientIsWebview.delete(ws);
-          clearInterval(pingInterval); // 🆕 Cleanup interval khi connection đóng
+          clearInterval(pingInterval);
 
-          // 🆕 CRITICAL: Nếu client ngắt là external client (ZenTab), gửi disconnect signal đến webview
           if (!wasWebviewClient) {
-            console.log(
-              `[WebSocket] External client disconnected, sending disconnect signal to remaining ${this._clients.size} clients`
-            );
-
             const disconnectMessage = JSON.stringify({
               type: "focusedTabsUpdate",
-              data: [], // 🆕 EMPTY array = disconnect signal
+              data: [],
               timestamp: Date.now(),
             });
 
@@ -146,14 +131,9 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             error
           );
 
-          clearInterval(pingInterval); // 🆕 Cleanup interval khi có lỗi
+          clearInterval(pingInterval);
 
-          // 🆕 Cũng gửi disconnect signal nếu là external client
           if (!wasWebviewClient && this._clients.has(ws)) {
-            console.log(
-              `[WebSocket] External client error, sending disconnect signal`
-            );
-
             const disconnectMessage = JSON.stringify({
               type: "focusedTabsUpdate",
               data: [],
@@ -205,22 +185,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     ws: WebSocket,
     isWebviewClient: boolean
   ): void {
-    console.log(
-      `[WebSocket] Handling message type: ${data.type}, fromWebviewClient: ${isWebviewClient}`
-    );
-
     if (data.type === "ping") {
-      console.log(`[WebSocket] Received PING from client, sending PONG`);
       ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
     } else if (data.type === "pong") {
-      console.log(`[WebSocket] Received PONG from client, connection alive`);
-      // 🆕 PONG RESPONSE: ZenTab đã reply pong - connection vẫn alive
     } else if (data.type === "requestFocusedTabs") {
-      // 🆕 CRITICAL: Webview requests current focusedTabsUpdate after reconnect
-      console.log(
-        `[WebSocket] 📥 Received requestFocusedTabs from webview, broadcasting...`
-      );
-
       // Broadcast request to all external clients (ZenTab)
       this._clients.forEach((client: WSWebSocket) => {
         if (
@@ -244,11 +212,8 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         })
       );
     } else if (data.type === "sendPrompt") {
-      // 🆕 HANDLE sendPrompt từ webview - broadcast đến ZenTab
-      console.log(`[WebSocket] 📤 Broadcasting sendPrompt to external clients`);
       const messageStr = JSON.stringify(data);
       this._clients.forEach((client: WSWebSocket) => {
-        // Chỉ gửi đến external clients (không phải webview)
         if (
           client.readyState === WebSocket.OPEN &&
           !this._clientIsWebview.get(client)
@@ -257,10 +222,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         }
       });
     } else if (data.type === "promptResponse" && !isWebviewClient) {
-      // 🆕 HANDLE promptResponse từ ZenTab - forward đến webview
-      console.log(
-        `[WebSocket] 📥 Forwarding promptResponse to webview clients`
-      );
       const messageStr = JSON.stringify(data);
       this._clients.forEach((client: WSWebSocket) => {
         // Chỉ gửi đến webview clients

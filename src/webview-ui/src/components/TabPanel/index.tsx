@@ -32,26 +32,8 @@ const TabPanel: React.FC<TabPanelProps> = ({
   // Hiển thị TabList khi WebSocket đã connected VÀ có tabs
   const shouldShowTabList = wsConnected && tabs.length > 0;
 
-  // 🆕 DEBUG: Log state changes và force re-render check
   useEffect(() => {
-    console.log(
-      `[TabPanel] 📊 State update: wsConnected=${wsConnected}, tabs.length=${tabs.length}, shouldShowTabList=${shouldShowTabList}`
-    );
-
-    // 🆕 CRITICAL: Ensure UI updates when wsConnected changes
-    if (!wsConnected) {
-      console.log(
-        `[TabPanel] ⚠️ wsConnected=false detected, TabList should be hidden`
-      );
-    } else if (wsConnected && tabs.length === 0) {
-      console.log(
-        `[TabPanel] ⚠️ wsConnected=true but no tabs, TabList will show when data arrives`
-      );
-    } else if (wsConnected && tabs.length > 0) {
-      console.log(
-        `[TabPanel] ✅ wsConnected=true with ${tabs.length} tabs, TabList should be visible`
-      );
-    }
+    // UI will update automatically when wsConnected or tabs change
   }, [wsConnected, tabs, shouldShowTabList]);
 
   return (

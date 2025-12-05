@@ -25,7 +25,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
   const handleSend = () => {
     if (message.trim()) {
-      console.log("[ChatFooter] 📤 Sending message:", message);
       onSendMessage(message);
       setMessage("");
       if (textareaRef.current) {
@@ -37,15 +36,26 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   // 🆕 Listen for messages from ChatPanel to send via WebSocket
   useEffect(() => {
     const handlePostMessage = (event: MessageEvent) => {
+      console.log(`[ChatFooter] 📨 Received postMessage:`, {
+        command: event.data?.command,
+        hasData: !!event.data?.data,
+        dataType: event.data?.data?.type,
+      });
+
       if (event.data.command === "sendWebSocketMessage") {
         const messageData = event.data.data;
-        console.log(
-          "[ChatFooter] 📡 Forwarding message to WebSocket:",
-          messageData
-        );
+        console.log(`[ChatFooter] 🔍 Message data:`, {
+          type: messageData.type,
+          tabId: messageData.tabId,
+          requestId: messageData.requestId,
+          hasUserPrompt: !!messageData.userPrompt,
+          userPromptLength: messageData.userPrompt?.length || 0,
+        });
 
-        // TODO: Send via actual WebSocket connection
-        // For now, just log (WebSocket connection will be added in next step)
+        // TODO: Gửi message qua WebSocket ở đây
+        console.log(
+          `[ChatFooter] ⚠️ Message received but NOT sent via WebSocket yet!`
+        );
       }
     };
 

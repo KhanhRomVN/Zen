@@ -25,25 +25,7 @@ export const useZenTabConnection = () => {
   }, [tabs]);
 
   const handleMessage = (message: any) => {
-    console.log(`[useZenTabConnection] 📥 FULL MESSAGE DETAILS:`, {
-      type: message.type,
-      data: message.data,
-      dataType: typeof message.data,
-      isArray: Array.isArray(message.data),
-      length: Array.isArray(message.data) ? message.data.length : "N/A",
-      timestamp: message.timestamp,
-      currentTabsCount: tabs.length,
-    });
-
     try {
-      console.log(`[useZenTabConnection] 📥 Processing message:`, {
-        type: message.type,
-        dataLength: Array.isArray(message.data) ? message.data.length : "N/A",
-        timestamp: message.timestamp,
-        currentTabsCount: tabs.length,
-      });
-
-      // 🆕 CRITICAL: Ignore old messages based on timestamp
       const messageTimestamp = message.timestamp || 0;
       if (messageTimestamp > 0 && messageTimestamp < lastMessageTimestamp) {
         console.warn(
@@ -57,46 +39,18 @@ export const useZenTabConnection = () => {
 
       // Update last message timestamp
       if (messageTimestamp > 0) {
-        console.log(
-          `[useZenTabConnection] 📅 Updating last message timestamp: ${messageTimestamp}`
-        );
         setLastMessageTimestamp(messageTimestamp);
       }
 
       // 🔥 FIX: Ignore requestFocusedTabs message (backend internal message)
       if (message.type === "requestFocusedTabs") {
-        console.log(
-          `[useZenTabConnection] ⚠️ Ignoring requestFocusedTabs (backend internal message)`
-        );
         return;
       }
 
       if (message.type === "focusedTabsUpdate") {
-        console.log(`[useZenTabConnection] 🔍 PROCESSING focusedTabsUpdate`);
-        console.log(
-          `[useZenTabConnection] 📊 Data length: ${
-            Array.isArray(message.data) ? message.data.length : "not array"
-          }`
-        );
-
-        // 🆕 CRITICAL: Explicit handling for disconnect signal (empty array)
         if (Array.isArray(message.data) && message.data.length === 0) {
-          console.log(
-            `[useZenTabConnection] 🔴 RECEIVED DISCONNECT SIGNAL (empty array)`
-          );
-          console.log(
-            `[useZenTabConnection] 🔄 Clearing tabs (was: ${tabs.length})`
-          );
-          console.log(
-            `[useZenTabConnection] 📊 Before clear: ${tabs.length} tabs`
-          );
-
-          // 🆕 FIX: Force state update with callback to avoid stale closure
           setTabs((prevTabs) => {
             if (prevTabs.length > 0) {
-              console.log(
-                `[useZenTabConnection] 🔄 Clearing ${prevTabs.length} tabs`
-              );
             }
             return [];
           });
@@ -104,10 +58,6 @@ export const useZenTabConnection = () => {
         }
 
         if (message.data && Array.isArray(message.data)) {
-          console.log(
-            `[useZenTabConnection] ✅ Received ${message.data.length} tabs from ZenTab`
-          );
-          // Xử lý data có thể thiếu field, thêm giá trị mặc định
           const processedTabs = message.data.map((tab: any) => {
             return {
               tabId: tab.tabId || 0,
