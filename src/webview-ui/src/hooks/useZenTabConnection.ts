@@ -63,6 +63,14 @@ export const useZenTabConnection = () => {
         setLastMessageTimestamp(messageTimestamp);
       }
 
+      // 🔥 FIX: Ignore requestFocusedTabs message (backend internal message)
+      if (message.type === "requestFocusedTabs") {
+        console.log(
+          `[useZenTabConnection] ⚠️ Ignoring requestFocusedTabs (backend internal message)`
+        );
+        return;
+      }
+
       if (message.type === "focusedTabsUpdate") {
         console.log(`[useZenTabConnection] 🔍 PROCESSING focusedTabsUpdate`);
         console.log(

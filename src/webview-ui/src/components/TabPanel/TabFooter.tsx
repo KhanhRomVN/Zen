@@ -161,9 +161,27 @@ const TabFooter: React.FC<TabFooterProps> = ({
           }
 
           if (data.type === "connection-established") {
-            // connection-established từ server - KHÔNG set wsConnected
-            // Chỉ để verify connection đã thiết lập thành công
+            // 🔥 CRITICAL FIX: Set wsConnected = true NGAY khi nhận connection-established
             connectionVerified = true;
+
+            console.log(
+              `[ChatInput] ✅ Connection established, setting wsConnected = true`
+            );
+            setWsConnected(true);
+            onWsConnectedChange?.(true);
+
+            // Request backend to resend focusedTabsUpdate để cập nhật tabs data
+            console.log(
+              `[ChatInput] 🔄 Requesting focusedTabsUpdate after reconnect...`
+            );
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: "requestFocusedTabs",
+                  timestamp: Date.now(),
+                })
+              );
+            }
           } else if (data.type === "ping") {
             // 🆕 PING RECEIVED: Reply with pong to maintain connection
             if (ws && ws.readyState === WebSocket.OPEN) {

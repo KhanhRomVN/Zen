@@ -215,6 +215,26 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     } else if (data.type === "pong") {
       console.log(`[WebSocket] Received PONG from client, connection alive`);
       // 🆕 PONG RESPONSE: ZenTab đã reply pong - connection vẫn alive
+    } else if (data.type === "requestFocusedTabs") {
+      // 🆕 CRITICAL: Webview requests current focusedTabsUpdate after reconnect
+      console.log(
+        `[WebSocket] 📥 Received requestFocusedTabs from webview, broadcasting...`
+      );
+
+      // Broadcast request to all external clients (ZenTab)
+      this._clients.forEach((client: WSWebSocket) => {
+        if (
+          client.readyState === WebSocket.OPEN &&
+          !this._clientIsWebview.get(client)
+        ) {
+          client.send(
+            JSON.stringify({
+              type: "requestFocusedTabs",
+              timestamp: Date.now(),
+            })
+          );
+        }
+      });
     } else if (data.type === "prompt") {
       ws.send(
         JSON.stringify({

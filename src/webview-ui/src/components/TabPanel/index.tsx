@@ -45,7 +45,11 @@ const TabPanel: React.FC<TabPanelProps> = ({
       );
     } else if (wsConnected && tabs.length === 0) {
       console.log(
-        `[TabPanel] ⚠️ wsConnected=true but no tabs, waiting for tabs...`
+        `[TabPanel] ⚠️ wsConnected=true but no tabs, TabList will show when data arrives`
+      );
+    } else if (wsConnected && tabs.length > 0) {
+      console.log(
+        `[TabPanel] ✅ wsConnected=true with ${tabs.length} tabs, TabList should be visible`
       );
     }
   }, [wsConnected, tabs, shouldShowTabList]);
@@ -60,7 +64,9 @@ const TabPanel: React.FC<TabPanelProps> = ({
           paddingBottom: "200px",
         }}
       >
-        {shouldShowTabList && <TabList tabs={tabs} onTabSelect={onTabSelect} />}
+        {wsConnected && tabs.length > 0 && (
+          <TabList tabs={tabs} onTabSelect={onTabSelect} />
+        )}
       </div>
       <TabInput
         onWsConnectedChange={onWsConnectedChange}
