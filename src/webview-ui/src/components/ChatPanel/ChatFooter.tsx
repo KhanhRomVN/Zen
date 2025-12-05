@@ -4,15 +4,15 @@ import { useModels } from "../../hooks/useModels";
 interface ChatFooterProps {
   onSendMessage: (message: string) => void;
   wsConnected: boolean;
-  onWsConnectedChange: (connected: boolean) => void;
   onWsMessage: (message: any) => void;
+  wsInstance?: WebSocket | null;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
   onSendMessage,
   wsConnected,
-  onWsConnectedChange,
   onWsMessage,
+  wsInstance,
 }) => {
   const {
     models: availableModels,
@@ -22,6 +22,9 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   const [message, setMessage] = useState("");
   const [showModelDrawer, setShowModelDrawer] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 🔥 FIX: Dùng useRef để store WebSocket instance (tránh stale closure)
+  const wsRef = useRef<WebSocket | null>(null);
 
   const handleSend = () => {
     if (message.trim()) {
@@ -33,7 +36,27 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
     }
   };
 
-  // 🆕 Listen for messages from ChatPanel to send via WebSocket
+  // Update ref khi wsInstance thay đổi
+  useEffect(() => {
+    wsRef.current = wsInstance || null;
+
+    console.log(`[ChatFooter] 📡 WebSocket instance updated:`, {
+      hasInstance: !!wsInstance,
+      readyState: wsInstance?.readyState,
+      readyStateText:
+        wsInstance?.readyState === 0
+          ? "CONNECTING"
+          : wsInstance?.readyState === 1
+          ? "OPEN"
+          : wsInstance?.readyState === 2
+          ? "CLOSING"
+          : wsInstance?.readyState === 3
+          ? "CLOSED"
+          : "NULL",
+    });
+  }, [wsInstance]);
+
+  // Listen for messages from ChatPanel - KHÔNG depend on wsInstance
   useEffect(() => {
     const handlePostMessage = (event: MessageEvent) => {
       console.log(`[ChatFooter] 📨 Received postMessage:`, {
@@ -52,16 +75,95 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           userPromptLength: messageData.userPrompt?.length || 0,
         });
 
-        // TODO: Gửi message qua WebSocket ở đây
-        console.log(
-          `[ChatFooter] ⚠️ Message received but NOT sent via WebSocket yet!`
-        );
+        // 🔥 CRITICAL FIX: Dùng wsRef.current thay vì wsInstance từ closure
+        const ws = wsRef.current;
+
+        console.log(`[ChatFooter] 🔍 WebSocket state check:`, {
+          hasWs: !!ws,
+          readyState: ws?.readyState,
+          expectedState: WebSocket.OPEN,
+          stateMapping: {
+            0: "CONNECTING",
+            1: "OPEN",
+            2: "CLOSING",
+            3: "CLOSED",
+          },
+          actualStateText:
+            ws?.readyState === 0
+              ? "CONNECTING"
+              : ws?.readyState === 1
+              ? "OPEN"
+              : ws?.readyState === 2
+              ? "CLOSING"
+              : ws?.readyState === 3
+              ? "CLOSED"
+              : "UNKNOWN",
+        });
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          try {
+            console.log(`[ChatFooter] 📦 Preparing to send message...`);
+            const messageStr = JSON.stringify(messageData);
+            console.log(`[ChatFooter] 📊 Message details:`, {
+              type: messageData.type,
+              requestId: messageData.requestId,
+              tabId: messageData.tabId,
+              userPromptLength: messageData.userPrompt?.length || 0,
+              systemPromptLength: messageData.systemPrompt?.length || 0,
+              messageSize: messageStr.length,
+            });
+
+            console.log(`[ChatFooter] 📞 Calling ws.send()...`);
+            const sendStart = Date.now();
+            ws.send(messageStr);
+            const sendDuration = Date.now() - sendStart;
+
+            console.log(
+              `[ChatFooter] ✅ ws.send() completed (${sendDuration}ms)`
+            );
+            console.log(`[ChatFooter] 📨 Message sent via WebSocket:`, {
+              requestId: messageData.requestId,
+              type: messageData.type,
+              messageLength: messageStr.length,
+              timestamp: Date.now(),
+            });
+          } catch (error) {
+            console.error(`[ChatFooter] ❌ Exception in ws.send():`, error);
+            console.error(`[ChatFooter] 🔍 Error details:`, {
+              errorType:
+                error instanceof Error ? error.constructor.name : typeof error,
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+            });
+          }
+        } else {
+          console.error(`[ChatFooter] ❌ WebSocket not ready:`, {
+            hasWs: !!ws,
+            readyState: ws?.readyState,
+            expectedState: WebSocket.OPEN,
+            actualState:
+              ws?.readyState === 0
+                ? "CONNECTING"
+                : ws?.readyState === 1
+                ? "OPEN"
+                : ws?.readyState === 2
+                ? "CLOSING"
+                : ws?.readyState === 3
+                ? "CLOSED"
+                : "UNKNOWN",
+          });
+        }
       }
     };
 
     window.addEventListener("message", handlePostMessage);
-    return () => window.removeEventListener("message", handlePostMessage);
-  }, []);
+    console.log(`[ChatFooter] 🎧 PostMessage listener registered`);
+
+    return () => {
+      window.removeEventListener("message", handlePostMessage);
+      console.log(`[ChatFooter] 🔇 PostMessage listener removed`);
+    };
+  }, []); // ✅ Empty dependency - listener không bị stale
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {

@@ -18,16 +18,14 @@ interface TabPanelProps {
   onTabSelect?: (tab: TabInfo) => void;
   tabs: TabInfo[];
   wsConnected: boolean;
-  onWsConnectedChange: (connected: boolean) => void;
-  onWsMessage: (message: any) => void;
+  port: number;
 }
 
 const TabPanel: React.FC<TabPanelProps> = ({
   onTabSelect,
   tabs,
   wsConnected,
-  onWsConnectedChange,
-  onWsMessage,
+  port,
 }) => {
   // Hiển thị TabList khi WebSocket đã connected VÀ có tabs
   const shouldShowTabList = wsConnected && tabs.length > 0;
@@ -50,10 +48,7 @@ const TabPanel: React.FC<TabPanelProps> = ({
           <TabList tabs={tabs} onTabSelect={onTabSelect} />
         )}
       </div>
-      <TabInput
-        onWsConnectedChange={onWsConnectedChange}
-        onWsMessage={onWsMessage}
-      />
+      <TabInput port={port} wsConnected={wsConnected} />
     </div>
   );
 };

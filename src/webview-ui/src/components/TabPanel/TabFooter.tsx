@@ -1,237 +1,18 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useModels } from "../../hooks/useModels";
 
-// CRITICAL: VS Code API chỉ có thể acquire một lần duy nhất
-let vscodeApi: any = null;
-try {
-  vscodeApi = (window as any).acquireVsCodeApi();
-} catch (error) {
-  // VS Code API not available or already acquired
-}
-
 interface TabFooterProps {
-  onWsConnectedChange?: (connected: boolean) => void;
-  onWsMessage?: (message: any) => void;
+  port: number;
+  wsConnected: boolean;
 }
 
-const TabFooter: React.FC<TabFooterProps> = ({
-  onWsConnectedChange,
-  onWsMessage,
-}) => {
+const TabFooter: React.FC<TabFooterProps> = ({ port, wsConnected }) => {
   const {
     models: availableModels,
     selectedModel,
     setSelectedModel,
   } = useModels();
-  const [port, setPort] = useState(0);
   const [showModelDrawer, setShowModelDrawer] = useState(false);
-  const [wsConnected, setWsConnected] = useState(false);
-  const [isPortChecking, setIsPortChecking] = useState(false);
-  const activePortRef = useRef<number>(0);
-  const cleanupSignalRef = useRef<boolean>(false);
-  const connectionTimestampRef = useRef<number>(0);
-
-  const generateRandomPort = async () => {
-    setIsPortChecking(true);
-
-    if (!vscodeApi) {
-      setIsPortChecking(false);
-      return;
-    }
-
-    try {
-      const messageHandler = (event: MessageEvent) => {
-        const message = event.data;
-        if (message.command === "workspacePort" && message.port) {
-          // Signal cleanup for old WebSocket before updating port
-          if (port !== 0 && port !== message.port) {
-            cleanupSignalRef.current = true;
-          }
-
-          // Update activePortRef immediately before setPort
-          activePortRef.current = message.port;
-
-          setPort(message.port);
-          setIsPortChecking(false);
-          window.removeEventListener("message", messageHandler);
-        }
-      };
-
-      window.addEventListener("message", messageHandler);
-
-      if (port === 0) {
-        vscodeApi.postMessage({
-          command: "getWorkspacePort",
-        });
-      } else {
-        vscodeApi.postMessage({
-          command: "restartServer",
-        });
-      }
-
-      setTimeout(() => {
-        window.removeEventListener("message", messageHandler);
-        if (isPortChecking) {
-          setIsPortChecking(false);
-        }
-      }, 2000);
-    } catch (error) {
-      setIsPortChecking(false);
-    }
-  };
-
-  useEffect(() => {
-    if (port === 0) return;
-
-    let ws: WebSocket | null = null;
-    let connectionVerified = false;
-    const currentPort = port;
-    const isCleanupSignaled = cleanupSignalRef.current;
-
-    // Chỉ setup WebSocket nếu đây là port đang active
-    if (activePortRef.current !== currentPort) {
-      // Clear cleanup signal nếu có
-      if (isCleanupSignaled) {
-        cleanupSignalRef.current = false;
-      }
-      return;
-    }
-
-    // Clear cleanup signal sau khi verify đây là active port
-    if (isCleanupSignaled) {
-      cleanupSignalRef.current = false;
-    }
-
-    // Reset wsConnected trước khi tạo connection mới
-    setWsConnected(false);
-
-    // Set timestamp cho connection mới
-    const connectionTimestamp = Date.now();
-    connectionTimestampRef.current = connectionTimestamp;
-
-    try {
-      ws = new WebSocket(`ws://localhost:${port}`);
-
-      ws.onopen = () => {
-        console.log(`[TabFooter] ✅ WebSocket opened for port ${port}`);
-      };
-
-      ws.onmessage = (event) => {
-        console.log(`[TabFooter] 📨 WebSocket message received:`, {
-          port: port,
-          dataLength: event.data?.length || 0,
-        });
-        try {
-          const data = JSON.parse(event.data);
-          // 🆕 CRITICAL: Ignore old messages (older than connection timestamp)
-          if (data.timestamp && data.timestamp < connectionTimestamp) {
-            console.warn(
-              `[ChatInput] ⚠️ Ignoring old message (age: ${
-                connectionTimestamp - data.timestamp
-              }ms)`,
-              data.type
-            );
-            return;
-          }
-
-          // 🆕 CRITICAL: Ignore old messages (older than connection timestamp)
-          if (data.timestamp && data.timestamp < connectionTimestamp) {
-            console.warn(
-              `[ChatInput] ⚠️ Ignoring old message (age: ${
-                connectionTimestamp - data.timestamp
-              }ms)`,
-              data.type
-            );
-            return;
-          }
-
-          // 🆕 CRITICAL: Forward all messages to parent component FIRST
-          if (onWsMessage) {
-            onWsMessage(data);
-          }
-
-          if (data.type === "connection-established") {
-            // 🔥 CRITICAL FIX: Set wsConnected = true NGAY khi nhận connection-established
-            connectionVerified = true;
-            setWsConnected(true);
-            onWsConnectedChange?.(true);
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(
-                JSON.stringify({
-                  type: "requestFocusedTabs",
-                  timestamp: Date.now(),
-                })
-              );
-            }
-          } else if (data.type === "ping") {
-            // 🆕 PING RECEIVED: Reply with pong to maintain connection
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(
-                JSON.stringify({
-                  type: "pong",
-                  timestamp: Date.now(),
-                })
-              );
-            }
-          } else if (data.type === "response" || data.type === "pong") {
-            setWsConnected(true);
-            onWsConnectedChange?.(true);
-          } else if (data.type === "focusedTabsUpdate") {
-            if (Array.isArray(data.data) && data.data.length === 0) {
-              setWsConnected((prev) => {
-                if (prev !== false) {
-                }
-                return false;
-              });
-              onWsConnectedChange?.(false);
-            } else if (Array.isArray(data.data) && data.data.length > 0) {
-              setWsConnected((prev) => {
-                if (prev !== true) {
-                }
-                return true;
-              });
-              onWsConnectedChange?.(true);
-            }
-          }
-        } catch (error) {
-          // Error parsing message
-        }
-      };
-
-      ws.onclose = (event) => {
-        if (activePortRef.current === currentPort) {
-          setWsConnected(false);
-          onWsConnectedChange?.(false);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error(
-          `[ChatInput] ❌ WebSocket ERROR for port ${currentPort}:`,
-          error
-        );
-        if (activePortRef.current === currentPort) {
-          setWsConnected(false);
-          onWsConnectedChange?.(false);
-        }
-      };
-    } catch (error) {
-      console.error(`[ChatInput] ❌ Exception creating WebSocket:`, error);
-      if (activePortRef.current === currentPort) {
-        setWsConnected(false);
-      }
-    }
-
-    return () => {
-      if (ws) {
-        ws.close();
-      }
-    };
-  }, [port]);
-
-  useEffect(() => {
-    generateRandomPort();
-  }, []);
 
   const RefreshIcon = () => (
     <svg
@@ -286,10 +67,10 @@ const TabFooter: React.FC<TabFooterProps> = ({
     const text = "localhost:" + port;
     navigator.clipboard.writeText(text).then(
       () => {
-        // Copied to clipboard
+        console.log(`[TabFooter] ✅ Copied to clipboard: ${text}`);
       },
       (err) => {
-        // Failed to copy
+        console.error(`[TabFooter] ❌ Failed to copy:`, err);
       }
     );
   };
@@ -301,14 +82,9 @@ const TabFooter: React.FC<TabFooterProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Không làm gì nếu drawer đang đóng
       if (!showModelDrawer) return;
-
-      // Kiểm tra xem click có nằm trong drawer hay backdrop không
       const target = event.target as HTMLElement;
       const drawer = document.querySelector('[data-model-drawer="true"]');
-
-      // Nếu click vào backdrop (không phải drawer content), đóng drawer
       if (drawer && !drawer.contains(target)) {
         setShowModelDrawer(false);
       }
@@ -416,45 +192,6 @@ const TabFooter: React.FC<TabFooterProps> = ({
             >
               localhost:{port}
             </span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--spacing-xs)",
-              cursor: "pointer",
-              padding: "var(--spacing-xs) var(--spacing-sm)",
-              borderRadius: "var(--border-radius)",
-              transition: "background-color 0.2s",
-              userSelect: "none",
-              opacity: isPortChecking ? 0.5 : 1,
-              pointerEvents: isPortChecking ? "none" : "auto",
-            }}
-            onClick={() => {
-              if (!isPortChecking) {
-                generateRandomPort();
-              }
-            }}
-            onMouseEnter={(e) => {
-              if (!isPortChecking) {
-                e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isPortChecking) {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }
-            }}
-          >
-            <RefreshIcon />
-            {isPortChecking && (
-              <span
-                style={{ fontSize: "var(--font-size-xxs)", marginLeft: "4px" }}
-              >
-                checking...
-              </span>
-            )}
           </div>
         </div>
       </div>

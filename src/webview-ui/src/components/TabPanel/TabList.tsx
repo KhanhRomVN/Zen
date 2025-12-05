@@ -95,16 +95,25 @@ const TabList: React.FC<TabListProps> = ({ tabs, onTabSelect }) => {
             border: "1px solid var(--border-color)",
             borderRadius: "var(--border-radius)",
             transition: "all 0.2s",
-            cursor: "pointer",
+            cursor: tab.canAccept ? "pointer" : "not-allowed",
+            opacity: tab.canAccept ? 1 : 0.6,
           }}
-          onClick={() => onTabSelect?.(tab)}
+          onClick={() => {
+            if (tab.canAccept) {
+              onTabSelect?.(tab);
+            }
+          }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-            e.currentTarget.style.borderColor = "var(--accent-text)";
+            if (tab.canAccept) {
+              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+              e.currentTarget.style.borderColor = "var(--accent-text)";
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--secondary-bg)";
-            e.currentTarget.style.borderColor = "var(--border-color)";
+            if (tab.canAccept) {
+              e.currentTarget.style.backgroundColor = "var(--secondary-bg)";
+              e.currentTarget.style.borderColor = "var(--border-color)";
+            }
           }}
         >
           <div
