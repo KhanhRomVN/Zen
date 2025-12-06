@@ -13,9 +13,18 @@ interface ConversationItem {
 interface HistoryPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  onLoadConversation?: (
+    conversationId: string,
+    tabId: number,
+    folderPath: string | null
+  ) => void;
 }
 
-const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
+const HistoryPanel: React.FC<HistoryPanelProps> = ({
+  isOpen,
+  onClose,
+  onLoadConversation,
+}) => {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -390,6 +399,12 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ isOpen, onClose }) => {
                   cursor: "pointer",
                   transition: "all 0.2s",
                   position: "relative",
+                }}
+                onClick={() => {
+                  if (onLoadConversation) {
+                    onLoadConversation(item.id, item.tabId, item.folderPath);
+                    onClose();
+                  }
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = "var(--hover-bg)";

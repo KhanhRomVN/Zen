@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import TabPanel from "./components/TabPanel";
 import ChatPanel from "./components/ChatPanel";
 import HistoryPanel from "./components/HistoryPanel";
@@ -269,6 +269,29 @@ const App: React.FC = () => {
     setShowSettings(false);
   };
 
+  const handleLoadConversation = useCallback(
+    (conversationId: string, tabId: number, folderPath: string | null) => {
+      // Find matching tab from current tabs
+      const matchingTab = tabs.find((t) => t.tabId === tabId);
+
+      if (matchingTab) {
+        // Set selected tab with conversationId flag
+        setSelectedTab({
+          ...matchingTab,
+          conversationId: conversationId,
+        } as any);
+        setShowHistory(false);
+        setShowSettings(false);
+      } else {
+        // Tab not found - show error
+        alert(
+          `Tab ${tabId} not found. Please make sure the AI tab is still open.`
+        );
+      }
+    },
+    [tabs]
+  );
+
   const handleBackToTabPanel = () => {
     setSelectedTab(null);
   };
@@ -481,6 +504,7 @@ const App: React.FC = () => {
         <HistoryPanel
           isOpen={showHistory}
           onClose={() => setShowHistory(false)}
+          onLoadConversation={handleLoadConversation}
         />
       )}
       {showSettings && (

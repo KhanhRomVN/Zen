@@ -4,7 +4,7 @@
 # Usage: ./remove-dts-files.sh
 
 TARGET_DIR="src/webview-ui/src"
-EXCLUDE_PATTERN="-path */types/css.d.ts -o -path */types/window.d.ts"
+EXCLUDE_PATTERN="-path */types/css.d.ts -o -path */types/window.d.ts -o -path */types/storage.d.ts"
 
 echo "=========================================="
 echo "Đang tìm kiếm các file .d.ts và .d.ts.map trong: $TARGET_DIR"
@@ -26,7 +26,7 @@ if [ "$TOTAL_COUNT" -eq 0 ]; then
     exit 0
 fi
 
-echo "📝 Tìm thấy $DTS_COUNT file .d.ts (loại trừ css.d.ts và window.d.ts)"
+echo "📝 Tìm thấy $DTS_COUNT file .d.ts (loại trừ css.d.ts, window.d.ts và storage.d.ts)"
 echo "📝 Tìm thấy $MAP_COUNT file .d.ts.map"
 echo "📝 Tổng cộng: $TOTAL_COUNT file"
 echo ""
@@ -37,7 +37,7 @@ find "$TARGET_DIR" -type f -name "*.d.ts" ! \( $EXCLUDE_PATTERN \) -delete
 find "$TARGET_DIR" -type f -name "*.d.ts.map" -delete
 
 echo "✅ Đã xóa thành công $TOTAL_COUNT file (.d.ts và .d.ts.map)"
-echo "ℹ️  File css.d.ts và window.d.ts đã được giữ lại"
+echo "ℹ️  File css.d.ts, window.d.ts và storage.d.ts đã được giữ lại"
 echo "=========================================="
 echo "Hoàn tất!"
 echo "=========================================="

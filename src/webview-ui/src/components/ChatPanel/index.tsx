@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import ChatHeader from "./ChatHeader";
 import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
 
@@ -111,6 +112,7 @@ interface TabInfo {
   canAccept: boolean;
   requestCount: number;
   folderPath?: string | null;
+  conversationId?: string;
 }
 
 interface Message {
@@ -170,26 +172,33 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     selectedTab.folderPath,
   ]);
 
-  // 🆕 Load conversation khi mount
+  // 🆕 Load conversation khi mount - CHỈ load khi có conversationId prop
   useEffect(() => {
     const loadExistingConversation = async () => {
       setIsLoadingConversation(true);
+      const shouldLoadExisting = (selectedTab as any).conversationId;
 
-      const saved = await loadConversation(
-        selectedTab.tabId,
-        selectedTab.folderPath || null
-      );
-
-      if (saved && saved.messages.length > 0) {
-        console.log(
-          "[ChatPanel] ✅ Loaded saved conversation:",
-          saved.messages.length,
-          "messages"
+      if (shouldLoadExisting) {
+        const saved = await loadConversation(
+          selectedTab.tabId,
+          selectedTab.folderPath || null
         );
-        setMessages(saved.messages);
-        setIsFirstRequest(saved.isFirstRequest);
+
+        if (saved && saved.messages.length > 0) {
+          console.log(
+            "[ChatPanel] ✅ Loaded saved conversation:",
+            saved.messages.length,
+            "messages"
+          );
+          setMessages(saved.messages);
+          setIsFirstRequest(saved.isFirstRequest);
+        } else {
+          console.log("[ChatPanel] 📝 Starting new conversation");
+          setMessages([]);
+          setIsFirstRequest(true);
+        }
       } else {
-        console.log("[ChatPanel] 📝 Starting new conversation");
+        console.log("[ChatPanel] 📝 Starting new conversation (from TabList)");
         setMessages([]);
         setIsFirstRequest(true);
       }
@@ -553,31 +562,6 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
     (window as any).__chatPanelTimeoutId = timeoutId;
   };
 
-  // 🆕 Handler cho New Chat
-  const handleNewChat = useCallback(async () => {
-    const confirmed = window.confirm(
-      "Start a new conversation? Current conversation will be saved."
-    );
-
-    if (confirmed) {
-      // Save current conversation
-      if (messages.length > 0) {
-        await saveConversation(
-          selectedTab.tabId,
-          selectedTab.folderPath || null,
-          messages,
-          isFirstRequest
-        );
-      }
-
-      // Reset state
-      setMessages([]);
-      setIsFirstRequest(true);
-      setIsProcessing(false);
-      console.log("[ChatPanel] ✅ Started new conversation");
-    }
-  }, [messages, isFirstRequest, selectedTab.tabId, selectedTab.folderPath]);
-
   // 🆕 Handler cho Clear Chat
   const handleClearChat = useCallback(async () => {
     const confirmed = window.confirm(
@@ -598,125 +582,12 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
 
   return (
     <div className="chat-panel">
-      {/* 🆕 Chat Header with actions */}
-      <div
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 100,
-          backgroundColor: "var(--secondary-bg)",
-          borderBottom: "1px solid var(--border-color)",
-          padding: "var(--spacing-sm) var(--spacing-lg)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--spacing-sm)",
-          }}
-        >
-          <div
-            style={{
-              cursor: "pointer",
-              padding: "var(--spacing-xs)",
-              borderRadius: "var(--border-radius)",
-              transition: "background-color 0.2s",
-            }}
-            onClick={onBack}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-            }}
-            title="Back to tabs"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </div>
-          <span
-            style={{
-              fontSize: "var(--font-size-md)",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            {selectedTab.containerName}
-          </span>
-          {isLoadingConversation && (
-            <span
-              style={{
-                fontSize: "var(--font-size-xs)",
-                color: "var(--secondary-text)",
-              }}
-            >
-              Loading...
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: "flex", gap: "var(--spacing-xs)" }}>
-          <button
-            style={{
-              padding: "var(--spacing-xs) var(--spacing-sm)",
-              fontSize: "var(--font-size-sm)",
-              backgroundColor: "transparent",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--border-radius)",
-              color: "var(--primary-text)",
-              cursor: "pointer",
-              transition: "all 0.2s",
-            }}
-            onClick={handleNewChat}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-            }}
-            title="Start new conversation"
-          >
-            New Chat
-          </button>
-          <button
-            style={{
-              padding: "var(--spacing-xs) var(--spacing-sm)",
-              fontSize: "var(--font-size-sm)",
-              backgroundColor: "transparent",
-              border: "1px solid var(--error-color)",
-              borderRadius: "var(--border-radius)",
-              color: "var(--error-color)",
-              cursor: "pointer",
-              transition: "all 0.2s",
-            }}
-            onClick={handleClearChat}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--error-color)";
-              e.currentTarget.style.color = "white";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = "var(--error-color)";
-            }}
-            title="Delete conversation"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-
+      <ChatHeader
+        selectedTab={selectedTab}
+        onBack={onBack}
+        onClearChat={handleClearChat}
+        isLoadingConversation={isLoadingConversation}
+      />
       <ChatBody
         messages={messages}
         isProcessing={isProcessing}
