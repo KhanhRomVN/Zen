@@ -19,144 +19,44 @@ interface PromptModule {
 const PROMPT_MODULES: PromptModule[] = [
   // Core
   {
-    id: "introduction",
-    title: "Introduction",
-    description: "Giới thiệu về Zen AI assistant",
-    emoji: "👋",
-    filePath: "introduction.ts",
-    category: "core",
-    content: PromptModules.INTRODUCTION,
-  },
-  {
-    id: "objective",
-    title: "Objective",
-    description: "Mục tiêu và nhiệm vụ chính",
+    id: "core",
+    title: "Core Identity",
+    description: "Role, ngôn ngữ, workflow và top 4 critical rules",
     emoji: "🎯",
-    filePath: "objective.ts",
+    filePath: "core.ts",
     category: "core",
-    content: PromptModules.OBJECTIVE,
-  },
-  {
-    id: "tool_use",
-    title: "Tool Use",
-    description: "Hướng dẫn sử dụng tools",
-    emoji: "🔧",
-    filePath: "toolUse.ts",
-    category: "core",
-    content: PromptModules.TOOL_USE,
+    content: PromptModules.CORE,
   },
   // Tools
   {
-    id: "file_operations",
-    title: "File Operations",
-    description: "Các thao tác với file",
-    emoji: "📁",
-    filePath: "fileOperations.ts",
+    id: "tools",
+    title: "Tools Reference",
+    description: "File operations, execution, communication tools",
+    emoji: "🔧",
+    filePath: "tools.ts",
     category: "tools",
-    content: PromptModules.FILE_OPERATIONS,
-  },
-  {
-    id: "code_operations",
-    title: "Code Operations",
-    description: "Các thao tác với code",
-    emoji: "💻",
-    filePath: "codeOperations.ts",
-    category: "tools",
-    content: PromptModules.CODE_OPERATIONS,
-  },
-  {
-    id: "execution",
-    title: "Execution",
-    description: "Thực thi lệnh và command",
-    emoji: "⚡",
-    filePath: "execution.ts",
-    category: "tools",
-    content: PromptModules.EXECUTION,
-  },
-  {
-    id: "mcp_tools",
-    title: "MCP Tools",
-    description: "Model Context Protocol tools",
-    emoji: "🔌",
-    filePath: "mcpTools.ts",
-    category: "tools",
-    content: PromptModules.MCP_TOOLS,
-  },
-  {
-    id: "communication",
-    title: "Communication",
-    description: "Giao tiếp với người dùng",
-    emoji: "💬",
-    filePath: "communication.ts",
-    category: "tools",
-    content: PromptModules.COMMUNICATION,
+    content: PromptModules.TOOLS,
   },
   // Rules
   {
-    id: "editing_rules",
-    title: "Editing Rules",
-    description: "Quy tắc chỉnh sửa code",
-    emoji: "✏️",
-    filePath: "editingRules.ts",
-    category: "rules",
-    content: PromptModules.EDITING_RULES,
-  },
-  {
-    id: "wrapping_rules",
-    title: "Wrapping Rules",
-    description: "Quy tắc wrap và format",
-    emoji: "📦",
-    filePath: "wrappingRules.ts",
-    category: "rules",
-    content: PromptModules.WRAPPING_RULES,
-  },
-  {
-    id: "clarification_rules",
-    title: "Clarification Rules",
-    description: "Quy tắc làm rõ yêu cầu",
-    emoji: "❓",
-    filePath: "clarificationRules.ts",
-    category: "rules",
-    content: PromptModules.CLARIFICATION_RULES,
-  },
-  {
-    id: "general_rules",
-    title: "General Rules",
-    description: "Quy tắc chung",
+    id: "rules",
+    title: "Critical Rules",
+    description:
+      "R1-R5: Read-before-replace, Ask-when-unclear, Code-wrapping, etc",
     emoji: "📋",
-    filePath: "generalRules.ts",
+    filePath: "rules.ts",
     category: "rules",
-    content: PromptModules.GENERAL_RULES,
-  },
-  // Modes
-  {
-    id: "plan_vs_act",
-    title: "Plan vs Act",
-    description: "Chế độ planning và acting",
-    emoji: "🎭",
-    filePath: "planVsAct.ts",
-    category: "modes",
-    content: PromptModules.PLAN_VS_ACT,
-  },
-  // Examples
-  {
-    id: "tool_examples",
-    title: "Tool Examples",
-    description: "Ví dụ sử dụng tools",
-    emoji: "📚",
-    filePath: "toolExamples.ts",
-    category: "examples",
-    content: PromptModules.TOOL_EXAMPLES,
+    content: PromptModules.RULES,
   },
   // System
   {
     id: "system_info",
-    title: "System Info",
-    description: "Thông tin hệ thống",
+    title: "System Information",
+    description: "OS, IDE, shell, directories, capabilities overview",
     emoji: "ℹ️",
-    filePath: "systemInfo.ts",
+    filePath: "system.ts",
     category: "system",
-    content: PromptModules.SYSTEM_INFO,
+    content: PromptModules.SYSTEM,
   },
 ];
 
@@ -171,6 +71,14 @@ const CATEGORY_INFO: Record<string, { title: string; color: string }> = {
 
 const PromptPanel: React.FC<PromptPanelProps> = ({ onBack }) => {
   const [editingModule, setEditingModule] = useState<PromptModule | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
+    return localStorage.getItem("zen-prompt-language") || "vietnamese";
+  });
+
+  const handleLanguageChange = (language: string) => {
+    setSelectedLanguage(language);
+    localStorage.setItem("zen-prompt-language", language);
+  };
 
   const handleCardClick = (module: PromptModule) => {
     // Open editor panel instead of VS Code editor
@@ -273,6 +181,63 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ onBack }) => {
         </h2>
       </div>
 
+      {/* Language Selector */}
+      <div
+        style={{
+          padding: "var(--spacing-md) var(--spacing-lg)",
+          borderBottom: "1px solid var(--border-color)",
+          backgroundColor: "var(--secondary-bg)",
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--spacing-md)",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "var(--font-size-sm)",
+            color: "var(--secondary-text)",
+            fontWeight: 600,
+          }}
+        >
+          🌐 Language:
+        </span>
+        <div style={{ display: "flex", gap: "var(--spacing-xs)" }}>
+          {["vietnamese", "english"].map((lang) => (
+            <div
+              key={lang}
+              style={{
+                padding: "var(--spacing-xs) var(--spacing-md)",
+                backgroundColor:
+                  selectedLanguage === lang
+                    ? "var(--accent-text)"
+                    : "var(--primary-bg)",
+                color:
+                  selectedLanguage === lang ? "#ffffff" : "var(--primary-text)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "var(--border-radius)",
+                cursor: "pointer",
+                fontSize: "var(--font-size-xs)",
+                fontWeight: 500,
+                transition: "all 0.2s",
+              }}
+              onClick={() => handleLanguageChange(lang)}
+              onMouseEnter={(e) => {
+                if (selectedLanguage !== lang) {
+                  e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (selectedLanguage !== lang) {
+                  e.currentTarget.style.backgroundColor = "var(--primary-bg)";
+                }
+              }}
+            >
+              {lang === "vietnamese" ? "Tiếng Việt" : "English"}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Content */}
       <div
         style={{
@@ -284,32 +249,6 @@ const PromptPanel: React.FC<PromptPanelProps> = ({ onBack }) => {
           gap: "var(--spacing-xl)",
         }}
       >
-        {/* Info Banner */}
-        <div
-          style={{
-            padding: "var(--spacing-md)",
-            backgroundColor: "rgba(59, 130, 246, 0.1)",
-            border: "1px solid rgba(59, 130, 246, 0.3)",
-            borderRadius: "var(--border-radius-lg)",
-            display: "flex",
-            gap: "var(--spacing-sm)",
-            fontSize: "var(--font-size-sm)",
-            color: "var(--primary-text)",
-          }}
-        >
-          <span style={{ fontSize: "20px" }}>💡</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, marginBottom: "4px" }}>
-              Hướng dẫn
-            </div>
-            <div style={{ color: "var(--secondary-text)", lineHeight: 1.5 }}>
-              Click vào bất kỳ card nào để mở file TypeScript tương ứng trong VS
-              Code editor. Bạn có thể chỉnh sửa trực tiếp prompt trong editor
-              với syntax highlighting đầy đủ.
-            </div>
-          </div>
-        </div>
-
         {/* Grouped Cards */}
         {Object.entries(groupedModules).map(([category, modules]) => {
           const categoryInfo = CATEGORY_INFO[category];

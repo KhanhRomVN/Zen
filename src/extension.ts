@@ -50,6 +50,30 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       });
   }
 
+  private getSystemInfo(): any {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const platform = process.platform;
+    const homeDir = process.env.HOME || process.env.USERPROFILE || "~";
+    const shell = process.env.SHELL || "/bin/bash";
+
+    let osName = "Unknown";
+    if (platform === "linux") {
+      osName = "Linux";
+    } else if (platform === "darwin") {
+      osName = "macOS";
+    } else if (platform === "win32") {
+      osName = "Windows";
+    }
+
+    return {
+      os: osName,
+      ide: "Visual Studio Code",
+      shell: shell,
+      homeDir: homeDir,
+      cwd: workspaceFolder?.uri.fsPath || homeDir,
+    };
+  }
+
   public stopWebSocketServer(): Promise<void> {
     return this._wsManager.stop();
   }
@@ -78,6 +102,11 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         webviewView.webview.postMessage({
           command: "workspacePort",
           port: this._wsPort,
+        });
+      } else if (message.command === "getSystemInfo") {
+        webviewView.webview.postMessage({
+          command: "systemInfo",
+          data: this.getSystemInfo(),
         });
       } else if (message.command === "restartServer") {
         // Singleton server không cần restart, chỉ cần gửi lại port

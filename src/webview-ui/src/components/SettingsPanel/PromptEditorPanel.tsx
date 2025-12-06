@@ -20,6 +20,27 @@ const PromptEditorPanel: React.FC<PromptEditorPanelProps> = ({
   const [content, setContent] = useState("");
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [systemInfo, setSystemInfo] = useState<any>(null);
+
+  // Request system info from extension
+  useEffect(() => {
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi && moduleId === "system_info") {
+      vscodeApi.postMessage({
+        command: "getSystemInfo",
+      });
+
+      const handleMessage = (event: MessageEvent) => {
+        const message = event.data;
+        if (message.command === "systemInfo") {
+          setSystemInfo(message.data);
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+      return () => window.removeEventListener("message", handleMessage);
+    }
+  }, [moduleId]);
 
   // Load content from file
   useEffect(() => {
@@ -33,9 +54,24 @@ const PromptEditorPanel: React.FC<PromptEditorPanelProps> = ({
     }
 
     // Priority 2: Use defaultContent from props
-    setContent(defaultContent);
+    let finalContent = defaultContent;
+
+    // 🆕 If this is system_info module and we have systemInfo, inject it
+    if (moduleId === "system_info" && systemInfo) {
+      finalContent = finalContent
+        .replace(/Operating System: .+/, `Operating System: ${systemInfo.os}`)
+        .replace(/IDE: .+/, `IDE: ${systemInfo.ide}`)
+        .replace(/Default Shell: .+/, `Default Shell: ${systemInfo.shell}`)
+        .replace(/Home Directory: .+/, `Home Directory: ${systemInfo.homeDir}`)
+        .replace(
+          /Current Working Directory: .+/,
+          `Current Working Directory: ${systemInfo.cwd}`
+        );
+    }
+
+    setContent(finalContent);
     setIsLoading(false);
-  }, [moduleId, defaultContent]);
+  }, [moduleId, defaultContent, systemInfo]);
 
   const handleSave = () => {
     localStorage.setItem(`zen-prompt-${moduleId}`, content);
@@ -333,40 +369,6 @@ const PromptEditorPanel: React.FC<PromptEditorPanelProps> = ({
               </>
             )}
           </button>
-        </div>
-
-        {/* Info Footer */}
-        <div
-          style={{
-            padding: "var(--spacing-sm)",
-            backgroundColor: "rgba(59, 130, 246, 0.1)",
-            border: "1px solid rgba(59, 130, 246, 0.3)",
-            borderRadius: "var(--border-radius)",
-            fontSize: "var(--font-size-xs)",
-            color: "var(--secondary-text)",
-            display: "flex",
-            alignItems: "center",
-            gap: "var(--spacing-xs)",
-          }}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <span>
-            Changes are saved to{" "}
-            <span style={{ fontFamily: "monospace", color: "#3b82f6" }}>
-              {filePath.split("/").pop()}
-            </span>
-          </span>
         </div>
       </div>
 
