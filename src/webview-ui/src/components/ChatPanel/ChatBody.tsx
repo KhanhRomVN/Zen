@@ -383,8 +383,6 @@ const ChatBody: React.FC<ChatBodyProps> = ({
               {/* 🆕 PROMPT REQUEST Section - Collapsible (same style as THINKING) */}
               <div
                 style={{
-                  borderRadius: "var(--border-radius)",
-                  border: "1px solid var(--border-color)",
                   overflow: "hidden",
                 }}
               >
@@ -393,12 +391,8 @@ const ChatBody: React.FC<ChatBodyProps> = ({
                     display: "flex",
                     alignItems: "center",
                     gap: "var(--spacing-xs)",
-                    padding: "var(--spacing-sm) var(--spacing-md)",
-                    backgroundColor: "var(--secondary-bg)",
+                    paddingBottom: "var(--spacing-sm) var(--spacing-md)",
                     cursor: "pointer",
-                    borderBottom: checkpointCollapsed
-                      ? "none"
-                      : "1px solid var(--border-color)",
                   }}
                   onClick={() => setCheckpointCollapsed(!checkpointCollapsed)}
                 >
@@ -432,12 +426,10 @@ const ChatBody: React.FC<ChatBodyProps> = ({
                 {!checkpointCollapsed && (
                   <div
                     style={{
-                      padding: "var(--spacing-md)",
                       fontSize: "var(--font-size-xs)",
                       color: "var(--primary-text)",
                       lineHeight: 1.6,
                       whiteSpace: "pre-wrap",
-                      backgroundColor: "var(--primary-bg)",
                       fontFamily: "monospace",
                       maxHeight: "400px",
                       overflowY: "auto",
@@ -550,7 +542,6 @@ const ChatBody: React.FC<ChatBodyProps> = ({
               <div
                 style={{
                   borderRadius: "var(--border-radius)",
-                  border: "1px solid var(--border-color)",
                   overflow: "hidden",
                 }}
               >
@@ -559,14 +550,8 @@ const ChatBody: React.FC<ChatBodyProps> = ({
                     display: "flex",
                     alignItems: "center",
                     gap: "var(--spacing-xs)",
-                    padding: "var(--spacing-sm) var(--spacing-md)",
-                    backgroundColor: "var(--secondary-bg)",
+                    paddingBottom: "var(--spacing-sm) var(--spacing-md)",
                     cursor: "pointer",
-                    borderBottom: collapsedSections.has(
-                      `thinking-${message.id}`
-                    )
-                      ? "none"
-                      : "1px solid var(--border-color)",
                   }}
                   onClick={() => toggleCollapse(`thinking-${message.id}`)}
                 >
@@ -600,12 +585,10 @@ const ChatBody: React.FC<ChatBodyProps> = ({
                 {!collapsedSections.has(`thinking-${message.id}`) && (
                   <div
                     style={{
-                      padding: "var(--spacing-md)",
                       fontSize: "var(--font-size-sm)",
                       color: "var(--secondary-text)",
                       lineHeight: 1.6,
                       whiteSpace: "pre-wrap",
-                      backgroundColor: "var(--primary-bg)",
                       opacity: 0.8,
                     }}
                   >
