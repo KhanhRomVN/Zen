@@ -143,6 +143,24 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
               });
             });
         }
+      } else if (message.command === "requestContext") {
+        // Handle context request from webview
+        this._contextManager
+          .generateContext(message.task)
+          .then((context) => {
+            webviewView.webview.postMessage({
+              command: "contextResponse",
+              requestId: message.requestId,
+              context: context,
+            });
+          })
+          .catch((error) => {
+            webviewView.webview.postMessage({
+              command: "contextResponse",
+              requestId: message.requestId,
+              error: error.message || String(error),
+            });
+          });
       }
     });
 

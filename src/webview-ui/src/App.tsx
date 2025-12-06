@@ -150,6 +150,14 @@ const App: React.FC = () => {
             }
           }
 
+          // 🆕 Handle requestContext message
+          if (data.type === "requestContext") {
+            if ((window as any).__contextRequestHandler) {
+              (window as any).__contextRequestHandler(data);
+            }
+            return;
+          }
+
           if ((window as any).__chatPanelMessageHandler) {
             (window as any).__chatPanelMessageHandler(data);
           } else {

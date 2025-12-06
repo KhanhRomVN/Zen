@@ -206,24 +206,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
 
     // Send context request via WebSocket
-    if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
-      wsInstance.send(
-        JSON.stringify({
-          type: "requestContext",
-          task: content,
-          requestId: requestId,
-          timestamp: Date.now(),
-        })
-      );
-
+    // Send context request via VS Code API (extension will handle it)
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
       // Wait for context response (with timeout)
       const contextPromise = new Promise<string>((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error("Context request timeout"));
-        }, 5000); // 5s timeout
+        }, 10000); // 10s timeout
 
-        const handleContextResponse = (data: any) => {
-          if (data.type === "contextResponse" && data.requestId === requestId) {
+        const handleContextResponse = (event: MessageEvent) => {
+          const data = event.data;
+          if (
+            data.command === "contextResponse" &&
+            data.requestId === requestId
+          ) {
             clearTimeout(timeout);
             if (data.error) {
               reject(new Error(data.error));
@@ -231,11 +228,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               resolve(data.context);
             }
             // Cleanup listener
-            delete (window as any).__contextResponseHandler;
+            window.removeEventListener("message", handleContextResponse);
           }
         };
 
-        (window as any).__contextResponseHandler = handleContextResponse;
+        window.addEventListener("message", handleContextResponse);
+
+        // Send request
+        vscodeApi.postMessage({
+          command: "requestContext",
+          task: content,
+          requestId: requestId,
+        });
       });
 
       try {
