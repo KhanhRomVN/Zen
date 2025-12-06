@@ -101,12 +101,30 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         const messageData = event.data.data;
         const ws = wsRef.current;
 
+        console.log(`[ChatFooter] 📤 Attempting to send WebSocket message:`, {
+          messageType: messageData.type,
+          hasRequestId: !!messageData.requestId,
+          requestId: messageData.requestId,
+          wsReady: !!(ws && ws.readyState === WebSocket.OPEN),
+          wsReadyState: ws?.readyState,
+        });
+
         if (ws && ws.readyState === WebSocket.OPEN) {
           try {
             const messageStr = JSON.stringify(messageData);
             const sendStart = Date.now();
             ws.send(messageStr);
             const sendDuration = Date.now() - sendStart;
+
+            console.log(
+              `[ChatFooter] ✅ WebSocket message SENT successfully:`,
+              {
+                messageType: messageData.type,
+                requestId: messageData.requestId,
+                sendDuration: `${sendDuration}ms`,
+                messageSize: messageStr.length,
+              }
+            );
           } catch (error) {
             console.error(`[ChatFooter] ❌ Exception in ws.send():`, error);
             console.error(`[ChatFooter] 🔍 Error details:`, {

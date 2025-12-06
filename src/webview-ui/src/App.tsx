@@ -115,6 +115,19 @@ const App: React.FC = () => {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+
+          // 🆕 LOG: Debug all incoming messages
+          console.log(`[App] 📨 RECEIVED WebSocket message:`, {
+            type: data.type,
+            hasRequestId: !!data.requestId,
+            requestId: data.requestId,
+            hasFolderPath: !!data.folderPath,
+            folderPath: data.folderPath,
+            currentWorkspacePath: (window as any).__zenWorkspaceFolderPath,
+            timestamp: data.timestamp,
+            messageKeys: Object.keys(data),
+          });
+
           // Ignore old messages
           if (data.timestamp && data.timestamp < connectionTimestamp) {
             return;
@@ -126,10 +139,30 @@ const App: React.FC = () => {
             const currentFolderPath =
               (window as any).__zenWorkspaceFolderPath || null;
 
+            // 🆕 LOG: Debug folderPath filtering
+            console.log(`[App] 🔍 FILTERING promptResponse:`, {
+              messageFolderPath: messageFolderPath,
+              currentFolderPath: currentFolderPath,
+              isMatch: messageFolderPath === currentFolderPath,
+              willAccept: messageFolderPath === currentFolderPath,
+            });
+
             // Reject if folderPath doesn't match
             if (messageFolderPath !== currentFolderPath) {
+              console.log(
+                `[App] ❌ REJECTED promptResponse - folderPath mismatch:`,
+                {
+                  expected: currentFolderPath,
+                  received: messageFolderPath,
+                  requestId: data.requestId,
+                }
+              );
               return;
             }
+
+            console.log(
+              `[App] ✅ ACCEPTED promptResponse - folderPath matches`
+            );
           }
 
           // 🆕 Handle requestContext message

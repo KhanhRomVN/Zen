@@ -46,6 +46,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   useEffect(() => {
     const handleIncomingMessage = (data: any) => {
+      // 🆕 LOG: Debug all messages received by ChatPanel
+      console.log(`[ChatPanel] 📨 RECEIVED message:`, {
+        type: data.type,
+        hasRequestId: !!data.requestId,
+        requestId: data.requestId,
+        success: data.success,
+        hasResponse: !!data.response,
+        hasError: !!data.error,
+        timestamp: data.timestamp,
+      });
+
       if (data.type === "promptResponse") {
         const timeoutId = (window as any).__chatPanelTimeoutId;
         if (timeoutId) {
@@ -54,6 +65,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
 
         if (data.success && data.response) {
+          console.log(`[ChatPanel] ✅ Processing SUCCESS response:`, {
+            requestId: data.requestId,
+            responseLength: data.response?.length,
+            responsePreview: data.response?.substring(0, 100),
+          });
+
           try {
             // 🆕 Import ResponseParser
             const {
@@ -65,6 +82,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             const parsedResponse = JSON.parse(data.response);
             const rawContent =
               parsedResponse?.choices?.[0]?.delta?.content || data.response;
+
+            console.log(`[ChatPanel] 📝 Parsed response content:`, {
+              contentLength: rawContent?.length,
+              contentPreview: rawContent?.substring(0, 100),
+            });
 
             // 🆕 Parse response to extract actions
             const parsed = parseAIResponse(rawContent);
@@ -94,10 +116,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               timestamp: Date.now(),
             };
 
-            setMessages((prev) => [...prev, aiMessage]);
+            console.log(`[ChatPanel] ➕ ADDING AI message to state:`, {
+              messageId: aiMessage.id,
+              contentLength: aiMessage.content.length,
+              currentMessageCount: messages.length,
+            });
+
+            setMessages((prev) => {
+              const newMessages = [...prev, aiMessage];
+              console.log(`[ChatPanel] 🔄 Messages state UPDATED:`, {
+                previousCount: prev.length,
+                newCount: newMessages.length,
+                lastMessageRole: newMessages[newMessages.length - 1]?.role,
+              });
+              return newMessages;
+            });
             setIsProcessing(false);
           } catch (error) {
             console.error(`[ChatPanel] ❌ Failed to parse response:`, error);
+            console.error(`[ChatPanel] 🔍 Parse error details:`, {
+              errorMessage:
+                error instanceof Error ? error.message : String(error),
+              rawResponse: data.response?.substring(0, 200),
+            });
 
             // Fallback: use raw response
             const aiMessage: Message = {
@@ -107,11 +148,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               timestamp: Date.now(),
             };
 
+            console.log(
+              `[ChatPanel] 🔄 Using FALLBACK raw response as message`
+            );
+
             setMessages((prev) => [...prev, aiMessage]);
             setIsProcessing(false);
           }
         } else {
-          console.error(`[ChatPanel] ❌ promptResponse failed:`, data.error);
+          console.error(`[ChatPanel] ❌ promptResponse FAILED:`, {
+            requestId: data.requestId,
+            tabId: data.tabId,
+            error: data.error,
+            errorType: data.errorType,
+            hasResponse: !!data.response,
+          });
           setIsProcessing(false);
 
           // Build user-friendly error message based on errorType
@@ -355,11 +406,10 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
     const sendPromptMessage = {
       type: "sendPrompt",
       tabId: selectedTab.tabId,
-      systemPrompt: isFirstRequest ? systemPrompt : null, // 🆕 Only send system prompt on first request
-      userPrompt: content,
+      prompt: content,
       requestId: `req-${Date.now()}`,
-      isNewTask: false,
-      folderPath: selectedTab.folderPath || null,
+      isNewTask: isFirstRequest,
+      folderPath: (window as any).__zenWorkspaceFolderPath || null,
       containerName: selectedTab.containerName || null,
       timestamp: Date.now(),
     };
