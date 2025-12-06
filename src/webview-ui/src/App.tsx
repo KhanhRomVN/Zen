@@ -32,21 +32,17 @@ const getVSCodeApi = (() => {
     try {
       // 🔥 CHECK: Nếu đã có global instance, sử dụng luôn
       if ((window as any).vscodeApi) {
-        console.log("[App] ✅ Using existing VS Code API instance");
         api = (window as any).vscodeApi;
       } else {
-        console.log("[App] 🆕 Acquiring VS Code API for the first time");
         api = (window as any).acquireVsCodeApi();
         // 🆕 Expose globally for other components
         (window as any).vscodeApi = api;
-        console.log("[App] ✅ VS Code API acquired and exposed globally");
       }
     } catch (error) {
       // VS Code API not available or already acquired
       console.error("[App] ❌ Could not acquire VS Code API:", error);
       // 🔥 Try to use existing instance if available
       if ((window as any).vscodeApi) {
-        console.warn("[App] ⚠️ Using existing global instance despite error");
         api = (window as any).vscodeApi;
       }
     }
@@ -121,12 +117,6 @@ const App: React.FC = () => {
           const data = JSON.parse(event.data);
           // Ignore old messages
           if (data.timestamp && data.timestamp < connectionTimestamp) {
-            console.warn(
-              `[App] ⚠️ Ignoring old message (age: ${
-                connectionTimestamp - data.timestamp
-              }ms)`,
-              data.type
-            );
             return;
           }
 
@@ -138,14 +128,6 @@ const App: React.FC = () => {
 
             // Reject if folderPath doesn't match
             if (messageFolderPath !== currentFolderPath) {
-              console.warn(
-                `[App] ⚠️ Rejecting promptResponse: folderPath mismatch`,
-                {
-                  expected: currentFolderPath,
-                  received: messageFolderPath,
-                  requestId: data.requestId,
-                }
-              );
               return;
             }
           }

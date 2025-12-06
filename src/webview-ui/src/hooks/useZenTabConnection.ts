@@ -29,12 +29,6 @@ export const useZenTabConnection = () => {
     try {
       const messageTimestamp = message.timestamp || 0;
       if (messageTimestamp > 0 && messageTimestamp < lastMessageTimestamp) {
-        console.warn(
-          `[useZenTabConnection] ⚠️ Ignoring old message (${
-            lastMessageTimestamp - messageTimestamp
-          }ms old)`,
-          message.type
-        );
         return;
       }
 

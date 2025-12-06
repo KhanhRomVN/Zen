@@ -55,35 +55,16 @@ const TabPanel: React.FC<TabPanelProps> = ({
       .filter((p): p is NonNullable<typeof p> => p !== undefined);
 
     if (targetProviders.length === 0) {
-      console.warn(
-        `[TabPanel] ⚠️ No valid providers found for selected models:`,
-        selectedModels
-      );
       return tabs;
     }
-
-    // 🆕 Debug logging
-    console.log(`[TabPanel] 🔍 Filtering tabs:`, {
-      selectedModels,
-      targetProviders,
-      totalTabs: tabs.length,
-      tabsWithProvider: tabs.filter((t) => t.provider).length,
-      providers: tabs.map((t) => t.provider),
-    });
 
     // 🆕 Filter tabs by providers (OR logic)
     const filtered = tabs.filter((tab) => {
       // Nếu tab không có provider field → accept (backward compatibility)
       if (!tab.provider) {
-        console.warn(`[TabPanel] ⚠️ Tab missing provider field:`, tab.tabId);
         return true;
       }
       return targetProviders.includes(tab.provider);
-    });
-
-    console.log(`[TabPanel] ✅ Filtered result:`, {
-      filteredCount: filtered.length,
-      filteredTabIds: filtered.map((t) => t.tabId),
     });
 
     return filtered;

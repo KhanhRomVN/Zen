@@ -257,9 +257,7 @@ const TabList: React.FC<TabListProps> = ({ tabs, onTabSelect }) => {
               )}
             </div>
 
-            {/* 🔥 DEBUG: Log FULL tab object */}
             {(() => {
-              console.log("[TabList] 🔍 FULL Tab object:", tab);
               return null;
             })()}
 
