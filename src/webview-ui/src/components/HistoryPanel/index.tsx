@@ -42,7 +42,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
     setIsLoading(true);
     try {
       if (!window.storage) {
-        console.warn("[HistoryPanel] window.storage not available");
         setConversations([]);
         setIsLoading(false);
         return;

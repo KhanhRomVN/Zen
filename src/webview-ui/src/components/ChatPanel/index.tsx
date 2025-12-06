@@ -31,7 +31,6 @@ const saveConversation = async (
 ): Promise<boolean> => {
   try {
     if (!window.storage) {
-      console.warn("[ChatPanel] window.storage not available");
       return false;
     }
 
@@ -63,7 +62,6 @@ const loadConversation = async (
 ): Promise<{ messages: Message[]; isFirstRequest: boolean } | null> => {
   try {
     if (!window.storage) {
-      console.warn("[ChatPanel] window.storage not available");
       return null;
     }
 
@@ -141,6 +139,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   wsInstance,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
+
+  // 🆕 Import parseAIResponse
+  const { parseAIResponse } = require("../../services/ResponseParser");
+
+  // 🆕 Memoize parsed messages
+  const parsedMessages = React.useMemo(() => {
+    return messages.map((msg) => ({
+      ...msg,
+      parsed: parseAIResponse(msg.content),
+    }));
+  }, [messages]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFirstRequest, setIsFirstRequest] = useState(true);
   const [checkpoints, setCheckpoints] = useState<string[]>([]);
@@ -570,6 +579,17 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
     }
   }, [selectedTab.tabId, selectedTab.folderPath]);
 
+  // 🆕 Calculate data for ChatHeader
+  const firstRequestMessage = messages.find((m) => m.isFirstRequest);
+
+  const allTaskProgress = parsedMessages.flatMap((msg) => {
+    const progress = msg.parsed.taskProgress || [];
+    const actionProgress = msg.parsed.actions.flatMap(
+      (action: any) => action.taskProgress || []
+    );
+    return [...progress, ...actionProgress];
+  });
+
   return (
     <div className="chat-panel">
       <ChatHeader
@@ -577,6 +597,8 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
         onBack={onBack}
         onClearChat={handleClearChat}
         isLoadingConversation={isLoadingConversation}
+        firstRequestMessage={firstRequestMessage}
+        allTaskProgress={allTaskProgress}
       />
       <ChatBody
         messages={messages}

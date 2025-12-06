@@ -334,6 +334,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
   return (
     <div
+      id="chat-footer-container"
       style={{
         position: "fixed",
         bottom: 0,

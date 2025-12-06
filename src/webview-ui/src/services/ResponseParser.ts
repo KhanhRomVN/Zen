@@ -1,3 +1,25 @@
+/**
+ * Helper function để log parsing results
+ */
+const logParseResult = (
+  section: string,
+  success: boolean,
+  data?: any,
+  rawContent?: string
+) => {
+  const emoji = success ? "✅" : "❌";
+  console.log(`[ResponseParser] ${emoji} ${section}`);
+  if (success && data) {
+    console.log(`[ResponseParser] 📦 Data:`, data);
+  }
+  if (!success && rawContent) {
+    console.log(
+      `[ResponseParser] 🔍 Raw content (first 200 chars):`,
+      rawContent.substring(0, 200)
+    );
+  }
+};
+
 export interface ParsedResponse {
   thinking: string | null;
   taskProgress: TaskProgressItem[] | null;
@@ -43,6 +65,12 @@ const extractParamValue = (
     let value = standardMatch[1].trim();
     // Remove ```text wrappers if present
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
+    console.log(
+      `[ResponseParser] ✅ Extracted param "${paramName}": ${value.substring(
+        0,
+        100
+      )}${value.length > 100 ? "..." : ""}`
+    );
     return value;
   }
 
@@ -55,9 +83,16 @@ const extractParamValue = (
   if (selfClosingMatch) {
     let value = selfClosingMatch[1].trim();
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
+    console.log(
+      `[ResponseParser] ✅ Extracted param "${paramName}" (self-closing): ${value.substring(
+        0,
+        100
+      )}${value.length > 100 ? "..." : ""}`
+    );
     return value;
   }
 
+  console.log(`[ResponseParser] ❌ Failed to extract param "${paramName}"`);
   return null;
 };
 
@@ -65,10 +100,18 @@ const extractParamValue = (
  * Parse task_progress content to extract checklist items
  */
 const parseTaskProgress = (content: string): TaskProgressItem[] | null => {
-  if (!content) return null;
+  if (!content) {
+    console.log(`[ResponseParser] ⚠️ parseTaskProgress: Empty content`);
+    return null;
+  }
 
   // Remove ```text wrappers
   const cleanContent = content.replace(/^```text\s*\n?|\n?```\s*$/g, "").trim();
+  console.log(
+    `[ResponseParser] 🔄 Parsing task progress, lines: ${
+      cleanContent.split("\n").length
+    }`
+  );
 
   const items: TaskProgressItem[] = [];
   const lines = cleanContent.split("\n");
@@ -80,11 +123,27 @@ const parseTaskProgress = (content: string): TaskProgressItem[] | null => {
     // - [X] Task (uppercase)
     const checkboxMatch = line.match(/^\s*-\s*\[([ xX])\]\s*(.+)$/);
     if (checkboxMatch) {
-      items.push({
+      const item = {
         completed: checkboxMatch[1].toLowerCase() === "x",
         text: checkboxMatch[2].trim(),
-      });
+      };
+      items.push(item);
+      console.log(
+        `[ResponseParser] ✅ Task item: ${item.completed ? "[x]" : "[ ]"} ${
+          item.text
+        }`
+      );
+    } else if (line.trim()) {
+      console.log(
+        `[ResponseParser] ❌ Failed to parse line: "${line.substring(0, 50)}"`
+      );
     }
+  }
+
+  if (items.length > 0) {
+    console.log(`[ResponseParser] ✅ Total task items parsed: ${items.length}`);
+  } else {
+    console.log(`[ResponseParser] ❌ No task items found`);
   }
 
   return items.length > 0 ? items : null;
@@ -94,6 +153,9 @@ const parseTaskProgress = (content: string): TaskProgressItem[] | null => {
  * Extract all tool calls from content
  */
 const extractToolCalls = (content: string): ToolAction[] => {
+  console.log(
+    `[ResponseParser] 🔧 Starting tool extraction, content length: ${content.length}`
+  );
   const actions: ToolAction[] = [];
 
   const toolPatterns = [
@@ -115,8 +177,13 @@ const extractToolCalls = (content: string): ToolAction[] => {
       "g"
     );
     let match;
+    let matchCount = 0;
 
     while ((match = regex.exec(content)) !== null) {
+      matchCount++;
+      console.log(
+        `[ResponseParser] ✅ Found tool: ${toolName} (${matchCount})`
+      );
       const rawXml = match[0];
       const innerContent = match[1];
 
@@ -190,15 +257,33 @@ const extractToolCalls = (content: string): ToolAction[] => {
         ? parseTaskProgress(taskProgressContent)
         : null;
 
-      actions.push({
+      const action = {
         type: toolName as any,
         params,
         rawXml,
         taskProgress,
-      });
+      };
+      actions.push(action);
+      console.log(
+        `[ResponseParser] 📦 Action added:`,
+        JSON.stringify(
+          {
+            type: action.type,
+            params: action.params,
+            hasTaskProgress: !!taskProgress,
+          },
+          null,
+          2
+        )
+      );
+    }
+
+    if (matchCount === 0) {
+      console.log(`[ResponseParser] ⚠️ No matches found for tool: ${toolName}`);
     }
   }
 
+  console.log(`[ResponseParser] ✅ Total tools extracted: ${actions.length}`);
   return actions;
 };
 
@@ -206,6 +291,12 @@ const extractToolCalls = (content: string): ToolAction[] => {
  * Parse AI response để extract thinking, task_progress, và tool actions
  */
 export const parseAIResponse = (content: string): ParsedResponse => {
+  console.log(`[ResponseParser] 🚀 Starting AI response parsing`);
+  console.log(`[ResponseParser] 📄 Content length: ${content.length} chars`);
+  console.log(
+    `[ResponseParser] 📄 First 200 chars: ${content.substring(0, 200)}...`
+  );
+
   const result: ParsedResponse = {
     thinking: null,
     taskProgress: null,
@@ -217,6 +308,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   const thinkingMatch = content.match(/<thinking>([\s\S]*?)<\/thinking>/);
   if (thinkingMatch) {
     result.thinking = thinkingMatch[1].trim();
+    logParseResult("Thinking", true, {
+      length: result.thinking.length,
+      preview: result.thinking.substring(0, 100),
+    });
+  } else {
+    logParseResult("Thinking", false, null, content);
   }
 
   // 2. Extract global <task_progress> (outside of tool calls)
@@ -225,10 +322,19 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   );
   if (globalTaskProgressMatch) {
     result.taskProgress = parseTaskProgress(globalTaskProgressMatch[1]);
+    logParseResult("Global Task Progress", !!result.taskProgress, {
+      itemCount: result.taskProgress?.length || 0,
+    });
+  } else {
+    logParseResult("Global Task Progress", false);
   }
 
   // 3. Extract all tool actions
   result.actions = extractToolCalls(content);
+  logParseResult("Tool Actions", true, {
+    count: result.actions.length,
+    types: result.actions.map((a) => a.type),
+  });
 
   // 4. Generate display text
   let displayText = content;
@@ -268,9 +374,24 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Priority: thinking > displayText
   if (result.thinking) {
     result.displayText = result.thinking;
+    console.log(
+      `[ResponseParser] 📝 Using thinking as displayText (${result.thinking.length} chars)`
+    );
   } else if (displayText) {
     result.displayText = displayText;
+    console.log(
+      `[ResponseParser] 📝 Using cleaned text as displayText (${displayText.length} chars)`
+    );
+  } else {
+    console.log(`[ResponseParser] ⚠️ No displayText generated`);
   }
+
+  console.log(`[ResponseParser] ✅ Parse complete:`, {
+    hasThinking: !!result.thinking,
+    hasTaskProgress: !!result.taskProgress,
+    actionCount: result.actions.length,
+    displayTextLength: result.displayText.length,
+  });
 
   return result;
 };
