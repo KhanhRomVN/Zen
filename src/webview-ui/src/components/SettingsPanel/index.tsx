@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import ModelsPanel from "./ModelsPanel";
 import ContextPanel from "./ContextPanel";
 import NotificationsPanel from "./NotificationsPanel";
-import RulePromptPanel from "./RulePromptPanel";
+import PromptPanel from "./PromptPanel";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -13,7 +13,6 @@ type PanelView =
   | "main"
   | "models"
   | "context"
-  | "checkpoints"
   | "notifications"
   | "rule-prompt";
 
@@ -206,57 +205,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             </p>
           </div>
 
-          {/* Checkpoints Card */}
-          <div
-            style={{
-              padding: "var(--spacing-md)",
-              backgroundColor: "var(--primary-bg)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--border-radius-lg)",
-              cursor: "pointer",
-              transition: "all 0.2s",
-            }}
-            onClick={() => setCurrentView("checkpoints")}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-              e.currentTarget.style.borderColor = "var(--accent-text)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--primary-bg)";
-              e.currentTarget.style.borderColor = "var(--border-color)";
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "var(--spacing-sm)",
-                marginBottom: "var(--spacing-xs)",
-              }}
-            >
-              <span style={{ fontSize: "20px" }}>💾</span>
-              <span
-                style={{
-                  fontSize: "var(--font-size-md)",
-                  fontWeight: 600,
-                  color: "var(--primary-text)",
-                }}
-              >
-                Checkpoints
-              </span>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "var(--font-size-xs)",
-                color: "var(--secondary-text)",
-                lineHeight: 1.4,
-              }}
-            >
-              Quản lý các điểm lưu trữ dự án
-            </p>
-          </div>
-
           {/* Notifications Card */}
           <div
             style={{
@@ -376,7 +324,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         <NotificationsPanel onBack={() => setCurrentView("main")} />
       )}
       {currentView === "rule-prompt" && (
-        <RulePromptPanel onBack={() => setCurrentView("main")} />
+        <PromptPanel onBack={() => setCurrentView("main")} />
       )}
     </>
   );

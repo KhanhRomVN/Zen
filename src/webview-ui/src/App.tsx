@@ -22,8 +22,11 @@ interface TabInfo {
 let vscodeApi: any = null;
 try {
   vscodeApi = (window as any).acquireVsCodeApi();
+  // 🆕 Expose globally for other components
+  (window as any).vscodeApi = vscodeApi;
 } catch (error) {
   // VS Code API not available or already acquired
+  console.warn("[App] ⚠️ Could not acquire VS Code API:", error);
 }
 
 const App: React.FC = () => {
