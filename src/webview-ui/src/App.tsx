@@ -56,14 +56,202 @@ const vscodeApi = getVSCodeApi();
 
 const App: React.FC = () => {
   useVSCodeTheme();
-  const [showHistory, setShowHistory] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<TabInfo | null>(null);
+  const [showHistory, setShowHistory] = useState(() => {
+    try {
+      return sessionStorage.getItem("zen-show-history") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [showSettings, setShowSettings] = useState(() => {
+    try {
+      return sessionStorage.getItem("zen-show-settings") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [selectedTab, setSelectedTab] = useState<TabInfo | null>(() => {
+    try {
+      const saved = sessionStorage.getItem("zen-selected-tab");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [wsConnected, setWsConnected] = useState(false);
   const [wsInstance, setWsInstance] = useState<WebSocket | null>(null);
   const [port, setPort] = useState(0);
   const activePortRef = useRef<number>(0);
   const connectionTimestampRef = useRef<number>(0);
+
+  // 🆕 Persist UI state to sessionStorage
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("zen-show-history", showHistory.toString());
+      sessionStorage.setItem("zen-show-settings", showSettings.toString());
+      sessionStorage.setItem("zen-selected-tab", JSON.stringify(selectedTab));
+    } catch (error) {
+      console.error("[App] Failed to persist state:", error);
+    }
+  }, [showHistory, showSettings, selectedTab]);
+
+  // 🆕 Initialize storage API wrapper
+  useEffect(() => {
+    if (!vscodeApi) return;
+
+    // Create storage API wrapper
+    const storageApi = {
+      async get(
+        key: string,
+        shared?: boolean
+      ): Promise<{ key: string; value: string } | null> {
+        return new Promise((resolve, reject) => {
+          const requestId = `storage-get-${Date.now()}`;
+          const timeout = setTimeout(
+            () => reject(new Error("Storage get timeout")),
+            5000
+          );
+
+          const handler = (event: MessageEvent) => {
+            const message = event.data;
+            if (
+              message.command === "storageGetResponse" &&
+              message.requestId === requestId
+            ) {
+              clearTimeout(timeout);
+              window.removeEventListener("message", handler);
+              if (message.error) {
+                reject(new Error(message.error));
+              } else {
+                resolve(message.value ? { key, value: message.value } : null);
+              }
+            }
+          };
+
+          window.addEventListener("message", handler);
+          vscodeApi.postMessage({
+            command: "storageGet",
+            requestId,
+            key,
+          });
+        });
+      },
+
+      async set(
+        key: string,
+        value: string,
+        shared?: boolean
+      ): Promise<{ key: string; value: string } | null> {
+        return new Promise((resolve, reject) => {
+          const requestId = `storage-set-${Date.now()}`;
+          const timeout = setTimeout(
+            () => reject(new Error("Storage set timeout")),
+            5000
+          );
+
+          const handler = (event: MessageEvent) => {
+            const message = event.data;
+            if (
+              message.command === "storageSetResponse" &&
+              message.requestId === requestId
+            ) {
+              clearTimeout(timeout);
+              window.removeEventListener("message", handler);
+              if (message.error) {
+                reject(new Error(message.error));
+              } else {
+                resolve({ key, value });
+              }
+            }
+          };
+
+          window.addEventListener("message", handler);
+          vscodeApi.postMessage({
+            command: "storageSet",
+            requestId,
+            key,
+            value,
+          });
+        });
+      },
+
+      async delete(
+        key: string,
+        shared?: boolean
+      ): Promise<{ key: string; deleted: boolean } | null> {
+        return new Promise((resolve, reject) => {
+          const requestId = `storage-delete-${Date.now()}`;
+          const timeout = setTimeout(
+            () => reject(new Error("Storage delete timeout")),
+            5000
+          );
+
+          const handler = (event: MessageEvent) => {
+            const message = event.data;
+            if (
+              message.command === "storageDeleteResponse" &&
+              message.requestId === requestId
+            ) {
+              clearTimeout(timeout);
+              window.removeEventListener("message", handler);
+              if (message.error) {
+                reject(new Error(message.error));
+              } else {
+                resolve({ key, deleted: true });
+              }
+            }
+          };
+
+          window.addEventListener("message", handler);
+          vscodeApi.postMessage({
+            command: "storageDelete",
+            requestId,
+            key,
+          });
+        });
+      },
+
+      async list(
+        prefix?: string,
+        shared?: boolean
+      ): Promise<{ keys: string[] } | null> {
+        return new Promise((resolve, reject) => {
+          const requestId = `storage-list-${Date.now()}`;
+          const timeout = setTimeout(
+            () => reject(new Error("Storage list timeout")),
+            5000
+          );
+
+          const handler = (event: MessageEvent) => {
+            const message = event.data;
+            if (
+              message.command === "storageListResponse" &&
+              message.requestId === requestId
+            ) {
+              clearTimeout(timeout);
+              window.removeEventListener("message", handler);
+              if (message.error) {
+                reject(new Error(message.error));
+              } else {
+                resolve({ keys: message.keys || [] });
+              }
+            }
+          };
+
+          window.addEventListener("message", handler);
+          vscodeApi.postMessage({
+            command: "storageList",
+            requestId,
+            prefix,
+          });
+        });
+      },
+    };
+
+    // Expose to global scope
+    (window as any).storage = storageApi;
+    console.log("[App] ✅ Storage API initialized");
+  }, []);
 
   // 🆕 Lift tabs state lên App level để persist khi switch panels
   const { tabs, handleMessage } = useZenTabConnection();
@@ -116,53 +304,20 @@ const App: React.FC = () => {
         try {
           const data = JSON.parse(event.data);
 
-          // 🆕 LOG: Debug all incoming messages
-          console.log(`[App] 📨 RECEIVED WebSocket message:`, {
-            type: data.type,
-            hasRequestId: !!data.requestId,
-            requestId: data.requestId,
-            hasFolderPath: !!data.folderPath,
-            folderPath: data.folderPath,
-            currentWorkspacePath: (window as any).__zenWorkspaceFolderPath,
-            timestamp: data.timestamp,
-            messageKeys: Object.keys(data),
-          });
-
           // Ignore old messages
           if (data.timestamp && data.timestamp < connectionTimestamp) {
             return;
           }
 
-          // 🆕 CRITICAL: Filter promptResponse by folderPath
           if (data.type === "promptResponse") {
             const messageFolderPath = data.folderPath || null;
             const currentFolderPath =
               (window as any).__zenWorkspaceFolderPath || null;
 
-            // 🆕 LOG: Debug folderPath filtering
-            console.log(`[App] 🔍 FILTERING promptResponse:`, {
-              messageFolderPath: messageFolderPath,
-              currentFolderPath: currentFolderPath,
-              isMatch: messageFolderPath === currentFolderPath,
-              willAccept: messageFolderPath === currentFolderPath,
-            });
-
             // Reject if folderPath doesn't match
             if (messageFolderPath !== currentFolderPath) {
-              console.log(
-                `[App] ❌ REJECTED promptResponse - folderPath mismatch:`,
-                {
-                  expected: currentFolderPath,
-                  received: messageFolderPath,
-                  requestId: data.requestId,
-                }
-              );
               return;
             }
-
-            console.log(
-              `[App] ✅ ACCEPTED promptResponse - folderPath matches`
-            );
           }
 
           // 🆕 Handle requestContext message

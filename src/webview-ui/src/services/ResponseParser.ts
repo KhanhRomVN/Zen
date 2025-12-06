@@ -1,260 +1,357 @@
-/**
- * ResponseParser - Xử lý và parse JSON response từ AI
- */
-
-export interface ParsedAction {
-  type: "text" | "file_read" | "file_edit" | "file_add" | "command_exec";
-  content: string;
-  metadata?: {
-    filePath?: string;
-    operation?: string;
-    status?: "success" | "error";
-    [key: string]: any;
-  };
-}
-
 export interface ParsedResponse {
-  actions: ParsedAction[];
-  rawResponse: string;
-  hasError: boolean;
-  errorMessage?: string;
+  thinking: string | null;
+  taskProgress: TaskProgressItem[] | null;
+  actions: ToolAction[];
+  displayText: string;
+}
+
+export interface TaskProgressItem {
+  text: string;
+  completed: boolean;
+}
+
+export interface ToolAction {
+  type:
+    | "read_file"
+    | "write_to_file"
+    | "replace_in_file"
+    | "execute_command"
+    | "list_files"
+    | "search_files"
+    | "list_code_definition_names"
+    | "ask_followup_question"
+    | "attempt_completion";
+  params: Record<string, any>;
+  rawXml: string;
+  taskProgress?: TaskProgressItem[] | null;
 }
 
 /**
- * Parse AI response JSON và extract actions
+ * Parse XML-like content to extract parameter value
  */
-export const parseAIResponse = (response: string): ParsedResponse => {
-  try {
-    // Try parse as JSON first
-    const parsed = JSON.parse(response);
-
-    // Check if it's OpenAI format
-    if (parsed.choices?.[0]?.delta?.content) {
-      return parseOpenAIFormat(parsed.choices[0].delta.content);
-    }
-
-    // Check if it's our custom format with tool calls
-    if (parsed.actions || parsed.tool_calls) {
-      return parseToolCallsFormat(parsed);
-    }
-
-    // Fallback: treat as plain text
-    return {
-      actions: [
-        {
-          type: "text",
-          content: response,
-        },
-      ],
-      rawResponse: response,
-      hasError: false,
-    };
-  } catch (error) {
-    // Not valid JSON, treat as plain text
-    return {
-      actions: [
-        {
-          type: "text",
-          content: response,
-        },
-      ],
-      rawResponse: response,
-      hasError: false,
-    };
+const extractParamValue = (
+  content: string,
+  paramName: string
+): string | null => {
+  // Try standard XML tag first
+  const standardRegex = new RegExp(
+    `<${paramName}>([\\s\\S]*?)<\\/${paramName}>`,
+    "i"
+  );
+  const standardMatch = content.match(standardRegex);
+  if (standardMatch) {
+    let value = standardMatch[1].trim();
+    // Remove ```text wrappers if present
+    value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
+    return value;
   }
+
+  // Try self-closing tag with content
+  const selfClosingRegex = new RegExp(
+    `<${paramName}\\s*>([\\s\\S]*?)(?=<[\\w_]+>|$)`,
+    "i"
+  );
+  const selfClosingMatch = content.match(selfClosingRegex);
+  if (selfClosingMatch) {
+    let value = selfClosingMatch[1].trim();
+    value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
+    return value;
+  }
+
+  return null;
 };
 
 /**
- * Parse OpenAI streaming format
+ * Parse task_progress content to extract checklist items
  */
-const parseOpenAIFormat = (content: string): ParsedResponse => {
-  // Check if content contains tool calls markers
-  const toolCallRegex = /<tool_call>(.*?)<\/tool_call>/gs;
-  const matches = Array.from(content.matchAll(toolCallRegex));
+const parseTaskProgress = (content: string): TaskProgressItem[] | null => {
+  if (!content) return null;
 
-  if (matches.length > 0) {
-    const actions: ParsedAction[] = [];
+  // Remove ```text wrappers
+  const cleanContent = content.replace(/^```text\s*\n?|\n?```\s*$/g, "").trim();
 
-    // Extract text before first tool call
-    const beforeFirstCall = content.substring(0, matches[0].index);
-    if (beforeFirstCall.trim()) {
-      actions.push({
-        type: "text",
-        content: beforeFirstCall.trim(),
+  const items: TaskProgressItem[] = [];
+  const lines = cleanContent.split("\n");
+
+  for (const line of lines) {
+    // Match patterns:
+    // - [x] Task
+    // - [ ] Task
+    // - [X] Task (uppercase)
+    const checkboxMatch = line.match(/^\s*-\s*\[([ xX])\]\s*(.+)$/);
+    if (checkboxMatch) {
+      items.push({
+        completed: checkboxMatch[1].toLowerCase() === "x",
+        text: checkboxMatch[2].trim(),
       });
     }
+  }
 
-    // Parse each tool call
-    matches.forEach((match, index) => {
-      try {
-        const toolCallJson = JSON.parse(match[1]);
-        actions.push(parseToolCall(toolCallJson));
+  return items.length > 0 ? items : null;
+};
 
-        // Extract text between this and next tool call
-        const startIndex = match.index! + match[0].length;
-        const endIndex =
-          index < matches.length - 1
-            ? matches[index + 1].index!
-            : content.length;
-        const betweenText = content.substring(startIndex, endIndex).trim();
-        if (betweenText) {
-          actions.push({
-            type: "text",
-            content: betweenText,
-          });
-        }
-      } catch (error) {
-        console.error("[ResponseParser] Failed to parse tool call:", error);
+/**
+ * Extract all tool calls from content
+ */
+const extractToolCalls = (content: string): ToolAction[] => {
+  const actions: ToolAction[] = [];
+
+  const toolPatterns = [
+    "read_file",
+    "write_to_file",
+    "replace_in_file",
+    "execute_command",
+    "list_files",
+    "search_files",
+    "list_code_definition_names",
+    "ask_followup_question",
+    "attempt_completion",
+  ];
+
+  for (const toolName of toolPatterns) {
+    // Match tool tags with greedy approach to handle nested content
+    const regex = new RegExp(
+      `<${toolName}>((?:[\\s\\S](?!<${toolName}>))*?)<\\/${toolName}>`,
+      "g"
+    );
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      const rawXml = match[0];
+      const innerContent = match[1];
+
+      const params: Record<string, any> = {};
+
+      // Extract specific parameters based on tool type
+      switch (toolName) {
+        case "read_file":
+          params.path = extractParamValue(innerContent, "path");
+          break;
+
+        case "write_to_file":
+          params.path = extractParamValue(innerContent, "path");
+          params.content = extractParamValue(innerContent, "content");
+          break;
+
+        case "replace_in_file":
+          params.path = extractParamValue(innerContent, "path");
+          params.diff = extractParamValue(innerContent, "diff");
+          break;
+
+        case "execute_command":
+          params.command = extractParamValue(innerContent, "command");
+          const requiresApproval = extractParamValue(
+            innerContent,
+            "requires_approval"
+          );
+          params.requires_approval = requiresApproval === "true";
+          break;
+
+        case "list_files":
+          params.path = extractParamValue(innerContent, "path");
+          const recursive = extractParamValue(innerContent, "recursive");
+          params.recursive = recursive === "true";
+          break;
+
+        case "search_files":
+          params.path = extractParamValue(innerContent, "path");
+          params.regex = extractParamValue(innerContent, "regex");
+          params.file_pattern = extractParamValue(innerContent, "file_pattern");
+          break;
+
+        case "list_code_definition_names":
+          params.path = extractParamValue(innerContent, "path");
+          break;
+
+        case "ask_followup_question":
+          params.question = extractParamValue(innerContent, "question");
+          const optionsStr = extractParamValue(innerContent, "options");
+          if (optionsStr) {
+            try {
+              params.options = JSON.parse(optionsStr);
+            } catch {
+              params.options = null;
+            }
+          }
+          break;
+
+        case "attempt_completion":
+          params.result = extractParamValue(innerContent, "result");
+          params.command = extractParamValue(innerContent, "command");
+          break;
       }
-    });
 
-    return {
-      actions,
-      rawResponse: content,
-      hasError: false,
-    };
+      // Extract task_progress if present in this tool call
+      const taskProgressContent = extractParamValue(
+        innerContent,
+        "task_progress"
+      );
+      const taskProgress = taskProgressContent
+        ? parseTaskProgress(taskProgressContent)
+        : null;
+
+      actions.push({
+        type: toolName as any,
+        params,
+        rawXml,
+        taskProgress,
+      });
+    }
   }
 
-  // No tool calls, just text
-  return {
-    actions: [
-      {
-        type: "text",
-        content: content,
-      },
-    ],
-    rawResponse: content,
-    hasError: false,
-  };
+  return actions;
 };
 
 /**
- * Parse tool calls format
+ * Parse AI response để extract thinking, task_progress, và tool actions
  */
-const parseToolCallsFormat = (parsed: any): ParsedResponse => {
-  const actions: ParsedAction[] = [];
-
-  // Handle custom actions array
-  if (Array.isArray(parsed.actions)) {
-    parsed.actions.forEach((action: any) => {
-      actions.push(parseToolCall(action));
-    });
-  }
-
-  // Handle tool_calls array
-  if (Array.isArray(parsed.tool_calls)) {
-    parsed.tool_calls.forEach((toolCall: any) => {
-      actions.push(parseToolCall(toolCall));
-    });
-  }
-
-  return {
-    actions,
-    rawResponse: JSON.stringify(parsed),
-    hasError: false,
+export const parseAIResponse = (content: string): ParsedResponse => {
+  const result: ParsedResponse = {
+    thinking: null,
+    taskProgress: null,
+    actions: [],
+    displayText: "",
   };
+
+  // 1. Extract <thinking> content
+  const thinkingMatch = content.match(/<thinking>([\s\S]*?)<\/thinking>/);
+  if (thinkingMatch) {
+    result.thinking = thinkingMatch[1].trim();
+  }
+
+  // 2. Extract global <task_progress> (outside of tool calls)
+  const globalTaskProgressMatch = content.match(
+    /<task_progress>([\s\S]*?)<\/task_progress>/
+  );
+  if (globalTaskProgressMatch) {
+    result.taskProgress = parseTaskProgress(globalTaskProgressMatch[1]);
+  }
+
+  // 3. Extract all tool actions
+  result.actions = extractToolCalls(content);
+
+  // 4. Generate display text
+  let displayText = content;
+
+  // Remove <thinking> tags
+  displayText = displayText.replace(/<thinking>[\s\S]*?<\/thinking>\s*/g, "");
+
+  // Remove global <task_progress> tags
+  displayText = displayText.replace(
+    /<task_progress>[\s\S]*?<\/task_progress>\s*/g,
+    ""
+  );
+
+  // Remove all tool tags
+  const toolPatterns = [
+    "read_file",
+    "write_to_file",
+    "replace_in_file",
+    "execute_command",
+    "list_files",
+    "search_files",
+    "list_code_definition_names",
+    "ask_followup_question",
+    "attempt_completion",
+  ];
+
+  for (const toolName of toolPatterns) {
+    const regex = new RegExp(
+      `<${toolName}>(?:[\\s\\S](?!<${toolName}>))*?<\\/${toolName}>\\s*`,
+      "g"
+    );
+    displayText = displayText.replace(regex, "");
+  }
+
+  displayText = displayText.trim();
+
+  // Priority: thinking > displayText
+  if (result.thinking) {
+    result.displayText = result.thinking;
+  } else if (displayText) {
+    result.displayText = displayText;
+  }
+
+  return result;
 };
 
 /**
- * Parse individual tool call
+ * Format tool action for display
  */
-const parseToolCall = (toolCall: any): ParsedAction => {
-  const type = toolCall.type || toolCall.function?.name || "text";
-
-  switch (type) {
+export const formatActionForDisplay = (action: ToolAction): string => {
+  switch (action.type) {
     case "read_file":
-    case "file_read":
-      return {
-        type: "file_read",
-        content: `Reading file: ${
-          toolCall.parameters?.path || toolCall.arguments?.path
-        }`,
-        metadata: {
-          filePath: toolCall.parameters?.path || toolCall.arguments?.path,
-          operation: "read",
-        },
-      };
+      return `📖 Reading file: ${action.params.path || "unknown"}`;
 
-    case "write_file":
-    case "file_edit":
-      return {
-        type: "file_edit",
-        content: `Editing file: ${
-          toolCall.parameters?.path || toolCall.arguments?.path
-        }`,
-        metadata: {
-          filePath: toolCall.parameters?.path || toolCall.arguments?.path,
-          operation: "write",
-          content: toolCall.parameters?.content || toolCall.arguments?.content,
-        },
-      };
+    case "write_to_file":
+      return `✍️ Writing to file: ${action.params.path || "unknown"}`;
 
-    case "create_file":
-    case "file_add":
-      return {
-        type: "file_add",
-        content: `Creating file: ${
-          toolCall.parameters?.path || toolCall.arguments?.path
-        }`,
-        metadata: {
-          filePath: toolCall.parameters?.path || toolCall.arguments?.path,
-          operation: "create",
-          content: toolCall.parameters?.content || toolCall.arguments?.content,
-        },
-      };
+    case "replace_in_file":
+      return `🔄 Replacing in file: ${action.params.path || "unknown"}`;
 
     case "execute_command":
-    case "command_exec":
-      return {
-        type: "command_exec",
-        content: `Executing: ${
-          toolCall.parameters?.command || toolCall.arguments?.command
-        }`,
-        metadata: {
-          operation: "execute",
-          command: toolCall.parameters?.command || toolCall.arguments?.command,
-        },
-      };
+      const approval = action.params.requires_approval
+        ? " (requires approval)"
+        : "";
+      return `⚡ Executing command${approval}: ${
+        action.params.command || "unknown"
+      }`;
+
+    case "list_files":
+      const recursive = action.params.recursive ? " (recursive)" : "";
+      return `📁 Listing files${recursive}: ${action.params.path || "unknown"}`;
+
+    case "search_files":
+      const pattern = action.params.file_pattern
+        ? ` (${action.params.file_pattern})`
+        : "";
+      return `🔍 Searching${pattern}: ${action.params.regex || "unknown"}`;
+
+    case "list_code_definition_names":
+      return `📚 Listing code definitions in: ${
+        action.params.path || "unknown"
+      }`;
+
+    case "ask_followup_question":
+      const preview = action.params.question?.substring(0, 80) || "unknown";
+      return `❓ Question: ${preview}${
+        action.params.question && action.params.question.length > 80
+          ? "..."
+          : ""
+      }`;
+
+    case "attempt_completion":
+      const resultPreview = action.params.result?.substring(0, 80) || "done";
+      return `✅ Task completion: ${resultPreview}${
+        action.params.result && action.params.result.length > 80 ? "..." : ""
+      }`;
 
     default:
-      return {
-        type: "text",
-        content: JSON.stringify(toolCall, null, 2),
-      };
+      return `🔧 ${action.type}`;
   }
 };
 
 /**
- * Format action for display
+ * Get detailed info for action modal/tooltip
  */
-export const formatActionForDisplay = (action: ParsedAction): string => {
-  switch (action.type) {
-    case "file_read":
-      return `📖 **Reading File**\n\`\`\`\n${action.metadata?.filePath}\n\`\`\``;
+export const getActionDetails = (action: ToolAction): string => {
+  const lines: string[] = [];
 
-    case "file_edit":
-      return `✏️ **Editing File**\n\`\`\`\n${
-        action.metadata?.filePath
-      }\n\`\`\`\n${
-        action.metadata?.content
-          ? "```\n" + action.metadata.content + "\n```"
-          : ""
-      }`;
+  lines.push(`Tool: ${action.type}`);
+  lines.push("");
 
-    case "file_add":
-      return `➕ **Creating File**\n\`\`\`\n${
-        action.metadata?.filePath
-      }\n\`\`\`\n${
-        action.metadata?.content
-          ? "```\n" + action.metadata.content + "\n```"
-          : ""
-      }`;
+  // Format parameters
+  Object.entries(action.params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined) {
+      if (typeof value === "string" && value.length > 200) {
+        lines.push(`${key}: ${value.substring(0, 200)}...`);
+      } else if (typeof value === "object") {
+        lines.push(`${key}: ${JSON.stringify(value, null, 2)}`);
+      } else {
+        lines.push(`${key}: ${value}`);
+      }
+    }
+  });
 
-    case "command_exec":
-      return `⚡ **Executing Command**\n\`\`\`bash\n${action.metadata?.command}\n\`\`\``;
-
-    case "text":
-    default:
-      return action.content;
-  }
+  return lines.join("\n");
 };

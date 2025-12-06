@@ -1,7 +1,106 @@
-import React, { useState, useEffect } from "react";
-import ChatHeader from "./ChatHeader";
+import React, { useState, useEffect, useCallback } from "react";
 import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
+
+// 🆕 Storage helper functions
+const STORAGE_PREFIX = "zen-conversation";
+
+interface ConversationMetadata {
+  id: string;
+  tabId: number;
+  folderPath: string | null;
+  title: string;
+  lastModified: number;
+  messageCount: number;
+}
+
+const getConversationKey = (
+  tabId: number,
+  folderPath: string | null
+): string => {
+  const safeFolderPath = folderPath || "global";
+  return `${STORAGE_PREFIX}:${tabId}:${safeFolderPath}`;
+};
+
+const saveConversation = async (
+  tabId: number,
+  folderPath: string | null,
+  messages: Message[],
+  isFirstRequest: boolean
+): Promise<boolean> => {
+  try {
+    if (!window.storage) {
+      console.warn("[ChatPanel] window.storage not available");
+      return false;
+    }
+
+    const key = getConversationKey(tabId, folderPath);
+    const data = {
+      messages,
+      isFirstRequest,
+      metadata: {
+        id: key,
+        tabId,
+        folderPath,
+        title: messages[0]?.content.substring(0, 100) || "New Conversation",
+        lastModified: Date.now(),
+        messageCount: messages.length,
+      } as ConversationMetadata,
+    };
+
+    const result = await window.storage.set(key, JSON.stringify(data), false);
+    return !!result;
+  } catch (error) {
+    console.error("[ChatPanel] Failed to save conversation:", error);
+    return false;
+  }
+};
+
+const loadConversation = async (
+  tabId: number,
+  folderPath: string | null
+): Promise<{ messages: Message[]; isFirstRequest: boolean } | null> => {
+  try {
+    if (!window.storage) {
+      console.warn("[ChatPanel] window.storage not available");
+      return null;
+    }
+
+    const key = getConversationKey(tabId, folderPath);
+    const result = await window.storage.get(key, false);
+
+    if (!result || !result.value) {
+      return null;
+    }
+
+    const data = JSON.parse(result.value);
+    return {
+      messages: data.messages || [],
+      isFirstRequest: data.isFirstRequest ?? true,
+    };
+  } catch (error) {
+    console.error("[ChatPanel] Failed to load conversation:", error);
+    return null;
+  }
+};
+
+const deleteConversation = async (
+  tabId: number,
+  folderPath: string | null
+): Promise<boolean> => {
+  try {
+    if (!window.storage) {
+      return false;
+    }
+
+    const key = getConversationKey(tabId, folderPath);
+    const result = await window.storage.delete(key, false);
+    return !!result;
+  } catch (error) {
+    console.error("[ChatPanel] Failed to delete conversation:", error);
+    return false;
+  }
+};
 
 interface TabInfo {
   tabId: number;
@@ -43,20 +142,66 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isFirstRequest, setIsFirstRequest] = useState(true);
   const [checkpoints, setCheckpoints] = useState<string[]>([]);
+  const [isLoadingConversation, setIsLoadingConversation] = useState(true);
+
+  // 🆕 Auto-save conversation khi có thay đổi
+  useEffect(() => {
+    if (!isLoadingConversation && messages.length > 0) {
+      const timeoutId = setTimeout(() => {
+        saveConversation(
+          selectedTab.tabId,
+          selectedTab.folderPath || null,
+          messages,
+          isFirstRequest
+        ).then((success) => {
+          if (success) {
+            console.log("[ChatPanel] ✅ Auto-saved conversation");
+          }
+        });
+      }, 1000); // Debounce 1s
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    messages,
+    isFirstRequest,
+    isLoadingConversation,
+    selectedTab.tabId,
+    selectedTab.folderPath,
+  ]);
+
+  // 🆕 Load conversation khi mount
+  useEffect(() => {
+    const loadExistingConversation = async () => {
+      setIsLoadingConversation(true);
+
+      const saved = await loadConversation(
+        selectedTab.tabId,
+        selectedTab.folderPath || null
+      );
+
+      if (saved && saved.messages.length > 0) {
+        console.log(
+          "[ChatPanel] ✅ Loaded saved conversation:",
+          saved.messages.length,
+          "messages"
+        );
+        setMessages(saved.messages);
+        setIsFirstRequest(saved.isFirstRequest);
+      } else {
+        console.log("[ChatPanel] 📝 Starting new conversation");
+        setMessages([]);
+        setIsFirstRequest(true);
+      }
+
+      setIsLoadingConversation(false);
+    };
+
+    loadExistingConversation();
+  }, [selectedTab.tabId, selectedTab.folderPath]);
 
   useEffect(() => {
     const handleIncomingMessage = (data: any) => {
-      // 🆕 LOG: Debug all messages received by ChatPanel
-      console.log(`[ChatPanel] 📨 RECEIVED message:`, {
-        type: data.type,
-        hasRequestId: !!data.requestId,
-        requestId: data.requestId,
-        success: data.success,
-        hasResponse: !!data.response,
-        hasError: !!data.error,
-        timestamp: data.timestamp,
-      });
-
       if (data.type === "promptResponse") {
         const timeoutId = (window as any).__chatPanelTimeoutId;
         if (timeoutId) {
@@ -65,70 +210,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
 
         if (data.success && data.response) {
-          console.log(`[ChatPanel] ✅ Processing SUCCESS response:`, {
-            requestId: data.requestId,
-            responseLength: data.response?.length,
-            responsePreview: data.response?.substring(0, 100),
-          });
-
           try {
-            // 🆕 Import ResponseParser
-            const {
-              parseAIResponse,
-              formatActionForDisplay,
-            } = require("../../services/ResponseParser");
-
             // Parse OpenAI response format
             const parsedResponse = JSON.parse(data.response);
             const rawContent =
               parsedResponse?.choices?.[0]?.delta?.content || data.response;
 
-            console.log(`[ChatPanel] 📝 Parsed response content:`, {
-              contentLength: rawContent?.length,
-              contentPreview: rawContent?.substring(0, 100),
-            });
-
-            // 🆕 Parse response to extract actions
-            const parsed = parseAIResponse(rawContent);
-
-            // 🆕 Check for file operations to create checkpoints
-            const hasFileOperation = parsed.actions.some(
-              (action: { type: string }) =>
-                action.type === "file_edit" ||
-                action.type === "file_add" ||
-                action.type === "file_read"
-            );
-
-            if (hasFileOperation) {
-              setCheckpoints((prev) => [...prev, `checkpoint-${Date.now()}`]);
-            }
-
-            // 🆕 Format content with actions
-            const formattedContent = parsed.actions
-              .map((action: any) => formatActionForDisplay(action))
-              .join("\n\n");
-
-            // Add AI response to messages
+            // 🆕 Just add raw content to messages, ChatBody will handle parsing
             const aiMessage: Message = {
               id: `msg-${Date.now()}-assistant`,
               role: "assistant",
-              content: formattedContent,
+              content: rawContent,
               timestamp: Date.now(),
             };
 
-            console.log(`[ChatPanel] ➕ ADDING AI message to state:`, {
-              messageId: aiMessage.id,
-              contentLength: aiMessage.content.length,
-              currentMessageCount: messages.length,
-            });
-
             setMessages((prev) => {
               const newMessages = [...prev, aiMessage];
-              console.log(`[ChatPanel] 🔄 Messages state UPDATED:`, {
-                previousCount: prev.length,
-                newCount: newMessages.length,
-                lastMessageRole: newMessages[newMessages.length - 1]?.role,
-              });
               return newMessages;
             });
             setIsProcessing(false);
@@ -147,10 +244,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               content: data.response,
               timestamp: Date.now(),
             };
-
-            console.log(
-              `[ChatPanel] 🔄 Using FALLBACK raw response as message`
-            );
 
             setMessages((prev) => [...prev, aiMessage]);
             setIsProcessing(false);
@@ -395,6 +488,19 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
       contextSize: content.length,
     };
 
+    // 🆕 Save conversation immediately (before waiting for response)
+    const updatedMessages = [...messages, userMessage];
+    saveConversation(
+      selectedTab.tabId,
+      selectedTab.folderPath || null,
+      updatedMessages,
+      isFirstRequest
+    ).then((success) => {
+      if (success) {
+        console.log("[ChatPanel] ✅ Saved conversation (pre-response)");
+      }
+    });
+
     setMessages((prev) => [...prev, userMessage]);
     setIsProcessing(true);
 
@@ -447,9 +553,170 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
     (window as any).__chatPanelTimeoutId = timeoutId;
   };
 
+  // 🆕 Handler cho New Chat
+  const handleNewChat = useCallback(async () => {
+    const confirmed = window.confirm(
+      "Start a new conversation? Current conversation will be saved."
+    );
+
+    if (confirmed) {
+      // Save current conversation
+      if (messages.length > 0) {
+        await saveConversation(
+          selectedTab.tabId,
+          selectedTab.folderPath || null,
+          messages,
+          isFirstRequest
+        );
+      }
+
+      // Reset state
+      setMessages([]);
+      setIsFirstRequest(true);
+      setIsProcessing(false);
+      console.log("[ChatPanel] ✅ Started new conversation");
+    }
+  }, [messages, isFirstRequest, selectedTab.tabId, selectedTab.folderPath]);
+
+  // 🆕 Handler cho Clear Chat
+  const handleClearChat = useCallback(async () => {
+    const confirmed = window.confirm(
+      "Delete this conversation permanently? This cannot be undone."
+    );
+
+    if (confirmed) {
+      await deleteConversation(
+        selectedTab.tabId,
+        selectedTab.folderPath || null
+      );
+      setMessages([]);
+      setIsFirstRequest(true);
+      setIsProcessing(false);
+      console.log("[ChatPanel] ✅ Cleared conversation");
+    }
+  }, [selectedTab.tabId, selectedTab.folderPath]);
+
   return (
     <div className="chat-panel">
-      <ChatHeader selectedTab={selectedTab} onBack={onBack} />
+      {/* 🆕 Chat Header with actions */}
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 100,
+          backgroundColor: "var(--secondary-bg)",
+          borderBottom: "1px solid var(--border-color)",
+          padding: "var(--spacing-sm) var(--spacing-lg)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--spacing-sm)",
+          }}
+        >
+          <div
+            style={{
+              cursor: "pointer",
+              padding: "var(--spacing-xs)",
+              borderRadius: "var(--border-radius)",
+              transition: "background-color 0.2s",
+            }}
+            onClick={onBack}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+            }}
+            title="Back to tabs"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </div>
+          <span
+            style={{
+              fontSize: "var(--font-size-md)",
+              fontWeight: 600,
+              color: "var(--primary-text)",
+            }}
+          >
+            {selectedTab.containerName}
+          </span>
+          {isLoadingConversation && (
+            <span
+              style={{
+                fontSize: "var(--font-size-xs)",
+                color: "var(--secondary-text)",
+              }}
+            >
+              Loading...
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: "flex", gap: "var(--spacing-xs)" }}>
+          <button
+            style={{
+              padding: "var(--spacing-xs) var(--spacing-sm)",
+              fontSize: "var(--font-size-sm)",
+              backgroundColor: "transparent",
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--border-radius)",
+              color: "var(--primary-text)",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+            onClick={handleNewChat}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+            }}
+            title="Start new conversation"
+          >
+            New Chat
+          </button>
+          <button
+            style={{
+              padding: "var(--spacing-xs) var(--spacing-sm)",
+              fontSize: "var(--font-size-sm)",
+              backgroundColor: "transparent",
+              border: "1px solid var(--error-color)",
+              borderRadius: "var(--border-radius)",
+              color: "var(--error-color)",
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+            onClick={handleClearChat}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--error-color)";
+              e.currentTarget.style.color = "white";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "var(--error-color)";
+            }}
+            title="Delete conversation"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
       <ChatBody
         messages={messages}
         isProcessing={isProcessing}

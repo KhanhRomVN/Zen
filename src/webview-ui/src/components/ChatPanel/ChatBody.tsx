@@ -1,4 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
+import {
+  parseAIResponse,
+  formatActionForDisplay,
+  type ParsedResponse,
+  type TaskProgressItem,
+  type ToolAction,
+} from "../../services/ResponseParser";
 
 interface Message {
   id: string;
@@ -25,6 +32,8 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     new Set()
   );
+  const [initialRequestCollapsed, setInitialRequestCollapsed] = useState(false);
+  const [taskProgressCollapsed, setTaskProgressCollapsed] = useState(true);
 
   // Auto-scroll to bottom khi có message mới
   useEffect(() => {
@@ -164,17 +173,167 @@ const ChatBody: React.FC<ChatBodyProps> = ({
     });
   };
 
+  // 🆕 Aggregate all task progress from all messages
+  const allTaskProgress: TaskProgressItem[] = [];
+  messages.forEach((msg) => {
+    const parsed = parseAIResponse(msg.content);
+    if (parsed.taskProgress) {
+      allTaskProgress.push(...parsed.taskProgress);
+    }
+    parsed.actions.forEach((action) => {
+      if (action.taskProgress) {
+        allTaskProgress.push(...action.taskProgress);
+      }
+    });
+  });
+
+  const completedTasks = allTaskProgress.filter((t) => t.completed).length;
+  const totalTasks = allTaskProgress.length;
+  const currentTask = allTaskProgress.find((t) => !t.completed);
+
   return (
     <div
       style={{
         flex: 1,
         overflowY: "auto",
         padding: "var(--spacing-lg)",
+        paddingTop: totalTasks > 0 ? "160px" : "60px",
         display: "flex",
         flexDirection: "column",
         gap: "var(--spacing-md)",
       }}
     >
+      {/* 🆕 Fixed Global Task Progress */}
+      {totalTasks > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            top: "60px",
+            left: 0,
+            right: 0,
+            zIndex: 9,
+            backgroundColor: "var(--primary-bg)",
+            borderBottom: "1px solid var(--border-color)",
+            padding: "var(--spacing-md) var(--spacing-lg)",
+            cursor: "pointer",
+          }}
+          onClick={() => setTaskProgressCollapsed(!taskProgressCollapsed)}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: taskProgressCollapsed ? 0 : "var(--spacing-sm)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--spacing-xs)",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "var(--font-size-sm)",
+                  fontWeight: 600,
+                  color: "var(--accent-text)",
+                }}
+              >
+                📋 TASK PROGRESS
+              </span>
+              {taskProgressCollapsed && currentTask && (
+                <span
+                  style={{
+                    fontSize: "var(--font-size-xs)",
+                    color: "var(--primary-text)",
+                    marginLeft: "var(--spacing-sm)",
+                  }}
+                >
+                  {currentTask.text.length > 50
+                    ? currentTask.text.substring(0, 50) + "..."
+                    : currentTask.text}
+                </span>
+              )}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--spacing-sm)",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--secondary-text)",
+                }}
+              >
+                {completedTasks}/{totalTasks}
+              </span>
+              <span
+                style={{
+                  fontSize: "12px",
+                  transition: "transform 0.2s",
+                  transform: taskProgressCollapsed
+                    ? "rotate(0deg)"
+                    : "rotate(180deg)",
+                }}
+              >
+                ▼
+              </span>
+            </div>
+          </div>
+
+          {/* Task List */}
+          {!taskProgressCollapsed && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--spacing-xs)",
+                maxHeight: "120px",
+                overflowY: "auto",
+              }}
+            >
+              {allTaskProgress.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--spacing-xs)",
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--primary-text)",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      color: item.completed
+                        ? "var(--success-color)"
+                        : "var(--secondary-text)",
+                    }}
+                  >
+                    {item.completed ? "✅" : "⬜"}
+                  </span>
+                  <span
+                    style={{
+                      textDecoration: item.completed ? "line-through" : "none",
+                      opacity: item.completed ? 0.7 : 1,
+                    }}
+                  >
+                    {item.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {messages.map((message, index) => {
         // 🆕 Render first request specially
         if (message.role === "user" && message.isFirstRequest) {
@@ -183,89 +342,70 @@ const ChatBody: React.FC<ChatBodyProps> = ({
 
           return (
             <React.Fragment key={message.id}>
-              {/* 🆕 First Request Section */}
+              {/* 🆕 Fixed Initial Request Section */}
               <div
                 style={{
-                  padding: "var(--spacing-lg)",
-                  backgroundColor: "var(--primary-bg)",
-                  border: "2px solid var(--accent-text)",
-                  borderRadius: "var(--border-radius-lg)",
+                  position: "sticky",
+                  top: 0,
+                  zIndex: 10,
+                  backgroundColor: "var(--input-bg)",
+                  padding: "var(--spacing-md)",
+                  borderRadius: "var(--border-radius)",
+                  marginBottom: "var(--spacing-md)",
+                  cursor: "pointer",
                 }}
+                onClick={() =>
+                  setInitialRequestCollapsed(!initialRequestCollapsed)
+                }
               >
-                {/* Header */}
+                {/* Header with context info */}
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: "var(--spacing-sm)",
-                    marginBottom: "var(--spacing-md)",
-                    paddingBottom: "var(--spacing-sm)",
-                    borderBottom: "1px solid var(--border-color)",
+                    justifyContent: "space-between",
+                    marginBottom: initialRequestCollapsed
+                      ? 0
+                      : "var(--spacing-sm)",
                   }}
                 >
-                  <span style={{ fontSize: "20px" }}>🎯</span>
                   <span
                     style={{
-                      fontSize: "var(--font-size-md)",
-                      fontWeight: 600,
-                      color: "var(--accent-text)",
-                    }}
-                  >
-                    Initial Request
-                  </span>
-                  <span
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: "var(--font-size-xs)",
+                      fontSize: "var(--font-size-sm)",
                       color: "var(--secondary-text)",
-                      padding: "2px 8px",
-                      backgroundColor: "var(--secondary-bg)",
-                      borderRadius: "var(--border-radius)",
+                      fontWeight: 600,
                     }}
                   >
-                    📏 {message.contextSize?.toLocaleString() || 0} chars
+                    {message.content.length}/{message.contextSize || 0}
                   </span>
                   <div
                     style={{
-                      cursor: "pointer",
-                      padding: "4px",
-                      borderRadius: "var(--border-radius)",
-                      transition: "background-color 0.2s",
+                      fontSize: "12px",
+                      transition: "transform 0.2s",
+                      transform: initialRequestCollapsed
+                        ? "rotate(0deg)"
+                        : "rotate(180deg)",
                     }}
-                    onClick={() => copyToClipboard(message.content)}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "transparent";
-                    }}
-                    title="Copy request"
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                    </svg>
+                    ▼
                   </div>
                 </div>
 
                 {/* Content */}
-                <div
-                  style={{
-                    fontSize: "var(--font-size-md)",
-                    color: "var(--primary-text)",
-                    lineHeight: 1.6,
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {message.content}
-                </div>
+                {!initialRequestCollapsed && (
+                  <div
+                    style={{
+                      fontSize: "var(--font-size-sm)",
+                      color: "var(--primary-text)",
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                      maxHeight: "120px",
+                      overflowY: "auto",
+                    }}
+                  >
+                    {message.content}
+                  </div>
+                )}
               </div>
 
               {/* 🆕 Divider Checkpoint */}
@@ -416,51 +556,127 @@ const ChatBody: React.FC<ChatBodyProps> = ({
           );
         }
 
-        // 🆕 Regular messages
+        // 🆕 Regular messages - Parse and display
+        const parsedContent = parseAIResponse(message.content);
+
         return (
           <div
             key={message.id}
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: "var(--spacing-xs)",
-              padding: "var(--spacing-md)",
-              borderRadius: "var(--border-radius)",
-              backgroundColor:
-                message.role === "user"
-                  ? "var(--input-bg)"
-                  : "var(--secondary-bg)",
-              border: "1px solid var(--border-color)",
-              maxWidth: "100%",
-              wordWrap: "break-word",
+              gap: "var(--spacing-md)",
+              marginBottom: "var(--spacing-md)",
             }}
           >
+            {/* Message Header + Content */}
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
+                flexDirection: "column",
                 gap: "var(--spacing-xs)",
-                fontSize: "var(--font-size-xs)",
-                color: "var(--secondary-text)",
-                fontWeight: 600,
+                padding: "var(--spacing-md)",
+                borderRadius: "var(--border-radius)",
+                backgroundColor:
+                  message.role === "user"
+                    ? "var(--input-bg)"
+                    : "var(--secondary-bg)",
+                border: "1px solid var(--border-color)",
               }}
             >
-              <span>{message.role === "user" ? "👤" : "🤖"}</span>
-              <span>{message.role === "user" ? "You" : "AI Assistant"}</span>
-              <span style={{ marginLeft: "auto" }}>
-                {new Date(message.timestamp).toLocaleTimeString()}
-              </span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--spacing-xs)",
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--secondary-text)",
+                  fontWeight: 600,
+                }}
+              >
+                <span>{message.role === "user" ? "👤" : "🤖"}</span>
+                <span>{message.role === "user" ? "You" : "AI Assistant"}</span>
+                <span style={{ marginLeft: "auto" }}>
+                  {new Date(message.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
+
+              {/* Main text content (thinking or cleaned text) */}
+              {parsedContent.displayText && (
+                <div
+                  style={{
+                    fontSize: "var(--font-size-md)",
+                    color: "var(--primary-text)",
+                    lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {parsedContent.displayText}
+                </div>
+              )}
             </div>
-            <div
-              style={{
-                fontSize: "var(--font-size-md)",
-                color: "var(--primary-text)",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {message.content}
-            </div>
+
+            {/* Tool Actions */}
+            {parsedContent.actions.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "var(--spacing-xs)",
+                }}
+              >
+                {parsedContent.actions.map((action, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "var(--spacing-md)",
+                      backgroundColor: "var(--tertiary-bg)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: "var(--border-radius)",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                    onClick={() => {
+                      // TODO: Handle action click (e.g., show file content, execute command, etc.)
+                      console.log("Action clicked:", action);
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+                      e.currentTarget.style.borderColor = "var(--accent-text)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "var(--tertiary-bg)";
+                      e.currentTarget.style.borderColor = "var(--border-color)";
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "var(--font-size-sm)",
+                        color: "var(--primary-text)",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {formatActionForDisplay(action)}
+                    </span>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      style={{ opacity: 0.5 }}
+                    >
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}

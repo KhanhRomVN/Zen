@@ -12,6 +12,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _wsManager: SingletonWSManager;
   private _contextManager: ContextManager;
   private _agentManager?: AgentCapabilityManager;
+  private _extensionContext?: vscode.ExtensionContext;
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._contextManager = new ContextManager();
@@ -97,7 +98,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
     this._updateTheme(webviewView.webview);
 
-    webviewView.webview.onDidReceiveMessage((message) => {
+    webviewView.webview.onDidReceiveMessage(async (message) => {
       if (message.command === "getWorkspacePort") {
         webviewView.webview.postMessage({
           command: "workspacePort",
@@ -142,6 +143,82 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
                 },
               });
             });
+        }
+      } else if (message.command === "storageGet") {
+        // Handle storage.get from webview
+        try {
+          const value = this._extensionContext!.globalState.get(message.key);
+          webviewView.webview.postMessage({
+            command: "storageGetResponse",
+            requestId: message.requestId,
+            key: message.key,
+            value: value || null,
+          });
+        } catch (error) {
+          webviewView.webview.postMessage({
+            command: "storageGetResponse",
+            requestId: message.requestId,
+            key: message.key,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      } else if (message.command === "storageSet") {
+        // Handle storage.set from webview
+        try {
+          await this._extensionContext!.globalState.update(
+            message.key,
+            message.value
+          );
+          webviewView.webview.postMessage({
+            command: "storageSetResponse",
+            requestId: message.requestId,
+            success: true,
+          });
+        } catch (error) {
+          webviewView.webview.postMessage({
+            command: "storageSetResponse",
+            requestId: message.requestId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      } else if (message.command === "storageDelete") {
+        // Handle storage.delete from webview
+        try {
+          await this._extensionContext!.globalState.update(
+            message.key,
+            undefined
+          );
+          webviewView.webview.postMessage({
+            command: "storageDeleteResponse",
+            requestId: message.requestId,
+            success: true,
+          });
+        } catch (error) {
+          webviewView.webview.postMessage({
+            command: "storageDeleteResponse",
+            requestId: message.requestId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      } else if (message.command === "storageList") {
+        // Handle storage.list from webview
+        try {
+          const allKeys = this._extensionContext!.globalState.keys();
+          const prefix = message.prefix || "";
+          const filteredKeys = prefix
+            ? allKeys.filter((key: string) => key.startsWith(prefix))
+            : allKeys;
+          webviewView.webview.postMessage({
+            command: "storageListResponse",
+            requestId: message.requestId,
+            keys: filteredKeys,
+          });
+        } catch (error) {
+          webviewView.webview.postMessage({
+            command: "storageListResponse",
+            requestId: message.requestId,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       } else if (message.command === "requestContext") {
         // Handle context request from webview
@@ -264,12 +341,17 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       this._view.webview.postMessage(message);
     }
   }
+
+  public setExtensionContext(context: vscode.ExtensionContext): void {
+    this._extensionContext = context;
+  }
 }
 
 let activeProvider: ZenChatViewProvider | null = null;
 
 export function activate(context: vscode.ExtensionContext) {
   const provider = new ZenChatViewProvider(context.extensionUri);
+  provider.setExtensionContext(context);
   activeProvider = provider;
 
   context.subscriptions.push(

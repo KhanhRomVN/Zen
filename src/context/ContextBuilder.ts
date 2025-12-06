@@ -77,8 +77,6 @@ ${fileTree}
 # Context Window Usage
 0 / 128K tokens used (0%)
 
-# Current Mode
-ACT MODE
 </environment_details>`;
 
     return context;
