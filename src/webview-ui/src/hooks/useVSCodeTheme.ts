@@ -37,9 +37,9 @@ export const useVSCodeTheme = () => {
 
     // Không cần yêu cầu theme vì extension sẽ tự động gửi khi khởi tạo
     // Có thể gửi request nếu muốn
-    if (window.acquireVsCodeApi) {
+    const vscode = (window as any).vscodeApi;
+    if (vscode) {
       try {
-        const vscode = window.acquireVsCodeApi();
         vscode.postMessage({ command: "ready" });
       } catch (error) {
         // VS Code API not available in development

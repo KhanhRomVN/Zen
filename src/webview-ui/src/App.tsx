@@ -19,15 +19,44 @@ interface TabInfo {
 }
 
 // CRITICAL: VS Code API chỉ có thể acquire một lần duy nhất
-let vscodeApi: any = null;
-try {
-  vscodeApi = (window as any).acquireVsCodeApi();
-  // 🆕 Expose globally for other components
-  (window as any).vscodeApi = vscodeApi;
-} catch (error) {
-  // VS Code API not available or already acquired
-  console.warn("[App] ⚠️ Could not acquire VS Code API:", error);
-}
+// 🔥 FIX: Dùng IIFE để đảm bảo chỉ chạy một lần duy nhất
+const getVSCodeApi = (() => {
+  let api: any = null;
+  let initialized = false;
+
+  return () => {
+    if (initialized) {
+      return api;
+    }
+
+    try {
+      // 🔥 CHECK: Nếu đã có global instance, sử dụng luôn
+      if ((window as any).vscodeApi) {
+        console.log("[App] ✅ Using existing VS Code API instance");
+        api = (window as any).vscodeApi;
+      } else {
+        console.log("[App] 🆕 Acquiring VS Code API for the first time");
+        api = (window as any).acquireVsCodeApi();
+        // 🆕 Expose globally for other components
+        (window as any).vscodeApi = api;
+        console.log("[App] ✅ VS Code API acquired and exposed globally");
+      }
+    } catch (error) {
+      // VS Code API not available or already acquired
+      console.error("[App] ❌ Could not acquire VS Code API:", error);
+      // 🔥 Try to use existing instance if available
+      if ((window as any).vscodeApi) {
+        console.warn("[App] ⚠️ Using existing global instance despite error");
+        api = (window as any).vscodeApi;
+      }
+    }
+
+    initialized = true;
+    return api;
+  };
+})();
+
+const vscodeApi = getVSCodeApi();
 
 const App: React.FC = () => {
   useVSCodeTheme();

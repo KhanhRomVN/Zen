@@ -72,7 +72,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   const handleSend = () => {
     if (message.trim() || uploadedFiles.length > 0) {
       // Send permissions update to extension
-      const vscodeApi = (window as any).acquireVsCodeApi?.();
+      const vscodeApi = (window as any).vscodeApi;
       if (vscodeApi) {
         vscodeApi.postMessage({
           command: "updateAgentPermissions",

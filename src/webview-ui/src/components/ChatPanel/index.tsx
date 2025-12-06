@@ -19,6 +19,9 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: number;
+  isFirstRequest?: boolean;
+  systemPrompt?: string;
+  contextSize?: number;
 }
 
 interface ChatPanelProps {
@@ -38,6 +41,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isFirstRequest, setIsFirstRequest] = useState(true);
+  const [checkpoints, setCheckpoints] = useState<string[]>([]);
 
   useEffect(() => {
     const handleIncomingMessage = (data: any) => {
@@ -50,16 +55,42 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
         if (data.success && data.response) {
           try {
+            // 🆕 Import ResponseParser
+            const {
+              parseAIResponse,
+              formatActionForDisplay,
+            } = require("../../services/ResponseParser");
+
             // Parse OpenAI response format
             const parsedResponse = JSON.parse(data.response);
-            const content =
+            const rawContent =
               parsedResponse?.choices?.[0]?.delta?.content || data.response;
+
+            // 🆕 Parse response to extract actions
+            const parsed = parseAIResponse(rawContent);
+
+            // 🆕 Check for file operations to create checkpoints
+            const hasFileOperation = parsed.actions.some(
+              (action: { type: string }) =>
+                action.type === "file_edit" ||
+                action.type === "file_add" ||
+                action.type === "file_read"
+            );
+
+            if (hasFileOperation) {
+              setCheckpoints((prev) => [...prev, `checkpoint-${Date.now()}`]);
+            }
+
+            // 🆕 Format content with actions
+            const formattedContent = parsed.actions
+              .map((action: any) => formatActionForDisplay(action))
+              .join("\n\n");
 
             // Add AI response to messages
             const aiMessage: Message = {
               id: `msg-${Date.now()}-assistant`,
               role: "assistant",
-              content: content,
+              content: formattedContent,
               timestamp: Date.now(),
             };
 
@@ -148,15 +179,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     agentOptions?: any
   ) => {
     const requestId = `ctx-${Date.now()}`;
+    const originalUserMessage = content; // 🆕 Store original user message
+    let systemPrompt: string | null = null; // 🆕 Store system prompt
 
     // Send agent permissions update to extension
     if (agentOptions) {
-      const vscodeApi = (window as any).acquireVsCodeApi?.();
+      const vscodeApi = (window as any).vscodeApi;
       if (vscodeApi) {
         vscodeApi.postMessage({
           command: "updateAgentPermissions",
           permissions: agentOptions,
         });
+      }
+    }
+
+    // 🆕 Get DEFAULT_RULE_PROMPT for first request only
+    if (isFirstRequest) {
+      try {
+        const {
+          combinePrompts,
+        } = require("../../components/SettingsPanel/prompts");
+        systemPrompt = combinePrompts();
+      } catch (error) {
+        console.error(`[ChatPanel] ❌ Failed to load rule prompt:`, error);
       }
     }
 
@@ -195,8 +240,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
       try {
         const contextString = await contextPromise;
-        // Update content with context
-        content = contextString;
+        // 🆕 Combine system prompt + context + user message for first request
+        if (isFirstRequest && systemPrompt) {
+          content = `${systemPrompt}\n\n${contextString}\n\nUser Request: ${originalUserMessage}`;
+        } else {
+          content = contextString;
+        }
       } catch (error) {
         console.error(`[ChatPanel] ❌ Failed to get context:`, error);
         // Continue without context
@@ -284,18 +333,25 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
     const userMessage: Message = {
       id: `msg-${Date.now()}-user`,
       role: "user",
-      content: content,
+      content: originalUserMessage,
       timestamp: Date.now(),
+      isFirstRequest: isFirstRequest,
+      systemPrompt: isFirstRequest ? systemPrompt || undefined : undefined,
+      contextSize: content.length,
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setIsProcessing(true);
 
+    if (isFirstRequest) {
+      setIsFirstRequest(false);
+    }
+
     // Send via WebSocket (will be forwarded to ZenTab)
     const sendPromptMessage = {
       type: "sendPrompt",
       tabId: selectedTab.tabId,
-      systemPrompt: null,
+      systemPrompt: isFirstRequest ? systemPrompt : null, // 🆕 Only send system prompt on first request
       userPrompt: content,
       requestId: `req-${Date.now()}`,
       isNewTask: false,
@@ -340,7 +396,11 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
   return (
     <div className="chat-panel">
       <ChatHeader selectedTab={selectedTab} onBack={onBack} />
-      <ChatBody messages={messages} isProcessing={isProcessing} />
+      <ChatBody
+        messages={messages}
+        isProcessing={isProcessing}
+        checkpoints={checkpoints}
+      />
       <ChatFooter
         onSendMessage={handleSendMessage}
         wsConnected={wsConnected}
