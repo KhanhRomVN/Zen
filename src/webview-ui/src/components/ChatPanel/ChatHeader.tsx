@@ -114,6 +114,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
       {/* Fixed Box - First Request + Task Progress */}
       {(totalTasks > 0 || firstRequestMessage) && (
         <div
+          data-fixed-header="true"
           style={{
             position: "fixed",
             top: "0",
@@ -129,27 +130,32 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             <div
               style={{
                 borderBottom: "1px solid var(--border-color)",
+                backgroundColor: "var(--primary-bg)",
+                padding: "var(--spacing-md)",
+                cursor: "pointer",
               }}
+              onClick={() =>
+                setInitialRequestCollapsed(!initialRequestCollapsed)
+              }
             >
-              {/* Header with icons */}
+              {/* Initial Request Display with Header */}
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "var(--spacing-sm) var(--spacing-md)",
-                  backgroundColor: "var(--secondary-bg)",
-                  borderBottom: initialRequestCollapsed
-                    ? "none"
-                    : "1px solid var(--border-color)",
+                  position: "relative",
                 }}
               >
+                {/* Header Icons - Positioned at top-left */}
                 <div
                   style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
                     display: "flex",
                     alignItems: "center",
                     gap: "var(--spacing-xs)",
+                    zIndex: 10,
                   }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {/* Toggle Arrow */}
                   <div
@@ -159,6 +165,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                       borderRadius: "var(--border-radius)",
                       transition: "background-color 0.2s",
                       color: "var(--primary-text)",
+                      backgroundColor: "var(--secondary-bg)",
                     }}
                     onClick={() =>
                       setInitialRequestCollapsed(!initialRequestCollapsed)
@@ -167,7 +174,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                       e.currentTarget.style.backgroundColor = "var(--hover-bg)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.backgroundColor =
+                        "var(--secondary-bg)";
                     }}
                   >
                     <svg
@@ -195,13 +203,15 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                       borderRadius: "var(--border-radius)",
                       transition: "background-color 0.2s",
                       color: "var(--primary-text)",
+                      backgroundColor: "var(--secondary-bg)",
                     }}
                     onClick={() => copyToClipboard(firstRequestMessage.content)}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = "var(--hover-bg)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.backgroundColor =
+                        "var(--secondary-bg)";
                     }}
                   >
                     <svg
@@ -216,28 +226,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                     </svg>
                   </div>
-                  <span
-                    style={{
-                      fontSize: "var(--font-size-xs)",
-                      color: "var(--secondary-text)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Initial Request
-                  </span>
                 </div>
-              </div>
 
-              {/* Content area */}
-              <div
-                style={{
-                  padding: "var(--spacing-md)",
-                  paddingTop: "var(--spacing-sm)",
-                  display: initialRequestCollapsed ? "none" : "block",
-                  backgroundColor: "var(--primary-bg)",
-                }}
-              >
-                {/* Initial Request Display */}
+                {/* Message Content */}
                 <div
                   style={{
                     fontSize: "var(--font-size-sm)",
@@ -247,66 +238,71 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     display: "-webkit-box",
-                    WebkitLineClamp: 20,
+                    WebkitLineClamp: initialRequestCollapsed ? 1 : 20,
                     WebkitBoxOrient: "vertical",
-                    maxHeight: "32em",
-                    marginBottom: "var(--spacing-sm)",
+                    maxHeight: initialRequestCollapsed ? "1.6em" : "32em",
+                    paddingLeft: "68px",
+                    marginBottom: initialRequestCollapsed
+                      ? 0
+                      : "var(--spacing-sm)",
                   }}
                 >
                   {firstRequestMessage.content}
                 </div>
 
                 {/* Progress Bar */}
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "var(--font-size-xs)",
-                        color: "var(--secondary-text)",
-                      }}
-                    >
-                      {firstRequestMessage.content.length.toLocaleString()}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "var(--font-size-xs)",
-                        color: "var(--secondary-text)",
-                      }}
-                    >
-                      {firstRequestMessage.contextSize?.toLocaleString() || 0}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      width: "100%",
-                      height: "4px",
-                      backgroundColor: "var(--border-color)",
-                      borderRadius: "2px",
-                      overflow: "hidden",
-                    }}
-                  >
+                {!initialRequestCollapsed && (
+                  <div>
                     <div
                       style={{
-                        width: `${Math.min(
-                          (firstRequestMessage.content.length /
-                            (firstRequestMessage.contextSize || 1)) *
-                            100,
-                          100
-                        )}%`,
-                        height: "100%",
-                        backgroundColor: "var(--accent-text)",
-                        transition: "width 0.3s ease",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "4px",
                       }}
-                    />
+                    >
+                      <span
+                        style={{
+                          fontSize: "var(--font-size-xs)",
+                          color: "var(--secondary-text)",
+                        }}
+                      >
+                        {firstRequestMessage.content.length.toLocaleString()}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "var(--font-size-xs)",
+                          color: "var(--secondary-text)",
+                        }}
+                      >
+                        {firstRequestMessage.contextSize?.toLocaleString() || 0}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "4px",
+                        backgroundColor: "var(--border-color)",
+                        borderRadius: "2px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${Math.min(
+                            (firstRequestMessage.content.length /
+                              (firstRequestMessage.contextSize || 1)) *
+                              100,
+                            100
+                          )}%`,
+                          height: "100%",
+                          backgroundColor: "var(--accent-text)",
+                          transition: "width 0.3s ease",
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}

@@ -36,6 +36,38 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   const [initialRequestCollapsed, setInitialRequestCollapsed] = useState(true);
   const [taskProgressCollapsed, setTaskProgressCollapsed] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  // 🆕 Track Fixed Header height
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      const fixedHeader = document.querySelector(
+        '[data-fixed-header="true"]'
+      ) as HTMLElement;
+      if (fixedHeader) {
+        setHeaderHeight(fixedHeader.offsetHeight);
+      }
+    };
+
+    updateHeaderHeight();
+    window.addEventListener("resize", updateHeaderHeight);
+
+    // Observe DOM changes for expand/collapse
+    const observer = new MutationObserver(updateHeaderHeight);
+    const fixedHeader = document.querySelector('[data-fixed-header="true"]');
+    if (fixedHeader) {
+      observer.observe(fixedHeader, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+    }
+
+    return () => {
+      window.removeEventListener("resize", updateHeaderHeight);
+      observer.disconnect();
+    };
+  }, []);
 
   // 🆕 Memoize parsed messages với cache để tránh parse duplicate
   const parsedMessages = useMemo(() => {
@@ -242,6 +274,8 @@ const ChatBody: React.FC<ChatBodyProps> = ({
         flex: 1,
         overflowY: "auto",
         padding: "var(--spacing-lg)",
+        paddingTop:
+          headerHeight > 0 ? `${headerHeight + 16}px` : "var(--spacing-lg)",
         display: "flex",
         flexDirection: "column",
         gap: "var(--spacing-md)",
