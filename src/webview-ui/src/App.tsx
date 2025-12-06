@@ -82,24 +82,11 @@ const App: React.FC = () => {
       // Update wsInstance immediately
       setWsInstance(ws);
 
-      ws.onopen = () => {
-        console.log(`[App] ✅ WebSocket opened for port ${port}`);
-      };
+      ws.onopen = () => {};
 
       ws.onmessage = (event) => {
-        console.log(`[App] 📨 WebSocket message received:`, {
-          port: port,
-          dataLength: event.data?.length || 0,
-        });
         try {
           const data = JSON.parse(event.data);
-          console.log(`[App] 🔍 Message parsed:`, {
-            type: data.type,
-            hasTimestamp: !!data.timestamp,
-            messageAge: data.timestamp ? Date.now() - data.timestamp : "N/A",
-            folderPath: data.folderPath || "N/A", // 🆕 Log folderPath
-          });
-
           // Ignore old messages
           if (data.timestamp && data.timestamp < connectionTimestamp) {
             console.warn(
@@ -117,12 +104,6 @@ const App: React.FC = () => {
             const currentFolderPath =
               (window as any).__zenWorkspaceFolderPath || null;
 
-            console.log(`[App] 🔍 Folder filtering:`, {
-              messageFolderPath,
-              currentFolderPath,
-              match: messageFolderPath === currentFolderPath,
-            });
-
             // Reject if folderPath doesn't match
             if (messageFolderPath !== currentFolderPath) {
               console.warn(
@@ -133,34 +114,18 @@ const App: React.FC = () => {
                   requestId: data.requestId,
                 }
               );
-              return; // ← Ignore this message
+              return;
             }
-
-            console.log(`[App] ✅ promptResponse accepted (folderPath match)`);
           }
 
-          // 🔥 CRITICAL FIX: Forward ALL messages to child component FIRST
-          console.log(`[App] 🔄 Forwarding message to child component:`, {
-            type: data.type,
-            hasChatPanelHandler: !!(window as any).__chatPanelMessageHandler,
-            selectedTab: selectedTab?.tabId,
-          });
-
           if ((window as any).__chatPanelMessageHandler) {
-            console.log(
-              `[App] 📤 Calling ChatPanel handler for type: ${data.type}`
-            );
             (window as any).__chatPanelMessageHandler(data);
           } else {
-            console.log(
-              `[App] 📤 Calling useZenTabConnection handler for type: ${data.type}`
-            );
             handleMessageRef.current(data);
           }
 
           // Then handle system messages for App state
           if (data.type === "connection-established") {
-            console.log(`[App] ✅ Connection established`);
             setWsConnected(true);
             if (ws && ws.readyState === WebSocket.OPEN) {
               ws.send(
@@ -171,7 +136,6 @@ const App: React.FC = () => {
               );
             }
           } else if (data.type === "ping") {
-            console.log(`[App] 🏓 Ping received, sending pong`);
             if (ws && ws.readyState === WebSocket.OPEN) {
               ws.send(
                 JSON.stringify({
@@ -181,24 +145,13 @@ const App: React.FC = () => {
               );
             }
           } else if (data.type === "response" || data.type === "pong") {
-            console.log(`[App] ✅ Response/Pong received`);
             setWsConnected(true);
           } else if (data.type === "focusedTabsUpdate") {
-            console.log(`[App] 📋 Tabs update:`, {
-              tabCount: Array.isArray(data.data) ? data.data.length : 0,
-            });
             if (Array.isArray(data.data) && data.data.length === 0) {
               setWsConnected(false);
             } else if (Array.isArray(data.data) && data.data.length > 0) {
               setWsConnected(true);
             }
-          } else if (data.type === "promptResponse") {
-            console.log(`[App] 💬 promptResponse received:`, {
-              requestId: data.requestId,
-              success: data.success,
-              hasResponse: !!data.response,
-              error: data.error,
-            });
           }
         } catch (error) {
           console.error(`[App] ❌ Error parsing message:`, error);
@@ -207,7 +160,6 @@ const App: React.FC = () => {
       };
 
       ws.onclose = (event) => {
-        console.log(`[App] 🔌 WebSocket closed for port ${currentPort}`);
         if (activePortRef.current === currentPort) {
           setWsConnected(false);
           setWsInstance(null);
@@ -231,9 +183,7 @@ const App: React.FC = () => {
     }
 
     return () => {
-      // 🔥 CRITICAL: KHÔNG close WebSocket khi component unmount
       // Chỉ close khi port thay đổi
-      console.log(`[App] 🧹 WebSocket cleanup called (port: ${currentPort})`);
     };
   }, [port]); // ✅ REMOVED handleMessage dependency
 
@@ -247,7 +197,6 @@ const App: React.FC = () => {
     const messageHandler = (event: MessageEvent) => {
       const message = event.data;
       if (message.command === "workspacePort" && message.port) {
-        console.log(`[App] 📡 Received port from VS Code:`, message.port);
         activePortRef.current = message.port;
         setPort(message.port);
         window.removeEventListener("message", messageHandler);
@@ -303,6 +252,7 @@ const App: React.FC = () => {
           tabs={tabs}
           wsConnected={wsConnected}
           port={port}
+          wsInstance={wsInstance}
         />
       )}
       {!showHistory && !showSettings && selectedTab && (

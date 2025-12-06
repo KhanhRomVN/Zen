@@ -9,6 +9,7 @@ interface TabInfo {
   canAccept: boolean;
   requestCount: number;
   folderPath?: string | null;
+  provider?: "deepseek" | "chatgpt" | "gemini" | "grok" | "claude";
 }
 
 /**
@@ -68,6 +69,7 @@ export const useZenTabConnection = () => {
               canAccept: tab.canAccept !== undefined ? tab.canAccept : true,
               requestCount: tab.requestCount || 0,
               folderPath: tab.folderPath || null,
+              provider: tab.provider || undefined,
             };
           });
 

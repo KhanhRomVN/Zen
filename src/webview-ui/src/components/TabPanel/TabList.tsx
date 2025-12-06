@@ -9,6 +9,8 @@ interface TabInfo {
   canAccept: boolean;
   requestCount: number;
   folderPath?: string | null;
+  provider?: "deepseek" | "chatgpt" | "gemini" | "grok" | "claude";
+  cookieStoreId?: string;
 }
 
 interface TabListProps {
@@ -21,12 +23,6 @@ const TabList: React.FC<TabListProps> = ({ tabs, onTabSelect }) => {
     if (status === "busy") return "bg-yellow-500";
     if (status === "sleep") return "bg-purple-500";
     return "bg-green-500";
-  };
-
-  const getStatusIcon = (status: string): string => {
-    if (status === "busy") return "⏳";
-    if (status === "sleep") return "💤";
-    return "✅";
   };
 
   const getStatusBadge = (status: string): string => {
@@ -53,18 +49,67 @@ const TabList: React.FC<TabListProps> = ({ tabs, onTabSelect }) => {
         >
           🔌
         </div>
-        <p>No DeepSeek tabs detected</p>
+        <p>No AI tabs detected</p>
         <p
           style={{
             fontSize: "var(--font-size-xs)",
             marginTop: "var(--spacing-xs)",
           }}
         >
-          Open https://chat.deepseek.com/ in ZenTab to see active tabs
+          Open AI chat websites to see active tabs
         </p>
       </div>
     );
   }
+
+  const getProviderInfo = (
+    provider?: "deepseek" | "chatgpt" | "gemini" | "grok" | "claude"
+  ): { name: string; emoji: string; bgColor: string; textColor: string } => {
+    switch (provider) {
+      case "deepseek":
+        return {
+          name: "DeepSeek",
+          emoji: "🤖",
+          bgColor: "rgba(59, 130, 246, 0.1)",
+          textColor: "#3b82f6",
+        };
+      case "chatgpt":
+        return {
+          name: "ChatGPT",
+          emoji: "💬",
+          bgColor: "rgba(16, 185, 129, 0.1)",
+          textColor: "#10b981",
+        };
+      case "claude":
+        return {
+          name: "Claude",
+          emoji: "🧠",
+          bgColor: "rgba(245, 158, 11, 0.1)",
+          textColor: "#f59e0b",
+        };
+      case "gemini":
+        return {
+          name: "Gemini",
+          emoji: "✨",
+          bgColor: "rgba(168, 85, 247, 0.1)",
+          textColor: "#a855f7",
+        };
+      case "grok":
+        return {
+          name: "Grok",
+          emoji: "⚡",
+          bgColor: "rgba(249, 115, 22, 0.1)",
+          textColor: "#f97316",
+        };
+      default:
+        return {
+          name: "Unknown",
+          emoji: "❓",
+          bgColor: "rgba(107, 114, 128, 0.1)",
+          textColor: "#6b7280",
+        };
+    }
+  };
 
   return (
     <div
@@ -84,126 +129,167 @@ const TabList: React.FC<TabListProps> = ({ tabs, onTabSelect }) => {
           padding: "0 var(--spacing-sm)",
         }}
       >
-        ACTIVE DEEPSEEK TABS ({tabs.length})
+        ACTIVE AI TABS ({tabs.length})
       </div>
-      {tabs.map((tab) => (
-        <div
-          key={tab.tabId}
-          style={{
-            padding: "var(--spacing-md)",
-            backgroundColor: "var(--secondary-bg)",
-            border: "1px solid var(--border-color)",
-            borderRadius: "var(--border-radius)",
-            transition: "all 0.2s",
-            cursor: tab.canAccept ? "pointer" : "not-allowed",
-            opacity: tab.canAccept ? 1 : 0.6,
-          }}
-          onClick={() => {
-            if (tab.canAccept) {
-              onTabSelect?.(tab);
-            }
-          }}
-          onMouseEnter={(e) => {
-            if (tab.canAccept) {
-              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-              e.currentTarget.style.borderColor = "var(--accent-text)";
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (tab.canAccept) {
-              e.currentTarget.style.backgroundColor = "var(--secondary-bg)";
-              e.currentTarget.style.borderColor = "var(--border-color)";
-            }
-          }}
-        >
+      {tabs.map((tab) => {
+        const providerInfo = getProviderInfo(tab.provider);
+        return (
           <div
+            key={tab.tabId}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--spacing-sm)",
-              marginBottom: "var(--spacing-xs)",
+              padding: "var(--spacing-md)",
+              backgroundColor: "var(--secondary-bg)",
+              border: "1px solid var(--border-color)",
+              borderRadius: "var(--border-radius)",
+              transition: "all 0.2s",
+              cursor: tab.canAccept ? "pointer" : "not-allowed",
+              opacity: tab.canAccept ? 1 : 0.6,
+            }}
+            onClick={() => {
+              if (tab.canAccept) {
+                onTabSelect?.(tab);
+              }
+            }}
+            onMouseEnter={(e) => {
+              if (tab.canAccept) {
+                e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+                e.currentTarget.style.borderColor = "var(--accent-text)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (tab.canAccept) {
+                e.currentTarget.style.backgroundColor = "var(--secondary-bg)";
+                e.currentTarget.style.borderColor = "var(--border-color)";
+              }
             }}
           >
             <div
-              className={getStatusColor(tab.status)}
               style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-              }}
-            />
-            <span
-              style={{
-                fontSize: "var(--font-size-md)",
-                fontWeight: 600,
-                color: "var(--primary-text)",
-                flex: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {tab.title}
-            </span>
-            <span style={{ fontSize: "var(--font-size-sm)" }}>
-              {getStatusIcon(tab.status)}
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--spacing-md)",
-              fontSize: "var(--font-size-xs)",
-              color: "var(--secondary-text)",
-            }}
-          >
-            <span style={{ fontFamily: "monospace" }}>ID: {tab.tabId}</span>
-            <span>•</span>
-            <span>{tab.requestCount} requests</span>
-            <span>•</span>
-            <span
-              style={{
-                color:
-                  tab.status === "busy"
-                    ? "#ff9800"
-                    : tab.status === "sleep"
-                    ? "#9c27b0"
-                    : "#4caf50",
-                fontWeight: 600,
-              }}
-            >
-              {getStatusBadge(tab.status)}
-            </span>
-          </div>
-
-          {tab.folderPath && (
-            <div
-              style={{
-                marginTop: "var(--spacing-xs)",
-                fontSize: "var(--font-size-xs)",
-                color: "var(--accent-text)",
                 display: "flex",
                 alignItems: "center",
-                gap: "var(--spacing-xs)",
+                gap: "var(--spacing-sm)",
+                marginBottom: "var(--spacing-xs)",
               }}
             >
-              <span>📁</span>
               <span
                 style={{
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  color: providerInfo.textColor,
+                  backgroundColor: providerInfo.bgColor,
+                  padding: "2px 6px",
+                  borderRadius: "4px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                {providerInfo.emoji} {providerInfo.name}
+              </span>
+              <span
+                style={{
+                  fontSize: "var(--font-size-md)",
+                  fontWeight: 600,
+                  color: "var(--primary-text)",
+                  flex: 1,
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                 }}
-                title={tab.folderPath}
               >
-                {tab.folderPath.split("/").pop() || tab.folderPath}
+                {tab.title}
               </span>
             </div>
-          )}
-        </div>
-      ))}
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "var(--spacing-sm)",
+                fontSize: "var(--font-size-xs)",
+                color: "var(--secondary-text)",
+              }}
+            >
+              <span style={{ fontFamily: "monospace" }}>ID: {tab.tabId}</span>
+              <span>•</span>
+              <span>{tab.requestCount} requests</span>
+              <span>•</span>
+              <span
+                style={{
+                  color:
+                    tab.status === "busy"
+                      ? "#ff9800"
+                      : tab.status === "sleep"
+                      ? "#9c27b0"
+                      : "#4caf50",
+                  fontWeight: 600,
+                }}
+              >
+                {getStatusBadge(tab.status)}
+              </span>
+              {tab.containerName && !tab.containerName.startsWith("Tab ") && (
+                <>
+                  <span>•</span>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      fontSize: "var(--font-size-xs)",
+                      color: "#6366f1",
+                    }}
+                  >
+                    <span style={{ fontSize: "10px" }}>🗂️</span>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        maxWidth: "100px",
+                      }}
+                      title={tab.containerName}
+                    >
+                      {tab.containerName}
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* 🔥 DEBUG: Log FULL tab object */}
+            {(() => {
+              console.log("[TabList] 🔍 FULL Tab object:", tab);
+              return null;
+            })()}
+
+            {tab.folderPath && (
+              <div
+                style={{
+                  marginTop: "var(--spacing-xs)",
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--accent-text)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--spacing-xs)",
+                }}
+              >
+                <span>📁</span>
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                  title={tab.folderPath}
+                >
+                  {tab.folderPath.split("/").pop() || tab.folderPath}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };

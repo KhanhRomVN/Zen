@@ -40,42 +40,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    console.log(
-      `[ChatPanel] 🎧 Registering handleIncomingMessage for tab ${selectedTab.tabId}`
-    );
-
     const handleIncomingMessage = (data: any) => {
-      console.log(`[ChatPanel] 📨 handleIncomingMessage called:`, {
-        type: data.type,
-        requestId: data.requestId,
-        tabId: data.tabId,
-        success: data.success,
-        hasResponse: !!data.response,
-        error: data.error,
-        timestamp: Date.now(),
-      });
-
       if (data.type === "promptResponse") {
-        console.log(`[ChatPanel] ✅ Processing promptResponse:`, {
-          requestId: data.requestId,
-          tabId: data.tabId,
-          expectedTabId: selectedTab.tabId,
-          success: data.success,
-        });
-
-        // 🆕 CLEAR TIMEOUT khi nhận response
         const timeoutId = (window as any).__chatPanelTimeoutId;
         if (timeoutId) {
           clearTimeout(timeoutId);
           delete (window as any).__chatPanelTimeoutId;
-          console.log(`[ChatPanel] ⏱️ Timeout cleared - response received`);
         }
 
         if (data.success && data.response) {
-          console.log(`[ChatPanel] 🔍 Parsing response:`, {
-            responseLength: data.response?.length || 0,
-            responsePreview: data.response?.substring(0, 100),
-          });
           try {
             // Parse OpenAI response format
             const parsedResponse = JSON.parse(data.response);
@@ -170,17 +143,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [onWsMessage]);
 
   const handleSendMessage = async (content: string) => {
-    console.log(`[ChatPanel] 📤 User sending message:`, {
-      content: content.substring(0, 100),
-      contentLength: content.length,
-      selectedTabId: selectedTab.tabId,
-      folderPath: selectedTab.folderPath,
-      canAccept: selectedTab.canAccept,
-      status: selectedTab.status,
-    });
-
-    // 🆕 REQUEST CONTEXT trước khi gửi
-    console.log(`[ChatPanel] 📋 Requesting context for task...`);
     const requestId = `ctx-${Date.now()}`;
 
     // Send context request via WebSocket
@@ -218,10 +180,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
       try {
         const contextString = await contextPromise;
-        console.log(
-          `[ChatPanel] ✅ Context received, length: ${contextString.length}`
-        );
-
         // Update content with context
         content = contextString;
       } catch (error) {
@@ -327,27 +285,12 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
       requestId: `req-${Date.now()}`,
       isNewTask: false,
       folderPath: selectedTab.folderPath || null,
+      containerName: selectedTab.containerName || null,
       timestamp: Date.now(),
     };
 
-    console.log(`[ChatPanel] 🔄 Posting message to window:`, {
-      command: "sendWebSocketMessage",
-      messageType: sendPromptMessage.type,
-      requestId: sendPromptMessage.requestId,
-      tabId: sendPromptMessage.tabId,
-    });
-    console.log(`[ChatPanel] 📦 Full message payload:`, sendPromptMessage);
-    console.log(
-      `[ChatPanel] 🔍 Message size: ${
-        JSON.stringify(sendPromptMessage).length
-      } bytes`
-    );
-
     // Post message to parent window (will be sent via WebSocket in TabFooter)
     const postMessageTimestamp = Date.now();
-    console.log(
-      `[ChatPanel] 📞 Calling window.postMessage() at ${postMessageTimestamp}...`
-    );
 
     window.postMessage(
       {
@@ -357,20 +300,6 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
       "*"
     );
 
-    console.log(
-      `[ChatPanel] ✅ window.postMessage() completed (${
-        Date.now() - postMessageTimestamp
-      }ms)`
-    );
-    console.log(
-      `[ChatPanel] 💡 Message should now be picked up by ChatFooter listener`
-    );
-    console.log(`[ChatPanel] 🔍 ChatPanel message handler registered:`, {
-      hasHandler: !!(window as any).__chatPanelMessageHandler,
-      handlerType: typeof (window as any).__chatPanelMessageHandler,
-    });
-
-    // 🆕 TIMEOUT: Nếu sau 30s chưa nhận response → show error
     const timeoutId = setTimeout(() => {
       setIsProcessing((current) => {
         if (current) {

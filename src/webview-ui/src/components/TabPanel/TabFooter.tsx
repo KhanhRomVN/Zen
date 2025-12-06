@@ -4,9 +4,14 @@ import { useModels } from "../../hooks/useModels";
 interface TabFooterProps {
   port: number;
   wsConnected: boolean;
+  onModelChange?: (modelId: string) => void; // 🆕 Callback khi model thay đổi
 }
 
-const TabFooter: React.FC<TabFooterProps> = ({ port, wsConnected }) => {
+const TabFooter: React.FC<TabFooterProps> = ({
+  port,
+  wsConnected,
+  onModelChange,
+}) => {
   const {
     models: availableModels,
     selectedModel,
@@ -66,9 +71,7 @@ const TabFooter: React.FC<TabFooterProps> = ({ port, wsConnected }) => {
   const PortToClipboard = () => {
     const text = "localhost:" + port;
     navigator.clipboard.writeText(text).then(
-      () => {
-        console.log(`[TabFooter] ✅ Copied to clipboard: ${text}`);
-      },
+      () => {},
       (err) => {
         console.error(`[TabFooter] ❌ Failed to copy:`, err);
       }
@@ -78,6 +81,7 @@ const TabFooter: React.FC<TabFooterProps> = ({ port, wsConnected }) => {
   const handleModelSelect = (modelId: string) => {
     setSelectedModel(modelId);
     setShowModelDrawer(false);
+    onModelChange?.(modelId);
   };
 
   useEffect(() => {

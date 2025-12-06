@@ -18,13 +18,9 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       .initialize()
       .then((port) => {
         this._wsPort = port;
-        console.log(`[ZenChatViewProvider] ✅ Connected to port ${port}`);
-
-        // 🆕 Store workspace folder path for filtering
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (workspaceFolder) {
           const folderPath = workspaceFolder.uri.fsPath;
-          console.log(`[ZenChatViewProvider] 📂 Workspace folder:`, folderPath);
           // Store in context for later use
           vscode.commands.executeCommand(
             "setContext",
@@ -39,7 +35,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   public stopWebSocketServer(): Promise<void> {
-    console.log(`[ZenChatViewProvider] 🛑 Stopping WebSocket connection`);
     return this._wsManager.stop();
   }
 

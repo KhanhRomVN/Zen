@@ -33,19 +33,11 @@ export class SingletonWSManager {
     const existingState = GlobalStateManager.readState();
 
     if (existingState) {
-      console.log(
-        `[SingletonWSManager] ✅ Server already running on port ${existingState.port}`
-      );
       // Increment instance count
       GlobalStateManager.incrementInstanceCount();
       this._isServerOwner = false;
       return existingState.port;
     }
-
-    // No existing server, create new one
-    console.log(
-      `[SingletonWSManager] 🚀 Starting new server on port ${SingletonWSManager.FIXED_PORT}`
-    );
 
     try {
       await this.startServer();
@@ -169,9 +161,6 @@ export class SingletonWSManager {
       });
 
       this._httpServer.listen(SingletonWSManager.FIXED_PORT, () => {
-        console.log(
-          `[SingletonWSManager] ✅ Server listening on port ${SingletonWSManager.FIXED_PORT}`
-        );
         resolve();
       });
     });
@@ -258,14 +247,8 @@ export class SingletonWSManager {
     // Decrement instance count
     const remainingInstances = GlobalStateManager.decrementInstanceCount();
 
-    console.log(
-      `[SingletonWSManager] Instance closing. Remaining: ${remainingInstances}`
-    );
-
     // Only stop server if this is the owner AND no more instances
     if (this._isServerOwner && remainingInstances === 0) {
-      console.log("[SingletonWSManager] 🛑 Stopping server (last instance)");
-
       return new Promise((resolve) => {
         let wsServerClosed = false;
         let httpServerClosed = false;
@@ -314,10 +297,6 @@ export class SingletonWSManager {
 
         checkBothClosed();
       });
-    } else {
-      console.log(
-        "[SingletonWSManager] ✅ Instance closed (server still running)"
-      );
     }
   }
 
