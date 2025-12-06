@@ -139,170 +139,224 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               }
             >
               {/* Initial Request Display with Header */}
-              <div
-                style={{
-                  position: "relative",
-                }}
-              >
-                {/* Header Icons - Positioned at top-left */}
+              <div>
+                {/* Header Icons + Badges - Positioned at top */}
                 <div
                   style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
                     display: "flex",
                     alignItems: "center",
-                    gap: "var(--spacing-xs)",
-                    zIndex: 10,
+                    gap: "var(--spacing-sm)",
+                    marginBottom: "var(--spacing-sm)",
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Toggle Arrow */}
+                  {/* Icons Group */}
                   <div
                     style={{
-                      cursor: "pointer",
-                      padding: "4px",
-                      borderRadius: "var(--border-radius)",
-                      transition: "background-color 0.2s",
-                      color: "var(--primary-text)",
-                      backgroundColor: "var(--secondary-bg)",
-                    }}
-                    onClick={() =>
-                      setInitialRequestCollapsed(!initialRequestCollapsed)
-                    }
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        "var(--secondary-bg)";
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--spacing-xs)",
                     }}
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
+                    {/* Toggle Arrow */}
+                    <div
                       style={{
-                        transition: "transform 0.2s",
-                        transform: initialRequestCollapsed
-                          ? "rotate(0deg)"
-                          : "rotate(180deg)",
+                        cursor: "pointer",
+                        padding: "2px",
+                        transition: "opacity 0.2s",
+                        color: "var(--primary-text)",
+                        opacity: 0.7,
+                      }}
+                      onClick={() =>
+                        setInitialRequestCollapsed(!initialRequestCollapsed)
+                      }
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = "1";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = "0.7";
                       }}
                     >
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        style={{
+                          transition: "transform 0.2s",
+                          transform: initialRequestCollapsed
+                            ? "rotate(0deg)"
+                            : "rotate(180deg)",
+                        }}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </div>
+                    {/* Copy */}
+                    <div
+                      style={{
+                        cursor: "pointer",
+                        padding: "2px",
+                        transition: "opacity 0.2s",
+                        color: "var(--primary-text)",
+                        opacity: 0.7,
+                      }}
+                      onClick={() =>
+                        copyToClipboard(firstRequestMessage.content)
+                      }
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = "1";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = "0.7";
+                      }}
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <rect
+                          x="9"
+                          y="9"
+                          width="13"
+                          height="13"
+                          rx="2"
+                          ry="2"
+                        />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    </div>
                   </div>
-                  {/* Copy */}
+
+                  {/* Badges Group */}
                   <div
                     style={{
-                      cursor: "pointer",
-                      padding: "4px",
-                      borderRadius: "var(--border-radius)",
-                      transition: "background-color 0.2s",
-                      color: "var(--primary-text)",
-                      backgroundColor: "var(--secondary-bg)",
-                    }}
-                    onClick={() => copyToClipboard(firstRequestMessage.content)}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        "var(--secondary-bg)";
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--spacing-xs)",
+                      flex: 1,
                     }}
                   >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
+                    {/* Provider Badge */}
+                    <span
+                      style={{
+                        fontSize: "var(--font-size-xs)",
+                        fontWeight: 600,
+                        color: providerInfo.textColor,
+                        backgroundColor: providerInfo.bgColor,
+                        padding: "4px 8px",
+                        borderRadius: "var(--border-radius)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        whiteSpace: "nowrap",
+                      }}
                     >
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                    </svg>
+                      {providerInfo.emoji} {providerInfo.name}
+                    </span>
+
+                    {/* Container Badge */}
+                    {selectedTab.containerName && (
+                      <span
+                        style={{
+                          fontSize: "var(--font-size-xs)",
+                          fontWeight: 500,
+                          color: "var(--primary-text)",
+                          backgroundColor: "var(--hover-bg)",
+                          padding: "4px 8px",
+                          borderRadius: "var(--border-radius)",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          maxWidth: "200px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={selectedTab.containerName}
+                      >
+                        🗂️ {selectedTab.containerName}
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Message Content */}
                 <div
                   style={{
-                    fontSize: "var(--font-size-sm)",
+                    fontSize: "var(--font-size-base)",
                     color: "var(--primary-text)",
                     lineHeight: 1.6,
                     whiteSpace: "pre-wrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     display: "-webkit-box",
-                    WebkitLineClamp: initialRequestCollapsed ? 1 : 20,
+                    WebkitLineClamp: initialRequestCollapsed ? 2 : 25,
                     WebkitBoxOrient: "vertical",
-                    maxHeight: initialRequestCollapsed ? "1.6em" : "32em",
-                    paddingLeft: "68px",
-                    marginBottom: initialRequestCollapsed
-                      ? 0
-                      : "var(--spacing-sm)",
+                    maxHeight: initialRequestCollapsed ? "3.2em" : "40em",
+                    marginBottom: "var(--spacing-sm)",
                   }}
                 >
                   {firstRequestMessage.content}
                 </div>
 
                 {/* Progress Bar */}
-                {!initialRequestCollapsed && (
-                  <div>
-                    <div
+                <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    <span
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "4px",
+                        fontSize: "var(--font-size-sm)",
+                        color: "var(--secondary-text)",
                       }}
                     >
-                      <span
-                        style={{
-                          fontSize: "var(--font-size-xs)",
-                          color: "var(--secondary-text)",
-                        }}
-                      >
-                        {firstRequestMessage.content.length.toLocaleString()}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "var(--font-size-xs)",
-                          color: "var(--secondary-text)",
-                        }}
-                      >
-                        {firstRequestMessage.contextSize?.toLocaleString() || 0}
-                      </span>
-                    </div>
-                    <div
+                      {firstRequestMessage.content.length.toLocaleString()}
+                    </span>
+                    <span
                       style={{
-                        width: "100%",
-                        height: "4px",
-                        backgroundColor: "var(--border-color)",
-                        borderRadius: "2px",
-                        overflow: "hidden",
+                        fontSize: "var(--font-size-sm)",
+                        color: "var(--secondary-text)",
                       }}
                     >
-                      <div
-                        style={{
-                          width: `${Math.min(
-                            (firstRequestMessage.content.length /
-                              (firstRequestMessage.contextSize || 1)) *
-                              100,
-                            100
-                          )}%`,
-                          height: "100%",
-                          backgroundColor: "var(--accent-text)",
-                          transition: "width 0.3s ease",
-                        }}
-                      />
-                    </div>
+                      {firstRequestMessage.contextSize?.toLocaleString() || 0}
+                    </span>
                   </div>
-                )}
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "5px",
+                      backgroundColor: "var(--border-color)",
+                      borderRadius: "3px",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.min(
+                          (firstRequestMessage.content.length /
+                            (firstRequestMessage.contextSize || 1)) *
+                            100,
+                          100
+                        )}%`,
+                        height: "100%",
+                        backgroundColor: "var(--accent-text)",
+                        transition: "width 0.3s ease",
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}
