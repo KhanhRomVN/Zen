@@ -1,497 +1,79 @@
-[ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-[ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 200 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 200
-webview.js:2 [ResponseParser] ✅ Found tool: read_file (1)
-webview.js:2 [ResponseParser] ✅ Extracted param "path": test.py
-webview.js:2 [ResponseParser] ❌ Failed to extract param "task_progress"
-webview.js:2 [ResponseParser] 📦 Action added: {
-  "type": "read_file",
-  "params": {
-    "path": "test.py"
-  },
-  "hasTaskProgress": false
-}
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 1
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 1, types: Array(1)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (153 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 1, displayTextLength: 153}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 200 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 200
-webview.js:2 [ResponseParser] ✅ Found tool: read_file (1)
-webview.js:2 [ResponseParser] ✅ Extracted param "path": test.py
-webview.js:2 [ResponseParser] ❌ Failed to extract param "task_progress"
-webview.js:2 [ResponseParser] 📦 Action added: {
-  "type": "read_file",
-  "params": {
-    "path": "test.py"
-  },
-  "hasTaskProgress": false
-}
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 1
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 1, types: Array(1)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (153 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 1, displayTextLength: 153}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-[ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 200 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 200
-webview.js:2 [ResponseParser] ✅ Found tool: read_file (1)
-webview.js:2 [ResponseParser] ✅ Extracted param "path": test.py
-webview.js:2 [ResponseParser] ❌ Failed to extract param "task_progress"
-webview.js:2 [ResponseParser] 📦 Action added: {
-  "type": "read_file",
-  "params": {
-    "path": "test.py"
-  },
-  "hasTaskProgress": false
-}
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 1
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 1, types: Array(1)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (153 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 1, displayTextLength: 153}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 200 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 200
-webview.js:2 [ResponseParser] ✅ Found tool: read_file (1)
-webview.js:2 [ResponseParser] ✅ Extracted param "path": test.py
-webview.js:2 [ResponseParser] ❌ Failed to extract param "task_progress"
-webview.js:2 [ResponseParser] 📦 Action added: {
-  "type": "read_file",
-  "params": {
-    "path": "test.py"
-  },
-  "hasTaskProgress": false
-}
-[ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 1
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 1, types: Array(1)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (153 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 1, displayTextLength: 153}
-index.js:1539 [DEBUG] ended "got subscribed state"
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 200 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 200
-webview.js:2 [ResponseParser] ✅ Found tool: read_file (1)
-webview.js:2 [ResponseParser] ✅ Extracted param "path": test.py
-webview.js:2 [ResponseParser] ❌ Failed to extract param "task_progress"
-webview.js:2 [ResponseParser] 📦 Action added: {
-  "type": "read_file",
-  "params": {
-    "path": "test.py"
-  },
-  "hasTaskProgress": false
-}
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 1
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 1, types: Array(1)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (153 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 1, displayTextLength: 153}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 200 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 200
-webview.js:2 [ResponseParser] ✅ Found tool: read_file (1)
-webview.js:2 [ResponseParser] ✅ Extracted param "path": test.py
-webview.js:2 [ResponseParser] ❌ Failed to extract param "task_progress"
-webview.js:2 [ResponseParser] 📦 Action added: {
-  "type": "read_file",
-  "params": {
-    "path": "test.py"
-  },
-  "hasTaskProgress": false
-}
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 1
-webview.js:2 [ResponseParser] ✅ Tool Actions
-[ResponseParser] 📦 Data: {count: 1, types: Array(1)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (153 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 1, displayTextLength: 153}
-2index.js:1539 [DEBUG] ended "got subscribed state"
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 5 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: hello...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): hello
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 5
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: read_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 0
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 0, types: Array(0)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (5 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 0, displayTextLength: 5}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 200 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 200
-webview.js:2 [ResponseParser] ✅ Found tool: read_file (1)
-webview.js:2 [ResponseParser] ✅ Extracted param "path": test.py
-webview.js:2 [ResponseParser] ❌ Failed to extract param "task_progress"
-webview.js:2 [ResponseParser] 📦 Action added: {
-  "type": "read_file",
-  "params": {
-    "path": "test.py"
-  },
-  "hasTaskProgress": false
-}
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 1
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 1, types: Array(1)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (153 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 1, displayTextLength: 153}
-webview.js:2 [ResponseParser] 🚀 Starting AI response parsing
-webview.js:2 [ResponseParser] 📄 Content length: 200 chars
-webview.js:2 [ResponseParser] 📄 First 200 chars: Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>...
-webview.js:2 [ResponseParser] ❌ Thinking
-webview.js:2 [ResponseParser] 🔍 Raw content (first 200 chars): Tôi nhận được yêu cầu "hello" và có thể thấy trong môi trường có một file test.py đang mở. Để hiểu rõ hơn về nhiệm vụ, tôi sẽ kiểm tra nội dung file này.
-<read_file>
-<path>test.py
-</path>
-</read_file>
-webview.js:2 [ResponseParser] ❌ Global Task Progress
-webview.js:2 [ResponseParser] 🔧 Starting tool extraction, content length: 200
-webview.js:2 [ResponseParser] ✅ Found tool: read_file (1)
-webview.js:2 [ResponseParser] ✅ Extracted param "path": test.py
-webview.js:2 [ResponseParser] ❌ Failed to extract param "task_progress"
-webview.js:2 [ResponseParser] 📦 Action added: {
-  "type": "read_file",
-  "params": {
-    "path": "test.py"
-  },
-  "hasTaskProgress": false
-}
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: write_to_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: replace_in_file
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: execute_command
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: search_files
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: list_code_definition_names
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: ask_followup_question
-webview.js:2 [ResponseParser] ⚠️ No matches found for tool: attempt_completion
-webview.js:2 [ResponseParser] ✅ Total tools extracted: 1
-webview.js:2 [ResponseParser] ✅ Tool Actions
-webview.js:2 [ResponseParser] 📦 Data: {count: 1, types: Array(1)}
-webview.js:2 [ResponseParser] 📝 Using cleaned text as displayText (153 chars)
-webview.js:2 [ResponseParser] ✅ Parse complete: {hasThinking: false, hasTaskProgress: false, actionCount: 1, displayTextLength: 153}
-index.js:1539 [DEBUG] ended "got subscribed state"
+[read_file for 'src/background/bootstrap/dependency-container.ts'] Result:
+// src/background/bootstrap/dependency-container.ts
 
+/**
+ * Dependency Injection Container đơn giản
+ */
+  public has(serviceName: string): boolean {
+    return this.services.has(serviceName) || this.factories.has(serviceName);
+  }
+
+  /**
+   * Lấy tất cả registered services
+   */
+  public getAll(): Map<string, any> {
+    // Ensure all factories are resolved
+    this.resolveAll().catch((error) => {
+      console.error("[DependencyContainer] ❌ Error resolving all:", error);
+    });
+
+    return new Map(this.services);
+  }
+
+  /**
+   * Xóa một service
+   */
+  public remove(serviceName: string): boolean {
+    const hadService = this.services.delete(serviceName);
+    const hadFactory = this.factories.delete(serviceName);
+
+    if (hadService || hadFactory) {
+      console.log(`[DependencyContainer] 🗑️ Removed service: ${serviceName}`);
+    }
+
+    return hadService || hadFactory;
+  }
+
+  /**
+   * Xóa tất cả services
+   */
+  public clear(): void {
+    const serviceCount = this.services.size;
+    const factoryCount = this.factories.size;
+
+    this.services.clear();
+    this.factories.clear();
+
+    console.log(
+      `[DependencyContainer] 🧹 Cleared all services (${serviceCount} services, ${factoryCount} factories)`
+    );
+  }
+
+  /**
+   * Get service names for debugging
+   */
+  public getServiceNames(): { services: string[]; factories: string[] } {
+    return {
+      services: Array.from(this.services.keys()),
+      factories: Array.from(this.factories.keys()),
+    };
+  }
+
+
+<environment_details>
+# Visual Studio Code Visible Files
+src/background/bootstrap/startup-manager.ts
+
+# Visual Studio Code Open Tabs
+src/background/bootstrap/dependency-container.ts
+src/background/bootstrap/startup-manager.ts
+
+# Current Time
+12/5/2025, 11:25:29 PM (Asia/Saigon, UTC+7:00)
+
+# Context Window Usage
+20,330 / 128K tokens used (16%)
+
+# Current Mode
+ACT MODE
+</environment_details>

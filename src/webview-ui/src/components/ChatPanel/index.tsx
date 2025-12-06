@@ -327,10 +327,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     };
   }, [onWsMessage]);
 
+  // 🆕 Handle tool request from ChatBody
+  const handleToolRequest = useCallback(
+    (action: any, originalMessage: any) => {
+      if (action.type === "read_file") {
+        const toolRequestMessage = `[read_file for '${action.params.path}'] Result:`;
+        // 🔥 Pass files=undefined, agentOptions=undefined, skipFirstRequestLogic=true
+        handleSendMessage(toolRequestMessage, undefined, undefined, true);
+      }
+    },
+    [selectedTab]
+  );
+
   const handleSendMessage = async (
     content: string,
     files?: any[],
-    agentOptions?: any
+    agentOptions?: any,
+    skipFirstRequestLogic?: boolean
   ) => {
     const requestId = `ctx-${Date.now()}`;
     const originalUserMessage = content; // 🆕 Store original user message
@@ -347,8 +360,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
     }
 
-    // 🆕 Get DEFAULT_RULE_PROMPT for first request only
-    if (isFirstRequest) {
+    // 🆕 Get DEFAULT_RULE_PROMPT for first request only (skip if tool request)
+    if (isFirstRequest && !skipFirstRequestLogic) {
       try {
         const {
           combinePrompts,
@@ -398,8 +411,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
       try {
         const contextString = await contextPromise;
-        // 🆕 Combine system prompt + context + user message for first request
-        if (isFirstRequest && systemPrompt) {
+        // 🆕 Combine system prompt + context + user message for first request (skip if tool request)
+        if (isFirstRequest && systemPrompt && !skipFirstRequestLogic) {
           content = `${systemPrompt}\n\n${contextString}\n\nUser Request: ${originalUserMessage}`;
         } else {
           content = contextString;
@@ -493,8 +506,11 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
       role: "user",
       content: originalUserMessage,
       timestamp: Date.now(),
-      isFirstRequest: isFirstRequest,
-      systemPrompt: isFirstRequest ? systemPrompt || undefined : undefined,
+      isFirstRequest: isFirstRequest && !skipFirstRequestLogic,
+      systemPrompt:
+        isFirstRequest && !skipFirstRequestLogic
+          ? systemPrompt || undefined
+          : undefined,
       contextSize: content.length,
     };
 
@@ -513,7 +529,7 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
     setMessages((prev) => [...prev, userMessage]);
     setIsProcessing(true);
 
-    if (isFirstRequest) {
+    if (isFirstRequest && !skipFirstRequestLogic) {
       setIsFirstRequest(false);
     }
 
@@ -523,7 +539,7 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
       tabId: selectedTab.tabId,
       prompt: content,
       requestId: `req-${Date.now()}`,
-      isNewTask: isFirstRequest,
+      isNewTask: isFirstRequest && !skipFirstRequestLogic,
       folderPath: (window as any).__zenWorkspaceFolderPath || null,
       containerName: selectedTab.containerName || null,
       timestamp: Date.now(),
@@ -604,6 +620,7 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
         messages={messages}
         isProcessing={isProcessing}
         checkpoints={checkpoints}
+        onSendToolRequest={handleToolRequest}
       />
       <ChatFooter
         onSendMessage={handleSendMessage}

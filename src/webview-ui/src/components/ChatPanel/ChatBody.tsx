@@ -3,6 +3,7 @@ import {
   parseAIResponse,
   formatActionForDisplay,
   type ParsedResponse,
+  type ToolAction,
 } from "../../services/ResponseParser";
 
 interface Message {
@@ -19,12 +20,14 @@ interface ChatBodyProps {
   messages: Message[];
   isProcessing: boolean;
   checkpoints: string[];
+  onSendToolRequest?: (action: ToolAction, message: Message) => void;
 }
 
 const ChatBody: React.FC<ChatBodyProps> = ({
   messages,
   isProcessing,
   checkpoints,
+  onSendToolRequest,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
@@ -76,6 +79,82 @@ const ChatBody: React.FC<ChatBodyProps> = ({
   // 🆕 Scroll to bottom handler
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // 🆕 Helper to get tool icon
+  const getToolIcon = (type: string) => {
+    switch (type) {
+      case "read_file":
+        return "📖";
+      case "write_to_file":
+        return "✍️";
+      case "replace_in_file":
+        return "🔄";
+      case "execute_command":
+        return "⚡";
+      case "list_files":
+        return "📁";
+      case "search_files":
+        return "🔍";
+      case "list_code_definition_names":
+        return "📚";
+      case "ask_followup_question":
+        return "❓";
+      case "attempt_completion":
+        return "✅";
+      default:
+        return "🔧";
+    }
+  };
+
+  // 🆕 Helper to get tool color
+  const getToolColor = (type: string) => {
+    switch (type) {
+      case "read_file":
+        return "#3b82f6"; // blue
+      case "write_to_file":
+      case "replace_in_file":
+        return "#10b981"; // green
+      case "execute_command":
+        return "#f59e0b"; // orange
+      case "attempt_completion":
+        return "#22c55e"; // success green
+      default:
+        return "#6b7280"; // gray
+    }
+  };
+
+  // 🆕 Handle tool action click
+  const handleToolClick = (action: ToolAction, message: Message) => {
+    if (action.type === "read_file" && onSendToolRequest) {
+      onSendToolRequest(action, message);
+    }
+  };
+
+  // 🆕 Extract code content from action for preview
+  const getCodePreview = (action: ToolAction): string | null => {
+    if (action.type === "write_to_file" && action.params.content) {
+      return action.params.content;
+    }
+    if (action.type === "replace_in_file" && action.params.diff) {
+      return action.params.diff;
+    }
+    return null;
+  };
+
+  // 🆕 Truncate code to max lines
+  const truncateCode = (
+    code: string,
+    maxLines: number = 15
+  ): { code: string; truncated: boolean } => {
+    const lines = code.split("\n");
+    if (lines.length <= maxLines) {
+      return { code, truncated: false };
+    }
+    return {
+      code: lines.slice(0, maxLines).join("\n"),
+      truncated: true,
+    };
   };
 
   if (messages.length === 0 && !isProcessing) {
@@ -303,97 +382,102 @@ const ChatBody: React.FC<ChatBodyProps> = ({
                 />
               </div>
 
-              {/* Divider - Prompt Request */}
+              {/* 🆕 PROMPT REQUEST Section - Collapsible (same style as THINKING) */}
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "var(--spacing-sm)",
-                  padding: "var(--spacing-xs) 0",
-                  cursor: "pointer",
+                  borderRadius: "var(--border-radius)",
+                  border: "1px solid var(--border-color)",
+                  overflow: "hidden",
                 }}
-                onClick={() => setCheckpointCollapsed(!checkpointCollapsed)}
               >
                 <div
                   style={{
-                    flex: 1,
-                    height: "1px",
-                    borderTop: "2px dashed var(--input-bg)",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: "var(--font-size-xs)",
-                    color: "var(--secondary-text)",
-                    padding: "2px 8px",
-                    backgroundColor: "var(--secondary-bg)",
-                    borderRadius: "var(--border-radius)",
-                    fontWeight: 600,
                     display: "flex",
                     alignItems: "center",
                     gap: "var(--spacing-xs)",
+                    padding: "var(--spacing-sm) var(--spacing-md)",
+                    backgroundColor: "var(--secondary-bg)",
+                    cursor: "pointer",
+                    borderBottom: checkpointCollapsed
+                      ? "none"
+                      : "1px solid var(--border-color)",
                   }}
+                  onClick={() => setCheckpointCollapsed(!checkpointCollapsed)}
                 >
-                  <span>📝 PROMPT REQUEST</span>
-                </span>
-                <div
-                  style={{
-                    flex: 1,
-                    height: "1px",
-                    borderTop: "2px dashed var(--input-bg)",
-                  }}
-                />
-              </div>
-
-              {/* Prompt Request Content */}
-              {!checkpointCollapsed && (
-                <div
-                  style={{
-                    marginTop: "var(--spacing-xs)",
-                    marginBottom: "var(--spacing-md)",
-                    padding: "var(--spacing-md)",
-                    backgroundColor: "var(--input-bg)",
-                    borderRadius: "var(--border-radius)",
-                    fontSize: "var(--font-size-xs)",
-                    color: "var(--primary-text)",
-                    lineHeight: 1.6,
-                    whiteSpace: "pre-wrap",
-                    overflowY: "auto",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {message.systemPrompt && (
-                    <>
-                      <div
-                        style={{
-                          fontWeight: 600,
-                          color: "var(--accent-text)",
-                          marginBottom: "var(--spacing-xs)",
-                        }}
-                      >
-                        === SYSTEM PROMPT ===
-                      </div>
-                      {message.systemPrompt}
-                      <div
-                        style={{
-                          margin: "var(--spacing-md) 0",
-                          borderTop: "1px dashed var(--border-color)",
-                        }}
-                      />
-                    </>
-                  )}
-                  <div
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
                     style={{
-                      fontWeight: 600,
-                      color: "var(--accent-text)",
-                      marginBottom: "var(--spacing-xs)",
+                      transition: "transform 0.2s",
+                      transform: checkpointCollapsed
+                        ? "rotate(0deg)"
+                        : "rotate(180deg)",
                     }}
                   >
-                    === USER REQUEST + CONTEXT ===
-                  </div>
-                  {message.content}
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  <span
+                    style={{
+                      fontSize: "var(--font-size-xs)",
+                      fontWeight: 600,
+                      color: "var(--secondary-text)",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    📝 PROMPT REQUEST
+                  </span>
                 </div>
-              )}
+                {!checkpointCollapsed && (
+                  <div
+                    style={{
+                      padding: "var(--spacing-md)",
+                      fontSize: "var(--font-size-xs)",
+                      color: "var(--primary-text)",
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                      backgroundColor: "var(--primary-bg)",
+                      fontFamily: "monospace",
+                      maxHeight: "400px",
+                      overflowY: "auto",
+                    }}
+                  >
+                    {message.systemPrompt && (
+                      <>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            color: "var(--accent-text)",
+                            marginBottom: "var(--spacing-xs)",
+                          }}
+                        >
+                          === SYSTEM PROMPT ===
+                        </div>
+                        {message.systemPrompt}
+                        <div
+                          style={{
+                            margin: "var(--spacing-md) 0",
+                            borderTop: "1px dashed var(--border-color)",
+                          }}
+                        />
+                      </>
+                    )}
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: "var(--accent-text)",
+                        marginBottom: "var(--spacing-xs)",
+                      }}
+                    >
+                      === USER REQUEST + CONTEXT ===
+                    </div>
+                    {message.content}
+                  </div>
+                )}
+              </div>
             </React.Fragment>
           );
         }
@@ -655,56 +739,183 @@ const ChatBody: React.FC<ChatBodyProps> = ({
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "var(--spacing-xs)",
+                  gap: "var(--spacing-sm)",
                 }}
               >
-                {parsedContent.actions.map((action, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      padding: "var(--spacing-md)",
-                      backgroundColor: "var(--tertiary-bg)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "var(--border-radius)",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                    onClick={() => {}}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                      e.currentTarget.style.borderColor = "var(--accent-text)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        "var(--tertiary-bg)";
-                      e.currentTarget.style.borderColor = "var(--border-color)";
-                    }}
-                  >
-                    <span
+                {parsedContent.actions.map((action, idx) => {
+                  const toolColor = getToolColor(action.type);
+                  const toolIcon = getToolIcon(action.type);
+                  const codePreview = getCodePreview(action);
+                  const hasCodePreview = codePreview !== null;
+
+                  return (
+                    <div
+                      key={idx}
                       style={{
-                        fontSize: "var(--font-size-sm)",
-                        color: "var(--primary-text)",
-                        fontWeight: 500,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "var(--spacing-xs)",
                       }}
                     >
-                      {formatActionForDisplay(action)}
-                    </span>
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      style={{ opacity: 0.5 }}
-                    >
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </div>
-                ))}
+                      {/* Tool Button */}
+                      <div
+                        style={{
+                          padding: "var(--spacing-sm) var(--spacing-md)",
+                          backgroundColor: "var(--secondary-bg)",
+                          border: `2px solid ${toolColor}`,
+                          borderRadius: "var(--border-radius-lg)",
+                          cursor:
+                            action.type === "read_file" ? "pointer" : "default",
+                          transition: "all 0.2s",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "var(--spacing-sm)",
+                        }}
+                        onClick={() => handleToolClick(action, message)}
+                        onMouseEnter={(e) => {
+                          if (action.type === "read_file") {
+                            e.currentTarget.style.backgroundColor = `${toolColor}15`;
+                            e.currentTarget.style.transform = "translateX(4px)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (action.type === "read_file") {
+                            e.currentTarget.style.backgroundColor =
+                              "var(--secondary-bg)";
+                            e.currentTarget.style.transform = "translateX(0)";
+                          }
+                        }}
+                      >
+                        <span style={{ fontSize: "20px" }}>{toolIcon}</span>
+                        <span
+                          style={{
+                            fontSize: "var(--font-size-sm)",
+                            color: "var(--primary-text)",
+                            fontWeight: 600,
+                            flex: 1,
+                          }}
+                        >
+                          {formatActionForDisplay(action)}
+                        </span>
+                        {action.type === "read_file" && (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke={toolColor}
+                            strokeWidth="2"
+                          >
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Code Preview for write_to_file/replace_in_file */}
+                      {hasCodePreview && (
+                        <div
+                          style={{
+                            backgroundColor: "var(--primary-bg)",
+                            border: "1px solid var(--border-color)",
+                            borderRadius: "var(--border-radius)",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {/* Header */}
+                          <div
+                            style={{
+                              padding: "var(--spacing-xs) var(--spacing-sm)",
+                              backgroundColor: "var(--secondary-bg)",
+                              borderBottom: "1px solid var(--border-color)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: "var(--font-size-xs)",
+                                color: "var(--secondary-text)",
+                                fontFamily: "monospace",
+                              }}
+                            >
+                              {action.params.path || "code"}
+                            </span>
+                            <button
+                              style={{
+                                padding: "2px 6px",
+                                backgroundColor: "transparent",
+                                border: "1px solid var(--border-color)",
+                                borderRadius: "var(--border-radius)",
+                                fontSize: "var(--font-size-xs)",
+                                color: "var(--secondary-text)",
+                                cursor: "pointer",
+                                transition: "all 0.2s",
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(codePreview!);
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor =
+                                  "var(--hover-bg)";
+                                e.currentTarget.style.color =
+                                  "var(--primary-text)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor =
+                                  "transparent";
+                                e.currentTarget.style.color =
+                                  "var(--secondary-text)";
+                              }}
+                            >
+                              Copy
+                            </button>
+                          </div>
+
+                          {/* Code Content */}
+                          <div
+                            style={{
+                              padding: "var(--spacing-sm)",
+                              fontSize: "var(--font-size-xs)",
+                              fontFamily: "monospace",
+                              color: "var(--primary-text)",
+                              whiteSpace: "pre",
+                              overflowX: "auto",
+                              maxHeight: "300px",
+                              overflowY: "auto",
+                            }}
+                          >
+                            {(() => {
+                              const { code, truncated } = truncateCode(
+                                codePreview!
+                              );
+                              return (
+                                <>
+                                  {code}
+                                  {truncated && (
+                                    <div
+                                      style={{
+                                        marginTop: "var(--spacing-sm)",
+                                        padding: "var(--spacing-xs)",
+                                        backgroundColor: "var(--secondary-bg)",
+                                        borderRadius: "var(--border-radius)",
+                                        textAlign: "center",
+                                        color: "var(--secondary-text)",
+                                      }}
+                                    >
+                                      ... (truncated, showing first 15 lines)
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
