@@ -38,8 +38,6 @@ const ChatBody: React.FC<ChatBodyProps> = ({
 
   // 🆕 Memoize parsed messages với cache để tránh parse duplicate
   const parsedMessages = useMemo(() => {
-    console.log(`[ChatBody] 🔄 Parsing ${messages.length} messages`);
-
     // Cache để tránh parse lại cùng một content
     const cache = new Map<string, ParsedResponse>();
 
