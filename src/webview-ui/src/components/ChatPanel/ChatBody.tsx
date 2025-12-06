@@ -3,8 +3,6 @@ import {
   parseAIResponse,
   formatActionForDisplay,
   type ParsedResponse,
-  type TaskProgressItem,
-  type ToolAction,
 } from "../../services/ResponseParser";
 
 interface Message {
@@ -33,8 +31,6 @@ const ChatBody: React.FC<ChatBodyProps> = ({
     new Set()
   );
   const [checkpointCollapsed, setCheckpointCollapsed] = useState(true);
-  const [initialRequestCollapsed, setInitialRequestCollapsed] = useState(true);
-  const [taskProgressCollapsed, setTaskProgressCollapsed] = useState(true);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
   // 🆕 Memoize parsed messages với cache để tránh parse duplicate
@@ -56,22 +52,6 @@ const ChatBody: React.FC<ChatBodyProps> = ({
       };
     });
   }, [messages]);
-
-  // 🆕 Memoize aggregated task progress
-  const allTaskProgress = useMemo(() => {
-    const progress: TaskProgressItem[] = [];
-    parsedMessages.forEach((msg) => {
-      if (msg.parsed.taskProgress) {
-        progress.push(...msg.parsed.taskProgress);
-      }
-      msg.parsed.actions.forEach((action) => {
-        if (action.taskProgress) {
-          progress.push(...action.taskProgress);
-        }
-      });
-    });
-    return progress;
-  }, [parsedMessages]);
 
   // Auto-scroll to bottom khi có message mới
   useEffect(() => {
@@ -231,17 +211,13 @@ const ChatBody: React.FC<ChatBodyProps> = ({
     });
   };
 
-  // 🆕 Calculate task stats from memoized data
-  const completedTasks = allTaskProgress.filter((t) => t.completed).length;
-  const totalTasks = allTaskProgress.length;
-  const currentTask = allTaskProgress.find((t) => !t.completed);
-
   return (
     <div
       style={{
         flex: 1,
         overflowY: "auto",
         padding: "var(--spacing-lg)",
+        paddingBottom: "200px",
         display: "flex",
         flexDirection: "column",
         gap: "var(--spacing-md)",
@@ -255,6 +231,42 @@ const ChatBody: React.FC<ChatBodyProps> = ({
 
           return (
             <React.Fragment key={message.id}>
+              {/* 🆕 Divider - REQUEST 1 */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--spacing-sm)",
+                  margin: "var(--spacing-md) 0",
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    height: "2px",
+                    background:
+                      "linear-gradient(90deg, transparent, var(--accent-text), transparent)",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--accent-text)",
+                    fontWeight: 700,
+                  }}
+                >
+                  📍 REQUEST 1
+                </span>
+                <div
+                  style={{
+                    flex: 1,
+                    height: "2px",
+                    background:
+                      "linear-gradient(90deg, var(--accent-text), transparent)",
+                  }}
+                />
+              </div>
+
               {/* Divider - Checkpoint */}
               <div
                 style={{
@@ -391,6 +403,14 @@ const ChatBody: React.FC<ChatBodyProps> = ({
         if (!parsedMessage) return null;
         const parsedContent = parsedMessage.parsed;
 
+        // 🆕 Calculate request number for user messages
+        const requestNumber =
+          message.role === "user"
+            ? messages.filter(
+                (m) => m.role === "user" && m.timestamp <= message.timestamp
+              ).length
+            : null;
+
         return (
           <div
             key={message.id}
@@ -401,6 +421,188 @@ const ChatBody: React.FC<ChatBodyProps> = ({
               marginBottom: "var(--spacing-md)",
             }}
           >
+            {/* 🆕 REQUEST Divider for user messages (excluding first request) */}
+            {message.role === "user" && !message.isFirstRequest && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "var(--spacing-sm)",
+                  margin: "var(--spacing-md) 0",
+                }}
+              >
+                <div
+                  style={{
+                    flex: 1,
+                    height: "2px",
+                    background:
+                      "linear-gradient(90deg, transparent, var(--accent-text), transparent)",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--accent-text)",
+                    fontWeight: 700,
+                    padding: "4px 12px",
+                    backgroundColor: "var(--secondary-bg)",
+                    borderRadius: "var(--border-radius)",
+                    border: "2px solid var(--accent-text)",
+                  }}
+                >
+                  📍 REQUEST {requestNumber}
+                </span>
+                <div
+                  style={{
+                    flex: 1,
+                    height: "2px",
+                    background:
+                      "linear-gradient(90deg, var(--accent-text), transparent)",
+                  }}
+                />
+              </div>
+            )}
+
+            {/* 🆕 THINKING Section - Collapsible (for assistant messages) */}
+            {message.role === "assistant" && parsedContent.thinking && (
+              <div
+                style={{
+                  borderRadius: "var(--border-radius)",
+                  border: "1px solid var(--border-color)",
+                  overflow: "hidden",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--spacing-xs)",
+                    padding: "var(--spacing-sm) var(--spacing-md)",
+                    backgroundColor: "var(--secondary-bg)",
+                    cursor: "pointer",
+                    borderBottom: collapsedSections.has(
+                      `thinking-${message.id}`
+                    )
+                      ? "none"
+                      : "1px solid var(--border-color)",
+                  }}
+                  onClick={() => toggleCollapse(`thinking-${message.id}`)}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    style={{
+                      transition: "transform 0.2s",
+                      transform: collapsedSections.has(`thinking-${message.id}`)
+                        ? "rotate(0deg)"
+                        : "rotate(180deg)",
+                    }}
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  <span
+                    style={{
+                      fontSize: "var(--font-size-xs)",
+                      fontWeight: 600,
+                      color: "var(--secondary-text)",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    🧠 THINKING
+                  </span>
+                </div>
+                {!collapsedSections.has(`thinking-${message.id}`) && (
+                  <div
+                    style={{
+                      padding: "var(--spacing-md)",
+                      fontSize: "var(--font-size-sm)",
+                      color: "var(--secondary-text)",
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                      backgroundColor: "var(--primary-bg)",
+                      opacity: 0.8,
+                    }}
+                  >
+                    {parsedContent.thinking}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 🆕 RESULT Section - Collapsible (for assistant messages) */}
+            {message.role === "assistant" &&
+              parsedContent.attemptCompletion && (
+                <div
+                  style={{
+                    borderRadius: "var(--border-radius)",
+                    border: "1px solid var(--border-color)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--spacing-xs)",
+                      padding: "var(--spacing-sm) var(--spacing-md)",
+                      backgroundColor: "var(--secondary-bg)",
+                      cursor: "pointer",
+                      borderBottom: collapsedSections.has(
+                        `result-${message.id}`
+                      )
+                        ? "none"
+                        : "1px solid var(--border-color)",
+                    }}
+                    onClick={() => toggleCollapse(`result-${message.id}`)}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      style={{
+                        transition: "transform 0.2s",
+                        transform: collapsedSections.has(`result-${message.id}`)
+                          ? "rotate(0deg)"
+                          : "rotate(180deg)",
+                      }}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                    <span
+                      style={{
+                        fontSize: "var(--font-size-xs)",
+                        fontWeight: 600,
+                        color: "var(--secondary-text)",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      ✅ RESULT
+                    </span>
+                  </div>
+                  {!collapsedSections.has(`result-${message.id}`) && (
+                    <div
+                      style={{
+                        padding: "var(--spacing-md)",
+                        fontSize: "var(--font-size-sm)",
+                        color: "var(--success-color)",
+                        lineHeight: 1.6,
+                        whiteSpace: "pre-wrap",
+                        backgroundColor: "var(--primary-bg)",
+                      }}
+                    >
+                      {parsedContent.attemptCompletion}
+                    </div>
+                  )}
+                </div>
+              )}
+
             {/* Message Header + Content */}
             <div
               style={{
@@ -412,6 +614,7 @@ const ChatBody: React.FC<ChatBodyProps> = ({
                   message.role === "user"
                     ? "var(--input-bg)"
                     : "var(--secondary-bg)",
+                padding: message.role === "user" ? "var(--spacing-md)" : "0",
               }}
             >
               <div
@@ -504,6 +707,64 @@ const ChatBody: React.FC<ChatBodyProps> = ({
                 ))}
               </div>
             )}
+
+            {/* 🆕 Followup Options Buttons */}
+            {parsedContent.followupOptions &&
+              parsedContent.followupOptions.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "var(--spacing-sm)",
+                    marginTop: "var(--spacing-sm)",
+                  }}
+                >
+                  {parsedContent.followupOptions.map((option, idx) => (
+                    <button
+                      key={idx}
+                      style={{
+                        padding: "var(--spacing-md)",
+                        backgroundColor: "var(--secondary-bg)",
+                        border: "2px solid var(--accent-text)",
+                        borderRadius: "var(--border-radius-lg)",
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                        fontSize: "var(--font-size-md)",
+                        color: "var(--primary-text)",
+                        fontWeight: 500,
+                        textAlign: "left",
+                        width: "100%",
+                        minHeight: "auto",
+                      }}
+                      onClick={() => {
+                        // Send option as new message
+                        const textarea = document.querySelector(
+                          "textarea"
+                        ) as HTMLTextAreaElement;
+                        if (textarea) {
+                          textarea.value = option;
+                          textarea.dispatchEvent(
+                            new Event("input", { bubbles: true })
+                          );
+                          textarea.focus();
+                        }
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor =
+                          "var(--accent-text)";
+                        e.currentTarget.style.color = "white";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor =
+                          "var(--secondary-bg)";
+                        e.currentTarget.style.color = "var(--primary-text)";
+                      }}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
           </div>
         );
       })}
@@ -539,7 +800,7 @@ const ChatBody: React.FC<ChatBodyProps> = ({
         <div
           style={{
             position: "fixed",
-            bottom: "calc(var(--spacing-lg) + 160px)",
+            bottom: "calc(var(--spacing-lg) + 180px)",
             left: "50%",
             transform: "translateX(-50%)",
             zIndex: 100,

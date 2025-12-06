@@ -22,6 +22,9 @@ const logParseResult = (
 
 export interface ParsedResponse {
   thinking: string | null;
+  followupQuestion: string | null;
+  followupOptions: string[] | null;
+  attemptCompletion: string | null;
   taskProgress: TaskProgressItem[] | null;
   actions: ToolAction[];
   displayText: string;
@@ -299,6 +302,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   const result: ParsedResponse = {
     thinking: null,
+    followupQuestion: null,
+    followupOptions: null,
+    attemptCompletion: null,
     taskProgress: null,
     actions: [],
     displayText: "",
@@ -314,6 +320,63 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     });
   } else {
     logParseResult("Thinking", false, null, content);
+  }
+
+  // 1.5. Extract <ask_followup_question> content
+  const followupMatch = content.match(
+    /<ask_followup_question>([\s\S]*?)<\/ask_followup_question>/
+  );
+  if (followupMatch) {
+    const questionMatch = followupMatch[1].match(
+      /<question>([\s\S]*?)<\/question>/
+    );
+    if (questionMatch) {
+      result.followupQuestion = questionMatch[1].trim();
+      logParseResult("Followup Question", true, {
+        length: result.followupQuestion.length,
+        preview: result.followupQuestion.substring(0, 100),
+      });
+    }
+
+    // Extract options if present
+    const optionsMatch = followupMatch[1].match(
+      /<options>([\s\S]*?)<\/options>/
+    );
+    if (optionsMatch) {
+      try {
+        result.followupOptions = JSON.parse(optionsMatch[1].trim());
+        logParseResult("Followup Options", true, {
+          count: result.followupOptions?.length || 0,
+        });
+      } catch (error) {
+        console.error(
+          `[ResponseParser] ❌ Failed to parse options JSON:`,
+          error
+        );
+        result.followupOptions = null;
+      }
+    }
+  } else {
+    logParseResult("Thinking", false, null, content);
+  }
+
+  // 1.6. Extract <attempt_completion> result
+  const attemptCompletionMatch = content.match(
+    /<attempt_completion>([\s\S]*?)<\/attempt_completion>/
+  );
+  if (attemptCompletionMatch) {
+    const resultMatch = attemptCompletionMatch[1].match(
+      /<result>([\s\S]*?)<\/result>/
+    );
+    if (resultMatch) {
+      result.attemptCompletion = resultMatch[1].trim();
+      logParseResult("Attempt Completion", true, {
+        length: result.attemptCompletion.length,
+        preview: result.attemptCompletion.substring(0, 100),
+      });
+    }
+  } else {
+    logParseResult("Attempt Completion", false);
   }
 
   // 2. Extract global <task_progress> (outside of tool calls)
@@ -341,6 +404,18 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   // Remove <thinking> tags
   displayText = displayText.replace(/<thinking>[\s\S]*?<\/thinking>\s*/g, "");
+
+  // Remove <ask_followup_question> tags
+  displayText = displayText.replace(
+    /<ask_followup_question>[\s\S]*?<\/ask_followup_question>\s*/g,
+    ""
+  );
+
+  // Remove <attempt_completion> tags
+  displayText = displayText.replace(
+    /<attempt_completion>[\s\S]*?<\/attempt_completion>\s*/g,
+    ""
+  );
 
   // Remove global <task_progress> tags
   displayText = displayText.replace(
@@ -371,11 +446,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   displayText = displayText.trim();
 
-  // Priority: thinking > displayText
-  if (result.thinking) {
-    result.displayText = result.thinking;
+  // Priority: followupQuestion > displayText (thinking shown separately)
+  if (result.followupQuestion) {
+    result.displayText = result.followupQuestion;
     console.log(
-      `[ResponseParser] 📝 Using thinking as displayText (${result.thinking.length} chars)`
+      `[ResponseParser] 📝 Using followup question as displayText (${result.followupQuestion.length} chars)`
     );
   } else if (displayText) {
     result.displayText = displayText;
