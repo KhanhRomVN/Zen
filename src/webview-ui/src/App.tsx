@@ -250,7 +250,6 @@ const App: React.FC = () => {
 
     // Expose to global scope
     (window as any).storage = storageApi;
-    console.log("[App] ✅ Storage API initialized");
   }, []);
 
   // 🆕 Lift tabs state lên App level để persist khi switch panels

@@ -157,7 +157,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           isFirstRequest
         ).then((success) => {
           if (success) {
-            console.log("[ChatPanel] ✅ Auto-saved conversation");
           }
         });
       }, 1000); // Debounce 1s
@@ -185,20 +184,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         );
 
         if (saved && saved.messages.length > 0) {
-          console.log(
-            "[ChatPanel] ✅ Loaded saved conversation:",
-            saved.messages.length,
-            "messages"
-          );
           setMessages(saved.messages);
           setIsFirstRequest(saved.isFirstRequest);
         } else {
-          console.log("[ChatPanel] 📝 Starting new conversation");
           setMessages([]);
           setIsFirstRequest(true);
         }
       } else {
-        console.log("[ChatPanel] 📝 Starting new conversation (from TabList)");
         setMessages([]);
         setIsFirstRequest(true);
       }
@@ -506,7 +498,6 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
       isFirstRequest
     ).then((success) => {
       if (success) {
-        console.log("[ChatPanel] ✅ Saved conversation (pre-response)");
       }
     });
 
@@ -576,7 +567,6 @@ Tab ${selectedTab.tabId} hiện không thể nhận request mới.
       setMessages([]);
       setIsFirstRequest(true);
       setIsProcessing(false);
-      console.log("[ChatPanel] ✅ Cleared conversation");
     }
   }, [selectedTab.tabId, selectedTab.folderPath]);
 
