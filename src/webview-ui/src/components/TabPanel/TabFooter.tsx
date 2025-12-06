@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useModels } from "../../hooks/useModels";
 
 interface TabFooterProps {
   port: number;
   wsConnected: boolean;
-  onModelChange?: (modelId: string) => void; // 🆕 Callback khi model thay đổi
+  onModelChange?: (modelIds: string[]) => void; // 🆕 Callback với array
 }
 
 const TabFooter: React.FC<TabFooterProps> = ({
@@ -12,35 +12,62 @@ const TabFooter: React.FC<TabFooterProps> = ({
   wsConnected,
   onModelChange,
 }) => {
-  const {
-    models: availableModels,
-    selectedModel,
-    setSelectedModel,
-  } = useModels();
-  const [showModelDrawer, setShowModelDrawer] = useState(false);
+  const { models: availableModels } = useModels();
+  const [selectedModels, setSelectedModels] = useState<string[]>([
+    "deepseek-web",
+  ]); // 🆕 Multi-select
+  const [copiedPort, setCopiedPort] = useState(false);
 
-  const RefreshIcon = () => (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 2v6h-6" />
-      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-      <path d="M3 22v-6h6" />
-      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-    </svg>
-  );
+  const getProviderConfig = (provider: string) => {
+    const configs = {
+      deepseek: { emoji: "🤖", color: "#3b82f6", name: "DeepSeek" },
+      chatgpt: { emoji: "💬", color: "#10b981", name: "ChatGPT" },
+      grok: { emoji: "⚡", color: "#f97316", name: "Grok" },
+      claude: { emoji: "🧠", color: "#f59e0b", name: "Claude" },
+      gemini: { emoji: "✨", color: "#8b5cf6", name: "Gemini" },
+    };
+    return (
+      configs[provider as keyof typeof configs] || {
+        emoji: "🤖",
+        color: "#6b7280",
+        name: provider,
+      }
+    );
+  };
 
-  const Icon = () => (
+  const PortToClipboard = () => {
+    const text = "localhost:" + port;
+    navigator.clipboard.writeText(text).then(
+      () => {
+        setCopiedPort(true);
+        setTimeout(() => setCopiedPort(false), 2000);
+      },
+      (err) => {
+        console.error(`[TabFooter] ❌ Failed to copy:`, err);
+      }
+    );
+  };
+
+  const handleModelToggle = (modelId: string) => {
+    setSelectedModels((prev) => {
+      const newSelection = prev.includes(modelId)
+        ? prev.filter((id) => id !== modelId) // Bỏ chọn
+        : [...prev, modelId]; // Thêm chọn
+
+      // Đảm bảo luôn có ít nhất 1 model được chọn
+      if (newSelection.length === 0) {
+        return prev;
+      }
+
+      onModelChange?.(newSelection);
+      return newSelection;
+    });
+  };
+
+  const CopyIcon = () => (
     <svg
-      width="16"
-      height="16"
+      width="14"
+      height="14"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -53,10 +80,10 @@ const TabFooter: React.FC<TabFooterProps> = ({
     </svg>
   );
 
-  const ChevronDownIcon = () => (
+  const CheckIcon = () => (
     <svg
-      width="16"
-      height="16"
+      width="14"
+      height="14"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -64,44 +91,9 @@ const TabFooter: React.FC<TabFooterProps> = ({
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <polyline points="6 9 12 15 18 9" />
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   );
-
-  const PortToClipboard = () => {
-    const text = "localhost:" + port;
-    navigator.clipboard.writeText(text).then(
-      () => {},
-      (err) => {
-        console.error(`[TabFooter] ❌ Failed to copy:`, err);
-      }
-    );
-  };
-
-  const handleModelSelect = (modelId: string) => {
-    setSelectedModel(modelId);
-    setShowModelDrawer(false);
-    onModelChange?.(modelId);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!showModelDrawer) return;
-      const target = event.target as HTMLElement;
-      const drawer = document.querySelector('[data-model-drawer="true"]');
-      if (drawer && !drawer.contains(target)) {
-        setShowModelDrawer(false);
-      }
-    };
-
-    if (showModelDrawer) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showModelDrawer]);
 
   return (
     <div
@@ -110,281 +102,150 @@ const TabFooter: React.FC<TabFooterProps> = ({
         bottom: 0,
         left: 0,
         right: 0,
-        display: "flex",
-        flexDirection: "column",
         width: "100%",
         backgroundColor: "var(--secondary-bg)",
+        borderTop: "1px solid var(--border-color)",
         zIndex: 100,
       }}
     >
+      {/* Model Selection Row - Wrap Layout */}
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
+          flexWrap: "wrap", // 🆕 Wrap xuống dòng
+          gap: "6px",
+          padding: "8px 12px",
           alignItems: "center",
-          padding: "var(--spacing-sm) var(--spacing-lg)",
-          backgroundColor: "var(--secondary-bg)",
-          borderTop: "1px solid var(--border-color)",
-          fontSize: "var(--font-size-xs)",
-          color: "var(--secondary-text)",
-          position: "relative",
-          minHeight: "36px",
+          justifyContent: "center", // 🆕 Center các button
         }}
       >
-        <div style={{ position: "relative", zIndex: 1001 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--spacing-xs)",
-              cursor: "pointer",
-              padding: "var(--spacing-xs) var(--spacing-sm)",
-              borderRadius: "var(--border-radius)",
-              transition: "background-color 0.2s",
-              userSelect: "none",
-              color: wsConnected ? "#4ade80" : "var(--secondary-text)",
-            }}
-            onClick={() => setShowModelDrawer(!showModelDrawer)}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-            }}
-          >
-            <span>
-              Model:{" "}
-              {availableModels.find((m) => m.id === selectedModel)?.name ||
-                selectedModel}
-            </span>
-            <ChevronDownIcon />
-          </div>
-        </div>
+        {availableModels.map((model) => {
+          const config = getProviderConfig(model.provider);
+          const isSelected = selectedModels.includes(model.id); // 🆕 Check multi-select
 
+          return (
+            <button
+              key={model.id}
+              onClick={() => handleModelToggle(model.id)} // 🆕 Toggle thay vì set
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 12px",
+                borderRadius: "8px",
+                border: isSelected
+                  ? `2px solid ${config.color}`
+                  : "2px solid transparent",
+                backgroundColor: isSelected
+                  ? `${config.color}15`
+                  : "var(--tertiary-bg)",
+                color: isSelected ? config.color : "var(--primary-text)",
+                fontSize: "13px",
+                fontWeight: isSelected ? 600 : 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                whiteSpace: "nowrap",
+                userSelect: "none",
+                outline: "none",
+              }}
+              onMouseEnter={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.backgroundColor = "var(--tertiary-bg)";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }
+              }}
+            >
+              <span style={{ fontSize: "14px" }}>{config.emoji}</span>
+              <span>{config.name}</span>
+              {/* 🆕 Badge hiển thị số lượng selected */}
+              {isSelected && selectedModels.length > 1 && (
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    backgroundColor: config.color,
+                    color: "white",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    marginLeft: "2px",
+                  }}
+                >
+                  {selectedModels.indexOf(model.id) + 1}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Port Info Row */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: "6px 12px",
+          backgroundColor: "var(--primary-bg)",
+          borderTop: "1px solid var(--border-color)",
+        }}
+      >
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "var(--spacing-md)",
+            gap: "8px",
+            cursor: "pointer",
+            padding: "4px 10px",
+            borderRadius: "6px",
+            transition: "all 0.2s",
+            backgroundColor: copiedPort ? "#10b98115" : "transparent",
+          }}
+          onClick={PortToClipboard}
+          onMouseEnter={(e) => {
+            if (!copiedPort) {
+              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!copiedPort) {
+              e.currentTarget.style.backgroundColor = "transparent";
+            }
           }}
         >
-          <div
+          {copiedPort ? <CheckIcon /> : <CopyIcon />}
+          <span
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--spacing-xs)",
-              cursor: "pointer",
-              padding: "var(--spacing-xs) var(--spacing-sm)",
-              borderRadius: "var(--border-radius)",
-              transition: "background-color 0.2s",
-              userSelect: "none",
-            }}
-            onClick={PortToClipboard}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
+              fontSize: "12px",
+              color: wsConnected ? "#10b981" : "var(--secondary-text)",
+              fontWeight: wsConnected ? 600 : 400,
+              fontFamily: "monospace",
             }}
           >
-            <Icon />
+            localhost:{port || 3000}
+          </span>
+          {copiedPort && (
             <span
               style={{
-                color: wsConnected ? "#4ade80" : "inherit",
-                fontWeight: wsConnected ? 600 : 400,
+                fontSize: "11px",
+                color: "#10b981",
+                fontWeight: 500,
               }}
             >
-              localhost:{port || 3000} {/* Display 3000 nếu chưa có port */}
+              Copied!
             </span>
-            {wsConnected && (
-              <span
-                style={{
-                  fontSize: "10px",
-                  color: "#4ade80",
-                  marginLeft: "4px",
-                }}
-              >
-                (Shared)
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </div>
-
-      {showModelDrawer && (
-        <div
-          data-model-drawer="true"
-          style={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            backgroundColor: "var(--primary-bg)",
-            borderTop: "1px solid var(--border-color)",
-            borderTopLeftRadius: "12px",
-            borderTopRightRadius: "12px",
-            padding: "var(--spacing-lg)",
-            zIndex: 999,
-            boxShadow: "0 -4px 20px rgba(0, 0, 0, 0.15)",
-            transform: "translateY(0)",
-            animation: "slideUp 0.3s ease-out",
-            maxHeight: "70vh",
-            overflowY: "auto",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "var(--spacing-lg)",
-              paddingBottom: "var(--spacing-sm)",
-              borderBottom: "1px solid var(--border-color)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "var(--font-size-lg)",
-                fontWeight: 600,
-                color: "var(--primary-text)",
-              }}
-            >
-              Select Model
-            </div>
-            <div
-              style={{
-                cursor: "pointer",
-                padding: "var(--spacing-xs)",
-                borderRadius: "var(--border-radius)",
-                transition: "background-color 0.2s",
-              }}
-              onClick={() => setShowModelDrawer(false)}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }}
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "var(--spacing-sm)",
-            }}
-          >
-            {availableModels.map((model) => (
-              <div
-                key={model.id}
-                style={{
-                  padding: "var(--spacing-md) var(--spacing-lg)",
-                  borderRadius: "var(--border-radius)",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  backgroundColor:
-                    selectedModel === model.id
-                      ? "var(--accent-bg)"
-                      : "var(--secondary-bg)",
-                  color:
-                    selectedModel === model.id
-                      ? "var(--accent-text)"
-                      : "var(--primary-text)",
-                  border:
-                    selectedModel === model.id
-                      ? "1px solid var(--accent-text)"
-                      : "1px solid transparent",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-                onClick={() => handleModelSelect(model.id)}
-                onMouseEnter={(e) => {
-                  if (selectedModel !== model.id) {
-                    e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (selectedModel !== model.id) {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--secondary-bg)";
-                  }
-                }}
-              >
-                <span
-                  style={{ fontWeight: selectedModel === model.id ? 600 : 400 }}
-                >
-                  {model.name}
-                </span>
-                {selectedModel === model.id && (
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              marginTop: "var(--spacing-lg)",
-              paddingTop: "var(--spacing-md)",
-              borderTop: "1px solid var(--border-color)",
-              fontSize: "var(--font-size-xs)",
-              color: "var(--secondary-text)",
-              textAlign: "center",
-            }}
-          >
-            Model determines the AI behavior and capabilities
-          </div>
-        </div>
-      )}
-
-      {showModelDrawer && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            zIndex: 998,
-          }}
-          onClick={() => setShowModelDrawer(false)}
-        />
-      )}
-
-      <style>
-        {`@keyframes slideUp {
- from {
- transform: translateY(100%);
- }
- to {
- transform: translateY(0);
- }
- }`}
-      </style>
     </div>
   );
 };

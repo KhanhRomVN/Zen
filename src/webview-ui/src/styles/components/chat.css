@@ -10,7 +10,7 @@
 
 /* Header Styles */
 .chat-header {
-  padding: var(--spacing-xl);
+  padding: var(--spacing-lg);
   border-bottom: 1px solid var(--border-color);
   background-color: var(--secondary-bg);
 }
@@ -139,24 +139,24 @@
 
 /* Input Area */
 .chat-input-container {
-border-top: 1px solid var(--border-color);
-background-color: var(--secondary-bg);
+  border-top: 1px solid var(--border-color);
+  background-color: var(--secondary-bg);
 }
 
 .auto-approve-bar {
-padding: var(--spacing-sm) var(--spacing-lg);
-background-color: var(
---secondary-bg
-); /* Đổi từ tertiary-bg sang secondary-bg để đồng nhất */
-border-bottom: 1px solid var(--border-color);
-display: flex;
-align-items: center;
-justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(
+    --secondary-bg
+  ); /* Đổi từ tertiary-bg sang secondary-bg để đồng nhất */
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .auto-approve-text {
-font-size: var(--font-size-sm);
-color: var(--secondary-text);
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text);
 }
 
 /* ChatInput component mới sử dụng inline styles, không cần CSS ở đây */

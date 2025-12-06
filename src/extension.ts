@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { ContextManager } from "./context/ContextManager";
 import { SingletonWSManager } from "./core/SingletonWSManager";
+import { AgentCapabilityManager } from "./agent/AgentCapabilityManager";
+import { AgentPermissions } from "./agent/types/AgentTypes";
 
 export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
@@ -9,6 +11,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _wsPort: number = 0;
   private _wsManager: SingletonWSManager;
   private _contextManager: ContextManager;
+  private _agentManager?: AgentCapabilityManager;
 
   constructor(private readonly _extensionUri: vscode.Uri) {
     this._contextManager = new ContextManager();
@@ -25,6 +28,19 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           vscode.commands.executeCommand(
             "setContext",
             "zen.workspaceFolderPath",
+            folderPath
+          );
+          // Initialize AgentCapabilityManager with default permissions
+          const defaultPermissions: AgentPermissions = {
+            readProjectFile: false,
+            readAllFile: false,
+            editProjectFiles: false,
+            editAddFile: false,
+            executeSafeCommand: false,
+            executeAllCommands: false,
+          };
+          this._agentManager = new AgentCapabilityManager(
+            defaultPermissions,
             folderPath
           );
         }
@@ -69,6 +85,35 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           command: "workspacePort",
           port: this._wsPort,
         });
+      } else if (message.command === "updateAgentPermissions") {
+        // Update agent permissions from webview
+        if (this._agentManager && message.permissions) {
+          this._agentManager.updatePermissions(message.permissions);
+        }
+      } else if (message.command === "executeAgentAction") {
+        // Execute agent action from webview
+        if (this._agentManager && message.action) {
+          this._agentManager
+            .executeAction(message.action)
+            .then((result) => {
+              webviewView.webview.postMessage({
+                command: "agentActionResult",
+                requestId: message.action.requestId,
+                result: result,
+              });
+            })
+            .catch((error) => {
+              webviewView.webview.postMessage({
+                command: "agentActionResult",
+                requestId: message.action.requestId,
+                result: {
+                  success: false,
+                  error: error.message || String(error),
+                  timestamp: Date.now(),
+                },
+              });
+            });
+        }
       }
     });
 

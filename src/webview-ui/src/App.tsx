@@ -163,6 +163,9 @@ const App: React.FC = () => {
         if (activePortRef.current === currentPort) {
           setWsConnected(false);
           setWsInstance(null);
+          if (selectedTab !== null) {
+            setSelectedTab(null);
+          }
         }
       };
 

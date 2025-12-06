@@ -9,6 +9,7 @@ interface TabInfo {
   canAccept: boolean;
   requestCount: number;
   folderPath?: string | null;
+  provider?: "deepseek" | "chatgpt" | "gemini" | "grok" | "claude";
 }
 
 interface ChatHeaderProps {
@@ -17,17 +18,26 @@ interface ChatHeaderProps {
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ selectedTab, onBack }) => {
-  const getStatusColor = (status: string): string => {
-    if (status === "busy") return "#ff9800";
-    if (status === "sleep") return "#9c27b0";
-    return "#4caf50";
+  const getProviderInfo = (
+    provider?: "deepseek" | "chatgpt" | "gemini" | "grok" | "claude"
+  ): { name: string; emoji: string; color: string } => {
+    switch (provider) {
+      case "deepseek":
+        return { name: "DeepSeek", emoji: "🤖", color: "#3b82f6" };
+      case "chatgpt":
+        return { name: "ChatGPT", emoji: "💬", color: "#10b981" };
+      case "claude":
+        return { name: "Claude", emoji: "🧠", color: "#f59e0b" };
+      case "gemini":
+        return { name: "Gemini", emoji: "✨", color: "#a855f7" };
+      case "grok":
+        return { name: "Grok", emoji: "⚡", color: "#f97316" };
+      default:
+        return { name: "Unknown", emoji: "❓", color: "#6b7280" };
+    }
   };
 
-  const getStatusIcon = (status: string): string => {
-    if (status === "busy") return "⏳";
-    if (status === "sleep") return "💤";
-    return "✅";
-  };
+  const providerInfo = getProviderInfo(selectedTab.provider);
 
   return (
     <div className="chat-header">
@@ -38,100 +48,42 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ selectedTab, onBack }) => {
           gap: "var(--spacing-md)",
         }}
       >
-        <div
-          style={{
-            cursor: "pointer",
-            padding: "var(--spacing-xs)",
-            borderRadius: "var(--border-radius)",
-            transition: "background-color 0.2s",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          onClick={onBack}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "transparent";
-          }}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </div>
-
         <div style={{ flex: 1 }}>
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: "var(--spacing-sm)",
-              marginBottom: "var(--spacing-xs)",
             }}
           >
-            <div
+            <span
               style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                backgroundColor: getStatusColor(selectedTab.status),
+                fontSize: "11px",
+                fontWeight: 600,
+                color: providerInfo.color,
+                backgroundColor: `${providerInfo.color}15`,
+                padding: "3px 8px",
+                borderRadius: "6px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "4px",
               }}
-            />
+            >
+              {providerInfo.emoji} {providerInfo.name}
+            </span>
             <h2
               style={{
                 margin: 0,
                 fontSize: "var(--font-size-lg)",
                 fontWeight: 600,
                 color: "var(--primary-text)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
               {selectedTab.title}
             </h2>
-            <span style={{ fontSize: "var(--font-size-md)" }}>
-              {getStatusIcon(selectedTab.status)}
-            </span>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--spacing-md)",
-              fontSize: "var(--font-size-xs)",
-              color: "var(--secondary-text)",
-            }}
-          >
-            <span style={{ fontFamily: "monospace" }}>
-              Tab ID: {selectedTab.tabId}
-            </span>
-            <span>•</span>
-            <span>{selectedTab.requestCount} requests</span>
-            {selectedTab.folderPath && (
-              <>
-                <span>•</span>
-                <span
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "var(--spacing-xs)",
-                    color: "var(--accent-text)",
-                  }}
-                >
-                  <span>📁</span>
-                  <span>{selectedTab.folderPath.split("/").pop()}</span>
-                </span>
-              </>
-            )}
           </div>
         </div>
       </div>

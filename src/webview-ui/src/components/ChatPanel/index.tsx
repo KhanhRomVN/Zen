@@ -142,8 +142,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     };
   }, [onWsMessage]);
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (
+    content: string,
+    files?: any[],
+    agentOptions?: any
+  ) => {
     const requestId = `ctx-${Date.now()}`;
+
+    // Send agent permissions update to extension
+    if (agentOptions) {
+      const vscodeApi = (window as any).acquireVsCodeApi?.();
+      if (vscodeApi) {
+        vscodeApi.postMessage({
+          command: "updateAgentPermissions",
+          permissions: agentOptions,
+        });
+      }
+    }
 
     // Send context request via WebSocket
     if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {

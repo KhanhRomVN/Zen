@@ -34,40 +34,51 @@ const TabPanel: React.FC<TabPanelProps> = ({
   // Hiển thị TabList khi WebSocket đã connected VÀ có tabs
   const shouldShowTabList = wsConnected && tabs.length > 0;
 
-  // 🆕 State for model filtering
-  const [selectedModel, setSelectedModel] =
-    React.useState<string>("deepseek-web");
+  // 🆕 State for model filtering (multi-select)
+  const [selectedModels, setSelectedModels] = React.useState<string[]>([
+    "deepseek-web",
+  ]);
   const { models: availableModels } = useModels();
 
-  // 🆕 Filter tabs based on selected model
+  // 🆕 Filter tabs based on selected models (multi-select)
   const filteredTabs = React.useMemo(() => {
-    const selectedModelData = availableModels.find(
-      (m) => m.id === selectedModel
-    );
-    if (!selectedModelData) {
-      console.warn(`[TabPanel] ⚠️ Model not found:`, selectedModel);
-      return tabs; // No filtering if model not found
+    if (selectedModels.length === 0) {
+      return tabs; // Show all tabs if no model selected
     }
 
-    const targetProvider = selectedModelData.provider;
+    // Get target providers from selected models
+    const targetProviders = selectedModels
+      .map((modelId) => {
+        const modelData = availableModels.find((m) => m.id === modelId);
+        return modelData?.provider;
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== undefined);
+
+    if (targetProviders.length === 0) {
+      console.warn(
+        `[TabPanel] ⚠️ No valid providers found for selected models:`,
+        selectedModels
+      );
+      return tabs;
+    }
 
     // 🆕 Debug logging
     console.log(`[TabPanel] 🔍 Filtering tabs:`, {
-      selectedModel,
-      targetProvider,
+      selectedModels,
+      targetProviders,
       totalTabs: tabs.length,
       tabsWithProvider: tabs.filter((t) => t.provider).length,
       providers: tabs.map((t) => t.provider),
     });
 
-    // 🆕 Filter tabs by provider (allow undefined provider = no filter)
+    // 🆕 Filter tabs by providers (OR logic)
     const filtered = tabs.filter((tab) => {
       // Nếu tab không có provider field → accept (backward compatibility)
       if (!tab.provider) {
         console.warn(`[TabPanel] ⚠️ Tab missing provider field:`, tab.tabId);
         return true;
       }
-      return tab.provider === targetProvider;
+      return targetProviders.includes(tab.provider);
     });
 
     console.log(`[TabPanel] ✅ Filtered result:`, {
@@ -76,7 +87,7 @@ const TabPanel: React.FC<TabPanelProps> = ({
     });
 
     return filtered;
-  }, [tabs, selectedModel, availableModels]);
+  }, [tabs, selectedModels, availableModels]);
 
   // 🆕 Auto-refresh tab state every 0.5s when in TabPanel
   useEffect(() => {
@@ -130,14 +141,14 @@ const TabPanel: React.FC<TabPanelProps> = ({
             >
               🔍
             </div>
-            <p>No tabs available for selected model</p>
+            <p>No tabs available for selected models</p>
             <p
               style={{
                 fontSize: "var(--font-size-xs)",
                 marginTop: "var(--spacing-xs)",
               }}
             >
-              Try selecting a different model or open a new AI chat tab
+              Try selecting different models or open a new AI chat tab
             </p>
           </div>
         )}
@@ -175,7 +186,7 @@ const TabPanel: React.FC<TabPanelProps> = ({
       <TabInput
         port={port}
         wsConnected={wsConnected}
-        onModelChange={setSelectedModel}
+        onModelChange={setSelectedModels}
       />
     </div>
   );
