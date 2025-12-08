@@ -1,0 +1,130 @@
+{
+  "name": "khanhromvn.zen",
+  "displayName": "Zen - Free AI Chat For ALL LLM",
+  "description": "A powerful VSCode extension that brings AI chat capabilities directly into your development environment",
+  "version": "1.0.0",
+  "publisher": "KhanhRomVN",
+  "license": "MIT",
+  "capabilities": {
+    "exportedAPI": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KhanhRomVN/Zen"
+  },
+  "icon": "images/icon.png",
+  "engines": {
+    "vscode": "^1.50.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "zen-sidebar",
+          "title": "Zen",
+          "icon": "images/icon.png"
+        }
+      ]
+    },
+    "views": {
+      "zen-sidebar": [
+        {
+          "id": "zen-chat",
+          "name": "Chat",
+          "type": "webview",
+          "contextualTitle": "Zen Chat"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "zen.openChat",
+        "title": "Open Zen Chat",
+        "category": "Zen"
+      },
+      {
+        "command": "zen.settings",
+        "title": "Open Settings",
+        "category": "Zen",
+        "icon": "$(settings)"
+      },
+      {
+        "command": "zen.history",
+        "title": "Open Chat History",
+        "category": "Zen",
+        "icon": "$(history)"
+      },
+      {
+        "command": "zen.newChat",
+        "title": "New Chat",
+        "category": "Zen",
+        "icon": "$(add)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "zen.settings",
+          "when": "view == zen-chat",
+          "group": "navigation",
+          "icon": "$(settings)"
+        },
+        {
+          "command": "zen.history",
+          "when": "view == zen-chat",
+          "group": "navigation",
+          "icon": "$(history)"
+        },
+        {
+          "command": "zen.newChat",
+          "when": "view == zen-chat",
+          "group": "navigation",
+          "icon": "$(add)"
+        }
+      ]
+    }
+  },
+  "main": "./dist/extension.js",
+  "browser": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run compile:extension && npm run compile:webview",
+    "compile:extension": "webpack --config webpack.config.js",
+    "compile:webview": "cd src/webview-ui && npm install && npm run build && cd ../.. && bash remove-dts-files.sh",
+    "watch": "npm run watch:extension & npm run watch:webview",
+    "watch:extension": "webpack --watch --config webpack.config.js",
+    "watch:webview": "cd src/webview-ui && npm run watch",
+    "package": "npm run package:extension && npm run package:webview",
+    "package:extension": "webpack --mode production --devtool hidden-source-map --config webpack.config.js",
+    "package:webview": "cd src/webview-ui && npm run build && cd ../.. && bash remove-dts-files.sh",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.50.0",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.23.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.2",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
