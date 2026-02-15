@@ -1,0 +1,317 @@
+import React from "react";
+import { CodeBlock } from "../../../CodeBlock";
+import { Message } from "../types";
+import { ParsedResponse } from "../../../../services/ResponseParser";
+import PromptSection from "./PromptSection";
+import ThinkingSection from "./ThinkingSection";
+import FollowupOptions from "./FollowupOptions";
+import RequestDivider from "./RequestDivider";
+import ToolActionsList from "./ToolActions/index";
+import HtmlPreview from "./HtmlPreview";
+import FileIcon from "../../../common/FileIcon";
+
+interface MessageBoxProps {
+  message: Message;
+  parsedContent: ParsedResponse; // For assistant messages
+  isCollapsed: boolean; // For prompt/thinking sections
+  onToggleCollapse: () => void;
+  clickedActions: Set<string>;
+  failedActions?: Set<string>;
+  onToolClick: (action: any, message: Message, index: number) => void; // Using any for action temporarily to match ToolAction
+  requestNumber?: number | null; // For user messages
+  executionState?: {
+    total: number;
+    completed: number;
+    status: "idle" | "running" | "error" | "done";
+  };
+  isLastMessage?: boolean; // New prop
+  clearedActions?: Set<string>;
+  onActionClear?: (actionId: string) => void;
+  toolOutputs?: Record<string, { output: string; isError: boolean }>;
+}
+
+const MessageBox: React.FC<MessageBoxProps> = ({
+  message,
+  parsedContent,
+  isCollapsed,
+  onToggleCollapse,
+  clickedActions,
+  failedActions,
+  onToolClick,
+  requestNumber,
+  executionState,
+  isLastMessage,
+  clearedActions,
+  onActionClear,
+  toolOutputs,
+}) => {
+  // If User Message
+  if (message.role === "user") {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "var(--spacing-md)",
+          marginBottom: "var(--spacing-md)",
+        }}
+      >
+        {/* User Content Box (if not tool request) */}
+        {!message.isToolRequest && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "var(--spacing-xs)",
+              borderRadius: "var(--border-radius)",
+              backgroundColor: "var(--input-bg)",
+              padding: "var(--spacing-md)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "var(--font-size-sm)",
+                color: "var(--primary-text)",
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {message.content}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // If Assistant Message
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--spacing-md)",
+        marginBottom: "var(--spacing-md)",
+      }}
+    >
+      {/* 2. Thinking Section */}
+      {parsedContent.thinking && (
+        <ThinkingSection
+          message={message}
+          thinking={parsedContent.thinking}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={onToggleCollapse}
+        />
+      )}
+
+      {/* 3. Interleaved Content (Text + Tools) */}
+      {(() => {
+        // Prepare render groups
+        const groups: Array<
+          | { type: "text"; content: string; key: string }
+          | { type: "code"; content: string; language: string; key: string }
+          | { type: "html"; content: string; key: string }
+          | { type: "file"; content: string; key: string }
+          | {
+              type: "tools";
+              items: { action: any; index: number }[];
+              key: string;
+            }
+        > = [];
+
+        let currentToolGroup: { action: any; index: number }[] = [];
+
+        // Use contentBlocks from parser
+        const blocks = parsedContent.contentBlocks || [];
+
+        // Helper to flush tool group
+        const flushTools = () => {
+          if (currentToolGroup.length > 0) {
+            groups.push({
+              type: "tools",
+              items: [...currentToolGroup],
+              key: `tools-${groups.length}`,
+            });
+            currentToolGroup = [];
+          }
+        };
+
+        if (blocks.length > 0) {
+          blocks.forEach((block, idx) => {
+            if (block.type === "tool") {
+              const actionIndex = parsedContent.actions.indexOf(block.action);
+              currentToolGroup.push({
+                action: block.action,
+                index: actionIndex !== -1 ? actionIndex : idx, // Fallback index if not found
+              });
+            } else if (block.type === "file") {
+              flushTools();
+              groups.push({
+                type: "file",
+                content: block.content,
+                key: `file-${groups.length}`,
+              });
+            } else {
+              // Flush tools before adding non-tool block
+              flushTools();
+
+              if (block.type === "code") {
+                groups.push({
+                  type: "code",
+                  content: block.content,
+                  language: block.language || "text",
+                  key: `code-${groups.length}`,
+                });
+              } else if (block.type === "html") {
+                groups.push({
+                  type: "html",
+                  content: block.content,
+                  key: `html-${groups.length}`,
+                });
+              } else {
+                // Text block
+                groups.push({
+                  type: "text",
+                  content: block.content,
+                  key: `text-${groups.length}`,
+                });
+              }
+            }
+          });
+          // Flush any remaining tools
+          flushTools();
+        } else {
+          // Legacy Fallback
+          // 1. Text
+          if (parsedContent.displayText) {
+            groups.push({
+              type: "text",
+              content: parsedContent.displayText,
+              key: "text-legacy",
+            });
+          }
+          // 2. Tools
+          if (parsedContent.actions && parsedContent.actions.length > 0) {
+            currentToolGroup = parsedContent.actions.map((action, index) => ({
+              action,
+              index,
+            }));
+            flushTools();
+          }
+        }
+
+        return groups.map((group) => {
+          if (group.type === "code") {
+            return (
+              <div key={group.key} style={{ marginTop: "var(--spacing-xs)" }}>
+                <CodeBlock
+                  code={group.content}
+                  language={group.language}
+                  maxLines={25}
+                  showCopyButton={true}
+                />
+              </div>
+            );
+          } else if (group.type === "html") {
+            return (
+              <div
+                key={group.key}
+                style={{
+                  marginTop: "var(--spacing-xs)",
+                }}
+              >
+                <HtmlPreview content={group.content} />
+              </div>
+            );
+          } else if (group.type === "file") {
+            return (
+              <div
+                key={group.key}
+                style={{
+                  marginTop: "var(--spacing-xs)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "4px 8px",
+                  borderRadius: "4px",
+                  backgroundColor: "var(--vscode-badge-background)",
+                  color: "var(--vscode-badge-foreground)",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  const vscodeApi = (window as any).vscodeApi;
+                  if (vscodeApi) {
+                    vscodeApi.postMessage({
+                      command: "openFile",
+                      path: group.content,
+                    });
+                  }
+                }}
+              >
+                <FileIcon
+                  path={group.content}
+                  style={{ width: "14px", height: "14px" }}
+                />
+                <span>{group.content}</span>
+              </div>
+            );
+          } else if (group.type === "text") {
+            return (
+              <div
+                key={group.key}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "var(--spacing-xs)",
+                  borderRadius: "var(--border-radius)",
+                  backgroundColor: "transparent", // Clean look
+                  padding: "0",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--primary-text)",
+                    lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {group.content}
+                </div>
+              </div>
+            );
+          } else {
+            return (
+              <ToolActionsList
+                key={group.key}
+                message={message}
+                items={group.items}
+                clickedActions={clickedActions}
+                failedActions={failedActions}
+                onToolClick={onToolClick}
+                executionState={executionState}
+                isLastMessage={isLastMessage}
+                clearedActions={clearedActions}
+                onActionClear={onActionClear}
+                toolOutputs={toolOutputs}
+              />
+            );
+          }
+        });
+      })()}
+
+      {/* 6. Follow-up Options */}
+      {parsedContent.followupOptions && (
+        <FollowupOptions
+          options={parsedContent.followupOptions}
+          messageId={message.id}
+          selectedOption={undefined}
+          onOptionClick={(opt) => {}}
+        />
+      )}
+    </div>
+  );
+};
+
+export default MessageBox;

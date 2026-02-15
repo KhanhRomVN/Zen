@@ -1,0 +1,27 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "npm",
+			"script": "compile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [
+				"$tsc",
+				"$eslint-stylish"
+			],
+			"label": "npm: compile",
+			"detail": "npm run compile"
+		},
+		{
+			"type": "npm",
+			"script": "watch",
+			"group": "build",
+			"problemMatcher": "$tsc",
+			"label": "npm: watch",
+			"isBackground": true
+		}
+	]
+}

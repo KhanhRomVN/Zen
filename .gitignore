@@ -1,0 +1,77 @@
+# Build outputs
+out
+dist
+*.vsix
+
+# Dependencies
+node_modules
+package-lock.json
+
+# IDE and Editor
+.vscode-test/
+.vscode/*.log
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+.nyc_output
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+temp
+tmp
+*.tmp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+qdrant.api
+
+# Webpack
+.cache
+
+# Test
+test-results/
+playwright-report/
+
+# Monaco Editor (if copied locally)
+src/webview-ui/public/vs/
+
+temp

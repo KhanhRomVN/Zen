@@ -1,0 +1,42 @@
+{
+  "name": "zen-webview-ui",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "webpack --mode production",
+    "postbuild": "mkdir -p dist/images && cp -r ../../images/icons dist/images/",
+    "watch": "webpack --watch --mode development"
+  },
+  "dependencies": {
+    "@monaco-editor/react": "^4.6.0",
+    "@vscode/webview-ui-toolkit": "^1.4.0",
+    "clsx": "^2.1.1",
+    "gpt-tokenizer": "^3.4.0",
+    "lucide-react": "^0.564.0",
+    "monaco-editor": "^0.50.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "styled-components": "^6.1.19",
+    "tailwind-merge": "^3.4.0",
+    "uuid": "^13.0.0",
+    "vscode-icons-js": "^11.6.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/styled-components": "^5.1.36",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.24",
+    "copy-webpack-plugin": "^11.0.0",
+    "css-loader": "^6.10.0",
+    "mini-css-extract-plugin": "^2.9.4",
+    "postcss": "^8.5.6",
+    "postcss-loader": "^8.2.0",
+    "style-loader": "^3.3.0",
+    "tailwindcss": "^4.1.18",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.0.0",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.0"
+  }
+}

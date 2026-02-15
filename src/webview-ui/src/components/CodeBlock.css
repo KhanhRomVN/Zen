@@ -1,0 +1,117 @@
+.code-block-container {
+  border: none;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: var(--vscode-editor-background);
+  margin-bottom: 8px;
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: var(
+    --vscode-editor-headerBackground,
+    #2d2d2d
+  ); /* Fallback */
+  border-bottom: 1px solid var(--vscode-editorWidget-border);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: 12px;
+}
+
+.code-block-container.has-custom-background .code-block-header {
+  background-color: transparent;
+  border-bottom-color: rgba(0, 0, 0, 0.1);
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+
+.file-icon-img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.code-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  color: var(--vscode-icon-foreground);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.monaco-editor-wrapper {
+  position: relative;
+  background-color: var(
+    --vscode-editor-background
+  ); /* Match container background */
+}
+
+/* Custom Line Highlights */
+.diff-line-added,
+.monaco-editor .line-numbers.diff-line-added {
+  background-color: rgba(40, 167, 69, 0.2); /* Green tint */
+  color: rgb(40, 167, 69) !important;
+  width: 100% !important;
+}
+
+.diff-line-removed,
+.monaco-editor .line-numbers.diff-line-removed {
+  background-color: rgba(220, 53, 69, 0.2); /* Red tint */
+  color: rgb(220, 53, 69) !important;
+  width: 100% !important;
+}
+
+/* Fix margin background - set base margin to editor background */
+.monaco-editor .margin,
+.monaco-editor .glyph-margin,
+.monaco-editor .margin-view-overlays {
+  background-color: var(--vscode-editor-background) !important;
+}
+
+/* Make line numbers themselves transparent to not add extra layer */
+.monaco-editor .line-numbers {
+  background-color: transparent !important;
+  padding-right: 12px !important;
+}
+
+/* Remove any overlay backgrounds that might cause lighter appearance */
+.monaco-editor .view-overlays,
+.monaco-editor .decorationsOverviewRuler {
+  background-color: transparent !important;
+}
+
+/* Remove focus border from Monaco Editor */
+.monaco-editor-wrapper .monaco-editor,
+.monaco-editor-wrapper .monaco-editor .overflow-guard {
+  outline: none !important;
+  border: none !important;
+}
+
+/* Remove focus border from the entire code block */
+.code-block-container:focus,
+.code-block-container:focus-within {
+  outline: none !important;
+  border: none !important;
+}

@@ -1,0 +1,184 @@
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(
+    --secondary-bg
+  ); /* Đổi từ primary-bg sang secondary-bg để đồng nhất với header */
+  color: var(--primary-text);
+}
+
+/* Header Styles */
+.chat-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--secondary-bg);
+}
+
+.chat-header-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.chat-avatar {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-title h1 {
+  font-size: var(--font-size-xxl);
+  font-weight: 500;
+  color: var(--primary-text);
+  text-align: center;
+}
+
+/* Messages Area */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+}
+
+.recent-tasks-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.recent-tasks-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.recent-tasks-header:hover {
+  background-color: var(--hover-bg);
+  border-radius: var(--border-radius);
+}
+
+.expand-icon {
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text);
+}
+
+.recent-tasks-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--secondary-text);
+  letter-spacing: 0.5px;
+}
+
+.recent-tasks-list {
+  margin-top: var(--spacing-md);
+}
+
+.task-item {
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  background-color: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-item:hover {
+  background-color: var(--hover-bg);
+  border-color: var(--accent-text);
+}
+
+.task-date {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text);
+  margin-bottom: var(--spacing-sm);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.task-content {
+  font-size: var(--font-size-md);
+  color: var(--primary-text);
+  line-height: 1.5;
+  margin-bottom: var(--spacing-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.task-tokens {
+  font-size: var(--font-size-xs);
+  color: var(--secondary-text);
+}
+
+.view-all-history {
+  text-align: center;
+  padding: var(--spacing-lg);
+}
+
+.view-all-btn {
+  background: none;
+  border: none;
+  color: var(--accent-text);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--border-radius);
+  transition: background-color 0.2s;
+}
+
+.view-all-btn:hover {
+  background-color: var(--hover-bg);
+}
+
+/* Input Area */
+.chat-input-container {
+  border-top: 1px solid var(--border-color);
+  background-color: var(--secondary-bg);
+}
+
+.auto-approve-bar {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background-color: var(
+    --secondary-bg
+  ); /* Đổi từ tertiary-bg sang secondary-bg để đồng nhất */
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.auto-approve-text {
+  font-size: var(--font-size-sm);
+  color: var(--secondary-text);
+}
+
+/* ChatInput component mới sử dụng inline styles, không cần CSS ở đây */
+
+/* Scrollbar Styles */
+.chat-messages::-webkit-scrollbar {
+  width: 10px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: var(
+    --secondary-bg
+  ); /* Đổi từ primary-bg sang secondary-bg để đồng nhất */
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: var(--hover-bg); /* Đổi từ tertiary-bg sang hover-bg để phù hợp */
+  border-radius: 5px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: var(
+    --accent-text
+  ); /* Sử dụng accent color khi hover để nổi bật */
+}
