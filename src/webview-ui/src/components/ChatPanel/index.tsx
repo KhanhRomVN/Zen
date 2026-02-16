@@ -14,14 +14,14 @@ import { getDefaultPrompt } from "./prompts";
 
 // 🆕 Helper to log conversation to workspace (Centralized)
 const logToWorkspace = (conversationId: string, message: any) => {
+  console.log(`[ChatPanel] logToWorkspace: ${conversationId}`, message);
   const vscodeApi = (window as any).vscodeApi;
   if (!vscodeApi) return;
 
   const logEntry = {
+    ...message, // 🆕 Save full message details (id, usage, etc.)
     timestamp: new Date().toISOString(),
     conversationId,
-    role: message.role,
-    content: message.content,
   };
 
   vscodeApi.postMessage({
@@ -360,11 +360,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       // Use default values if no tab selected (Standalone Mode)
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
+      // 🆕 Prepend User Message label and wrap content in code blocks (as requested)
+      const fullContent = skipFirstRequestLogic
+        ? content
+        : `## User Message\n\`\`\`\n${content}\n\`\`\``;
 
       const userMessage: Message = {
         id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
         role: "user",
-        content: content,
+        content: fullContent,
         timestamp: Date.now(),
         isFirstRequest: skipFirstRequestLogic
           ? false
@@ -374,11 +378,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           messagesRef.current.length === 0 && !skipFirstRequestLogic
             ? getDefaultPrompt()
             : undefined, // Derived
-        contextSize: content.length,
+        contextSize: fullContent.length,
         usage: {
-          prompt_tokens: calculateTokens(content),
+          prompt_tokens: calculateTokens(fullContent),
           completion_tokens: 0,
-          total_tokens: calculateTokens(content),
+          total_tokens: calculateTokens(fullContent),
         },
         actionIds: actionIds,
         uiHidden: uiHidden,
@@ -393,10 +397,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       // Nếu session mới, gửi chuỗi trống để Backend/DeepSeek tự tạo UUID.
       const isNewSession = !effectiveConversationId;
 
+      console.log(
+        `[ChatPanel] handleSendMessage: isNewSession=${isNewSession}, effectiveID=${effectiveConversationId}`,
+      );
+
       if (isNewSession) {
         // Vẫn giữ local state ID là timestamp để lưu tạm, nhưng sẽ gửi "" lên API.
         effectiveConversationId = Date.now().toString();
         setCurrentConversationId(effectiveConversationId);
+        console.log(`[ChatPanel] Created temp ID: ${effectiveConversationId}`);
       }
 
       saveConversation(
@@ -416,7 +425,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const finalModel = model || currentModelRef.current;
         const finalAccount = account || currentAccountRef.current;
 
-        // Override model/account if quick model selected
+        console.log(
+          `[ChatPanel] Sending request to ${apiUrl} with model ${finalModel?.id}`,
+        );
         const effModel = selectedQuickModel
           ? {
               id: selectedQuickModel.modelId,
@@ -495,10 +506,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           if (systemPrompt) {
             // Align with Elara: Merge system prompt into the first user message
             // instead of sending a separate 'system' role message.
-            payloadMessages[0].content = `${systemPrompt}${projectContextStr}\n\n${payloadMessages[0].content}`;
+            payloadMessages[0].content = `${systemPrompt}${projectContextStr}\n\n\n${payloadMessages[0].content}`;
           } else if (projectContextStr) {
             // If no system prompt but context exists (unlikely given logic, but safe)
-            payloadMessages[0].content = `${projectContextStr}\n\n${payloadMessages[0].content}`;
+            payloadMessages[0].content = `${projectContextStr}\n\n\n${payloadMessages[0].content}`;
           }
         }
 
@@ -570,7 +581,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                   if (data.meta?.conversation_id) {
                     const realId = data.meta.conversation_id;
                     if (currentConversationIdRef.current !== realId) {
+                      const oldId = currentConversationIdRef.current;
+                      // 🆕 Rename log file if we were using a temp ID
+                      if (oldId && oldId !== realId) {
+                        const vscodeApi = (window as any).vscodeApi;
+                        if (vscodeApi) {
+                          vscodeApi.postMessage({
+                            command: "renameConversationLog",
+                            oldConversationId: oldId,
+                            newConversationId: realId,
+                          });
+                        }
+                      }
+
                       setCurrentConversationId(realId);
+                      effectiveConversationId = realId; // Update local var for next logToWorkspace
                     }
                   }
 
@@ -1433,15 +1458,92 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         if ((window as any).__contextResponseHandler) {
           (window as any).__contextResponseHandler(data);
         }
+      } else if (data.command === "conversationResult") {
+        console.log("[ChatPanel] Handling conversationResult:", data);
+        // 🆕 Handle loaded conversation data
+        if (data.data && data.data.messages) {
+          console.log(
+            `[ChatPanel] Setting ${data.data.messages.length} messages. Current conversationId: ${currentConversationId}`,
+          );
+          // 🆕 Backfill IDs if missing (for legacy logs)
+          const validMessages = data.data.messages.map(
+            (msg: Message, index: number) => ({
+              ...msg,
+              id: msg.id || `restored-${Date.now()}-${index}`,
+            }),
+          );
+
+          // 🆕 Log loaded messages (skipping first one) to verify content
+          console.groupCollapsed("[ChatPanel] Loaded Conversation Details");
+          validMessages
+            .slice(1)
+            .forEach((msg: { role: any; content: string }, idx: number) => {
+              console.log(
+                `Msg[${idx + 1}] (${msg.role}):`,
+                msg.content.substring(0, 200) +
+                  (msg.content.length > 200 ? "..." : ""),
+              );
+            });
+          console.groupEnd();
+
+          setMessages(validMessages);
+          if (data.data.conversationId) {
+            console.log(
+              `[ChatPanel] Updating conversationId to: ${data.data.conversationId}`,
+            );
+            setCurrentConversationId(data.data.conversationId);
+          }
+        } else {
+          console.warn(
+            "[ChatPanel] conversationResult data invalid or missing messages:",
+            data,
+          );
+          if (data.error) {
+            const errorMessage: Message = {
+              id: `msg-${Date.now()}-error`,
+              role: "assistant", // System error shown as assistant message
+              content: `❌ Failed to load conversation: ${data.error}`,
+              timestamp: Date.now(),
+            };
+            setMessages([errorMessage]);
+          }
+        }
+        setIsLoadingConversation(false);
+        setIsProcessing(false);
       }
     };
 
-    (window as any).__chatPanelMessageHandler = handleIncomingMessage;
+    (window as any).__chatPanelMessageHandler = (data: any) => {
+      console.log(
+        "[ChatPanel] __chatPanelMessageHandler received:",
+        data.type || data.command,
+        data,
+      );
+      handleIncomingMessage(data);
+    };
+
+    // 🆕 CRITICAL: Listen for messages from the extension
+    const messageListener = (event: MessageEvent) => {
+      const message = event.data;
+      handleIncomingMessage(message);
+    };
+    window.addEventListener("message", messageListener);
 
     return () => {
+      console.log("[ChatPanel] Cleaning up __chatPanelMessageHandler");
       delete (window as any).__chatPanelMessageHandler;
+      window.removeEventListener("message", messageListener);
     };
   }, [currentConversationIdRef, handleToolRequest, parseAIResponse]);
+
+  // 🆕 Monitor messages state changes
+  useEffect(() => {
+    console.log(
+      "[ChatPanel] Messages state updated:",
+      messages.length,
+      "messages",
+    );
+  }, [messages]);
 
   // 🆕 Handler cho Clear Chat
   const handleClearChat = useCallback(async () => {

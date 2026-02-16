@@ -47,6 +47,28 @@ const MessageBox: React.FC<MessageBoxProps> = ({
 }) => {
   // If User Message
   if (message.role === "user") {
+    let displayContent = message.content;
+
+    // 🆕 Parse wrapped content: ## User Message\n```\n(content)\n```
+    if (displayContent.startsWith("## User Message")) {
+      const match = displayContent.match(
+        /^## User Message\n```\n([\s\S]*?)\n```$/,
+      );
+      if (match) {
+        displayContent = match[1];
+      } else {
+        // Fallback: try to strip header and surrounding backticks loosely if regex fails
+        // or just strip the header
+        displayContent = displayContent.replace(/^## User Message\n/, "");
+        if (
+          displayContent.startsWith("```") &&
+          displayContent.endsWith("```")
+        ) {
+          displayContent = displayContent.slice(3, -3).trim();
+        }
+      }
+    }
+
     return (
       <div
         style={{
@@ -76,7 +98,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 whiteSpace: "pre-wrap",
               }}
             >
-              {message.content}
+              {displayContent}
             </div>
           </div>
         )}

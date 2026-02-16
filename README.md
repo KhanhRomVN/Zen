@@ -227,7 +227,3 @@ Project Link: [https://github.com/KhanhRomVN/Zen](https://github.com/KhanhRomVN/
 <div align="center">
 Made with ❤️ by KhanhRomVN
 </div>
-
-
-rm -rf ~/.config/Code/User/globalStorage/khanhromvn.khanhromvn-zen*
-rm -rf ~/.vscode/extensions/khanhromvn.khanhromvn-zen*

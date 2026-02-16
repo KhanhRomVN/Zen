@@ -74,6 +74,45 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     isProcessing,
   ]);
 
+  // 🆕 Debug logging and filtering logic
+  const visibleMessages = useMemo(() => {
+    console.log(
+      `[ChatBody] Rendering ${messages.length} messages. firstRequestMessageId: ${firstRequestMessageId}`,
+    );
+
+    return messages.filter((message) => {
+      // 1. Check uiHidden
+      if (message.uiHidden) {
+        console.log(`[ChatBody] Hiding message ${message.id} (uiHidden=true)`);
+        return false;
+      }
+
+      // 2. Check firstRequestMessageId hiding logic
+      // 🆕 We removed this logic to show the first message with "## User Message" label
+      /*
+      if (firstRequestMessageId) {
+        if (message.id === firstRequestMessageId) {
+          console.log(
+            `[ChatBody] Hiding message ${message.id} (matches firstRequestMessageId)`,
+          );
+          return false;
+        }
+      } else {
+        // Fallback logic
+        const firstUserMessage = messages.find((m) => m.role === "user");
+        if (message.id === firstUserMessage?.id) {
+          console.log(
+            `[ChatBody] Hiding message ${message.id} (matches fallback firstUserMessage)`,
+          );
+          return false;
+        }
+      }
+      */
+
+      return true;
+    });
+  }, [messages, firstRequestMessageId]);
+
   return (
     <div
       style={{
@@ -87,60 +126,43 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         gap: "var(--spacing-md)",
       }}
     >
-      {messages
-        .filter((message) => !message.uiHidden)
-        .map((message, index) => {
-          // Skip first message if it's from user (displayed in header)
-          // Use the passed ID if available, otherwise fallback to finding the first user message
-          if (firstRequestMessageId) {
-            if (message.id === firstRequestMessageId) {
-              return null;
-            }
-          } else {
-            // Fallback logic
-            const firstUserMessage = messages.find((m) => m.role === "user");
-            if (message.id === firstUserMessage?.id) {
-              return null;
-            }
-          }
+      {visibleMessages.map((message, index) => {
+        // Regular messages - Use memoized parsed content
+        const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
+        if (!parsedMessage) {
+          console.warn(`[ChatBody] Parsed message not found for ${message.id}`);
+          return null;
+        }
+        const parsedContent = parsedMessage.parsed;
 
-          // Regular messages - Use memoized parsed content
-          const parsedMessage = parsedMessages.find(
-            (pm) => pm.id === message.id,
-          );
-          if (!parsedMessage) {
-            return null;
-          }
-          const parsedContent = parsedMessage.parsed;
-
-          return (
-            <MessageBox
-              key={message.id}
-              message={message}
-              parsedContent={parsedContent}
-              isCollapsed={
+        return (
+          <MessageBox
+            key={message.id}
+            message={message}
+            parsedContent={parsedContent}
+            isCollapsed={
+              message.role === "user"
+                ? collapsedSections.has(`prompt-${message.id}`)
+                : collapsedSections.has(`thinking-${message.id}`)
+            }
+            onToggleCollapse={() =>
+              toggleCollapse(
                 message.role === "user"
-                  ? collapsedSections.has(`prompt-${message.id}`)
-                  : collapsedSections.has(`thinking-${message.id}`)
-              }
-              onToggleCollapse={() =>
-                toggleCollapse(
-                  message.role === "user"
-                    ? `prompt-${message.id}`
-                    : `thinking-${message.id}`,
-                )
-              }
-              clickedActions={clickedActions}
-              failedActions={failedActions}
-              onToolClick={handleToolClick}
-              executionState={executionState}
-              isLastMessage={index === messages.length - 1} // Pass isLastMessage
-              clearedActions={clearedActions}
-              onActionClear={handleActionClear}
-              toolOutputs={toolOutputs}
-            />
-          );
-        })}
+                  ? `prompt-${message.id}`
+                  : `thinking-${message.id}`,
+              )
+            }
+            clickedActions={clickedActions}
+            failedActions={failedActions}
+            onToolClick={handleToolClick}
+            executionState={executionState}
+            isLastMessage={index === visibleMessages.length - 1} // Pass isLastMessage
+            clearedActions={clearedActions}
+            onActionClear={handleActionClear}
+            toolOutputs={toolOutputs}
+          />
+        );
+      })}
 
       {isProcessing && <ProcessingIndicator />}
 

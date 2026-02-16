@@ -371,6 +371,11 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           if (!workspaceFolder) return;
 
           const { conversationId, logEntry } = message;
+          console.log(
+            `[Extension] logConversation: ${conversationId}`,
+            logEntry.role,
+          );
+
           const projectContextDir = this.getProjectContextDir(
             workspaceFolder.uri.fsPath,
           );
@@ -379,12 +384,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             vscode.Uri.file(projectContextDir),
           );
 
-          // Construct filename: <hash>_<conv_id>_<ts>.json is usage pattern in doc,
-          // but for unique log file per conversation we just need one file to append to.
-          // Doc says: <hash>_<conv_id>_<ts>.json.
-          // If we want a SINGLE file for the conversation that grows:
-          // The doc implies 30 max logs.
-          // Let's stick to <conversationId>.json for now as per previous task, but in NEW location.
           const logFilePath = path.join(
             projectContextDir,
             `${conversationId}.json`,
@@ -399,6 +398,9 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             if (!Array.isArray(content)) content = [];
           } catch {
             // New file
+            console.log(
+              `[Extension] Creating new log file for ${conversationId}`,
+            );
           }
 
           content.push(logEntry);
@@ -407,6 +409,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             logFileUri,
             Buffer.from(JSON.stringify(content, null, 2), "utf8"),
           );
+          console.log(`[Extension] Log saved for ${conversationId}`);
         } catch (e) {
           console.error("Failed to log conversation:", e);
         }
@@ -434,6 +437,8 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           const entries = await fs.promises.readdir(projectContextDir, {
             withFileTypes: true,
           });
+          console.log(`[Extension] Found ${entries.length} entries in storage`);
+
           const history = [];
 
           for (const entry of entries) {
@@ -484,6 +489,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           });
         }
       } else if (message.command === "getConversation") {
+        console.log(`[Extension] getConversation: ${message.conversationId}`);
         // 🆕 Handle getConversation request
         try {
           const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -497,9 +503,13 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             projectContextDir,
             `${conversationId}.json`,
           );
+          console.log(`[Extension] Reading conversation file: ${logFilePath}`);
 
           const fileContent = await fs.promises.readFile(logFilePath, "utf-8");
           const messages = JSON.parse(fileContent);
+          console.log(
+            `[Extension] Loaded ${messages.length} messages for ${conversationId}`,
+          );
 
           webviewView.webview.postMessage({
             command: "conversationResult",
@@ -628,6 +638,58 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           );
         } catch (error) {
           // Silent fail
+        }
+      } else if (message.command === "fileStatsResult") {
+        // ... (existing code)
+      } else if (message.command === "renameConversationLog") {
+        // 🆕 Handle renameConversationLog request
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+
+          const { oldConversationId, newConversationId } = message;
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+
+          const oldFilePath = path.join(
+            projectContextDir,
+            `${oldConversationId}.json`,
+          );
+          const newFilePath = path.join(
+            projectContextDir,
+            `${newConversationId}.json`,
+          );
+
+          // Check if old file exists
+          try {
+            await fs.promises.access(oldFilePath);
+          } catch {
+            console.warn(
+              `[Extension] Old log file not found: ${oldConversationId}`,
+            );
+            return;
+          }
+
+          // Rename
+          await fs.promises.rename(oldFilePath, newFilePath);
+          console.log(
+            `[Extension] Renamed log ${oldConversationId} -> ${newConversationId}`,
+          );
+
+          webviewView.webview.postMessage({
+            command: "renameConversationLogResult",
+            success: true,
+            oldConversationId,
+            newConversationId,
+          });
+        } catch (error) {
+          console.error("[Extension] Failed to rename log:", error);
+          webviewView.webview.postMessage({
+            command: "renameConversationLogResult",
+            success: false,
+            error: String(error),
+          });
         }
       } else if (message.command === "readFile") {
         // Handle read file request from webview
