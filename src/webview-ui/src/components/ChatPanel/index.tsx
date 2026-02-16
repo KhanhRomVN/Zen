@@ -12,6 +12,25 @@ import ChatFooter from "./ChatFooter";
 import { encode } from "gpt-tokenizer";
 import { getDefaultPrompt } from "./prompts";
 
+// 🆕 Helper to log conversation to workspace (Centralized)
+const logToWorkspace = (conversationId: string, message: any) => {
+  const vscodeApi = (window as any).vscodeApi;
+  if (!vscodeApi) return;
+
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    conversationId,
+    role: message.role,
+    content: message.content,
+  };
+
+  vscodeApi.postMessage({
+    command: "logConversation",
+    conversationId,
+    logEntry,
+  });
+};
+
 // 🆕 Storage helper functions
 const STORAGE_PREFIX = "zen-conversation";
 
@@ -126,90 +145,28 @@ const saveConversation = async (
   }
 };
 
-const loadConversation = async (
-  tabId: number,
-  folderPath: string | null,
-  conversationId?: string,
-): Promise<{
-  messages: Message[];
-  isFirstRequest: boolean;
-  conversationId: string;
-} | null> => {
-  try {
-    if (!window.storage) {
-      // console.error("[ChatPanel] ❌ window.storage not available");
-      return null;
-    }
-
-    const key = getConversationKey(tabId, folderPath, conversationId);
-    const result = await window.storage.get(key, false);
-
-    if (!result || !result.value) {
-      // 🆕 Try to delete invalid key
-      try {
-        await window.storage.delete(key, false);
-      } catch (deleteError) {
-        // console.error("[ChatPanel] ❌ Failed to delete invalid key:", deleteError);
-      }
-      return null;
-    }
-
-    const data = JSON.parse(result.value);
-
-    // 🆕 Validate data structure
-    if (
-      !data.messages ||
-      !Array.isArray(data.messages) ||
-      data.messages.length === 0
-    ) {
-      try {
-        await window.storage.delete(key, false);
-      } catch (deleteError) {
-        // console.error("[ChatPanel] ❌ Failed to delete invalid conversation:", deleteError);
-      }
-      return null;
-    }
-
-    const returnData = {
-      messages: data.messages || [],
-      isFirstRequest: data.isFirstRequest ?? true,
-      conversationId:
-        data.conversationId || conversationId || Date.now().toString(),
-    };
-
-    return returnData;
-  } catch (error) {
-    // console.error("[ChatPanel] ❌ Failed to load conversation:", error);
-    // 🆕 Try to delete corrupted key on parse error
-    if (conversationId) {
-      try {
-        const key = getConversationKey(tabId, folderPath, conversationId);
-        await window.storage.delete(key, false);
-      } catch (deleteError) {
-        // console.error("[ChatPanel] ❌ Failed to delete corrupted conversation:", deleteError);
-      }
-    }
-    return null;
-  }
-};
-
 const deleteConversation = async (
   tabId: number,
   folderPath: string | null,
   conversationId?: string,
 ): Promise<boolean> => {
-  try {
-    if (!window.storage) {
-      return false;
-    }
+  const vscodeApi = (window as any).vscodeApi;
+  if (!vscodeApi || !conversationId) return false;
 
-    const key = getConversationKey(tabId, folderPath, conversationId);
-    const result = await window.storage.delete(key, false);
-    return !!result;
-  } catch (error) {
-    // console.error("[ChatPanel] Failed to delete conversation:", error);
-    return false;
-  }
+  return new Promise((resolve) => {
+    // We can't easily await the result here without a complex correlation ID listener
+    // For now, fire and forget (optimistic), or we could wrap in a promise that listeners resolve.
+    // Given the UI updates on 'deleteConversationResult' anyway, we can just return true optimistically
+    // or implement a proper request-response if needed.
+    //
+    // However, handleClearChat awaits this. So let's just fire the message.
+
+    vscodeApi.postMessage({
+      command: "deleteConversation",
+      conversationId: conversationId,
+    });
+    resolve(true);
+  });
 };
 
 interface TabInfo {
@@ -280,34 +237,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [clearedActions, setClearedActions] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // console.log("[ChatPanel] Syncing messagesRef", messages.length);
     messagesRef.current = messages;
   }, [messages]);
 
   useEffect(() => {
-    if (currentModel) {
-      console.log("[ChatPanel] Syncing currentModelRef:", currentModel.id);
-    }
     currentModelRef.current = currentModel;
   }, [currentModel]);
 
   useEffect(() => {
-    if (currentAccount) {
-      console.log(
-        "[ChatPanel] Syncing currentAccountRef:",
-        currentAccount.email,
-      );
-    }
     currentAccountRef.current = currentAccount;
   }, [currentAccount]);
 
   useEffect(() => {
-    // console.log("[ChatPanel] Syncing currentConversationIdRef:", currentConversationId);
     currentConversationIdRef.current = currentConversationId;
   }, [currentConversationId]);
 
   useEffect(() => {
-    // console.log("[ChatPanel] Syncing clickedActionsRef size:", clickedActions.size);
     clickedActionsRef.current = clickedActions;
   }, [clickedActions]);
 
@@ -412,14 +357,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       uiHidden?: boolean,
       thinking?: boolean,
     ) => {
-      console.log("[ChatPanel] handleSendMessage started", {
-        contentLength: content.length,
-        hasFiles: files && files.length > 0,
-        modelId: model?.id || currentModelRef.current?.id,
-        messagesCount: messagesRef.current.length,
-        skipFirstRequestLogic,
-      });
-
       // Use default values if no tab selected (Standalone Mode)
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
@@ -451,16 +388,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setMessages((prev) => [...prev, userMessage]);
       setIsProcessing(true);
 
-      /* console.log("[ChatPanel] handleSendMessage called", {
-        content,
-        model,
-        account,
-        apiUrl,
-      }); */
-
       // Determine conversation ID to use
       let effectiveConversationId = currentConversationIdRef.current;
-      // [Fix] Tránh gửi timestamp (13 ký tự) làm conversationId lên Backend vì DeepSeek yêu cầu UUID.
       // Nếu session mới, gửi chuỗi trống để Backend/DeepSeek tự tạo UUID.
       const isNewSession = !effectiveConversationId;
 
@@ -480,27 +409,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         false,
       );
 
+      logToWorkspace(effectiveConversationId || "unknown", userMessage);
+
       try {
-        // 🆕 Fallback to states if undefined (important for Auto-Execution)
+        // Fallback to states if undefined (important for Auto-Execution)
         const finalModel = model || currentModelRef.current;
         const finalAccount = account || currentAccountRef.current;
 
-        console.log("[ChatPanel] Accessing Refs in handleSendMessage:", {
-          hasModelRef: !!currentModelRef.current,
-          hasAccountRef: !!currentAccountRef.current,
-          modelId: finalModel?.id,
-          accountEmail: finalAccount?.email,
-        });
-
-        // 🆕 Override model/account if quick model selected
+        // Override model/account if quick model selected
         const effModel = selectedQuickModel
           ? {
               id: selectedQuickModel.modelId,
               providerId: selectedQuickModel.providerId,
             }
           : finalModel;
-
-        console.log("[ChatPanel] Preparing payload for model:", effModel?.id);
 
         const effAccount = selectedQuickModel?.accountId
           ? { id: selectedQuickModel.accountId }
@@ -555,12 +477,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 });
               });
 
-              console.log("[ChatPanel] fetching project context...");
               const contextData = await fetchPromise;
-              console.log(
-                "[ChatPanel] getProjectContext result received:",
-                !!contextData,
-              );
 
               // Always inject context sections, even if empty (Elara behavior)
               const workspaceContent = contextData?.workspace || "";
@@ -614,9 +531,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           throw new Error(`API Error: ${response.status} - ${errorText}`);
         }
 
-        console.log("[ChatPanel] API Response OK, starting stream reader");
-
-        if (!response.body) throw new Error("No response body");
+        if (!response.body) {
+          console.error("[ChatPanel] Response OK but body is null!");
+          throw new Error("No response body");
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -632,7 +550,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         let done = false;
         let buffer = "";
 
-        console.log("[ChatPanel] Starting to read stream...");
         while (!done) {
           const { value, done: readerDone } = await reader.read();
           done = readerDone;
@@ -650,13 +567,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 try {
                   const data = JSON.parse(dataStr);
 
-                  // [Fix] Cập nhật conversationId thật (UUID) từ Backend metadata
                   if (data.meta?.conversation_id) {
-                    console.log(
-                      "[ChatPanel] Received real session ID from server:",
-                      data.meta.conversation_id,
-                    );
-                    setCurrentConversationId(data.meta.conversation_id);
+                    const realId = data.meta.conversation_id;
+                    if (currentConversationIdRef.current !== realId) {
+                      setCurrentConversationId(realId);
+                    }
                   }
 
                   if (data.content) {
@@ -678,28 +593,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           }
         }
 
-        console.log(
-          "[Auto-Execution] Stream finished. Final content length:",
-          assistantMessage.content.length,
-        );
         setIsProcessing(false);
-
-        // 🆕 Tự động kích hoạt tool call sau khi nhận xong stream
+        logToWorkspace(effectiveConversationId || "unknown", assistantMessage);
         const finalContent = assistantMessage.content;
         const parsed = parseAIResponse(finalContent);
         if (parsed.actions && parsed.actions.length > 0) {
-          console.log(
-            `[Auto-Execution] Found ${parsed.actions.length} tool calls in assistant response. Triggering handleToolRequest...`,
-          );
           handleToolRequest(parsed.actions, assistantMessage);
-        } else {
-          console.log(
-            "[Auto-Execution] No tool calls found in assistant response.",
-          );
         }
-        // if (isFirstRequest) setIsFirstRequest(false); // DEPRECATED
       } catch (error) {
-        // console.error("HTTP Chat Error:", error);
         const errorMessage: Message = {
           id: `msg-${Date.now()}-error`,
           role: "assistant", // Display as assistant message or system?
@@ -722,12 +623,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const handleToolRequest = useCallback(
     async (actionOrActions: any, message: Message) => {
-      console.log("[ChatPanel] handleToolRequest triggered", {
-        actionsCount: Array.isArray(actionOrActions)
-          ? actionOrActions.length
-          : 1,
-        messageId: message.id,
-      });
       const actions = (
         Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions]
       ).map((a, idx) => ({
@@ -1047,14 +942,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         status: "running",
       });
 
-      console.log(
-        `[Auto-Execution] Starting batch execution for message: ${message.id}, actions count: ${actions.length}`,
-      );
       for (const [index, action] of actions.entries()) {
         const actionId = `${message.id}-action-${action._index}`;
-        console.log(
-          `[Auto-Execution] [${index + 1}/${actions.length}] Executing action: ${actionId} (${action.type})`,
-        );
         // Optimization: Skip diagnostics for intermediate edits to the same file
         const isEditAction =
           action.type === "replace_in_file" || action.type === "write_to_file";
@@ -1148,9 +1037,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             );
           }
 
-          console.log(
-            `[Auto-Execution] Action ${actionId} completed successfully.`,
-          );
           setClickedActions((prev: Set<string>) => {
             const next = new Set(prev).add(actionId);
             clickedActionsRef.current = next;
@@ -1198,32 +1084,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const actualTotal = fullMsg?.parsed?.actions?.length || 0;
         const allRelevantIndices = Array.from(Array(actualTotal).keys());
 
-        console.log("[Auto-Execution] Checking completion:", {
-          messageId: message.id,
-          actualTotal,
-          newlyClickedIndices,
-          clickedActionsInRef: Array.from(clickedActionsRef.current),
-        });
-
         const isComplete = allRelevantIndices.every((idx) => {
           const actionId = `${message.id}-action-${idx}`;
           const isDone =
             clickedActionsRef.current.has(actionId) ||
             newlyClickedIndices.includes(idx);
-          // console.log(`[Auto-Execution] Action ${actionId} status:`, isDone);
           return isDone;
         });
-
-        console.log("[Auto-Execution] isComplete result:", isComplete);
 
         if (isComplete) {
           const textActionIds = actions.map(
             (a) => `${message.id}-action-${a._index}`,
           );
 
-          console.log(
-            `[Auto-Execution] All actions complete for ${message.id}. Sending results back to AI...`,
-          );
           handleSendMessage(
             newBuffer.join("\n\n"),
             undefined,
@@ -1366,52 +1239,40 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     selectedTab, // Added selectedTab to dependencies
   ]);
 
-  // 🆕 Load conversation khi mount - CHỈ load khi có conversationId prop
+  // 🆕 Load conversation khi mount - Request from extension
   useEffect(() => {
-    const loadExistingConversation = async () => {
+    const requestConversation = async () => {
       if (!selectedTab) return;
       setIsLoadingConversation(true);
+
       const conversationId = (selectedTab as any).conversationId;
 
       if (conversationId) {
-        const saved = await loadConversation(
-          selectedTab.tabId,
-          selectedTab.folderPath || null,
-          conversationId,
-        );
-
-        if (saved && saved.messages.length > 0) {
-          setMessages(saved.messages);
-          // setIsFirstRequest(saved.isFirstRequest); // DEPRECATED
-          setCurrentConversationId(saved.conversationId);
-        } else {
-          setMessages([]);
-          // setIsFirstRequest(true); // DEPRECATED
-          // Only create new if current state is empty
-          if (!currentConversationId) {
-            const newConvId = Date.now().toString();
-            setCurrentConversationId(newConvId);
-          }
+        // Send request to extension
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "getConversation",
+            conversationId: conversationId,
+            requestId: `conv-${Date.now()}`,
+          });
         }
       } else {
         setMessages([]);
-        // setIsFirstRequest(true); // DEPRECATED
-        // Only create new if current state is empty
         if (!currentConversationId) {
           const newConvId = Date.now().toString();
           setCurrentConversationId(newConvId);
         }
+        setIsLoadingConversation(false);
       }
-
-      setIsLoadingConversation(false);
     };
 
-    loadExistingConversation();
+    requestConversation();
   }, [
     selectedTab?.tabId,
     selectedTab?.folderPath,
     (selectedTab as any)?.conversationId,
-    selectedTab?.provider, // Added provider to dependencies
+    selectedTab?.provider,
   ]);
 
   useEffect(() => {

@@ -169,12 +169,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
 
   // Handle Send Message
   const handleSend = (model: any, account: any, thinking?: boolean) => {
-    /* console.log("[ChatFooter] handleSend triggered", {
-      message,
-      uploadedFilesLen: uploadedFiles.length,
-      model,
-      account,
-    }); */
     if (message.trim() || uploadedFiles.length > 0) {
       // Send permissions update to extension - REMOVED
 

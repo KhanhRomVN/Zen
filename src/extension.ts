@@ -263,6 +263,19 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     return `project_context_${hash}`;
   }
 
+  // 🆕 Centralized Context Storage Helper
+  private getContextRoot(): string {
+    return path.join(os.homedir(), "khanhromvn-zen");
+  }
+
+  private getProjectContextDir(workspaceFolderPath: string): string {
+    const hash = crypto
+      .createHash("md5")
+      .update(workspaceFolderPath)
+      .digest("hex");
+    return path.join(this.getContextRoot(), "projects", hash);
+  }
+
   /**
    * Helper to get diagnostics (Errors/Warnings) for a file
    */
@@ -351,6 +364,234 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       } else if (message.command === "showError") {
         // Show error message to user
         vscode.window.showErrorMessage(message.message);
+      } else if (message.command === "logConversation") {
+        // 🆕 Handle conversation logging to centralized storage
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+
+          const { conversationId, logEntry } = message;
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+
+          await vscode.workspace.fs.createDirectory(
+            vscode.Uri.file(projectContextDir),
+          );
+
+          // Construct filename: <hash>_<conv_id>_<ts>.json is usage pattern in doc,
+          // but for unique log file per conversation we just need one file to append to.
+          // Doc says: <hash>_<conv_id>_<ts>.json.
+          // If we want a SINGLE file for the conversation that grows:
+          // The doc implies 30 max logs.
+          // Let's stick to <conversationId>.json for now as per previous task, but in NEW location.
+          const logFilePath = path.join(
+            projectContextDir,
+            `${conversationId}.json`,
+          );
+          const logFileUri = vscode.Uri.file(logFilePath);
+
+          // Read-Modify-Write
+          let content = [];
+          try {
+            const fileData = await vscode.workspace.fs.readFile(logFileUri);
+            content = JSON.parse(Buffer.from(fileData).toString("utf8"));
+            if (!Array.isArray(content)) content = [];
+          } catch {
+            // New file
+          }
+
+          content.push(logEntry);
+
+          await vscode.workspace.fs.writeFile(
+            logFileUri,
+            Buffer.from(JSON.stringify(content, null, 2), "utf8"),
+          );
+        } catch (e) {
+          console.error("Failed to log conversation:", e);
+        }
+      } else if (message.command === "getHistory") {
+        console.log(
+          "[Extension] Received getHistory request",
+          message.requestId,
+        );
+        // 🆕 Handle getHistory request from centralized storage
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) {
+            console.warn("[Extension] No workspace folder");
+            throw new Error("No workspace folder");
+          }
+
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+          console.log("[Extension] Reading history from:", projectContextDir);
+
+          await vscode.workspace.fs.createDirectory(
+            vscode.Uri.file(projectContextDir),
+          );
+          const entries = await fs.promises.readdir(projectContextDir, {
+            withFileTypes: true,
+          });
+          const history = [];
+
+          for (const entry of entries) {
+            if (entry.isFile() && entry.name.endsWith(".json")) {
+              try {
+                const filePath = path.join(projectContextDir, entry.name);
+                const fileContent = await fs.promises.readFile(
+                  filePath,
+                  "utf-8",
+                );
+                const data = JSON.parse(fileContent);
+
+                if (Array.isArray(data) && data.length > 0) {
+                  const firstMsg = data[0];
+                  const lastMsg = data[data.length - 1];
+                  const conversationId = entry.name.replace(".json", "");
+
+                  history.push({
+                    id: conversationId,
+                    title:
+                      firstMsg.content.substring(0, 100) || "New Conversation",
+                    timestamp: lastMsg.timestamp || Date.now(),
+                    lastModified: lastMsg.timestamp || Date.now(),
+                    preview: firstMsg.content.substring(0, 150),
+                    messageCount: data.length,
+                  });
+                }
+              } catch (e) {
+                console.error(`Error parsing history file ${entry.name}:`, e);
+              }
+            }
+          }
+
+          history.sort((a, b) => b.timestamp - a.timestamp); // Sort DESC
+          console.log(`[Extension] Returning ${history.length} conversations`);
+
+          webviewView.webview.postMessage({
+            command: "historyResult",
+            requestId: message.requestId,
+            history: history,
+          });
+        } catch (error) {
+          console.error("[Extension] getHistory failed:", error);
+          webviewView.webview.postMessage({
+            command: "historyResult",
+            requestId: message.requestId,
+            error: String(error),
+          });
+        }
+      } else if (message.command === "getConversation") {
+        // 🆕 Handle getConversation request
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+
+          const { conversationId } = message;
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+          const logFilePath = path.join(
+            projectContextDir,
+            `${conversationId}.json`,
+          );
+
+          const fileContent = await fs.promises.readFile(logFilePath, "utf-8");
+          const messages = JSON.parse(fileContent);
+
+          webviewView.webview.postMessage({
+            command: "conversationResult",
+            requestId: message.requestId,
+            data: { messages, conversationId },
+          });
+        } catch (error) {
+          console.error("[Extension] getConversation failed:", error);
+          webviewView.webview.postMessage({
+            command: "conversationResult",
+            requestId: message.requestId,
+            error: String(error),
+          });
+        }
+      } else if (message.command === "deleteConversation") {
+        // 🆕 Handle deleteConversation request
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+
+          const { conversationId } = message;
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+          const logFilePath = path.join(
+            projectContextDir,
+            `${conversationId}.json`,
+          );
+
+          await fs.promises.unlink(logFilePath);
+
+          webviewView.webview.postMessage({
+            command: "deleteConversationResult",
+            requestId: message.requestId,
+            conversationId,
+            success: true,
+          });
+        } catch (error: any) {
+          console.error("Failed to delete conversation:", error);
+          // Ignore ENOENT (file not found)
+          if (error.code !== "ENOENT") {
+            webviewView.webview.postMessage({
+              command: "deleteConversationResult",
+              requestId: message.requestId,
+              conversationId: message.conversationId,
+              error: String(error),
+              success: false,
+            });
+          } else {
+            // Treat as success if file already gone
+            webviewView.webview.postMessage({
+              command: "deleteConversationResult",
+              requestId: message.requestId,
+              conversationId: message.conversationId,
+              success: true,
+            });
+          }
+        }
+      } else if (message.command === "deleteAllConversations") {
+        // 🆕 Handle deleteAllConversations request
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+          const entries = await fs.promises.readdir(projectContextDir, {
+            withFileTypes: true,
+          });
+
+          for (const entry of entries) {
+            if (entry.isFile() && entry.name.endsWith(".json")) {
+              await fs.promises.unlink(
+                path.join(projectContextDir, entry.name),
+              );
+            }
+          }
+
+          webviewView.webview.postMessage({
+            command: "deleteAllConversationsResult",
+            requestId: message.requestId,
+            success: true,
+          });
+        } catch (error) {
+          webviewView.webview.postMessage({
+            command: "deleteAllConversationsResult",
+            requestId: message.requestId,
+            error: String(error),
+            success: false,
+          });
+        }
       } else if (message.command === "getFileStats") {
         // [New] Handle file stats request for line counts
         try {
@@ -465,12 +706,38 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
           const filePath = message.path;
           const content = message.content;
-          const absolutePath = vscode.Uri.joinPath(
-            workspaceFolder.uri,
-            filePath,
-          );
+          let absolutePath: vscode.Uri;
+
+          // 🆕 Intercept context files
+          if (
+            filePath === "workspace.md" ||
+            filePath === "workspace_rules.md" ||
+            filePath.endsWith("workspace.md") ||
+            filePath.endsWith("workspace_rules.md")
+          ) {
+            const fileName = path.basename(filePath);
+            const projectContextDir = this.getProjectContextDir(
+              workspaceFolder.uri.fsPath,
+            );
+            // Ensure dir exists
+            await vscode.workspace.fs.createDirectory(
+              vscode.Uri.file(projectContextDir),
+            );
+            absolutePath = vscode.Uri.file(
+              path.join(projectContextDir, fileName),
+            );
+          } else {
+            absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, filePath);
+          }
 
           const buffer = Buffer.from(content, "utf8");
+          // Ensure parent directory exists
+          const parentDir = vscode.Uri.joinPath(absolutePath, "..");
+          try {
+            await vscode.workspace.fs.createDirectory(parentDir);
+          } catch (e) {
+            // Ignore if exists
+          }
           vscode.workspace.fs.writeFile(absolutePath, buffer).then(
             async () => {
               if (message.skipDiagnostics) {
@@ -688,11 +955,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           });
         }
       } else if (message.command === "getProjectContext") {
-        // [New] Handle getProjectContext request
-        /* console.log(
-          "[Extension] getProjectContext requested, requestId:",
-          message.requestId
-        ); */
         try {
           const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
           if (!workspaceFolder) {
@@ -704,11 +966,22 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             return;
           }
 
-          const rootPath = workspaceFolder.uri.fsPath;
-          const workspaceMdPath = path.join(rootPath, "workspace.md");
-          const rulesMdPath = path.join(rootPath, "workspace_rules.md");
+          // 🆕 Redirect to centralized storage
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+          const workspaceMdPath = path.join(projectContextDir, "workspace.md");
+          const rulesMdPath = path.join(
+            projectContextDir,
+            "workspace_rules.md",
+          );
 
-          // [New] behaviors: Auto-create if not exists (Like Elara)
+          // Ensure directory exists
+          await vscode.workspace.fs.createDirectory(
+            vscode.Uri.file(projectContextDir),
+          );
+
+          // [New] behaviors: Auto-create if not exists
           try {
             await fs.promises.access(workspaceMdPath);
           } catch {
@@ -738,12 +1011,9 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
               workspace: workspaceContent,
               rules: rulesContent,
               treeView: treeView,
+              contextDir: projectContextDir,
             },
           });
-          /* console.log(
-            "[Extension] getProjectContext sent response, requestId:",
-            message.requestId
-          ); */
         } catch (error) {
           webviewView.webview.postMessage({
             command: "projectContextResult",

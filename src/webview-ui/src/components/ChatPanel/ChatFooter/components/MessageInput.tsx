@@ -590,10 +590,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                /* console.log("[MessageInput] Enter pressed", {
-                  currentModel,
-                  currentAccount,
-                }); */
                 if (!currentModel) {
                   setShowModelDropdown(true);
                   if (providers.length === 0) fetchProviders();
@@ -1341,10 +1337,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 pointerEvents: isHistoryMode ? "none" : "auto",
               }}
               onClick={() => {
-                /* console.log("[MessageInput] Send clicked", {
-                  currentModel,
-                  currentAccount,
-                }); */
                 if (!currentModel) {
                   // Alert user or show dropdown
                   setShowModelDropdown(true);

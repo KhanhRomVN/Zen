@@ -46,28 +46,43 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
       const message = event.data;
       if (message.command === "deleteConfirmed" && message.conversationId) {
         // Delete the conversation
-        window.storage
-          .delete(message.conversationId, false)
-          .then(() => {
-            setConversations((prev) =>
-              prev.filter((c) => c.id !== message.conversationId),
-            );
-          })
-          .catch((error) => {
-            console.error("[HistoryPanel] Error deleting conversation:", error);
+        // [TODO] Send delete command to extension instead of window.storage
+        // For now, let's assume extension handles deletion or we add a command for it
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "deleteConversation",
+            conversationId: message.conversationId,
           });
+        }
+      } else if (message.command === "deleteConversationResult") {
+        // Update UI on successful delete
+        if (message.success) {
+          setConversations((prev) =>
+            prev.filter((c) => c.id !== message.conversationId),
+          );
+        }
       } else if (message.command === "clearAllConfirmed") {
-        // Clear all conversations
-        setConversations((prevConversations) => {
-          Promise.all(
-            prevConversations.map((conv) =>
-              window.storage.delete(conv.id, false),
-            ),
-          ).catch((error) => {
-            console.error("[HistoryPanel] Error clearing all:", error);
-          });
-          return [];
-        });
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({ command: "deleteAllConversations" });
+        }
+      } else if (message.command === "deleteAllConversationsResult") {
+        if (message.success) {
+          setConversations([]);
+        }
+      } else if (message.command === "historyResult") {
+        console.log("[HistoryPanel] Received historyResult:", message);
+        // 🆕 Handle history result
+        if (message.history) {
+          setConversations(message.history);
+        } else if (message.error) {
+          console.error(
+            "[HistoryPanel] Received error from extension:",
+            message.error,
+          );
+        }
+        setIsLoading(false);
       }
     };
 
@@ -76,103 +91,30 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
   }, []);
 
   const loadConversations = async () => {
+    console.log("[HistoryPanel] loadConversations called");
     setIsLoading(true);
-    try {
-      if (!window.storage) {
-        console.error("[HistoryPanel] window.storage not available");
-        setConversations([]);
-        setIsLoading(false);
-        return;
-      }
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      const requestId = `hist-${Date.now()}`;
+      console.log("[HistoryPanel] Sending getHistory, requestId:", requestId);
 
-      const result = await window.storage.list("zen-conversation:", false);
-      if (!result || !result.keys) {
-        setConversations([]);
-        setIsLoading(false);
-        return;
-      }
+      vscodeApi.postMessage({
+        command: "getHistory",
+        requestId: requestId,
+      });
 
-      const items: ConversationItem[] = [];
-      const keysToDelete: string[] = [];
-      const now = Date.now();
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-
-      for (const key of result.keys) {
-        try {
-          const data = await window.storage.get(key, false);
-          if (data && data.value) {
-            // Check content first to parse
-            let parsed;
-            try {
-              parsed = JSON.parse(data.value);
-            } catch (e) {
-              console.error(`[HistoryPanel] Error parsing JSON for ${key}`, e);
-              keysToDelete.push(key);
-              continue;
-            }
-
-            // 1. Check expiration (30 days logic)
-            // Using lastModified if available, otherwise createdAt
-            const itemTime =
-              parsed.metadata?.lastModified || parsed.metadata?.createdAt || 0;
-            if (itemTime > 0 && now - itemTime > thirtyDaysMs) {
-              keysToDelete.push(key);
-              continue;
-            }
-
-            // 🆕 Validate parsed data structure
-            if (
-              parsed.metadata &&
-              parsed.messages &&
-              Array.isArray(parsed.messages)
-            ) {
-              const firstMessage = parsed.messages?.[0]?.content || "";
-
-              // Calculate size
-              const size = new Blob([data.value]).size;
-
-              items.push({
-                ...parsed.metadata,
-                preview: firstMessage.substring(0, 150),
-                size: size,
-              });
-            } else {
-              keysToDelete.push(key);
-            }
-          } else {
-            keysToDelete.push(key);
+      // Safety timeout if extension doesn't respond
+      setTimeout(() => {
+        setIsLoading((currentIsLoading) => {
+          if (currentIsLoading) {
+            console.warn("[HistoryPanel] Timeout waiting for historyResult");
+            return false;
           }
-        } catch (error) {
-          console.error(
-            `[HistoryPanel] ❌ Error loading conversation ${key}:`,
-            error,
-          );
-          keysToDelete.push(key); // 🆕 Mark for cleanup on error
-        }
-      }
-
-      if (keysToDelete.length > 0) {
-        Promise.all(
-          keysToDelete.map(async (key) => {
-            try {
-              await window.storage.delete(key, false);
-            } catch (error) {
-              console.error(
-                `[HistoryPanel] ❌ Failed to delete key ${key}:`,
-                error,
-              );
-            }
-          }),
-        ).catch((error) => {
-          console.error("[HistoryPanel] ❌ Error during cleanup:", error);
+          return currentIsLoading;
         });
-      }
-
-      setConversations(items);
-      setIsLoading(false);
-    } catch (error) {
-      console.error("[HistoryPanel] Error loading conversations:", error);
-      setConversations([]);
+      }, 5000);
+    } else {
+      console.error("[HistoryPanel] vscodeApi not available");
       setIsLoading(false);
     }
   };

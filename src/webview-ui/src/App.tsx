@@ -274,7 +274,7 @@ const App: React.FC = () => {
           containerName: "Virtual Tab",
           title: "Loaded Conversation",
           status: "free" as const,
-          canAccept: false, // Virtual tab cannot accept new requests
+          canAccept: true, // Allow input for loaded history
           requestCount: 0,
           folderPath: folderPath,
           conversationId: conversationId,

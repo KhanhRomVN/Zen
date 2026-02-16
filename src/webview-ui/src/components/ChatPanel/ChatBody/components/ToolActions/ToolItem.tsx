@@ -244,26 +244,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
               startLine: message.startLine,
             });
 
-            // Debug: Log fuzzyStatus
-            console.log("🔍 FuzzyStatus set:", {
-              status: message.status,
-              startLine: message.startLine,
-              validationId,
-            });
-
-            // Log details as requested (Fuzzy Logic in Webview)
-            if (message.status === "fuzzy" && message.foundBlock) {
-              const accuracy = (1 - message.score) * 100;
-              const searchLines = message.searchBlock
-                ? message.searchBlock.split(/\r?\n/).length
-                : 0;
-              const foundLines = message.foundBlock.split(/\r?\n/).length;
-
-              console.group("🔍 Fuzzy Search Debug (Webview)");
-              console.groupEnd();
-            }
-
-            // Remove this listener immediately after success
             window.removeEventListener("message", handleMessage);
           }
         };
@@ -424,15 +404,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
             const searchLines = getLines(searchBlock);
             const replaceLines = getLines(replaceBlock);
 
-            console.log(`🔍 [ToolItem] Block ${index} Debug:`, {
-              searchBlock: JSON.stringify(searchBlock),
-              replaceBlock: JSON.stringify(replaceBlock),
-              searchLinesLength: searchLines.length,
-              replaceLinesLength: replaceLines.length,
-              searchLines: JSON.stringify(searchLines),
-              replaceLines: JSON.stringify(replaceLines),
-            });
-
             // Simple diff generation (Context + Changes)
             // But now we want CLEAN lines + Highlights
             let prefixCount = 0;
@@ -500,10 +471,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 currentLine += 1; // We implicitly add a newline when joining/appending
               }
             }
-
-            console.log(
-              `📍 Block ${index}: Relative currentLine = ${currentLine}, (Original Fuzzy Start: ${fuzzyStatus?.startLine}, Offset: ${cumulativeLineOffset})`,
-            );
 
             // Actually simpler: build array of lines first
             const blockLines: string[] = [];

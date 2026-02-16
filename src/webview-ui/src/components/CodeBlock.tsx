@@ -228,7 +228,6 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
             h.type === "added" ? "diff-line-added" : "diff-line-removed",
         },
       }));
-      console.log("[CodeBlock] Applying decorations:", decorations);
       decorationsRef.current = editorRef.current.deltaDecorations(
         decorationsRef.current,
         decorations,
