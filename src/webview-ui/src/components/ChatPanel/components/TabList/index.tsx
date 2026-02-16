@@ -1,19 +1,7 @@
 import React from "react";
 import { getProviderIconPath } from "../../../../utils/fileIconMapper";
 
-interface TabInfo {
-  tabId: number;
-  containerName: string;
-  title: string;
-  url?: string;
-  status: "free" | "busy" | "sleep";
-  canAccept: boolean;
-  requestCount: number;
-  folderPath?: string | null;
-  conversationId?: string | null;
-  provider?: "deepseek" | "chatgpt" | "gemini" | "grok";
-  cookieStoreId?: string;
-}
+import { TabInfo } from "../../../../types";
 
 interface TabListProps {
   tabs: TabInfo[];

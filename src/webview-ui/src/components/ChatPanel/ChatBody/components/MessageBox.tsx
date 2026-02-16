@@ -9,7 +9,7 @@ import RequestDivider from "./RequestDivider";
 import ToolActionsList from "./ToolActions/index";
 import HtmlPreview from "./HtmlPreview";
 import FileIcon from "../../../common/FileIcon";
-import { useVSCodeTheme } from "../../../../hooks/useVSCodeTheme";
+import { useTheme } from "../../../../context/ThemeContext";
 
 interface MessageBoxProps {
   message: Message;
@@ -47,7 +47,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   toolOutputs,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
-  const { tokenColors } = useVSCodeTheme();
+  const { tokenColors } = useTheme();
 
   // If User Message
   if (message.role === "user") {

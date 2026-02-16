@@ -60,16 +60,16 @@ export const useVSCodeTheme = () => {
   const [tokenColors, setTokenColors] = useState<any>(null);
 
   useEffect(() => {
-    console.log("[useVSCodeTheme] Hook mounted, setting up message listener");
-
     // Hàm xử lý message từ VS Code extension
     const handleMessage = (event: MessageEvent) => {
-      console.log("[useVSCodeTheme] Received message:", event.data);
       const message = event.data as VSCodeThemeMessage;
       if (message.command === "updateTheme") {
-        console.log("[useVSCodeTheme] Received theme update:", {
-          themeKind: message.theme,
-          tokenColors: message.tokenColors,
+        console.log("[useVSCodeTheme] Received updateTheme:", {
+          theme: message.theme,
+          hasTokenColors: !!message.tokenColors,
+          colorCount: message.tokenColors
+            ? Object.keys(message.tokenColors).length
+            : 0,
         });
 
         setThemeKind(message.theme);
@@ -83,12 +83,10 @@ export const useVSCodeTheme = () => {
 
     // Lắng nghe message từ VS Code
     window.addEventListener("message", handleMessage);
-    console.log("[useVSCodeTheme] Message listener added");
 
     // Request theme immediately on mount
     const vscode = (window as any).vscodeApi;
     if (vscode) {
-      console.log("[useVSCodeTheme] Requesting theme from extension");
       try {
         vscode.postMessage({ command: "requestTheme" });
       } catch (error) {
@@ -99,7 +97,6 @@ export const useVSCodeTheme = () => {
     }
 
     return () => {
-      console.log("[useVSCodeTheme] Cleaning up message listener");
       window.removeEventListener("message", handleMessage);
     };
   }, []);

@@ -3,18 +3,9 @@ import ChatPanel from "./components/ChatPanel";
 import HistoryPanel from "./components/HistoryPanel";
 import SettingsPanel from "./components/SettingsPanel";
 import "./styles/components/chat.css";
-import { useVSCodeTheme } from "./hooks/useVSCodeTheme";
+import { ThemeProvider } from "./context/ThemeContext";
 
-interface TabInfo {
-  tabId: number;
-  containerName: string;
-  title: string;
-  url?: string;
-  status: "free" | "busy" | "sleep";
-  canAccept: boolean;
-  requestCount: number;
-  folderPath?: string | null;
-}
+import { TabInfo } from "./types";
 
 // CRITICAL: VS Code API chỉ có thể acquire một lần duy nhất
 // 🔥 FIX: Dùng IIFE để đảm bảo chỉ chạy một lần duy nhất
@@ -207,8 +198,6 @@ if (vscodeApi) {
 }
 
 const App: React.FC = () => {
-  useVSCodeTheme();
-
   // 🆕 Clear stale state on mount
   useEffect(() => {
     try {
@@ -233,7 +222,7 @@ const App: React.FC = () => {
   );
   const [externalTabs, setExternalTabs] = useState<TabInfo[]>([]);
 
-  // 🆕 Lift tabs state lên App level để persist khi switch panels
+  // Lift tabs state lên App level để persist khi switch panels
   const tabs: TabInfo[] = []; // WebSocket removed, using empty tabs for now
   const handleMessage = (data: any) => {};
   const clearTabs = () => {};
@@ -326,47 +315,49 @@ const App: React.FC = () => {
   }, [selectedTab]);
 
   return (
-    <div className="app-container">
-      {!showHistory && !showSettings && (
-        <ChatPanel
-          selectedTab={selectedTab}
-          onBack={() => setSelectedTab(null)}
-          tabs={tabs}
-          onTabSelect={handleTabSelect}
-        />
-      )}
-      {showHistory && (
-        <HistoryPanel
-          isOpen={showHistory}
-          onClose={() => {
-            setShowHistory(false);
-            // Restore previous panel
-            if (previousPanel === "chat" && selectedTab) {
-              // Stay in chat
-            } else {
-              setSelectedTab(null); // Go back to tab panel
-            }
-            setPreviousPanel(null);
-          }}
-          onLoadConversation={handleLoadConversation}
-        />
-      )}
-      {showSettings && (
-        <SettingsPanel
-          isOpen={showSettings}
-          onClose={() => {
-            setShowSettings(false);
-            // Restore previous panel
-            if (previousPanel === "chat" && selectedTab) {
-              // Stay in chat
-            } else {
-              setSelectedTab(null); // Go back to tab panel
-            }
-            setPreviousPanel(null);
-          }}
-        />
-      )}
-    </div>
+    <ThemeProvider>
+      <div className="app-container">
+        {!showHistory && !showSettings && (
+          <ChatPanel
+            selectedTab={selectedTab}
+            onBack={() => setSelectedTab(null)}
+            tabs={tabs}
+            onTabSelect={handleTabSelect}
+          />
+        )}
+        {showHistory && (
+          <HistoryPanel
+            isOpen={showHistory}
+            onClose={() => {
+              setShowHistory(false);
+              // Restore previous panel
+              if (previousPanel === "chat" && selectedTab) {
+                // Stay in chat
+              } else {
+                setSelectedTab(null); // Go back to tab panel
+              }
+              setPreviousPanel(null);
+            }}
+            onLoadConversation={handleLoadConversation}
+          />
+        )}
+        {showSettings && (
+          <SettingsPanel
+            isOpen={showSettings}
+            onClose={() => {
+              setShowSettings(false);
+              // Restore previous panel
+              if (previousPanel === "chat" && selectedTab) {
+                // Stay in chat
+              } else {
+                setSelectedTab(null); // Go back to tab panel
+              }
+              setPreviousPanel(null);
+            }}
+          />
+        )}
+      </div>
+    </ThemeProvider>
   );
 };
 

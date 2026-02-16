@@ -330,7 +330,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.onDidReceiveMessage(async (message) => {
       if (message.command === "requestTheme") {
         // Handle explicit theme request from webview
-        console.log("[Extension] Received requestTheme from webview");
         await this._updateTheme(webviewView.webview);
       } else if (message.command === "getProjectStructureBlacklist") {
         if (this._projectStructureManager) {
@@ -2443,50 +2442,171 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
   private async _extractThemeColors(theme: vscode.ColorTheme): Promise<any> {
     try {
-      // VS Code doesn't directly expose theme token colors via API
-      // We return a comprehensive color scheme based on theme kind
-      // This matches VS Code's default themes and covers all language constructs
+      // Get token color customizations from workspace configuration
+      const config = vscode.workspace.getConfiguration("editor");
+      const tokenColorCustomizations = config.get<any>(
+        "tokenColorCustomizations",
+      );
 
       const isDark = theme.kind === vscode.ColorThemeKind.Dark;
 
+      // Helper function to get color from customizations or fallback
+      const getColor = (scopes: string[], fallback: string): string => {
+        try {
+          // Check token color customizations first
+          if (tokenColorCustomizations?.textMateRules) {
+            for (const rule of tokenColorCustomizations.textMateRules) {
+              if (!rule.scope) continue;
+              const ruleScopes = Array.isArray(rule.scope)
+                ? rule.scope
+                : [rule.scope];
+
+              // Check if any of our scopes match this rule
+              for (const scope of scopes) {
+                if (
+                  ruleScopes.some(
+                    (rs: string) => rs === scope || rs.startsWith(scope + "."),
+                  )
+                ) {
+                  if (rule.settings?.foreground) {
+                    return rule.settings.foreground;
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+        return fallback;
+      };
+
+      // Extract editor colors from theme
+      const editorBg = isDark ? "#1e1e1e" : "#ffffff";
+      const editorFg = isDark ? "#d4d4d4" : "#000000";
+
       const colors = {
-        // Keywords
-        keyword: isDark ? "#C586C0" : "#AF00DB",
-        keywordControl: isDark ? "#C586C0" : "#AF00DB",
-        keywordOperator: isDark ? "#D4D4D4" : "#000000",
+        // Main editor colors
+        editorBackground: editorBg,
+        editorForeground: editorFg,
+
+        // Keywords - comprehensive scope matching
+        keyword: getColor(
+          ["keyword", "storage.type.function", "storage.type.class"],
+          isDark ? "#569CD6" : "#0000FF",
+        ),
+        keywordControl: getColor(
+          ["keyword.control", "keyword.control.flow", "keyword.control.import"],
+          isDark ? "#C586C0" : "#AF00DB",
+        ),
+        keywordOperator: getColor(
+          [
+            "keyword.operator",
+            "keyword.operator.logical",
+            "keyword.operator.arithmetic",
+          ],
+          isDark ? "#D4D4D4" : "#000000",
+        ),
 
         // Storage/Types
-        storageType: isDark ? "#569CD6" : "#0000FF",
+        storageType: getColor(
+          ["storage.type", "storage.modifier"],
+          isDark ? "#569CD6" : "#0000FF",
+        ),
 
-        // Functions
-        entityNameFunction: isDark ? "#DCDCAA" : "#795E26",
-        metaFunctionCall: isDark ? "#DCDCAA" : "#795E26",
+        // Functions - match all function-related scopes
+        entityNameFunction: getColor(
+          [
+            "entity.name.function",
+            "support.function",
+            "meta.function-call.generic",
+            "meta.function-call",
+          ],
+          isDark ? "#DCDCAA" : "#795E26",
+        ),
+        metaFunctionCall: getColor(
+          ["meta.function-call", "entity.name.function"],
+          isDark ? "#DCDCAA" : "#795E26",
+        ),
 
-        // Types/Classes
-        entityNameType: isDark ? "#4EC9B0" : "#267F99",
-        entityNameClass: isDark ? "#4EC9B0" : "#267F99",
-        supportType: isDark ? "#4EC9B0" : "#267F99",
-        supportClass: isDark ? "#4EC9B0" : "#267F99",
+        // Types/Classes - comprehensive type matching
+        entityNameType: getColor(
+          [
+            "entity.name.type",
+            "support.type.primitive",
+            "support.type.builtin",
+            "entity.name.class",
+          ],
+          isDark ? "#4EC9B0" : "#267F99",
+        ),
+        entityNameClass: getColor(
+          [
+            "entity.name.class",
+            "support.class",
+            "entity.other.inherited-class",
+          ],
+          isDark ? "#4EC9B0" : "#267F99",
+        ),
+        supportType: getColor(["support.type"], isDark ? "#4EC9B0" : "#267F99"),
+        supportClass: getColor(
+          ["support.class"],
+          isDark ? "#4EC9B0" : "#267F99",
+        ),
 
-        // Variables
-        variable: isDark ? "#9CDCFE" : "#001080",
-        variableParameter: isDark ? "#9CDCFE" : "#001080",
+        // Variables - match all variable scopes
+        variable: getColor(
+          [
+            "variable",
+            "variable.other",
+            "variable.other.readwrite",
+            "variable.other.property",
+          ],
+          isDark ? "#9CDCFE" : "#001080",
+        ),
+        variableParameter: getColor(
+          [
+            "variable.parameter",
+            "variable.parameter.function",
+            "meta.parameter.type.variable",
+          ],
+          isDark ? "#9CDCFE" : "#001080",
+        ),
 
         // Strings
-        string: isDark ? "#CE9178" : "#A31515",
-        stringEscape: isDark ? "#D7BA7D" : "#EE0000",
+        string: getColor(
+          ["string", "string.quoted", "string.template"],
+          isDark ? "#CE9178" : "#A31515",
+        ),
+        stringEscape: getColor(
+          ["constant.character.escape"],
+          isDark ? "#D7BA7D" : "#EE0000",
+        ),
 
         // Comments
-        comment: isDark ? "#6A9955" : "#008000",
+        comment: getColor(
+          [
+            "comment",
+            "comment.line",
+            "comment.block",
+            "punctuation.definition.comment",
+          ],
+          isDark ? "#6A9955" : "#008000",
+        ),
 
         // Numbers
-        number: isDark ? "#B5CEA8" : "#098658",
+        number: getColor(["constant.numeric"], isDark ? "#B5CEA8" : "#098658"),
 
         // Constants
-        constant: isDark ? "#4FC1FF" : "#0000FF",
+        constant: getColor(
+          ["constant.language", "constant.other", "variable.other.constant"],
+          isDark ? "#4FC1FF" : "#0000FF",
+        ),
 
         // Punctuation
-        punctuation: isDark ? "#D4D4D4" : "#000000",
+        punctuation: getColor(
+          ["punctuation", "meta.brace", "punctuation.definition.tag"],
+          isDark ? "#D4D4D4" : "#000000",
+        ),
       };
 
       console.log("[Extension] Extracted token colors:", colors);
@@ -2503,9 +2623,9 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     const themeKind = theme.kind;
     const tokenColors = await this._extractThemeColors(theme);
 
-    console.log("[Extension] Sending theme update to webview:", {
-      themeKind,
-      tokenColors,
+    console.log("[Extension] updateTheme sent:", {
+      kind: themeKind,
+      hasColors: !!tokenColors,
     });
 
     // VS Code tự động inject CSS variables vào webview

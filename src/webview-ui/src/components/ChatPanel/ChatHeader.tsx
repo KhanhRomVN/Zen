@@ -1,17 +1,5 @@
 import React from "react";
-
-interface TabInfo {
-  tabId: number;
-  containerName: string;
-  title: string;
-  url?: string;
-  status: "free" | "busy" | "sleep";
-  canAccept: boolean;
-  requestCount: number;
-  folderPath?: string | null;
-  conversationId?: string | null;
-  provider?: string;
-}
+import { TabInfo } from "../../types";
 
 import { Message } from "./ChatBody/types";
 
