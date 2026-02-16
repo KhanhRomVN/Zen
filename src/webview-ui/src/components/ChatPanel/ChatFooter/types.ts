@@ -38,14 +38,14 @@ export interface Rule {
 export interface ChatFooterProps {
   onSendMessage: (
     content: string,
-    files: any[],
+    files?: any[],
     model?: any,
     account?: any,
+    skipFirstRequestLogic?: boolean,
+    actionIds?: string[],
+    uiHidden?: boolean,
     thinking?: boolean,
   ) => void;
-  // wsConnected: boolean; // Removed
-  // onWsMessage: (message: any) => void; // Removed
-  // wsInstance?: WebSocket; // Removed
   isHistoryMode?: boolean;
   messages: any[];
   onCheckpoint?: () => void;

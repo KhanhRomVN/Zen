@@ -45,6 +45,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   onActionClear,
   toolOutputs,
 }) => {
+  const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
+
   // If User Message
   if (message.role === "user") {
     let displayContent = message.content;
@@ -68,6 +70,23 @@ const MessageBox: React.FC<MessageBoxProps> = ({
         }
       }
     }
+
+    // 🆕 Collapsible long messages
+    const lineCount = displayContent.split("\n").length;
+    const charCount = displayContent.length;
+    const isLongMessage = lineCount > 10 || charCount > 500;
+
+    // Auto-collapse on mount if message is long
+    React.useEffect(() => {
+      if (isLongMessage && !isMessageCollapsed) {
+        setIsMessageCollapsed(true);
+      }
+    }, [isLongMessage, isMessageCollapsed]);
+
+    const truncatedContent =
+      isLongMessage && isMessageCollapsed
+        ? displayContent.split("\n").slice(0, 5).join("\n") + "..."
+        : displayContent;
 
     return (
       <div
@@ -98,8 +117,23 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 whiteSpace: "pre-wrap",
               }}
             >
-              {displayContent}
+              {truncatedContent}
             </div>
+            {isLongMessage && (
+              <div
+                onClick={() => setIsMessageCollapsed(!isMessageCollapsed)}
+                style={{
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--accent-color)",
+                  cursor: "pointer",
+                  marginTop: "var(--spacing-xs)",
+                  fontWeight: 600,
+                  userSelect: "none",
+                }}
+              >
+                {isMessageCollapsed ? "Show more" : "Show less"}
+              </div>
+            )}
           </div>
         )}
       </div>

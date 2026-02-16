@@ -506,10 +506,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           if (systemPrompt) {
             // Align with Elara: Merge system prompt into the first user message
             // instead of sending a separate 'system' role message.
-            payloadMessages[0].content = `${systemPrompt}${projectContextStr}\n\n\n${payloadMessages[0].content}`;
+            payloadMessages[0].content = `${systemPrompt}${projectContextStr}\n\n${payloadMessages[0].content}`;
           } else if (projectContextStr) {
             // If no system prompt but context exists (unlikely given logic, but safe)
-            payloadMessages[0].content = `${projectContextStr}\n\n\n${payloadMessages[0].content}`;
+            payloadMessages[0].content = `${projectContextStr}\n\n${payloadMessages[0].content}`;
           }
         }
 

@@ -64,6 +64,30 @@ const truncatePath = (path?: string): string => {
   return `${first}/../${lastTwo}`;
 };
 
+// Custom Monaco theme matching VS Code's default dark+ theme
+const defineCustomTheme = (monaco: any) => {
+  monaco.editor.defineTheme("vscode-dark-plus", {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "keyword", foreground: "C586C0" }, // Purple for def, return, if, etc.
+      { token: "keyword.control", foreground: "C586C0" },
+      { token: "storage.type", foreground: "569CD6" }, // Blue for int, str, bool, etc.
+      { token: "entity.name.function", foreground: "DCDCAA" }, // Yellow for function names
+      { token: "variable.parameter", foreground: "9CDCFE" }, // Light blue for parameters
+      { token: "punctuation", foreground: "D4D4D4" }, // White for : -> ( ) etc.
+      { token: "comment", foreground: "6A9955" }, // Green for comments
+      { token: "string", foreground: "CE9178" }, // Orange for strings
+      { token: "constant.numeric", foreground: "B5CEA8" }, // Light green for numbers
+      { token: "entity.name.type", foreground: "4EC9B0" }, // Cyan for class names
+    ],
+    colors: {
+      "editor.background": "#1E1E1E",
+      "editor.foreground": "#D4D4D4",
+    },
+  });
+};
+
 interface CodeBlockProps {
   code: string;
   language?: string;
@@ -166,6 +190,10 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   // Improved auto-height handler
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
+
+    // Define and apply custom theme
+    defineCustomTheme(monaco);
+    monaco.editor.setTheme("vscode-dark-plus");
 
     const updateHeight = () => {
       const contentHeight = editor.getContentHeight();
@@ -333,12 +361,15 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
             height="100%"
             language={effectiveLanguage}
             value={code}
-            theme="vs-dark"
+            theme="vscode-dark-plus"
             onMount={handleEditorDidMount}
             options={{
-              lineNumbers: startLineNumber
-                ? (n: number) => (n + startLineNumber - 1).toString()
-                : "on",
+              lineNumbers:
+                filename || startLineNumber
+                  ? startLineNumber
+                    ? (n: number) => (n + startLineNumber - 1).toString()
+                    : "on"
+                  : "off", // Hide line numbers for inline code blocks (no filename)
               readOnly: true,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,
@@ -346,7 +377,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
               fontFamily: "'Fira Code', 'Consolas', monospace",
               fontSize: 13,
               lineHeight: 20,
-              padding: { top: 10, bottom: 10 }, // Move padding to editor
+              padding: { top: 10, bottom: 0 }, // Remove bottom padding to eliminate extra blank line
               contextmenu: false,
               domReadOnly: true,
               wordWrap: "on",

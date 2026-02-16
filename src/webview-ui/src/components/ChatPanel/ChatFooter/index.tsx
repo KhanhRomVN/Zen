@@ -177,8 +177,11 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         uploadedFiles,
         model || currentModel,
         account || currentAccount,
+        undefined, // skipFirstRequestLogic - always false for user input
+        undefined, // actionIds
+        undefined, // uiHidden
         thinking,
-      ); // Removed agentOptions
+      );
       setMessage("");
       clearFiles();
       clearAttachedItems();

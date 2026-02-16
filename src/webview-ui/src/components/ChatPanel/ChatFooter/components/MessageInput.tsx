@@ -92,7 +92,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const pendingAccountIdRef = React.useRef<string | null>(null);
 
   // 🆕 Capabilities Logic
-  const [thinkingEnabled, setThinkingEnabled] = React.useState(true);
+  const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
 
   // Derive current provider config
   const currentProviderConfig = React.useMemo(() => {
@@ -993,30 +993,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 )}
               </div>
             )}
-            <div
-              style={{
-                cursor: isHistoryMode ? "not-allowed" : "pointer",
-                padding: "var(--spacing-xs)",
-                borderRadius: "var(--border-radius)",
-                transition: "background-color 0.2s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--secondary-text)",
-                opacity: isHistoryMode ? 0.5 : 1,
-                pointerEvents: isHistoryMode ? "none" : "auto",
-              }}
-              onClick={handleFileSelect}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }}
-              title="Add Attachments"
-            >
-              <PlusIcon />
-            </div>
 
             {/* Model Selector Badge */}
             {!isConversationStarted && (

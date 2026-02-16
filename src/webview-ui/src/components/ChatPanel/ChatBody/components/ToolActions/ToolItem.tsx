@@ -379,10 +379,41 @@ const ToolItem: React.FC<ToolItemProps> = ({
         type: "added" | "removed";
       }[] = [];
       const fileExt = getFilename(action).split(".").pop() || "txt";
-      // Ensure we use a valid language for syntax highlighting
-      // If extension is not standard, CodeBlock handles mapping, but we pass ext here
+
+      // Map extension to Monaco language ID for proper syntax highlighting
+      const extensionToLanguage: Record<string, string> = {
+        py: "python",
+        js: "javascript",
+        jsx: "javascript",
+        ts: "typescript",
+        tsx: "typescript",
+        java: "java",
+        c: "c",
+        cpp: "cpp",
+        cs: "csharp",
+        go: "go",
+        rs: "rust",
+        php: "php",
+        rb: "ruby",
+        swift: "swift",
+        kt: "kotlin",
+        html: "html",
+        css: "css",
+        scss: "scss",
+        json: "json",
+        xml: "xml",
+        yaml: "yaml",
+        yml: "yaml",
+        md: "markdown",
+        sh: "shell",
+        bash: "shell",
+        sql: "sql",
+      };
+
       const codeLanguage =
-        toolType === "replace_in_file" ? fileExt : "typescript";
+        toolType === "replace_in_file"
+          ? extensionToLanguage[fileExt.toLowerCase()] || fileExt
+          : "typescript";
 
       if (action.type === "replace_in_file" && action.params.diff) {
         const diffText = action.params.diff;
@@ -618,42 +649,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
               >
                 {toolType === "replace_in_file" ? "Edit" : "Create"}
               </span>
-
-              {/* File Pill (Clean, Link-style) */}
-              <div
-                // No click handler as requested
-                // inline hover simulation
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.textDecoration = "underline";
-                  e.currentTarget.style.color =
-                    "var(--vscode-textLink-foreground)"; // or a subtly brighter color
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.textDecoration = "none";
-                  e.currentTarget.style.color =
-                    "var(--vscode-editor-foreground)"; // reset to default
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "0",
-                  // No background, no border
-                  fontSize: "13px", // Match title
-                  fontWeight: 600, // Match title
-                  color: "var(--vscode-editor-foreground)", // Start default
-                  cursor: "pointer",
-                  userSelect: "none",
-                  transition: "color 0.1s",
-                }}
-                title={getFilename(action)}
-              >
-                <FileIcon
-                  path={getFilename(action)}
-                  style={{ width: "14px", height: "14px" }}
-                />
-                <span>{getFilename(action)}</span>
-              </div>
 
               {/* Diff Stats (Edit) - MOVED HERE - REMOVED AS REQUESTED */}
               {/* Lines (Create) - MOVED HERE */}
