@@ -72,8 +72,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
           setConversations([]);
         }
       } else if (message.command === "historyResult") {
-        console.log("[HistoryPanel] Received historyResult:", message);
-        // 🆕 Handle history result
         if (message.history) {
           setConversations(message.history);
         } else if (message.error) {
@@ -91,13 +89,10 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
   }, []);
 
   const loadConversations = async () => {
-    console.log("[HistoryPanel] loadConversations called");
     setIsLoading(true);
     const vscodeApi = (window as any).vscodeApi;
     if (vscodeApi) {
       const requestId = `hist-${Date.now()}`;
-      console.log("[HistoryPanel] Sending getHistory, requestId:", requestId);
-
       vscodeApi.postMessage({
         command: "getHistory",
         requestId: requestId,

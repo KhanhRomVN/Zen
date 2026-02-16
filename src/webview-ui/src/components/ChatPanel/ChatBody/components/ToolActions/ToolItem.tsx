@@ -9,6 +9,7 @@ import {
 } from "../../utils";
 import FileIcon from "../../../../common/FileIcon";
 import { CodeBlock } from "../../../../CodeBlock";
+import { useVSCodeTheme } from "../../../../../hooks/useVSCodeTheme";
 
 interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
@@ -199,6 +200,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
   onActionClear,
   toolOutputs,
 }) => {
+  const { tokenColors } = useVSCodeTheme();
+
   // Local state for fuzzy match validation (for replace_in_file)
   const [fuzzyStatus, setFuzzyStatus] = React.useState<{
     status: string;
@@ -720,6 +723,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                     ? "rgba(40, 167, 69, 0.2)"
                     : undefined
                 }
+                tokenColors={tokenColors}
                 headerActions={
                   diffStats && (
                     <div

@@ -294,7 +294,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       });
   }
 
-  public resolveWebviewView(
+  public async resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
@@ -312,10 +312,27 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-    this._updateTheme(webviewView.webview);
+    // Send initial theme
+    await this._updateTheme(webviewView.webview);
+
+    // Listen for theme changes and update webview
+    const themeChangeDisposable = vscode.window.onDidChangeActiveColorTheme(
+      async (theme) => {
+        await this._updateTheme(webviewView.webview);
+      },
+    );
+
+    // Cleanup listener when webview is disposed
+    webviewView.onDidDispose(() => {
+      themeChangeDisposable.dispose();
+    });
 
     webviewView.webview.onDidReceiveMessage(async (message) => {
-      if (message.command === "getProjectStructureBlacklist") {
+      if (message.command === "requestTheme") {
+        // Handle explicit theme request from webview
+        console.log("[Extension] Received requestTheme from webview");
+        await this._updateTheme(webviewView.webview);
+      } else if (message.command === "getProjectStructureBlacklist") {
         if (this._projectStructureManager) {
           const blacklist = await this._projectStructureManager.getBlacklist();
           webviewView.webview.postMessage({
@@ -371,10 +388,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           if (!workspaceFolder) return;
 
           const { conversationId, logEntry } = message;
-          console.log(
-            `[Extension] logConversation: ${conversationId}`,
-            logEntry.role,
-          );
 
           const projectContextDir = this.getProjectContextDir(
             workspaceFolder.uri.fsPath,
@@ -396,12 +409,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             const fileData = await vscode.workspace.fs.readFile(logFileUri);
             content = JSON.parse(Buffer.from(fileData).toString("utf8"));
             if (!Array.isArray(content)) content = [];
-          } catch {
-            // New file
-            console.log(
-              `[Extension] Creating new log file for ${conversationId}`,
-            );
-          }
+          } catch {}
 
           content.push(logEntry);
 
@@ -409,27 +417,19 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             logFileUri,
             Buffer.from(JSON.stringify(content, null, 2), "utf8"),
           );
-          console.log(`[Extension] Log saved for ${conversationId}`);
         } catch (e) {
           console.error("Failed to log conversation:", e);
         }
       } else if (message.command === "getHistory") {
-        console.log(
-          "[Extension] Received getHistory request",
-          message.requestId,
-        );
-        // 🆕 Handle getHistory request from centralized storage
         try {
           const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
           if (!workspaceFolder) {
-            console.warn("[Extension] No workspace folder");
             throw new Error("No workspace folder");
           }
 
           const projectContextDir = this.getProjectContextDir(
             workspaceFolder.uri.fsPath,
           );
-          console.log("[Extension] Reading history from:", projectContextDir);
 
           await vscode.workspace.fs.createDirectory(
             vscode.Uri.file(projectContextDir),
@@ -437,7 +437,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           const entries = await fs.promises.readdir(projectContextDir, {
             withFileTypes: true,
           });
-          console.log(`[Extension] Found ${entries.length} entries in storage`);
 
           const history = [];
 
@@ -472,8 +471,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             }
           }
 
-          history.sort((a, b) => b.timestamp - a.timestamp); // Sort DESC
-          console.log(`[Extension] Returning ${history.length} conversations`);
+          history.sort((a, b) => b.timestamp - a.timestamp);
 
           webviewView.webview.postMessage({
             command: "historyResult",
@@ -489,8 +487,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           });
         }
       } else if (message.command === "getConversation") {
-        console.log(`[Extension] getConversation: ${message.conversationId}`);
-        // 🆕 Handle getConversation request
         try {
           const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
           if (!workspaceFolder) return;
@@ -503,13 +499,9 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             projectContextDir,
             `${conversationId}.json`,
           );
-          console.log(`[Extension] Reading conversation file: ${logFilePath}`);
 
           const fileContent = await fs.promises.readFile(logFilePath, "utf-8");
           const messages = JSON.parse(fileContent);
-          console.log(
-            `[Extension] Loaded ${messages.length} messages for ${conversationId}`,
-          );
 
           webviewView.webview.postMessage({
             command: "conversationResult",
@@ -673,9 +665,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
           // Rename
           await fs.promises.rename(oldFilePath, newFilePath);
-          console.log(
-            `[Extension] Renamed log ${oldConversationId} -> ${newConversationId}`,
-          );
 
           webviewView.webview.postMessage({
             command: "renameConversationLogResult",
@@ -2279,12 +2268,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       }
     });
 
-    const themeChangeDisposable = vscode.window.onDidChangeActiveColorTheme(
-      () => {
-        this._updateTheme(webviewView.webview);
-      },
-    );
-
     // File system watcher for automatic refresh of ProjectStructureDrawer
     const fileWatcher = vscode.workspace.createFileSystemWatcher("**/*");
     let refreshTimeout: NodeJS.Timeout | null = null;
@@ -2352,12 +2335,14 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     fileWatcher.onDidDelete(refreshWorkspaceFiles);
     fileWatcher.onDidChange(refreshWorkspaceFiles);
 
-    // Thêm disposable vào context subscriptions nếu có (cho VS Code API tương thích)
-    const ctx = context as any;
-    if (ctx.subscriptions && Array.isArray(ctx.subscriptions)) {
-      ctx.subscriptions.push(themeChangeDisposable);
-      ctx.subscriptions.push(fileWatcher);
-    }
+    // Cleanup listeners on dispose
+    webviewView.onDidDispose(() => {
+      themeChangeDisposable.dispose();
+      fileWatcher.dispose();
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+    });
   }
 
   private _getHtmlForWebview(webview: vscode.Webview) {
@@ -2456,16 +2441,79 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     return text;
   }
 
-  private _updateTheme(webview: vscode.Webview) {
+  private async _extractThemeColors(theme: vscode.ColorTheme): Promise<any> {
+    try {
+      // VS Code doesn't directly expose theme token colors via API
+      // We return a comprehensive color scheme based on theme kind
+      // This matches VS Code's default themes and covers all language constructs
+
+      const isDark = theme.kind === vscode.ColorThemeKind.Dark;
+
+      const colors = {
+        // Keywords
+        keyword: isDark ? "#C586C0" : "#AF00DB",
+        keywordControl: isDark ? "#C586C0" : "#AF00DB",
+        keywordOperator: isDark ? "#D4D4D4" : "#000000",
+
+        // Storage/Types
+        storageType: isDark ? "#569CD6" : "#0000FF",
+
+        // Functions
+        entityNameFunction: isDark ? "#DCDCAA" : "#795E26",
+        metaFunctionCall: isDark ? "#DCDCAA" : "#795E26",
+
+        // Types/Classes
+        entityNameType: isDark ? "#4EC9B0" : "#267F99",
+        entityNameClass: isDark ? "#4EC9B0" : "#267F99",
+        supportType: isDark ? "#4EC9B0" : "#267F99",
+        supportClass: isDark ? "#4EC9B0" : "#267F99",
+
+        // Variables
+        variable: isDark ? "#9CDCFE" : "#001080",
+        variableParameter: isDark ? "#9CDCFE" : "#001080",
+
+        // Strings
+        string: isDark ? "#CE9178" : "#A31515",
+        stringEscape: isDark ? "#D7BA7D" : "#EE0000",
+
+        // Comments
+        comment: isDark ? "#6A9955" : "#008000",
+
+        // Numbers
+        number: isDark ? "#B5CEA8" : "#098658",
+
+        // Constants
+        constant: isDark ? "#4FC1FF" : "#0000FF",
+
+        // Punctuation
+        punctuation: isDark ? "#D4D4D4" : "#000000",
+      };
+
+      console.log("[Extension] Extracted token colors:", colors);
+      return colors;
+    } catch (error) {
+      console.error("Failed to extract theme colors:", error);
+      return null;
+    }
+  }
+
+  private async _updateTheme(webview: vscode.Webview) {
     // Lấy theme hiện tại
     const theme = vscode.window.activeColorTheme;
     const themeKind = theme.kind;
+    const tokenColors = await this._extractThemeColors(theme);
+
+    console.log("[Extension] Sending theme update to webview:", {
+      themeKind,
+      tokenColors,
+    });
 
     // VS Code tự động inject CSS variables vào webview
-    // Chúng ta chỉ cần gửi theme kind để webview biết loại theme nào đang được sử dụng
+    // Chúng ta gửi theme kind + token colors để webview apply vào Monaco
     webview.postMessage({
       command: "updateTheme",
       theme: themeKind,
+      tokenColors: tokenColors,
     });
   }
 

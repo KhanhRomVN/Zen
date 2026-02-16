@@ -76,39 +76,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
 
   // 🆕 Debug logging and filtering logic
   const visibleMessages = useMemo(() => {
-    console.log(
-      `[ChatBody] Rendering ${messages.length} messages. firstRequestMessageId: ${firstRequestMessageId}`,
-    );
-
     return messages.filter((message) => {
-      // 1. Check uiHidden
       if (message.uiHidden) {
-        console.log(`[ChatBody] Hiding message ${message.id} (uiHidden=true)`);
         return false;
       }
-
-      // 2. Check firstRequestMessageId hiding logic
-      // 🆕 We removed this logic to show the first message with "## User Message" label
-      /*
-      if (firstRequestMessageId) {
-        if (message.id === firstRequestMessageId) {
-          console.log(
-            `[ChatBody] Hiding message ${message.id} (matches firstRequestMessageId)`,
-          );
-          return false;
-        }
-      } else {
-        // Fallback logic
-        const firstUserMessage = messages.find((m) => m.role === "user");
-        if (message.id === firstUserMessage?.id) {
-          console.log(
-            `[ChatBody] Hiding message ${message.id} (matches fallback firstUserMessage)`,
-          );
-          return false;
-        }
-      }
-      */
-
       return true;
     });
   }, [messages, firstRequestMessageId]);

@@ -14,7 +14,6 @@ import { getDefaultPrompt } from "./prompts";
 
 // 🆕 Helper to log conversation to workspace (Centralized)
 const logToWorkspace = (conversationId: string, message: any) => {
-  console.log(`[ChatPanel] logToWorkspace: ${conversationId}`, message);
   const vscodeApi = (window as any).vscodeApi;
   if (!vscodeApi) return;
 
@@ -394,18 +393,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
       // Determine conversation ID to use
       let effectiveConversationId = currentConversationIdRef.current;
-      // Nếu session mới, gửi chuỗi trống để Backend/DeepSeek tự tạo UUID.
       const isNewSession = !effectiveConversationId;
 
-      console.log(
-        `[ChatPanel] handleSendMessage: isNewSession=${isNewSession}, effectiveID=${effectiveConversationId}`,
-      );
-
       if (isNewSession) {
-        // Vẫn giữ local state ID là timestamp để lưu tạm, nhưng sẽ gửi "" lên API.
         effectiveConversationId = Date.now().toString();
         setCurrentConversationId(effectiveConversationId);
-        console.log(`[ChatPanel] Created temp ID: ${effectiveConversationId}`);
       }
 
       saveConversation(
@@ -424,10 +416,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         // Fallback to states if undefined (important for Auto-Execution)
         const finalModel = model || currentModelRef.current;
         const finalAccount = account || currentAccountRef.current;
-
-        console.log(
-          `[ChatPanel] Sending request to ${apiUrl} with model ${finalModel?.id}`,
-        );
         const effModel = selectedQuickModel
           ? {
               id: selectedQuickModel.modelId,
@@ -1459,13 +1447,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           (window as any).__contextResponseHandler(data);
         }
       } else if (data.command === "conversationResult") {
-        console.log("[ChatPanel] Handling conversationResult:", data);
-        // 🆕 Handle loaded conversation data
         if (data.data && data.data.messages) {
-          console.log(
-            `[ChatPanel] Setting ${data.data.messages.length} messages. Current conversationId: ${currentConversationId}`,
-          );
-          // 🆕 Backfill IDs if missing (for legacy logs)
           const validMessages = data.data.messages.map(
             (msg: Message, index: number) => ({
               ...msg,
@@ -1473,24 +1455,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             }),
           );
 
-          // 🆕 Log loaded messages (skipping first one) to verify content
           console.groupCollapsed("[ChatPanel] Loaded Conversation Details");
-          validMessages
-            .slice(1)
-            .forEach((msg: { role: any; content: string }, idx: number) => {
-              console.log(
-                `Msg[${idx + 1}] (${msg.role}):`,
-                msg.content.substring(0, 200) +
-                  (msg.content.length > 200 ? "..." : ""),
-              );
-            });
           console.groupEnd();
 
           setMessages(validMessages);
           if (data.data.conversationId) {
-            console.log(
-              `[ChatPanel] Updating conversationId to: ${data.data.conversationId}`,
-            );
             setCurrentConversationId(data.data.conversationId);
           }
         } else {
@@ -1514,15 +1483,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     };
 
     (window as any).__chatPanelMessageHandler = (data: any) => {
-      console.log(
-        "[ChatPanel] __chatPanelMessageHandler received:",
-        data.type || data.command,
-        data,
-      );
       handleIncomingMessage(data);
     };
 
-    // 🆕 CRITICAL: Listen for messages from the extension
     const messageListener = (event: MessageEvent) => {
       const message = event.data;
       handleIncomingMessage(message);
@@ -1530,22 +1493,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     window.addEventListener("message", messageListener);
 
     return () => {
-      console.log("[ChatPanel] Cleaning up __chatPanelMessageHandler");
       delete (window as any).__chatPanelMessageHandler;
       window.removeEventListener("message", messageListener);
     };
   }, [currentConversationIdRef, handleToolRequest, parseAIResponse]);
 
-  // 🆕 Monitor messages state changes
-  useEffect(() => {
-    console.log(
-      "[ChatPanel] Messages state updated:",
-      messages.length,
-      "messages",
-    );
-  }, [messages]);
-
-  // 🆕 Handler cho Clear Chat
   const handleClearChat = useCallback(async () => {
     const vscodeApi = (window as any).vscodeApi;
     if (vscodeApi) {

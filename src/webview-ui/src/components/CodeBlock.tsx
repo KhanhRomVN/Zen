@@ -65,27 +65,151 @@ const truncatePath = (path?: string): string => {
 };
 
 // Custom Monaco theme matching VS Code's default dark+ theme
-const defineCustomTheme = (monaco: any) => {
-  monaco.editor.defineTheme("vscode-dark-plus", {
-    base: "vs-dark",
-    inherit: true,
-    rules: [
-      { token: "keyword", foreground: "C586C0" }, // Purple for def, return, if, etc.
-      { token: "keyword.control", foreground: "C586C0" },
-      { token: "storage.type", foreground: "569CD6" }, // Blue for int, str, bool, etc.
-      { token: "entity.name.function", foreground: "DCDCAA" }, // Yellow for function names
-      { token: "variable.parameter", foreground: "9CDCFE" }, // Light blue for parameters
-      { token: "punctuation", foreground: "D4D4D4" }, // White for : -> ( ) etc.
-      { token: "comment", foreground: "6A9955" }, // Green for comments
-      { token: "string", foreground: "CE9178" }, // Orange for strings
-      { token: "constant.numeric", foreground: "B5CEA8" }, // Light green for numbers
-      { token: "entity.name.type", foreground: "4EC9B0" }, // Cyan for class names
-    ],
-    colors: {
-      "editor.background": "#1E1E1E",
-      "editor.foreground": "#D4D4D4",
-    },
-  });
+const defineCustomTheme = (monaco: any, colors?: any, force = false) => {
+  console.log(
+    "[CodeBlock] defineCustomTheme called with colors:",
+    colors,
+    "force:",
+    force,
+  );
+
+  try {
+    const c = colors || {
+      // Fallback colors (Dark theme defaults)
+      keyword: "#C586C0",
+      keywordControl: "#C586C0",
+      keywordOperator: "#D4D4D4",
+      storageType: "#569CD6",
+      entityNameFunction: "#DCDCAA",
+      metaFunctionCall: "#DCDCAA",
+      entityNameType: "#4EC9B0",
+      entityNameClass: "#4EC9B0",
+      supportType: "#4EC9B0",
+      supportClass: "#4EC9B0",
+      variable: "#9CDCFE",
+      variableParameter: "#9CDCFE",
+      string: "#CE9178",
+      stringEscape: "#D7BA7D",
+      comment: "#6A9955",
+      number: "#B5CEA8",
+      constant: "#4FC1FF",
+      punctuation: "#D4D4D4",
+    };
+
+    console.log("[CodeBlock] Using colors for theme:", c);
+
+    const stripHash = (color: string) => color.replace("#", "");
+
+    monaco.editor.defineTheme("vscode-dark-plus", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [
+        // Keywords - cover all variants
+        { token: "keyword", foreground: stripHash(c.keyword) },
+        { token: "keyword.control", foreground: stripHash(c.keywordControl) },
+        { token: "keyword.operator", foreground: stripHash(c.keywordOperator) },
+        {
+          token: "keyword.control.flow",
+          foreground: stripHash(c.keywordControl),
+        },
+        {
+          token: "keyword.control.import",
+          foreground: stripHash(c.keywordControl),
+        },
+
+        // Storage/Types - Python specific
+        { token: "storage", foreground: stripHash(c.storageType) },
+        { token: "storage.type", foreground: stripHash(c.storageType) },
+        {
+          token: "storage.type.function",
+          foreground: stripHash(c.keywordControl),
+        }, // 'def' in Python
+        {
+          token: "storage.type.class",
+          foreground: stripHash(c.keywordControl),
+        }, // 'class' in Python
+
+        // Functions - all variants
+        {
+          token: "entity.name.function",
+          foreground: stripHash(c.entityNameFunction),
+        },
+        {
+          token: "meta.function-call",
+          foreground: stripHash(c.metaFunctionCall),
+        },
+        { token: "meta.function", foreground: stripHash(c.entityNameFunction) },
+        {
+          token: "support.function",
+          foreground: stripHash(c.entityNameFunction),
+        },
+
+        // Types/Classes - comprehensive coverage
+        { token: "entity.name.type", foreground: stripHash(c.entityNameType) },
+        {
+          token: "entity.name.class",
+          foreground: stripHash(c.entityNameClass),
+        },
+        { token: "support.type", foreground: stripHash(c.supportType) },
+        { token: "support.class", foreground: stripHash(c.supportClass) },
+        { token: "type", foreground: stripHash(c.supportType) },
+        { token: "type.identifier", foreground: stripHash(c.supportType) },
+
+        // Variables - all variants
+        { token: "variable", foreground: stripHash(c.variable) },
+        {
+          token: "variable.parameter",
+          foreground: stripHash(c.variableParameter),
+        },
+        { token: "variable.other", foreground: stripHash(c.variable) },
+        { token: "variable.language", foreground: stripHash(c.constant) },
+        { token: "identifier", foreground: stripHash(c.variable) },
+
+        // Strings - comprehensive
+        { token: "string", foreground: stripHash(c.string) },
+        { token: "string.quoted", foreground: stripHash(c.string) },
+        { token: "string.quoted.single", foreground: stripHash(c.string) },
+        { token: "string.quoted.double", foreground: stripHash(c.string) },
+        { token: "string.escape", foreground: stripHash(c.stringEscape) },
+
+        // Comments - all types
+        { token: "comment", foreground: stripHash(c.comment) },
+        { token: "comment.line", foreground: stripHash(c.comment) },
+        { token: "comment.block", foreground: stripHash(c.comment) },
+        { token: "comment.line.number-sign", foreground: stripHash(c.comment) },
+
+        // Numbers - comprehensive
+        { token: "number", foreground: stripHash(c.number) },
+        { token: "constant.numeric", foreground: stripHash(c.number) },
+        { token: "constant.numeric.decimal", foreground: stripHash(c.number) },
+        { token: "constant.numeric.hex", foreground: stripHash(c.number) },
+
+        // Constants - all variants
+        { token: "constant", foreground: stripHash(c.constant) },
+        { token: "constant.language", foreground: stripHash(c.constant) },
+        { token: "constant.character", foreground: stripHash(c.constant) },
+
+        // Punctuation
+        { token: "punctuation", foreground: stripHash(c.punctuation) },
+        {
+          token: "punctuation.definition",
+          foreground: stripHash(c.punctuation),
+        },
+        { token: "meta.brace", foreground: stripHash(c.punctuation) },
+        { token: "delimiter", foreground: stripHash(c.punctuation) },
+      ],
+      colors: {
+        "editor.background": "#1e1e1e",
+        "editor.foreground": "#d4d4d4",
+        "editorLineNumber.foreground": "#858585",
+        "editorLineNumber.activeForeground": "#c6c6c6",
+      },
+    });
+
+    console.log("[CodeBlock] Theme registered successfully");
+  } catch (error) {
+    console.error("[CodeBlock] Failed to define theme:", error);
+  }
 };
 
 interface CodeBlockProps {
@@ -105,6 +229,7 @@ interface CodeBlockProps {
   backgroundColor?: string;
   disableEditorPadding?: boolean;
   startLineNumber?: number; // New prop
+  tokenColors?: any; // Dynamic token colors from VS Code theme
 }
 
 export const CodeBlock: React.FC<CodeBlockProps> = ({
@@ -119,6 +244,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   backgroundColor,
   disableEditorPadding,
   startLineNumber,
+  tokenColors,
 }) => {
   const [copied, setCopied] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -191,9 +317,16 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   const handleEditorDidMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
 
-    // Define and apply custom theme
-    defineCustomTheme(monaco);
-    monaco.editor.setTheme("vscode-dark-plus");
+    console.log("[CodeBlock] handleEditorDidMount - tokenColors:", tokenColors);
+
+    // Define and apply custom theme with dynamic colors from VS Code
+    try {
+      defineCustomTheme(monaco, tokenColors);
+      monaco.editor.setTheme("vscode-dark-plus");
+      console.log("[CodeBlock] Applied custom theme successfully");
+    } catch (error) {
+      console.error("Failed to apply custom theme:", error);
+    }
 
     const updateHeight = () => {
       const contentHeight = editor.getContentHeight();
@@ -237,6 +370,21 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       decorationsRef.current = editor.deltaDecorations([], decorations);
     }
   };
+
+  // Re-apply theme when tokenColors change
+  React.useEffect(() => {
+    if (editorRef.current && tokenColors) {
+      const monaco = (window as any).monaco;
+      if (monaco) {
+        console.log(
+          "[CodeBlock] Applying theme with updated tokenColors:",
+          tokenColors,
+        );
+        defineCustomTheme(monaco, tokenColors, true);
+        monaco.editor.setTheme("vscode-dark-plus");
+      }
+    }
+  }, [tokenColors]);
 
   // Re-apply decorations when code or highlights change
   React.useEffect(() => {

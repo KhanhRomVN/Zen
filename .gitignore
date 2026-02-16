@@ -74,4 +74,4 @@ playwright-report/
 # Monaco Editor (if copied locally)
 src/webview-ui/public/vs/
 
-temp
+# temp
