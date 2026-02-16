@@ -5,6 +5,7 @@ interface MatchResult {
   endIndex: number; // Verification end index in file content
   originalText: string;
   score: number;
+  startLine: number; // Line number where match starts (1-indexed)
 }
 
 export class FuzzyMatcher {
@@ -14,7 +15,7 @@ export class FuzzyMatcher {
    */
   public static findMatch(
     fileContent: string,
-    searchBlock: string
+    searchBlock: string,
   ): MatchResult | null {
     // 1. Pre-process strings
     const fileLines = fileContent.split(/\r?\n/);
@@ -26,7 +27,7 @@ export class FuzzyMatcher {
 
     // Filter out empty lines from search block for anchoring
     const meaningfulSearchLines = searchLines.filter(
-      (l) => l.trim().length > 0
+      (l) => l.trim().length > 0,
     );
     if (meaningfulSearchLines.length === 0) return null;
 
@@ -76,7 +77,7 @@ export class FuzzyMatcher {
         // Calculate similarity
         const similarity = this.calculateSimilarity(
           normalizedSearch,
-          normalizedCandidate
+          normalizedCandidate,
         );
 
         if (similarity >= bestScore && similarity > 0.7) {
@@ -85,7 +86,7 @@ export class FuzzyMatcher {
           bestMatch = {
             startIndex: this.getCharacterIndex(
               fileContent,
-              potentialStartLineIdx
+              potentialStartLineIdx,
             ),
             // We need the ACTUAL text to replace, so we need to know how much we matched.
             // But replace_in_file receives 'searchText' (the bad one) and 'replaceText'.
@@ -99,6 +100,7 @@ export class FuzzyMatcher {
             // But I calculated similarity (1=exact).
             // I will return (1 - similarity) as "Fuse-like Score" (0=best).
             score: 1 - similarity,
+            startLine: potentialStartLineIdx + 1, // Convert to 1-indexed
           };
         }
         if (normalizedCandidate.length > normalizedSearch.length * 1.5) break;

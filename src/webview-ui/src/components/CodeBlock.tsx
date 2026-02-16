@@ -80,6 +80,7 @@ interface CodeBlockProps {
   /* New props for custom styling */
   backgroundColor?: string;
   disableEditorPadding?: boolean;
+  startLineNumber?: number; // New prop
 }
 
 export const CodeBlock: React.FC<CodeBlockProps> = ({
@@ -93,6 +94,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   lineHighlights,
   backgroundColor,
   disableEditorPadding,
+  startLineNumber,
 }) => {
   const [copied, setCopied] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -226,6 +228,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
             h.type === "added" ? "diff-line-added" : "diff-line-removed",
         },
       }));
+      console.log("[CodeBlock] Applying decorations:", decorations);
       decorationsRef.current = editorRef.current.deltaDecorations(
         decorationsRef.current,
         decorations,
@@ -334,6 +337,9 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
             theme="vs-dark"
             onMount={handleEditorDidMount}
             options={{
+              lineNumbers: startLineNumber
+                ? (n: number) => (n + startLineNumber - 1).toString()
+                : "on",
               readOnly: true,
               minimap: { enabled: false },
               scrollBeyondLastLine: false,

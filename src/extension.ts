@@ -1040,10 +1040,17 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
                 return text.replace(/^```[a-zA-Z]*$/gm, "").trim();
               };
 
-              const searchText = cleanArtifacts(searchMatch[1]);
-              const exactIndex = currentContent.indexOf(searchText);
+              const normalize = (text: string) => text.replace(/\r\n/g, "\n");
+
+              const searchText = normalize(cleanArtifacts(searchMatch[1]));
+              const currentContentNormalized = normalize(currentContent);
+              const exactIndex = currentContentNormalized.indexOf(searchText);
 
               if (exactIndex !== -1) {
+                // Calculate line number from character index
+                const startLine = currentContentNormalized
+                  .substring(0, exactIndex)
+                  .split(/\r?\n/).length;
                 webviewView.webview.postMessage({
                   command: "validateFuzzyMatchResult",
                   id: message.id,
@@ -1051,6 +1058,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
                   searchBlock: searchText,
                   foundBlock: searchText,
                   score: 1.0,
+                  startLine: startLine,
                 });
               } else {
                 const fuzzyMatch = FuzzyMatcher.findMatch(
@@ -1074,6 +1082,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
                     score: fuzzyMatch.score,
                     searchBlock: searchText,
                     foundBlock: fuzzyMatch.originalText,
+                    startLine: fuzzyMatch.startLine,
                   });
                 } else {
                   webviewView.webview.postMessage({

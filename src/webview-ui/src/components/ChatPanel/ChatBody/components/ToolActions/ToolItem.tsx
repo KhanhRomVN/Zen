@@ -203,6 +203,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
   const [fuzzyStatus, setFuzzyStatus] = React.useState<{
     status: string;
     score?: number;
+    startLine?: number;
   } | null>(null);
 
   // Local state for file stats (line count)
@@ -237,7 +238,18 @@ const ToolItem: React.FC<ToolItemProps> = ({
             message.command === "validateFuzzyMatchResult" &&
             message.id === validationId
           ) {
-            setFuzzyStatus({ status: message.status, score: message.score });
+            setFuzzyStatus({
+              status: message.status,
+              score: message.score,
+              startLine: message.startLine,
+            });
+
+            // Debug: Log fuzzyStatus
+            console.log("🔍 FuzzyStatus set:", {
+              status: message.status,
+              startLine: message.startLine,
+              validationId,
+            });
 
             // Log details as requested (Fuzzy Logic in Webview)
             if (message.status === "fuzzy" && message.foundBlock) {
@@ -399,14 +411,27 @@ const ToolItem: React.FC<ToolItemProps> = ({
         const matches = [...diffText.matchAll(searchPattern)];
 
         if (matches.length > 0) {
+          // Track cumulative line offset for multiple blocks
+          let cumulativeLineOffset = 0;
+
           matches.forEach((match, index) => {
             const searchBlock = match[1] || "";
             const replaceBlock = match[2] || "";
+            // Use trimEnd() to remove the last newline so split doesn't create an empty string at the end
             const getLines = (text: string) =>
-              text.replace(/\r?\n/g, "\n").split("\n");
+              text.replace(/\r?\n/g, "\n").trimEnd().split("\n");
 
             const searchLines = getLines(searchBlock);
             const replaceLines = getLines(replaceBlock);
+
+            console.log(`🔍 [ToolItem] Block ${index} Debug:`, {
+              searchBlock: JSON.stringify(searchBlock),
+              replaceBlock: JSON.stringify(replaceBlock),
+              searchLinesLength: searchLines.length,
+              replaceLinesLength: replaceLines.length,
+              searchLines: JSON.stringify(searchLines),
+              replaceLines: JSON.stringify(replaceLines),
+            });
 
             // Simple diff generation (Context + Changes)
             // But now we want CLEAN lines + Highlights
@@ -454,9 +479,31 @@ const ToolItem: React.FC<ToolItemProps> = ({
               codeContent += "\n...\n";
             }
 
-            let currentLine = codeContent.split(/\r\n|\r|\n/).length;
-            if (codeContent === "") currentLine = 1;
-            else currentLine++; // because split gives parts, if ends with \n, last part is empty, but next append starts on new line
+            // 🐛 FIX: Always calculate currentLine based on the current codeContent length for correct relative highlighting
+            // The CodeBlock component renders the snippet starting at line 1, so highlights must be relative to the snippet, not the file.
+            // Absolute line numbers (fuzzyStatus.startLine) are only useful if we passed startLineNumber to Monaco, which we don't yet.
+
+            // Current block start line in the accumulated `codeContent`
+            let currentLine = 1;
+            if (codeContent !== "") {
+              // If previous content exists, we are appending new content.
+              // We use split length to determine where the new lines start RELATIVE to the snippet start.
+              currentLine = codeContent.split(/\r\n|\r|\n/).length;
+
+              // If the content doesn't end with a newline, the next append starts on the SAME line.
+              // But we manually add `\n` in `blockLines.join("\n")` later.
+              // And we added `\n...\n` separator which ends with newline.
+              // So normally we are starting on a new line.
+              if (codeContent.endsWith("\n")) {
+                currentLine += 1;
+              } else {
+                currentLine += 1; // We implicitly add a newline when joining/appending
+              }
+            }
+
+            console.log(
+              `📍 Block ${index}: Relative currentLine = ${currentLine}, (Original Fuzzy Start: ${fuzzyStatus?.startLine}, Offset: ${cumulativeLineOffset})`,
+            );
 
             // Actually simpler: build array of lines first
             const blockLines: string[] = [];
@@ -474,14 +521,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
             suffixLines.forEach((l) => blockLines.push(l));
 
             codeContent += blockLines.join("\n");
-            // Add a newline at the end of each block, unless it's the very last block and it already ends with one
-            if (index < matches.length - 1 || !codeContent.endsWith("\n")) {
-              codeContent += "\n";
-            }
+            // Don't add trailing newline - it causes unwanted empty line at the end
 
-            // Offset logic if multiple blocks (simplified for now as usually 1)
-            // If multiple blocks, we'd need to track global line number offset
-            // For now, let's assume simple clean lines construction
+            // Update cumulative offset for next block
+            // Offset = number of lines in searchBlock (original file position moves by this amount)
+            cumulativeLineOffset += searchLines.length;
 
             if (deletedLines.length > 0) {
               lineHighlights.push({
@@ -705,6 +749,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 language={codeLanguage}
                 maxLines={20}
                 filename={action.params.path || getFilename(action)} // Full path
+                startLineNumber={fuzzyStatus?.startLine} // Start line from fuzzy match (or 1 default)
                 lineHighlights={
                   toolType === "replace_in_file" ? lineHighlights : undefined
                 }
