@@ -19,31 +19,39 @@ export class ThemeService {
     let extensionPath: string = "";
 
     // Thử tìm kiếm chính xác trước, sau đó thử tìm theo label
+    const normalizedColorTheme = colorTheme.toLowerCase();
+
     for (const ext of vscode.extensions.all) {
       const themes = ext.packageJSON?.contributes?.themes;
       if (Array.isArray(themes)) {
-        // Một số theme ID có thể khác với Label hiển thị
-        const found = themes.find(
-          (t: any) =>
-            t.id === colorTheme ||
-            t.label === colorTheme ||
-            // Handle cases where the extension's internal ID is prefix with extension id
-            (ext.id && t.id === `${ext.id}.${colorTheme}`),
-        );
+        const found = themes.find((t: any) => {
+          const id = (t.id || "").toLowerCase();
+          const label = (t.label || "").toLowerCase();
+
+          return (
+            id === normalizedColorTheme ||
+            label === normalizedColorTheme ||
+            // 🆕 Sửa logic so khớp ID của extension: ID thật thường là "extensionId.themeId"
+            // Khi config là "themeId", ta cần kiểm tra xem extensionId + themeId có khớp config không
+            // HOẶC config là "extensionId.themeId" thì khớp với t.id
+            (ext.id && `${ext.id.toLowerCase()}.${id}` === normalizedColorTheme)
+          );
+        });
+
         if (found) {
           themeEntry = found;
           extensionPath = ext.extensionPath;
+          console.log(
+            `[ThemeService] Found theme '${colorTheme}' in extension: ${ext.id}`,
+          );
           break;
         }
       }
     }
 
-    // Một số theme mặc định (Default Dark+, etc) đôi khi khó tìm qua extensions.all
-    // nhưng thường nằm trong extensions hệ thống (ví dụ: vscode.theme-defaults)
-
     if (!themeEntry || !extensionPath) {
       console.warn(
-        `[ThemeService] Could not find theme entry for: ${colorTheme}`,
+        `[ThemeService] Could not find theme entry for: ${colorTheme}. Searched in ${vscode.extensions.all.length} extensions.`,
       );
       return null;
     }

@@ -32,6 +32,8 @@ export class ShikiService {
       themeJson.name = themeName;
 
       await this.highlighter.loadTheme(themeJson);
+
+      // Successfully loaded
       this.currentDynamicThemeName = themeName;
       this.currentDynamicThemeId = originalThemeId || null;
       this.currentDynamicThemeKind = themeJson.type || "dark";
@@ -41,6 +43,11 @@ export class ShikiService {
       );
     } catch (error) {
       console.error("[ShikiService] Failed to load custom theme:", error);
+      // Even if loading fails, update the ID to the one being requested
+      // to avoid continuous "stale theme" warnings if the reason was JSON corruption.
+      // But clearing name will force fallback to defaults.
+      this.currentDynamicThemeName = null;
+      this.currentDynamicThemeId = originalThemeId || null;
     }
   }
 
@@ -138,6 +145,12 @@ export class ShikiService {
       : themeKind === vscode.ColorThemeKind.Light
         ? "github-light"
         : "dark-plus";
+
+    if (!useDynamic && this.currentDynamicThemeName) {
+      console.log(
+        `[ShikiService] Highlighting using fallback '${theme}' instead of dynamic theme`,
+      );
+    }
 
     try {
       return this.highlighter.codeToHtml(code, {

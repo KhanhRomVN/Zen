@@ -12,9 +12,11 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background-color: var(--vscode-editor-headerBackground, #2d2d2d);
-  border-bottom: 1px solid
-    var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1));
+  background-color: var(
+    --vscode-editorGroupHeader-tabsBackground,
+    var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.05))
+  );
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
   color: var(--vscode-editor-foreground);
   font-family: var(--vscode-font-family);
   font-size: 12px;
@@ -34,8 +36,11 @@
 }
 
 .copy-button {
-  background-color: var(--vscode-button-secondaryBackground, #3a3d41);
-  color: var(--vscode-button-secondaryForeground, #ffffff);
+  background-color: var(
+    --vscode-button-secondaryBackground,
+    rgba(128, 128, 128, 0.1)
+  );
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
   border: none;
   border-radius: 3px;
   padding: 3px 8px;
@@ -44,11 +49,14 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  transition: background-color 0.2s;
+  transition: opacity 0.2s;
 }
 
 .copy-button:hover {
-  background-color: var(--vscode-button-secondaryHoverBackground, #45494e);
+  background-color: var(
+    --vscode-button-secondaryHoverBackground,
+    rgba(128, 128, 128, 0.2)
+  );
 }
 
 .copy-button svg {

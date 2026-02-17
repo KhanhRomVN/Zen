@@ -2486,14 +2486,23 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     const themeKind = theme.kind;
 
     // Cập nhật ShikiService với theme JSON mới nhất từ VS Code
-    const colorTheme = vscode.workspace
-      .getConfiguration("workbench")
-      .get<string>("colorTheme");
+    const colorTheme =
+      vscode.workspace
+        .getConfiguration("workbench")
+        .get<string>("colorTheme") || "Default Dark Modern";
+
+    console.log(
+      `[Extension] Updating theme to: ${colorTheme} (kind: ${themeKind})`,
+    );
 
     try {
       const themeJson = await ThemeService.getActiveThemeJson();
       if (themeJson) {
+        // Chờ ShikiService load theme xong trước khi thông báo webview
         await ShikiService.getInstance().setCustomTheme(themeJson, colorTheme);
+        console.log(
+          `[Extension] ShikiService updated with theme: ${colorTheme}`,
+        );
       } else {
         console.warn(
           `[Extension] Could not get JSON for theme: ${colorTheme}. Highlighting may use fallbacks.`,
@@ -2503,12 +2512,8 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       console.error("[Extension] Failed to update Shiki theme:", error);
     }
 
-    console.log("[Extension] updateTheme info:", {
-      kind: themeKind,
-      id: colorTheme,
-    });
-
     // VS Code tự động inject CSS variables vào webview
+    // Gửi message xuống webview sau khi Shiki đã sẵn sàng
     webview.postMessage({
       command: "updateTheme",
       theme: themeKind,
