@@ -2297,6 +2297,14 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             error: String(error),
           });
         }
+      } else if (message.command === "openExternal") {
+        try {
+          if (message.url) {
+            vscode.env.openExternal(vscode.Uri.parse(message.url));
+          }
+        } catch (error) {
+          vscode.window.showErrorMessage(`Failed to open URL: ${error}`);
+        }
       }
     });
 

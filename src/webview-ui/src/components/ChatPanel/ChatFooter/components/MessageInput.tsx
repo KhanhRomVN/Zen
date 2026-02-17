@@ -3,6 +3,9 @@ import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
 import { PlusIcon, ChevronDownIcon, SendIcon } from "./Icons";
 import { Check, Cpu, Search, X } from "lucide-react";
+import { useBackendConnection } from "../../../../context/BackendConnectionContext";
+import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
+import { useSettings } from "../../../../context/SettingsContext";
 
 interface MessageInputProps {
   message: string;
@@ -47,6 +50,7 @@ interface MessageInputProps {
   currentAccount: any;
   setCurrentAccount: (account: any) => void;
   onToggleTaskDrawer?: () => void;
+  hasTaskProgress?: boolean;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -82,7 +86,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   currentAccount,
   setCurrentAccount,
   onToggleTaskDrawer,
+  hasTaskProgress,
 }) => {
+  const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
   const [providers, setProviders] = React.useState<any[]>([]);
   const [accounts, setAccounts] = React.useState<any[]>([]);
@@ -92,6 +98,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const [showAccountDropdown, setShowAccountDropdown] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const pendingAccountIdRef = React.useRef<string | null>(null);
+  const [isLoadingCache, setIsLoadingCache] = React.useState(true);
+  const { language: preferredLanguage } = useSettings();
 
   // 🆕 Capabilities Logic
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
@@ -221,37 +229,31 @@ const MessageInput: React.FC<MessageInputProps> = ({
     fetchProviders();
   }, [fetchProviders]);
 
-  // Load saved selection
+  // Load saved selection and language
   React.useEffect(() => {
     const loadSelection = async () => {
       const storage = (window as any).storage;
-      if (!storage) return;
+      if (!storage) {
+        setIsLoadingCache(false);
+        return;
+      }
 
+      setIsLoadingCache(true);
       const key = `zen-model-selection:${folderPath || "global"}`;
       try {
-        const res = await storage.get(key);
-        if (res?.value) {
-          const saved = JSON.parse(res.value);
+        const [selectionRes] = await Promise.all([storage.get(key)]);
+
+        if (selectionRes?.value) {
+          const saved = JSON.parse(selectionRes.value);
           if (saved.model) setCurrentModel(saved.model);
-          // Account will be selected after model is set and accounts fetched
           if (saved.accountId) {
             pendingAccountIdRef.current = saved.accountId;
           }
-        } else {
-          // Reset selection if no saved data for this folder
-          // This might be debated, but usually if I switch folders I expect to see that folder's state.
-          // If no state, maybe default? For now let's keep current behavior (controlled by state).
-          // But wait, if I switch tabs, MessageInput re-mounts?
-          // If ChatFooter re-renders, MessageInput might not unmount if keys dont change.
-          // But folderPath changes.
-          // If I switch to a new folder that has no saved state, I probably want to reset or keep default.
-          // Current logic: only sets if res.value exists. If not, it keeps whatever state (which might be from previous folder if component didn't unmount).
-          // We should probably reset if no saved state found to avoid confusion.
-          // BUT, if initial load, state is null.
-          // Let's stick to: if saved found, apply it. If not, do nothing (let default logic take over).
         }
       } catch (e) {
-        // console.error("Failed to load model selection", e);
+        // console.error("Failed to load selection", e);
+      } finally {
+        setIsLoadingCache(false);
       }
     };
     loadSelection();
@@ -377,7 +379,16 @@ const MessageInput: React.FC<MessageInputProps> = ({
         />
       )}
 
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          borderRadius: "var(--border-radius)",
+          border: !isConnected ? "1px solid #f44336" : "1px solid transparent",
+          transition: "border 0.3s ease",
+        }}
+      >
         <div
           style={{
             position: "relative",
@@ -402,153 +413,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
             background-color: var(--scrollbar-thumb-hover);
           }
         `}</style>
-          {/* Quick Model Continuity Banner */}
-          {selectedQuickModel && (
-            <div
-              style={{
-                position: "absolute",
-                top: "-28px",
-                left: "8px",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "4px 10px",
-                borderTopLeftRadius: "8px",
-                borderTopRightRadius: "8px",
-                borderLeft: "1px solid var(--border-color)",
-                borderTop: "1px solid var(--border-color)",
-                borderRight: "1px solid var(--border-color)",
-                backgroundColor: "var(--vscode-editor-background)", // Match editor bg or slight contrast
-                fontSize: "10px",
-                fontWeight: 700,
-                color: "var(--primary-text)",
-                opacity: 0.9,
-                zIndex: 10,
-                boxShadow: "0 -2px 4px rgba(0,0,0,0.05)",
-              }}
-            >
-              <span style={{ opacity: 0.6 }}>Continue conversation with</span>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "6px" }}
-              >
-                {allModels.find((m) => m.id === selectedQuickModel.modelId)
-                  ?.favicon && (
-                  <img
-                    src={
-                      allModels.find(
-                        (m) => m.id === selectedQuickModel.modelId,
-                      )!.favicon!
-                    }
-                    style={{
-                      width: "12px",
-                      height: "12px",
-                      objectFit: "contain",
-                      opacity: 0.8,
-                      filter: "grayscale(100%)",
-                    }}
-                    alt=""
-                  />
-                )}
-                <span
-                  style={{
-                    maxWidth: "150px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {
-                    allModels.find((m) => m.id === selectedQuickModel.modelId)
-                      ?.providerName
-                  }{" "}
-                  /{" "}
-                  {allModels.find((m) => m.id === selectedQuickModel.modelId)
-                    ?.name || selectedQuickModel.modelId}
-                </span>
-              </div>
-            </div>
-          )}
-          <style>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: var(--scrollbar-thumb);
-            border-radius: 10px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background-color: var(--scrollbar-thumb-hover);
-          }
-        `}</style>
-          {/* Quick Model Continuity Banner */}
-          {selectedQuickModel && (
-            <div
-              style={{
-                position: "absolute",
-                top: "-28px",
-                left: "8px",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "4px 10px",
-                borderTopLeftRadius: "8px",
-                borderTopRightRadius: "8px",
-                borderLeft: "1px solid var(--border-color)",
-                borderTop: "1px solid var(--border-color)",
-                borderRight: "1px solid var(--border-color)",
-                backgroundColor: "var(--vscode-editor-background)", // Match editor bg or slight contrast
-                fontSize: "10px",
-                fontWeight: 700,
-                color: "var(--primary-text)",
-                opacity: 0.9,
-                zIndex: 10,
-                boxShadow: "0 -2px 4px rgba(0,0,0,0.05)",
-              }}
-            >
-              <span style={{ opacity: 0.6 }}>Continue conversation with</span>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "6px" }}
-              >
-                {allModels.find((m) => m.id === selectedQuickModel.modelId)
-                  ?.favicon && (
-                  <img
-                    src={
-                      allModels.find(
-                        (m) => m.id === selectedQuickModel.modelId,
-                      )!.favicon!
-                    }
-                    style={{
-                      width: "12px",
-                      height: "12px",
-                      objectFit: "contain",
-                      opacity: 0.8,
-                      filter: "grayscale(100%)",
-                    }}
-                    alt=""
-                  />
-                )}
-                <span
-                  style={{
-                    maxWidth: "150px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {
-                    allModels.find((m) => m.id === selectedQuickModel.modelId)
-                      ?.providerName
-                  }{" "}
-                  /{" "}
-                  {allModels.find((m) => m.id === selectedQuickModel.modelId)
-                    ?.name || selectedQuickModel.modelId}
-                </span>
-              </div>
-            </div>
-          )}
           {/* Execution Progress Badge */}
           {executionState && executionState.status === "running" && (
             <div
@@ -625,9 +489,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
             placeholder={
               isHistoryMode
                 ? "History mode - sending messages is disabled"
-                : "Type @ to mention files, folders, or rules..."
+                : !isConnected
+                  ? "Đang lỗi kết nối với backend..."
+                  : isLoadingCache
+                    ? "Đang tải dữ liệu từ cache..."
+                    : "Type @ to mention files, folders, or rules..."
             }
-            disabled={isHistoryMode}
+            disabled={isHistoryMode || !isConnected || isLoadingCache}
             rows={1}
             style={{
               width: "100%",
@@ -641,8 +509,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
               backgroundColor: "transparent",
               color: "var(--primary-text)",
               overflow: "auto",
-              opacity: isHistoryMode ? 0.6 : 1,
-              cursor: isHistoryMode ? "not-allowed" : "text",
+              opacity:
+                isHistoryMode || !isConnected || isLoadingCache ? 0.6 : 1,
+              cursor:
+                isHistoryMode || !isConnected || isLoadingCache
+                  ? "not-allowed"
+                  : "text",
             }}
           />
         </div>
@@ -687,44 +559,46 @@ const MessageInput: React.FC<MessageInputProps> = ({
             )}
 
             {/* Task Progress Toggle */}
-            <div
-              style={{
-                cursor: "pointer",
-                padding: "var(--spacing-xs)",
-                borderRadius: "var(--border-radius)",
-                transition: "background-color 0.2s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--secondary-text)",
-              }}
-              onClick={onToggleTaskDrawer}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = "transparent")
-              }
-              title="Task Progress"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            {isConversationStarted && hasTaskProgress && (
+              <div
+                style={{
+                  cursor: "pointer",
+                  padding: "var(--spacing-xs)",
+                  borderRadius: "var(--border-radius)",
+                  transition: "background-color 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--secondary-text)",
+                }}
+                onClick={onToggleTaskDrawer}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+                title="Task Progress"
               >
-                <path d="M13 5h8" />
-                <path d="M13 12h8" />
-                <path d="M13 19h8" />
-                <path d="m3 17 2 2 4-4" />
-                <rect x="3" y="4" width="6" height="6" rx="1" />
-              </svg>
-            </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M13 5h8" />
+                  <path d="M13 12h8" />
+                  <path d="M13 19h8" />
+                  <path d="m3 17 2 2 4-4" />
+                  <rect x="3" y="4" width="6" height="6" rx="1" />
+                </svg>
+              </div>
+            )}
 
             {/* Thinking Mode Toggle */}
             {supportsThinking && (
@@ -777,7 +651,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               </div>
             )}
             {/* Quick Model Switcher (CPU Icon) */}
-            {onQuickModelSelect && (
+            {isConversationStarted && onQuickModelSelect && (
               <div style={{ position: "relative" }} ref={quickModelDropdownRef}>
                 <div
                   style={{
@@ -1046,7 +920,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     gap: "4px",
                     padding: "4px 8px",
                     backgroundColor: "transparent",
-                    borderRadius: "14px",
+                    borderRadius: "6px",
                     border: "none",
                     cursor: "pointer",
                     fontSize: "11px",
@@ -1073,6 +947,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                         display: "flex",
                         alignItems: "center",
                         gap: "6px",
+                        marginTop: "1px", // Nhích xuống 1 chút
                       }}
                     >
                       <img
@@ -1242,7 +1117,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     gap: "4px",
                     padding: "4px 8px",
                     backgroundColor: "transparent",
-                    borderRadius: "14px",
+                    borderRadius: "6px",
                     border: "none",
                     cursor: "pointer",
                     fontSize: "11px",
@@ -1264,6 +1139,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
+                      marginTop: "1px", // Nhích xuống 1 chút
                     }}
                   >
                     {currentAccount?.email || "Select account"}
@@ -1336,23 +1212,26 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   : message.trim() || uploadedFiles.length > 0
                     ? "pointer"
                     : "not-allowed",
-                opacity: isHistoryMode
-                  ? 0.5
-                  : message.trim() || uploadedFiles.length > 0
-                    ? 1
-                    : 0.5,
+                opacity:
+                  isHistoryMode || isLoadingCache
+                    ? 0.5
+                    : message.trim() || uploadedFiles.length > 0
+                      ? 1
+                      : 0.5,
                 padding: "var(--spacing-xs)",
                 borderRadius: "var(--border-radius)",
                 transition: "background-color 0.2s",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: isHistoryMode
-                  ? "var(--secondary-text)"
-                  : message.trim() || uploadedFiles.length > 0
-                    ? "var(--accent-text)"
-                    : "var(--secondary-text)",
-                pointerEvents: isHistoryMode ? "none" : "auto",
+                color:
+                  isHistoryMode || isLoadingCache
+                    ? "var(--secondary-text)"
+                    : message.trim() || uploadedFiles.length > 0
+                      ? "var(--accent-text)"
+                      : "var(--secondary-text)",
+                pointerEvents:
+                  isHistoryMode || isLoadingCache ? "none" : "auto",
               }}
               onClick={() => {
                 if (!currentModel) {
@@ -1376,6 +1255,102 @@ const MessageInput: React.FC<MessageInputProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Language Badge */}
+        {isConnected &&
+          !isElaraMismatch &&
+          LANGUAGES.some((l) => l.code === preferredLanguage) && (
+            <div
+              style={{
+                position: "absolute",
+                top: "8px",
+                right: "8px",
+                backgroundColor: "var(--vscode-badge-background)",
+                color: "var(--vscode-badge-foreground)",
+                padding: "2px 6px",
+                borderRadius: "4px",
+                fontSize: "10px",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                zIndex: 5,
+                opacity: 0.8,
+                pointerEvents: "none",
+              }}
+            >
+              <span>
+                {LANGUAGES.find((l: any) => l.code === preferredLanguage)
+                  ?.flag || "🇺🇸"}{" "}
+                {preferredLanguage.toUpperCase()}
+              </span>
+            </div>
+          )}
+
+        {/* Health / Elara Badges */}
+        {!isConnected && (
+          <div
+            style={{
+              position: "absolute",
+              top: "-24px",
+              right: "8px",
+              backgroundColor: "rgba(244, 67, 54, 0.1)",
+              color: "#f44336",
+              padding: "4px 12px",
+              fontSize: "11px",
+              fontWeight: 600,
+              borderTopLeftRadius: "var(--border-radius)",
+              borderTopRightRadius: "var(--border-radius)",
+              borderBottomLeftRadius: "0",
+              borderBottomRightRadius: "0",
+              cursor: "pointer",
+              zIndex: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+            onClick={() => {
+              // Open Settings Panel
+              window.postMessage({ command: "showSettings" }, "*");
+            }}
+          >
+            Connection Error
+          </div>
+        )}
+        {isConnected && isElaraMismatch && (
+          <div
+            style={{
+              position: "absolute",
+              top: "-24px",
+              right: "8px",
+              backgroundColor: "rgba(255, 152, 0, 0.1)",
+              color: "#ff9800",
+              padding: "4px 12px",
+              fontSize: "11px",
+              fontWeight: 600,
+              borderTopLeftRadius: "var(--border-radius)",
+              borderTopRightRadius: "var(--border-radius)",
+              borderBottomLeftRadius: "0",
+              borderBottomRightRadius: "0",
+              cursor: "pointer",
+              zIndex: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+            onClick={() => {
+              const vscodeApi = (window as any).vscodeApi;
+              if (vscodeApi) {
+                vscodeApi.postMessage({
+                  command: "openExternal",
+                  url: "https://github.com/KhanhRomVN/Elara",
+                });
+              }
+            }}
+          >
+            Elara Version Mismatch
+          </div>
+        )}
       </div>
     </div>
   );

@@ -4,6 +4,8 @@ import HistoryPanel from "./components/HistoryPanel";
 import SettingsPanel from "./components/SettingsPanel";
 import "./styles/components/chat.css";
 import { ThemeProvider } from "./context/ThemeContext";
+import { BackendConnectionProvider } from "./context/BackendConnectionContext";
+import { SettingsProvider } from "./context/SettingsContext";
 
 import { TabInfo } from "./types";
 
@@ -316,47 +318,51 @@ const App: React.FC = () => {
 
   return (
     <ThemeProvider>
-      <div className="app-container">
-        {!showHistory && !showSettings && (
-          <ChatPanel
-            selectedTab={selectedTab}
-            onBack={() => setSelectedTab(null)}
-            tabs={tabs}
-            onTabSelect={handleTabSelect}
-          />
-        )}
-        {showHistory && (
-          <HistoryPanel
-            isOpen={showHistory}
-            onClose={() => {
-              setShowHistory(false);
-              // Restore previous panel
-              if (previousPanel === "chat" && selectedTab) {
-                // Stay in chat
-              } else {
-                setSelectedTab(null); // Go back to tab panel
-              }
-              setPreviousPanel(null);
-            }}
-            onLoadConversation={handleLoadConversation}
-          />
-        )}
-        {showSettings && (
-          <SettingsPanel
-            isOpen={showSettings}
-            onClose={() => {
-              setShowSettings(false);
-              // Restore previous panel
-              if (previousPanel === "chat" && selectedTab) {
-                // Stay in chat
-              } else {
-                setSelectedTab(null); // Go back to tab panel
-              }
-              setPreviousPanel(null);
-            }}
-          />
-        )}
-      </div>
+      <SettingsProvider>
+        <BackendConnectionProvider>
+          <div className="app-container">
+            {!showHistory && !showSettings && (
+              <ChatPanel
+                selectedTab={selectedTab}
+                onBack={() => setSelectedTab(null)}
+                tabs={tabs}
+                onTabSelect={handleTabSelect}
+              />
+            )}
+            {showHistory && (
+              <HistoryPanel
+                isOpen={showHistory}
+                onClose={() => {
+                  setShowHistory(false);
+                  // Restore previous panel
+                  if (previousPanel === "chat" && selectedTab) {
+                    // Stay in chat
+                  } else {
+                    setSelectedTab(null); // Go back to tab panel
+                  }
+                  setPreviousPanel(null);
+                }}
+                onLoadConversation={handleLoadConversation}
+              />
+            )}
+            {showSettings && (
+              <SettingsPanel
+                isOpen={showSettings}
+                onClose={() => {
+                  setShowSettings(false);
+                  // Restore previous panel
+                  if (previousPanel === "chat" && selectedTab) {
+                    // Stay in chat
+                  } else {
+                    setSelectedTab(null); // Go back to tab panel
+                  }
+                  setPreviousPanel(null);
+                }}
+              />
+            )}
+          </div>
+        </BackendConnectionProvider>
+      </SettingsProvider>
     </ThemeProvider>
   );
 };

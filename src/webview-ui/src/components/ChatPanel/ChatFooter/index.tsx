@@ -15,6 +15,7 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   hasPendingActions?: boolean;
   folderPath?: string | null;
   isConversationStarted?: boolean;
+  hasTaskProgress?: boolean;
   selectedQuickModel?: {
     providerId: string;
     modelId: string;
@@ -49,6 +50,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   hasPendingActions,
   folderPath,
   isConversationStarted,
+  hasTaskProgress,
   selectedQuickModel,
   onQuickModelSelect,
   currentModel,
@@ -367,6 +369,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         hasPendingActions={hasPendingActions}
         folderPath={folderPath}
         isConversationStarted={isConversationStarted}
+        hasTaskProgress={hasTaskProgress}
         selectedQuickModel={selectedQuickModel}
         onQuickModelSelect={onQuickModelSelect}
         currentModel={currentModel}

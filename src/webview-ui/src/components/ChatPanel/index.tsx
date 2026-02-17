@@ -460,7 +460,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       try {
         // Fallback to states if undefined (important for Auto-Execution)
         const finalModel = model || currentModelRef.current;
-        const finalAccount = account || currentModelRef.current; // Fallback to currentModelRef as account wasn't in scope context view
+        const finalAccount = account || currentAccountRef.current;
         const effModel = selectedQuickModel
           ? {
               id: selectedQuickModel.modelId,
@@ -1836,6 +1836,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onExecutePendingBatch={handleExecutePendingBatch}
         hasPendingActions={hasPendingActions}
         isConversationStarted={messages.length > 0}
+        hasTaskProgress={allTaskProgress.length > 0}
         selectedQuickModel={selectedQuickModel}
         onQuickModelSelect={setSelectedQuickModel}
         currentModel={currentModel}

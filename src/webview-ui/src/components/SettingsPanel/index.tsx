@@ -1,5 +1,6 @@
 import React from "react";
 import { LanguageSelector } from "./LanguageSelector";
+import { useSettings } from "../../context/SettingsContext";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -7,41 +8,14 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
-  const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
-  const [language, setLanguage] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (isOpen) {
-      const storage = (window as any).storage;
-      if (storage) {
-        storage.get("backend-api-url").then((res: any) => {
-          if (res?.value) {
-            setApiUrl(res.value);
-          }
-        });
-        storage.get("zen_preferred_language").then((res: any) => {
-          if (res?.value) {
-            setLanguage(res.value);
-          }
-        });
-      }
-    }
-  }, [isOpen]);
+  const { apiUrl, setApiUrl, language, setLanguage } = useSettings();
 
   const handleApiUrlChange = (value: string) => {
     setApiUrl(value);
-    const storage = (window as any).storage;
-    if (storage) {
-      storage.set("backend-api-url", value);
-    }
   };
 
   const handleLanguageChange = (value: string) => {
     setLanguage(value);
-    const storage = (window as any).storage;
-    if (storage) {
-      storage.set("zen_preferred_language", value);
-    }
   };
 
   if (!isOpen) return null;

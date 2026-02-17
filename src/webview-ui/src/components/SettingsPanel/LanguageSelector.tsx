@@ -3,7 +3,7 @@ import { ChevronDown, Check, Search } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 // Simple language definition with emoji flags
-const LANGUAGES = [
+export const LANGUAGES = [
   { code: "en", name: "English", flag: "🇺🇸" },
   { code: "vi", name: "Vietnamese", flag: "🇻🇳" },
   { code: "ja", name: "Japanese", flag: "🇯🇵" },

@@ -19,8 +19,7 @@ import { useCollapseSections } from "./hooks/useCollapseSections";
 import { useToolActions } from "./hooks/useToolActions";
 import { useScrollBehavior } from "./hooks/useScrollBehavior";
 
-// Components
-
+import WelcomeUI from "./components/WelcomeUI";
 import ProcessingIndicator from "./components/ProcessingIndicator";
 import ScrollToBottomButton from "./components/ScrollToBottomButton";
 import MessageBox from "./components/MessageBox";
@@ -91,12 +90,15 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         overflowY: "auto",
         padding: "var(--spacing-lg)",
         backgroundColor: "var(--secondary-bg)",
-        paddingBottom: "200px",
+        paddingBottom:
+          visibleMessages.length > 0 ? "200px" : "var(--spacing-lg)",
         display: "flex",
         flexDirection: "column",
         gap: "var(--spacing-md)",
       }}
     >
+      {visibleMessages.length === 0 && !isProcessing && <WelcomeUI />}
+
       {visibleMessages.map((message, index) => {
         // Regular messages - Use memoized parsed content
         const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
