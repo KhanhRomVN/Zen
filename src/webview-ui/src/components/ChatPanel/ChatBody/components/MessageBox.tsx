@@ -82,7 +82,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
       if (isLongMessage && !isMessageCollapsed) {
         setIsMessageCollapsed(true);
       }
-    }, [isLongMessage, isMessageCollapsed]);
+    }, [isLongMessage]); // Removed isMessageCollapsed to prevent re-collapse loop
 
     const truncatedContent =
       isLongMessage && isMessageCollapsed
@@ -125,11 +125,12 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 onClick={() => setIsMessageCollapsed(!isMessageCollapsed)}
                 style={{
                   fontSize: "var(--font-size-xs)",
-                  color: "var(--accent-color)",
+                  color: "var(--vscode-textLink-foreground)",
                   cursor: "pointer",
                   marginTop: "var(--spacing-xs)",
                   fontWeight: 600,
                   userSelect: "none",
+                  textDecoration: "underline",
                 }}
               >
                 {isMessageCollapsed ? "Show more" : "Show less"}

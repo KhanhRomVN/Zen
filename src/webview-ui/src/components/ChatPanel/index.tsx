@@ -8,6 +8,7 @@ import React, {
 import ChatHeader from "./ChatHeader";
 import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
+import TaskDrawer from "./TaskDrawer";
 
 import { encode } from "gpt-tokenizer";
 import { getDefaultPrompt } from "./prompts";
@@ -223,6 +224,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Move clickedActions/clearedActions up to fix "used before declaration"
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
   const [clearedActions, setClearedActions] = useState<Set<string>>(new Set());
+  const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -345,40 +347,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       uiHidden?: boolean,
       thinking?: boolean,
     ) => {
+      setExecutionState({ total: 0, completed: 0, status: "idle" });
+
       // Use default values if no tab selected (Standalone Mode)
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
-      // 🆕 Prepend User Message label and wrap content in code blocks (as requested)
-      const fullContent = skipFirstRequestLogic
-        ? content
-        : `## User Message\n\`\`\`\n${content}\n\`\`\``;
-
-      const userMessage: Message = {
-        id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
-        role: "user",
-        content: fullContent,
-        timestamp: Date.now(),
-        isFirstRequest: skipFirstRequestLogic
-          ? false
-          : messagesRef.current.length === 0, // Derived
-        isToolRequest: skipFirstRequestLogic,
-        systemPrompt:
-          messagesRef.current.length === 0 && !skipFirstRequestLogic
-            ? getDefaultPrompt()
-            : undefined, // Derived
-        contextSize: fullContent.length,
-        usage: {
-          prompt_tokens: calculateTokens(fullContent),
-          completion_tokens: 0,
-          total_tokens: calculateTokens(fullContent),
-        },
-        actionIds: actionIds,
-        uiHidden: uiHidden,
-      };
-
-      const updatedMessages = [...messagesRef.current, userMessage];
-      setMessages((prev) => [...prev, userMessage]);
-      setIsProcessing(true);
 
       // Determine conversation ID to use
       let effectiveConversationId = currentConversationIdRef.current;
@@ -389,11 +362,94 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setCurrentConversationId(effectiveConversationId);
       }
 
+      // 🆕 Accurate Token Calculation for Request 1
+      const isReq1 = messagesRef.current.length === 0 && !skipFirstRequestLogic;
+      let systemPrompt = "";
+      let projectContextStr = "";
+
+      if (isReq1) {
+        systemPrompt = getDefaultPrompt();
+        try {
+          const vscodeApi = (window as any).vscodeApi;
+          if (vscodeApi) {
+            const requestId = `ctx-${Date.now()}`;
+            const fetchPromise = new Promise<any>((resolve) => {
+              const timeoutId = setTimeout(() => {
+                console.warn("[ChatPanel] getProjectContext TIMEOUT after 10s");
+                window.removeEventListener("message", handler);
+                resolve(null);
+              }, 10000);
+
+              const handler = (event: MessageEvent) => {
+                const msg = event.data;
+                if (
+                  msg.command === "projectContextResult" &&
+                  msg.requestId === requestId
+                ) {
+                  clearTimeout(timeoutId);
+                  window.removeEventListener("message", handler);
+                  resolve(msg.data);
+                }
+              };
+              window.addEventListener("message", handler);
+              vscodeApi.postMessage({
+                command: "getProjectContext",
+                requestId,
+              });
+            });
+
+            const contextData = await fetchPromise;
+            const workspaceContent = contextData?.workspace || "";
+            const rulesContent = contextData?.rules || "";
+            const treeViewContent = contextData?.treeView || "";
+
+            projectContextStr += `\n\n## Project Overview (workspace.md)\n\`\`\`\n${workspaceContent}\n\`\`\``;
+            projectContextStr += `\n\n## Project Rules (workspace_rules.md)\n\`\`\`\n${rulesContent}\n\`\`\``;
+            projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeViewContent}\n\`\`\``;
+          }
+        } catch (e) {
+          console.error("Failed to fetch project context", e);
+        }
+      }
+
+      // 🆕 Prepend User Message label and wrap content in code blocks (as requested)
+      const fullContent = skipFirstRequestLogic
+        ? content
+        : `## User Message\n\`\`\`\n${content}\n\`\`\``;
+
+      // Calculate REAL prompt tokens including system/context
+      const promptPayload = isReq1
+        ? `${systemPrompt}${projectContextStr}\n\n${fullContent}`
+        : fullContent;
+      const promptTokens = calculateTokens(promptPayload);
+
+      const userMessage: Message = {
+        id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
+        role: "user",
+        content: fullContent,
+        timestamp: Date.now(),
+        isFirstRequest: isReq1,
+        isToolRequest: skipFirstRequestLogic,
+        systemPrompt: isReq1 ? systemPrompt : undefined,
+        contextSize: promptPayload.length,
+        usage: {
+          prompt_tokens: promptTokens,
+          completion_tokens: 0,
+          total_tokens: promptTokens,
+        },
+        actionIds: actionIds,
+        uiHidden: uiHidden,
+      };
+
+      const updatedMessages = [...messagesRef.current, userMessage];
+      setMessages((prev) => [...prev, userMessage]);
+      setIsProcessing(true);
+
       saveConversation(
         tabId,
         folderPath,
         updatedMessages,
-        messagesRef.current.length === 0, // isFirstRequest derived
+        isReq1,
         effectiveConversationId || undefined,
         selectedTab || undefined,
         false,
@@ -404,7 +460,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       try {
         // Fallback to states if undefined (important for Auto-Execution)
         const finalModel = model || currentModelRef.current;
-        const finalAccount = account || currentAccountRef.current;
+        const finalAccount = account || currentModelRef.current; // Fallback to currentModelRef as account wasn't in scope context view
         const effModel = selectedQuickModel
           ? {
               id: selectedQuickModel.modelId,
@@ -423,71 +479,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             content: m.content,
           }));
 
-        // Đơn giản hóa: Nếu chỉ có 1 tin nhắn (là tin nhắn user vừa tạo), thì đây là request đầu tiên.
-        const isReq1 =
-          payloadMessages.length === 1 && payloadMessages[0].role === "user";
-
+        // Inject previously fetched context into first message payload
         if (isReq1) {
-          const systemPrompt = getDefaultPrompt();
-
-          // [New] Fetch Project Context (workspace.md, rules, tree)
-          let projectContextStr = "";
-          try {
-            const vscodeApi = (window as any).vscodeApi;
-            if (vscodeApi) {
-              const requestId = `ctx-${Date.now()}`;
-
-              const fetchPromise = new Promise<any>((resolve) => {
-                const timeoutId = setTimeout(() => {
-                  console.warn(
-                    "[ChatPanel] getProjectContext TIMEOUT after 10s",
-                  );
-                  window.removeEventListener("message", handler);
-                  resolve(null);
-                }, 10000);
-
-                const handler = (event: MessageEvent) => {
-                  const msg = event.data;
-                  if (
-                    msg.command === "projectContextResult" &&
-                    msg.requestId === requestId
-                  ) {
-                    clearTimeout(timeoutId);
-                    window.removeEventListener("message", handler);
-                    resolve(msg.data);
-                  }
-                };
-                window.addEventListener("message", handler);
-
-                vscodeApi.postMessage({
-                  command: "getProjectContext",
-                  requestId,
-                });
-              });
-
-              const contextData = await fetchPromise;
-
-              // Always inject context sections, even if empty (Elara behavior)
-              const workspaceContent = contextData?.workspace || "";
-              const rulesContent = contextData?.rules || "";
-              const treeViewContent = contextData?.treeView || "";
-
-              projectContextStr += `\n\n## Project Overview (workspace.md)\n\`\`\`\n${workspaceContent}\n\`\`\``;
-              projectContextStr += `\n\n## Project Rules (workspace_rules.md)\n\`\`\`\n${rulesContent}\n\`\`\``;
-              projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeViewContent}\n\`\`\``;
-            }
-          } catch (e) {
-            console.error("Failed to fetch project context", e);
-          }
-
-          if (systemPrompt) {
-            // Align with Elara: Merge system prompt into the first user message
-            // instead of sending a separate 'system' role message.
-            payloadMessages[0].content = `${systemPrompt}${projectContextStr}\n\n${payloadMessages[0].content}`;
-          } else if (projectContextStr) {
-            // If no system prompt but context exists (unlikely given logic, but safe)
-            payloadMessages[0].content = `${projectContextStr}\n\n${payloadMessages[0].content}`;
-          }
+          payloadMessages[0].content = promptPayload;
         }
 
         // Prepare request body
@@ -576,11 +570,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     }
                   }
 
+                  if (data.usage) {
+                    assistantMessage = {
+                      ...assistantMessage,
+                      usage: data.usage,
+                    };
+                  }
+
                   if (data.content) {
                     assistantMessage = {
                       ...assistantMessage,
                       content: assistantMessage.content + data.content,
                     };
+                  }
+
+                  if (data.usage || data.content) {
                     setMessages((prev) =>
                       prev.map((m) =>
                         m.id === assistantMessage.id ? assistantMessage : m,
@@ -1119,7 +1123,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     [handleSendMessage],
   );
 
-  // 🆕 Calculate context usage
+  // 🆕 Accurate Token Calculation: Sum tokens from all messages.
+  // Use the actual usage data from the API if available, otherwise estimate.
   const contextUsage = useMemo(() => {
     return messages.reduce(
       (
@@ -1130,8 +1135,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           acc.prompt += msg.usage.prompt_tokens || 0;
           acc.completion += msg.usage.completion_tokens || 0;
           acc.total += msg.usage.total_tokens || 0;
-        } else if (msg.contextSize) {
-          // Fallback mechanism could go here if needed
+        } else {
+          // Fallback for messages without usage (should rarely happen with new logic)
+          const estimate = calculateTokens(msg.content);
+          if (msg.role === "user") {
+            acc.prompt += estimate;
+          } else {
+            acc.completion += estimate;
+          }
+          acc.total += estimate;
         }
         return acc;
       },
@@ -1722,6 +1734,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return null;
   }, [parsedMessages]);
 
+  const taskInfo = useMemo(() => {
+    const uniqueTaskNames: string[] = [];
+    for (const msg of parsedMessages) {
+      if (
+        msg.parsed.taskName &&
+        !uniqueTaskNames.includes(msg.parsed.taskName)
+      ) {
+        uniqueTaskNames.push(msg.parsed.taskName);
+      }
+    }
+
+    const index = currentTaskName
+      ? uniqueTaskNames.indexOf(currentTaskName) + 1
+      : 0;
+    return {
+      index,
+      total: uniqueTaskNames.length,
+    };
+  }, [parsedMessages, currentTaskName]);
+
   return (
     <div
       className="chat-panel"
@@ -1752,8 +1784,40 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           firstRequestMessage={firstRequestMessage}
           contextUsage={contextUsage}
           taskName={currentTaskName}
+          conversationId={currentConversationId}
+          onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
+          taskProgress={
+            allTaskProgress.length > 0
+              ? {
+                  current: {
+                    taskName: currentTaskName || "Unknown Task",
+                    tasks: allTaskProgress,
+                    files: [],
+                    taskIndex: taskInfo.index,
+                    totalTasks: taskInfo.total,
+                  },
+                  history: [],
+                }
+              : undefined
+          }
         />
       )}
+      <TaskDrawer
+        isOpen={isTaskDrawerOpen}
+        onClose={() => setIsTaskDrawerOpen(false)}
+        taskProgress={
+          allTaskProgress.length > 0
+            ? {
+                current: {
+                  taskName: currentTaskName || "Unknown Task",
+                  tasks: allTaskProgress,
+                  files: [],
+                },
+                history: [],
+              }
+            : { current: null, history: [] }
+        }
+      />
       <ChatBody
         messages={messages}
         isProcessing={isProcessing}
@@ -1778,6 +1842,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setCurrentModel={setCurrentModel}
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
+        onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
       />
     </div>
   );

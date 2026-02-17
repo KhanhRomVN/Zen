@@ -83,10 +83,30 @@ const parseTaskProgress = (content: string): TaskProgressItem[] | null => {
   // Remove ```text wrappers
   const cleanContent = content.replace(/^```text\s*\n?|\n?```\s*$/g, "").trim();
   const items: TaskProgressItem[] = [];
-  const lines = cleanContent.split("\n");
 
+  // 1. Try parsing XML <task> tags first
+  const taskTagRegex =
+    /<task(?:\s+status=["'](\w+)["'])?\s*>([\s\S]*?)<\/task>/gi;
+  let match;
+  while ((match = taskTagRegex.exec(cleanContent)) !== null) {
+    const status = match[1]?.toLowerCase();
+    const text = match[2].trim();
+    if (text) {
+      items.push({
+        completed:
+          status === "done" || status === "completed" || status === "x",
+        text: text,
+      });
+    }
+  }
+
+  if (items.length > 0) {
+    return items;
+  }
+
+  // 2. Fallback to Markdown checklist patterns:
+  const lines = cleanContent.split("\n");
   for (const line of lines) {
-    // Match patterns:
     // - [x] Task
     // - [ ] Task
     // - [X] Task (uppercase)

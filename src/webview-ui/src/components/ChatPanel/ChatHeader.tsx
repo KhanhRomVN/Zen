@@ -10,36 +10,54 @@ interface ChatHeaderProps {
   isLoadingConversation?: boolean;
   firstRequestMessage?: Message;
   contextUsage?: {
+    prompt: number;
     completion: number;
     total: number;
   };
   taskName?: string | null;
+  conversationId?: string;
+  onToggleTaskDrawer?: () => void;
+  taskProgress?: {
+    current: {
+      taskName: string;
+      tasks: { text: string; status: "todo" | "done" }[];
+      files: string[];
+      taskIndex?: number;
+      totalTasks?: number;
+    } | null;
+    history: any[];
+  };
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({
   selectedTab,
   contextUsage,
   taskName,
+  conversationId,
+  taskProgress,
+  onToggleTaskDrawer,
 }) => {
-  // Helper to format large numbers
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + "M";
-    }
+  // Helper to format large numbers to K
+  const formatTokens = (num: number) => {
     if (num >= 1000) {
-      return (num / 1000).toFixed(1) + "k";
+      return (num / 1000).toFixed(1) + "K";
     }
     return num.toString();
   };
 
-  // Mock model info (In real app, this should come from props or context)
-  // For now, we derive it from provider status or default
-  const modelName = "DeepSeek Chat"; // TODO: Pass actual model name
+  const handleCopyId = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = conversationId || selectedTab.conversationId;
+    if (id) {
+      navigator.clipboard.writeText(id);
+      // Optional: Show a brief tooltip or toast if needed, but keeping it simple for now
+    }
+  };
+
+  const modelName = "DeepSeek Chat";
   const providerId = selectedTab.provider || "deepseek";
-  // Assuming favicon logic or usage of getProviderIconPath if needed, but user asked for <favicon> <provider> | <model>
-  // We will use a generic icon or the one from fileIconMapper if available, but here we simplest approach.
   const faviconUrl =
-    "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64"; // Example default
+    "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
 
   return (
     <div
@@ -58,24 +76,25 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           gap: "4px",
         }}
       >
-        {/* Row 1: Model Info (Left) & Token Usage (Right) */}
+        {/* Row 1: Model Info, Conv ID & Token Usage */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            height: "24px",
+            height: "22px",
           }}
         >
-          {/* Left: Model Info */}
+          {/* Left: Model Info & Conv ID */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "8px",
+              gap: "6px",
               fontSize: "12px",
               fontWeight: 600,
               color: "var(--primary-text)",
+              overflow: "hidden",
             }}
           >
             <img
@@ -83,11 +102,41 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               alt="provider"
               style={{ width: "14px", height: "14px", borderRadius: "2px" }}
             />
-            <span>
+            <span style={{ whiteSpace: "nowrap" }}>
               {providerId.charAt(0).toUpperCase() + providerId.slice(1)}
             </span>
             <span style={{ opacity: 0.3 }}>|</span>
-            <span style={{ opacity: 0.9 }}>{modelName}</span>
+            <span
+              style={{
+                opacity: 0.9,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {modelName}
+            </span>
+            <span style={{ opacity: 0.3 }}>|</span>
+            <span
+              onClick={handleCopyId}
+              title="Click to copy Conversation ID"
+              style={{
+                fontSize: "10px",
+                color: "var(--secondary-text)",
+                fontFamily: "monospace",
+                opacity: 0.7,
+                cursor: "pointer",
+                backgroundColor: "var(--vscode-badge-background)",
+                padding: "1px 4px",
+                borderRadius: "2px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              #
+              {(conversationId || selectedTab.conversationId || "NEW").slice(
+                -5,
+              )}
+            </span>
           </div>
 
           {/* Right: Token Usage */}
@@ -95,45 +144,46 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             style={{
               fontSize: "11px",
               color: "var(--secondary-text)",
-              fontFamily: "monospace",
-              backgroundColor: "var(--vscode-badge-background)",
-              padding: "1px 6px",
-              borderRadius: "4px",
+              opacity: 0.8,
+              paddingLeft: "8px",
             }}
           >
-            {contextUsage ? formatNumber(contextUsage.total) : "0"} tok
+            {contextUsage ? formatTokens(contextUsage.total) : "0"}
           </div>
         </div>
 
-        {/* Row 2: Task Name (Left) & Conversation ID (Right) */}
+        {/* Row 2: Task Name & Current Step */}
         <div
+          onClick={onToggleTaskDrawer}
           style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            height: "20px",
+            flexDirection: "column",
+            gap: "8px", // Increased gap from 4px to 8px
+            marginTop: "6px",
+            cursor: onToggleTaskDrawer ? "pointer" : "default",
           }}
         >
-          {/* Task Name */}
-          <div
-            style={{
-              fontSize: "12px",
-              color: "var(--vscode-textLink-foreground)", // Highlight color
-              fontWeight: 500,
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              overflow: "hidden",
-            }}
-          >
-            {taskName && (
-              <>
+          {taskProgress?.current ? (
+            <>
+              {/* Line 1: Task Index / Total & Name */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "12px",
+                  color: "var(--vscode-textLink-foreground)",
+                  fontWeight: 500,
+                  overflow: "hidden",
+                }}
+              >
                 <div
                   style={{
                     width: "6px",
                     height: "6px",
                     borderRadius: "50%",
                     backgroundColor: "currentColor",
+                    flexShrink: 0,
                   }}
                 />
                 <span
@@ -141,34 +191,90 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    maxWidth: "300px",
                   }}
-                  title={taskName}
                 >
-                  {taskName}
+                  {taskProgress.current.taskIndex &&
+                  taskProgress.current.totalTasks
+                    ? `Task ${taskProgress.current.taskIndex}/${taskProgress.current.totalTasks}: `
+                    : taskProgress.current.taskIndex
+                      ? `Task ${taskProgress.current.taskIndex}: `
+                      : ""}
+                  {taskProgress.current.taskName}
                 </span>
-              </>
-            )}
-            {!taskName && (
-              <span
-                style={{ opacity: 0.5, fontStyle: "italic", fontSize: "11px" }}
-              >
-                No active task
-              </span>
-            )}
-          </div>
+              </div>
 
-          {/* Conversation ID */}
-          <div
-            style={{
-              fontSize: "10px",
-              color: "var(--secondary-text)",
-              fontFamily: "monospace",
-              opacity: 0.6,
-            }}
-          >
-            #{selectedTab.conversationId?.slice(-6) || "NEW"}
-          </div>
+              {/* Line 2: Current Step */}
+              {(() => {
+                const currentTask = taskProgress.current.tasks.find(
+                  (t) =>
+                    (t as any).completed === false ||
+                    (t as any).status === "todo",
+                );
+                if (currentTask) {
+                  const stepIndex =
+                    taskProgress.current.tasks.indexOf(currentTask) + 1;
+                  const totalSteps = taskProgress.current.tasks.length;
+                  return (
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--secondary-text)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        paddingLeft: "16px", // Slightly more padding
+                        opacity: 0.7,
+                      }}
+                    >
+                      → Step {stepIndex}/{totalSteps}: {currentTask.text}
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+            </>
+          ) : taskName ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "12px",
+                color: "var(--vscode-textLink-foreground)",
+                fontWeight: 500,
+              }}
+            >
+              <div
+                style={{
+                  width: "6px",
+                  height: "6px",
+                  borderRadius: "50%",
+                  backgroundColor: "currentColor",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {taskName}
+              </span>
+            </div>
+          ) : (
+            <span
+              style={{
+                opacity: 0.5,
+                fontStyle: "italic",
+                fontSize: "11px",
+                paddingLeft: "12px",
+              }}
+            >
+              No active task
+            </span>
+          )}
         </div>
       </div>
     </div>

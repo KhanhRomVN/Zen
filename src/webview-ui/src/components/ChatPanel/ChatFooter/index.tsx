@@ -27,6 +27,7 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   setCurrentModel: (model: any) => void;
   currentAccount: any;
   setCurrentAccount: (account: any) => void;
+  onToggleTaskDrawer?: () => void;
 }
 
 // Hooks
@@ -54,6 +55,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   setCurrentModel,
   currentAccount,
   setCurrentAccount,
+  onToggleTaskDrawer,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
   // const [showOptionsDrawer, setShowOptionsDrawer] = useState(false); // Removed
@@ -371,6 +373,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         setCurrentModel={setCurrentModel}
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
+        onToggleTaskDrawer={onToggleTaskDrawer}
       />
 
       <MentionDropdowns
