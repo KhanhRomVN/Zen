@@ -3,6 +3,8 @@ import { useVSCodeTheme } from "../hooks/useVSCodeTheme";
 
 interface ThemeContextType {
   themeKind: number;
+  themeId?: string;
+  themeVersion?: number;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

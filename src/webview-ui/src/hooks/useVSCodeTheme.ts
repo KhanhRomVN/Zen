@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 
 interface VSCodeThemeMessage {
   command: "updateTheme";
-  theme: number; // vscode.ColorThemeKind: 1=Light, 2=Dark, 3=HighContrastLight, 4=HighContrastDark
+  theme: number; // vscode.ColorThemeKind: 1=Light, 2=Dark, 3=HighContrast
+  themeId?: string;
+  themeVersion?: number;
 }
 
 // Declare global acquireVsCodeApi for TypeScript
@@ -18,6 +20,8 @@ declare global {
 
 export const useVSCodeTheme = () => {
   const [themeKind, setThemeKind] = useState<number>(2); // Mặc định dark theme (2)
+  const [themeId, setThemeId] = useState<string | undefined>(undefined);
+  const [themeVersion, setThemeVersion] = useState<number>(Date.now());
 
   useEffect(() => {
     // Hàm xử lý message từ VS Code extension
@@ -26,9 +30,17 @@ export const useVSCodeTheme = () => {
       if (message.command === "updateTheme") {
         console.log("[useVSCodeTheme] Received updateTheme:", {
           theme: message.theme,
+          themeId: message.themeId,
+          themeVersion: message.themeVersion,
         });
 
         setThemeKind(message.theme);
+        if (message.themeId) {
+          setThemeId(message.themeId);
+        }
+        if (message.themeVersion) {
+          setThemeVersion(message.themeVersion);
+        }
       }
     };
 
@@ -52,5 +64,5 @@ export const useVSCodeTheme = () => {
     };
   }, []);
 
-  return { themeKind };
+  return { themeKind, themeId, themeVersion };
 };

@@ -2269,13 +2269,27 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       } else if (message.command === "highlightCode") {
         // [New] Handle highlightCode request using Shiki
         try {
-          const { code, language, requestId } = message;
+          const {
+            code,
+            language,
+            requestId,
+            themeKind: requestedKind,
+            themeId: requestedId,
+          } = message;
           const shikiService = ShikiService.getInstance();
 
-          // Get current theme kind to match dark/light
-          const themeKind = vscode.window.activeColorTheme.kind;
+          // Get current theme kind to match dark/light (fallback to current if not provided)
+          const themeKind =
+            requestedKind !== undefined
+              ? requestedKind
+              : vscode.window.activeColorTheme.kind;
 
-          const html = await shikiService.highlight(code, language, themeKind);
+          const html = await shikiService.highlight(
+            code,
+            language,
+            themeKind,
+            requestedId,
+          );
 
           webviewView.webview.postMessage({
             command: "highlightCodeResult",
@@ -2360,9 +2374,22 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     fileWatcher.onDidDelete(refreshWorkspaceFiles);
     fileWatcher.onDidChange(refreshWorkspaceFiles);
 
+    const configChangeDisposable = vscode.workspace.onDidChangeConfiguration(
+      async (e) => {
+        if (
+          e.affectsConfiguration("workbench.colorTheme") ||
+          e.affectsConfiguration("workbench.colorCustomizations") ||
+          e.affectsConfiguration("editor.tokenColorCustomizations")
+        ) {
+          await this._updateTheme(webviewView.webview);
+        }
+      },
+    );
+
     // Cleanup listeners on dispose
     webviewView.onDidDispose(() => {
       themeChangeDisposable.dispose();
+      configChangeDisposable.dispose();
       fileWatcher.dispose();
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
@@ -2451,28 +2478,42 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async _updateTheme(webview: vscode.Webview) {
+    // Thêm một khoảng trễ nhỏ để VS Code cập nhật settings.json hoàn tất trước khi đọc
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
     // Lấy theme hiện tại
     const theme = vscode.window.activeColorTheme;
     const themeKind = theme.kind;
 
     // Cập nhật ShikiService với theme JSON mới nhất từ VS Code
+    const colorTheme = vscode.workspace
+      .getConfiguration("workbench")
+      .get<string>("colorTheme");
+
     try {
       const themeJson = await ThemeService.getActiveThemeJson();
       if (themeJson) {
-        await ShikiService.getInstance().setCustomTheme(themeJson);
+        await ShikiService.getInstance().setCustomTheme(themeJson, colorTheme);
+      } else {
+        console.warn(
+          `[Extension] Could not get JSON for theme: ${colorTheme}. Highlighting may use fallbacks.`,
+        );
       }
     } catch (error) {
       console.error("[Extension] Failed to update Shiki theme:", error);
     }
 
-    console.log("[Extension] updateTheme sent:", {
+    console.log("[Extension] updateTheme info:", {
       kind: themeKind,
+      id: colorTheme,
     });
 
     // VS Code tự động inject CSS variables vào webview
     webview.postMessage({
       command: "updateTheme",
       theme: themeKind,
+      themeId: colorTheme,
+      themeVersion: Date.now(),
     });
   }
 

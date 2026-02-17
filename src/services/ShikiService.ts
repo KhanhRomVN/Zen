@@ -4,6 +4,8 @@ export class ShikiService {
   private static instance: ShikiService;
   private highlighter: any = null;
   private currentDynamicThemeName: string | null = null;
+  private currentDynamicThemeId: string | null = null;
+  private currentDynamicThemeKind: string | null = null; // 'dark' | 'light'
   private initializationPromise: Promise<void> | null = null;
 
   private constructor() {}
@@ -15,18 +17,28 @@ export class ShikiService {
     return ShikiService.instance;
   }
 
-  public async setCustomTheme(themeJson: any): Promise<void> {
+  public async setCustomTheme(
+    themeJson: any,
+    originalThemeId?: string,
+  ): Promise<void> {
     await this.initialize();
     if (!this.highlighter) return;
 
     try {
-      // Assign a unique name to the dynamic theme
-      const themeName = "zen-dynamic-theme";
+      // Use a versioned name to ensure the highlighter recognizes it as a new/updated theme
+      // and overwrites any internal caches.
+      const themeVersion = Date.now();
+      const themeName = `zen-dynamic-theme-${themeVersion}`;
       themeJson.name = themeName;
 
       await this.highlighter.loadTheme(themeJson);
       this.currentDynamicThemeName = themeName;
-      console.log("[ShikiService] Custom dynamic theme loaded successfully");
+      this.currentDynamicThemeId = originalThemeId || null;
+      this.currentDynamicThemeKind = themeJson.type || "dark";
+
+      console.log(
+        `[ShikiService] Custom dynamic theme (v${themeVersion}) [${this.currentDynamicThemeId}] [${this.currentDynamicThemeKind}] loaded successfully`,
+      );
     } catch (error) {
       console.error("[ShikiService] Failed to load custom theme:", error);
     }
@@ -42,7 +54,7 @@ export class ShikiService {
         const { createHighlighter } = await import("shiki");
 
         this.highlighter = await createHighlighter({
-          themes: ["dark-plus", "nord", "monokai", "dracula"],
+          themes: ["dark-plus", "nord", "monokai", "dracula", "github-light"],
           langs: [
             "javascript",
             "typescript",
@@ -78,14 +90,54 @@ export class ShikiService {
     code: string,
     language: string,
     themeKind?: vscode.ColorThemeKind,
+    requestedThemeId?: string,
   ): Promise<string> {
     await this.initialize();
     if (!this.highlighter) return `<pre><code>${code}</code></pre>`;
 
-    // Use dynamic theme if available, otherwise fallback to defaults
-    const theme =
-      this.currentDynamicThemeName ||
-      (themeKind === vscode.ColorThemeKind.Light ? "nord" : "dark-plus");
+    // Determine if we should use the dynamic theme
+    let useDynamic = !!this.currentDynamicThemeName;
+
+    // IMPORTANT: Verify that the dynamic theme matches the requested UI context
+    if (useDynamic) {
+      // 1. Check kind mismatch (Dark/Light)
+      if (themeKind !== undefined) {
+        const requestedIsDark =
+          themeKind === vscode.ColorThemeKind.Dark ||
+          themeKind === vscode.ColorThemeKind.HighContrast;
+        const dynamicIsDark = this.currentDynamicThemeKind === "dark";
+
+        if (requestedIsDark !== dynamicIsDark) {
+          console.warn(
+            `[ShikiService] Theme kind mismatch: Requested ${
+              requestedIsDark ? "Dark" : "Light"
+            } but dynamic theme is ${
+              dynamicIsDark ? "Dark" : "Light"
+            }. Falling back to default Shiki themes.`,
+          );
+          useDynamic = false;
+        }
+      }
+
+      // 2. Check ID mismatch (Stale theme detection)
+      // If the frontend specifically requested a theme ID (e.g., 'Nord'),
+      // but our dynamic theme is still something else (e.g., 'Abyss'), it's stale.
+      if (useDynamic && requestedThemeId && this.currentDynamicThemeId) {
+        if (requestedThemeId !== this.currentDynamicThemeId) {
+          console.warn(
+            `[ShikiService] Theme ID stale: Requested '${requestedThemeId}' but dynamic theme is '${this.currentDynamicThemeId}'. Falling back.`,
+          );
+          useDynamic = false;
+        }
+      }
+    }
+
+    // Use dynamic theme if available and kind matches, otherwise fallback to defaults
+    const theme = useDynamic
+      ? (this.currentDynamicThemeName as string)
+      : themeKind === vscode.ColorThemeKind.Light
+        ? "github-light"
+        : "dark-plus";
 
     try {
       return this.highlighter.codeToHtml(code, {

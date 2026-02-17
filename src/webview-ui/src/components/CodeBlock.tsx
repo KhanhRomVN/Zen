@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./CodeBlock.css";
 import { getFileIconPath } from "../utils/fileIconMapper";
+import { useTheme } from "../context/ThemeContext";
 
 // Helper: Map file extensions to language IDs (for Shiki)
 const getLanguageFromFilename = (filename?: string): string => {
@@ -82,7 +83,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
-
+  const { themeKind, themeId, themeVersion } = useTheme();
   const effectiveLanguage = language || getLanguageFromFilename(filename);
   const displayPath = truncatePath(filename);
 
@@ -114,13 +115,15 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       command: "highlightCode",
       code,
       language: effectiveLanguage,
+      themeKind,
+      themeId,
       requestId,
     });
 
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [code, effectiveLanguage]);
+  }, [code, effectiveLanguage, themeKind, themeId, themeVersion]);
 
   const handleCopy = async () => {
     try {

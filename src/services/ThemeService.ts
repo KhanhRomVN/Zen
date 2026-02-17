@@ -18,11 +18,17 @@ export class ThemeService {
     let themeEntry: any = null;
     let extensionPath: string = "";
 
+    // Thử tìm kiếm chính xác trước, sau đó thử tìm theo label
     for (const ext of vscode.extensions.all) {
       const themes = ext.packageJSON?.contributes?.themes;
       if (Array.isArray(themes)) {
+        // Một số theme ID có thể khác với Label hiển thị
         const found = themes.find(
-          (t: any) => t.label === colorTheme || t.id === colorTheme,
+          (t: any) =>
+            t.id === colorTheme ||
+            t.label === colorTheme ||
+            // Handle cases where the extension's internal ID is prefix with extension id
+            (ext.id && t.id === `${ext.id}.${colorTheme}`),
         );
         if (found) {
           themeEntry = found;
@@ -32,6 +38,9 @@ export class ThemeService {
       }
     }
 
+    // Một số theme mặc định (Default Dark+, etc) đôi khi khó tìm qua extensions.all
+    // nhưng thường nằm trong extensions hệ thống (ví dụ: vscode.theme-defaults)
+
     if (!themeEntry || !extensionPath) {
       console.warn(
         `[ThemeService] Could not find theme entry for: ${colorTheme}`,
@@ -40,7 +49,83 @@ export class ThemeService {
     }
 
     const absolutePath = path.join(extensionPath, themeEntry.path);
-    return await this.loadThemeFile(absolutePath);
+    const themeJson = await this.loadThemeFile(absolutePath);
+
+    if (themeJson) {
+      // 🆕 Áp dụng các tùy chỉnh từ settings.json (colorCustomizations & tokenColorCustomizations)
+      const config = vscode.workspace.getConfiguration();
+      const colorCustomizations =
+        config.get<any>("workbench.colorCustomizations") || {};
+      const tokenColorCustomizations =
+        config.get<any>("editor.tokenColorCustomizations") || {};
+
+      // 1. Áp dụng colorCustomizations
+      // Rule: Customizations cho chính theme này ([themeName]) sẽ ghi đè global
+      const activeColors = {
+        ...(colorCustomizations || {}),
+        ...(colorCustomizations[`[${colorTheme}]`] || {}),
+      };
+
+      if (Object.keys(activeColors).length > 0) {
+        themeJson.colors = { ...(themeJson.colors || {}), ...activeColors };
+      }
+
+      // 2. Áp dụng tokenColorCustomizations
+      // Shiki theme format là tokenColors: [{ scope: [], settings: {} }]
+      const activeTokenCustomizations = {
+        ...(tokenColorCustomizations || {}),
+        ...(tokenColorCustomizations[`[${colorTheme}]`] || {}),
+      };
+
+      if (activeTokenCustomizations.textMateRules) {
+        themeJson.tokenColors = [
+          ...(themeJson.tokenColors || []),
+          ...activeTokenCustomizations.textMateRules,
+        ];
+      }
+
+      // VS Code cũng cho phép chỉnh trực tiếp các scope cơ bản (comments, functions, etc.)
+      const basicScopes = [
+        "comments",
+        "functions",
+        "keywords",
+        "numbers",
+        "strings",
+        "types",
+        "variables",
+      ];
+      basicScopes.forEach((scope) => {
+        if (activeTokenCustomizations[scope]) {
+          // Map basic scopes to common TextMate scopes
+          const scopeMap: Record<string, string[]> = {
+            comments: ["comment", "punctuation.definition.comment"],
+            functions: ["entity.name.function", "support.function"],
+            keywords: ["keyword", "storage.type", "storage.modifier"],
+            numbers: ["constant.numeric"],
+            strings: ["string"],
+            types: ["entity.name.type", "support.type"],
+            variables: ["variable", "support.variable"],
+          };
+
+          themeJson.tokenColors.push({
+            scope: scopeMap[scope] || [scope],
+            settings:
+              typeof activeTokenCustomizations[scope] === "string"
+                ? { foreground: activeTokenCustomizations[scope] }
+                : activeTokenCustomizations[scope],
+          });
+        }
+      });
+
+      // Bổ sung thông tin kind (nếu chưa có trong file JSON)
+      if (!themeJson.type && themeEntry.uiTheme) {
+        themeJson.type = themeEntry.uiTheme.includes("vs-dark")
+          ? "dark"
+          : "light";
+      }
+    }
+
+    return themeJson;
   }
 
   /**
