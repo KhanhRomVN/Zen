@@ -30,6 +30,10 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   setCurrentAccount: (account: any) => void;
   onToggleTaskDrawer?: () => void;
   isProcessing?: boolean;
+  // 🆕 Stop Generation Props
+  isStreaming?: boolean;
+  onStopGeneration?: () => void;
+  lastUserMessage?: string;
 }
 
 // Hooks
@@ -60,6 +64,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   setCurrentAccount,
   onToggleTaskDrawer,
   isProcessing,
+  isStreaming,
+  onStopGeneration,
+  lastUserMessage,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
   // const [showOptionsDrawer, setShowOptionsDrawer] = useState(false); // Removed
@@ -380,6 +387,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         setCurrentAccount={setCurrentAccount}
         onToggleTaskDrawer={onToggleTaskDrawer}
         isProcessing={isProcessing}
+        isStreaming={isStreaming}
+        onStopGeneration={onStopGeneration}
+        lastUserMessage={lastUserMessage}
       />
 
       <MentionDropdowns

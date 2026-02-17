@@ -252,6 +252,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [currentConversationId, setCurrentConversationId] =
     useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  // 🆕 Stop Generation State
+  const [isStreaming, setIsStreaming] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastUserMessageContentRef = useRef<string>("");
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
   // 🆕 Quick Model Switcher State
   const [selectedQuickModel, setSelectedQuickModel] = useState<{
@@ -495,6 +499,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setMessages((prev) => [...prev, userMessage]);
       setIsProcessing(true);
 
+      // 🆕 Save user message content for potential rollback (only if not a tool request)
+      if (!skipFirstRequestLogic) {
+        lastUserMessageContentRef.current = content;
+      }
+
       saveConversation(
         tabId,
         folderPath,
@@ -545,12 +554,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           thinking,
         };
 
+        // 🆕 Create AbortController for this request
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
+        setIsStreaming(true);
+
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
+          signal: abortController.signal,
         });
 
         if (!response.ok) {
@@ -650,6 +665,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
 
         setIsProcessing(false);
+        setIsStreaming(false); // 🆕 Reset streaming state
+        abortControllerRef.current = null; // 🆕 Clear abort controller
         logToWorkspace(effectiveConversationId || "unknown", assistantMessage);
         const finalContent = assistantMessage.content;
         const parsed = parseAIResponse(finalContent);
@@ -663,6 +680,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           }, 1000);
         }
       } catch (error) {
+        // 🆕 Reset streaming state on error
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+
+        // 🆕 Don't show error message if request was aborted (user stopped generation)
+        if (error instanceof Error && error.name === "AbortError") {
+          setIsProcessing(false);
+          return;
+        }
+
         const errorMessage: Message = {
           id: `msg-${Date.now()}-error`,
           role: "assistant", // Display as assistant message or system?
@@ -682,6 +709,82 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       selectedQuickModel,
     ],
   );
+
+  // 🆕 Handle Stop Generation
+  const handleStopGeneration = useCallback(() => {
+    // Abort the current fetch request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    setIsStreaming(false);
+    setIsProcessing(false);
+
+    // Find the last user message that is NOT a tool request
+    const currentMessages = messagesRef.current;
+    let lastUserMessageIndex = -1;
+
+    for (let i = currentMessages.length - 1; i >= 0; i--) {
+      const msg = currentMessages[i];
+      if (msg.role === "user" && !msg.isToolRequest) {
+        lastUserMessageIndex = i;
+        break;
+      }
+    }
+
+    // If found, remove all messages from that index onwards
+    if (lastUserMessageIndex !== -1) {
+      const messagesToKeep = currentMessages.slice(0, lastUserMessageIndex);
+      const messagesToRemove = currentMessages.slice(lastUserMessageIndex);
+
+      // 🆕 Extract message IDs that have file edits (assistant messages)
+      const messageIdsWithEdits = messagesToRemove
+        .filter((msg) => msg.role === "assistant")
+        .map((msg) => msg.id);
+
+      // Update conversation log
+      const tabId = selectedTab?.tabId || -1;
+      const folderPath = selectedTab?.folderPath || null;
+      const effectiveConversationId = currentConversationIdRef.current;
+
+      if (effectiveConversationId) {
+        const vscodeApi = (window as any).vscodeApi;
+
+        // 🆕 Restore checkpoints first (if any file edits were made)
+        if (vscodeApi && messageIdsWithEdits.length > 0) {
+          vscodeApi.postMessage({
+            command: "restoreCheckpoints",
+            conversationId: effectiveConversationId,
+            messageIds: messageIdsWithEdits,
+          });
+        }
+
+        // Then update UI
+        setMessages(messagesToKeep);
+
+        // Save updated conversation without the removed messages
+        saveConversation(
+          tabId,
+          folderPath,
+          messagesToKeep,
+          messagesToKeep.length === 0,
+          effectiveConversationId,
+          selectedTab || undefined,
+          false,
+        );
+
+        // Also update the workspace log file
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "rollbackConversationLog",
+            conversationId: effectiveConversationId,
+            keepCount: messagesToKeep.length,
+          });
+        }
+      }
+    }
+  }, [selectedTab]);
 
   const handleToolRequest = useCallback(
     async (actionOrActions: any, message: Message) => {
@@ -775,6 +878,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 content: action.params.content,
                 requestId: requestId,
                 skipDiagnostics,
+                // 🆕 Pass checkpoint metadata
+                conversationId: currentConversationIdRef.current,
+                messageId: message.id,
               });
 
               const handleResponse = (event: MessageEvent) => {
@@ -821,6 +927,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 path: action.params.path,
                 diff: action.params.diff,
                 requestId: requestId,
+                // 🆕 Pass checkpoint metadata
+                conversationId: currentConversationIdRef.current,
+                messageId: message.id,
                 skipDiagnostics,
               });
 
@@ -1916,6 +2025,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setCurrentAccount={setCurrentAccount}
         onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
         isProcessing={isProcessing}
+        isStreaming={isStreaming}
+        onStopGeneration={handleStopGeneration}
+        lastUserMessage={lastUserMessageContentRef.current}
       />
     </div>
   );

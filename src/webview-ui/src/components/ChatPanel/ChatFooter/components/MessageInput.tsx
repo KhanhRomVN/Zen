@@ -52,6 +52,10 @@ interface MessageInputProps {
   onToggleTaskDrawer?: () => void;
   hasTaskProgress?: boolean;
   isProcessing?: boolean;
+  // 🆕 Stop Generation Props
+  isStreaming?: boolean;
+  onStopGeneration?: () => void;
+  lastUserMessage?: string;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -89,6 +93,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   onToggleTaskDrawer,
   hasTaskProgress,
   isProcessing,
+  isStreaming,
+  onStopGeneration,
+  lastUserMessage,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -142,6 +149,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     React.useState(false);
   const [modelSearch, setModelSearch] = React.useState("");
   const quickModelDropdownRef = React.useRef<HTMLDivElement>(null);
+  const modelSelectorRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -150,6 +158,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
         !quickModelDropdownRef.current.contains(event.target as Node)
       ) {
         setIsQuickModelDropdownOpen(false);
+      }
+      if (
+        modelSelectorRef.current &&
+        !modelSelectorRef.current.contains(event.target as Node)
+      ) {
+        setShowModelDropdown(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -365,6 +379,19 @@ const MessageInput: React.FC<MessageInputProps> = ({
     });
     return groups;
   }, [providers, searchQuery, apiUrl]);
+
+  // 🆕 Restore user message when stop generation is called
+  React.useEffect(() => {
+    // When streaming stops and we have a lastUserMessage, restore it
+    if (!isStreaming && lastUserMessage && message === "") {
+      setMessage(lastUserMessage);
+      // Focus textarea after restoration
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }
+  }, [isStreaming, lastUserMessage]);
+
   return (
     <div
       style={{
@@ -919,8 +946,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
             )}
 
             {/* Model Selector Badge */}
-            {!isConversationStarted && (
-              <div style={{ position: "relative" }}>
+            {!isConversationStarted && isConnected && (
+              <div style={{ position: "relative" }} ref={modelSelectorRef}>
                 <div
                   style={{
                     display: "flex",
@@ -1213,19 +1240,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
           {/* Right Icons */}
           <div style={{ display: "flex", gap: "var(--spacing-xs)" }}>
+            {/* Send / Stop Button */}
             <div
               style={{
-                cursor: isHistoryMode
-                  ? "not-allowed"
-                  : message.trim() || uploadedFiles.length > 0
-                    ? "pointer"
-                    : "not-allowed",
-                opacity:
+                cursor:
                   isHistoryMode || isLoadingCache
-                    ? 0.5
-                    : message.trim() || uploadedFiles.length > 0
-                      ? 1
-                      : 0.5,
+                    ? "not-allowed"
+                    : isStreaming
+                      ? "pointer"
+                      : message.trim() || uploadedFiles.length > 0
+                        ? "pointer"
+                        : "default",
                 padding: "var(--spacing-xs)",
                 borderRadius: "var(--border-radius)",
                 transition: "background-color 0.2s",
@@ -1235,13 +1260,21 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 color:
                   isHistoryMode || isLoadingCache
                     ? "var(--secondary-text)"
-                    : message.trim() || uploadedFiles.length > 0
-                      ? "var(--accent-text)"
-                      : "var(--secondary-text)",
+                    : isStreaming
+                      ? "#f44336" // Red color for stop
+                      : message.trim() || uploadedFiles.length > 0
+                        ? "var(--accent-text)"
+                        : "var(--secondary-text)",
                 pointerEvents:
                   isHistoryMode || isLoadingCache ? "none" : "auto",
               }}
               onClick={() => {
+                if (isStreaming && onStopGeneration) {
+                  // Stop generation
+                  onStopGeneration();
+                  return;
+                }
+
                 if (!currentModel) {
                   // Alert user or show dropdown
                   setShowModelDropdown(true);
@@ -1251,15 +1284,16 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 handleSend(currentModel, currentAccount);
               }}
               onMouseEnter={(e) => {
-                if (message.trim() || uploadedFiles.length > 0) {
+                if (isStreaming || message.trim() || uploadedFiles.length > 0) {
                   e.currentTarget.style.backgroundColor = "var(--hover-bg)";
                 }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = "transparent";
               }}
+              title={isStreaming ? "Stop Generation" : "Send Message"}
             >
-              <SendIcon />
+              {isStreaming ? <X size={16} strokeWidth={2.5} /> : <SendIcon />}
             </div>
           </div>
         </div>

@@ -30,7 +30,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         bottom: 0,
         width: "100vw",
         height: "100vh",
-        backgroundColor: "#252526",
+        backgroundColor: "var(--secondary-bg)",
         zIndex: 9999,
         display: "flex",
         flexDirection: "column",
@@ -40,19 +40,20 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
       {/* Header */}
       <div
         style={{
-          padding: "16px",
-          borderBottom: "1px solid #3e3e42",
+          padding: "20px",
+          borderTop: "1px solid var(--border-color)",
+          borderBottom: "1px solid var(--border-color)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          backgroundColor: "#252526",
+          backgroundColor: "var(--tertiary-bg)",
         }}
       >
         <h2
           style={{
-            fontSize: "16px",
+            fontSize: "18px",
             fontWeight: 600,
-            color: "#cccccc",
+            color: "var(--primary-text)",
             margin: 0,
           }}
         >
@@ -95,19 +96,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "16px",
+          padding: "20px",
           display: "flex",
           flexDirection: "column",
-          gap: "16px",
-          backgroundColor: "#252526",
+          gap: "24px",
+          backgroundColor: "var(--secondary-bg)",
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <label
             style={{
-              fontSize: "12px",
+              fontSize: "14px",
               fontWeight: 600,
-              color: "#cccccc",
+              color: "var(--primary-text)",
             }}
           >
             Backend API URL
@@ -119,31 +120,31 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             placeholder="http://localhost:8888"
             style={{
               width: "100%",
-              padding: "8px",
-              backgroundColor: "#3c3c3c",
-              border: "1px solid #3e3e42",
+              padding: "10px 12px",
+              backgroundColor: "var(--input-bg)",
+              border: "1px solid var(--border-color)",
               borderRadius: "4px",
-              color: "#cccccc",
-              fontSize: "12px",
+              color: "var(--primary-text)",
+              fontSize: "14px",
               outline: "none",
             }}
           />
           <span
             style={{
-              fontSize: "11px",
-              color: "#858585",
+              fontSize: "13px",
+              color: "var(--secondary-text)",
             }}
           >
-            Địa chỉ API để lấy danh sách models và accounts.
+            API address to fetch models and accounts.
           </span>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           <label
             style={{
-              fontSize: "12px",
+              fontSize: "14px",
               fontWeight: 600,
-              color: "#cccccc",
+              color: "var(--primary-text)",
             }}
           >
             Language
@@ -155,11 +156,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
           />
           <span
             style={{
-              fontSize: "11px",
-              color: "#858585",
+              fontSize: "13px",
+              color: "var(--secondary-text)",
             }}
           >
-            Ngôn ngữ giao diện và phản hồi của AI.
+            Interface and AI response language.
           </span>
         </div>
       </div>

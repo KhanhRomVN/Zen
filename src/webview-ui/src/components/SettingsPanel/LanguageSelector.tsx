@@ -23,6 +23,39 @@ interface LanguageSelectorProps {
   className?: string;
 }
 
+// Custom Chevron Icons
+const ChevronDownIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
+const ChevronUpIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m18 15-6-6-6 6" />
+  </svg>
+);
+
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   value,
   onChange,
@@ -50,21 +83,28 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   const selectedLanguage =
     LANGUAGES.find((l) => l.code === value) || LANGUAGES[0];
 
-  const filteredLanguages = LANGUAGES.filter((l) =>
-    l.name.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
-
   return (
-    <div className={cn("relative w-full", className)} ref={dropdownRef}>
+    <div
+      className={cn("relative w-full", className)}
+      ref={dropdownRef}
+      style={{ position: "relative" }}
+    >
       <button
         type="button"
-        className={cn(
-          "flex items-center justify-between w-full px-3 py-2 text-sm",
-          "bg-input border border-border rounded-md shadow-sm",
-          "hover:bg-accent hover:text-accent-foreground transition-colors",
-          "focus:outline-none focus:ring-1 focus:ring-ring",
-          isOpen && "ring-1 ring-ring border-ring",
-        )}
+        style={{
+          width: "100%",
+          height: "36px", // Increased height
+          padding: "0 12px", // Increased padding
+          backgroundColor: "var(--input-bg)",
+          border: "1px solid var(--border-color)",
+          borderRadius: "4px",
+          color: "var(--primary-text)",
+          fontSize: "14px", // Increased font size
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+        }}
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center gap-2">
@@ -75,60 +115,64 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
             {selectedLanguage.name}
           </span>
         </div>
-        <ChevronDown
-          className={cn(
-            "w-4 h-4 text-muted-foreground transition-transform duration-200",
-            isOpen && "rotate-180",
-          )}
-        />
+        <div style={{ color: "var(--secondary-text)" }}>
+          {isOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+        </div>
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 overflow-hidden bg-popover border border-border rounded-md shadow-md animate-in fade-in zoom-in-95 duration-100">
-          <div className="p-1">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search language..."
-                className="w-full pl-8 pr-2 py-1.5 text-xs bg-muted/50 border border-transparent rounded-sm outline-none focus:bg-muted text-foreground placeholder:text-muted-foreground"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
-
-          <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
-            {filteredLanguages.length > 0 ? (
-              filteredLanguages.map((lang) => (
-                <button
-                  key={lang.code}
-                  className={cn(
-                    "flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-sm cursor-pointer transition-colors text-left",
-                    value === lang.code
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-accent hover:text-accent-foreground text-foreground",
-                  )}
-                  onClick={() => {
-                    onChange(lang.code);
-                    setIsOpen(false);
-                    setSearchQuery("");
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-base leading-none">{lang.flag}</span>
-                    <span>{lang.name}</span>
-                  </div>
-                  {value === lang.code && <Check className="w-3.5 h-3.5" />}
-                </button>
-              ))
-            ) : (
-              <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                No languages found
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            zIndex: 1000,
+            width: "100%",
+            marginTop: "4px",
+            backgroundColor: "var(--input-bg)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "4px",
+            boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+            overflow: "hidden",
+          }}
+        >
+          <div className="max-h-60 overflow-y-auto custom-scrollbar">
+            {LANGUAGES.map((lang) => (
+              <div
+                key={lang.code}
+                style={{
+                  padding: "8px 12px", // Increased padding
+                  fontSize: "14px", // Increased font size
+                  cursor: "pointer",
+                  color: "var(--primary-text)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  backgroundColor:
+                    value === lang.code ? "var(--hover-bg)" : "transparent",
+                }}
+                onClick={() => {
+                  onChange(lang.code);
+                  setIsOpen(false);
+                }}
+                onMouseEnter={(e) => {
+                  if (value !== lang.code) {
+                    e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (value !== lang.code) {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <span>{lang.flag}</span>
+                  <span>{lang.name}</span>
+                </div>
+                {/* Check icon removed */}
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}

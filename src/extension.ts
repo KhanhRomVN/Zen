@@ -278,6 +278,123 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     return path.join(this.getContextRoot(), "projects", hash);
   }
 
+  // 🆕 Auto-cleanup old conversations (keep max 30)
+  private async cleanupOldConversations(
+    projectContextDir: string,
+  ): Promise<void> {
+    const MAX_CONVERSATIONS = 30;
+
+    try {
+      const entries = await fs.promises.readdir(projectContextDir, {
+        withFileTypes: true,
+      });
+
+      const conversations = entries
+        .filter((e) => e.isFile() && e.name.endsWith(".json"))
+        .map((e) => ({
+          name: e.name,
+          id: e.name.replace(".json", ""),
+          path: path.join(projectContextDir, e.name),
+        }));
+
+      if (conversations.length <= MAX_CONVERSATIONS) return;
+
+      // Sort by lastModified (read from file metadata)
+      const conversationsWithTime = await Promise.all(
+        conversations.map(async (conv) => {
+          try {
+            const content = await fs.promises.readFile(conv.path, "utf-8");
+            const data = JSON.parse(content);
+            return {
+              ...conv,
+              lastModified: data.metadata?.lastModified || 0,
+            };
+          } catch {
+            return {
+              ...conv,
+              lastModified: 0,
+            };
+          }
+        }),
+      );
+
+      conversationsWithTime.sort((a, b) => a.lastModified - b.lastModified);
+
+      // Delete oldest conversations
+      const toDelete = conversationsWithTime.slice(
+        0,
+        conversations.length - MAX_CONVERSATIONS,
+      );
+
+      for (const conv of toDelete) {
+        // Delete conversation file
+        try {
+          await fs.promises.unlink(conv.path);
+        } catch (e) {
+          console.error(`Failed to delete conversation ${conv.id}:`, e);
+        }
+
+        // Delete checkpoint folder
+        const checkpointDir = path.join(projectContextDir, conv.id);
+        try {
+          await fs.promises.rm(checkpointDir, { recursive: true, force: true });
+        } catch (e) {
+          // Ignore if folder doesn't exist
+        }
+      }
+
+      console.log(
+        `[Extension] Cleaned up ${toDelete.length} old conversations`,
+      );
+    } catch (error) {
+      console.error("[Extension] Failed to cleanup old conversations:", error);
+    }
+  }
+
+  // 🆕 Create checkpoint for file before editing
+  private async createCheckpoint(
+    conversationId: string,
+    messageId: string,
+    filePath: string,
+    content: string,
+  ): Promise<void> {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      const checkpointDir = path.join(
+        projectContextDir,
+        conversationId,
+        "checkpoints",
+        messageId,
+      );
+
+      await fs.promises.mkdir(checkpointDir, { recursive: true });
+
+      const fileName = path.basename(filePath);
+      const checkpointPath = path.join(checkpointDir, `${fileName}.checkpoint`);
+
+      await fs.promises.writeFile(checkpointPath, content, "utf-8");
+
+      // 🆕 Save metadata to track original file path
+      const metadataPath = path.join(checkpointDir, `${fileName}.meta.json`);
+      await fs.promises.writeFile(
+        metadataPath,
+        JSON.stringify({ originalPath: filePath }, null, 2),
+        "utf-8",
+      );
+
+      console.log(
+        `[Extension] Created checkpoint for ${fileName} in message ${messageId}`,
+      );
+    } catch (error) {
+      console.error("[Extension] Failed to create checkpoint:", error);
+    }
+  }
+
   /**
    * Helper to get diagnostics (Errors/Warnings) for a file
    */
@@ -401,8 +518,146 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             logFileUri,
             Buffer.from(JSON.stringify(content, null, 2), "utf8"),
           );
+
+          // 🆕 Auto-cleanup old conversations after logging
+          await this.cleanupOldConversations(projectContextDir);
         } catch (e) {
           console.error("Failed to log conversation:", e);
+        }
+      } else if (message.command === "rollbackConversationLog") {
+        // 🆕 Handle rollback conversation log (for stop generation)
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+
+          const { conversationId, keepCount } = message;
+
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+
+          const logFilePath = path.join(
+            projectContextDir,
+            `${conversationId}.json`,
+          );
+          const logFileUri = vscode.Uri.file(logFilePath);
+
+          // Read current content
+          try {
+            const fileData = await vscode.workspace.fs.readFile(logFileUri);
+            let content = JSON.parse(Buffer.from(fileData).toString("utf8"));
+
+            if (Array.isArray(content)) {
+              // Keep only the first 'keepCount' entries
+              content = content.slice(0, keepCount);
+
+              // Write back
+              await vscode.workspace.fs.writeFile(
+                logFileUri,
+                Buffer.from(JSON.stringify(content, null, 2), "utf8"),
+              );
+            }
+          } catch (e) {
+            console.error("Failed to rollback conversation log:", e);
+          }
+        } catch (e) {
+          console.error("Failed to rollback conversation:", e);
+        }
+      } else if (message.command === "restoreCheckpoints") {
+        // 🆕 Handle restore checkpoints (for stop generation)
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+
+          const { conversationId, messageIds } = message;
+
+          const projectContextDir = this.getProjectContextDir(
+            workspaceFolder.uri.fsPath,
+          );
+
+          // For each messageId, restore all checkpoints
+          for (const messageId of messageIds) {
+            const checkpointDir = path.join(
+              projectContextDir,
+              conversationId,
+              "checkpoints",
+              messageId,
+            );
+
+            try {
+              // Check if checkpoint directory exists
+              const checkpointEntries = await fs.promises.readdir(
+                checkpointDir,
+                { withFileTypes: true },
+              );
+
+              // Restore each checkpoint file
+              for (const entry of checkpointEntries) {
+                if (entry.isFile() && entry.name.endsWith(".checkpoint")) {
+                  const checkpointPath = path.join(checkpointDir, entry.name);
+                  const fileName = entry.name.replace(".checkpoint", "");
+
+                  // Read metadata to get original path
+                  const metadataPath = path.join(
+                    checkpointDir,
+                    `${fileName}.meta.json`,
+                  );
+                  let originalFilePath = fileName; // Default fallback
+
+                  try {
+                    const metadataContent = await fs.promises.readFile(
+                      metadataPath,
+                      "utf-8",
+                    );
+                    const metadata = JSON.parse(metadataContent);
+                    originalFilePath = metadata.originalPath || fileName;
+                  } catch (e) {
+                    console.warn(
+                      `[Extension] No metadata found for ${fileName}, using filename as path`,
+                    );
+                  }
+
+                  // Read checkpoint content
+                  const checkpointContent = await fs.promises.readFile(
+                    checkpointPath,
+                    "utf-8",
+                  );
+
+                  // Restore to original file location
+                  const originalPath = vscode.Uri.joinPath(
+                    workspaceFolder.uri,
+                    originalFilePath,
+                  );
+
+                  await vscode.workspace.fs.writeFile(
+                    originalPath,
+                    Buffer.from(checkpointContent, "utf8"),
+                  );
+
+                  console.log(
+                    `[Extension] Restored ${originalFilePath} from checkpoint ${messageId}`,
+                  );
+                }
+              }
+
+              // Delete checkpoint directory after restore
+              await fs.promises.rm(checkpointDir, {
+                recursive: true,
+                force: true,
+              });
+            } catch (e) {
+              // Checkpoint directory might not exist, ignore
+              console.log(
+                `[Extension] No checkpoints found for message ${messageId}`,
+              );
+            }
+          }
+
+          console.log(
+            `[Extension] Restored checkpoints for ${messageIds.length} messages`,
+          );
+        } catch (e) {
+          console.error("[Extension] Failed to restore checkpoints:", e);
         }
       } else if (message.command === "getHistory") {
         try {
@@ -780,6 +1035,27 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           }
 
           const buffer = Buffer.from(content, "utf8");
+
+          // 🆕 Create checkpoint if file exists (and we have conversationId/messageId)
+          if (message.conversationId && message.messageId) {
+            try {
+              const existingContent =
+                await vscode.workspace.fs.readFile(absolutePath);
+              const existingText =
+                Buffer.from(existingContent).toString("utf8");
+
+              // Create checkpoint with existing content
+              await this.createCheckpoint(
+                message.conversationId,
+                message.messageId,
+                filePath,
+                existingText,
+              );
+            } catch (e) {
+              // File doesn't exist yet, no checkpoint needed
+            }
+          }
+
           // Ensure parent directory exists
           const parentDir = vscode.Uri.joinPath(absolutePath, "..");
           try {
@@ -863,6 +1139,16 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             // Read current file content
             const content = await vscode.workspace.fs.readFile(absolutePath);
             const currentContent = Buffer.from(content).toString("utf8");
+
+            // 🆕 Create checkpoint before replacing (if we have conversationId/messageId)
+            if (message.conversationId && message.messageId) {
+              await this.createCheckpoint(
+                message.conversationId,
+                message.messageId,
+                filePath,
+                currentContent,
+              );
+            }
 
             // Parse diff format with flexible whitespace handling
             // Supports both:
