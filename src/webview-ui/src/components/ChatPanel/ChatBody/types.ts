@@ -67,4 +67,9 @@ export interface ChatBodyProps {
   isAutoExecutingAll?: boolean;
   onExecuteAll?: () => void;
   hasPendingActions?: boolean;
+  onLoadConversation?: (
+    conversationId: string,
+    tabId: number,
+    folderPath: string | null,
+  ) => void;
 }

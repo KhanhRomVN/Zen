@@ -50,4 +50,5 @@ export interface ChatFooterProps {
   messages: any[];
   onCheckpoint?: () => void;
   onToggleTaskDrawer?: () => void;
+  isProcessing?: boolean;
 }

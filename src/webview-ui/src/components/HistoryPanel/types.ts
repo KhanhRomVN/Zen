@@ -12,4 +12,7 @@ export interface ConversationItem {
   totalRequests: number;
   totalContext: number;
   size?: number; // Size in bytes
+  totalTasks?: number;
+  completedTasks?: number;
+  uniqueTaskCount?: number;
 }

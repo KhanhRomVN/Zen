@@ -434,20 +434,34 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
                 );
                 const data = JSON.parse(fileContent);
 
-                if (Array.isArray(data) && data.length > 0) {
-                  const firstMsg = data[0];
-                  const lastMsg = data[data.length - 1];
+                if (data && typeof data === "object") {
                   const conversationId = entry.name.replace(".json", "");
 
-                  history.push({
-                    id: conversationId,
-                    title:
-                      firstMsg.content.substring(0, 100) || "New Conversation",
-                    timestamp: lastMsg.timestamp || Date.now(),
-                    lastModified: lastMsg.timestamp || Date.now(),
-                    preview: firstMsg.content.substring(0, 150),
-                    messageCount: data.length,
-                  });
+                  // Handle new object syntax with metadata property
+                  if (!Array.isArray(data) && data.metadata) {
+                    history.push({
+                      ...data.metadata,
+                      id: conversationId,
+                      // Fallback for fields that might be missing in metadata
+                      messageCount: data.messages?.length || 0,
+                    });
+                  }
+                  // Fallback for old array-only syntax
+                  else if (Array.isArray(data) && data.length > 0) {
+                    const firstMsg = data[0];
+                    const lastMsg = data[data.length - 1];
+
+                    history.push({
+                      id: conversationId,
+                      title:
+                        firstMsg.content.substring(0, 100) ||
+                        "New Conversation",
+                      timestamp: lastMsg.timestamp || Date.now(),
+                      lastModified: lastMsg.timestamp || Date.now(),
+                      preview: firstMsg.content.substring(0, 150),
+                      messageCount: data.length,
+                    });
+                  }
                 }
               } catch (e) {
                 console.error(`Error parsing history file ${entry.name}:`, e);

@@ -33,6 +33,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   executionState,
   toolOutputs,
   firstRequestMessageId,
+  onLoadConversation,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -97,7 +98,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         gap: "var(--spacing-md)",
       }}
     >
-      {visibleMessages.length === 0 && !isProcessing && <WelcomeUI />}
+      {visibleMessages.length === 0 && !isProcessing && (
+        <WelcomeUI onLoadConversation={onLoadConversation} />
+      )}
 
       {visibleMessages.map((message, index) => {
         // Regular messages - Use memoized parsed content

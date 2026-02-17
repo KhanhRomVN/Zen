@@ -12,6 +12,7 @@ interface ToolActionsListProps {
     message: Message,
     actionIndex: number,
   ) => void;
+  isVisibleTool?: (type: string) => boolean;
   executionState?: {
     total: number;
     completed: number;
@@ -35,13 +36,19 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   clearedActions,
   onActionClear,
   toolOutputs,
+  isVisibleTool = (type: string) => type !== "read_file",
 }) => {
+  // Filter out invisible tools immediately
+  const visibleItems = useMemo(() => {
+    return items.filter((item) => isVisibleTool(item.action.type));
+  }, [items, isVisibleTool]);
+
   // Memoize action handlers to prevent unnecessary re-renders
   const memoizedActions = useMemo(() => {
     const groups: { action: ToolAction; index: number }[][] = [];
     let currentGroup: { action: ToolAction; index: number }[] = [];
 
-    items.forEach((item) => {
+    visibleItems.forEach((item) => {
       const { action, index } = item;
 
       const isSameType =
@@ -202,7 +209,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
     });
   }, [items, clickedActions, message, onToolClick, isLastMessage, toolOutputs]);
 
-  if (!items || items.length === 0) return null;
+  if (!visibleItems || visibleItems.length === 0) return null;
 
   return (
     <div

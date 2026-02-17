@@ -51,6 +51,7 @@ interface MessageInputProps {
   setCurrentAccount: (account: any) => void;
   onToggleTaskDrawer?: () => void;
   hasTaskProgress?: boolean;
+  isProcessing?: boolean;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -87,6 +88,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   setCurrentAccount,
   onToggleTaskDrawer,
   hasTaskProgress,
+  isProcessing,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -493,9 +495,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   ? "Đang lỗi kết nối với backend..."
                   : isLoadingCache
                     ? "Đang tải dữ liệu từ cache..."
-                    : "Type @ to mention files, folders, or rules..."
+                    : isProcessing
+                      ? "Assistant is thinking..."
+                      : "Type @ to mention files, folders, or rules..."
             }
-            disabled={isHistoryMode || !isConnected || isLoadingCache}
+            disabled={
+              isHistoryMode || !isConnected || isLoadingCache || isProcessing
+            }
             rows={1}
             style={{
               width: "100%",
@@ -510,9 +516,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
               color: "var(--primary-text)",
               overflow: "auto",
               opacity:
-                isHistoryMode || !isConnected || isLoadingCache ? 0.6 : 1,
+                isHistoryMode || !isConnected || isLoadingCache || isProcessing
+                  ? 0.6
+                  : 1,
               cursor:
-                isHistoryMode || !isConnected || isLoadingCache
+                isHistoryMode || !isConnected || isLoadingCache || isProcessing
                   ? "not-allowed"
                   : "text",
             }}

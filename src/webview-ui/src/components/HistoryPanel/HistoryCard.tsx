@@ -1,7 +1,18 @@
 import React from "react";
 import { ConversationItem } from "./types";
 import { getProviderIconPath } from "../../utils/fileIconMapper";
-import { Clock, FolderOpen, MessageSquare, Trash2 } from "lucide-react";
+import {
+  Clock,
+  FolderOpen,
+  MessageSquare,
+  Trash2,
+  Database,
+  CheckCircle,
+  Activity,
+  Zap,
+} from "lucide-react";
+
+import { getProviderStyle } from "../../utils/providerStyles";
 
 interface HistoryCardProps {
   item: ConversationItem;
@@ -24,28 +35,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
-  const getProviderInfo = (provider?: string) => {
-    const providerColors: Record<
-      string,
-      { name: string; bg: string; fg: string }
-    > = {
-      deepseek: { name: "DeepSeek", bg: "#3b82f620", fg: "#3b82f6" },
-      chatgpt: { name: "ChatGPT", bg: "#10b98120", fg: "#10b981" },
-      gemini: { name: "Gemini", bg: "#a855f720", fg: "#a855f7" },
-      grok: { name: "Grok", bg: "#ef444420", fg: "#ef4444" },
-      claude: { name: "Claude", bg: "#f59e0b20", fg: "#f59e0b" },
-    };
-
-    return (
-      providerColors[provider || ""] || {
-        name: "AI",
-        bg: "#6b728020",
-        fg: "#6b7280",
-      }
-    );
-  };
-
-  const providerInfo = getProviderInfo(item.provider);
+  const providerInfo = getProviderStyle(item.provider);
 
   return (
     <div
@@ -54,51 +44,47 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
       style={{
         width: "100%",
         textAlign: "left",
-        padding: "var(--spacing-md)",
-        borderRadius: "var(--border-radius)",
-        transition: "all 0.2s ease",
+        padding: "10px 14px",
+        borderRadius: "10px",
+        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
         border: "1px solid var(--border-color)",
         backgroundColor: "var(--input-bg)",
         cursor: "pointer",
         position: "relative",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-        e.currentTarget.style.borderColor = "var(--accent-text)";
+        e.currentTarget.style.transform = "translateY(-1px)";
+        e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.05)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.backgroundColor = "var(--input-bg)";
-        e.currentTarget.style.borderColor = "var(--border-color)";
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "0 1px 2px rgba(0,0,0,0.02)";
       }}
     >
       {/* Header row with Title and Delete */}
       <div
         style={{
           display: "flex",
-          alignItems: "flex-start",
+          alignItems: "center",
           justifyContent: "space-between",
-          gap: "var(--spacing-sm)",
-          marginBottom: "var(--spacing-sm)",
+          gap: "12px",
+          marginBottom: "8px",
         }}
       >
         <h4
           style={{
-            fontSize: "var(--font-size-sm)",
+            fontSize: "13px",
             fontWeight: 600,
             flex: 1,
             color: "var(--primary-text)",
-            lineHeight: 1.4,
+            margin: 0,
             overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
+            whiteSpace: "nowrap",
+            textOverflow: "ellipsis",
             transition: "color 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "var(--accent-text)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--primary-text)";
           }}
         >
           {item.title}
@@ -106,14 +92,15 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
         <button
           onClick={(e) => onDelete(item.id, e)}
           style={{
-            padding: "var(--spacing-xs)",
-            borderRadius: "var(--border-radius)",
+            padding: "4px",
+            borderRadius: "6px",
             backgroundColor: "transparent",
             border: "none",
             color: "var(--secondary-text)",
             cursor: "pointer",
             transition: "all 0.2s ease",
             opacity: 0,
+            flexShrink: 0,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = "#f4433620";
@@ -126,29 +113,36 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
           title="Delete conversation"
           className="delete-btn"
         >
-          <Trash2 style={{ width: "14px", height: "14px" }} />
+          <Trash2 size={13} />
         </button>
       </div>
 
-      {/* Preview text - Hidden per user request */}
-
-      {/* Footer Info */}
+      {/* Badges Container */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "var(--spacing-md)",
-          fontSize: "10px",
-          color: "var(--secondary-text)",
-          marginTop: "var(--spacing-xs)",
+          gap: "8px",
           flexWrap: "wrap",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          <Clock style={{ width: "12px", height: "12px" }} />
+        {/* Date Badge */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            fontSize: "10px",
+            color: "var(--secondary-text)",
+            opacity: 0.7,
+            fontWeight: 500,
+          }}
+        >
+          <Clock size={10} />
           <span>{formatDate(item.lastModified)}</span>
         </div>
 
+        {/* Provider Badge */}
         {item.provider && (
           <div
             style={{
@@ -156,63 +150,154 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
               alignItems: "center",
               gap: "4px",
               padding: "2px 6px",
-              borderRadius: "var(--border-radius)",
-              border: `1px solid ${providerInfo.bg}`,
+              borderRadius: "6px",
+              border: `1px solid ${providerInfo.border}`,
               backgroundColor: providerInfo.bg,
               color: providerInfo.fg,
+              fontSize: "9px",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.02em",
             }}
           >
             <img
               src={getProviderIconPath(item.provider)}
               alt={item.provider}
               style={{
-                width: "12px",
-                height: "12px",
+                width: "10px",
+                height: "10px",
                 objectFit: "contain",
               }}
             />
-            <span style={{ textTransform: "uppercase", fontWeight: 500 }}>
-              {providerInfo.name}
+            {providerInfo.name}
+          </div>
+        )}
+
+        {/* Requests Badge */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+            padding: "2px 6px",
+            borderRadius: "6px",
+            backgroundColor: "rgba(0,0,0,0.03)",
+            border: "1px solid var(--border-color)",
+            color: "var(--secondary-text)",
+            fontSize: "10px",
+          }}
+        >
+          <MessageSquare size={10} style={{ color: "var(--accent-color)" }} />
+          <span style={{ fontWeight: 500 }}>
+            {item.totalRequests || item.messageCount}req
+          </span>
+        </div>
+
+        {/* Tokens Badge */}
+        {(item.totalContext ?? 0) > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "2px 6px",
+              borderRadius: "6px",
+              backgroundColor: "rgba(0,0,0,0.03)",
+              border: "1px solid var(--border-color)",
+              color: "var(--secondary-text)",
+              fontSize: "10px",
+            }}
+          >
+            <Zap size={10} style={{ color: "#eab308" }} />
+            <span style={{ fontWeight: 500 }}>
+              {(item.totalContext ?? 0).toLocaleString()} tkn
             </span>
           </div>
         )}
 
-        {item.messageCount > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <MessageSquare style={{ width: "12px", height: "12px" }} />
-            <span>{item.messageCount} msgs</span>
+        {/* Task Progress Badge */}
+        {(item.totalTasks ?? 0) > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "2px 6px",
+              borderRadius: "6px",
+              backgroundColor:
+                item.completedTasks === item.totalTasks
+                  ? "rgba(34, 197, 94, 0.1)"
+                  : "rgba(30, 64, 175, 0.05)",
+              border: `1px solid ${item.completedTasks === item.totalTasks ? "rgba(34, 197, 94, 0.2)" : "rgba(30, 64, 175, 0.1)"}`,
+              color:
+                item.completedTasks === item.totalTasks
+                  ? "#16a34a"
+                  : "var(--accent-color)",
+              fontSize: "10px",
+            }}
+          >
+            <CheckCircle size={10} />
+            <span style={{ fontWeight: 600 }}>
+              {item.completedTasks}/{item.totalTasks}
+            </span>
           </div>
         )}
 
+        {/* Unique Task Names Badge */}
+        {(item.uniqueTaskCount ?? 0) > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "2px 6px",
+              borderRadius: "6px",
+              backgroundColor: "rgba(168, 85, 247, 0.05)",
+              border: "1px solid rgba(168, 85, 247, 0.15)",
+              color: "#a855f7",
+              fontSize: "10px",
+            }}
+            title="Unique Task Names"
+          >
+            <Activity size={10} />
+            <span style={{ fontWeight: 600 }}>{item.uniqueTaskCount}</span>
+          </div>
+        )}
+
+        {/* Size Badge */}
         {item.size !== undefined && (
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: "4px",
+              fontSize: "10px",
+              color: "var(--secondary-text)",
+              opacity: 0.6,
             }}
           >
+            <Database size={10} />
             <span>{formatSize(item.size)}</span>
           </div>
         )}
 
+        {/* Folder Path - Right Aligned */}
         {item.folderPath && (
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: "4px",
-              fontSize: "var(--font-size-xs)",
+              fontSize: "10px",
               color: "var(--secondary-text)",
               marginLeft: "auto",
-              maxWidth: "100px",
+              maxWidth: "120px",
               overflow: "hidden",
+              opacity: 0.7,
             }}
             title={item.folderPath}
           >
-            <FolderOpen
-              style={{ width: "12px", height: "12px", flexShrink: 0 }}
-            />
+            <FolderOpen size={10} style={{ flexShrink: 0 }} />
             <span
               style={{
                 overflow: "hidden",

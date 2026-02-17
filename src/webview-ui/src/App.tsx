@@ -327,6 +327,7 @@ const App: React.FC = () => {
                 onBack={() => setSelectedTab(null)}
                 tabs={tabs}
                 onTabSelect={handleTabSelect}
+                onLoadConversation={handleLoadConversation}
               />
             )}
             {showHistory && (

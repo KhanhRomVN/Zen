@@ -29,6 +29,7 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   currentAccount: any;
   setCurrentAccount: (account: any) => void;
   onToggleTaskDrawer?: () => void;
+  isProcessing?: boolean;
 }
 
 // Hooks
@@ -58,6 +59,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   currentAccount,
   setCurrentAccount,
   onToggleTaskDrawer,
+  isProcessing,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
   // const [showOptionsDrawer, setShowOptionsDrawer] = useState(false); // Removed
@@ -377,6 +379,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
         onToggleTaskDrawer={onToggleTaskDrawer}
+        isProcessing={isProcessing}
       />
 
       <MentionDropdowns

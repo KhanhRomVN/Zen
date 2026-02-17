@@ -47,6 +47,9 @@ interface ConversationMetadata {
   createdAt: number;
   totalRequests: number;
   totalContext: number;
+  totalTasks?: number;
+  completedTasks?: number;
+  uniqueTaskCount?: number;
 }
 
 const calculateTokens = (text: string): number => {
@@ -102,6 +105,44 @@ const saveConversation = async (
       0,
     );
 
+    // Calculate Task Progress for metadata
+    let totalTasks = 0;
+    let completedTasks = 0;
+    const { parseAIResponse } = require("../../services/ResponseParser");
+
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === "assistant") {
+        const parsed = parseAIResponse(msg.content);
+        let progress = parsed.taskProgress || [];
+        if (progress.length === 0) {
+          progress = parsed.actions.flatMap(
+            (action: any) => action.taskProgress || [],
+          );
+        }
+
+        if (progress.length > 0) {
+          totalTasks = progress.length;
+          completedTasks = progress.filter(
+            (t: any) => t.status === "done",
+          ).length;
+          break; // Found the latest progress
+        }
+      }
+    }
+
+    // Collect all unique task names from the whole conversation
+    const uniqueTaskNames = new Set<string>();
+    for (const msg of messages) {
+      if (msg.role === "assistant") {
+        const parsed = parseAIResponse(msg.content);
+        if (parsed.taskName) {
+          uniqueTaskNames.add(parsed.taskName);
+        }
+      }
+    }
+    const uniqueTaskCount = uniqueTaskNames.size;
+
     // Load existing data to preserve createdAt and lastModified
     let existingCreatedAt: number | undefined;
     let existingLastModified: number | undefined;
@@ -134,6 +175,9 @@ const saveConversation = async (
         createdAt: existingCreatedAt || Date.now(),
         totalRequests,
         totalContext,
+        totalTasks,
+        completedTasks,
+        uniqueTaskCount,
       } as ConversationMetadata,
     };
 
@@ -178,6 +222,11 @@ interface ChatPanelProps {
   onBack: () => void;
   tabs?: TabInfo[]; // 🆕 Receive all tabs
   onTabSelect?: (tab: TabInfo) => void; // 🆕 Receive tab selection handler
+  onLoadConversation?: (
+    conversationId: string,
+    tabId: number,
+    folderPath: string | null,
+  ) => void;
 }
 
 // 🆕 Local FileNode definition to avoid complex imports cyclic
@@ -197,6 +246,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onBack,
   tabs, // 🆕 Destructure
   onTabSelect, // 🆕 Destructure
+  onLoadConversation,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentConversationId, setCurrentConversationId] =
@@ -605,6 +655,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const parsed = parseAIResponse(finalContent);
         if (parsed.actions && parsed.actions.length > 0) {
           handleToolRequest(parsed.actions, assistantMessage);
+        } else {
+          // 🆕 Add 1s buffer before re-enabling input if no actions were found
+          // This prevents immediate flickering if the model sends another message shortly
+          setTimeout(() => {
+            setIsProcessing(false);
+          }, 1000);
         }
       } catch (error) {
         const errorMessage: Message = {
@@ -1119,6 +1175,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           return nextBuffer;
         }
       });
+
+      // 🆕 Re-evaluate isProcessing after a delay if this was a tool execution
+      // This ensures that if no more sequential requests are triggered, the input is re-enabled
+      setTimeout(() => {
+        setIsProcessing(false);
+      }, 1000);
     },
     [handleSendMessage],
   );
@@ -1256,7 +1318,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // 🆕 Load conversation khi mount - Request from extension
   useEffect(() => {
     const requestConversation = async () => {
-      if (!selectedTab) return;
+      if (!selectedTab) {
+        // 🆕 NEW CHAT: Reset state if no tab is selected
+        setMessages([]);
+        const newConvId = Date.now().toString();
+        setCurrentConversationId(newConvId);
+        setIsLoadingConversation(false);
+        setIsProcessing(false);
+        return;
+      }
       setIsLoadingConversation(true);
 
       const conversationId = (selectedTab as any).conversationId;
@@ -1826,6 +1896,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         executionState={executionState}
         toolOutputs={toolOutputs}
         firstRequestMessageId={firstRequestMessage?.id}
+        onLoadConversation={onLoadConversation}
       />
       <ChatFooter
         folderPath={selectedTab?.folderPath || null}
@@ -1844,6 +1915,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
         onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
+        isProcessing={isProcessing}
       />
     </div>
   );
