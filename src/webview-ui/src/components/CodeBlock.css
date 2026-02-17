@@ -1,26 +1,39 @@
+/* 🆕 No shadows or effects for both collapsed and expanded states */
 .code-block-container {
   border: none;
   border-radius: 6px;
   overflow: hidden;
   background-color: var(--vscode-editor-background);
   margin-bottom: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
-  transition: box-shadow 0.2s;
+  box-shadow: none;
 }
 
 .code-block-container:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
 }
 
+/* 🆕 Collapsed state: Transparent background */
 .code-block-container.collapsed {
   margin-bottom: 8px;
+  background-color: transparent;
+}
+
+/* 🆕 Summary line for collapsed state */
+.code-block-summary {
+  background-color: transparent !important;
+  border-bottom: none !important;
+  transition: opacity 0.2s;
+}
+
+.code-block-summary:hover {
+  opacity: 0.9;
 }
 
 .code-block-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 12px;
+  padding: 6px 0px; /* Phase 2: 0px padding */
   background-color: var(
     --vscode-editorGroupHeader-tabsBackground,
     var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.1))
@@ -44,50 +57,61 @@
 }
 
 .collapse-icon {
-  font-size: 12px;
+  font-size: 11px; /* Slightly smaller */
   opacity: 0.7;
   transition: transform 0.2s;
 }
 
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.header-prefix {
+  font-weight: 600;
+  color: var(--vscode-editor-foreground);
+  opacity: 0.8;
+  font-size: 12px;
+}
+
 .file-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px; /* Slightly smaller */
+  height: 14px;
   object-fit: contain;
 }
 
 .file-name {
   font-weight: 500;
   opacity: 0.9;
+  font-size: 12px; /* Phase 2: Reduce file name font size */
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-right: 12px; /* Phase 3: Add padding-right to avoid sticking to edge */
 }
 
 .copy-button {
-  background-color: var(
-    --vscode-button-secondaryBackground,
-    rgba(128, 128, 128, 0.1)
-  );
+  background-color: transparent !important; /* Phase 2: No background */
   color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  border: none;
+  border: none !important; /* Phase 2: No border */
   border-radius: 4px;
-  padding: 3px 10px;
+  padding: 0px; /* Phase 2: No padding */
   font-size: 11px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
   transition: all 0.2s;
+  opacity: 0.7;
 }
 
 .copy-button:hover {
-  background-color: var(
-    --vscode-button-secondaryHoverBackground,
-    rgba(128, 128, 128, 0.23)
-  );
+  opacity: 1;
   transform: translateY(-1px);
 }
 
@@ -102,8 +126,12 @@
   background-color: transparent !important;
   overflow-x: auto;
   font-family: var(--vscode-editor-font-family, "Fira Code", monospace);
-  font-size: var(--vscode-editor-font-size, 13px);
-  line-height: inherit !important;
+  font-size: calc(
+    var(--vscode-editor-font-size, 13px) - 1px
+  ); /* Phase 2: Reduce font size */
+  line-height: 1.5 !important;
+  white-space: pre-wrap !important; /* Phase 2: Enable word wrap */
+  word-break: break-all;
 }
 
 .shiki-highlighted code {
@@ -116,51 +144,64 @@
   align-items: flex-start;
   padding: 0 12px 0 0;
   min-height: 1.4em;
-  line-height: 1.4;
+  line-height: inherit;
 }
 
 .shiki-highlighted .line-number {
   display: inline-block;
-  width: 44px;
-  min-width: 44px;
+  width: var(--line-number-width, 3ch);
+  min-width: var(--line-number-width, 3ch);
   text-align: right;
-  padding-right: 12px;
-  margin-right: 8px;
+  padding-right: 10px;
+  margin-right: 10px;
   color: var(--vscode-editorLineNumber-foreground, rgba(128, 128, 128, 0.4));
   user-select: none;
-  font-size: 11px;
-  border-right: 1px solid rgba(128, 128, 128, 0.1);
+  font-size: inherit; /* Inherit font size from code */
+  border-right: none !important; /* Phase 2: No vertical divider */
 }
 
 .shiki-highlighted .diff-line-added {
-  background-color: rgba(46, 160, 67, 0.22) !important;
+  background-color: var(
+    --vscode-diffEditor-insertedTextBackground,
+    rgba(46, 160, 67, 0.22)
+  ) !important;
   display: flex !important;
   width: 100%;
 }
 
 .shiki-highlighted .diff-line-removed {
-  background-color: rgba(248, 81, 73, 0.22) !important;
+  background-color: var(
+    --vscode-diffEditor-removedTextBackground,
+    rgba(248, 81, 73, 0.22)
+  ) !important;
   display: flex !important;
   width: 100%;
 }
 
 .shiki-highlighted .diff-line-added .line-number {
-  color: #3fb950;
-  border-right: 1px solid rgba(46, 160, 67, 0.3);
+  color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
+  border-right: 1px solid
+    var(--vscode-gitDecoration-addedResourceForeground, rgba(46, 160, 67, 0.3));
 }
 
 .shiki-highlighted .diff-line-removed .line-number {
-  color: #f85149;
-  border-right: 1px solid rgba(248, 81, 73, 0.3);
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
+  border-right: 1px solid
+    var(
+      --vscode-gitDecoration-deletedResourceForeground,
+      rgba(248, 81, 73, 0.3)
+    );
 }
 
 .plaintext-fallback {
   margin: 0;
   padding: 12px;
   overflow-x: auto;
-  font-size: 13px;
+  font-size: calc(var(--vscode-editor-font-size, 13px) - 1px);
   font-family: var(--vscode-editor-font-family, monospace);
   color: var(--vscode-editor-foreground);
+  white-space: pre-wrap !important;
+  word-break: break-all;
 }
 
 /* Scrollbar */

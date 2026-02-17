@@ -263,41 +263,23 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             let displayCode = group.content;
             let lineHighlights: any = undefined;
             let headerActions: any = undefined;
+            let diffStats: { added: number; removed: number } | undefined =
+              undefined;
+
+            let defaultCollapsed = false;
+            let prefix: string | undefined = undefined;
+            let statusColor: string | undefined = undefined;
 
             if (isDiffBlock) {
               const diffResult = parseDiff(group.content);
               displayCode = diffResult.code;
               lineHighlights = diffResult.lineHighlights;
-              headerActions = (
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "6px",
-                    marginRight: "8px",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                    alignItems: "center",
-                    paddingTop: "1px",
-                  }}
-                >
-                  <span
-                    style={{
-                      color:
-                        "var(--vscode-gitDecoration-addedResourceForeground)",
-                    }}
-                  >
-                    +{diffResult.stats.added}
-                  </span>
-                  <span
-                    style={{
-                      color:
-                        "var(--vscode-gitDecoration-deletedResourceForeground)",
-                    }}
-                  >
-                    -{diffResult.stats.removed}
-                  </span>
-                </div>
-              );
+              // Pass diff stats to CodeBlock
+              diffStats = diffResult.stats;
+              // Phase 3: Default collapsed for edits
+              defaultCollapsed = true;
+              prefix = "Edit";
+              statusColor = "#3fb950";
             }
 
             return (
@@ -308,7 +290,11 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   maxLines={25}
                   showCopyButton={true}
                   lineHighlights={lineHighlights}
+                  diffStats={diffStats}
                   headerActions={headerActions}
+                  defaultCollapsed={defaultCollapsed}
+                  prefix={prefix}
+                  statusColor={statusColor}
                 />
               </div>
             );

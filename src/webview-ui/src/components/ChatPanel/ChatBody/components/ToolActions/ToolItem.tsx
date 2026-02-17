@@ -437,147 +437,29 @@ const ToolItem: React.FC<ToolItemProps> = ({
           : 0;
 
       return (
-        <div style={{ marginBottom: "8px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between", // Spread content
-              padding: "4px 0", // Minimal padding
-              // No background, no border
-            }}
-          >
-            {/* Left: Dot + Title + File + Stats */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              {/* Dot */}
-              <div
-                style={{
-                  width: "6px",
-                  height: "6px",
-                  borderRadius: "50%",
-                  backgroundColor: toolColor,
-                  flexShrink: 0,
-                }}
-              />
-
-              {/* Action Label */}
-              <span
-                style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "var(--vscode-editor-foreground)",
-                  opacity: 0.9,
-                }}
-              >
-                {toolType === "replace_in_file" ? "Edit" : "Create"}
-              </span>
-
-              {/* Diff Stats (Edit) - MOVED HERE - REMOVED AS REQUESTED */}
-              {/* Lines (Create) - MOVED HERE */}
-              {linesCount > 0 && (
-                <span
-                  style={{
-                    fontSize: "11px",
-                    color: "var(--vscode-descriptionForeground)",
-                    marginLeft: "4px",
-                  }}
-                >
-                  {linesCount} lines
-                </span>
-              )}
-            </div>
-
-            {/* Right: Validation Status Dot Only + Action */}
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              {/* Validation Status (Edit) - DOT REMOVED AS REQUESTED */}
-
-              {/* Main Action Button (Hidden checkmark/sweep if completed) */}
-              <div style={{ display: "flex", alignItems: "center" }}>
-                {!isActionClicked && (
-                  <ExecuteButton
-                    isActive={isActiveGroup || false}
-                    isCompleted={isActionClicked}
-                    isLastMessage={isLastMessage}
-                    isSkipped={
-                      !isActiveGroup && !isLastMessage && !isActionClicked
-                    }
-                    isSweepable={true}
-                    isLoading={isLoading}
-                    isSwept={isActionSwept}
-                    toolColor={toolColor}
-                    title={
-                      isActionClicked
-                        ? "Clear Context (Sweep)"
-                        : "Execute command"
-                    }
-                    onExecute={() => {
-                      if (isActionClicked) {
-                        if (onActionClear && !isActionSwept) {
-                          onActionClear(actionId);
-                        }
-                      } else {
-                        onToolClick(action, messageId, index);
-                      }
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Always Visible CodeBlock */}
-          {(toolType === "write_to_file" || toolType === "replace_in_file") && (
-            <div style={{ marginTop: "6px" }}>
-              <CodeBlock
-                code={codeContent}
-                language={codeLanguage}
-                maxLines={20}
-                filename={action.params.path || getFilename(action)} // Full path
-                startLineNumber={fuzzyStatus?.startLine} // Start line from fuzzy match (or 1 default)
-                lineHighlights={
-                  toolType === "replace_in_file" ? lineHighlights : undefined
-                }
-                backgroundColor={
-                  toolType === "write_to_file"
-                    ? "rgba(40, 167, 69, 0.2)"
-                    : undefined
-                }
-                headerActions={
-                  diffStats && (
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "6px",
-                        marginRight: "8px",
-                        fontSize: "12px",
-                        fontFamily: "monospace",
-                        alignItems: "center", // Ensure vertical alignment
-                        paddingTop: "1px", // Slight nudge if needed
-                      }}
-                    >
-                      <span
-                        style={{
-                          color:
-                            "var(--vscode-gitDecoration-addedResourceForeground)",
-                        }}
-                      >
-                        +{diffStats.added}
-                      </span>
-                      <span
-                        style={{
-                          color:
-                            "var(--vscode-gitDecoration-deletedResourceForeground)",
-                        }}
-                      >
-                        -{diffStats.removed}
-                      </span>
-                    </div>
-                  )
-                }
-              />
-            </div>
-          )}
-        </div>
+        <CodeBlock
+          code={codeContent}
+          language={codeLanguage}
+          maxLines={20}
+          filename={action.params.path || getFilename(action)} // Full path
+          startLineNumber={fuzzyStatus?.startLine} // Start line from fuzzy match (or 1 default)
+          lineHighlights={
+            toolType === "replace_in_file" ? lineHighlights : undefined
+          }
+          backgroundColor={
+            toolType === "write_to_file" ? "rgba(40, 167, 69, 0.2)" : undefined
+          }
+          defaultCollapsed={true} // 🆕 Collapsed by default for both edit and create
+          diffStats={
+            toolType === "replace_in_file"
+              ? diffStats || undefined
+              : linesCount > 0
+                ? { added: linesCount, removed: 0 } // 🆕 Show line count as diffStats for write_to_file
+                : undefined
+          }
+          prefix={toolType === "replace_in_file" ? "Edit" : "Create"} // 🆕 Add prefix for both types
+          statusColor={toolColor} // 🆕 Add status color dot
+        />
       );
     }
 
