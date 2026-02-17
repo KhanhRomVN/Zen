@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Zap, Search, History, Loader2, FolderOpen } from "lucide-react";
-import { ConversationItem } from "../../../HistoryPanel/types";
-import HistoryCard from "../../../HistoryPanel/HistoryCard";
+import { ConversationItem } from "../HistoryPanel/types";
+import HistoryCard from "../HistoryPanel/HistoryCard";
 
 const SLOGANS = [
   "Feel Free Chat Free",

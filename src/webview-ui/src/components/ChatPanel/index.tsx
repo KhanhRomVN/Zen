@@ -227,6 +227,14 @@ interface ChatPanelProps {
     tabId: number,
     folderPath: string | null,
   ) => void;
+  initialMessageData?: {
+    content: string;
+    files: any[];
+    model: any;
+    account: any;
+    thinking?: boolean;
+  } | null;
+  onClearInitialData?: () => void;
 }
 
 // 🆕 Local FileNode definition to avoid complex imports cyclic
@@ -247,6 +255,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   tabs, // 🆕 Destructure
   onTabSelect, // 🆕 Destructure
   onLoadConversation,
+  initialMessageData,
+  onClearInitialData,
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentConversationId, setCurrentConversationId] =
@@ -785,6 +795,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
     }
   }, [selectedTab]);
+
+  // 🆕 Handle Initial Message from HomePanel
+  const hasProcessedInitial = useRef(false);
+  useEffect(() => {
+    if (initialMessageData && !hasProcessedInitial.current) {
+      hasProcessedInitial.current = true;
+      handleSendMessage(
+        initialMessageData.content,
+        initialMessageData.files,
+        initialMessageData.model,
+        initialMessageData.account,
+        false,
+        undefined,
+        undefined,
+        initialMessageData.thinking,
+      );
+      if (onClearInitialData) onClearInitialData();
+    }
+  }, [initialMessageData]);
 
   const handleToolRequest = useCallback(
     async (actionOrActions: any, message: Message) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import ChatPanel from "./components/ChatPanel";
+import HomePanel from "./components/HomePanel";
 import HistoryPanel from "./components/HistoryPanel";
 import SettingsPanel from "./components/SettingsPanel";
 import "./styles/components/chat.css";
@@ -280,6 +281,15 @@ const App: React.FC = () => {
     [tabs],
   );
 
+  // 🆕 Initial Message Data State
+  const [initialMessageData, setInitialMessageData] = useState<{
+    content: string;
+    files: any[];
+    model: any;
+    account: any;
+    thinking?: boolean;
+  } | null>(null);
+
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
@@ -308,6 +318,7 @@ const App: React.FC = () => {
           setShowSettings(false);
           setSelectedTab(null);
           setPreviousPanel(null);
+          setInitialMessageData(null); // Clear initial data on new chat
           break;
       }
     };
@@ -316,19 +327,75 @@ const App: React.FC = () => {
     return () => window.removeEventListener("message", handleMessage);
   }, [selectedTab]);
 
+  const handleHomeSendMessage = useCallback(
+    (
+      content: string,
+      files: any[],
+      model: any,
+      account: any,
+      thinking?: boolean,
+    ) => {
+      setInitialMessageData({
+        content,
+        files,
+        model,
+        account,
+        thinking,
+      });
+      // Switch to ChatPanel by setting a dummy selectedTab or relying on logic?
+      // Actually ChatPanel works in standalone mode (selectedTab=null) if we want.
+      // But we probably want to create a "New Chat" tab representation if using tabs.
+      // For now, let's keep selectedTab=null (standalone) but just ensure ChatPanel is rendered.
+      // But wait, if selectedTab is null, we show HomePanel now (by default).
+      // So we MUST set selectedTab to something to trigger ChatPanel.
+      // OR we add a flag `isChatActive`?
+      // Standard flow:
+      // 1. HomePanel (New Chat)
+      // 2. User types -> Create "New Chat" tab.
+      //
+      // If we look at handleLoadConversation:
+      // It creates a virtualTab.
+      //
+      // So we should create a virtualTab for new chat too.
+      const newTab: TabInfo = {
+        tabId: Date.now(),
+        containerName: "New Chat",
+        title: "New Chat",
+        status: "free",
+        conversationId: "", // Empty for new chat
+        folderPath: null,
+        canAccept: true,
+        requestCount: 0,
+      };
+      setSelectedTab(newTab);
+    },
+    [],
+  );
+
   return (
     <ThemeProvider>
       <SettingsProvider>
         <BackendConnectionProvider>
           <div className="app-container">
             {!showHistory && !showSettings && (
-              <ChatPanel
-                selectedTab={selectedTab}
-                onBack={() => setSelectedTab(null)}
-                tabs={tabs}
-                onTabSelect={handleTabSelect}
-                onLoadConversation={handleLoadConversation}
-              />
+              <>
+                {selectedTab ? (
+                  <ChatPanel
+                    selectedTab={selectedTab}
+                    onBack={() => setSelectedTab(null)}
+                    tabs={tabs}
+                    onTabSelect={handleTabSelect}
+                    onLoadConversation={handleLoadConversation}
+                    initialMessageData={initialMessageData}
+                    onClearInitialData={() => setInitialMessageData(null)}
+                  />
+                ) : (
+                  <HomePanel
+                    onSendMessage={handleHomeSendMessage}
+                    onLoadConversation={handleLoadConversation}
+                  />
+                )}
+              </>
             )}
             {showHistory && (
               <HistoryPanel

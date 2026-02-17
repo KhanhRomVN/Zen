@@ -19,7 +19,7 @@ import { useCollapseSections } from "./hooks/useCollapseSections";
 import { useToolActions } from "./hooks/useToolActions";
 import { useScrollBehavior } from "./hooks/useScrollBehavior";
 
-import WelcomeUI from "./components/WelcomeUI";
+// import WelcomeUI from "./components/WelcomeUI";
 import ProcessingIndicator from "./components/ProcessingIndicator";
 import ScrollToBottomButton from "./components/ScrollToBottomButton";
 import MessageBox from "./components/MessageBox";
@@ -98,9 +98,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         gap: "var(--spacing-md)",
       }}
     >
-      {visibleMessages.length === 0 && !isProcessing && (
+      {/* {visibleMessages.length === 0 && !isProcessing && (
         <WelcomeUI onLoadConversation={onLoadConversation} />
-      )}
+      )} */}
 
       {visibleMessages.map((message, index) => {
         // Regular messages - Use memoized parsed content
