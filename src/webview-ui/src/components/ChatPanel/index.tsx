@@ -95,11 +95,12 @@ const saveConversation = async (
     const convId = conversationId || Date.now().toString();
     const key = getConversationKey(tabId, folderPath, convId);
 
-    // Calculate stats
-    const totalRequests = messages.filter(
+    // Calculate stats - Filter out cancelled messages for accurate history stats
+    const activeMessages = messages.filter((m) => !m.isCancelled);
+    const totalRequests = activeMessages.filter(
       (m: Message) => m.role === "user",
     ).length;
-    const totalContext = messages.reduce(
+    const totalContext = activeMessages.reduce(
       (sum: number, m: Message) =>
         sum + (m.usage?.total_tokens || m.contextSize || 0),
       0,
@@ -110,8 +111,8 @@ const saveConversation = async (
     let completedTasks = 0;
     const { parseAIResponse } = require("../../services/ResponseParser");
 
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
+    for (let i = activeMessages.length - 1; i >= 0; i--) {
+      const msg = activeMessages[i];
       if (msg.role === "assistant") {
         const parsed = parseAIResponse(msg.content);
         let progress = parsed.taskProgress || [];
@@ -133,7 +134,7 @@ const saveConversation = async (
 
     // Collect all unique task names from the whole conversation
     const uniqueTaskNames = new Set<string>();
-    for (const msg of messages) {
+    for (const msg of activeMessages) {
       if (msg.role === "assistant") {
         const parsed = parseAIResponse(msg.content);
         if (parsed.taskName) {
@@ -265,7 +266,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // 🆕 Stop Generation State
   const [isStreaming, setIsStreaming] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const lastUserMessageContentRef = useRef<string>("");
+
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
   // 🆕 Quick Model Switcher State
   const [selectedQuickModel, setSelectedQuickModel] = useState<{
@@ -305,6 +306,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     currentConversationIdRef.current = currentConversationId;
   }, [currentConversationId]);
+
+  // Refs for handlers to break circular dependency
+  const handleSendMessageRef = useRef<any>(null);
+  const handleToolRequestRef = useRef<any>(null);
 
   useEffect(() => {
     clickedActionsRef.current = clickedActions;
@@ -403,7 +408,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     async (
       content: string,
       files?: any[],
-
       model?: any,
       account?: any,
       skipFirstRequestLogic?: boolean,
@@ -411,13 +415,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       uiHidden?: boolean,
       thinking?: boolean,
     ) => {
+      if (isProcessing && !skipFirstRequestLogic) {
+        console.warn("[ChatPanel] Already processing a request, ignoring.");
+        return;
+      }
+
       setExecutionState({ total: 0, completed: 0, status: "idle" });
 
-      // Use default values if no tab selected (Standalone Mode)
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
 
-      // Determine conversation ID to use
+      // 🆕 Clean up ghosted (cancelled) messages before continuing
+      const currentMessages = messagesRef.current;
+      const filteredMessages = currentMessages.filter((m) => !m.isCancelled);
+
       let effectiveConversationId = currentConversationIdRef.current;
       const isNewSession = !effectiveConversationId;
 
@@ -426,8 +437,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setCurrentConversationId(effectiveConversationId);
       }
 
-      // 🆕 Accurate Token Calculation for Request 1
-      const isReq1 = messagesRef.current.length === 0 && !skipFirstRequestLogic;
+      const isReq1 = filteredMessages.length === 0 && !skipFirstRequestLogic;
       let systemPrompt = "";
       let projectContextStr = "";
 
@@ -476,12 +486,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
       }
 
-      // 🆕 Prepend User Message label and wrap content in code blocks (as requested)
       const fullContent = skipFirstRequestLogic
         ? content
         : `## User Message\n\`\`\`\n${content}\n\`\`\``;
 
-      // Calculate REAL prompt tokens including system/context
       const promptPayload = isReq1
         ? `${systemPrompt}${projectContextStr}\n\n${fullContent}`
         : fullContent;
@@ -505,14 +513,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         uiHidden: uiHidden,
       };
 
-      const updatedMessages = [...messagesRef.current, userMessage];
-      setMessages((prev) => [...prev, userMessage]);
+      const updatedMessages = [...filteredMessages, userMessage];
+      setMessages(updatedMessages);
       setIsProcessing(true);
-
-      // 🆕 Save user message content for potential rollback (only if not a tool request)
-      if (!skipFirstRequestLogic) {
-        lastUserMessageContentRef.current = content;
-      }
 
       saveConversation(
         tabId,
@@ -527,7 +530,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       logToWorkspace(effectiveConversationId || "unknown", userMessage);
 
       try {
-        // Fallback to states if undefined (important for Auto-Execution)
         const finalModel = model || currentModelRef.current;
         const finalAccount = account || currentAccountRef.current;
         const effModel = selectedQuickModel
@@ -541,19 +543,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           ? { id: selectedQuickModel.accountId }
           : finalAccount;
 
-        // Prepare messages payload
         let payloadMessages: { role: string; content: string }[] =
           updatedMessages.map((m) => ({
             role: m.role,
             content: m.content,
           }));
 
-        // Inject previously fetched context into first message payload
         if (isReq1) {
           payloadMessages[0].content = promptPayload;
         }
 
-        // Prepare request body
         const body = {
           modelId: effModel?.id,
           providerId: effModel?.providerId,
@@ -564,7 +563,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           thinking,
         };
 
-        // 🆕 Create AbortController for this request
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
         setIsStreaming(true);
@@ -580,16 +578,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(
-            "[ChatPanel] API Response Error:",
-            response.status,
-            errorText,
-          );
           throw new Error(`API Error: ${response.status} - ${errorText}`);
         }
 
         if (!response.body) {
-          console.error("[ChatPanel] Response OK but body is null!");
           throw new Error("No response body");
         }
 
@@ -623,12 +615,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
                 try {
                   const data = JSON.parse(dataStr);
-
                   if (data.meta?.conversation_id) {
                     const realId = data.meta.conversation_id;
-                    if (currentConversationIdRef.current !== realId) {
-                      const oldId = currentConversationIdRef.current;
-                      // 🆕 Rename log file if we were using a temp ID
+                    const initialIdBeforeRename = effectiveConversationId;
+
+                    if (initialIdBeforeRename !== realId) {
+                      const oldId = initialIdBeforeRename;
                       if (oldId && oldId !== realId) {
                         const vscodeApi = (window as any).vscodeApi;
                         if (vscodeApi) {
@@ -638,10 +630,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                             newConversationId: realId,
                           });
                         }
+                        const oldKey = getConversationKey(
+                          tabId,
+                          folderPath,
+                          oldId,
+                        );
+                        if ((window as any).storage) {
+                          (window as any).storage.delete(oldKey);
+                        }
                       }
-
                       setCurrentConversationId(realId);
-                      effectiveConversationId = realId; // Update local var for next logToWorkspace
+                      effectiveConversationId = realId;
                     }
                   }
 
@@ -666,35 +665,32 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                       ),
                     );
                   }
-                } catch (e) {
-                  // Ignore parse error
-                }
+                } catch (e) {}
               }
             }
           }
         }
 
         setIsProcessing(false);
-        setIsStreaming(false); // 🆕 Reset streaming state
-        abortControllerRef.current = null; // 🆕 Clear abort controller
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+
         logToWorkspace(effectiveConversationId || "unknown", assistantMessage);
         const finalContent = assistantMessage.content;
         const parsed = parseAIResponse(finalContent);
         if (parsed.actions && parsed.actions.length > 0) {
-          handleToolRequest(parsed.actions, assistantMessage);
+          if (handleToolRequestRef.current) {
+            handleToolRequestRef.current(parsed.actions, assistantMessage);
+          }
         } else {
-          // 🆕 Add 1s buffer before re-enabling input if no actions were found
-          // This prevents immediate flickering if the model sends another message shortly
           setTimeout(() => {
             setIsProcessing(false);
           }, 1000);
         }
       } catch (error) {
-        // 🆕 Reset streaming state on error
         setIsStreaming(false);
         abortControllerRef.current = null;
 
-        // 🆕 Don't show error message if request was aborted (user stopped generation)
         if (error instanceof Error && error.name === "AbortError") {
           setIsProcessing(false);
           return;
@@ -702,7 +698,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
         const errorMessage: Message = {
           id: `msg-${Date.now()}-error`,
-          role: "assistant", // Display as assistant message or system?
+          role: "assistant",
           content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
           timestamp: Date.now(),
         };
@@ -710,19 +706,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setIsProcessing(false);
       }
     },
-    [
-      // messages, // Stable via messagesRef
-      selectedTab,
-      // currentConversationId, // Stable via currentConversationIdRef
-      apiUrl,
-      isProcessing,
-      selectedQuickModel,
-    ],
+    [selectedTab, apiUrl, isProcessing, selectedQuickModel],
   );
+  handleSendMessageRef.current = handleSendMessage;
 
   // 🆕 Handle Stop Generation
   const handleStopGeneration = useCallback(() => {
-    // Abort the current fetch request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -731,7 +720,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setIsStreaming(false);
     setIsProcessing(false);
 
-    // Find the last user message that is NOT a tool request
     const currentMessages = messagesRef.current;
     let lastUserMessageIndex = -1;
 
@@ -743,53 +731,36 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
     }
 
-    // If found, remove all messages from that index onwards
     if (lastUserMessageIndex !== -1) {
-      const messagesToKeep = currentMessages.slice(0, lastUserMessageIndex);
-      const messagesToRemove = currentMessages.slice(lastUserMessageIndex);
+      const updatedMessages = currentMessages.map((msg, index) => {
+        if (index >= lastUserMessageIndex) {
+          return { ...msg, isCancelled: true };
+        }
+        return msg;
+      });
+      setMessages(updatedMessages);
 
-      // 🆕 Extract message IDs that have file edits (assistant messages)
-      const messageIdsWithEdits = messagesToRemove
-        .filter((msg) => msg.role === "assistant")
-        .map((msg) => msg.id);
-
-      // Update conversation log
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
       const effectiveConversationId = currentConversationIdRef.current;
+      const vscodeApi = (window as any).vscodeApi;
 
       if (effectiveConversationId) {
-        const vscodeApi = (window as any).vscodeApi;
-
-        // 🆕 Restore checkpoints first (if any file edits were made)
-        if (vscodeApi && messageIdsWithEdits.length > 0) {
-          vscodeApi.postMessage({
-            command: "restoreCheckpoints",
-            conversationId: effectiveConversationId,
-            messageIds: messageIdsWithEdits,
-          });
-        }
-
-        // Then update UI
-        setMessages(messagesToKeep);
-
-        // Save updated conversation without the removed messages
         saveConversation(
           tabId,
           folderPath,
-          messagesToKeep,
-          messagesToKeep.length === 0,
+          updatedMessages,
+          updatedMessages.length === 0,
           effectiveConversationId,
           selectedTab || undefined,
           false,
         );
 
-        // Also update the workspace log file
         if (vscodeApi) {
           vscodeApi.postMessage({
             command: "rollbackConversationLog",
             conversationId: effectiveConversationId,
-            keepCount: messagesToKeep.length,
+            keepCount: lastUserMessageIndex, // Extension will still roll back its log to before this prompt
           });
         }
       }
@@ -813,7 +784,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       );
       if (onClearInitialData) onClearInitialData();
     }
-  }, [initialMessageData]);
+  }, [initialMessageData, handleSendMessage, onClearInitialData]);
 
   const handleToolRequest = useCallback(
     async (actionOrActions: any, message: Message) => {
@@ -907,9 +878,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 content: action.params.content,
                 requestId: requestId,
                 skipDiagnostics,
-                // 🆕 Pass checkpoint metadata
-                conversationId: currentConversationIdRef.current,
-                messageId: message.id,
               });
 
               const handleResponse = (event: MessageEvent) => {
@@ -956,9 +924,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 path: action.params.path,
                 diff: action.params.diff,
                 requestId: requestId,
-                // 🆕 Pass checkpoint metadata
-                conversationId: currentConversationIdRef.current,
-                messageId: message.id,
                 skipDiagnostics,
               });
 
@@ -1142,7 +1107,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         status: "running",
       });
 
-      for (const [index, action] of actions.entries()) {
+      for (let index = 0; index < actions.length; index++) {
+        const action = actions[index];
         const actionId = `${message.id}-action-${action._index}`;
         // Optimization: Skip diagnostics for intermediate edits to the same file
         const isEditAction =
@@ -1266,14 +1232,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           const textActionIds = actions.map(
             (a) => `${message.id}-action-${a._index}`,
           );
-          handleSendMessage(
-            newBuffer.join("\n\n"),
-            undefined,
-            undefined,
-            undefined, // account
-            true,
-            textActionIds,
-          );
+          if (handleSendMessageRef.current) {
+            handleSendMessageRef.current(
+              newBuffer.join("\n\n"),
+              undefined,
+              undefined,
+              undefined, // account
+              true,
+              textActionIds,
+            );
+          }
           return { ...prev, [message.id]: [] }; // Clear buffer after sending
         }
 
@@ -1297,15 +1265,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             (a) => `${message.id}-action-${a._index}`,
           );
 
-          handleSendMessage(
-            newBuffer.join("\n\n"),
-            undefined,
-            undefined,
-            undefined,
-            true,
-            textActionIds,
-            true, // uiHidden
-          );
+          if (handleSendMessageRef.current) {
+            handleSendMessageRef.current(
+              newBuffer.join("\n\n"),
+              undefined,
+              undefined,
+              undefined,
+              true,
+              textActionIds,
+              true, // uiHidden
+            );
+          }
 
           return { ...prev, [message.id]: [] };
         } else {
@@ -1320,8 +1290,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setIsProcessing(false);
       }, 1000);
     },
-    [handleSendMessage],
+    [],
   );
+  handleToolRequestRef.current = handleToolRequest;
 
   // 🆕 Accurate Token Calculation: Sum tokens from all messages.
   // Use the actual usage data from the API if available, otherwise estimate.
@@ -1331,6 +1302,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         acc: { prompt: number; completion: number; total: number },
         msg: Message,
       ) => {
+        if (msg.isCancelled) return acc;
         if (msg.usage) {
           acc.prompt += msg.usage.prompt_tokens || 0;
           acc.completion += msg.usage.completion_tokens || 0;
@@ -1796,6 +1768,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
     for (let i = currentParsedMessages.length - 1; i >= 0; i--) {
       const msg = currentParsedMessages[i];
+      if (msg.isCancelled) continue;
       if (msg.role === "assistant" && msg.parsed.actions.length > 0) {
         const unclickedActions = msg.parsed.actions
           .map((action: any, index: number) => ({ ...action, _index: index }))
@@ -1805,18 +1778,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           );
 
         if (unclickedActions.length > 0) {
-          handleToolRequest(unclickedActions, msg);
+          if (handleToolRequestRef.current) {
+            handleToolRequestRef.current(unclickedActions, msg);
+          }
           return true;
         }
       }
     }
     console.warn("[ChatPanel] No pending batch found to execute.");
     return false;
-  }, [handleToolRequest]);
+  }, []);
 
   // 🆕 Check for any pending actions to control "Run All" visibility
   const hasPendingActions = useMemo(() => {
     return parsedMessages.some((msg: any) => {
+      if (msg.isCancelled) return false;
       if (msg.role !== "assistant" || !msg.parsed?.actions?.length)
         return false;
       // Check if any action in this message is NOT clicked
@@ -1918,6 +1894,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const allTaskProgress = useMemo(() => {
     for (let i = parsedMessages.length - 1; i >= 0; i--) {
       const msg = parsedMessages[i];
+      if (msg.isCancelled) continue;
       if (msg.parsed.taskProgress && msg.parsed.taskProgress.length > 0) {
         return msg.parsed.taskProgress;
       }
@@ -1935,6 +1912,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const currentTaskName = useMemo(() => {
     for (let i = parsedMessages.length - 1; i >= 0; i--) {
       const msg = parsedMessages[i];
+      if (msg.isCancelled) continue;
       if (msg.parsed.taskName) {
         return msg.parsed.taskName;
       }
@@ -1973,43 +1951,41 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         color: "var(--vscode-editor-foreground)",
       }}
     >
-      {messages.length > 0 && (
-        <ChatHeader
-          selectedTab={
-            selectedTab || {
-              tabId: -1,
-              containerName: "Global",
-              title: "New Chat",
-              status: "free",
-              canAccept: true,
-              requestCount: 0,
-              provider: "deepseek",
-            }
+      <ChatHeader
+        selectedTab={
+          selectedTab || {
+            tabId: -1,
+            containerName: "Global",
+            title: "New Chat",
+            status: "free",
+            canAccept: true,
+            requestCount: 0,
+            provider: "deepseek",
           }
-          onBack={onBack}
-          onClearChat={handleClearChat}
-          isLoadingConversation={isLoadingConversation}
-          firstRequestMessage={firstRequestMessage}
-          contextUsage={contextUsage}
-          taskName={currentTaskName}
-          conversationId={currentConversationId}
-          onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
-          taskProgress={
-            allTaskProgress.length > 0
-              ? {
-                  current: {
-                    taskName: currentTaskName || "Unknown Task",
-                    tasks: allTaskProgress,
-                    files: [],
-                    taskIndex: taskInfo.index,
-                    totalTasks: taskInfo.total,
-                  },
-                  history: [],
-                }
-              : undefined
-          }
-        />
-      )}
+        }
+        onBack={onBack}
+        onClearChat={handleClearChat}
+        isLoadingConversation={isLoadingConversation}
+        firstRequestMessage={firstRequestMessage}
+        contextUsage={contextUsage}
+        taskName={currentTaskName}
+        conversationId={currentConversationId}
+        onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
+        taskProgress={
+          allTaskProgress.length > 0
+            ? {
+                current: {
+                  taskName: currentTaskName || "Unknown Task",
+                  tasks: allTaskProgress,
+                  files: [],
+                  taskIndex: taskInfo.index,
+                  totalTasks: taskInfo.total,
+                },
+                history: [],
+              }
+            : undefined
+        }
+      />
       <TaskDrawer
         isOpen={isTaskDrawerOpen}
         onClose={() => setIsTaskDrawerOpen(false)}
@@ -2056,7 +2032,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isProcessing={isProcessing}
         isStreaming={isStreaming}
         onStopGeneration={handleStopGeneration}
-        lastUserMessage={lastUserMessageContentRef.current}
       />
     </div>
   );

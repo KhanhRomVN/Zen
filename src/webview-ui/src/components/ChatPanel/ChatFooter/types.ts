@@ -48,7 +48,6 @@ export interface ChatFooterProps {
   ) => void;
   isHistoryMode?: boolean;
   messages: any[];
-  onCheckpoint?: () => void;
   onToggleTaskDrawer?: () => void;
   isProcessing?: boolean;
 }

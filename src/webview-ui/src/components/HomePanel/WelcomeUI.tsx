@@ -49,6 +49,17 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
             prev.filter((c) => c.id !== message.conversationId),
           );
         }
+      } else if (
+        message.command === "deleteConfirmed" &&
+        message.conversationId
+      ) {
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "deleteConversation",
+            conversationId: message.conversationId,
+          });
+        }
       }
     };
 

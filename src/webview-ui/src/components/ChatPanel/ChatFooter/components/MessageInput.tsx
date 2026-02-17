@@ -55,7 +55,6 @@ interface MessageInputProps {
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
-  lastUserMessage?: string;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -95,7 +94,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isProcessing,
   isStreaming,
   onStopGeneration,
-  lastUserMessage,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -379,18 +377,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
     });
     return groups;
   }, [providers, searchQuery, apiUrl]);
-
-  // 🆕 Restore user message when stop generation is called
-  React.useEffect(() => {
-    // When streaming stops and we have a lastUserMessage, restore it
-    if (!isStreaming && lastUserMessage && message === "") {
-      setMessage(lastUserMessage);
-      // Focus textarea after restoration
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
-    }
-  }, [isStreaming, lastUserMessage]);
 
   return (
     <div

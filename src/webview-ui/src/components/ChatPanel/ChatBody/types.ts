@@ -36,6 +36,7 @@ export interface Message {
   };
   actionIds?: string[]; // Track which action(s) generated this message (for output messages)
   uiHidden?: boolean;
+  isCancelled?: boolean;
 }
 
 export interface Checkpoint {

@@ -96,6 +96,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           flexDirection: "column",
           gap: "var(--spacing-md)",
           marginBottom: "var(--spacing-md)",
+          opacity: message.isCancelled ? 0.4 : 1,
+          filter: message.isCancelled ? "grayscale(1) blur(0.5px)" : "none",
+          pointerEvents: message.isCancelled ? "none" : "auto",
+          transition: "all 0.3s ease",
         }}
       >
         {/* User Content Box (if not tool request) */}
@@ -150,6 +154,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
         flexDirection: "column",
         gap: "var(--spacing-md)",
         marginBottom: "var(--spacing-md)",
+        opacity: message.isCancelled ? 0.4 : 1,
+        filter: message.isCancelled ? "grayscale(1) blur(0.5px)" : "none",
+        pointerEvents: message.isCancelled ? "none" : "auto",
+        transition: "all 0.3s ease",
       }}
     >
       {/* 2. Thinking Section */}

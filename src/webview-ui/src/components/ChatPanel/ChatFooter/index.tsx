@@ -33,7 +33,6 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
-  lastUserMessage?: string;
 }
 
 // Hooks
@@ -66,7 +65,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   isProcessing,
   isStreaming,
   onStopGeneration,
-  lastUserMessage,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
   // const [showOptionsDrawer, setShowOptionsDrawer] = useState(false); // Removed
@@ -389,7 +387,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         isProcessing={isProcessing}
         isStreaming={isStreaming}
         onStopGeneration={onStopGeneration}
-        lastUserMessage={lastUserMessage}
       />
 
       <MentionDropdowns
