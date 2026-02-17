@@ -24,7 +24,7 @@ const config = {
   module: {
     rules: [
       {
-        test: /.ts$/,
+        test: /\.ts$/,
         exclude: [/node_modules/, /webview-ui/],
         use: [
           {
@@ -37,6 +37,24 @@ const config = {
       },
     ],
   },
+  plugins: [
+    new (require("copy-webpack-plugin"))({
+      patterns: [
+        {
+          from: "node_modules/shiki/dist/onig.wasm",
+          to: "onig.wasm",
+        },
+        {
+          from: "node_modules/shiki/dist/langs",
+          to: "langs",
+        },
+        {
+          from: "node_modules/shiki/dist/themes",
+          to: "themes",
+        },
+      ],
+    }),
+  ],
 };
 
 module.exports = config;

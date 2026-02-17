@@ -2537,6 +2537,9 @@ export async function activate(extContext: vscode.ExtensionContext) {
 
   const contextManager = new ContextManager();
 
+  // Initialize ShikiService with extension URI for asset resolution
+  ShikiService.getInstance().setExtensionUri(extContext.extensionUri);
+
   const projectStructureManager = new ProjectStructureManager(
     extContext.extensionUri,
     contextManager,

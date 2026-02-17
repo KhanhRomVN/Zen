@@ -6,6 +6,7 @@ export class ShikiService {
   private currentDynamicThemeName: string | null = null;
   private currentDynamicThemeId: string | null = null;
   private currentDynamicThemeKind: string | null = null; // 'dark' | 'light'
+  private extensionUri: vscode.Uri | null = null;
   private initializationPromise: Promise<void> | null = null;
 
   private constructor() {}
@@ -15,6 +16,10 @@ export class ShikiService {
       ShikiService.instance = new ShikiService();
     }
     return ShikiService.instance;
+  }
+
+  public setExtensionUri(uri: vscode.Uri) {
+    this.extensionUri = uri;
   }
 
   public async setCustomTheme(
@@ -54,7 +59,26 @@ export class ShikiService {
     this.initializationPromise = (async () => {
       try {
         // Use dynamic import for ESM compatibility in CJS environment
-        const { createHighlighter } = await import("shiki");
+        const { createHighlighter, loadWasm } = await import("shiki");
+
+        // [Fix] Ensure assets (WASM, languages, themes) are loaded from the correct location
+        if (this.extensionUri) {
+          // In production/bundled mode, we copied assets to 'dist/'
+          const onigWasmUri = vscode.Uri.joinPath(
+            this.extensionUri,
+            "dist",
+            "onig.wasm",
+          );
+          try {
+            const wasmBytes = await vscode.workspace.fs.readFile(onigWasmUri);
+            await loadWasm(wasmBytes);
+          } catch (error) {
+            console.error(
+              "[ShikiService] Failed to load WASM manually:",
+              error,
+            );
+          }
+        }
 
         this.highlighter = await createHighlighter({
           themes: ["dark-plus", "nord", "monokai", "dracula", "github-light"],
@@ -152,6 +176,10 @@ export class ShikiService {
 
       // 2. Diff Highlighting Transformer
       if (lineHighlights && lineHighlights.length > 0) {
+        console.log(
+          `[ShikiService] Applying diff highlights:`,
+          JSON.stringify(lineHighlights),
+        );
         transformers.push({
           name: "zen-diff-highlights",
           line(node: any, line: number) {
@@ -164,6 +192,20 @@ export class ShikiService {
                 h.type === "added" ? "diff-line-added" : "diff-line-removed";
 
               // Ensure we don't duplicate classes and apply to the line node
+              if (!node.properties) node.properties = {};
+
+              // [Fix] Handle potential 'class' vs 'className' conflict
+              // If Shiki sets 'class' (string), convert it to 'className' (array) to avoid duplicate attributes
+              if (node.properties.class) {
+                if (typeof node.properties.class === "string") {
+                  const existing = node.properties.class.split(" ");
+                  if (!node.properties.className)
+                    node.properties.className = [];
+                  node.properties.className.push(...existing);
+                }
+                delete node.properties.class;
+              }
+
               if (!node.properties.className) node.properties.className = [];
               if (!node.properties.className.includes(className)) {
                 node.properties.className.push(className);
@@ -194,11 +236,12 @@ export class ShikiService {
         },
       });
 
-      return this.highlighter.codeToHtml(code, {
+      const html = await this.highlighter.codeToHtml(code, {
         lang: language,
         theme: theme,
         transformers,
       });
+      return html;
     } catch (error) {
       console.warn(
         `[ShikiService] Highlighting failed for ${language}, falling back to plaintext:`,
