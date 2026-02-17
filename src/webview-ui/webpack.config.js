@@ -59,16 +59,7 @@ module.exports = {
       },
     ],
   },
-  plugins: [
-    new (require("copy-webpack-plugin"))({
-      patterns: [
-        {
-          from: "node_modules/monaco-editor/min/vs",
-          to: "vs",
-        },
-      ],
-    }),
-  ],
+  plugins: [],
   devtool: process.env.NODE_ENV === "production" ? false : "source-map",
   performance: {
     hints: false,

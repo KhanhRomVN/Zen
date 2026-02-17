@@ -9,6 +9,8 @@ import { AgentPermissions } from "./agent/types/AgentTypes";
 import { GlobalStorageManager } from "./storage-manager";
 import { ProjectStructureManager } from "./context/ProjectStructureManager";
 import { FuzzyMatcher } from "./utils/FuzzyMatcher";
+import { ShikiService } from "./services/ShikiService";
+import { ThemeService } from "./services/ThemeService";
 import * as cp from "child_process";
 
 class ProcessManager {
@@ -2264,6 +2266,30 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         } catch (error) {
           // console.error("Failed to load project context:", error);
         }
+      } else if (message.command === "highlightCode") {
+        // [New] Handle highlightCode request using Shiki
+        try {
+          const { code, language, requestId } = message;
+          const shikiService = ShikiService.getInstance();
+
+          // Get current theme kind to match dark/light
+          const themeKind = vscode.window.activeColorTheme.kind;
+
+          const html = await shikiService.highlight(code, language, themeKind);
+
+          webviewView.webview.postMessage({
+            command: "highlightCodeResult",
+            requestId: requestId,
+            html: html,
+          });
+        } catch (error) {
+          console.error("[Extension] highlightCode failed:", error);
+          webviewView.webview.postMessage({
+            command: "highlightCodeResult",
+            requestId: message.requestId,
+            error: String(error),
+          });
+        }
       }
     });
 
@@ -2357,20 +2383,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       vscode.Uri.joinPath(this._extensionUri, "images"),
     );
 
-    // Monaco Editor Assets - Now served from dist/vs (setup by webpack)
-    const monacoBaseUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this._extensionUri, "src/webview-ui/dist/vs"),
-    );
-
-    // We don't need manual loader/editor URIs here anymore as React handles it,
-    // but we keep monacoCssUri for global styles if needed, though usually built-in.
-    const monacoCssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(
-        this._extensionUri,
-        "src/webview-ui/dist/vs/editor/editor.main.css",
-      ),
-    );
-
     const nonce = this.getNonce();
 
     // 🆕 Get workspace folder path
@@ -2388,14 +2400,12 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
    webview.cspSource
  }; script-src 'nonce-${nonce}' ${
    webview.cspSource
- } 'unsafe-eval'; worker-src blob: data: vscode-resource: https: http:;">
+ } 'unsafe-eval'; worker-src blob: data: ${webview.cspSource} https: http:;">
  <title>Zen Chat</title>
- <link rel="stylesheet" type="text/css" href="${monacoCssUri}">
  <script nonce="${nonce}">
  // 🆕 Inject workspace folder path into global scope
  window.__zenWorkspaceFolderPath = ${JSON.stringify(folderPath)};
  window.__zenImagesUri = "${imagesUri}";
- window.__zenMonacoVsUri = "${monacoBaseUri}";
  </script>
  <style>
  
@@ -2440,200 +2450,29 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     return text;
   }
 
-  private async _extractThemeColors(theme: vscode.ColorTheme): Promise<any> {
-    try {
-      // Get token color customizations from workspace configuration
-      const config = vscode.workspace.getConfiguration("editor");
-      const tokenColorCustomizations = config.get<any>(
-        "tokenColorCustomizations",
-      );
-
-      const isDark = theme.kind === vscode.ColorThemeKind.Dark;
-
-      // Helper function to get color from customizations or fallback
-      const getColor = (scopes: string[], fallback: string): string => {
-        try {
-          // Check token color customizations first
-          if (tokenColorCustomizations?.textMateRules) {
-            for (const rule of tokenColorCustomizations.textMateRules) {
-              if (!rule.scope) continue;
-              const ruleScopes = Array.isArray(rule.scope)
-                ? rule.scope
-                : [rule.scope];
-
-              // Check if any of our scopes match this rule
-              for (const scope of scopes) {
-                if (
-                  ruleScopes.some(
-                    (rs: string) => rs === scope || rs.startsWith(scope + "."),
-                  )
-                ) {
-                  if (rule.settings?.foreground) {
-                    return rule.settings.foreground;
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          // Ignore errors
-        }
-        return fallback;
-      };
-
-      // Extract editor colors from theme
-      const editorBg = isDark ? "#1e1e1e" : "#ffffff";
-      const editorFg = isDark ? "#d4d4d4" : "#000000";
-
-      const colors = {
-        // Main editor colors
-        editorBackground: editorBg,
-        editorForeground: editorFg,
-
-        // Keywords - comprehensive scope matching
-        keyword: getColor(
-          ["keyword", "storage.type.function", "storage.type.class"],
-          isDark ? "#569CD6" : "#0000FF",
-        ),
-        keywordControl: getColor(
-          ["keyword.control", "keyword.control.flow", "keyword.control.import"],
-          isDark ? "#C586C0" : "#AF00DB",
-        ),
-        keywordOperator: getColor(
-          [
-            "keyword.operator",
-            "keyword.operator.logical",
-            "keyword.operator.arithmetic",
-          ],
-          isDark ? "#D4D4D4" : "#000000",
-        ),
-
-        // Storage/Types
-        storageType: getColor(
-          ["storage.type", "storage.modifier"],
-          isDark ? "#569CD6" : "#0000FF",
-        ),
-
-        // Functions - match all function-related scopes
-        entityNameFunction: getColor(
-          [
-            "entity.name.function",
-            "support.function",
-            "meta.function-call.generic",
-            "meta.function-call",
-          ],
-          isDark ? "#DCDCAA" : "#795E26",
-        ),
-        metaFunctionCall: getColor(
-          ["meta.function-call", "entity.name.function"],
-          isDark ? "#DCDCAA" : "#795E26",
-        ),
-
-        // Types/Classes - comprehensive type matching
-        entityNameType: getColor(
-          [
-            "entity.name.type",
-            "support.type.primitive",
-            "support.type.builtin",
-            "entity.name.class",
-          ],
-          isDark ? "#4EC9B0" : "#267F99",
-        ),
-        entityNameClass: getColor(
-          [
-            "entity.name.class",
-            "support.class",
-            "entity.other.inherited-class",
-          ],
-          isDark ? "#4EC9B0" : "#267F99",
-        ),
-        supportType: getColor(["support.type"], isDark ? "#4EC9B0" : "#267F99"),
-        supportClass: getColor(
-          ["support.class"],
-          isDark ? "#4EC9B0" : "#267F99",
-        ),
-
-        // Variables - match all variable scopes
-        variable: getColor(
-          [
-            "variable",
-            "variable.other",
-            "variable.other.readwrite",
-            "variable.other.property",
-          ],
-          isDark ? "#9CDCFE" : "#001080",
-        ),
-        variableParameter: getColor(
-          [
-            "variable.parameter",
-            "variable.parameter.function",
-            "meta.parameter.type.variable",
-          ],
-          isDark ? "#9CDCFE" : "#001080",
-        ),
-
-        // Strings
-        string: getColor(
-          ["string", "string.quoted", "string.template"],
-          isDark ? "#CE9178" : "#A31515",
-        ),
-        stringEscape: getColor(
-          ["constant.character.escape"],
-          isDark ? "#D7BA7D" : "#EE0000",
-        ),
-
-        // Comments
-        comment: getColor(
-          [
-            "comment",
-            "comment.line",
-            "comment.block",
-            "punctuation.definition.comment",
-          ],
-          isDark ? "#6A9955" : "#008000",
-        ),
-
-        // Numbers
-        number: getColor(["constant.numeric"], isDark ? "#B5CEA8" : "#098658"),
-
-        // Constants
-        constant: getColor(
-          ["constant.language", "constant.other", "variable.other.constant"],
-          isDark ? "#4FC1FF" : "#0000FF",
-        ),
-
-        // Punctuation
-        punctuation: getColor(
-          ["punctuation", "meta.brace", "punctuation.definition.tag"],
-          isDark ? "#D4D4D4" : "#000000",
-        ),
-      };
-
-      console.log("[Extension] Extracted token colors:", colors);
-      return colors;
-    } catch (error) {
-      console.error("Failed to extract theme colors:", error);
-      return null;
-    }
-  }
-
   private async _updateTheme(webview: vscode.Webview) {
     // Lấy theme hiện tại
     const theme = vscode.window.activeColorTheme;
     const themeKind = theme.kind;
-    const tokenColors = await this._extractThemeColors(theme);
+
+    // Cập nhật ShikiService với theme JSON mới nhất từ VS Code
+    try {
+      const themeJson = await ThemeService.getActiveThemeJson();
+      if (themeJson) {
+        await ShikiService.getInstance().setCustomTheme(themeJson);
+      }
+    } catch (error) {
+      console.error("[Extension] Failed to update Shiki theme:", error);
+    }
 
     console.log("[Extension] updateTheme sent:", {
       kind: themeKind,
-      hasColors: !!tokenColors,
     });
 
     // VS Code tự động inject CSS variables vào webview
-    // Chúng ta gửi theme kind + token colors để webview apply vào Monaco
     webview.postMessage({
       command: "updateTheme",
       theme: themeKind,
-      tokenColors: tokenColors,
     });
   }
 

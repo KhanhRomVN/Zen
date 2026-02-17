@@ -3,115 +3,107 @@
   border-radius: 6px;
   overflow: hidden;
   background-color: var(--vscode-editor-background);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .code-block-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 10px;
-  background-color: var(
-    --vscode-editor-headerBackground,
-    #2d2d2d
-  ); /* Fallback */
-  border-bottom: 1px solid var(--vscode-editorWidget-border);
+  padding: 8px 12px;
+  background-color: var(--vscode-editor-headerBackground, #2d2d2d);
+  border-bottom: 1px solid
+    var(--vscode-editorWidget-border, rgba(255, 255, 255, 0.1));
   color: var(--vscode-editor-foreground);
   font-family: var(--vscode-font-family);
   font-size: 12px;
 }
 
-.code-block-container.has-custom-background .code-block-header {
-  background-color: transparent;
-  border-bottom-color: rgba(0, 0, 0, 0.1);
-}
-
 .file-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   user-select: none;
 }
 
-.file-icon-img {
+.file-icon {
   width: 16px;
   height: 16px;
   object-fit: contain;
 }
 
-.code-block-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.icon-button {
-  background: none;
+.copy-button {
+  background-color: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #ffffff);
   border: none;
-  color: var(--vscode-icon-foreground);
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
   cursor: pointer;
-  padding: 2px;
-  border-radius: 4px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  transition: background-color 0.2s;
 }
 
-.icon-button:hover {
-  background-color: var(--vscode-toolbar-hoverBackground);
+.copy-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #45494e);
 }
 
-.monaco-editor-wrapper {
-  position: relative;
-  background-color: var(
-    --vscode-editor-background
-  ); /* Match container background */
+.copy-button svg {
+  opacity: 0.8;
 }
 
-/* Custom Line Highlights */
-.diff-line-added,
-.monaco-editor .line-numbers.diff-line-added {
-  background-color: rgba(40, 167, 69, 0.2); /* Green tint */
-  color: rgb(40, 167, 69) !important;
-  width: 100% !important;
+.shiki-highlighted pre {
+  margin: 0;
+  padding: 12px !important;
+  background-color: transparent !important; /* Let container control bg */
+  overflow-x: auto;
+  font-family: var(
+    --vscode-editor-font-family,
+    "Fira Code",
+    "Courier New",
+    monospace
+  );
+  font-size: var(--vscode-editor-font-size, 13px);
+  line-height: var(--vscode-editor-line-height, 1.5);
 }
 
-.diff-line-removed,
-.monaco-editor .line-numbers.diff-line-removed {
-  background-color: rgba(220, 53, 69, 0.2); /* Red tint */
-  color: rgb(220, 53, 69) !important;
-  width: 100% !important;
+.shiki-highlighted code {
+  font-family: inherit;
 }
 
-/* Fix margin background - set base margin to editor background */
-.monaco-editor .margin,
-.monaco-editor .glyph-margin,
-.monaco-editor .margin-view-overlays {
-  background-color: var(--vscode-editor-background) !important;
+.plaintext-fallback {
+  margin: 0;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 13px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--vscode-editor-foreground);
 }
 
-/* Make line numbers themselves transparent to not add extra layer */
-.monaco-editor .line-numbers {
-  background-color: transparent !important;
-  padding-right: 12px !important;
+/* Scrollbar styling for code content */
+.code-content-wrapper::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-/* Remove any overlay backgrounds that might cause lighter appearance */
-.monaco-editor .view-overlays,
-.monaco-editor .decorationsOverviewRuler {
-  background-color: transparent !important;
+.code-content-wrapper::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-/* Remove focus border from Monaco Editor */
-.monaco-editor-wrapper .monaco-editor,
-.monaco-editor-wrapper .monaco-editor .overflow-guard {
-  outline: none !important;
-  border: none !important;
+.code-content-wrapper::-webkit-scrollbar-thumb {
+  background: var(
+    --vscode-scrollbarSlider-background,
+    rgba(121, 121, 121, 0.4)
+  );
+  border-radius: 10px;
 }
 
-/* Remove focus border from the entire code block */
-.code-block-container:focus,
-.code-block-container:focus-within {
-  outline: none !important;
-  border: none !important;
+.code-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(
+    --vscode-scrollbarSlider-hoverBackground,
+    rgba(100, 100, 100, 0.7)
+  );
 }

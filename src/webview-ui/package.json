@@ -8,12 +8,10 @@
     "watch": "webpack --watch --mode development"
   },
   "dependencies": {
-    "@monaco-editor/react": "^4.6.0",
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "clsx": "^2.1.1",
     "gpt-tokenizer": "^3.4.0",
     "lucide-react": "^0.564.0",
-    "monaco-editor": "^0.50.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "styled-components": "^6.1.19",
