@@ -9,6 +9,7 @@ import RequestDivider from "./RequestDivider";
 import ToolActionsList from "./ToolActions/index";
 import HtmlPreview from "./HtmlPreview";
 import FileIcon from "../../../common/FileIcon";
+import { isDiff, parseDiff } from "../../../../utils/diffUtils";
 
 interface MessageBoxProps {
   message: Message;
@@ -258,13 +259,56 @@ const MessageBox: React.FC<MessageBoxProps> = ({
 
         return groups.map((group) => {
           if (group.type === "code") {
+            const isDiffBlock = isDiff(group.content, group.language);
+            let displayCode = group.content;
+            let lineHighlights: any = undefined;
+            let headerActions: any = undefined;
+
+            if (isDiffBlock) {
+              const diffResult = parseDiff(group.content);
+              displayCode = diffResult.code;
+              lineHighlights = diffResult.lineHighlights;
+              headerActions = (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    marginRight: "8px",
+                    fontSize: "12px",
+                    fontFamily: "monospace",
+                    alignItems: "center",
+                    paddingTop: "1px",
+                  }}
+                >
+                  <span
+                    style={{
+                      color:
+                        "var(--vscode-gitDecoration-addedResourceForeground)",
+                    }}
+                  >
+                    +{diffResult.stats.added}
+                  </span>
+                  <span
+                    style={{
+                      color:
+                        "var(--vscode-gitDecoration-deletedResourceForeground)",
+                    }}
+                  >
+                    -{diffResult.stats.removed}
+                  </span>
+                </div>
+              );
+            }
+
             return (
               <div key={group.key} style={{ marginTop: "var(--spacing-xs)" }}>
                 <CodeBlock
-                  code={group.content}
-                  language={group.language}
+                  code={displayCode}
+                  language={isDiffBlock ? "python" : group.language}
                   maxLines={25}
                   showCopyButton={true}
+                  lineHighlights={lineHighlights}
+                  headerActions={headerActions}
                 />
               </div>
             );

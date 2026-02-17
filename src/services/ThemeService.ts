@@ -41,9 +41,6 @@ export class ThemeService {
         if (found) {
           themeEntry = found;
           extensionPath = ext.extensionPath;
-          console.log(
-            `[ThemeService] Found theme '${colorTheme}' in extension: ${ext.id}`,
-          );
           break;
         }
       }

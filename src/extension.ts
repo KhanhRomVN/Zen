@@ -312,23 +312,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       ],
     };
 
-    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
-
-    // Send initial theme
-    await this._updateTheme(webviewView.webview);
-
-    // Listen for theme changes and update webview
-    const themeChangeDisposable = vscode.window.onDidChangeActiveColorTheme(
-      async (theme) => {
-        await this._updateTheme(webviewView.webview);
-      },
-    );
-
-    // Cleanup listener when webview is disposed
-    webviewView.onDidDispose(() => {
-      themeChangeDisposable.dispose();
-    });
-
     webviewView.webview.onDidReceiveMessage(async (message) => {
       if (message.command === "requestTheme") {
         // Handle explicit theme request from webview
@@ -1465,9 +1448,11 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         }
       } else if (message.command === "storageGet") {
         // Handle storage.get from webview
+
         try {
           // const value = this._extensionContext!.globalState.get(message.key);
           const value = await this._storageManager?.get(message.key);
+
           webviewView.webview.postMessage({
             command: "storageGetResponse",
             requestId: message.requestId,
@@ -1475,6 +1460,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             value: value || null,
           });
         } catch (error) {
+          console.error(
+            `[Extension] storageGet failed for ${message.key}:`,
+            error,
+          );
           webviewView.webview.postMessage({
             command: "storageGetResponse",
             requestId: message.requestId,
@@ -2311,6 +2300,18 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       }
     });
 
+    webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+    // Send initial theme
+    await this._updateTheme(webviewView.webview);
+
+    // Listen for theme changes and update webview
+    const themeChangeDisposable = vscode.window.onDidChangeActiveColorTheme(
+      async (theme) => {
+        await this._updateTheme(webviewView.webview);
+      },
+    );
+
     // File system watcher for automatic refresh of ProjectStructureDrawer
     const fileWatcher = vscode.workspace.createFileSystemWatcher("**/*");
     let refreshTimeout: NodeJS.Timeout | null = null;
@@ -2495,18 +2496,11 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         .getConfiguration("workbench")
         .get<string>("colorTheme") || "Default Dark Modern";
 
-    console.log(
-      `[Extension] Updating theme to: ${colorTheme} (kind: ${themeKind})`,
-    );
-
     try {
       const themeJson = await ThemeService.getActiveThemeJson();
       if (themeJson) {
         // Chờ ShikiService load theme xong trước khi thông báo webview
         await ShikiService.getInstance().setCustomTheme(themeJson, colorTheme);
-        console.log(
-          `[Extension] ShikiService updated with theme: ${colorTheme}`,
-        );
       } else {
         console.warn(
           `[Extension] Could not get JSON for theme: ${colorTheme}. Highlighting may use fallbacks.`,
@@ -2516,8 +2510,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       console.error("[Extension] Failed to update Shiki theme:", error);
     }
 
-    // VS Code tự động inject CSS variables vào webview
-    // Gửi message xuống webview sau khi Shiki đã sẵn sàng
     webview.postMessage({
       command: "updateTheme",
       theme: themeKind,
@@ -2528,10 +2520,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
   public setExtensionContext(extCtx: vscode.ExtensionContext): void {
     this._extensionContext = extCtx;
-    this._storageManager = new GlobalStorageManager(extCtx);
-    this._storageManager.initialize().then(() => {
-      this._storageManager?.migrateFromGlobalState();
-    });
+    // this._storageManager = new GlobalStorageManager(extCtx);
+    // this._storageManager.initialize().then(() => {
+    //   this._storageManager?.migrateFromGlobalState();
+    // });
   }
 }
 

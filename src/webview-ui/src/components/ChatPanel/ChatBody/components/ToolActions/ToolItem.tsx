@@ -9,6 +9,7 @@ import {
 } from "../../utils";
 import FileIcon from "../../../../common/FileIcon";
 import { CodeBlock } from "../../../../CodeBlock";
+import { parseDiff } from "../../../../../utils/diffUtils";
 
 interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
@@ -416,197 +417,18 @@ const ToolItem: React.FC<ToolItemProps> = ({
           : "typescript";
 
       if (action.type === "replace_in_file" && action.params.diff) {
-        const diffText = action.params.diff;
-        const searchPattern =
-          /<<<<<<< SEARCH\s+([\s\S]*?)=======\s+([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/g;
-        const matches = [...diffText.matchAll(searchPattern)];
-
-        if (matches.length > 0) {
-          // Track cumulative line offset for multiple blocks
-          let cumulativeLineOffset = 0;
-
-          matches.forEach((match, index) => {
-            const searchBlock = match[1] || "";
-            const replaceBlock = match[2] || "";
-            // Use trimEnd() to remove the last newline so split doesn't create an empty string at the end
-            const getLines = (text: string) =>
-              text.replace(/\r?\n/g, "\n").trimEnd().split("\n");
-
-            const searchLines = getLines(searchBlock);
-            const replaceLines = getLines(replaceBlock);
-
-            // Simple diff generation (Context + Changes)
-            // But now we want CLEAN lines + Highlights
-            let prefixCount = 0;
-            const minLen = Math.min(searchLines.length, replaceLines.length);
-            while (
-              prefixCount < minLen &&
-              searchLines[prefixCount] === replaceLines[prefixCount]
-            ) {
-              prefixCount++;
-            }
-
-            let suffixCount = 0;
-            const searchRemaining = searchLines.length - prefixCount;
-            const replaceRemaining = replaceLines.length - prefixCount;
-            const minRemaining = Math.min(searchRemaining, replaceRemaining);
-            while (
-              suffixCount < minRemaining &&
-              searchLines[searchLines.length - 1 - suffixCount] ===
-                replaceLines[replaceLines.length - 1 - suffixCount]
-            ) {
-              suffixCount++;
-            }
-
-            // Construct Content Lines
-            const prefixLines = searchLines.slice(0, prefixCount);
-            const deletedLines = searchLines.slice(
-              prefixCount,
-              searchLines.length - suffixCount,
-            );
-            const addedLines = replaceLines.slice(
-              prefixCount,
-              replaceLines.length - suffixCount,
-            );
-            const suffixLines = searchLines.slice(
-              searchLines.length - suffixCount,
-            );
-
-            // We build the code content string
-            // And track line numbers for highlights
-            // Note: Monaco lines are 1-based
-
-            // Add spacer if multiple matches (though typically 1 per action in this tool usage)
-            if (index > 0) {
-              codeContent += "\n...\n";
-            }
-
-            // 🐛 FIX: Always calculate currentLine based on the current codeContent length for correct relative highlighting
-            // The CodeBlock component renders the snippet starting at line 1, so highlights must be relative to the snippet, not the file.
-            // Absolute line numbers (fuzzyStatus.startLine) are only useful if we passed startLineNumber to Monaco, which we don't yet.
-
-            // Current block start line in the accumulated `codeContent`
-            let currentLine = 1;
-            if (codeContent !== "") {
-              // If previous content exists, we are appending new content.
-              // We use split length to determine where the new lines start RELATIVE to the snippet start.
-              currentLine = codeContent.split(/\r\n|\r|\n/).length;
-
-              // If the content doesn't end with a newline, the next append starts on the SAME line.
-              // But we manually add `\n` in `blockLines.join("\n")` later.
-              // And we added `\n...\n` separator which ends with newline.
-              // So normally we are starting on a new line.
-              if (codeContent.endsWith("\n")) {
-                currentLine += 1;
-              } else {
-                currentLine += 1; // We implicitly add a newline when joining/appending
-              }
-            }
-
-            // Actually simpler: build array of lines first
-            const blockLines: string[] = [];
-
-            prefixLines.forEach((l) => blockLines.push(l));
-
-            const startDelete = currentLine + blockLines.length;
-            deletedLines.forEach((l) => blockLines.push(l));
-            const endDelete = currentLine + blockLines.length - 1;
-
-            const startAdd = currentLine + blockLines.length;
-            addedLines.forEach((l) => blockLines.push(l));
-            const endAdd = currentLine + blockLines.length - 1;
-
-            suffixLines.forEach((l) => blockLines.push(l));
-
-            codeContent += blockLines.join("\n");
-            // Don't add trailing newline - it causes unwanted empty line at the end
-
-            // Update cumulative offset for next block
-            // Offset = number of lines in searchBlock (original file position moves by this amount)
-            cumulativeLineOffset += searchLines.length;
-
-            if (deletedLines.length > 0) {
-              lineHighlights.push({
-                startLine: startDelete,
-                endLine: endDelete,
-                type: "removed",
-              });
-            }
-            if (addedLines.length > 0) {
-              lineHighlights.push({
-                startLine: startAdd,
-                endLine: endAdd,
-                type: "added",
-              });
-            }
-          });
-        } else {
-          // Fallback for non-standard diffs - just show raw diff
-          codeContent = diffText;
-          // No highlights
-        }
+        const result = parseDiff(action.params.diff);
+        codeContent = result.code;
+        lineHighlights = result.lineHighlights;
       } else if (toolType === "write_to_file") {
         codeContent = action.params.content || "";
       }
 
-      // Calculate stats (lifted from below)
+      // Calculate stats
       let diffStats = null;
       if (action.type === "replace_in_file" && action.params.diff) {
-        const diffText = action.params.diff;
-        let added = 0;
-        let removed = 0;
-        const searchPattern =
-          /<<<<<<< SEARCH\s+([\s\S]*?)=======\s+([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/g;
-        const matches = [...diffText.matchAll(searchPattern)];
-
-        if (matches.length > 0) {
-          matches.forEach((match) => {
-            const searchBlock = match[1] || "";
-            const replaceBlock = match[2] || "";
-            const getLines = (text: string) =>
-              text.replace(/\r?\n/g, "\n").trimEnd().split("\n");
-            const searchLines = getLines(searchBlock);
-            const replaceLines = getLines(replaceBlock);
-
-            if (searchLines.length === 1 && searchLines[0] === "") {
-              added += replaceBlock.trim().length > 0 ? replaceLines.length : 0;
-              return;
-            }
-            if (replaceLines.length === 1 && replaceLines[0] === "") {
-              removed += searchBlock.trim().length > 0 ? searchLines.length : 0;
-              return;
-            }
-
-            let prefixCount = 0;
-            const minLen = Math.min(searchLines.length, replaceLines.length);
-            while (
-              prefixCount < minLen &&
-              searchLines[prefixCount] === replaceLines[prefixCount]
-            )
-              prefixCount++;
-
-            let suffixCount = 0;
-            const searchRemaining = searchLines.length - prefixCount;
-            const replaceRemaining = replaceLines.length - prefixCount;
-            const minRemaining = Math.min(searchRemaining, replaceRemaining);
-            while (
-              suffixCount < minRemaining &&
-              searchLines[searchLines.length - 1 - suffixCount] ===
-                replaceLines[replaceLines.length - 1 - suffixCount]
-            )
-              suffixCount++;
-
-            removed += searchLines.length - prefixCount - suffixCount;
-            added += replaceLines.length - prefixCount - suffixCount;
-          });
-        } else {
-          const lines = diffText.split("\n");
-          lines.forEach((line: string) => {
-            if (line.startsWith("+") && !line.startsWith("+++")) added++;
-            if (line.startsWith("-") && !line.startsWith("---")) removed++;
-          });
-        }
-        diffStats = { added, removed };
+        const result = parseDiff(action.params.diff);
+        diffStats = result.stats;
       }
 
       const linesCount =

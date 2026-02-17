@@ -28,12 +28,6 @@ export const useVSCodeTheme = () => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data as VSCodeThemeMessage;
       if (message.command === "updateTheme") {
-        console.log("[useVSCodeTheme] Received updateTheme:", {
-          theme: message.theme,
-          themeId: message.themeId,
-          themeVersion: message.themeVersion,
-        });
-
         setThemeKind(message.theme);
         if (message.themeId) {
           setThemeId(message.themeId);

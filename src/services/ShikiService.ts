@@ -37,10 +37,6 @@ export class ShikiService {
       this.currentDynamicThemeName = themeName;
       this.currentDynamicThemeId = originalThemeId || null;
       this.currentDynamicThemeKind = themeJson.type || "dark";
-
-      console.log(
-        `[ShikiService] Custom dynamic theme (v${themeVersion}) [${this.currentDynamicThemeId}] [${this.currentDynamicThemeKind}] loaded successfully`,
-      );
     } catch (error) {
       console.error("[ShikiService] Failed to load custom theme:", error);
       // Even if loading fails, update the ID to the one being requested
@@ -81,9 +77,6 @@ export class ShikiService {
             "php",
           ],
         });
-        console.log(
-          "[ShikiService] Initialized successfully with createHighlighter",
-        );
       } catch (error) {
         console.error("[ShikiService] Initialization failed:", error);
         this.initializationPromise = null;
