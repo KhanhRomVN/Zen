@@ -80,6 +80,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   startLineNumber = 1,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
@@ -118,14 +119,25 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       themeKind,
       themeId,
       requestId,
+      lineHighlights, // 🆕 Pass highlights
+      startLineNumber, // 🆕 Pass start line
     });
 
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [code, effectiveLanguage, themeKind, themeId, themeVersion]);
+  }, [
+    code,
+    effectiveLanguage,
+    themeKind,
+    themeId,
+    themeVersion,
+    lineHighlights,
+    startLineNumber,
+  ]);
 
-  const handleCopy = async () => {
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Avoid collapsing when clicking copy
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
@@ -143,17 +155,28 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
   return (
     <div
-      className="code-block-container shiki-mode"
+      className={`code-block-container shiki-mode ${isCollapsed ? "collapsed" : ""}`}
       style={{
         backgroundColor: backgroundColor || "var(--vscode-editor-background)",
       }}
     >
       {(filename || showCopyButton) && (
-        <div className="code-block-header">
+        <div
+          className="code-block-header"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          style={{ cursor: "pointer" }}
+        >
           <div className="file-info">
+            <span
+              className={`collapse-icon codicon codicon-chevron-${isCollapsed ? "right" : "down"}`}
+            />
             {icon || (
               <img
-                src={getIconForLanguage(effectiveLanguage)}
+                src={
+                  filename
+                    ? getFileIconPath(filename)
+                    : getIconForLanguage(effectiveLanguage)
+                }
                 alt=""
                 className="file-icon"
               />
@@ -168,48 +191,39 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
               <button
                 className="copy-button"
                 onClick={handleCopy}
-                title="Copy code"
+                title={copied ? "Copied!" : "Copy code"}
               >
                 {copied ? (
-                  <svg viewBox="0 0 16 16" width="14" height="14">
-                    <path
-                      fill="currentColor"
-                      d="M13.7 3.3L12.3 1.9c-.4-.4-1-.4-1.4 0L5.3 7.6 3.7 6c-.4-.4-1-.4-1.4 0L.9 7.4c-.4.4-.4 1 0 1.4l3.1 3.1c.4.4 1 .4 1.4 0l7.3-7.3c.4-.4.4-1.1 0-1.5z"
-                    />
-                  </svg>
+                  <span className="codicon codicon-check" />
                 ) : (
-                  <svg viewBox="0 0 16 16" width="14" height="14">
-                    <path
-                      fill="currentColor"
-                      d="M13 1H5a2 2 0 00-2 2v1H2a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-1h1a2 2 0 002-2V3a2 2 0 00-2-2zM10 14H2V6h8v8zm4-4h-2V5a2 2 0 00-2-2H5V3h8v7z"
-                    />
-                  </svg>
+                  <span className="codicon codicon-copy" />
                 )}
-                <span>{copied ? "Copied!" : "Copy"}</span>
               </button>
             )}
           </div>
         </div>
       )}
 
-      <div
-        className="code-content-wrapper"
-        style={{
-          maxHeight: maxLines ? `${maxLines * 20}px` : "none",
-          overflowY: "auto",
-        }}
-      >
-        {highlightedHtml ? (
-          <div
-            className="shiki-highlighted"
-            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-          />
-        ) : (
-          <pre className="plaintext-fallback">
-            <code>{code}</code>
-          </pre>
-        )}
-      </div>
+      {!isCollapsed && (
+        <div
+          className="code-content-wrapper"
+          style={{
+            maxHeight: maxLines ? `${maxLines * 20}px` : "none",
+            overflowY: "auto",
+          }}
+        >
+          {highlightedHtml ? (
+            <div
+              className="shiki-highlighted"
+              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+            />
+          ) : (
+            <pre className="plaintext-fallback">
+              <code>{code}</code>
+            </pre>
+          )}
+        </div>
+      )}
     </div>
   );
 };

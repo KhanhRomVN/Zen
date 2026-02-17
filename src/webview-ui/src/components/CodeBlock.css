@@ -4,35 +4,66 @@
   overflow: hidden;
   background-color: var(--vscode-editor-background);
   margin-bottom: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+  transition: box-shadow 0.2s;
+}
+
+.code-block-container:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.code-block-container.collapsed {
+  margin-bottom: 8px;
 }
 
 .code-block-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 12px;
   background-color: var(
     --vscode-editorGroupHeader-tabsBackground,
-    var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.05))
+    var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.1))
   );
   border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
   color: var(--vscode-editor-foreground);
   font-family: var(--vscode-font-family);
-  font-size: 12px;
+  font-size: 13px;
+  user-select: none;
+  cursor: pointer;
+}
+
+.code-block-header:hover {
+  filter: brightness(1.1);
 }
 
 .file-info {
   display: flex;
   align-items: center;
   gap: 8px;
-  user-select: none;
+}
+
+.collapse-icon {
+  font-size: 12px;
+  opacity: 0.7;
+  transition: transform 0.2s;
 }
 
 .file-icon {
   width: 16px;
   height: 16px;
   object-fit: contain;
+}
+
+.file-name {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .copy-button {
@@ -42,44 +73,85 @@
   );
   color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
   border: none;
-  border-radius: 3px;
-  padding: 3px 8px;
+  border-radius: 4px;
+  padding: 3px 10px;
   font-size: 11px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
-  transition: opacity 0.2s;
+  gap: 6px;
+  transition: all 0.2s;
 }
 
 .copy-button:hover {
   background-color: var(
     --vscode-button-secondaryHoverBackground,
-    rgba(128, 128, 128, 0.2)
+    rgba(128, 128, 128, 0.23)
   );
+  transform: translateY(-1px);
 }
 
-.copy-button svg {
-  opacity: 0.8;
+.copy-button .codicon {
+  font-size: 12px;
 }
 
+/* Shiki Styling */
 .shiki-highlighted pre {
   margin: 0;
-  padding: 12px !important;
-  background-color: transparent !important; /* Let container control bg */
+  padding: 8px 0 !important;
+  background-color: transparent !important;
   overflow-x: auto;
-  font-family: var(
-    --vscode-editor-font-family,
-    "Fira Code",
-    "Courier New",
-    monospace
-  );
+  font-family: var(--vscode-editor-font-family, "Fira Code", monospace);
   font-size: var(--vscode-editor-font-size, 13px);
-  line-height: var(--vscode-editor-line-height, 1.5);
+  line-height: inherit !important;
 }
 
 .shiki-highlighted code {
-  font-family: inherit;
+  background-color: transparent !important;
+  display: block;
+}
+
+.shiki-highlighted .line {
+  display: flex;
+  align-items: flex-start;
+  padding: 0 12px 0 0;
+  min-height: 1.4em;
+  line-height: 1.4;
+}
+
+.shiki-highlighted .line-number {
+  display: inline-block;
+  width: 44px;
+  min-width: 44px;
+  text-align: right;
+  padding-right: 12px;
+  margin-right: 8px;
+  color: var(--vscode-editorLineNumber-foreground, rgba(128, 128, 128, 0.4));
+  user-select: none;
+  font-size: 11px;
+  border-right: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+.shiki-highlighted .diff-line-added {
+  background-color: rgba(46, 160, 67, 0.22) !important;
+  display: flex !important;
+  width: 100%;
+}
+
+.shiki-highlighted .diff-line-removed {
+  background-color: rgba(248, 81, 73, 0.22) !important;
+  display: flex !important;
+  width: 100%;
+}
+
+.shiki-highlighted .diff-line-added .line-number {
+  color: #3fb950;
+  border-right: 1px solid rgba(46, 160, 67, 0.3);
+}
+
+.shiki-highlighted .diff-line-removed .line-number {
+  color: #f85149;
+  border-right: 1px solid rgba(248, 81, 73, 0.3);
 }
 
 .plaintext-fallback {
@@ -91,7 +163,7 @@
   color: var(--vscode-editor-foreground);
 }
 
-/* Scrollbar styling for code content */
+/* Scrollbar */
 .code-content-wrapper::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -104,7 +176,7 @@
 .code-content-wrapper::-webkit-scrollbar-thumb {
   background: var(
     --vscode-scrollbarSlider-background,
-    rgba(121, 121, 121, 0.4)
+    rgba(121, 121, 121, 0.3)
   );
   border-radius: 10px;
 }
@@ -112,6 +184,6 @@
 .code-content-wrapper::-webkit-scrollbar-thumb:hover {
   background: var(
     --vscode-scrollbarSlider-hoverBackground,
-    rgba(100, 100, 100, 0.7)
+    rgba(100, 100, 100, 0.5)
   );
 }

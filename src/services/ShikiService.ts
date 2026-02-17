@@ -98,6 +98,12 @@ export class ShikiService {
     language: string,
     themeKind?: vscode.ColorThemeKind,
     requestedThemeId?: string,
+    lineHighlights?: {
+      startLine: number;
+      endLine: number;
+      type: "added" | "removed";
+    }[],
+    startLineNumber: number = 1,
   ): Promise<string> {
     await this.initialize();
     if (!this.highlighter) return `<pre><code>${code}</code></pre>`;
@@ -105,9 +111,8 @@ export class ShikiService {
     // Determine if we should use the dynamic theme
     let useDynamic = !!this.currentDynamicThemeName;
 
-    // IMPORTANT: Verify that the dynamic theme matches the requested UI context
+    // Verify dynamic theme (kind/id)
     if (useDynamic) {
-      // 1. Check kind mismatch (Dark/Light)
       if (themeKind !== undefined) {
         const requestedIsDark =
           themeKind === vscode.ColorThemeKind.Dark ||
@@ -115,47 +120,91 @@ export class ShikiService {
         const dynamicIsDark = this.currentDynamicThemeKind === "dark";
 
         if (requestedIsDark !== dynamicIsDark) {
-          console.warn(
-            `[ShikiService] Theme kind mismatch: Requested ${
-              requestedIsDark ? "Dark" : "Light"
-            } but dynamic theme is ${
-              dynamicIsDark ? "Dark" : "Light"
-            }. Falling back to default Shiki themes.`,
-          );
           useDynamic = false;
         }
       }
 
-      // 2. Check ID mismatch (Stale theme detection)
-      // If the frontend specifically requested a theme ID (e.g., 'Nord'),
-      // but our dynamic theme is still something else (e.g., 'Abyss'), it's stale.
       if (useDynamic && requestedThemeId && this.currentDynamicThemeId) {
         if (requestedThemeId !== this.currentDynamicThemeId) {
-          console.warn(
-            `[ShikiService] Theme ID stale: Requested '${requestedThemeId}' but dynamic theme is '${this.currentDynamicThemeId}'. Falling back.`,
-          );
           useDynamic = false;
         }
       }
     }
 
-    // Use dynamic theme if available and kind matches, otherwise fallback to defaults
     const theme = useDynamic
       ? (this.currentDynamicThemeName as string)
       : themeKind === vscode.ColorThemeKind.Light
         ? "github-light"
         : "dark-plus";
 
-    if (!useDynamic && this.currentDynamicThemeName) {
-      console.log(
-        `[ShikiService] Highlighting using fallback '${theme}' instead of dynamic theme`,
-      );
-    }
-
     try {
+      // 🆕 Create Transformers
+      const transformers = [];
+
+      // 1. Line Numbers Transformer
+      transformers.push({
+        name: "zen-line-numbers",
+        line(node: any, line: number) {
+          const actualLine = line + startLineNumber - 1;
+          node.properties["data-line"] = actualLine;
+          // Inject line number span
+          node.children.unshift({
+            type: "element",
+            tagName: "span",
+            properties: { className: ["line-number"] },
+            children: [{ type: "text", value: actualLine.toString() }],
+          });
+        },
+      });
+
+      // 2. Diff Highlighting Transformer
+      if (lineHighlights && lineHighlights.length > 0) {
+        transformers.push({
+          name: "zen-diff-highlights",
+          line(node: any, line: number) {
+            // Shiki transformer 'line' is 1-indexed
+            const h = lineHighlights.find(
+              (lh) => line >= lh.startLine && line <= lh.endLine,
+            );
+            if (h) {
+              const className =
+                h.type === "added" ? "diff-line-added" : "diff-line-removed";
+
+              // Ensure we don't duplicate classes and apply to the line node
+              if (!node.properties.className) node.properties.className = [];
+              if (!node.properties.className.includes(className)) {
+                node.properties.className.push(className);
+              }
+            }
+          },
+        });
+      }
+
+      // 3. Clean structure transformer
+      transformers.push({
+        name: "zen-clean-structure",
+        pre(node: any) {
+          // Remove inline background-color from shiki's pre tag
+          if (node.properties.style) {
+            delete node.properties.style;
+          }
+        },
+        code(node: any) {
+          // Filter out empty text nodes (newlines) between line spans
+          // which cause extra spacing in some rendering modes
+          node.children = node.children.filter((child: any) => {
+            if (child.type === "text" && child.value === "\n") {
+              return false;
+            }
+            return true;
+          });
+        },
+      });
+
       return this.highlighter.codeToHtml(code, {
         lang: language,
         theme: theme,
+        transformers,
       });
     } catch (error) {
       console.warn(

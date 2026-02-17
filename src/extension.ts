@@ -2275,6 +2275,8 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             requestId,
             themeKind: requestedKind,
             themeId: requestedId,
+            lineHighlights,
+            startLineNumber,
           } = message;
           const shikiService = ShikiService.getInstance();
 
@@ -2289,6 +2291,8 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             language,
             themeKind,
             requestedId,
+            lineHighlights,
+            startLineNumber,
           );
 
           webviewView.webview.postMessage({
