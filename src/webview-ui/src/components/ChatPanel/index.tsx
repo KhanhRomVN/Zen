@@ -9,6 +9,7 @@ import ChatHeader from "./ChatHeader";
 import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
 import TaskDrawer from "./TaskDrawer";
+import BackupDrawer from "./ChatFooter/components/BackupDrawer";
 
 import { encode } from "gpt-tokenizer";
 import { getDefaultPrompt } from "./prompts";
@@ -290,6 +291,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
   const [clearedActions, setClearedActions] = useState<Set<string>>(new Set());
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
+  // 🆕 Backup State
+  const [isBackupDrawerOpen, setIsBackupDrawerOpen] = useState(false);
+  const [backupEventCount, setBackupEventCount] = useState(0);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -335,6 +339,55 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
       });
     }
+  }, []);
+
+  // 🆕 Start/Switch backup watch on conversation change
+  useEffect(() => {
+    if (currentConversationId) {
+      console.log(
+        `[ChatPanel] Current Conversation ID changed to: ${currentConversationId}. Sending startBackupWatch.`,
+      );
+      const vscodeApi = (window as any).vscodeApi;
+      if (vscodeApi) {
+        vscodeApi.postMessage({
+          command: "startBackupWatch",
+          conversationId: currentConversationId,
+        });
+      }
+    } else {
+      console.log("[ChatPanel] Current Conversation ID is null/undefined.");
+    }
+  }, [currentConversationId]);
+
+  // 🆕 Cleanup backup watch on unmount
+  useEffect(() => {
+    return () => {
+      console.log("[ChatPanel] Component unmounting. Sending stopBackupWatch.");
+      const vscodeApi = (window as any).vscodeApi;
+      if (vscodeApi && currentConversationIdRef.current) {
+        vscodeApi.postMessage({
+          command: "stopBackupWatch",
+        });
+      }
+    };
+  }, []);
+
+  // 🆕 Listen for backup events
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.command === "backupEventAdded") {
+        console.log("[ChatPanel] Received backupEventAdded from extension.");
+        setBackupEventCount((prev) => prev + 1);
+      } else if (message.command === "backupSizeWarning") {
+        console.log(
+          `[ChatPanel] Received backupSizeWarning for ${message.filePath}`,
+        );
+      }
+    };
+
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
   }, []);
 
   // 🆕 Track current Request ID for validation
@@ -528,6 +581,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       );
 
       logToWorkspace(effectiveConversationId || "unknown", userMessage);
+
+      // 🆕 Start backup watch on first request
+      if (isReq1 && effectiveConversationId) {
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "startBackupWatch",
+            conversationId: effectiveConversationId,
+          });
+        }
+      }
 
       try {
         const finalModel = model || currentModelRef.current;
@@ -2032,7 +2096,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isProcessing={isProcessing}
         isStreaming={isStreaming}
         onStopGeneration={handleStopGeneration}
+        onToggleBackupDrawer={() => setIsBackupDrawerOpen(!isBackupDrawerOpen)}
+        hasBackupEvents={backupEventCount > 0}
+        backupEventCount={backupEventCount}
       />
+      {/* Backup Drawer */}
+      {currentConversationId && (
+        <BackupDrawer
+          conversationId={currentConversationId}
+          isOpen={isBackupDrawerOpen}
+          onClose={() => setIsBackupDrawerOpen(false)}
+        />
+      )}
     </div>
   );
 };

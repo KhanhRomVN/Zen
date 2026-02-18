@@ -33,6 +33,10 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
+  // 🆕 Backup Props
+  onToggleBackupDrawer?: () => void;
+  hasBackupEvents?: boolean;
+  backupEventCount?: number;
 }
 
 // Hooks
@@ -65,6 +69,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   isProcessing,
   isStreaming,
   onStopGeneration,
+  onToggleBackupDrawer,
+  hasBackupEvents,
+  backupEventCount,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
   // const [showOptionsDrawer, setShowOptionsDrawer] = useState(false); // Removed
@@ -387,6 +394,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         isProcessing={isProcessing}
         isStreaming={isStreaming}
         onStopGeneration={onStopGeneration}
+        onToggleBackupDrawer={onToggleBackupDrawer}
+        hasBackupEvents={hasBackupEvents}
+        backupEventCount={backupEventCount}
       />
 
       <MentionDropdowns

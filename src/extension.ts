@@ -8,6 +8,7 @@ import { AgentCapabilityManager } from "./agent/AgentCapabilityManager";
 import { AgentPermissions } from "./agent/types/AgentTypes";
 import { GlobalStorageManager } from "./storage-manager";
 import { ProjectStructureManager } from "./context/ProjectStructureManager";
+import { BackupManager, TimelineEvent } from "./services/BackupManager";
 import { FuzzyMatcher } from "./utils/FuzzyMatcher";
 import { ShikiService } from "./services/ShikiService";
 import { ThemeService } from "./services/ThemeService";
@@ -154,6 +155,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _storageManager?: GlobalStorageManager;
   private _projectStructureManager?: ProjectStructureManager;
   private _fileLockManager = new FileLockManager();
+  // 🆕 Backup System
+  private _backupManager?: BackupManager;
+  private _backupFileWatcher?: vscode.FileSystemWatcher;
+  private _activeConversationId?: string;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -164,6 +169,8 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     this._contextManager = contextManager as ContextManager;
     this._storageManager = storageManager;
     this._projectStructureManager = projectStructureManager;
+    // 🆕 Initialize BackupManager
+    this._backupManager = new BackupManager();
   }
 
   /**
@@ -265,9 +272,388 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     return `project_context_${hash}`;
   }
 
-  // 🆕 Centralized Context Storage Helper
+  private _metricsInterval: NodeJS.Timeout | undefined;
+  // _backupManager is already declared above
+  // _backupFileWatcher is already declared above
+  private _disposables: vscode.Disposable[] = [];
+  // _activeConversationId is already declared above
+  private _processedDeletions = new Set<string>(); // 🆕 Track processed deletions to avoid duplicates
+
   private getContextRoot(): string {
     return path.join(os.homedir(), "khanhromvn-zen");
+  }
+
+  // 🆕 Backup Helper Methods
+  private async startBackupFileWatcher(
+    conversationId: string,
+    workspaceFolder: vscode.WorkspaceFolder,
+    webviewView: vscode.WebviewView,
+  ): Promise<void> {
+    console.log(
+      `[Extension] Request to start backup watch for: ${conversationId}`,
+    );
+
+    if (!this._backupManager) {
+      console.warn("[Extension] BackupManager not initialized");
+      return;
+    }
+
+    this._activeConversationId = conversationId;
+    this._backupManager.setWorkspaceRoot(workspaceFolder.uri.fsPath);
+
+    // Create backup folder if not exists
+    const exists = await this._backupManager.backupFolderExists(conversationId);
+    if (!exists) {
+      console.log(`[Extension] Creating backup folder for: ${conversationId}`);
+      await this._backupManager.createBackupFolder(conversationId);
+    } else {
+      console.log(`[Extension] Backup folder exists for: ${conversationId}`);
+    }
+
+    // Capture initial state on WillSave
+    // We register this GLOBALLY, but filter by active conversation/workspace
+    const willSaveDisposable = vscode.workspace.onWillSaveTextDocument((e) => {
+      if (!this._activeConversationId || !this._backupManager) return;
+      const doc = e.document;
+      // Check if in workspace
+      if (vscode.workspace.getWorkspaceFolder(doc.uri) === workspaceFolder) {
+        // 🆕 Skip ignored files
+        if (BackupManager.isIgnoredFile(doc.uri.fsPath)) return;
+
+        const docPreview = doc.getText().substring(0, 50).replace(/\n/g, "\\n");
+        console.log(
+          `[Extension] DEBUG: onWillSave triggered for ${doc.fileName}. Doc buffer (new) starts with: "${docPreview}..."`,
+        );
+
+        // 🆕 Use waitUntil to ensure snapshot completes BEFORE disk write
+        e.waitUntil(
+          (async () => {
+            // Check if binary and needs confirmation
+            const isBinary = await BackupManager.isBinaryFile(doc.uri.fsPath);
+            let unconfirmed = false;
+            if (isBinary) {
+              const ext =
+                path.extname(doc.uri.fsPath).toLowerCase().replace(".", "") ||
+                "no_ext";
+              const decision = await this.getBinaryFileDecision(
+                workspaceFolder.uri.fsPath,
+                ext,
+              );
+
+              if (decision === "deny") return;
+              if (decision === undefined) {
+                unconfirmed = true;
+              }
+            }
+
+            await this._backupManager!.ensureOriginalSnapshot(
+              this._activeConversationId!,
+              doc.uri.fsPath,
+              unconfirmed,
+            );
+
+            // If it's a large unconfirmed binary, we also trigger the batch prompt
+            if (unconfirmed) {
+              const { size } = await this._backupManager!.checkFileSize(
+                doc.uri.fsPath,
+              );
+              if (size > 1024 * 1024) {
+                // > 1MB
+                webviewView.webview.postMessage({
+                  command: "promptLargeBinaryBackup",
+                  filePath: doc.uri.fsPath,
+                  extension:
+                    path
+                      .extname(doc.uri.fsPath)
+                      .toLowerCase()
+                      .replace(".", "") || "no_ext",
+                  size,
+                });
+              }
+            }
+          })(),
+        );
+      }
+    });
+    this._disposables.push(willSaveDisposable);
+
+    // Capture pre-deletion state on WillDelete
+    const willDeleteDisposable = vscode.workspace.onWillDeleteFiles(
+      async (e) => {
+        if (!this._activeConversationId || !this._backupManager) return;
+
+        for (const uri of e.files) {
+          // Check if in workspace
+          if (uri.fsPath.startsWith(workspaceFolder.uri.fsPath)) {
+            // Skip backup folder
+            if (uri.fsPath.includes("khanhromvn-zen/backups")) continue;
+
+            // 🆕 Skip ignored files
+            if (BackupManager.isIgnoredFile(uri.fsPath)) continue;
+
+            console.log(
+              `[Extension] onWillDelete: Backing up ${uri.fsPath} before deletion`,
+            );
+
+            // Backup BEFORE deletion
+            await this._backupManager.backupFile(
+              this._activeConversationId,
+              uri.fsPath,
+              "file_deleted",
+            );
+
+            // Add to processed set to verify later in processedDeletions
+            this._processedDeletions.add(uri.fsPath);
+            setTimeout(() => this._processedDeletions.delete(uri.fsPath), 2000); // Clear after 2s
+
+            webviewView.webview.postMessage({
+              command: "backupEventAdded",
+              conversationId: this._activeConversationId,
+            });
+          }
+        }
+      },
+    );
+    this._disposables.push(willDeleteDisposable);
+
+    // Start file watcher if not already started
+    if (!this._backupFileWatcher) {
+      console.log("[Extension] Creating new FileSystemWatcher");
+      this._backupFileWatcher =
+        vscode.workspace.createFileSystemWatcher("**/*");
+
+      // On file change
+      this._backupFileWatcher.onDidChange(async (uri) => {
+        console.log(`[Extension] File watcher: Changed ${uri.fsPath}`);
+        await this.handleFileChange(
+          uri,
+          workspaceFolder,
+          webviewView,
+          "file_modified",
+        );
+      });
+
+      // On file create
+      this._backupFileWatcher.onDidCreate(async (uri) => {
+        console.log(`[Extension] File watcher: Created ${uri.fsPath}`);
+        await this.handleFileChange(
+          uri,
+          workspaceFolder,
+          webviewView,
+          "file_added",
+        );
+      });
+
+      // On file delete
+      this._backupFileWatcher.onDidDelete(async (uri) => {
+        console.log(`[Extension] File watcher: Deleted ${uri.fsPath}`);
+        // Check if already processed by onWillDelete
+        if (this._processedDeletions.has(uri.fsPath)) {
+          console.log(
+            `[Extension] Skipping duplicate delete event for ${uri.fsPath}`,
+          );
+          return;
+        }
+
+        await this.handleFileChange(
+          uri,
+          workspaceFolder,
+          webviewView,
+          "file_deleted",
+        );
+      });
+    } else {
+      console.log("[Extension] FileSystemWatcher already active");
+    }
+  }
+
+  private async handleFileChange(
+    uri: vscode.Uri,
+    workspaceFolder: vscode.WorkspaceFolder,
+    webviewView: vscode.WebviewView,
+    eventType: "file_modified" | "file_added" | "file_deleted",
+  ): Promise<void> {
+    console.log(`[Extension] handleFileChange: ${eventType} - ${uri.fsPath}`);
+
+    if (!this._activeConversationId || !this._backupManager) {
+      console.warn("[Extension] Missing activeConversationId or BackupManager");
+      return;
+    }
+
+    console.log(
+      `[Extension] DEBUG: handleFileChange sees ${eventType} for ${uri.fsPath}`,
+    );
+
+    // Skip if file is outside workspace
+    if (!uri.fsPath.startsWith(workspaceFolder.uri.fsPath)) {
+      console.log("[Extension] File outside workspace, skipping");
+      return;
+    }
+
+    // Skip backup files themselves
+    if (uri.fsPath.includes("khanhromvn-zen/backups")) {
+      // console.log("[Extension] Skipping backup file itself");
+      return;
+    }
+
+    // 🆕 Skip ignored files
+    if (BackupManager.isIgnoredFile(uri.fsPath)) {
+      // console.log(`[Extension] Skipping ignored file: ${uri.fsPath}`);
+      return;
+    }
+
+    // For delete events, we don't check size
+    if (eventType === "file_deleted") {
+      try {
+        console.log(
+          "[Extension] Processing file deletion backup (external/fallback)",
+        );
+        await this._backupManager.backupFile(
+          this._activeConversationId,
+          uri.fsPath,
+          eventType,
+        );
+        webviewView.webview.postMessage({
+          command: "backupEventAdded",
+          conversationId: this._activeConversationId,
+        });
+      } catch (error) {
+        // Expected if file is already gone and we couldn't snapshot it
+        // console.error("Failed to backup deleted file (likely gone):", error);
+      }
+      return;
+    }
+
+    // Check file size
+    const { size, needsWarning } = await this._backupManager.checkFileSize(
+      uri.fsPath,
+    );
+
+    if (needsWarning) {
+      console.warn(`[Extension] File too large (${size} bytes): ${uri.fsPath}`);
+      // Send warning to webview
+      webviewView.webview.postMessage({
+        command: "backupSizeWarning",
+        filePath: uri.fsPath,
+        size,
+        conversationId: this._activeConversationId,
+        eventType,
+      });
+    } else {
+      // Check if binary and needs confirmation
+      const isBinary = await BackupManager.isBinaryFile(uri.fsPath);
+      let unconfirmed = false;
+      const ext =
+        path.extname(uri.fsPath).toLowerCase().replace(".", "") || "no_ext";
+      if (isBinary) {
+        const decision = await this.getBinaryFileDecision(
+          workspaceFolder.uri.fsPath,
+          ext,
+        );
+
+        if (decision === "deny") {
+          console.log(
+            `[Extension] Binary file ${uri.fsPath} skipped (user denied)`,
+          );
+          return;
+        }
+
+        if (decision === undefined) {
+          unconfirmed = true;
+        }
+      }
+
+      // Backup file
+      try {
+        console.log(`[Extension] Backing up file: ${uri.fsPath}`);
+        const { size } = await this._backupManager!.checkFileSize(uri.fsPath);
+        await this._backupManager.backupFile(
+          this._activeConversationId,
+          uri.fsPath,
+          eventType,
+          unconfirmed,
+        );
+
+        if (unconfirmed && size > 1024 * 1024) {
+          webviewView.webview.postMessage({
+            command: "promptLargeBinaryBackup",
+            filePath: uri.fsPath,
+            extension: ext,
+            size,
+          });
+        }
+
+        webviewView.webview.postMessage({
+          command: "backupEventAdded",
+          conversationId: this._activeConversationId,
+        });
+        console.log(
+          "[Extension] Backup successful, notification sent to webview",
+        );
+      } catch (error) {
+        console.error("Failed to backup file:", error);
+      }
+    }
+  }
+
+  private async getBinaryFileDecision(
+    workspaceFolderPath: string,
+    extension: string,
+  ): Promise<"allow" | "deny" | undefined> {
+    if (!this._storageManager) return undefined;
+    const hash = crypto
+      .createHash("md5")
+      .update(workspaceFolderPath)
+      .digest("hex");
+    const key = `backup_binary_decisions_${hash}`;
+    const stored = await this._storageManager.get(key);
+    if (!stored) return undefined;
+    try {
+      const decisions = JSON.parse(stored);
+      return decisions[extension];
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async setBinaryFileDecision(
+    workspaceFolderPath: string,
+    extension: string,
+    decision: "allow" | "deny",
+  ): Promise<void> {
+    if (!this._storageManager) return;
+    const hash = crypto
+      .createHash("md5")
+      .update(workspaceFolderPath)
+      .digest("hex");
+    const key = `backup_binary_decisions_${hash}`;
+    const stored = await this._storageManager.get(key);
+    let decisions: Record<string, "allow" | "deny"> = {};
+    if (stored) {
+      try {
+        decisions = JSON.parse(stored);
+      } catch {}
+    }
+    decisions[extension] = decision;
+    await this._storageManager.set(key, JSON.stringify(decisions));
+  }
+
+  private stopBackupFileWatcher(): void {
+    console.log(
+      `[Extension] Stopping backup watch. Active ID was: ${this._activeConversationId}`,
+    );
+    this._activeConversationId = undefined;
+
+    // Dispose watchers
+    if (this._backupFileWatcher) {
+      this._backupFileWatcher.dispose();
+      this._backupFileWatcher = undefined;
+      console.log("[Extension] FileSystemWatcher disposed");
+    }
+
+    // Dispose other listeners
+    this._disposables.forEach((d) => d.dispose());
+    this._disposables = [];
   }
 
   private getProjectContextDir(workspaceFolderPath: string): string {
@@ -837,6 +1223,339 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
             success: false,
             error: String(error),
           });
+        }
+      } else if (message.command === "startBackupWatch") {
+        // 🆕 Start backup watch
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+
+          const { conversationId } = message;
+          await this.startBackupFileWatcher(
+            conversationId,
+            workspaceFolder,
+            webviewView,
+          );
+
+          console.log(
+            `[Extension] Started backup watch for: ${conversationId}`,
+          );
+          webviewView.webview.postMessage({
+            command: "startBackupWatchResult",
+            success: true,
+            conversationId,
+          });
+        } catch (error) {
+          console.error("[Extension] Failed to start backup watch:", error);
+          webviewView.webview.postMessage({
+            command: "startBackupWatchResult",
+            success: false,
+            error: String(error),
+          });
+        }
+      } else if (message.command === "stopBackupWatch") {
+        // 🆕 Stop backup watch
+        try {
+          this.stopBackupFileWatcher();
+          console.log("[Extension] Stopped backup watch");
+          webviewView.webview.postMessage({
+            command: "stopBackupWatchResult",
+            success: true,
+          });
+        } catch (error) {
+          console.error("[Extension] Failed to stop backup watch:", error);
+        }
+      } else if (message.command === "getBackupTimeline") {
+        // 🆕 Get backup timeline
+        try {
+          if (!this._backupManager) return;
+
+          const { conversationId, requestId } = message;
+          const timeline =
+            await this._backupManager.getTimeline(conversationId);
+
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (workspaceFolder) {
+            // Check if files exist in workspace
+            for (const event of timeline) {
+              const fullPath = path.join(
+                workspaceFolder.uri.fsPath,
+                event.filePath,
+              );
+              event.fileExists = fs.existsSync(fullPath);
+            }
+          }
+
+          webviewView.webview.postMessage({
+            command: "backupTimelineResult",
+            requestId,
+            timeline,
+            conversationId,
+          });
+        } catch (error) {
+          console.error("[Extension] Failed to get backup timeline:", error);
+          webviewView.webview.postMessage({
+            command: "backupTimelineResult",
+            requestId: message.requestId,
+            error: String(error),
+          });
+        }
+      } else if (message.command === "getBackupSnapshot") {
+        // 🆕 Get backup snapshot content
+        try {
+          if (!this._backupManager) return;
+
+          const { conversationId, snapshotPath, requestId } = message;
+          const content = await this._backupManager.getSnapshotContent(
+            conversationId,
+            snapshotPath,
+          );
+
+          webviewView.webview.postMessage({
+            command: "backupSnapshotResult",
+            requestId,
+            content,
+          });
+        } catch (error) {
+          console.error("[Extension] Failed to get backup snapshot:", error);
+          webviewView.webview.postMessage({
+            command: "backupSnapshotResult",
+            requestId: message.requestId,
+            error: String(error),
+          });
+        }
+      } else if (message.command === "confirmBackupLargeFile") {
+        // ... (existing code)
+      } else if (message.command === "revertToSnapshot") {
+        // 🆕 Revert/Restore file from snapshot
+        try {
+          if (!this._backupManager) return;
+          const { conversationId, filePath, snapshotPath, eventType } = message;
+
+          await this._fileLockManager.acquire(filePath); // Lock file
+
+          await this._backupManager.restoreSnapshot(
+            conversationId,
+            filePath,
+            snapshotPath,
+          );
+
+          vscode.window.showInformationMessage(
+            `✅ ${eventType === "file_deleted" ? "Restored" : "Reverted"} ${path.basename(filePath)} successfully`,
+          );
+
+          // Notify webview to refresh
+          webviewView.webview.postMessage({
+            command: "backupEventAdded",
+            conversationId,
+          });
+        } catch (error) {
+          console.error("[Extension] Failed to revert to snapshot:", error);
+          vscode.window.showErrorMessage(
+            `Failed to revert/restore: ${String(error)}`,
+          );
+        }
+      } else if (message.command === "openSnapshotDiffWithCurrent") {
+        // 🆕 Open side-by-side diff: Historical Snapshot vs Current Workspace File
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder || !this._backupManager) return;
+
+          const { conversationId, fileEvent } = message;
+          if (!fileEvent.snapshotPath) return;
+
+          const backupFolder =
+            this._backupManager.getBackupFolderPath(conversationId);
+          const snapshotPath = path.join(backupFolder, fileEvent.snapshotPath);
+
+          const leftUri = vscode.Uri.file(snapshotPath);
+          const rightUri = vscode.Uri.joinPath(
+            workspaceFolder.uri,
+            fileEvent.filePath,
+          );
+
+          const snapshotTime = new Date(
+            fileEvent.timestamp,
+          ).toLocaleTimeString();
+          const title = `${fileEvent.fileName} (${snapshotTime}) ↔ Current Workspace`;
+
+          await vscode.commands.executeCommand(
+            "vscode.diff",
+            leftUri,
+            rightUri,
+            title,
+          );
+        } catch (error) {
+          console.error("[Extension] Failed to open snapshot diff:", error);
+        }
+      } else if (message.command === "openDiff") {
+        // 🆕 Open Diff View (Refined historical diff logic)
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder || !this._backupManager) return;
+
+          const { conversationId, fileEvent } = message;
+          const timeline =
+            await this._backupManager.getTimeline(conversationId);
+          const backupFolder =
+            this._backupManager.getBackupFolderPath(conversationId);
+
+          // 1. Handle Original Version (initial_state) - Just open the file
+          if (fileEvent.eventType === "initial_state") {
+            if (fileEvent.snapshotPath) {
+              const snapshotPath = path.join(
+                backupFolder,
+                fileEvent.snapshotPath,
+              );
+              await vscode.commands.executeCommand(
+                "vscode.open",
+                vscode.Uri.file(snapshotPath),
+              );
+              return;
+            }
+          }
+
+          // 2. Find the previous event for this file in the timeline
+          // Sort timeline by timestamp ascending to locate predecessor
+          const sortedTimeline = [...timeline].sort(
+            (a, b) => a.timestamp - b.timestamp,
+          );
+          const currentIndex = sortedTimeline.findIndex(
+            (e) =>
+              e.timestamp === fileEvent.timestamp &&
+              e.filePath === fileEvent.filePath,
+          );
+
+          let previousEvent: TimelineEvent | undefined;
+          if (currentIndex > 0) {
+            // Traverse backwards to find the last snapshot for this file
+            for (let i = currentIndex - 1; i >= 0; i--) {
+              if (
+                sortedTimeline[i].filePath === fileEvent.filePath &&
+                sortedTimeline[i].snapshotPath
+              ) {
+                previousEvent = sortedTimeline[i];
+                break;
+              }
+            }
+          }
+
+          // 3. Prepare URIs for comparison
+          let leftUri: vscode.Uri | undefined;
+          let leftTitle = "Previous";
+          let rightUri: vscode.Uri;
+          let rightTitle = "Selected";
+
+          // Right side is always the current event's snapshot
+          if (fileEvent.snapshotPath) {
+            rightUri = vscode.Uri.file(
+              path.join(backupFolder, fileEvent.snapshotPath),
+            );
+            rightTitle = `${fileEvent.fileName} (${new Date(fileEvent.timestamp).toLocaleTimeString()})`;
+          } else {
+            // Fallback to workspace file if no snapshot
+            rightUri = vscode.Uri.joinPath(
+              workspaceFolder.uri,
+              fileEvent.filePath,
+            );
+            rightTitle = "Current Workspace Version";
+          }
+
+          // Left side is the previous snapshot if found
+          if (previousEvent && previousEvent.snapshotPath) {
+            leftUri = vscode.Uri.file(
+              path.join(backupFolder, previousEvent.snapshotPath),
+            );
+            leftTitle = `${fileEvent.fileName} (Prev: ${new Date(previousEvent.timestamp).toLocaleTimeString()})`;
+          }
+
+          // 4. Fallback logic: If no historical diff possible, show vs current or just open
+          if (!leftUri) {
+            await vscode.commands.executeCommand("vscode.open", rightUri);
+            return;
+          }
+
+          // 5. Execute Diff Command
+          await vscode.commands.executeCommand(
+            "vscode.diff",
+            leftUri,
+            rightUri,
+            `${leftTitle} ↔ ${rightTitle}`,
+          );
+        } catch (error) {
+          console.error("[Extension] Failed to open historical diff:", error);
+          vscode.window.showErrorMessage(
+            `Failed to open historical diff: ${error}`,
+          );
+        }
+      } else if (message.command === "deleteBackupFile") {
+        // 🆕 Delete Backup File/Folder
+        try {
+          const { conversationId, filePath } = message;
+          if (this._backupManager) {
+            await this._backupManager.deleteFileBackup(
+              conversationId,
+              filePath,
+            );
+            webviewView.webview.postMessage({
+              command: "deleteBackupFileResult",
+              success: true,
+              filePath,
+              conversationId,
+            });
+          }
+        } catch (error) {
+          console.error("[Extension] Failed to delete backup file:", error);
+          webviewView.webview.postMessage({
+            command: "deleteBackupFileResult",
+            success: false,
+            filePath: message.filePath,
+            error: String(error),
+          });
+        }
+      } else if (message.command === "backupBinaryFileDecision") {
+        // 🆕 Handle binary file decision from webview
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder || !this._backupManager) return;
+
+          const { extension, allow } = message;
+          if (!this._activeConversationId) return;
+
+          await this.setBinaryFileDecision(
+            workspaceFolder.uri.fsPath,
+            extension,
+            allow ? "allow" : "deny",
+          );
+
+          console.log(
+            `[Extension] User decided to ${allow ? "allow" : "deny"} backup for .${extension} files`,
+          );
+
+          if (!allow) {
+            // If denied, delete all existing backup history for this extension
+            await this._backupManager.deleteByExtension(
+              this._activeConversationId,
+              extension,
+            );
+          } else {
+            // If allowed, clear unconfirmed flags in timeline for this extension
+            await this._backupManager.clearUnconfirmedByExtension(
+              this._activeConversationId,
+              extension,
+            );
+          }
+
+          // Trigger a silent refresh in webview
+          webviewView.webview.postMessage({
+            command: "backupEventAdded", // This will trigger fetchTimeline in BackupDrawer
+            conversationId: this._activeConversationId,
+          });
+        } catch (error) {
+          console.error(
+            "[Extension] Failed to save binary file decision:",
+            error,
+          );
         }
       } else if (message.command === "readFile") {
         // Handle read file request from webview

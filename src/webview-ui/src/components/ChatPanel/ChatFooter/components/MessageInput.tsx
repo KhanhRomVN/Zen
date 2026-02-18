@@ -2,7 +2,7 @@ import React from "react";
 import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
 import { PlusIcon, ChevronDownIcon, SendIcon } from "./Icons";
-import { Check, Cpu, Search, X } from "lucide-react";
+import { Check, Cpu, Search, X, Clock } from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
 import { useSettings } from "../../../../context/SettingsContext";
@@ -55,6 +55,10 @@ interface MessageInputProps {
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
+  // 🆕 Backup Props
+  onToggleBackupDrawer?: () => void;
+  hasBackupEvents?: boolean;
+  backupEventCount?: number;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -94,6 +98,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isProcessing,
   isStreaming,
   onStopGeneration,
+  onToggleBackupDrawer,
+  hasBackupEvents,
+  backupEventCount,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -618,6 +625,48 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   <path d="m3 17 2 2 4-4" />
                   <rect x="3" y="4" width="6" height="6" rx="1" />
                 </svg>
+              </div>
+            )}
+
+            {/* Backup History Toggle */}
+            {isConversationStarted && onToggleBackupDrawer && (
+              <div
+                style={{
+                  cursor: "pointer",
+                  padding: "var(--spacing-xs)",
+                  borderRadius: "var(--border-radius)",
+                  transition: "background-color 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--secondary-text)",
+                  position: "relative",
+                }}
+                onClick={onToggleBackupDrawer}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
+                title="Code Backup History"
+              >
+                <Clock size={16} />
+                {hasBackupEvents &&
+                  backupEventCount &&
+                  backupEventCount > 0 && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: -2,
+                        right: -2,
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        backgroundColor: "var(--accent-color)",
+                      }}
+                    />
+                  )}
               </div>
             )}
 

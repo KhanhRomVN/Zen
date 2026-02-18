@@ -9,6 +9,15 @@
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "preLaunchTask": "npm: compile",
       "runtimeExecutable": "/usr/bin/code"
+    },
+    {
+      "name": "Run Zen Extension (Watch Mode)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/dist/.."],
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "npm: watch",
+      "runtimeExecutable": "/usr/bin/code"
     }
   ]
 }
