@@ -346,10 +346,15 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
               }
             }
 
+            const blacklist = await this.getBackupBlacklist(
+              workspaceFolder.uri.fsPath,
+            );
+
             await this._backupManager!.ensureOriginalSnapshot(
               this._activeConversationId!,
               doc.uri.fsPath,
               unconfirmed,
+              blacklist,
             );
 
             // If it's a large unconfirmed binary, we also trigger the batch prompt
@@ -395,11 +400,17 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
               `[Extension] onWillDelete: Backing up ${uri.fsPath} before deletion`,
             );
 
+            const blacklist = await this.getBackupBlacklist(
+              workspaceFolder.uri.fsPath,
+            );
+
             // Backup BEFORE deletion
             await this._backupManager.backupFile(
               this._activeConversationId,
               uri.fsPath,
               "file_deleted",
+              false,
+              blacklist,
             );
 
             // Add to processed set to verify later in processedDeletions
@@ -508,10 +519,15 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         console.log(
           "[Extension] Processing file deletion backup (external/fallback)",
         );
+        const blacklist = await this.getBackupBlacklist(
+          workspaceFolder.uri.fsPath,
+        );
         await this._backupManager.backupFile(
           this._activeConversationId,
           uri.fsPath,
           eventType,
+          false,
+          blacklist,
         );
         webviewView.webview.postMessage({
           command: "backupEventAdded",
@@ -567,11 +583,15 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       try {
         console.log(`[Extension] Backing up file: ${uri.fsPath}`);
         const { size } = await this._backupManager!.checkFileSize(uri.fsPath);
+        const blacklist = await this.getBackupBlacklist(
+          workspaceFolder.uri.fsPath,
+        );
         await this._backupManager.backupFile(
           this._activeConversationId,
           uri.fsPath,
           eventType,
           unconfirmed,
+          blacklist,
         );
 
         if (unconfirmed && size > 1024 * 1024) {
@@ -636,6 +656,98 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     }
     decisions[extension] = decision;
     await this._storageManager.set(key, JSON.stringify(decisions));
+  }
+
+  private async getBackupBlacklist(
+    workspaceFolderPath: string,
+  ): Promise<string[]> {
+    if (!this._storageManager) return [];
+    const hash = crypto
+      .createHash("md5")
+      .update(workspaceFolderPath)
+      .digest("hex");
+    const key = `backup_blacklist_${hash}`;
+    const stored = await this._storageManager.get(key);
+    if (!stored) return [];
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return [];
+    }
+  }
+
+  private async addToBackupBlacklist(
+    workspaceFolderPath: string,
+    pathToAdd: string,
+  ): Promise<void> {
+    if (!this._storageManager) return;
+    const blacklist = await this.getBackupBlacklist(workspaceFolderPath);
+
+    // 1. Remove any negations for this path or its descendants
+    let updatedBlacklist = blacklist.filter(
+      (p) => p !== "!" + pathToAdd && !p.startsWith("!" + pathToAdd + "/"),
+    );
+
+    // 2. Check if it's still blacklisted
+    const currentlyBlacklisted = BackupManager.isBlacklisted(
+      pathToAdd,
+      updatedBlacklist,
+    );
+
+    if (!currentlyBlacklisted) {
+      // 3. Remove any existing entries that are sub-paths of the new path (redundant)
+      updatedBlacklist = updatedBlacklist.filter(
+        (p) => !p.startsWith(pathToAdd + "/"),
+      );
+      // 4. Add the new path
+      updatedBlacklist.push(pathToAdd);
+    }
+
+    const hash = crypto
+      .createHash("md5")
+      .update(workspaceFolderPath)
+      .digest("hex");
+    const key = `backup_blacklist_${hash}`;
+    await this._storageManager.set(key, JSON.stringify(updatedBlacklist));
+  }
+
+  private async removeFromBackupBlacklist(
+    workspaceFolderPath: string,
+    pathToRemove: string,
+  ): Promise<void> {
+    if (!this._storageManager) return;
+    const blacklist = await this.getBackupBlacklist(workspaceFolderPath);
+
+    // 1. Remove explicit entries for this path or its descendants
+    let updatedBlacklist = blacklist.filter(
+      (p) => p !== pathToRemove && !p.startsWith(pathToRemove + "/"),
+    );
+
+    // 2. Check if it's still blacklisted (inherited from parent)
+    const stillBlacklisted = BackupManager.isBlacklisted(
+      pathToRemove,
+      updatedBlacklist,
+    );
+
+    if (stillBlacklisted) {
+      // 3. Add a negation pattern for this exception
+      updatedBlacklist.push("!" + pathToRemove);
+    } else {
+      // 4. If not blacklisted anymore, we might also want to remove any negations for its descendants
+      // because they are now implicitly whitelisted.
+      updatedBlacklist = updatedBlacklist.filter(
+        (p) => !p.startsWith("!" + pathToRemove + "/"),
+      );
+    }
+
+    if (JSON.stringify(updatedBlacklist) !== JSON.stringify(blacklist)) {
+      const hash = crypto
+        .createHash("md5")
+        .update(workspaceFolderPath)
+        .digest("hex");
+      const key = `backup_blacklist_${hash}`;
+      await this._storageManager.set(key, JSON.stringify(updatedBlacklist));
+    }
   }
 
   private stopBackupFileWatcher(): void {
@@ -1326,6 +1438,89 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         }
       } else if (message.command === "confirmBackupLargeFile") {
         // ... (existing code)
+      } else if (message.command === "getBackupBlacklist") {
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+          const blacklist = await this.getBackupBlacklist(
+            workspaceFolder.uri.fsPath,
+          );
+          webviewView.webview.postMessage({
+            command: "backupBlacklistResult",
+            requestId: message.requestId,
+            blacklist,
+          });
+        } catch (error) {
+          console.error("Failed to get backup blacklist:", error);
+        }
+      } else if (message.command === "getWorkspaceTree") {
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+          const rootPath = workspaceFolder.uri.fsPath;
+          const rawTree = await this._contextManager.getRawFileTree();
+
+          // Convert all paths in tree to relative
+          const normalizeTree = (node: any): any => {
+            return {
+              ...node,
+              path: path.relative(rootPath, node.path).replace(/\\/g, "/"),
+              children: node.children?.map(normalizeTree),
+            };
+          };
+
+          const tree = rawTree ? normalizeTree(rawTree) : null;
+
+          webviewView.webview.postMessage({
+            command: "workspaceTreeResult",
+            requestId: message.requestId,
+            tree,
+          });
+        } catch (error) {
+          console.error("Failed to get workspace tree:", error);
+        }
+      } else if (message.command === "addToBackupBlacklist") {
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+          const rootPath = workspaceFolder.uri.fsPath;
+          let pathToAdd = message.path;
+          if (path.isAbsolute(pathToAdd)) {
+            pathToAdd = path.relative(rootPath, pathToAdd);
+          }
+          pathToAdd = pathToAdd.replace(/\\/g, "/");
+
+          await this.addToBackupBlacklist(rootPath, pathToAdd);
+          const blacklist = await this.getBackupBlacklist(rootPath);
+          webviewView.webview.postMessage({
+            command: "backupBlacklistResult",
+            requestId: message.requestId,
+            blacklist,
+          });
+        } catch (error) {
+          console.error("Failed to add to backup blacklist:", error);
+        }
+      } else if (message.command === "removeFromBackupBlacklist") {
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) return;
+          const rootPath = workspaceFolder.uri.fsPath;
+          let pathToRemove = message.path;
+          if (path.isAbsolute(pathToRemove)) {
+            pathToRemove = path.relative(rootPath, pathToRemove);
+          }
+          pathToRemove = pathToRemove.replace(/\\/g, "/");
+
+          await this.removeFromBackupBlacklist(rootPath, pathToRemove);
+          const blacklist = await this.getBackupBlacklist(rootPath);
+          webviewView.webview.postMessage({
+            command: "backupBlacklistResult",
+            requestId: message.requestId,
+            blacklist,
+          });
+        } catch (error) {
+          console.error("Failed to remove from backup blacklist:", error);
+        }
       } else if (message.command === "revertToSnapshot") {
         // 🆕 Revert/Restore file from snapshot
         try {

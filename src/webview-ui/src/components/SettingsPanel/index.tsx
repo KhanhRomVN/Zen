@@ -1,5 +1,6 @@
 import React from "react";
 import { LanguageSelector } from "./LanguageSelector";
+import BlacklistManager from "./BlacklistManager";
 import { useSettings } from "../../context/SettingsContext";
 
 interface SettingsPanelProps {
@@ -163,6 +164,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             Interface and AI response language.
           </span>
         </div>
+
+        <div className="h-[1px] bg-[var(--border-color)] my-2" />
+
+        <BlacklistManager />
       </div>
     </div>
   );

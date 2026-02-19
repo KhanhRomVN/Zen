@@ -180,10 +180,16 @@ export class BackupManager {
     conversationId: string,
     absoluteFilePath: string,
     unconfirmed?: boolean,
+    blacklist: string[] = [],
   ): Promise<void> {
     const backupFolder = this.getBackupFolderPath(conversationId);
     const metadataPath = path.join(backupFolder, "metadata.json");
     const relativePath = this.getRelativePath(absoluteFilePath);
+
+    // 🆕 Check blacklist
+    if (BackupManager.isBlacklisted(relativePath, blacklist)) {
+      return;
+    }
 
     try {
       // Read metadata
@@ -319,6 +325,31 @@ export class BackupManager {
   }
 
   /**
+   * Check if a path is blacklisted
+   */
+  public static isBlacklisted(filePath: string, blacklist: string[]): boolean {
+    const normalizedPath = filePath.replace(/\\/g, "/");
+
+    let blacklisted = false;
+    for (const pattern of blacklist) {
+      const isNegation = pattern.startsWith("!");
+      const actualPattern = (isNegation ? pattern.slice(1) : pattern).replace(
+        /\\/g,
+        "/",
+      );
+
+      const matches =
+        normalizedPath === actualPattern ||
+        normalizedPath.startsWith(actualPattern + "/");
+
+      if (matches) {
+        blacklisted = !isNegation;
+      }
+    }
+    return blacklisted;
+  }
+
+  /**
    * Check if a file should be ignored from backup (temporary, system, or binary junk)
    */
   public static isIgnoredFile(filePath: string): boolean {
@@ -379,9 +410,18 @@ export class BackupManager {
       | "file_deleted"
       | "initial_state",
     unconfirmed?: boolean,
+    blacklist: string[] = [],
   ): Promise<void> {
     if (!this.workspaceRoot) {
       throw new Error("Workspace root not set");
+    }
+
+    const relativePath = this.getRelativePath(absoluteFilePath);
+
+    // 🆕 Check blacklist
+    if (BackupManager.isBlacklisted(relativePath, blacklist)) {
+      console.log(`[BackupManager] Skipping blacklisted file: ${relativePath}`);
+      return;
     }
 
     // 🆕 Check if file should be ignored
