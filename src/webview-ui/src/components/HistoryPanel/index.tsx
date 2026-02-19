@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { ConversationItem } from "./types";
+import React, { useCallback } from "react";
 import HistoryCard from "./HistoryCard";
 import {
   ChevronRight,
@@ -10,6 +9,7 @@ import {
   Trash2,
   ArrowUpDown,
 } from "lucide-react";
+import { useConversationHistory } from "../../hooks/useConversationHistory";
 
 interface HistoryPanelProps {
   isOpen: boolean;
@@ -26,147 +26,17 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
   onClose,
   onLoadConversation,
 }) => {
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedSort, setSelectedSort] = useState<"recent" | "oldest">(
-    "recent",
-  );
-
-  // Load conversations when panel opens
-  useEffect(() => {
-    if (isOpen) {
-      loadConversations();
-    }
-  }, [isOpen]);
-
-  // Listen for confirmation responses from extension
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.command === "deleteConfirmed" && message.conversationId) {
-        // Delete the conversation
-        // [TODO] Send delete command to extension instead of window.storage
-        // For now, let's assume extension handles deletion or we add a command for it
-        const vscodeApi = (window as any).vscodeApi;
-        if (vscodeApi) {
-          vscodeApi.postMessage({
-            command: "deleteConversation",
-            conversationId: message.conversationId,
-          });
-        }
-      } else if (message.command === "deleteConversationResult") {
-        // Update UI on successful delete
-        if (message.success) {
-          setConversations((prev) =>
-            prev.filter((c) => c.id !== message.conversationId),
-          );
-        }
-      } else if (message.command === "clearAllConfirmed") {
-        const vscodeApi = (window as any).vscodeApi;
-        if (vscodeApi) {
-          vscodeApi.postMessage({ command: "deleteAllConversations" });
-        }
-      } else if (message.command === "deleteAllConversationsResult") {
-        if (message.success) {
-          setConversations([]);
-        }
-      } else if (message.command === "historyResult") {
-        if (message.history) {
-          setConversations(message.history);
-        } else if (message.error) {
-          console.error(
-            "[HistoryPanel] Received error from extension:",
-            message.error,
-          );
-        }
-        setIsLoading(false);
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, []);
-
-  const loadConversations = async () => {
-    setIsLoading(true);
-    const vscodeApi = (window as any).vscodeApi;
-    if (vscodeApi) {
-      const requestId = `hist-${Date.now()}`;
-      vscodeApi.postMessage({
-        command: "getHistory",
-        requestId: requestId,
-      });
-
-      // Safety timeout if extension doesn't respond
-      setTimeout(() => {
-        setIsLoading((currentIsLoading) => {
-          if (currentIsLoading) {
-            console.warn("[HistoryPanel] Timeout waiting for historyResult");
-            return false;
-          }
-          return currentIsLoading;
-        });
-      }, 5000);
-    } else {
-      console.error("[HistoryPanel] vscodeApi not available");
-      setIsLoading(false);
-    }
-  };
-
-  const filteredConversations = conversations
-    .filter(
-      (item) =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.preview.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
-    .sort((a, b) => {
-      if (selectedSort === "recent") {
-        return b.lastModified - a.lastModified;
-      } else {
-        return a.lastModified - b.lastModified;
-      }
-    });
-
-  const handleDeleteConversation = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Use VS Code API for confirmation
-    const vscodeApi = (window as any).vscodeApi;
-    if (vscodeApi) {
-      vscodeApi.postMessage({
-        command: "confirmDelete",
-        conversationId: id,
-      });
-    } else {
-      // Fallback: just delete without confirmation
-      try {
-        await window.storage.delete(id, false);
-        setConversations((prev) => prev.filter((c) => c.id !== id));
-      } catch (error) {
-        console.error("[HistoryPanel] Error deleting conversation:", error);
-      }
-    }
-  };
-
-  const handleClearAll = async () => {
-    // Use VS Code API for confirmation
-    const vscodeApi = (window as any).vscodeApi;
-    if (vscodeApi) {
-      vscodeApi.postMessage({
-        command: "confirmClearAll",
-      });
-    } else {
-      // Fallback: just clear without confirmation
-      try {
-        for (const conv of conversations) {
-          await window.storage.delete(conv.id, false);
-        }
-        setConversations([]);
-      } catch (error) {
-        console.error("[HistoryPanel] Error clearing all:", error);
-      }
-    }
-  };
+  const {
+    conversations,
+    totalCount,
+    isLoading,
+    searchQuery,
+    setSearchQuery,
+    selectedSort,
+    setSelectedSort,
+    deleteConversation,
+    clearAllHistory,
+  } = useConversationHistory(isOpen);
 
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
@@ -187,6 +57,14 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
       year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
     });
   };
+
+  const handleDeleteConversation = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      deleteConversation(id);
+    },
+    [deleteConversation],
+  );
 
   if (!isOpen) return null;
 
@@ -255,10 +133,9 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               fontWeight: 500,
             }}
           >
-            {conversations.length}
+            {totalCount}
           </span>
         </div>
-
         <button
           onClick={onClose}
           style={{
@@ -270,19 +147,13 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
             cursor: "pointer",
             transition: "background-color 0.2s ease",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "transparent";
-          }}
           title="Close History"
         >
           <ChevronRight style={{ width: "16px", height: "16px" }} />
         </button>
       </div>
 
-      {/* Search & Filter Bar */}
+      {/* Search & Filter */}
       <div
         style={{
           padding: "var(--spacing-md)",
@@ -312,12 +183,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               color: "var(--primary-text)",
               outline: "none",
             }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = "var(--accent-text)";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = "var(--border-color)";
-            }}
           />
           <Search
             style={{
@@ -331,7 +196,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
             }}
           />
         </div>
-
         <div
           style={{
             display: "flex",
@@ -351,20 +215,8 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               fontSize: "var(--font-size-xs)",
               color: "var(--secondary-text)",
               backgroundColor: "transparent",
-              border: "1px solid transparent",
-              borderRadius: "var(--border-radius)",
+              border: "none",
               cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "var(--primary-text)";
-              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-              e.currentTarget.style.borderColor = "var(--border-color)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "var(--secondary-text)";
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.borderColor = "transparent";
             }}
           >
             <ArrowUpDown style={{ width: "12px", height: "12px" }} />
@@ -372,10 +224,9 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               {selectedSort === "recent" ? "Newest first" : "Oldest first"}
             </span>
           </button>
-
-          {conversations.length > 0 && (
+          {totalCount > 0 && (
             <button
-              onClick={handleClearAll}
+              onClick={clearAllHistory}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -385,15 +236,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 color: "var(--error-color)",
                 backgroundColor: "transparent",
                 border: "none",
-                borderRadius: "var(--border-radius)",
                 cursor: "pointer",
-                transition: "background-color 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = "#f4433610";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
               }}
             >
               <Trash2 style={{ width: "12px", height: "12px" }} />
@@ -403,14 +246,8 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </div>
       </div>
 
-      {/* Conversations List */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "var(--spacing-md)",
-        }}
-      >
+      {/* List */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "var(--spacing-md)" }}>
         {isLoading ? (
           <div
             style={{
@@ -435,7 +272,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               Loading conversations...
             </span>
           </div>
-        ) : filteredConversations.length === 0 ? (
+        ) : conversations.length === 0 ? (
           <div
             style={{
               display: "flex",
@@ -448,11 +285,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
             }}
           >
             <FolderOpen
-              style={{
-                width: "40px",
-                height: "40px",
-                opacity: 0.2,
-              }}
+              style={{ width: "40px", height: "40px", opacity: 0.2 }}
             />
             <div style={{ textAlign: "center" }}>
               <h3
@@ -488,19 +321,12 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               gap: "var(--spacing-sm)",
             }}
           >
-            {filteredConversations.map((item) => (
+            {conversations.map((item) => (
               <HistoryCard
                 key={item.id}
                 item={item}
                 onClick={() => {
-                  if (onLoadConversation) {
-                    onLoadConversation(item.id, item.tabId, item.folderPath);
-                  } else {
-                    console.error(
-                      "[HistoryPanel] ❌ onLoadConversation not available",
-                    );
-                    onClose();
-                  }
+                  onLoadConversation?.(item.id, item.tabId, item.folderPath);
                 }}
                 onDelete={handleDeleteConversation}
                 formatDate={formatDate}
@@ -510,18 +336,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         )}
       </div>
 
-      <style>
-        {`
-          @keyframes spin {
-            from {
-              transform: rotate(0deg);
-            }
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}
-      </style>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };

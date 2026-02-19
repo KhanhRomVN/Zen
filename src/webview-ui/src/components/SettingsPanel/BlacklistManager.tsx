@@ -1,99 +1,35 @@
-import React, { useState, useEffect } from "react";
-import { ChevronRight, ChevronDown, ListFilter, Info, Ban } from "lucide-react";
+import React, { useState, useCallback } from "react";
+import { ChevronRight, ChevronDown, ListFilter, Info } from "lucide-react";
 import { getFileIconPath, getFolderIconPath } from "../../utils/fileIconMapper";
+import { useBlacklistManager, TreeNode } from "../../hooks/useBlacklistManager";
 
 interface BlacklistManagerProps {
   className?: string;
 }
 
-interface TreeNode {
-  name: string;
-  type: "file" | "directory";
-  path: string; // Relative path
-  children?: TreeNode[];
-}
-
 const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
-  const [blacklist, setBlacklist] = useState<string[]>([]);
-  const [treeData, setTreeData] = useState<TreeNode | null>(null);
+  const {
+    blacklist,
+    treeData,
+    isLoading,
+    fetchData,
+    toggleBlacklist,
+    checkIsBlacklisted,
+  } = useBlacklistManager();
+
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
-  const [isLoading, setIsLoading] = useState(false);
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.command === "backupBlacklistResult") {
-        setBlacklist(message.blacklist || []);
-        setIsLoading(false);
-      } else if (message.command === "workspaceTreeResult") {
-        setTreeData(message.tree);
-        setIsLoading(false);
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+  const toggleExpanded = useCallback((path: string) => {
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
   }, []);
-
-  const checkIsBlacklisted = (filePath: string) => {
-    const normalizedPath = filePath.replace(/\\/g, "/");
-    let blacklisted = false;
-    for (const pattern of blacklist) {
-      const isNegation = pattern.startsWith("!");
-      const actualPattern = (isNegation ? pattern.slice(1) : pattern).replace(
-        /\\/g,
-        "/",
-      );
-      if (
-        normalizedPath === actualPattern ||
-        normalizedPath.startsWith(actualPattern + "/")
-      ) {
-        blacklisted = !isNegation;
-      }
-    }
-    return blacklisted;
-  };
-
-  const fetchData = () => {
-    setIsLoading(true);
-    const vscode = (window as any).vscodeApi;
-    if (vscode) {
-      vscode.postMessage({ command: "getBackupBlacklist" });
-      vscode.postMessage({ command: "getWorkspaceTree" });
-    }
-  };
-
-  const toggleBlacklist = (path: string, isBlacklisted: boolean) => {
-    const vscode = (window as any).vscodeApi;
-    if (vscode) {
-      if (isBlacklisted) {
-        vscode.postMessage({
-          command: "removeFromBackupBlacklist",
-          path,
-        });
-      } else {
-        vscode.postMessage({
-          command: "addToBackupBlacklist",
-          path,
-        });
-      }
-    }
-  };
-
-  const toggleExpanded = (path: string) => {
-    const newSet = new Set(expandedFolders);
-    if (newSet.has(path)) {
-      newSet.delete(path);
-    } else {
-      newSet.add(path);
-    }
-    setExpandedFolders(newSet);
-  };
 
   const renderNode = (node: TreeNode, depth: number = 0) => {
     const isBlacklisted = checkIsBlacklisted(node.path);
@@ -131,10 +67,8 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
           }}
           title={
             isBlacklisted
-              ? `Blacklisted ${isExplicitBlacklisted ? "(Explicit)" : "(Inherited)"}. Right-click to remove/exclude.`
-              : isExplicitNegation
-                ? "Whitelisted (Excluded from parental blacklist). Right-click to blacklist again."
-                : "Normal. Right-click to blacklist."
+              ? `Blacklisted. Right-click to remove/exclude.`
+              : "Normal. Right-click to blacklist."
           }
         >
           <div
@@ -152,7 +86,6 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
                 <ChevronRight size={14} />
               ))}
           </div>
-
           <div
             style={{
               marginRight: "6px",
@@ -174,7 +107,6 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
               />
             )}
           </div>
-
           <span
             style={{
               overflow: "hidden",
@@ -189,7 +121,6 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
           >
             {node.name}
           </span>
-
           {isBlacklisted && (
             <span
               style={{
@@ -228,7 +159,6 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
             </span>
           )}
         </div>
-
         {isDirectory && isExpanded && node.children && (
           <div>
             {node.children.map((child) => renderNode(child, depth + 1))}
@@ -250,18 +180,16 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
           justifyContent: "space-between",
         }}
       >
-        <div
+        <h3
           style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
+            fontSize: "14px",
+            fontWeight: 600,
+            margin: 0,
             color: "var(--vscode-settings-headerForeground)",
           }}
         >
-          <h3 style={{ fontSize: "14px", fontWeight: 600, margin: 0 }}>
-            Backup Blacklist
-          </h3>
-        </div>
+          Backup Blacklist
+        </h3>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <span
             style={{
@@ -285,7 +213,7 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
               display: "flex",
               padding: "2px",
             }}
-            title="Refresh workspace tree"
+            title="Refresh"
           >
             <svg
               width="14"
@@ -302,7 +230,6 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
           </button>
         </div>
       </div>
-
       <div
         style={{
           display: "flex",
@@ -324,7 +251,6 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
           Right-click on File/Folder to toggle Blacklist.
         </span>
       </div>
-
       <div
         style={{
           border: "1px solid var(--vscode-settings-textInputBorder)",
@@ -334,7 +260,6 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
           maxHeight: "500px",
           overflow: "auto",
           padding: "4px",
-          scrollbarWidth: "thin",
         }}
       >
         {isLoading && !treeData ? (
@@ -373,18 +298,6 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
           </div>
         )}
       </div>
-
-      <p
-        style={{
-          fontSize: "11px",
-          color: "var(--vscode-descriptionForeground)",
-          fontStyle: "italic",
-          lineHeight: "1.4",
-          margin: 0,
-        }}
-      >
-        Selected items (in red) will not be backed up when changes occur.
-      </p>
     </div>
   );
 };

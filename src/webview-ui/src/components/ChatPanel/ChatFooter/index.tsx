@@ -85,6 +85,12 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   const [showProjectContextModal, setShowProjectContextModal] = useState(false);
   const [isBlacklistDrawerOpen, setIsBlacklistDrawerOpen] = useState(false);
   const [projectContext, setProjectContext] = useState<any>(null); // Use proper type if available
+  const [agentPermissions, setAgentPermissions] = useState({
+    allowFileRead: true,
+    allowFileEdit: false,
+    allowFileAdd: false,
+    allowCommandExecution: false,
+  });
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mentionDropdownRef = useRef<HTMLDivElement>(null);
@@ -193,7 +199,14 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   // Handle Send Message
   const handleSend = (model: any, account: any, thinking?: boolean) => {
     if (message.trim() || uploadedFiles.length > 0) {
-      // Send permissions update to extension - REMOVED
+      // Sync permissions with extension
+      const vscodeApi = (window as any).vscodeApi;
+      if (vscodeApi) {
+        vscodeApi.postMessage({
+          command: "updateAgentPermissions",
+          permissions: agentPermissions,
+        });
+      }
 
       onSendMessage(
         message,
@@ -405,6 +418,8 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         onToggleBlacklistDrawer={() =>
           setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen)
         }
+        agentPermissions={agentPermissions}
+        onUpdateAgentPermissions={setAgentPermissions}
       />
 
       <MentionDropdowns

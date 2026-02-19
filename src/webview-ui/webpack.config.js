@@ -48,9 +48,10 @@ module.exports = {
             options: {
               esModule: false,
               sourceMap: false,
-              importLoaders: 0,
+              importLoaders: 1,
             },
           },
+          "postcss-loader",
         ],
       },
       {

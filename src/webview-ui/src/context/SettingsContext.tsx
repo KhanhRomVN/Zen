@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { extensionService } from "../services/ExtensionService";
 
 interface SettingsContextType {
   language: string;
@@ -18,39 +19,35 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
 
   useEffect(() => {
-    const storage = (window as any).storage;
-    if (storage) {
-      storage.get("zen_preferred_language").then((res: any) => {
-        if (
-          res?.value &&
-          typeof res.value === "string" &&
-          res.value.length < 10
-        ) {
-          setLanguageState(res.value);
-        }
-      });
-      storage.get("backend-api-url").then((res: any) => {
-        if (res?.value) {
-          setApiUrlState(res.value);
-        }
-      });
-    }
+    const storage = extensionService.getStorage();
+
+    storage.get("zen_preferred_language").then((res: any) => {
+      if (
+        res?.value &&
+        typeof res.value === "string" &&
+        res.value.length < 10
+      ) {
+        setLanguageState(res.value);
+      }
+    });
+
+    storage.get("backend-api-url").then((res: any) => {
+      if (res?.value) {
+        setApiUrlState(res.value);
+      }
+    });
   }, []);
 
   const setLanguage = (lang: string) => {
     setLanguageState(lang);
-    const storage = (window as any).storage;
-    if (storage) {
-      storage.set("zen_preferred_language", lang);
-    }
+    const storage = extensionService.getStorage();
+    storage.set("zen_preferred_language", lang);
   };
 
   const setApiUrl = (url: string) => {
     setApiUrlState(url);
-    const storage = (window as any).storage;
-    if (storage) {
-      storage.set("backend-api-url", url);
-    }
+    const storage = extensionService.getStorage();
+    storage.set("backend-api-url", url);
   };
 
   return (

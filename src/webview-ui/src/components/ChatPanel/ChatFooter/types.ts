@@ -45,7 +45,7 @@ export interface ChatFooterProps {
     actionIds?: string[],
     uiHidden?: boolean,
     thinking?: boolean,
-  ) => void;
+  ) => void | Promise<void>;
   isHistoryMode?: boolean;
   messages: any[];
   onToggleTaskDrawer?: () => void;

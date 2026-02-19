@@ -56,7 +56,16 @@ export interface ChatBodyProps {
   messages: Message[];
   isProcessing: boolean;
   onSendToolRequest?: (action: ToolAction, message: Message) => void;
-  onSendMessage?: (content: string) => void;
+  onSendMessage?: (
+    content: string,
+    files?: any[],
+    model?: any,
+    account?: any,
+    skipFirstRequestLogic?: boolean,
+    actionIds?: string[],
+    uiHidden?: boolean,
+    thinking?: boolean,
+  ) => void | Promise<void>;
 
   firstRequestMessageId?: string; // ID of the first request message to skip rendering
   executionState?: {
@@ -73,4 +82,6 @@ export interface ChatBodyProps {
     tabId: number,
     folderPath: string | null,
   ) => void;
+  checkpoints?: any[]; // Using any[] to avoid circular or complex import for now, but should ideally use the defined Checkpoint
+  onRevertCheckpoint?: (checkpoint: any) => void;
 }

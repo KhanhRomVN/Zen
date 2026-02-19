@@ -10,6 +10,8 @@ import ToolActionsList from "./ToolActions/index";
 import HtmlPreview from "./HtmlPreview";
 import FileIcon from "../../../common/FileIcon";
 import { isDiff, parseDiff } from "../../../../utils/diffUtils";
+import { Checkpoint } from "../../types";
+import { extensionService } from "../../../../services/ExtensionService";
 
 interface MessageBoxProps {
   message: Message;
@@ -29,6 +31,8 @@ interface MessageBoxProps {
   clearedActions?: Set<string>;
   onActionClear?: (actionId: string) => void;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  checkpoints?: Checkpoint[];
+  onRevertCheckpoint?: (checkpoint: Checkpoint) => void;
 }
 
 const MessageBox: React.FC<MessageBoxProps> = ({
@@ -45,6 +49,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   clearedActions,
   onActionClear,
   toolOutputs,
+  checkpoints = [],
+  onRevertCheckpoint,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
@@ -305,6 +311,58 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   prefix={prefix}
                   statusColor={statusColor}
                 />
+                {(() => {
+                  const cp = checkpoints.find(
+                    (c) => c.messageId === message.id,
+                  );
+                  if (!cp) return null;
+                  return (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        marginTop: "4px",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <button
+                        onClick={() => onRevertCheckpoint?.(cp)}
+                        style={{
+                          fontSize: "10px",
+                          padding: "2px 6px",
+                          backgroundColor:
+                            "var(--vscode-button-secondaryBackground)",
+                          color: "var(--vscode-button-secondaryForeground)",
+                          border: "none",
+                          borderRadius: "2px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Revert Change
+                      </button>
+                      <button
+                        onClick={() => {
+                          extensionService.postMessage({
+                            command: "openDiffView",
+                            filePath: cp.filePath,
+                            newCode: cp.preEditContent,
+                          });
+                        }}
+                        style={{
+                          fontSize: "10px",
+                          padding: "2px 6px",
+                          backgroundColor: "transparent",
+                          color: "var(--vscode-textLink-foreground)",
+                          border: "1px solid var(--vscode-textLink-foreground)",
+                          borderRadius: "2px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        View Diff
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             );
           } else if (group.type === "html") {

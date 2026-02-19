@@ -61,6 +61,14 @@ interface MessageInputProps {
   backupEventCount?: number;
   // 🆕 Blacklist Props
   onToggleBlacklistDrawer?: () => void;
+  // 🆕 Agent Props
+  agentPermissions?: {
+    allowFileRead: boolean;
+    allowFileEdit: boolean;
+    allowFileAdd: boolean;
+    allowCommandExecution: boolean;
+  };
+  onUpdateAgentPermissions?: (permissions: any) => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -104,6 +112,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   hasBackupEvents,
   backupEventCount,
   onToggleBlacklistDrawer,
+  agentPermissions,
+  onUpdateAgentPermissions,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -746,6 +756,90 @@ const MessageInput: React.FC<MessageInputProps> = ({
                       }}
                     />
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* 🆕 Agent Permissions Toggles */}
+            {agentPermissions && (
+              <div style={{ display: "flex", gap: "2px", marginLeft: "4px" }}>
+                <div
+                  style={{
+                    cursor: "pointer",
+                    padding: "var(--spacing-xs)",
+                    borderRadius: "var(--border-radius)",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: agentPermissions.allowFileEdit
+                      ? "var(--accent-color)"
+                      : "var(--secondary-text)",
+                    opacity: agentPermissions.allowFileEdit ? 1 : 0.5,
+                  }}
+                  onClick={() =>
+                    onUpdateAgentPermissions?.({
+                      ...agentPermissions,
+                      allowFileEdit: !agentPermissions.allowFileEdit,
+                      allowFileAdd: !agentPermissions.allowFileEdit,
+                    })
+                  }
+                  title={
+                    agentPermissions.allowFileEdit
+                      ? "File Edits Allowed"
+                      : "File Edits Blocked"
+                  }
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </div>
+                <div
+                  style={{
+                    cursor: "pointer",
+                    padding: "var(--spacing-xs)",
+                    borderRadius: "var(--border-radius)",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: agentPermissions.allowCommandExecution
+                      ? "var(--accent-color)"
+                      : "var(--secondary-text)",
+                    opacity: agentPermissions.allowCommandExecution ? 1 : 0.5,
+                  }}
+                  onClick={() =>
+                    onUpdateAgentPermissions?.({
+                      ...agentPermissions,
+                      allowCommandExecution:
+                        !agentPermissions.allowCommandExecution,
+                    })
+                  }
+                  title={
+                    agentPermissions.allowCommandExecution
+                      ? "Command Execution Allowed"
+                      : "Command Execution Blocked"
+                  }
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
                 </div>
               </div>
             )}

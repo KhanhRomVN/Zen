@@ -7,16 +7,7 @@ interface VSCodeThemeMessage {
   themeVersion?: number;
 }
 
-// Declare global acquireVsCodeApi for TypeScript
-declare global {
-  interface Window {
-    acquireVsCodeApi?: () => {
-      postMessage: (message: any) => void;
-      getState: () => any;
-      setState: (state: any) => void;
-    };
-  }
-}
+import { extensionService } from "../services/ExtensionService";
 
 export const useVSCodeTheme = () => {
   const [themeKind, setThemeKind] = useState<number>(2); // Mặc định dark theme (2)
@@ -42,16 +33,7 @@ export const useVSCodeTheme = () => {
     window.addEventListener("message", handleMessage);
 
     // Request theme immediately on mount
-    const vscode = (window as any).vscodeApi;
-    if (vscode) {
-      try {
-        vscode.postMessage({ command: "requestTheme" });
-      } catch (error) {
-        console.error("[useVSCodeTheme] Failed to request theme:", error);
-      }
-    } else {
-      console.warn("[useVSCodeTheme] vscodeApi not available");
-    }
+    extensionService.postMessage({ command: "requestTheme" });
 
     return () => {
       window.removeEventListener("message", handleMessage);
