@@ -265,6 +265,16 @@ export class ProcessManager {
       if (entry.name !== currentName) {
         entry.name = currentName;
         entry.pty.updateTitle(currentName);
+
+        // Force VS Code to update the terminal name in its UI
+        // We use 'show(true)' to target the terminal without stealing focus
+        entry.terminal.show(true);
+        vscode.commands.executeCommand(
+          "workbench.action.terminal.renameWithArg",
+          {
+            name: currentName,
+          },
+        );
       }
 
       return {
