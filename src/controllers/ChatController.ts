@@ -162,8 +162,29 @@ export class ChatController {
         case "executeCommand":
           await this.handleExecuteCommand(message, webviewView);
           break;
+        case "listTerminals":
+          await this.handleListTerminals(message, webviewView);
+          break;
+        case "closeTerminal":
+          await this.handleCloseTerminal(message, webviewView);
+          break;
+        case "focusTerminal":
+          await this.handleFocusTerminal(message, webviewView);
+          break;
+        case "sendInterrupt":
+          await this.handleSendInterrupt(message, webviewView);
+          break;
+        case "sendTerminalInput":
+          await this.handleSendTerminalInput(message, webviewView);
+          break;
         case "stopCommand":
           await this.handleStopCommand(message);
+          break;
+        case "openInteractiveTerminal":
+          await this.handleOpenInteractiveTerminal(message, webviewView);
+          break;
+        case "getTerminalOutput":
+          await this.handleGetTerminalOutput(message, webviewView);
           break;
         case "openPreview":
           await this.handleOpenPreview(message);
@@ -1505,7 +1526,12 @@ export class ChatController {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
     this.processManager
-      .start(message.actionId, message.commandText, workspaceFolder.uri.fsPath)
+      .start(
+        message.actionId,
+        message.commandText,
+        workspaceFolder.uri.fsPath,
+        message.terminalId,
+      )
       .then((result) => {
         webviewView.webview.postMessage({
           command: "commandExecuted",
@@ -1515,7 +1541,149 @@ export class ChatController {
           commandText: message.commandText,
         });
       });
-    vscode.window.showInformationMessage(`Executing: ${message.commandText}`);
+  }
+
+  private async handleListTerminals(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const terminals = this.processManager.list();
+      webviewView.webview.postMessage({
+        command: "listTerminalsResult",
+        requestId: message.requestId,
+        terminals,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "listTerminalsResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  private async handleCloseTerminal(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      this.processManager.close(message.terminalId);
+      webviewView.webview.postMessage({
+        command: "closeTerminalResult",
+        requestId: message.requestId,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "closeTerminalResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  private async handleOpenInteractiveTerminal(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      const cwd = workspaceFolder?.uri.fsPath || os.homedir();
+      const result = await this.processManager.startInteractive(
+        cwd,
+        message.terminalId,
+      );
+      webviewView.webview.postMessage({
+        command: "openInteractiveTerminalResult",
+        requestId: message.requestId,
+        terminalId: result.id,
+        name: result.name,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "openInteractiveTerminalResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  private async handleGetTerminalOutput(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const output = this.processManager.getOutput(message.terminalId);
+      webviewView.webview.postMessage({
+        command: "getTerminalOutputResult",
+        requestId: message.requestId,
+        terminalId: message.terminalId,
+        output,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "getTerminalOutputResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  private async handleFocusTerminal(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      this.processManager.focus(message.terminalId);
+      webviewView.webview.postMessage({
+        command: "focusTerminalResult",
+        requestId: message.requestId,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "focusTerminalResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  private async handleSendInterrupt(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      this.processManager.interrupt(message.terminalId);
+      webviewView.webview.postMessage({
+        command: "sendInterruptResult",
+        requestId: message.requestId,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "sendInterruptResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  private async handleSendTerminalInput(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      this.processManager.sendInput(message.terminalId, message.text);
+      webviewView.webview.postMessage({
+        command: "sendTerminalInputResult",
+        requestId: message.requestId,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "sendTerminalInputResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
   }
 
   private async handleStopCommand(message: any) {

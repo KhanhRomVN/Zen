@@ -23,6 +23,12 @@ export interface ToolAction {
     | "execute_command"
     | "list_files"
     | "search_files"
+    | "execute_command"
+    | "list_terminals"
+    | "close_terminal"
+    | "focus_terminal"
+    | "send_interrupt"
+    | "send_terminal_input"
     | "ask_followup_question"
     | "attempt_completion"
     | "update_codebase_context";
@@ -153,11 +159,22 @@ const parseToolAction = (
 
     case "execute_command":
       params.command = extractParamValue(innerContent, "command");
-      const requiresApproval = extractParamValue(
-        innerContent,
-        "requires_approval",
-      );
-      params.requires_approval = requiresApproval === "true";
+      params.terminal_id = extractParamValue(innerContent, "terminal_id");
+      break;
+
+    case "list_terminals":
+      // No params
+      break;
+
+    case "close_terminal":
+    case "focus_terminal":
+    case "send_interrupt":
+      params.terminal_id = extractParamValue(innerContent, "terminal_id");
+      break;
+
+    case "send_terminal_input":
+      params.terminal_id = extractParamValue(innerContent, "terminal_id");
+      params.text = extractParamValue(innerContent, "text");
       break;
 
     case "list_files":
@@ -315,6 +332,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "execute_command",
     "list_files",
     "search_files",
+    "execute_command",
+    "list_terminals",
+    "close_terminal",
+    "focus_terminal",
+    "send_interrupt",
+    "send_terminal_input",
     "ask_followup_question",
     "attempt_completion",
     "update_codebase_context",
@@ -339,11 +362,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         closingTagPattern = "read_files?";
       }
 
+      // Support both <tool>content</tool> and <tool />
       const regex = new RegExp(
-        `<${toolName}>([\\s\\S]*?)<\\/${closingTagPattern}>`,
+        `<${toolName}(?:\\s+[^>]*)?\\s*(?:>([\\s\\S]*?)<\\/${closingTagPattern}\\s*>|\\/>)`,
         "i",
       );
-      // regex.exec(str) always returns the first match
       const match = regex.exec(str);
 
       if (match) {
@@ -468,10 +491,25 @@ export const formatActionForDisplay = (action: ToolAction): string => {
       return `replace_in_file: ${action.params.path || "unknown"}`;
 
     case "execute_command":
-      const approval = action.params.requires_approval
-        ? " (requires approval)"
+      const termId = action.params.terminal_id
+        ? ` (terminal: ${action.params.terminal_id})`
         : "";
-      return `execute_command: ${action.params.command || "unknown"}`;
+      return `execute_command: ${action.params.command || "unknown"}${termId}`;
+
+    case "list_terminals":
+      return `list_terminals`;
+
+    case "close_terminal":
+      return `close_terminal: ${action.params.terminal_id || "unknown"}`;
+
+    case "focus_terminal":
+      return `focus_terminal: ${action.params.terminal_id || "unknown"}`;
+
+    case "send_interrupt":
+      return `send_interrupt: ${action.params.terminal_id || "unknown"}`;
+
+    case "send_terminal_input":
+      return `send_terminal_input: ${action.params.terminal_id || "unknown"}`;
 
     case "list_files":
       const type = action.params.type ? ` [${action.params.type}]` : "";

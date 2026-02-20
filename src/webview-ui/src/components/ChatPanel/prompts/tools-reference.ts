@@ -3,14 +3,14 @@ export const TOOLS_REFERENCE = `# TOOLS REFERENCE
 ## File Operations
 
 \`\`\`
-read_file(path, start_line?, end_line?)
+read_file(file_path, start_line?, end_line?)
   → Read file content. MUST stop response after calling if you need content for edits.
 
-write_to_file(path, content)
+write_to_file(file_path, content)
   → Create new file or completely overwrite existing.
   → Use for: new files, complete rewrites, small files.
 
-replace_in_file(path, diff)
+replace_in_file(file_path, diff)
   → Targeted edit. REQUIRES having read the file in previous turn.
   → Format:
     <<<<<<< SEARCH
@@ -21,11 +21,11 @@ replace_in_file(path, diff)
   → Use for: existing files (default choice), large files, multiple edits in one file.
   → Multiple SEARCH/REPLACE blocks allowed in single call.
 
-list_files(path, recursive?, type?)
+list_files(folder_path, recursive?, type?)
   → List directory contents.
   → Types: 'file' | 'directory' | undefined (both)
 
-search_files(path, regex)
+search_files(folder_path, regex)
   → Find files matching content pattern.
   → Maximum useful attempts: 2
   → After 2 failed searches → ASK user instead of retrying
@@ -34,12 +34,36 @@ search_files(path, regex)
 ## Execution
 
 \`\`\`
-execute_command(command, requires_approval?)
+execute_command(command, terminal_id?)
   → Run shell command.
-  → requires_approval: true (destructive), false (safe read-only)
+  → terminal_id: optional, reuse existing terminal.
+  → Creates new terminal if id is empty/not found.
   → Supports chaining: "cd dir && npm install"
   → MUST run alone (no other tools in same message)
-\`\`\`
+
+list_terminals()
+  → List all active terminal sessions (id, name, state).
+
+close_terminal(terminal_id)
+  → Close a specific terminal session.
+
+focus_terminal(terminal_id)
+  → Bring specific terminal to front/show it.
+
+send_interrupt(terminal_id)
+  → Send Ctrl+C interrupt to a terminal.
+
+send_terminal_input(terminal_id, text)
+  → Send raw input to an active process (for interactive prompts).
+  → Use for: replying to Yes/No, entering passwords, REPL interaction.
+
+open_interactive_terminal(terminal_id?)
+  → Open a persistent shell (bash/zsh) for user interaction.
+  → Use when: user needs to run commands manually, or for long-running monitoring.
+
+get_terminal_output(terminal_id)
+  → Read current buffer/logs from an active terminal.
+  → Use when: need to see real-time logs while process is running.\`\`\`
 
 ## Context Management
 

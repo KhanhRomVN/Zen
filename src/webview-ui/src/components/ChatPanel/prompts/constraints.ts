@@ -11,21 +11,21 @@ export const CONSTRAINTS = `# CRITICAL CONSTRAINTS (Non-Negotiable)
 
 **Example**:
 \`\`\`
-Turn 1: <read_file>app.ts</read_file>  // STOP HERE
-Turn 2: <replace_in_file>app.ts</replace_in_file>  // After receiving content
+Turn 1: <read_file><file_path>app.ts</file_path></read_file>  // STOP HERE
+Turn 2: <replace_in_file><file_path>app.ts</file_path></replace_in_file>  // After receiving content
 \`\`\`
 
 ## C2: BATCH-INDEPENDENT-OPERATIONS
 **Rule**: Group all independent operations into ONE message.
 
 **Allowed in single message**:
-- Multiple reads: \`<read_file>A</read_file><read_file>B</read_file>\`
-- Multiple writes: \`<write_to_file>A</write_to_file><write_to_file>B</write_to_file>\`
-- Multiple replaces: \`<replace_in_file>A</replace_in_file><replace_in_file>B</replace_in_file>\`
-- Mixed operations: \`<list_files/><search_files/><read_file>A</read_file>\`
+- Multiple reads: \`<read_file><file_path>A</file_path></read_file><read_file><file_path>B</file_path></read_file>\`
+- Multiple writes: \`<write_to_file><file_path>A</file_path></write_to_file><write_to_file><file_path>B</file_path></write_to_file>\`
+- Multiple replaces: \`<replace_in_file><file_path>A</file_path></replace_in_file><replace_in_file><file_path>B</file_path></replace_in_file>\`
+- Mixed operations: \`<list_files/><search_files/><read_file><file_path>A</file_path></read_file>\`
 
 **Prohibited**:
-- \`execute_command\` with any other tool (commands must run alone)
+- \`execute_command\` with any other tool (commands must run alone), UNLESS paired with \`list_terminals\` to find an existing session.
 - Operations with dependencies (file A creates B, then C imports B)
 
 ## C3: BYTE-PERFECT-MATCHING
@@ -159,6 +159,13 @@ To add error handling, I need:
 **Example - WRONG (do NOT do this)**:
 \`\`\`xml
 <text>I couldn't find the file, let me try another search...</text>
-<search_files><path>lib</path><regex>api</regex></search_files>
-<search_files><path>services</path><regex>api</regex></search_files>
-\`\`\``;
+<search_files><folder_path>lib</folder_path><regex>api</regex></search_files>
+<search_files><folder_path>services</folder_path><regex>api</regex></search_files>
+\`\`\`
+
+## C8: TERMINAL-LIFECYCLE-MANAGEMENT
+**Rule**: Be responsible for terminal resources.
+**Execution**:
+- Use \`list_terminals()\` to check for reusable sessions before creating new ones.
+- Call \`close_terminal()\` when a long-running process (like a server) is no longer needed for the task.
+- Do NOT leave orphaned terminals running unnecessary processes.`;

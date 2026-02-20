@@ -1,112 +1,321 @@
-import * as cp from "child_process";
+import * as vscode from "vscode";
+import * as pty from "node-pty";
+import * as fs from "fs";
+import * as path from "path";
+import * as os from "os";
+
+class ZenPTY implements vscode.Pseudoterminal {
+  public writeEmitter = new vscode.EventEmitter<string>();
+  onDidWrite: vscode.Event<string> = this.writeEmitter.event;
+  public closeEmitter = new vscode.EventEmitter<number>();
+  onDidClose: vscode.Event<number> = this.closeEmitter.event;
+
+  public ptyProcess: pty.IPty | null = null;
+  public accumulatedOutput = "";
+  public isExecuting = false;
+  public currentCwd: string;
+  public isPersistent: boolean = false;
+  public startTime: number = Date.now();
+  public shellPath: string = "";
+
+  constructor(cwd: string) {
+    this.currentCwd = cwd;
+  }
+
+  open(): void {}
+  close(): void {
+    this.terminate();
+  }
+
+  handleInput(data: string): void {
+    if (this.ptyProcess) {
+      this.ptyProcess.write(data);
+    }
+  }
+
+  updateTitle(title: string) {
+    // Xterm sequence to update terminal title
+    this.writeEmitter.fire(`\x1b]0;${title}\x07`);
+  }
+
+  async execute(
+    command: string,
+  ): Promise<{ output: string; error: string | null }> {
+    if (this.isExecuting) {
+      return { output: "", error: "Terminal is already executing a command" };
+    }
+
+    this.isExecuting = true;
+    this.accumulatedOutput = "";
+
+    // Indicate command start in terminal
+    this.writeEmitter.fire(`\r\n> ${command}\r\n`);
+
+    return new Promise((resolve) => {
+      const shell = os.platform() === "win32" ? "powershell.exe" : "bash";
+
+      this.ptyProcess = pty.spawn(shell, ["-c", command], {
+        name: "xterm-color",
+        cols: 80,
+        rows: 24,
+        cwd: this.currentCwd,
+        env: { ...process.env, FORCE_COLOR: "1" } as any,
+      });
+
+      this.ptyProcess.onData((data) => {
+        this.accumulatedOutput += data;
+        this.writeEmitter.fire(data);
+      });
+
+      this.ptyProcess.onExit(({ exitCode }) => {
+        this.isExecuting = false;
+        resolve({
+          output: this.accumulatedOutput,
+          error: exitCode !== 0 ? `Process exited with code ${exitCode}` : null,
+        });
+        this.ptyProcess = null;
+      });
+    });
+  }
+
+  interrupt() {
+    if (this.ptyProcess) {
+      // node-pty handles signals correctly.
+      // For interactive shell, we usually send Ctrl+C sequence if we want to keep shell alive,
+      // or kill with SIGINT if it's a specific command execution.
+      if (this.isPersistent) {
+        this.ptyProcess.write("\x03");
+      } else {
+        this.ptyProcess.kill("SIGINT");
+      }
+    }
+  }
+
+  terminate() {
+    if (this.ptyProcess) {
+      this.ptyProcess.kill();
+      this.ptyProcess = null;
+    }
+  }
+}
 
 export class ProcessManager {
-  private processes = new Map<
+  private terminalMap = new Map<
     string,
     {
-      process: cp.ChildProcess;
-      output: string;
-      error: string;
-      resolve: (result: { output: string; error: string | null }) => void;
+      terminal: vscode.Terminal;
+      pty: ZenPTY;
+      name: string;
     }
   >();
 
-  start(
+  private nextId = 1;
+  private onTerminalsChangedEmitter = new vscode.EventEmitter<void>();
+  public onTerminalsChanged = this.onTerminalsChangedEmitter.event;
+
+  constructor() {
+    vscode.window.onDidCloseTerminal((terminal) => {
+      let found = false;
+      for (const [id, entry] of this.terminalMap.entries()) {
+        if (entry.terminal === terminal) {
+          this.terminalMap.delete(id);
+          found = true;
+          break;
+        }
+      }
+      if (found) {
+        this.onTerminalsChangedEmitter.fire();
+      }
+    });
+
+    // Auto-refresh terminal states and titles every 2 seconds
+    setInterval(() => {
+      if (this.terminalMap.size > 0) {
+        this.list(); // This triggers title updates
+        this.onTerminalsChangedEmitter.fire(); // Notify webview
+      }
+    }, 2000);
+  }
+
+  async start(
     actionId: string,
     command: string,
     cwd: string,
+    terminalId?: string,
   ): Promise<{ output: string; error: string | null }> {
-    return new Promise((resolve) => {
-      // Use exec to support shell syntax (e.g. pipes, &&) easily, but we want stream access
-      // cp.exec returns a ChildProcess, so we can access stdout/stderr streams.
-      const child = cp.exec(
-        command,
-        { cwd, maxBuffer: 1024 * 1024 * 50 }, // 50MB buffer
-        (err, stdout, stderr) => {
-          // This callback runs on completion
-          if (!this.processes.has(actionId)) return; // Already handled (detached/killed)
+    let entry = terminalId ? this.terminalMap.get(terminalId) : null;
 
-          // Standard completion
-          this.processes.delete(actionId);
-          resolve({
-            output: stdout || "",
-            error: err ? err.message : null,
-          });
-        },
-      );
+    if (!entry) {
+      const id = terminalId || `zen-${this.nextId++}`;
+      const shellName = path.basename(command.split(" ")[0]);
+      const name = `(zen)${shellName}`;
+      const ptyInternal = new ZenPTY(cwd);
+      const terminal = vscode.window.createTerminal({
+        name,
+        pty: ptyInternal,
+        iconPath: new vscode.ThemeIcon("terminal"),
+      });
 
-      // Collect real-time output for partial capture
-      let accumulatedOutput = "";
-      child.stdout?.on("data", (data) => {
-        accumulatedOutput += data;
-        if (this.processes.has(actionId)) {
-          this.processes.get(actionId)!.output = accumulatedOutput;
+      entry = { terminal, pty: ptyInternal, name: name };
+      ptyInternal.shellPath = command;
+      this.terminalMap.set(id, entry);
+      this.onTerminalsChangedEmitter.fire();
+      terminal.show(true);
+    }
+
+    return entry.pty.execute(command);
+  }
+
+  async startInteractive(
+    cwd: string,
+    terminalId?: string,
+  ): Promise<{ id: string; name: string }> {
+    const id = terminalId || `zen-${this.nextId++}`;
+    let entry = this.terminalMap.get(id);
+
+    if (!entry) {
+      const shell =
+        os.platform() === "win32"
+          ? "powershell.exe"
+          : process.env.SHELL || "/bin/bash";
+      const args = os.platform() === "win32" ? [] : ["-li"];
+      const shellName = path.basename(shell);
+      const name = `(zen)${shellName}`;
+
+      const ptyInternal = new ZenPTY(cwd);
+      ptyInternal.isPersistent = true;
+      const terminal = vscode.window.createTerminal({
+        name,
+        pty: ptyInternal,
+        iconPath: new vscode.ThemeIcon("terminal"),
+      });
+
+      // Update terminal name if possible (though createTerminal name is immutable)
+      // We will use the name in our map for display
+      ptyInternal.shellPath = shell;
+      entry = { terminal, pty: ptyInternal, name: name };
+      this.terminalMap.set(id, entry);
+      this.onTerminalsChangedEmitter.fire();
+
+      ptyInternal.ptyProcess = pty.spawn(shell, args, {
+        name: "xterm-256color",
+        cols: 80,
+        rows: 24,
+        cwd,
+        env: {
+          ...process.env,
+          FORCE_COLOR: "1",
+          TERM: "xterm-256color",
+        } as any,
+      });
+
+      ptyInternal.ptyProcess.onData((data) => {
+        ptyInternal.accumulatedOutput += data;
+        ptyInternal.writeEmitter.fire(data);
+      });
+
+      ptyInternal.ptyProcess.onExit(({ exitCode }) => {
+        ptyInternal.closeEmitter.fire(exitCode);
+      });
+
+      terminal.show(true);
+    }
+
+    return { id, name: entry.name };
+  }
+
+  getOutput(id: string): string {
+    const entry = this.terminalMap.get(id);
+    return entry ? entry.pty.accumulatedOutput : "";
+  }
+
+  list() {
+    return Array.from(this.terminalMap.entries()).map(([id, entry]) => {
+      let cwd = "";
+      let currentCommand = "";
+      let isBusy = false;
+      const shellPid = entry.pty.ptyProcess?.pid;
+
+      if (shellPid) {
+        if (os.platform() === "linux") {
+          try {
+            cwd = fs.readlinkSync(`/proc/${shellPid}/cwd`);
+            // Check for children (busy status)
+            const children = fs.readdirSync(`/proc/${shellPid}/task`);
+            // Spawning 'ps' for child info
+            const ppidOutput = require("child_process")
+              .execSync(`ps -o comm= --ppid ${shellPid}`, { encoding: "utf8" })
+              .trim();
+            if (ppidOutput) {
+              isBusy = true;
+              currentCommand = ppidOutput.split("\n")[0];
+            }
+          } catch (e) {}
         }
-      });
-      child.stderr?.on("data", (data) => {
-        accumulatedOutput += data; // Combine for simplicity or separate? User wanted logs.
-        if (this.processes.has(actionId)) {
-          this.processes.get(actionId)!.output = accumulatedOutput;
-        }
-      });
+      }
 
-      this.processes.set(actionId, {
-        process: child,
-        output: "", // Will be updated by listeners
-        error: "",
-        resolve,
-      });
+      const lines = entry.pty.accumulatedOutput.trim().split("\n");
+      const lastLine = lines.length > 0 ? lines[lines.length - 1] : "";
+
+      const shellType = path.basename(entry.pty.shellPath || "shell");
+      const currentName = isBusy
+        ? `(zen)${currentCommand}`
+        : `(zen)${shellType}`;
+
+      if (entry.name !== currentName) {
+        entry.name = currentName;
+        entry.pty.updateTitle(currentName);
+      }
+
+      return {
+        id,
+        name: currentName,
+        state: isBusy ? "busy" : "idle",
+        shellType: shellType,
+        cwd: cwd || entry.pty.currentCwd,
+        uptime: Math.floor((Date.now() - entry.pty.startTime) / 1000),
+        lastLog: lastLine.substring(0, 100),
+        currentCommand: currentCommand || (isBusy ? "executing..." : ""),
+      };
     });
   }
 
-  stop(
-    actionId: string,
-    kill: boolean,
-  ): { output: string; error: string | null } | null {
-    const entry = this.processes.get(actionId);
-    if (!entry) return null;
-
-    this.processes.delete(actionId);
-
-    if (kill) {
-      // kill the process tree? exec spawns a shell.
-      // simple kill might not kill children.
-      // For now, simple kill.
-      try {
-        entry.process.kill();
-      } catch (e) {
-        // ignore
-      }
-    } else {
-      // Detach: We just stop tracking it.
-      // If we want it to truly persist in background independently of VSCode, we'd need 'detached: true' and 'ref: false' in spawn.
-      // But execution via 'exec' is attached to shell.
-      // For "Detach" as "Stop waiting", we essentially just resolve early.
-      // The process might die if the extension host closes or if it fills up buffers if we stop listening?
-      // We leave the process running (it is still attached to extension host).
-      entry.process.stdout?.pause();
-      entry.process.stderr?.pause();
-      entry.process.unref();
+  close(id: string) {
+    const entry = this.terminalMap.get(id);
+    if (entry) {
+      entry.terminal.dispose();
+      this.terminalMap.delete(id);
+      this.onTerminalsChangedEmitter.fire();
     }
+  }
 
-    // Force resolve the promise loop?
-    // The promise returned by start() is waiting for resolve().
-    // We should call it!
-    entry.resolve({
-      output: entry.output,
-      error: kill ? "Process killed by user" : "Process detached by user",
-    });
+  focus(id: string) {
+    const entry = this.terminalMap.get(id);
+    if (entry) {
+      entry.terminal.show();
+    }
+  }
 
-    return {
-      output: entry.output,
-      error: null,
-    };
+  interrupt(id: string) {
+    const entry = this.terminalMap.get(id);
+    if (entry) {
+      entry.pty.interrupt();
+    }
+  }
+
+  sendInput(id: string, text: string) {
+    const entry = this.terminalMap.get(id);
+    if (entry) {
+      entry.pty.handleInput(text);
+    }
   }
 
   stopAll(): void {
-    const actionIds = Array.from(this.processes.keys());
-    for (const actionId of actionIds) {
-      this.stop(actionId, true);
+    for (const [id, entry] of this.terminalMap) {
+      entry.terminal.dispose();
     }
+    this.terminalMap.clear();
   }
+
+  stop(actionId: string, kill: boolean) {}
 }

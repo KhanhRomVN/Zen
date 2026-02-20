@@ -5,10 +5,21 @@ export const getActionName = (type: string): string => {
 };
 
 export const getFilename = (action: any): string => {
-  if (action.type === "execute_command") {
-    const cmd = action.params.command || "";
+  if (
+    action.type === "execute_command" ||
+    action.type === "close_terminal" ||
+    action.type === "focus_terminal" ||
+    action.type === "send_interrupt" ||
+    action.type === "send_terminal_input"
+  ) {
+    const id = action.params.terminal_id || "";
+    const cmd = action.params.command || action.params.text || "";
+    if (id && cmd)
+      return `${id}: ${cmd.substring(0, 30)}${cmd.length > 30 ? "..." : ""}`;
+    if (id) return id;
     return cmd.length > 50 ? cmd.substring(0, 50) + "..." : cmd;
   }
+  if (action.type === "list_terminals") return "All Terminals";
   const path = action.params.path || "";
   return path.split("/").pop() || path || "";
 };
@@ -26,7 +37,7 @@ export const parseNewCodeFromDiff = (diff: string): string => {
 
   // Match REPLACE block: =======\n<content>\n>>>>>>> REPLACE
   const replaceMatch = diff.match(
-    /=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/
+    /=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
   );
   if (replaceMatch) {
     return replaceMatch[1].trim();

@@ -10,6 +10,7 @@ import {
 import FileIcon from "../../../../common/FileIcon";
 import { CodeBlock } from "../../../../CodeBlock";
 import { parseDiff } from "../../../../../utils/diffUtils";
+import { CLICKABLE_TOOLS } from "../../constants";
 
 interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
@@ -332,15 +333,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
   if (toolType === "read_file") return null;
 
-  const clickableTools = [
-    "write_to_file",
-    "replace_in_file",
-    "list_files",
-    "search_files",
-    "execute_command",
-    "update_codebase_context",
-    "list_code_definition_names",
-  ];
+  const clickableTools = CLICKABLE_TOOLS;
 
   const toolColor = getToolColor(toolType);
   const isStyledTool =
@@ -349,6 +342,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
     toolType === "list_files" ||
     toolType === "execute_command" ||
     toolType === "search_files" ||
+    toolType === "list_terminals" ||
+    toolType === "close_terminal" ||
+    toolType === "focus_terminal" ||
+    toolType === "send_interrupt" ||
+    toolType === "send_terminal_input" ||
     toolType === "update_codebase_context";
   if (isStyledTool) {
     // 🆕 Minimalist UI for single replace_in_file/write_to_file

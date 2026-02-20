@@ -16,14 +16,14 @@ export const EXAMPLES = `# PRACTICAL EXAMPLES
   <task>Read calculator.py content</task>
   <task>Add subtract function</task>
 </task_progress>
-<read_file><path>calculator.py</path></read_file>
+<read_file><file_path>calculator.py</file_path></read_file>
 \`\`\`
 [STOP - wait for content]
 
 **Turn 2** (Edit phase):
 \`\`\`xml
 <replace_in_file>
-<path>calculator.py</path>
+<file_path>calculator.py</file_path>
 <diff>
 <<<<<<< SEARCH
 def add(a, b):
@@ -58,15 +58,15 @@ def subtract(a, b):
   <task>Read both files</task>
   <task>Add type annotations</task>
 </task_progress>
-<read_file><path>math.py</path></read_file>
-<read_file><path>utils.py</path></read_file>
+<read_file><file_path>math.py</file_path></read_file>
+<read_file><file_path>utils.py</file_path></read_file>
 \`\`\`
 [STOP - wait for content]
 
 **Turn 2**:
 \`\`\`xml
-<replace_in_file><path>math.py</path><diff>...</diff></replace_in_file>
-<replace_in_file><path>utils.py</path><diff>...</diff></replace_in_file>
+<replace_in_file><file_path>math.py</file_path><diff>...</diff></replace_in_file>
+<replace_in_file><file_path>utils.py</file_path><diff>...</diff></replace_in_file>
 <temp>Updated <file>math.py</file> and <file>utils.py</file>.</temp>
 \`\`\`
 
@@ -89,9 +89,9 @@ def subtract(a, b):
   <task>Create component files</task>
   <task>Create barrel export</task>
 </task_progress>
-<write_to_file><path>src/components/Button.tsx</path><content>...</content></write_to_file>
-<write_to_file><path>src/components/Input.tsx</path><content>...</content></write_to_file>
-<write_to_file><path>src/index.ts</path><content>...</content></write_to_file>
+<write_to_file><file_path>src/components/Button.tsx</file_path><content>...</content></write_to_file>
+<write_to_file><file_path>src/components/Input.tsx</file_path><content>...</content></write_to_file>
+<write_to_file><file_path>src/index.ts</file_path><content>...</content></write_to_file>
 <temp>Created component library structure.</temp>
 \`\`\`
 
@@ -101,15 +101,15 @@ def subtract(a, b):
 
 **Turn 1** (Explore):
 \`\`\`xml
-<list_files><path>src</path><recursive>true</recursive></list_files>
-<search_files><path>src</path><regex>auth|login|session</regex></search_files>
+<list_files><folder_path>src</folder_path><recursive>true</recursive></list_files>
+<search_files><folder_path>src</folder_path><regex>auth|login|session</regex></search_files>
 \`\`\`
 [System returns file list and matches]
 
 **Turn 2** (Read relevant files):
 \`\`\`xml
-<read_file><path>src/auth/login.ts</path></read_file>
-<read_file><path>src/auth/session.ts</path></read_file>
+<read_file><file_path>src/auth/login.ts</file_path></read_file>
+<read_file><file_path>src/auth/session.ts</file_path></read_file>
 \`\`\`
 [STOP]
 
@@ -131,9 +131,9 @@ def subtract(a, b):
   <task>Extract common logic</task>
   <task>Update imports</task>
 </task_progress>
-<write_to_file><path>src/auth/common.ts</path><content>...</content></write_to_file>
-<replace_in_file><path>src/auth/login.ts</path><diff>...</diff></replace_in_file>
-<replace_in_file><path>src/auth/session.ts</path><diff>...</diff></replace_in_file>
+<write_to_file><file_path>src/auth/common.ts</file_path><content>...</content></write_to_file>
+<replace_in_file><file_path>src/auth/login.ts</file_path><diff>...</diff></replace_in_file>
+<replace_in_file><file_path>src/auth/session.ts</file_path><diff>...</diff></replace_in_file>
 \`\`\`
 
 ## Example 5: Empty Context Handling
@@ -176,8 +176,8 @@ Would you like me to scan the project first?
   <task>Process batch 2</task>
   <task>Process batch 3</task>
 </task_progress>
-<read_file><path>services/user.ts</path></read_file>
-<read_file><path>services/auth.ts</path></read_file>
+<read_file><file_path>services/user.ts</file_path></read_file>
+<read_file><file_path>services/auth.ts</file_path></read_file>
 [... 3 more reads ...]
 \`\`\`
 
@@ -187,8 +187,8 @@ Would you like me to scan the project first?
 
 **Turn 1** (Initial search):
 \`\`\`xml
-<list_files><path>src</path><recursive>true</recursive></list_files>
-<search_files><path>src</path><regex>api.*service|service.*api</regex></search_files>
+<list_files><folder_path>src</folder_path><recursive>true</recursive></list_files>
+<search_files><folder_path>src</folder_path><regex>api.*service|service.*api</regex></search_files>
 \`\`\`
 [System returns: No matches found]
 
@@ -213,7 +213,7 @@ Once I know the location, I can implement the error handling.
 
 **Turn 1** (Quick exploration):
 \`\`\`xml
-<search_files><path>src</path><regex>auth</regex></search_files>
+<search_files><folder_path>src</folder_path><regex>auth</regex></search_files>
 \`\`\`
 [System returns: auth/login.ts, auth/session.ts, auth/middleware.ts, auth/validators.ts]
 
@@ -252,13 +252,13 @@ Please clarify so I can provide the best solution for your needs.
 
 **Turn 1** (First search):
 \`\`\`xml
-<search_files><path>src</path><regex>dashboard</regex></search_files>
+<search_files><folder_path>src</folder_path><regex>dashboard</regex></search_files>
 \`\`\`
 [System returns: No results]
 
 **Turn 2** (Second attempt with alternative pattern):
 \`\`\`xml
-<search_files><path>.</path><regex>user.*dashboard|dashboard.*user|Dashboard</regex></search_files>
+<search_files><folder_path>.</folder_path><regex>user.*dashboard|dashboard.*user|Dashboard</regex></search_files>
 \`\`\`
 [System returns: No results]
 
@@ -287,23 +287,23 @@ Could you provide:
 **WRONG Response** (do NOT do this):
 \`\`\`xml
 <text>Let me search for the payment files...</text>
-<search_files><path>src</path><regex>payment</regex></search_files>
+<search_files><folder_path>src</folder_path><regex>payment</regex></search_files>
 \`\`\`
 [No results]
 
 **WRONG Turn 2** (still retrying):
 \`\`\`xml
 <text>Trying different locations...</text>
-<search_files><path>lib</path><regex>payment</regex></search_files>
-<search_files><path>services</path><regex>payment</regex></search_files>
-<search_files><path>.</path><regex>stripe|paypal|payment</regex></search_files>
+<search_files><folder_path>lib</folder_path><regex>payment</regex></search_files>
+<search_files><folder_path>services</folder_path><regex>payment</regex></search_files>
+<search_files><folder_path>.</folder_path><regex>stripe|paypal|payment</regex></search_files>
 \`\`\`
 [No results]
 
 **WRONG Turn 3** (making assumptions):
 \`\`\`xml
 <text>I couldn't find existing payment files. I'll create a new payment service...</text>
-<write_to_file><path>src/services/payment.ts</path><content>...</content></write_to_file>
+<write_to_file><file_path>src/services/payment.ts</file_path><content>...</content></write_to_file>
 \`\`\`
 
 **Why this is WRONG**:
@@ -366,7 +366,7 @@ Please provide these details so I can fix it accurately.
   <task>Read ContactForm.tsx</task>
   <task>Add submit button</task>
 </task_progress>
-<read_file><path>src/components/ContactForm.tsx</path></read_file>
+<read_file><file_path>src/components/ContactForm.tsx</file_path></read_file>
 \`\`\`
 
 **Why this is CORRECT**:
@@ -397,8 +397,8 @@ Please provide these details so I can fix it accurately.
   <task>Analyze current auth implementation</task>
   <task>Design JWT integration approach</task>
 </task_progress>
-<read_file><path>src/auth/session.ts</path></read_file>
-<read_file><path>src/middleware/auth.middleware.ts</path></read_file>
+<read_file><file_path>src/auth/session.ts</file_path></read_file>
+<read_file><file_path>src/middleware/auth.middleware.ts</file_path></read_file>
 \`\`\`
 
 **Turn 5** (After implementing core JWT logic):
@@ -473,4 +473,26 @@ Please provide these details so I can fix it accurately.
 **Why brief summary is OK here**:
 - Simple, isolated task
 - Low risk of model handoff mid-task
-- Key info captured in ~3 lines`;
+- Key info captured in ~3 lines
+`;
+
+export const EXAMPLES_P2 = `
+## Example 15: Terminal Management (Reuse)
+
+**User**: "Run npm start in the existing dev terminal"
+
+**Turn 1** (List terminals):
+\`\`\`xml
+<list_terminals />
+\`\`\`
+[System returns: [{id: "term-1", name: "dev", state: "active"}, {id: "term-2", name: "bash", state: "idle"}]]
+
+**Turn 2** (Execute in specific terminal):
+\`\`\`xml
+<execute_command>
+  <command>npm start</command>
+  <terminal_id>term-1</terminal_id>
+</execute_command>
+\`\`\`
+<temp>Running \`npm start\` in terminal <file>dev</file> (term-1).</temp>
+`;

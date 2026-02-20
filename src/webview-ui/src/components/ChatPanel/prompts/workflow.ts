@@ -51,8 +51,8 @@ Could you clarify?
 
 **Batch exploration in ONE message**:
 \`\`\`xml
-<list_files><path>src</path><recursive>true</recursive></list_files>
-<search_files><path>src</path><regex>pattern</regex></search_files>
+<list_files><folder_path>src</folder_path><recursive>true</recursive></list_files>
+<search_files><folder_path>src</folder_path><regex>pattern</regex></search_files>
 \`\`\`
 
 **If exploration fails**:
@@ -68,9 +68,9 @@ Could you clarify?
 
 **Batch reads in ONE message**:
 \`\`\`xml
-<read_file><path>file1.ts</path></read_file>
-<read_file><path>file2.ts</path></read_file>
-<read_file><path>file3.ts</path></read_file>
+<read_file><file_path>file1.ts</file_path></read_file>
+<read_file><file_path>file2.ts</file_path></read_file>
+<read_file><file_path>file3.ts</file_path></read_file>
 \`\`\`
 **STOP response here. Wait for content.**
 
@@ -97,8 +97,8 @@ Update task progress + perform operations:
   <task_file>file1.ts</task_file>
   <task>Modify file1.ts</task>
 </task_progress>
-<replace_in_file><path>file1.ts</path><diff>...</diff></replace_in_file>
-<write_to_file><path>new.ts</path><content>...</content></write_to_file>
+<replace_in_file><file_path>file1.ts</file_path><diff>...</diff></replace_in_file>
+<write_to_file><file_path>new.ts</file_path><content>...</content></write_to_file>
 \`\`\`
 
 **task_summary benefits**:
@@ -137,7 +137,9 @@ Message 2: Create multiple files (batch)
 
 ### Command Execution
 \`\`\`
-Single message: <execute_command> (no other tools)
+1. list_terminals() (optional, if need to reuse)
+2. execute_command(command, terminal_id?)
+3. send_terminal_input(terminal_id, text) (for interactive prompts)
 \`\`\`
 
 ### Context Update
