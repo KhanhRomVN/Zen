@@ -27,11 +27,12 @@ interface TerminalDrawerProps {
   onClose: () => void;
 }
 
-const formatUptime = (seconds: number) => {
-  if (seconds < 60) return `${seconds}s`;
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}m ${secs}s`;
+const formatCwd = (cwd: string) => {
+  if (!cwd) return "";
+  const parts = cwd.split(/[\\/]/).filter(Boolean);
+  if (parts.length <= 4) return cwd;
+  const lastFour = parts.slice(-4);
+  return `.../${lastFour.join("/")}`;
 };
 
 const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
@@ -61,8 +62,8 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
         setTerminals(message.terminals || []);
         setLoading(false);
       } else if (
-        message.command === "openInteractiveTerminalResult" ||
-        message.command === "closeTerminalResult"
+        message.command === "createTerminalShellResult" ||
+        message.command === "removeTerminalResult"
       ) {
         fetchTerminals();
       }
@@ -78,14 +79,14 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
   const handleCreateTerminal = () => {
     const vscodeApi = (window as any).vscodeApi;
     if (vscodeApi) {
-      vscodeApi.postMessage({ command: "openInteractiveTerminal" });
+      vscodeApi.postMessage({ command: "createTerminalShell" });
     }
   };
 
   const handleCloseTerminal = (id: string) => {
     const vscodeApi = (window as any).vscodeApi;
     if (vscodeApi) {
-      vscodeApi.postMessage({ command: "closeTerminal", terminalId: id });
+      vscodeApi.postMessage({ command: "removeTerminal", terminalId: id });
     }
   };
 
@@ -94,6 +95,16 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
     if (vscodeApi) {
       vscodeApi.postMessage({ command: "focusTerminal", terminalId: id });
     }
+  };
+
+  const getTerminalColor = (id: string) => {
+    // Generate a consistent color based on the terminal ID
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash) % 360;
+    return `hsla(${h}, 70%, 50%, 0.15)`; // Semi-transparent for subtle effect
   };
 
   if (!isOpen) return null;
@@ -192,11 +203,9 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
       {/* Content */}
       <div
         style={{
-          padding: "16px",
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",
-          gap: "12px",
           flex: 1,
         }}
       >
@@ -219,19 +228,19 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
               onMouseEnter={() => setHoveredId(term.id)}
               onMouseLeave={() => setHoveredId(null)}
               style={{
-                backgroundColor: "var(--input-bg)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "12px",
-                padding: "16px",
+                borderBottom: "1px solid var(--border-color)",
+                padding: "12px 16px",
                 display: "flex",
                 flexDirection: "column",
-                gap: "12px",
+                gap: "8px",
                 transition: "all 0.2s",
                 cursor: "pointer",
-                borderColor:
-                  hoveredId === term.id
-                    ? "var(--accent-text)"
-                    : "var(--border-color)",
+                backgroundColor:
+                  term.state === "busy"
+                    ? `linear-gradient(90deg, ${getTerminalColor(term.id)} 0%, transparent 100%)`
+                    : hoveredId === term.id
+                      ? "var(--hover-bg)"
+                      : "transparent",
                 position: "relative",
               }}
             >
@@ -248,19 +257,6 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
                 >
                   <div
                     style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      backgroundColor:
-                        term.state === "busy" ? "#4caf50" : "#858585",
-                      boxShadow:
-                        term.state === "busy" ? "0 0 8px #4caf50" : "none",
-                      animation:
-                        term.state === "busy" ? "pulse 1.5s infinite" : "none",
-                    }}
-                  />
-                  <div
-                    style={{
                       display: "flex",
                       flexDirection: "column",
                       gap: "2px",
@@ -275,16 +271,31 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
                         gap: "6px",
                       }}
                     >
-                      <Terminal size={14} /> (zen)
+                      (zen)
                       {term.state === "busy"
                         ? term.currentCommand
                         : term.shellType}
+                      {term.state === "busy" && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            padding: "2px 6px",
+                            borderRadius: "10px",
+                            backgroundColor: "rgba(76, 175, 80, 0.1)",
+                            color: "#4caf50",
+                            fontWeight: 500,
+                            marginLeft: "4px",
+                          }}
+                        >
+                          Running
+                        </span>
+                      )}
                     </span>
-                    <span style={{ fontSize: "11px", opacity: 0.4 }}>
-                      {term.state === "busy"
-                        ? `Running: ${term.currentCommand}`
-                        : "Idle"}{" "}
-                      • ID: {term.id}
+                    <span
+                      style={{ fontSize: "11px", opacity: 0.4 }}
+                      title={term.cwd}
+                    >
+                      {formatCwd(term.cwd)}
                     </span>
                   </div>
                 </div>
@@ -304,100 +315,25 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
                     }}
                     title="Close Terminal"
                     style={{
-                      padding: "6px",
+                      padding: "4px",
                       backgroundColor: "transparent",
-                      color: "var(--vscode-errorForeground, #f44336)",
-                      border: "1px solid var(--border-color)",
+                      color: "inherit",
+                      border: "none",
                       borderRadius: "4px",
                       cursor: "pointer",
+                      transition: "color 0.2s",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor =
-                        "rgba(244, 67, 54, 0.1)";
+                      e.currentTarget.style.color =
+                        "var(--vscode-errorForeground, #f44336)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.color = "inherit";
                     }}
                   >
                     <Trash2 size={16} />
                   </button>
                 </div>
-              </div>
-
-              {/* Row 2: Metadata Grid */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "8px",
-                  fontSize: "12px",
-                  opacity: 0.8,
-                }}
-              >
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
-                >
-                  <Folder size={12} />
-                  <span
-                    style={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                    title={term.cwd}
-                  >
-                    {term.cwd.split("/").pop() || "/"}
-                  </span>
-                </div>
-                <div
-                  style={{ display: "flex", alignItems: "center", gap: "6px" }}
-                >
-                  <Clock size={12} />
-                  <span>{formatUptime(term.uptime)}</span>
-                </div>
-              </div>
-
-              {/* Row 3: Current Command (If Busy) */}
-              {term.state === "busy" && (
-                <div
-                  style={{
-                    backgroundColor: "rgba(76, 175, 80, 0.05)",
-                    padding: "6px 10px",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    border: "1px dashed rgba(76, 175, 80, 0.3)",
-                  }}
-                >
-                  <Cpu size={12} style={{ color: "#4caf50" }} />
-                  <span style={{ color: "#4caf50", fontWeight: 500 }}>
-                    Running:
-                  </span>
-                  <code style={{ opacity: 0.9 }}>{term.currentCommand}</code>
-                </div>
-              )}
-
-              {/* Row 4: Last Log Snippet */}
-              <div
-                style={{
-                  fontSize: "11px",
-                  opacity: 0.6,
-                  fontFamily: "monospace",
-                  padding: "8px",
-                  backgroundColor: "rgba(0,0,0,0.15)",
-                  borderRadius: "4px",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <Code size={12} />
-                {term.lastLog || "No output yet..."}
               </div>
             </div>
           ))

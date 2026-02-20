@@ -78,16 +78,12 @@ class ZenPTY implements vscode.Pseudoterminal {
     });
   }
 
-  interrupt() {
+  stop() {
     if (this.ptyProcess) {
-      // node-pty handles signals correctly.
-      // For interactive shell, we usually send Ctrl+C sequence if we want to keep shell alive,
-      // or kill with SIGINT if it's a specific command execution.
-      if (this.isPersistent) {
-        this.ptyProcess.write("\x03");
-      } else {
-        this.ptyProcess.kill("SIGINT");
-      }
+      // Use SIGKILL to stop process completely
+      this.ptyProcess.kill("SIGKILL");
+      this.ptyProcess = null;
+      this.isExecuting = false;
     }
   }
 
@@ -95,7 +91,12 @@ class ZenPTY implements vscode.Pseudoterminal {
     if (this.ptyProcess) {
       this.ptyProcess.kill();
       this.ptyProcess = null;
+      this.isExecuting = false;
     }
+  }
+
+  resetOutput() {
+    this.accumulatedOutput = "";
   }
 }
 
@@ -146,7 +147,7 @@ export class ProcessManager {
     let entry = terminalId ? this.terminalMap.get(terminalId) : null;
 
     if (!entry) {
-      const id = terminalId || `zen-${this.nextId++}`;
+      const id = terminalId || actionId || `zen-${this.nextId++}`;
       const shellName = path.basename(command.split(" ")[0]);
       const name = `(zen)${shellName}`;
       const ptyInternal = new ZenPTY(cwd);
@@ -244,7 +245,7 @@ export class ProcessManager {
             const children = fs.readdirSync(`/proc/${shellPid}/task`);
             // Spawning 'ps' for child info
             const ppidOutput = require("child_process")
-              .execSync(`ps -o comm= --ppid ${shellPid}`, { encoding: "utf8" })
+              .execSync(`ps -o args= --ppid ${shellPid}`, { encoding: "utf8" })
               .trim();
             if (ppidOutput) {
               isBusy = true;
@@ -277,6 +278,12 @@ export class ProcessManager {
         );
       }
 
+      const cleanLog = lines
+        .slice(-3)
+        .join("\n")
+        .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "") // Strip ANSI escape codes
+        .substring(0, 300);
+
       return {
         id,
         name: currentName,
@@ -284,7 +291,7 @@ export class ProcessManager {
         shellType: shellType,
         cwd: cwd || entry.pty.currentCwd,
         uptime: Math.floor((Date.now() - entry.pty.startTime) / 1000),
-        lastLog: lastLine.substring(0, 100),
+        lastLog: cleanLog,
         currentCommand: currentCommand || (isBusy ? "executing..." : ""),
       };
     });
@@ -306,10 +313,10 @@ export class ProcessManager {
     }
   }
 
-  interrupt(id: string) {
+  stop(id: string) {
     const entry = this.terminalMap.get(id);
     if (entry) {
-      entry.pty.interrupt();
+      entry.pty.stop();
     }
   }
 
@@ -326,6 +333,4 @@ export class ProcessManager {
     }
     this.terminalMap.clear();
   }
-
-  stop(actionId: string, kill: boolean) {}
 }

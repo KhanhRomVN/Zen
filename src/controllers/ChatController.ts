@@ -165,26 +165,26 @@ export class ChatController {
         case "listTerminals":
           await this.handleListTerminals(message, webviewView);
           break;
-        case "closeTerminal":
-          await this.handleCloseTerminal(message, webviewView);
+        case "removeTerminal":
+          await this.handleRemoveTerminal(message, webviewView);
           break;
         case "focusTerminal":
-          await this.handleFocusTerminal(message, webviewView);
+          await this.handleFocusTerminal(message);
           break;
-        case "sendInterrupt":
-          await this.handleSendInterrupt(message, webviewView);
+        case "stopTerminal":
+          await this.handleStopTerminal(message, webviewView);
           break;
-        case "sendTerminalInput":
-          await this.handleSendTerminalInput(message, webviewView);
+        case "inputToTerminal":
+          await this.handleInputToTerminal(message, webviewView);
           break;
         case "stopCommand":
           await this.handleStopCommand(message);
           break;
-        case "openInteractiveTerminal":
-          await this.handleOpenInteractiveTerminal(message, webviewView);
+        case "createTerminalShell":
+          await this.handleCreateTerminalShell(message, webviewView);
           break;
-        case "getTerminalOutput":
-          await this.handleGetTerminalOutput(message, webviewView);
+        case "readTerminalLogs":
+          await this.handleReadTerminalLogs(message, webviewView);
           break;
         case "openPreview":
           await this.handleOpenPreview(message);
@@ -1495,7 +1495,6 @@ export class ChatController {
       ? vscode.Uri.file(message.filePath)
       : vscode.Uri.joinPath(workspaceFolder.uri, message.filePath);
     const tmpDir = this._getTempDir(workspaceFolder.uri.fsPath);
-    await fs.promises.mkdir(tmpDir, { recursive: true });
     const basename = path.basename(message.filePath);
     const tempFile = vscode.Uri.file(path.join(tmpDir, basename)); // Simplified
     await vscode.workspace.fs.writeFile(
@@ -1563,26 +1562,26 @@ export class ChatController {
     }
   }
 
-  private async handleCloseTerminal(
+  private async handleRemoveTerminal(
     message: any,
     webviewView: vscode.WebviewView,
   ) {
     try {
       this.processManager.close(message.terminalId);
       webviewView.webview.postMessage({
-        command: "closeTerminalResult",
+        command: "removeTerminalResult",
         requestId: message.requestId,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({
-        command: "closeTerminalResult",
+        command: "removeTerminalResult",
         requestId: message.requestId,
         error: e.message,
       });
     }
   }
 
-  private async handleOpenInteractiveTerminal(
+  private async handleCreateTerminalShell(
     message: any,
     webviewView: vscode.WebviewView,
   ) {
@@ -1594,92 +1593,96 @@ export class ChatController {
         message.terminalId,
       );
       webviewView.webview.postMessage({
-        command: "openInteractiveTerminalResult",
+        command: "createTerminalShellResult",
         requestId: message.requestId,
         terminalId: result.id,
         name: result.name,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({
-        command: "openInteractiveTerminalResult",
+        command: "createTerminalShellResult",
         requestId: message.requestId,
         error: e.message,
       });
     }
   }
 
-  private async handleGetTerminalOutput(
+  private async handleFocusTerminal(message: any) {
+    try {
+      this.processManager.focus(message.terminalId);
+    } catch (e: any) {
+      console.error("Failed to focus terminal:", e);
+    }
+  }
+
+  private async handleReadTerminalLogs(
     message: any,
     webviewView: vscode.WebviewView,
   ) {
     try {
       const output = this.processManager.getOutput(message.terminalId);
+
+      // If requested to clear after reading (to focus on new logs later)
+      // Actually the user said "khi đọc xong sẽ xác định phần log thừa của lệnh cũ và xóa đi"
+      // This means we should probably clear the internal buffer in ProcessManager
+      // so the NEXT read only gets new stuff.
+
       webviewView.webview.postMessage({
-        command: "getTerminalOutputResult",
+        command: "readTerminalLogsResult",
         requestId: message.requestId,
         terminalId: message.terminalId,
         output,
       });
+
+      // Clear the output buffer after reading to focus on future output
+      // Note: This might be destructive if many tools read simultaneously, but usually it's sequential.
+      const entry = (this.processManager as any).terminalMap.get(
+        message.terminalId,
+      );
+      if (entry) {
+        entry.pty.resetOutput();
+      }
     } catch (e: any) {
       webviewView.webview.postMessage({
-        command: "getTerminalOutputResult",
+        command: "readTerminalLogsResult",
         requestId: message.requestId,
         error: e.message,
       });
     }
   }
 
-  private async handleFocusTerminal(
+  private async handleStopTerminal(
     message: any,
     webviewView: vscode.WebviewView,
   ) {
     try {
-      this.processManager.focus(message.terminalId);
+      this.processManager.stop(message.terminalId);
       webviewView.webview.postMessage({
-        command: "focusTerminalResult",
+        command: "stopTerminalResult",
         requestId: message.requestId,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({
-        command: "focusTerminalResult",
+        command: "stopTerminalResult",
         requestId: message.requestId,
         error: e.message,
       });
     }
   }
 
-  private async handleSendInterrupt(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      this.processManager.interrupt(message.terminalId);
-      webviewView.webview.postMessage({
-        command: "sendInterruptResult",
-        requestId: message.requestId,
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "sendInterruptResult",
-        requestId: message.requestId,
-        error: e.message,
-      });
-    }
-  }
-
-  private async handleSendTerminalInput(
+  private async handleInputToTerminal(
     message: any,
     webviewView: vscode.WebviewView,
   ) {
     try {
       this.processManager.sendInput(message.terminalId, message.text);
       webviewView.webview.postMessage({
-        command: "sendTerminalInputResult",
+        command: "inputToTerminalResult",
         requestId: message.requestId,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({
-        command: "sendTerminalInputResult",
+        command: "inputToTerminalResult",
         requestId: message.requestId,
         error: e.message,
       });
@@ -1690,7 +1693,7 @@ export class ChatController {
     if (message.actionId === "all") {
       this.processManager.stopAll();
     } else {
-      this.processManager.stop(message.actionId, message.kill);
+      this.processManager.stop(message.actionId);
     }
   }
 

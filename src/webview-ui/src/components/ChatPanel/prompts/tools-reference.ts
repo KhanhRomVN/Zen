@@ -38,32 +38,30 @@ execute_command(command, terminal_id?)
   → Run shell command.
   → terminal_id: optional, reuse existing terminal.
   → Creates new terminal if id is empty/not found.
-  → Supports chaining: "cd dir && npm install"
   → MUST run alone (no other tools in same message)
 
 list_terminals()
   → List all active terminal sessions (id, name, state).
 
-close_terminal(terminal_id)
-  → Close a specific terminal session.
+remove_terminal(terminal_id)
+  → Completely close and remove a terminal session.
 
-focus_terminal(terminal_id)
-  → Bring specific terminal to front/show it.
+stop_terminal(terminal_id)
+  → Stop the process running in the terminal completely.
+  → Use when: a command is hanging or needs to be terminated.
 
-send_interrupt(terminal_id)
-  → Send Ctrl+C interrupt to a terminal.
+input_to_terminal(terminal_id, text)
+  → Send raw text/input to an active process.
+  → Use for: interactive prompts (Yes/No), passwords, etc.
 
-send_terminal_input(terminal_id, text)
-  → Send raw input to an active process (for interactive prompts).
-  → Use for: replying to Yes/No, entering passwords, REPL interaction.
+create_terminal_shell(terminal_id?)
+  → Open a persistent shell (bash/zsh) for continuous interaction.
+  → Use when: need to keep environment state across multiple inputs.
 
-open_interactive_terminal(terminal_id?)
-  → Open a persistent shell (bash/zsh) for user interaction.
-  → Use when: user needs to run commands manually, or for long-running monitoring.
-
-get_terminal_output(terminal_id)
-  → Read current buffer/logs from an active terminal.
-  → Use when: need to see real-time logs while process is running.\`\`\`
+read_terminal_logs(terminal_id)
+  → Read current logs from a terminal.
+  → IMPORTANT: This tool returns logs since the last read OR clear.
+  → Use frequently to monitor progress of long-running commands.\`\`\`
 
 ## Context Management
 

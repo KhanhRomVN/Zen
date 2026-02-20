@@ -12,10 +12,11 @@ export const TOOL_LABELS: Record<string, string> = {
   search_files: "Searching",
   execute_command: "Executing",
   list_terminals: "Terminals",
-  close_terminal: "Closing",
-  focus_terminal: "Focusing",
-  send_interrupt: "Interrupting",
-  send_terminal_input: "Inputting",
+  remove_terminal: "Removing",
+  stop_terminal: "Stopping",
+  input_to_terminal: "Inputting",
+  create_terminal_shell: "Starting",
+  read_terminal_logs: "Reading Logs",
   update_codebase_context: "Updating",
   default: "Zen",
 };
@@ -26,10 +27,11 @@ export const TOOL_COLORS: Record<string, string> = {
   replace_in_file: "#10b981", // green
   execute_command: "#f59e0b", // orange
   list_terminals: "#f59e0b",
-  close_terminal: "#ef4444", // red
-  focus_terminal: "#f59e0b",
-  send_interrupt: "#ef4444",
-  send_terminal_input: "#f59e0b",
+  remove_terminal: "#ef4444", // red
+  stop_terminal: "#ef4444",
+  input_to_terminal: "#f59e0b",
+  create_terminal_shell: "#f59e0b",
+  read_terminal_logs: "#3b82f6", // blue
   update_codebase_context: "#8b5cf6", // purple
   attempt_completion: "#22c55e", // success green
   default: "#6b7280", // gray
@@ -43,9 +45,10 @@ export const CLICKABLE_TOOLS = [
   "search_files",
   "execute_command",
   "list_terminals",
-  "close_terminal",
-  "focus_terminal",
-  "send_interrupt",
-  "send_terminal_input",
+  "remove_terminal",
+  "stop_terminal",
+  "input_to_terminal",
+  "create_terminal_shell",
+  "read_terminal_logs",
   "update_codebase_context",
 ];

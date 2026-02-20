@@ -23,12 +23,12 @@ export interface ToolAction {
     | "execute_command"
     | "list_files"
     | "search_files"
-    | "execute_command"
     | "list_terminals"
-    | "close_terminal"
-    | "focus_terminal"
-    | "send_interrupt"
-    | "send_terminal_input"
+    | "remove_terminal"
+    | "stop_terminal"
+    | "input_to_terminal"
+    | "create_terminal_shell"
+    | "read_terminal_logs"
     | "ask_followup_question"
     | "attempt_completion"
     | "update_codebase_context";
@@ -166,13 +166,14 @@ const parseToolAction = (
       // No params
       break;
 
-    case "close_terminal":
-    case "focus_terminal":
-    case "send_interrupt":
+    case "remove_terminal":
+    case "stop_terminal":
+    case "create_terminal_shell":
+    case "read_terminal_logs":
       params.terminal_id = extractParamValue(innerContent, "terminal_id");
       break;
 
-    case "send_terminal_input":
+    case "input_to_terminal":
       params.terminal_id = extractParamValue(innerContent, "terminal_id");
       params.text = extractParamValue(innerContent, "text");
       break;
@@ -334,10 +335,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "search_files",
     "execute_command",
     "list_terminals",
-    "close_terminal",
-    "focus_terminal",
-    "send_interrupt",
-    "send_terminal_input",
+    "remove_terminal",
+    "stop_terminal",
+    "input_to_terminal",
+    "create_terminal_shell",
+    "read_terminal_logs",
     "ask_followup_question",
     "attempt_completion",
     "update_codebase_context",
@@ -499,17 +501,20 @@ export const formatActionForDisplay = (action: ToolAction): string => {
     case "list_terminals":
       return `list_terminals`;
 
-    case "close_terminal":
-      return `close_terminal: ${action.params.terminal_id || "unknown"}`;
+    case "remove_terminal":
+      return `remove_terminal: ${action.params.terminal_id || "unknown"}`;
 
-    case "focus_terminal":
-      return `focus_terminal: ${action.params.terminal_id || "unknown"}`;
+    case "stop_terminal":
+      return `stop_terminal: ${action.params.terminal_id || "unknown"}`;
 
-    case "send_interrupt":
-      return `send_interrupt: ${action.params.terminal_id || "unknown"}`;
+    case "input_to_terminal":
+      return `input_to_terminal: ${action.params.terminal_id || "unknown"}`;
 
-    case "send_terminal_input":
-      return `send_terminal_input: ${action.params.terminal_id || "unknown"}`;
+    case "create_terminal_shell":
+      return `create_terminal_shell: ${action.params.terminal_id || "unknown"}`;
+
+    case "read_terminal_logs":
+      return `read_terminal_logs: ${action.params.terminal_id || "unknown"}`;
 
     case "list_files":
       const type = action.params.type ? ` [${action.params.type}]` : "";

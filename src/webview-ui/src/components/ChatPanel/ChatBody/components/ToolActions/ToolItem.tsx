@@ -343,10 +343,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
     toolType === "execute_command" ||
     toolType === "search_files" ||
     toolType === "list_terminals" ||
-    toolType === "close_terminal" ||
-    toolType === "focus_terminal" ||
-    toolType === "send_interrupt" ||
-    toolType === "send_terminal_input" ||
+    toolType === "remove_terminal" ||
+    toolType === "stop_terminal" ||
+    toolType === "input_to_terminal" ||
+    toolType === "create_terminal_shell" ||
+    toolType === "read_terminal_logs" ||
     toolType === "update_codebase_context";
   if (isStyledTool) {
     // 🆕 Minimalist UI for single replace_in_file/write_to_file

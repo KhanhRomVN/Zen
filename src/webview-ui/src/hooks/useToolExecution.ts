@@ -334,19 +334,17 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
           window.addEventListener("message", listener);
           break;
         }
-        case "close_terminal":
-        case "focus_terminal":
-        case "send_interrupt":
-        case "send_terminal_input":
-        case "open_interactive_terminal":
-        case "get_terminal_output": {
+        case "remove_terminal":
+        case "stop_terminal":
+        case "input_to_terminal":
+        case "create_terminal_shell":
+        case "read_terminal_logs": {
           const commandMap: Record<string, string> = {
-            close_terminal: "closeTerminal",
-            focus_terminal: "focusTerminal",
-            send_interrupt: "sendInterrupt",
-            send_terminal_input: "sendTerminalInput",
-            open_interactive_terminal: "openInteractiveTerminal",
-            get_terminal_output: "getTerminalOutput",
+            remove_terminal: "removeTerminal",
+            stop_terminal: "stopTerminal",
+            input_to_terminal: "inputToTerminal",
+            create_terminal_shell: "createTerminalShell",
+            read_terminal_logs: "readTerminalLogs",
           };
           const requestId = `${action.type}-${Date.now()}`;
           extensionService.postMessage({

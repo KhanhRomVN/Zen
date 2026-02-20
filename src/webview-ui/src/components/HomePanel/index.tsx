@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import ChatHeader from "../ChatPanel/ChatHeader";
 import ChatFooter from "../ChatPanel/ChatFooter";
 import WelcomeUI from "./WelcomeUI";
+import BlacklistDrawer from "../ChatPanel/ChatFooter/components/BlacklistDrawer";
 import { TabInfo } from "../../types";
 
 interface HomePanelProps {
@@ -28,6 +29,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
   const [selectedQuickModel, setSelectedQuickModel] = useState<any>(null);
+  const [isBlacklistDrawerOpen, setIsBlacklistDrawerOpen] = useState(false);
 
   // Dummy tab for Header to verify visual consistency
   const dummyTab: TabInfo = {
@@ -90,7 +92,14 @@ const HomePanel: React.FC<HomePanelProps> = ({
         setCurrentAccount={setCurrentAccount}
         selectedQuickModel={selectedQuickModel}
         onQuickModelSelect={setSelectedQuickModel}
+        onToggleBlacklistDrawer={() =>
+          setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen)
+        }
         initialValue={initialValue}
+      />
+      <BlacklistDrawer
+        isOpen={isBlacklistDrawerOpen}
+        onClose={() => setIsBlacklistDrawerOpen(false)}
       />
     </div>
   );

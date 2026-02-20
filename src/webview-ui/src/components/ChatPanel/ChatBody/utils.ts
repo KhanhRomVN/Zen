@@ -7,10 +7,11 @@ export const getActionName = (type: string): string => {
 export const getFilename = (action: any): string => {
   if (
     action.type === "execute_command" ||
-    action.type === "close_terminal" ||
-    action.type === "focus_terminal" ||
-    action.type === "send_interrupt" ||
-    action.type === "send_terminal_input"
+    action.type === "remove_terminal" ||
+    action.type === "stop_terminal" ||
+    action.type === "input_to_terminal" ||
+    action.type === "create_terminal_shell" ||
+    action.type === "read_terminal_logs"
   ) {
     const id = action.params.terminal_id || "";
     const cmd = action.params.command || action.params.text || "";

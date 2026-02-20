@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 
 import ProjectStructureDrawer from "./components/ProjectStructureDrawer";
 import ProjectContextModal from "./ProjectContextModal";
-import BlacklistManager from "../../SettingsPanel/BlacklistManager";
 
 import { ChatFooterProps } from "./types";
 
@@ -92,7 +91,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
     useState(false);
   const [showChangesDropdown, setShowChangesDropdown] = useState(false);
   const [showProjectContextModal, setShowProjectContextModal] = useState(false);
-  const [isBlacklistDrawerOpen, setIsBlacklistDrawerOpen] = useState(false);
   const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
   const [projectContext, setProjectContext] = useState<any>(null); // Use proper type if available
 
@@ -410,9 +408,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         onToggleBackupDrawer={onToggleBackupDrawer}
         hasBackupEvents={hasBackupEvents}
         backupEventCount={backupEventCount}
-        onToggleBlacklistDrawer={() =>
-          setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen)
-        }
+        onToggleBlacklistDrawer={onToggleBlacklistDrawer}
         onToggleTerminalDrawer={() =>
           setShowTerminalDrawer(!showTerminalDrawer)
         }
@@ -460,61 +456,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         onSave={handleSaveProjectContext}
       />
 
-      {/* 🆕 Blacklist Drawer */}
-      {isBlacklistDrawerOpen && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "100%", // Open above ChatFooter
-            left: 0,
-            right: 0,
-            backgroundColor: "var(--secondary-bg)",
-            borderTop: "1px solid var(--border-color)",
-            boxShadow: "0 -4px 12px rgba(0,0,0,0.2)",
-            zIndex: 1000,
-            maxHeight: "80vh",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          {/* Header */}
-          <div
-            style={{
-              padding: "12px 16px",
-              borderBottom: "1px solid var(--border-color)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              backgroundColor: "var(--tertiary-bg)",
-            }}
-          >
-            <h3 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>
-              Backup Blacklist
-            </h3>
-            <div
-              style={{ cursor: "pointer", opacity: 0.7 }}
-              onClick={() => setIsBlacklistDrawerOpen(false)}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div style={{ padding: "16px", overflowY: "auto" }}>
-            <BlacklistManager />
-          </div>
-        </div>
-      )}
       <TerminalDrawer
         isOpen={showTerminalDrawer}
         onClose={() => setShowTerminalDrawer(false)}
