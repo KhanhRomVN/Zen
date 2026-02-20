@@ -17,11 +17,13 @@ interface HomePanelProps {
     tabId: number,
     folderPath: string | null,
   ) => void;
+  initialValue?: string;
 }
 
 const HomePanel: React.FC<HomePanelProps> = ({
   onSendMessage,
   onLoadConversation,
+  initialValue,
 }) => {
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
@@ -88,6 +90,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
         setCurrentAccount={setCurrentAccount}
         selectedQuickModel={selectedQuickModel}
         onQuickModelSelect={setSelectedQuickModel}
+        initialValue={initialValue}
       />
     </div>
   );

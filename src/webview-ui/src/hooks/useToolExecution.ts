@@ -324,37 +324,6 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
           );
           break;
         }
-        case "create_checkpoint": {
-          const requestId = `checkpoint-${Date.now()}-${Math.random()}`;
-          extensionService.postMessage({
-            command: "createCheckpoint",
-            filePath: action.params.path,
-            conversationId: action.conversationId,
-            actionId: (action as any).actionId,
-            messageId: (action as any).messageId,
-            toolType: action.params.toolType,
-            requestId,
-          });
-
-          const handleCheckpointResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "checkpointCreated" &&
-              msg.checkpoint.actionId === (action as any).actionId
-            ) {
-              window.removeEventListener("message", handleCheckpointResponse);
-              resolve(
-                `[create_checkpoint for '${action.params.path}'] Success: Checkpoint created. You can now proceed with edits.`,
-              );
-            }
-          };
-          window.addEventListener("message", handleCheckpointResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleCheckpointResponse);
-            resolve(null);
-          }, 10000);
-          break;
-        }
         case "execute_agent_action": {
           const requestId = `agent-${Date.now()}-${Math.random()}`;
           extensionService.postMessage({

@@ -84,7 +84,6 @@ export const useToolActions = ({
           const actionId = `${message.id}-action-${actionIndex}`;
           setClickedActions((prev) => new Set(prev).add(actionId));
 
-          // Attach actionId to action for checkpoint tracking
           // Also attach _index for ChatPanel logic to track completion
           const actionWithId = { ...action, actionId, _index: actionIndex };
           onSendToolRequest(actionWithId, message);

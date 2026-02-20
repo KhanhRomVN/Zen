@@ -40,6 +40,7 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   backupEventCount?: number;
   // 🆕 Blacklist Props
   onToggleBlacklistDrawer?: () => void;
+  initialValue?: string;
 }
 
 // Hooks
@@ -76,8 +77,15 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   hasBackupEvents,
   backupEventCount,
   onToggleBlacklistDrawer,
+  initialValue,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (initialValue) {
+      setMessage(initialValue);
+    }
+  }, [initialValue]);
   // const [showOptionsDrawer, setShowOptionsDrawer] = useState(false); // Removed
   const [showProjectStructureDrawer, setShowProjectStructureDrawer] =
     useState(false);

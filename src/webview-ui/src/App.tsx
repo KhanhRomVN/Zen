@@ -39,6 +39,7 @@ const App: React.FC = () => {
     null,
   );
   const [externalTabs, setExternalTabs] = useState<TabInfo[]>([]);
+  const [homeInitialValue, setHomeInitialValue] = useState("");
 
   // Lift tabs state lên App level để persist khi switch panels
   const tabs: TabInfo[] = []; // WebSocket removed, using empty tabs for now
@@ -183,9 +184,19 @@ const App: React.FC = () => {
         requestCount: 0,
       };
       setSelectedTab(newTab);
+      setHomeInitialValue(""); // Clear when starting fresh from Home
     },
     [],
   );
+
+  const handleBack = useCallback((contentToReturn?: string) => {
+    setSelectedTab(null);
+    if (typeof contentToReturn === "string" && contentToReturn.trim()) {
+      setHomeInitialValue(contentToReturn);
+    } else {
+      setHomeInitialValue("");
+    }
+  }, []);
 
   return (
     <ThemeProvider>
@@ -197,7 +208,7 @@ const App: React.FC = () => {
                 {selectedTab ? (
                   <ChatPanel
                     selectedTab={selectedTab}
-                    onBack={() => setSelectedTab(null)}
+                    onBack={handleBack}
                     tabs={tabs}
                     onTabSelect={handleTabSelect}
                     onLoadConversation={handleLoadConversation}
@@ -208,6 +219,7 @@ const App: React.FC = () => {
                   <HomePanel
                     onSendMessage={handleHomeSendMessage}
                     onLoadConversation={handleLoadConversation}
+                    initialValue={homeInitialValue}
                   />
                 )}
               </>

@@ -9,7 +9,14 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
-  const { apiUrl, setApiUrl, language, setLanguage } = useSettings();
+  const {
+    apiUrl,
+    setApiUrl,
+    language,
+    setLanguage,
+    isBackupEnabled,
+    setIsBackupEnabled,
+  } = useSettings();
 
   const handleApiUrlChange = (value: string) => {
     setApiUrl(value);
@@ -162,6 +169,62 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             }}
           >
             Interface and AI response language.
+          </span>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <label
+              style={{
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "var(--primary-text)",
+              }}
+            >
+              Enable File Backups
+            </label>
+            <div
+              onClick={() => setIsBackupEnabled(!isBackupEnabled)}
+              style={{
+                width: "40px",
+                height: "20px",
+                backgroundColor: isBackupEnabled
+                  ? "var(--vscode-button-background)"
+                  : "#3c3c3c",
+                borderRadius: "10px",
+                position: "relative",
+                cursor: "pointer",
+                transition: "background-color 0.2s",
+              }}
+            >
+              <div
+                style={{
+                  width: "16px",
+                  height: "16px",
+                  backgroundColor: "#ffffff",
+                  borderRadius: "50%",
+                  position: "absolute",
+                  top: "2px",
+                  left: isBackupEnabled ? "22px" : "2px",
+                  transition: "left 0.2s ease-in-out",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                }}
+              />
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: "13px",
+              color: "var(--secondary-text)",
+            }}
+          >
+            Automatically create backups when AI modifies your files.
           </span>
         </div>
 

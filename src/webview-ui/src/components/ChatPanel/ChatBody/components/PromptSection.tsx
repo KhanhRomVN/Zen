@@ -81,35 +81,6 @@ const PromptSection: React.FC<PromptSectionProps> = ({
             overflowY: "auto",
           }}
         >
-          {message.systemPrompt && (
-            <>
-              <div
-                style={{
-                  fontWeight: 600,
-                  color: "var(--accent-text)",
-                  marginBottom: "var(--spacing-xs)",
-                }}
-              >
-                === SYSTEM PROMPT ===
-              </div>
-              {message.systemPrompt}
-              <div
-                style={{
-                  margin: "var(--spacing-md) 0",
-                  borderTop: "1px dashed var(--border-color)",
-                }}
-              />
-            </>
-          )}
-          <div
-            style={{
-              fontWeight: 600,
-              color: "var(--accent-text)",
-              marginBottom: "var(--spacing-xs)",
-            }}
-          >
-            === USER MESSAGE ===
-          </div>
           {message.content}
         </div>
       )}

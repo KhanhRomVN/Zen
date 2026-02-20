@@ -27,8 +27,6 @@ interface ChatHeaderProps {
     } | null;
     history: any[];
   };
-  onToggleCheckpointManager?: () => void;
-  hasCheckpoints?: boolean;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -38,8 +36,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   conversationId,
   taskProgress,
   onToggleTaskDrawer,
-  onToggleCheckpointManager,
-  hasCheckpoints,
 }) => {
   // Helper to format large numbers to K
   const formatTokens = (num: number) => {
@@ -151,33 +147,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               gap: "8px",
             }}
           >
-            {hasCheckpoints && (
-              <button
-                onClick={onToggleCheckpointManager}
-                title="View Checkpoints"
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: "0 4px",
-                  cursor: "pointer",
-                  color: "var(--vscode-textLink-foreground)",
-                  display: "flex",
-                  alignItems: "center",
-                  opacity: 0.8,
-                }}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M11 15h2m-2-4h2m-2-4h2M9 21h6a2 2 0 002-2V5a2 2 0 00-2-2H9a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-              </button>
-            )}
             <div
               style={{
                 fontSize: "11px",

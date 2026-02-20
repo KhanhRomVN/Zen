@@ -3,9 +3,9 @@ import { encode } from "gpt-tokenizer";
 import { Message } from "../components/ChatPanel/ChatBody/types";
 import { TabInfo } from "../types";
 
-const STORAGE_PREFIX = "zen-conversation";
+const STORAGE_PREFIX = "zen-chat";
 
-export interface ConversationMetadata {
+export interface ChatMetadata {
   id: string;
   tabId: number;
   folderPath: string | null;
@@ -23,21 +23,37 @@ export interface ConversationMetadata {
   uniqueTaskCount?: number;
 }
 
-export const logToWorkspace = (conversationId: string, message: any) => {
-  const vscodeApi = (window as any).vscodeApi; // Or extensionService.postMessage
-  if (!vscodeApi) return;
+export const logChatToWorkspace = (chatUuid: string, message: any) => {
+  console.log(
+    `[ConversationService] logChatToWorkspace called for chatUuid: ${chatUuid}`,
+    { role: message.role, id: message.id },
+  );
+  try {
+    const vscodeApi = (window as any).vscodeApi;
+    if (!vscodeApi) {
+      console.warn(
+        "[ConversationService] vscodeApi NOT found, cannot log to workspace.",
+      );
+      return;
+    }
 
-  const logEntry = {
-    ...message,
-    timestamp: new Date().toISOString(),
-    conversationId,
-  };
+    const logEntry = {
+      ...message,
+      timestamp: new Date().toISOString(),
+      conversationId: message.conversationId, // Backend conversationId
+    };
 
-  extensionService.postMessage({
-    command: "logConversation",
-    conversationId,
-    logEntry,
-  });
+    console.log(
+      `[ConversationService] Sending logChat command for role: ${logEntry.role} | id: ${logEntry.id}`,
+    );
+    extensionService.postMessage({
+      command: "logChat",
+      chatUuid,
+      logEntry,
+    });
+  } catch (err) {
+    console.error(`[ConversationService] Error in logChatToWorkspace:`, err);
+  }
 };
 
 export const calculateTokens = (text: string): number => {
@@ -69,8 +85,7 @@ export const saveConversation = async (
   tabId: number,
   folderPath: string | null,
   messages: Message[],
-  isFirstRequest: boolean,
-  conversationId?: string,
+  conversationId?: string, // This is the chatUuid for filename
   selectedTab?: TabInfo,
   skipTimestampUpdate?: boolean,
 ): Promise<string> => {
@@ -87,20 +102,9 @@ export const saveConversation = async (
       (m: Message) => m.role === "user",
     ).length;
     const totalContext = activeMessages.reduce(
-      (sum: number, m: Message) =>
-        sum + (m.usage?.total_tokens || m.contextSize || 0),
+      (sum: number, m: Message) => sum + (m.contextSize || 0),
       0,
     );
-
-    // Calculate Task Progress (Simplified extraction, reliant on parsed content existence if needed,
-    // but here we might need to parse content if not already available.
-    // Ideally we pass parsed info or move parsing here.
-    // For now, let's keep it simple or import response parser if needed.)
-    // Note: To avoid circular imports, maybe we pass specific stats?
-    // Or just re-import ResponseParser here.
-
-    // ... skipping complex parsing logic for now to avoid circular dependency with ResponseParser if it's large.
-    // Assuming we can copy the logic or import it.
 
     const { parseAIResponse } = require("./ResponseParser");
 
@@ -152,7 +156,6 @@ export const saveConversation = async (
 
     const data = {
       messages,
-      isFirstRequest,
       conversationId: convId,
       metadata: {
         id: key,
@@ -171,7 +174,7 @@ export const saveConversation = async (
         totalTasks,
         completedTasks,
         uniqueTaskCount,
-      } as ConversationMetadata,
+      } as ChatMetadata,
     };
 
     await storage.set(key, JSON.stringify(data), false);

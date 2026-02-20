@@ -1,47 +1,17 @@
-export type Role = "user" | "assistant" | "system-checkpoint" | "system";
+export type Role = "user" | "assistant" | "system";
 
 export interface Message {
   id: string;
   role: Role;
   content: string;
   timestamp: number;
-  isFirstRequest?: boolean;
-  isToolRequest?: boolean;
-  systemPrompt?: string;
   contextSize?: number;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-  checkpointData?: CheckpointData;
   actionIds?: string[];
   uiHidden?: boolean;
   isCancelled?: boolean;
 }
 
-export interface CheckpointData {
-  id: string;
-  totalFiles: number;
-  totalSize: number;
-  storageSize?: number;
-  timestamp: number;
-  files: any;
-  stats?: {
-    added: number;
-    modified: number;
-    deleted: number;
-  };
-  changes?: {
-    [path: string]: {
-      status: "added" | "modified" | "deleted";
-      additions: number;
-      deletions: number;
-    };
-  };
-}
-
-export interface ConversationMetadata {
+export interface ChatMetadata {
   id: string;
   tabId: number;
   folderPath: string | null;

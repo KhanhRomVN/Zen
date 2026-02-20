@@ -48,6 +48,12 @@ export class ChatController {
         case "logConversation":
           await this.handleLogConversation(message);
           break;
+        case "logChat":
+          await this.handleLogChat(message);
+          break;
+        case "createEmptyChatLog":
+          await this.handleCreateEmptyChatLog(message);
+          break;
         case "rollbackConversationLog":
           await this.handleRollbackConversationLog(message);
           break;
@@ -159,20 +165,11 @@ export class ChatController {
         case "stopCommand":
           await this.handleStopCommand(message);
           break;
-        case "confirmRevert":
-          await this.handleConfirmRevert(message, webviewView);
-          break;
         case "openPreview":
           await this.handleOpenPreview(message);
           break;
         case "openTempImage":
           await this.handleOpenTempImage(message);
-          break;
-        case "revertToCheckpoint":
-          await this.handleRevertToCheckpoint(message, webviewView);
-          break;
-        case "createCheckpoint":
-          await this.handleCreateCheckpoint(message, webviewView);
           break;
         case "getGitChanges":
           await this.handleGetGitChanges(message, webviewView);
@@ -363,34 +360,137 @@ export class ChatController {
   }
 
   private async handleLogConversation(message: any) {
+    const { conversationId, logEntry } = message;
+    console.log(
+      `[ChatController] handleLogConversation called for conversationId: ${conversationId} | role: ${logEntry?.role}`,
+    );
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
-      const { conversationId, logEntry } = message;
       const projectContextDir = this.getProjectContextDir(
         workspaceFolder.uri.fsPath,
       );
       await fs.promises.mkdir(projectContextDir, { recursive: true });
       const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
-      let content: any[] = [];
+      const release = await this.fileLockManager.acquire(logPath);
+      console.log(
+        `[ChatController] Lock acquired for logConversation: ${logPath}`,
+      );
       try {
-        const fileData = await fs.promises.readFile(logPath, "utf-8");
-        content = JSON.parse(fileData);
-        if (!Array.isArray(content)) content = [];
-      } catch {
-        content = [];
-      }
+        let content: any[] = [];
+        try {
+          const fileData = await fs.promises.readFile(logPath, "utf-8");
+          content = JSON.parse(fileData);
+          if (!Array.isArray(content)) content = [];
+        } catch {
+          content = [];
+        }
 
-      content.push(logEntry);
-      await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2));
+        content.push(logEntry);
+        await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2));
+        console.log(
+          `[ChatController] Log updated for ${conversationId}. New count: ${content.length}`,
+        );
 
-      // Cleanup old conversations
-      if (this.backupManager) {
-        await this.backupManager.cleanupOldConversations(projectContextDir);
+        // Cleanup old conversations
+        if (this.backupManager) {
+          await this.backupManager.cleanupOldConversations(projectContextDir);
+        }
+      } finally {
+        release();
+        console.log(
+          `[ChatController] Lock released for logConversation: ${logPath}`,
+        );
       }
     } catch (e) {
       console.error("Log conversation failed", e);
+    }
+  }
+
+  /**
+   * Creates an empty placeholder .json file for a new chat session.
+   * The file will be populated with content after the first successful API response.
+   */
+  private async handleCreateEmptyChatLog(message: any) {
+    console.log(
+      `[ChatController] handleCreateEmptyChatLog called for chatUuid: ${message.chatUuid}`,
+    );
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+      const { chatUuid } = message;
+      if (!chatUuid) return;
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      await fs.promises.mkdir(projectContextDir, { recursive: true });
+      const logPath = path.join(projectContextDir, `${chatUuid}.json`);
+
+      const release = await this.fileLockManager.acquire(logPath);
+      console.log(`[ChatController] Lock acquired for empty log: ${logPath}`);
+      try {
+        // Create empty array JSON if file doesn't exist yet
+        if (!fs.existsSync(logPath)) {
+          await fs.promises.writeFile(logPath, JSON.stringify([], null, 2));
+          console.log(`[ChatController] Empty log file created: ${logPath}`);
+        }
+      } finally {
+        release();
+        console.log(`[ChatController] Lock released for empty log: ${logPath}`);
+      }
+    } catch (e) {
+      console.error("Create empty chat log failed", e);
+    }
+  }
+
+  /**
+   * Appends a log entry to a chat log file identified by chatUuid.
+   * Uses the backend conversation_id inside the logEntry for the conversationId field.
+   */
+  private async handleLogChat(message: any) {
+    const { chatUuid, logEntry } = message;
+    console.log(
+      `[ChatController] handleLogChat called for chatUuid: ${chatUuid} | role: ${logEntry?.role} | id: ${logEntry?.id}`,
+    );
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+      if (!chatUuid || !logEntry) return;
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      await fs.promises.mkdir(projectContextDir, { recursive: true });
+      const logPath = path.join(projectContextDir, `${chatUuid}.json`);
+
+      const release = await this.fileLockManager.acquire(logPath);
+      console.log(`[ChatController] Lock acquired for logChat: ${logPath}`);
+      try {
+        let content: any[] = [];
+        try {
+          const fileData = await fs.promises.readFile(logPath, "utf-8");
+          const parsed = JSON.parse(fileData);
+          content = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          content = [];
+        }
+
+        content.push(logEntry);
+        await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2));
+        console.log(
+          `[ChatController] Log updated for ${chatUuid}. New count: ${content.length}`,
+        );
+
+        // Cleanup old chat logs
+        if (this.backupManager) {
+          await this.backupManager.cleanupOldConversations(projectContextDir);
+        }
+      } finally {
+        release();
+        console.log(`[ChatController] Lock released for logChat: ${logPath}`);
+      }
+    } catch (e) {
+      console.error("Log chat failed", e);
     }
   }
 
@@ -401,11 +501,23 @@ export class ChatController {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
       const logPath = path.join(
-        this.getProjectContextDir(workspaceFolder.uri.fsPath),
+        projectContextDir,
         `${message.conversationId}.json`,
       );
-      await fs.promises.unlink(logPath);
+      const backupPath = path.join(projectContextDir, message.conversationId);
+
+      // Delete log file
+      await fs.promises.unlink(logPath).catch(() => {});
+
+      // Delete backup folder recursively
+      await fs.promises
+        .rm(backupPath, { recursive: true, force: true })
+        .catch(() => {});
+
       webviewView.webview.postMessage({
         command: "deleteConversationResult",
         requestId: message.requestId,
@@ -447,6 +559,12 @@ export class ChatController {
       for (const entry of entries) {
         if (entry.isFile() && entry.name.endsWith(".json")) {
           await fs.promises.unlink(path.join(projectContextDir, entry.name));
+        } else if (entry.isDirectory()) {
+          // Backup folders are named with conversationId (uuid) and reside in this dir
+          await fs.promises.rm(path.join(projectContextDir, entry.name), {
+            recursive: true,
+            force: true,
+          });
         }
       }
       webviewView.webview.postMessage({
@@ -713,10 +831,14 @@ export class ChatController {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
     try {
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
       await this.backupManager.startBackupFileWatcher(
         message.conversationId,
         workspaceFolder,
         webviewView,
+        projectContextDir,
       );
       webviewView.webview.postMessage({
         command: "startBackupWatchResult",
@@ -1363,7 +1485,7 @@ export class ChatController {
       "vscode.diff",
       actualPath,
       tempFile,
-      `${basename} (Current ↔ Checkpoint)`,
+      `${basename} (Current ↔ Previous)`,
     );
   }
 
@@ -1404,32 +1526,6 @@ export class ChatController {
     }
   }
 
-  private async handleConfirmRevert(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const { checkpoint } = message;
-    if (!checkpoint) return;
-    const res = await vscode.window.showWarningMessage(
-      `Revert ${path.basename(checkpoint.filePath)}?`,
-      { modal: true },
-      "Revert",
-    );
-    if (res === "Revert") {
-      await vscode.workspace.fs.writeFile(
-        vscode.Uri.file(checkpoint.filePath),
-        Buffer.from(checkpoint.preEditContent, "utf8"),
-      );
-      webviewView.webview.postMessage({
-        command: "revertSuccess",
-        filePath: checkpoint.filePath,
-        actionId: checkpoint.actionId,
-        messageId: checkpoint.messageId,
-      });
-      vscode.window.showInformationMessage("Reverted successfully");
-    }
-  }
-
   private async handleOpenPreview(message: any) {
     const doc = await vscode.workspace.openTextDocument({
       content: message.content,
@@ -1449,75 +1545,6 @@ export class ChatController {
     );
     await vscode.workspace.fs.writeFile(tmpFile, Buffer.from(base64, "base64"));
     await vscode.commands.executeCommand("vscode.open", tmpFile);
-  }
-
-  private async handleRevertToCheckpoint(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const { checkpoint } = message;
-    if (!checkpoint) return;
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.file(checkpoint.filePath),
-      Buffer.from(checkpoint.preEditContent, "utf8"),
-    );
-    webviewView.webview.postMessage({
-      command: "revertSuccess",
-      filePath: checkpoint.filePath,
-    });
-    vscode.window.showInformationMessage("Reverted successfully");
-  }
-
-  private async handleCreateCheckpoint(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-    let abs = message.filePath;
-    if (!path.isAbsolute(abs))
-      abs = vscode.Uri.joinPath(workspaceFolder.uri, abs).fsPath;
-
-    try {
-      const content = Buffer.from(
-        await vscode.workspace.fs.readFile(vscode.Uri.file(abs)),
-      ).toString("utf8");
-      const checkpoint = {
-        id: `checkpoint-${Date.now()}`,
-        conversationId: message.conversationId,
-        filePath: abs,
-        preEditContent: content,
-        timestamp: Date.now(),
-        toolType: message.toolType,
-        isComplete: false,
-        actionId: message.actionId,
-        messageId: message.messageId,
-      };
-      webviewView.webview.postMessage({
-        command: "checkpointCreated",
-        checkpoint,
-      });
-
-      setTimeout(async () => {
-        try {
-          const newContent = Buffer.from(
-            await vscode.workspace.fs.readFile(vscode.Uri.file(abs)),
-          ).toString("utf8");
-          webviewView.webview.postMessage({
-            command: "checkpointUpdated",
-            checkpoint: {
-              ...checkpoint,
-              postEditContent: newContent,
-              isComplete: true,
-            },
-          });
-        } catch {}
-      }, 5000);
-    } catch (e: any) {
-      vscode.window.showErrorMessage(
-        "Failed to create checkpoint: " + e.message,
-      );
-    }
   }
 
   private async handleGetGitChanges(

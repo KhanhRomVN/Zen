@@ -34,8 +34,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   toolOutputs,
   firstRequestMessageId,
   onLoadConversation,
-  checkpoints,
-  onRevertCheckpoint,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -138,8 +136,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             clearedActions={clearedActions}
             onActionClear={handleActionClear}
             toolOutputs={toolOutputs}
-            checkpoints={checkpoints}
-            onRevertCheckpoint={onRevertCheckpoint}
           />
         );
       })}

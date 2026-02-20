@@ -37,7 +37,6 @@ export interface BackupMetadata {
 }
 
 export class BackupManager {
-  private readonly backupRoot: string;
   private workspaceRoot: string | null = null;
   private _storageManager?: GlobalStorageManager;
 
@@ -45,10 +44,10 @@ export class BackupManager {
   private _backupFileWatcher?: vscode.FileSystemWatcher;
   private _disposables: vscode.Disposable[] = [];
   private _activeConversationId?: string;
+  private _activeBaseDir?: string;
   private _processedDeletions = new Set<string>();
 
   constructor(storageManager?: GlobalStorageManager) {
-    this.backupRoot = path.join(os.homedir(), "khanhromvn-zen", "backups");
     this._storageManager = storageManager;
   }
 
@@ -56,16 +55,25 @@ export class BackupManager {
     this.workspaceRoot = workspacePath;
   }
 
-  getBackupFolderPath(conversationId: string): string {
-    return path.join(this.backupRoot, conversationId);
+  getBackupFolderPath(conversationId: string, customBaseDir?: string): string {
+    if (customBaseDir) {
+      return path.join(customBaseDir, conversationId);
+    }
+    throw new Error("Base directory for backup must be provided");
   }
 
   // #region Folder & Metadata Management
 
-  async createBackupFolder(conversationId: string): Promise<string> {
+  async createBackupFolder(
+    conversationId: string,
+    customBaseDir?: string,
+  ): Promise<string> {
     if (!this.workspaceRoot) throw new Error("Workspace root not set");
 
-    const backupFolder = this.getBackupFolderPath(conversationId);
+    const backupFolder = this.getBackupFolderPath(
+      conversationId,
+      customBaseDir,
+    );
     const snapshotsFolder = path.join(backupFolder, "snapshots");
 
     try {
@@ -100,8 +108,14 @@ export class BackupManager {
     }
   }
 
-  async backupFolderExists(conversationId: string): Promise<boolean> {
-    const backupFolder = this.getBackupFolderPath(conversationId);
+  async backupFolderExists(
+    conversationId: string,
+    customBaseDir?: string,
+  ): Promise<boolean> {
+    const backupFolder = this.getBackupFolderPath(
+      conversationId,
+      customBaseDir,
+    );
     try {
       await vscode.workspace.fs.stat(vscode.Uri.file(backupFolder));
       return true;
@@ -123,15 +137,19 @@ export class BackupManager {
     conversationId: string,
     workspaceFolder: vscode.WorkspaceFolder,
     webviewView: vscode.WebviewView,
+    customBaseDir?: string,
   ): Promise<void> {
-    console.log(`[BackupManager] Starting watcher for: ${conversationId}`);
+    console.log(
+      `[BackupManager] Starting watcher for: ${conversationId} in ${customBaseDir || "default root"}`,
+    );
 
     this._activeConversationId = conversationId;
+    this._activeBaseDir = customBaseDir;
     this.setWorkspaceRoot(workspaceFolder.uri.fsPath);
 
-    const exists = await this.backupFolderExists(conversationId);
+    const exists = await this.backupFolderExists(conversationId, customBaseDir);
     if (!exists) {
-      await this.createBackupFolder(conversationId);
+      await this.createBackupFolder(conversationId, customBaseDir);
     }
 
     // 1. onWillSave
@@ -165,6 +183,7 @@ export class BackupManager {
               doc.uri.fsPath,
               unconfirmed,
               blacklist,
+              this._activeBaseDir,
             );
 
             if (unconfirmed) {
@@ -194,7 +213,6 @@ export class BackupManager {
         if (!this._activeConversationId) return;
         for (const uri of e.files) {
           if (uri.fsPath.startsWith(workspaceFolder.uri.fsPath)) {
-            if (uri.fsPath.includes("khanhromvn-zen/backups")) continue;
             if (BackupManager.isIgnoredFile(uri.fsPath)) continue;
 
             const blacklist = await this.getBackupBlacklist(
@@ -206,6 +224,7 @@ export class BackupManager {
               "file_deleted",
               false,
               blacklist,
+              this._activeBaseDir,
             );
 
             this._processedDeletions.add(uri.fsPath);
@@ -259,6 +278,7 @@ export class BackupManager {
       `[BackupManager] Stopping watcher. Active ID: ${this._activeConversationId}`,
     );
     this._activeConversationId = undefined;
+    this._activeBaseDir = undefined;
 
     if (this._backupFileWatcher) {
       this._backupFileWatcher.dispose();
@@ -277,7 +297,6 @@ export class BackupManager {
   ): Promise<void> {
     if (!this._activeConversationId) return;
     if (!uri.fsPath.startsWith(workspaceFolder.uri.fsPath)) return;
-    if (uri.fsPath.includes("khanhromvn-zen/backups")) return;
     if (BackupManager.isIgnoredFile(uri.fsPath)) return;
 
     if (eventType === "file_deleted") {
@@ -291,6 +310,7 @@ export class BackupManager {
           eventType,
           false,
           blacklist,
+          this._activeBaseDir,
         );
         webviewView.webview.postMessage({
           command: "backupEventAdded",
@@ -335,6 +355,7 @@ export class BackupManager {
           eventType,
           unconfirmed,
           blacklist,
+          this._activeBaseDir,
         );
 
         if (unconfirmed && size > 1024 * 1024) {
@@ -385,8 +406,12 @@ export class BackupManager {
     absoluteFilePath: string,
     unconfirmed?: boolean,
     blacklist: string[] = [],
+    customBaseDir?: string,
   ): Promise<void> {
-    const backupFolder = this.getBackupFolderPath(conversationId);
+    const backupFolder = this.getBackupFolderPath(
+      conversationId,
+      customBaseDir,
+    );
     const metadataPath = path.join(backupFolder, "metadata.json");
     const relativePath = this.getRelativePath(absoluteFilePath);
 
@@ -406,6 +431,8 @@ export class BackupManager {
         absoluteFilePath,
         "initial_state",
         unconfirmed,
+        blacklist,
+        customBaseDir,
       );
 
       metadata.originalFiles.push(relativePath);
@@ -428,6 +455,7 @@ export class BackupManager {
       | "initial_state",
     unconfirmed?: boolean,
     blacklist: string[] = [],
+    customBaseDir?: string,
   ): Promise<void> {
     if (!this.workspaceRoot) throw new Error("Workspace root not set");
 
@@ -437,7 +465,10 @@ export class BackupManager {
     if (BackupManager.isBlacklisted(relativePath, blacklist)) return;
 
     try {
-      const backupFolder = this.getBackupFolderPath(conversationId);
+      const backupFolder = this.getBackupFolderPath(
+        conversationId,
+        customBaseDir,
+      );
       const fileName = path.basename(absoluteFilePath);
 
       // Batching logic for modifiers
@@ -445,6 +476,7 @@ export class BackupManager {
         const lastEvent = await this.getLastEventForFile(
           conversationId,
           relativePath,
+          customBaseDir,
         );
         if (
           lastEvent &&
@@ -518,8 +550,8 @@ export class BackupManager {
         unconfirmed,
       };
 
-      await this.appendToTimeline(conversationId, event);
-      await this.updateMetadata(conversationId);
+      await this.appendToTimeline(conversationId, event, customBaseDir);
+      await this.updateMetadata(conversationId, customBaseDir);
     } catch (error) {
       console.error(`Failed to backup file: ${error}`);
       throw error;
@@ -533,8 +565,9 @@ export class BackupManager {
   private async getLastEventForFile(
     conversationId: string,
     filePath: string,
+    customBaseDir?: string,
   ): Promise<TimelineEvent | undefined> {
-    const timeline = await this.getTimeline(conversationId);
+    const timeline = await this.getTimeline(conversationId, customBaseDir);
     for (let i = timeline.length - 1; i >= 0; i--) {
       if (timeline[i].filePath === filePath) return timeline[i];
     }
@@ -544,8 +577,12 @@ export class BackupManager {
   private async appendToTimeline(
     conversationId: string,
     event: TimelineEvent,
+    customBaseDir?: string,
   ): Promise<void> {
-    const backupFolder = this.getBackupFolderPath(conversationId);
+    const backupFolder = this.getBackupFolderPath(
+      conversationId,
+      customBaseDir,
+    );
     const timelinePath = path.join(backupFolder, "timeline.json");
     try {
       const timelineUri = vscode.Uri.file(timelinePath);
@@ -567,9 +604,12 @@ export class BackupManager {
     }
   }
 
-  async getTimeline(conversationId: string): Promise<TimelineEvent[]> {
+  async getTimeline(
+    conversationId: string,
+    customBaseDir?: string,
+  ): Promise<TimelineEvent[]> {
     const timelinePath = path.join(
-      this.getBackupFolderPath(conversationId),
+      this.getBackupFolderPath(conversationId, customBaseDir),
       "timeline.json",
     );
     try {
@@ -582,8 +622,14 @@ export class BackupManager {
     }
   }
 
-  private async updateMetadata(conversationId: string): Promise<void> {
-    const backupFolder = this.getBackupFolderPath(conversationId);
+  private async updateMetadata(
+    conversationId: string,
+    customBaseDir?: string,
+  ): Promise<void> {
+    const backupFolder = this.getBackupFolderPath(
+      conversationId,
+      customBaseDir,
+    );
     const metadataPath = path.join(backupFolder, "metadata.json");
     try {
       const metadataUri = vscode.Uri.file(metadataPath);
@@ -591,7 +637,7 @@ export class BackupManager {
       const metadata: BackupMetadata = JSON.parse(
         Buffer.from(fileData).toString("utf8"),
       );
-      const timeline = await this.getTimeline(conversationId);
+      const timeline = await this.getTimeline(conversationId, customBaseDir);
 
       metadata.lastModified = Date.now();
       metadata.totalEvents = timeline.length;

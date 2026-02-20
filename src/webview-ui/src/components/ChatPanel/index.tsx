@@ -10,7 +10,6 @@ import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
 import TaskDrawer from "./TaskDrawer";
 import BackupDrawer from "./ChatFooter/components/BackupDrawer";
-import { Checkpoint } from "./types";
 
 import { extensionService } from "../../services/ExtensionService";
 import {
@@ -19,6 +18,7 @@ import {
   getConversationKey,
 } from "../../services/ConversationService";
 import { parseAIResponse } from "../../services/ResponseParser";
+import { useSettings } from "../../context/SettingsContext";
 import { useChatLLM } from "../../hooks/useChatLLM";
 import { useBackupWatcher } from "../../hooks/useBackupWatcher";
 import { useToolExecution } from "../../hooks/useToolExecution";
@@ -27,7 +27,7 @@ import { Message } from "./ChatBody/types";
 
 interface ChatPanelProps {
   selectedTab: TabInfo | null;
-  onBack: () => void;
+  onBack: (contentToReturn?: string) => void;
   tabs?: TabInfo[];
   onTabSelect?: (tab: TabInfo) => void;
   onLoadConversation?: (
@@ -55,11 +55,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   onClearInitialData,
 }) => {
   // --- States ---
+  const { isBackupEnabled } = useSettings();
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
   const [isBackupDrawerOpen, setIsBackupDrawerOpen] = useState(false);
-  const [isCheckpointManagerOpen, setIsCheckpointManagerOpen] = useState(false);
-  const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [isLoadingConversation, setIsLoadingConversation] = useState(true);
   const [selectedQuickModel, setSelectedQuickModel] = useState<{
     providerId: string;
@@ -83,6 +82,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   } = useChatLLM({
     apiUrl,
     selectedTab,
+    isBackupEnabled,
     onToolRequest: (actions, assistantMessage) =>
       handleToolRequest(actions, assistantMessage),
   });
@@ -226,7 +226,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const load = async () => {
       if (!selectedTab) {
         setMessages([]);
-        setCurrentConversationId(Date.now().toString());
         setIsLoadingConversation(false);
         setIsProcessing(false);
         return;
@@ -241,8 +240,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         });
       } else {
         setMessages([]);
-        if (!currentConversationId)
-          setCurrentConversationId(Date.now().toString());
         setIsLoadingConversation(false);
       }
     };
@@ -271,16 +268,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         data.conversationId === currentConversationId
       ) {
         handleClearConfirmed();
-      } else if (data.command === "checkpointCreated") {
-        setCheckpoints((prev) => [...prev, data.checkpoint]);
-      } else if (data.command === "checkpointUpdated") {
-        setCheckpoints((prev) =>
-          prev.map((cp) =>
-            cp.id === data.checkpoint.id ? data.checkpoint : cp,
-          ),
-        );
-      } else if (data.command === "revertSuccess") {
-        // Optionially show notification or update UI
       }
     };
     window.addEventListener("message", handler);
@@ -299,18 +286,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     if (selectedTab) {
       await deleteConversation(currentConversationId);
       setMessages([]);
-      setCheckpoints([]);
       setIsProcessing(false);
       setCurrentConversationId(Date.now().toString());
     }
   };
-
-  const handleRevertCheckpoint = useCallback((checkpoint: Checkpoint) => {
-    extensionService.postMessage({
-      command: "revertToCheckpoint",
-      checkpoint,
-    });
-  }, []);
 
   const handleExecutePendingBatch = useCallback(() => {
     for (let i = parsedMessages.length - 1; i >= 0; i--) {
@@ -332,9 +311,33 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return false;
   }, [parsedMessages, clickedActions, handleToolRequest]);
 
-  const firstRequestMessage =
-    messages.find((m) => m.isFirstRequest) ||
-    messages.find((m) => m.role === "user" && !m.isToolRequest);
+  const handleStopGeneration = useCallback(() => {
+    // 🆕 REDIRECTION LOGIC: If stopping AND it was the first request (req1), go back to Home
+    const isFirstRequest = messages.filter((m) => !m.isCancelled).length <= 2; // User + Assistant (partial)
+
+    stopGeneration();
+
+    if (isFirstRequest) {
+      // Find the user message content to return
+      // We check messagesRef for the raw content if possible, or just messages state
+      const userMsg = messages.find((m) => m.role === "user");
+      if (userMsg) {
+        let content = userMsg.content;
+        // Strip ## User Message\n```\n...\n``` if present
+        if (content.startsWith("## User Message")) {
+          const match = content.match(
+            /^## User Message\n```\n([\s\S]*?)\n```$/,
+          );
+          if (match) content = match[1];
+        }
+        onBack(content);
+      } else {
+        onBack();
+      }
+    }
+  }, [messages, stopGeneration, onBack]);
+
+  const firstRequestMessage = messages.find((m) => m.role === "user");
 
   return (
     <div
@@ -368,10 +371,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         taskName={currentTaskName}
         conversationId={currentConversationId}
         onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
-        onToggleCheckpointManager={() =>
-          setIsCheckpointManagerOpen(!isCheckpointManagerOpen)
-        }
-        hasCheckpoints={checkpoints.length > 0}
         taskProgress={
           allTaskProgress.length > 0
             ? {
@@ -422,8 +421,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         toolOutputs={toolOutputs}
         firstRequestMessageId={firstRequestMessage?.id}
         onLoadConversation={onLoadConversation}
-        checkpoints={checkpoints}
-        onRevertCheckpoint={handleRevertCheckpoint}
       />
       <ChatFooter
         folderPath={selectedTab?.folderPath || null}
@@ -456,7 +453,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
         isProcessing={isProcessing}
         isStreaming={isStreaming}
-        onStopGeneration={stopGeneration}
+        onStopGeneration={handleStopGeneration}
         onToggleBackupDrawer={() => setIsBackupDrawerOpen(!isBackupDrawerOpen)}
         hasBackupEvents={backupEventCount > 0}
         backupEventCount={backupEventCount}

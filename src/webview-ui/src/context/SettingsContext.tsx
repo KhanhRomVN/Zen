@@ -6,6 +6,8 @@ interface SettingsContextType {
   setLanguage: (lang: string) => void;
   apiUrl: string;
   setApiUrl: (url: string) => void;
+  isBackupEnabled: boolean;
+  setIsBackupEnabled: (enabled: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -17,6 +19,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [language, setLanguageState] = useState("en");
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
+  const [isBackupEnabled, setIsBackupEnabledState] = useState(true);
 
   useEffect(() => {
     const storage = extensionService.getStorage();
@@ -36,6 +39,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setApiUrlState(res.value);
       }
     });
+
+    storage.get("zen_backup_enabled").then((res: any) => {
+      if (res?.value !== undefined) {
+        setIsBackupEnabledState(res.value === "true" || res.value === true);
+      }
+    });
   }, []);
 
   const setLanguage = (lang: string) => {
@@ -50,9 +59,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("backend-api-url", url);
   };
 
+  const setIsBackupEnabled = (enabled: boolean) => {
+    setIsBackupEnabledState(enabled);
+    const storage = extensionService.getStorage();
+    storage.set("zen_backup_enabled", enabled);
+  };
+
   return (
     <SettingsContext.Provider
-      value={{ language, setLanguage, apiUrl, setApiUrl }}
+      value={{
+        language,
+        setLanguage,
+        apiUrl,
+        setApiUrl,
+        isBackupEnabled,
+        setIsBackupEnabled,
+      }}
     >
       {children}
     </SettingsContext.Provider>

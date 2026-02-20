@@ -5,15 +5,17 @@ import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 import { extensionService } from "../services/ExtensionService";
 import { getDefaultPrompt } from "../components/ChatPanel/prompts";
 import {
-  logToWorkspace,
+  logChatToWorkspace,
   saveConversation,
   calculateTokens,
   getConversationKey,
+  deleteConversation,
 } from "../services/ConversationService";
 
 interface UseChatLLMProps {
   apiUrl: string;
   selectedTab: TabInfo | null;
+  isBackupEnabled?: boolean;
   onConversationIdChange?: (id: string) => void;
   onToolRequest?: (actions: ToolAction[], assistantMessage: Message) => void;
 }
@@ -21,6 +23,7 @@ interface UseChatLLMProps {
 export const useChatLLM = ({
   apiUrl,
   selectedTab,
+  isBackupEnabled = true,
   onConversationIdChange,
   onToolRequest,
 }: UseChatLLMProps) => {
@@ -32,6 +35,10 @@ export const useChatLLM = ({
 
   const messagesRef = useRef<Message[]>([]);
   const currentConversationIdRef = useRef<string>("");
+  const backendConversationIdRef = useRef<string>(""); // real conversation_id from backend API
+  const lastUsedModelRef = useRef<any>(null);
+  const lastUsedAccountRef = useRef<any>(null);
+  const lastUsedThinkingRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -48,6 +55,20 @@ export const useChatLLM = ({
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+
+    // Cleanup if it was the first turn of a new session
+    if (isProcessing && messagesRef.current.length <= 2) {
+      const chatId = currentConversationIdRef.current;
+      if (chatId) {
+        console.log(
+          `[useChatLLM] Stopping first turn. Deleting conversation: ${chatId}`,
+        );
+        deleteConversation(chatId);
+        setCurrentConversationId("");
+        setMessages([]);
+      }
+    }
+
     setIsStreaming(false);
     setIsProcessing(false);
 
@@ -57,7 +78,7 @@ export const useChatLLM = ({
       actionId: "all",
       kill: true,
     });
-  }, []);
+  }, [isProcessing]);
 
   const sendMessage = useCallback(
     async (
@@ -87,12 +108,22 @@ export const useChatLLM = ({
       const currentMessages = messagesRef.current;
       const filteredMessages = currentMessages.filter((m) => !m.isCancelled);
 
-      let effectiveConversationId = currentConversationIdRef.current;
-      const isNewSession = !effectiveConversationId;
+      let effectiveChatUuid = currentConversationIdRef.current;
+      const isNewSession = !effectiveChatUuid;
 
       if (isNewSession) {
-        effectiveConversationId = Date.now().toString();
-        setCurrentConversationId(effectiveConversationId);
+        effectiveChatUuid = crypto.randomUUID?.() || Date.now().toString();
+        setCurrentConversationId(effectiveChatUuid);
+        backendConversationIdRef.current = ""; // reset for new session
+        lastUsedModelRef.current = null;
+        lastUsedAccountRef.current = null;
+        lastUsedThinkingRef.current = false;
+
+        // Tell extension to create an empty log file
+        extensionService.postMessage({
+          command: "createEmptyChatLog",
+          chatUuid: effectiveChatUuid,
+        });
       }
 
       const isReq1 = filteredMessages.length === 0 && !skipFirstRequestLogic;
@@ -158,22 +189,16 @@ export const useChatLLM = ({
       const promptPayload = isReq1
         ? `${systemPrompt}${projectContextStr}\n\n${fullContent}`
         : fullContent;
-      const promptTokens = calculateTokens(promptPayload);
+
+      // In the new schema, req1 content includes system prompt
+      const finalContent = isReq1 ? promptPayload : fullContent;
 
       const userMessage: Message = {
         id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
         role: "user",
-        content: fullContent,
+        content: finalContent,
         timestamp: Date.now(),
-        isFirstRequest: isReq1,
-        isToolRequest: skipFirstRequestLogic,
-        systemPrompt: isReq1 ? systemPrompt : undefined,
         contextSize: promptPayload.length,
-        usage: {
-          prompt_tokens: promptTokens,
-          completion_tokens: 0,
-          total_tokens: promptTokens,
-        },
         actionIds: actionIds,
         uiHidden: uiHidden,
       };
@@ -187,30 +212,41 @@ export const useChatLLM = ({
         tabId,
         folderPath,
         updatedMessages,
-        isReq1,
-        effectiveConversationId,
+        effectiveChatUuid,
         selectedTab || undefined,
       );
-      logToWorkspace(effectiveConversationId, userMessage);
+      // User message log will happen after response when we have backendConversationId
 
-      // Start backup watch if new session
-      if (isReq1) {
+      // Start backup watch if new session and enabled
+      if (isReq1 && isBackupEnabled) {
         extensionService.postMessage({
           command: "startBackupWatch",
-          conversationId: effectiveConversationId,
+          conversationId: effectiveChatUuid,
         });
       }
 
+      // Persist / Resolve Model and Account
+      const effModel = selectedQuickModel
+        ? {
+            id: selectedQuickModel.modelId,
+            providerId: selectedQuickModel.providerId,
+          }
+        : model || lastUsedModelRef.current;
+
+      const effAccount = selectedQuickModel?.accountId
+        ? { id: selectedQuickModel.accountId }
+        : account || lastUsedAccountRef.current;
+
+      const effThinking = thinking ?? lastUsedThinkingRef.current;
+
+      if (effModel) lastUsedModelRef.current = effModel;
+      if (effAccount) lastUsedAccountRef.current = effAccount;
+      lastUsedThinkingRef.current = effThinking;
+
       try {
-        const effModel = selectedQuickModel
-          ? {
-              id: selectedQuickModel.modelId,
-              providerId: selectedQuickModel.providerId,
-            }
-          : model;
-        const effAccount = selectedQuickModel?.accountId
-          ? { id: selectedQuickModel.accountId }
-          : account;
+        const effPromptPayload = isReq1
+          ? `${systemPrompt}${projectContextStr}\n\n${fullContent}`
+          : fullContent;
 
         let payloadMessages = updatedMessages.map((m) => ({
           role: m.role,
@@ -226,9 +262,14 @@ export const useChatLLM = ({
           accountId: effAccount?.id,
           messages: payloadMessages,
           stream: true,
-          conversationId: isNewSession ? "" : effectiveConversationId,
-          thinking,
+          // Use the real backend conversationId if we have it (req2+), otherwise empty (req1)
+          conversationId:
+            backendConversationIdRef.current || (isNewSession ? "" : ""),
+          thinking: effThinking,
         };
+        console.log(
+          `[useChatLLM] → Sending req. conversationId="${body.conversationId}" backendRef="${backendConversationIdRef.current}" isNewSession=${isNewSession}`,
+        );
 
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
@@ -255,6 +296,8 @@ export const useChatLLM = ({
           timestamp: Date.now(),
         };
 
+        let backendConversationId = "";
+
         setMessages((prev) => [...prev, assistantMessage]);
 
         let done = false;
@@ -276,32 +319,14 @@ export const useChatLLM = ({
                 try {
                   const data = JSON.parse(dataStr);
 
-                  // Handling conversation rename (ID change)
+                  // Capture the real backend conversation_id for subsequent requests
                   if (data.meta?.conversation_id) {
-                    const realId = data.meta.conversation_id;
-                    if (effectiveConversationId !== realId) {
-                      // Handle rename logic (storage delete/update)
-                      // We can delegate this to ConversationService?
-                      // ideally we just update our state
-                      const oldKey = getConversationKey(
-                        tabId,
-                        folderPath,
-                        effectiveConversationId,
-                      );
-                      const storage = (window as any).storage; // or extensionService.getStorage()
-                      if (storage) {
-                        storage.delete(oldKey);
-                        // Update logs?
-                        extensionService.postMessage({
-                          command: "renameConversationLog",
-                          oldConversationId: effectiveConversationId,
-                          newConversationId: realId,
-                        });
-                      }
-
-                      effectiveConversationId = realId;
-                      setCurrentConversationId(realId);
-                    }
+                    backendConversationId = data.meta.conversation_id;
+                    backendConversationIdRef.current =
+                      data.meta.conversation_id;
+                    console.log(
+                      `[useChatLLM] ← Received conversationId from backend: "${data.meta.conversation_id}"`,
+                    );
                   }
 
                   if (data.usage) {
@@ -334,7 +359,29 @@ export const useChatLLM = ({
         setIsStreaming(false);
         abortControllerRef.current = null;
 
-        logToWorkspace(effectiveConversationId, assistantMessage);
+        // Log user message first, then assistant message, both with the real conversationId
+        try {
+          const userMsgToLog = updatedMessages[updatedMessages.length - 1];
+          console.log(
+            `[useChatLLM] Attempting to log USER message for ${effectiveChatUuid}:`,
+            { id: userMsgToLog.id, role: userMsgToLog.role },
+          );
+          logChatToWorkspace(effectiveChatUuid, {
+            ...userMsgToLog,
+            conversationId: backendConversationId,
+          });
+
+          console.log(
+            `[useChatLLM] Attempting to log ASSISTANT message for ${effectiveChatUuid}:`,
+            { id: assistantMessage.id, role: assistantMessage.role },
+          );
+          logChatToWorkspace(effectiveChatUuid, {
+            ...assistantMessage,
+            conversationId: backendConversationId,
+          });
+        } catch (logErr) {
+          console.error(`[useChatLLM] Critical error during log call:`, logErr);
+        }
 
         // Tool Actions parsing
         const parsed = parseAIResponse(assistantMessage.content);
@@ -349,8 +396,7 @@ export const useChatLLM = ({
           tabId,
           folderPath,
           [...updatedMessages, assistantMessage],
-          isReq1,
-          effectiveConversationId,
+          effectiveChatUuid,
           selectedTab || undefined,
         );
       } catch (error) {
@@ -377,6 +423,7 @@ export const useChatLLM = ({
   return {
     messages,
     setMessages,
+    messagesRef,
     isProcessing,
     setIsProcessing,
     isStreaming,
