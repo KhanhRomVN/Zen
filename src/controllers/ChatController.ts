@@ -1538,11 +1538,14 @@ export class ChatController {
         message.actionId,
       );
 
+      const initialOutput = this.processManager.getOutput(terminalId);
+
       webviewView.webview.postMessage({
         command: "runCommandResult",
         requestId: message.requestId,
         terminalId: terminalId,
         actionId: message.actionId,
+        output: initialOutput,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({

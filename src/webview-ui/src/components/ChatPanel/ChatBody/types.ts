@@ -38,6 +38,7 @@ export interface ChatBodyProps {
     status: "idle" | "running" | "error" | "done";
   };
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  terminalStatus?: Record<string, "busy" | "free">;
   onLoadConversation?: (
     conversationId: string,
     tabId: number,

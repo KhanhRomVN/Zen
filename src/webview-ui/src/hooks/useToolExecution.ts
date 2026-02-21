@@ -28,6 +28,10 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
     Record<string, { output: string; isError: boolean; terminalId?: string }>
   >({});
 
+  const [terminalStatus, setTerminalStatus] = useState<
+    Record<string, "busy" | "free">
+  >({});
+
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
   const [clearedActions, setClearedActions] = useState<Set<string>>(new Set());
 
@@ -114,6 +118,11 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
             };
           });
         }
+      } else if (message.command === "terminalStatusChanged") {
+        setTerminalStatus((prev) => ({
+          ...prev,
+          [message.terminalId]: message.status,
+        }));
       } else if (message.command === "runCommandResult") {
         if (message.terminalId && message.actionId) {
           terminalToActionMap.current.set(message.terminalId, message.actionId);
@@ -121,8 +130,14 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
             ...prev,
             [message.actionId]: {
               ...(prev[message.actionId] || { output: "", isError: false }),
+              output: message.output || prev[message.actionId]?.output || "",
               terminalId: message.terminalId,
             },
+          }));
+          // Initially set to busy when command is run
+          setTerminalStatus((prev) => ({
+            ...prev,
+            [message.terminalId]: "busy",
           }));
         }
       }
@@ -527,15 +542,21 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
             cleanOutput = cleanOutput.substring(3, cleanOutput.length - 3);
 
           const isError = result.includes("Result: Error");
-          setToolOutputs((prev) => ({
-            ...prev,
-            [actionId]: {
-              output: cleanOutput,
-              isError,
-              terminalId: (action as any).params?.terminal_id,
-            },
-          }));
-          // Map terminal to action for real-time updates if we got a terminalId back
+
+          // CRITICAL: For run_command, we do NOT overwrite toolOutputs with the formatted 'result'
+          // because the Raw Terminal Logs are already being updated in real-time by terminalOutput/commandExecuted events.
+          // Overwriting here would inject the "Output: [run_command...]" header and backticks into the TerminalBlock UI.
+          if (action.type !== "run_command") {
+            setToolOutputs((prev) => ({
+              ...prev,
+              [actionId]: {
+                output: cleanOutput,
+                isError,
+                terminalId: (action as any).params?.terminal_id,
+              },
+            }));
+          }
+
           const finalTerminalId = (action as any).params?.terminal_id;
           if (finalTerminalId) {
             terminalToActionMap.current.set(finalTerminalId, actionId);
@@ -627,6 +648,7 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
     toolOutputs,
     clickedActions,
     clearedActions,
+    terminalStatus,
     handleToolRequest,
   };
 };

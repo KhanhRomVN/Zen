@@ -90,6 +90,12 @@ export class ProcessManager {
   }>();
   public onDidWriteData = this.onDidWriteDataEmitter.event;
 
+  private onTerminalStatusChangedEmitter = new vscode.EventEmitter<{
+    terminalId: string;
+    status: "busy" | "free";
+  }>();
+  public onTerminalStatusChanged = this.onTerminalStatusChangedEmitter.event;
+
   constructor() {
     vscode.window.onDidCloseTerminal((terminal) => {
       let found = false;
@@ -148,6 +154,10 @@ export class ProcessManager {
 
       if (entry.pty.lastBusyStatus !== isBusy) {
         entry.pty.lastBusyStatus = isBusy;
+        this.onTerminalStatusChangedEmitter.fire({
+          terminalId: id,
+          status: isBusy ? "busy" : "free",
+        });
         changed = true;
       }
     }

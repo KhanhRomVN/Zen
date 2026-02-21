@@ -44,6 +44,18 @@ export type ContentBlock =
   | { type: "tool"; action: ToolAction };
 
 /**
+ * Decode common HTML entities back to their original characters
+ */
+const decodeHtmlEntities = (text: string): string => {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+};
+
+/**
  * Parse XML-like content to extract parameter value
  */
 const extractParamValue = (
@@ -60,7 +72,7 @@ const extractParamValue = (
     let value = standardMatch[1].trim();
     // Remove ```text wrappers if present
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-    return value;
+    return decodeHtmlEntities(value);
   }
 
   // Try self-closing tag with content
@@ -72,7 +84,7 @@ const extractParamValue = (
   if (selfClosingMatch) {
     let value = selfClosingMatch[1].trim();
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-    return value;
+    return decodeHtmlEntities(value);
   }
   return null;
 };

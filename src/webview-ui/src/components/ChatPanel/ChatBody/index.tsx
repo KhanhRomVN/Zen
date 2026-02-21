@@ -12,6 +12,7 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
     status: "idle" | "running" | "error" | "done";
   };
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  terminalStatus?: Record<string, "busy" | "free">;
 }
 
 // Hooks
@@ -32,6 +33,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
 
   executionState,
   toolOutputs,
+  terminalStatus,
   firstRequestMessageId,
   onLoadConversation,
 }: ExtendedChatBodyProps) => {
@@ -159,6 +161,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             clearedActions={clearedActions}
             onActionClear={handleActionClear}
             toolOutputs={toolOutputs}
+            terminalStatus={terminalStatus}
           />
         );
       })}

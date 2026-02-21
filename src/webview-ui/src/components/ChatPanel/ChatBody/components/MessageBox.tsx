@@ -30,6 +30,7 @@ interface MessageBoxProps {
   clearedActions?: Set<string>;
   onActionClear?: (actionId: string) => void;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  terminalStatus?: Record<string, "busy" | "free">;
 }
 
 const MessageBox: React.FC<MessageBoxProps> = ({
@@ -46,6 +47,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   clearedActions,
   onActionClear,
   toolOutputs,
+  terminalStatus,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
@@ -385,6 +387,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 clearedActions={clearedActions}
                 onActionClear={onActionClear}
                 toolOutputs={toolOutputs}
+                terminalStatus={terminalStatus}
               />
             );
           }

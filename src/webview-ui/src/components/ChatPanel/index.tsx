@@ -85,8 +85,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     apiUrl,
     selectedTab,
     isBackupEnabled,
-    onToolRequest: (actions, assistantMessage) =>
-      handleToolRequest(actions, assistantMessage),
+    onToolRequest: (actions, assistantMessage, isAutoTrigger) =>
+      handleToolRequest(actions, assistantMessage, isAutoTrigger),
   });
 
   const { backupEventCount } = useBackupWatcher(currentConversationId);

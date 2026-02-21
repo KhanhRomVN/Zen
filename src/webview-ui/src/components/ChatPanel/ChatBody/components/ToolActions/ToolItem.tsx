@@ -38,6 +38,7 @@ interface ToolItemProps {
     string,
     { output: string; isError: boolean; terminalId?: string }
   >;
+  terminalStatus?: Record<string, "busy" | "free">;
 }
 
 const ExecuteButton: React.FC<{
@@ -86,7 +87,7 @@ const ExecuteButton: React.FC<{
       }
       style={{
         background: "transparent",
-        color: "var(--vscode-icon-foreground)",
+        color: "var(--vscode-editor-foreground)",
         border: "none",
         cursor: isLoading ? "wait" : "pointer",
         padding: "4px",
@@ -95,7 +96,7 @@ const ExecuteButton: React.FC<{
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s",
-        opacity: 1,
+        opacity: isActive || isCompleted ? 1 : 0.6,
         fontSize: "14px",
         gap: "4px",
       }}
@@ -155,36 +156,19 @@ const ExecuteButton: React.FC<{
         </div>
       )}
 
-      {/* ACTIVE STATE: PLAY ICON */}
-      {!isLoading && isActive && !isCompleted && (
+      {/* PLAY ICON FOR ACTIVE OR SKIPPED STATE */}
+      {!isLoading && (isActive || isSkipped) && !isCompleted && (
         <svg
           width="16"
           height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
-      )}
-
-      {/* SKIPPED STATE: RED X */}
-      {!isLoading && isSkipped && (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="var(--vscode-errorForeground)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
+          <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
         </svg>
       )}
     </button>
@@ -203,6 +187,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
   clearedActions,
   onActionClear,
   toolOutputs,
+  terminalStatus,
 }) => {
   // Local state for fuzzy match validation (for replace_in_file)
   const [fuzzyStatus, setFuzzyStatus] = React.useState<{
@@ -653,11 +638,17 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const isActionSwept = clearedActions?.has(actionId);
       const hasOutput = !!outputData;
 
-      // Loading state: Clicked but no output yet (and not failed? failed not tracked deeply here)
-      const isLoading = isActionClicked && !hasOutput;
+      // Loading state: Determine based on real terminal status if available
+      const terminalId =
+        (outputData as any)?.terminalId || action.params.terminal_id;
+      const isTerminalBusy = terminalId
+        ? terminalStatus?.[terminalId] === "busy"
+        : false;
 
-      // Completed if we have output
-      const isCompleted = hasOutput;
+      const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
+
+      // Completed if we have output AND terminal is no longer busy
+      const isCompleted = hasOutput && !isTerminalBusy;
 
       // We need to determine if THIS action is active.
       // Since we split run_command into their own groups of 1,
@@ -670,7 +661,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
           initialCommand={action.params.command}
           terminalName="Execute"
           subInfo={action.params.cwd}
-          status={isLoading ? "busy" : hasOutput ? "free" : undefined}
+          status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
           statusColor={toolColor}
           onInput={(data) => {
             const terminalId =

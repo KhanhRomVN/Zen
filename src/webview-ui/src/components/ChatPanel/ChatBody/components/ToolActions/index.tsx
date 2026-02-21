@@ -23,6 +23,7 @@ interface ToolActionsListProps {
   clearedActions?: Set<string>;
   onActionClear?: (actionId: string) => void;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  terminalStatus?: Record<string, "busy" | "free">;
 }
 
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
@@ -36,6 +37,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   clearedActions,
   onActionClear,
   toolOutputs,
+  terminalStatus,
   isVisibleTool = (type: string) => type !== "read_file",
 }) => {
   // Filter out invisible tools immediately
@@ -203,11 +205,20 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             clearedActions={clearedActions}
             onActionClear={onActionClear}
             toolOutputs={toolOutputs}
+            terminalStatus={terminalStatus}
           />
         </React.Fragment>
       );
     });
-  }, [items, clickedActions, message, onToolClick, isLastMessage, toolOutputs]);
+  }, [
+    items,
+    clickedActions,
+    message,
+    onToolClick,
+    isLastMessage,
+    toolOutputs,
+    terminalStatus,
+  ]);
 
   if (!visibleItems || visibleItems.length === 0) return null;
 
