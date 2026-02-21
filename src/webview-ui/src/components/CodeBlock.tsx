@@ -65,6 +65,7 @@ interface CodeBlockProps {
   }[];
   backgroundColor?: string;
   startLineNumber?: number;
+  showLineNumbers?: boolean; // 🆕 Control line number visibility
   diffStats?: {
     added: number;
     removed: number;
@@ -72,6 +73,7 @@ interface CodeBlockProps {
   defaultCollapsed?: boolean;
   prefix?: string;
   statusColor?: string;
+  isCollapsible?: boolean;
 }
 
 export const CodeBlock: React.FC<CodeBlockProps> = ({
@@ -85,13 +87,17 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   lineHighlights,
   backgroundColor,
   startLineNumber = 1,
+  showLineNumbers = true,
   diffStats,
   defaultCollapsed = false,
   prefix,
   statusColor,
+  isCollapsible = true,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [isCollapsed, setIsCollapsed] = useState(
+    defaultCollapsed && isCollapsible,
+  );
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
@@ -132,6 +138,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       requestId,
       lineHighlights, // 🆕 Pass highlights
       startLineNumber, // 🆕 Pass start line
+      showLineNumbers, // 🆕 Pass toggle
     });
 
     return () => {
@@ -145,6 +152,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     themeVersion,
     lineHighlights,
     startLineNumber,
+    showLineNumbers,
   ]);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -171,7 +179,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
   return (
     <div
-      className={`code-block-container shiki-mode ${isCollapsed ? "collapsed" : ""}`}
+      className={`code-block-container shiki-mode ${isCollapsed ? "collapsed" : ""} ${!showLineNumbers ? "no-line-numbers" : ""}`}
       style={
         {
           // 🆕 Only apply backgroundColor when expanded, transparent when collapsed
@@ -188,9 +196,9 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
             // 🆕 Collapsed State: Inline summary (no header wrapper, just a simple line)
             <div
               className="code-block-summary"
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              onClick={() => isCollapsible && setIsCollapsed(!isCollapsed)}
               style={{
-                cursor: "pointer",
+                cursor: isCollapsible ? "pointer" : "default",
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
@@ -268,14 +276,16 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
             // 🆕 Expanded State: Full header with proper layout
             <div
               className="code-block-header"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              style={{ cursor: "pointer" }}
+              onClick={() => isCollapsible && setIsCollapsed(!isCollapsed)}
+              style={{ cursor: isCollapsible ? "pointer" : "default" }}
             >
               <div className="file-info">
-                <span
-                  className="collapse-icon codicon codicon-chevron-down"
-                  style={{ fontSize: "12px" }}
-                />
+                {isCollapsible && (
+                  <span
+                    className="collapse-icon codicon codicon-chevron-down"
+                    style={{ fontSize: "12px" }}
+                  />
+                )}
                 {statusColor && (
                   <span
                     className="status-dot"

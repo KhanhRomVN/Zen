@@ -121,6 +121,7 @@ export class ShikiService {
       type: "added" | "removed";
     }[],
     startLineNumber: number = 1,
+    showLineNumbers: boolean = true,
   ): Promise<string> {
     await this.initialize();
     if (!this.highlighter) return `<pre><code>${code}</code></pre>`;
@@ -159,20 +160,22 @@ export class ShikiService {
       const transformers = [];
 
       // 1. Line Numbers Transformer
-      transformers.push({
-        name: "zen-line-numbers",
-        line(node: any, line: number) {
-          const actualLine = line + startLineNumber - 1;
-          node.properties["data-line"] = actualLine;
-          // Inject line number span
-          node.children.unshift({
-            type: "element",
-            tagName: "span",
-            properties: { className: ["line-number"] },
-            children: [{ type: "text", value: actualLine.toString() }],
-          });
-        },
-      });
+      if (showLineNumbers) {
+        transformers.push({
+          name: "zen-line-numbers",
+          line(node: any, line: number) {
+            const actualLine = line + startLineNumber - 1;
+            node.properties["data-line"] = actualLine;
+            // Inject line number span
+            node.children.unshift({
+              type: "element",
+              tagName: "span",
+              properties: { className: ["line-number"] },
+              children: [{ type: "text", value: actualLine.toString() }],
+            });
+          },
+        });
+      }
 
       // 2. Diff Highlighting Transformer
       if (lineHighlights && lineHighlights.length > 0) {

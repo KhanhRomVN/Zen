@@ -33,7 +33,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0px; /* Phase 2: 0px padding */
+  padding: 6px 12px; /* Phase 2: Add left/right padding */
   background-color: var(
     --vscode-editorGroupHeader-tabsBackground,
     var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.1))
@@ -140,11 +140,18 @@
 }
 
 .shiki-highlighted .line {
-  display: flex;
-  align-items: flex-start;
+  display: block;
   padding: 0 12px 0 0;
   min-height: 1.4em;
   line-height: inherit;
+  /* Proper text wrap indentation aligned with line numbers */
+  padding-left: calc(var(--line-number-width, 3ch) + 20px);
+  text-indent: calc(-1 * (var(--line-number-width, 3ch) + 20px));
+}
+
+.code-block-container.no-line-numbers .shiki-highlighted .line {
+  padding-left: 12px;
+  text-indent: 0;
 }
 
 .shiki-highlighted .line-number {
@@ -158,6 +165,8 @@
   user-select: none;
   font-size: inherit; /* Inherit font size from code */
   border-right: none !important; /* Phase 2: No vertical divider */
+  text-indent: 0;
+  box-sizing: content-box;
 }
 
 .shiki-highlighted .diff-line-added {
@@ -165,7 +174,7 @@
     --vscode-diffEditor-insertedTextBackground,
     rgba(46, 160, 67, 0.22)
   ) !important;
-  display: flex !important;
+  display: block !important;
   width: 100%;
 }
 
@@ -174,7 +183,7 @@
     --vscode-diffEditor-removedTextBackground,
     rgba(248, 81, 73, 0.22)
   ) !important;
-  display: flex !important;
+  display: block !important;
   width: 100%;
 }
 

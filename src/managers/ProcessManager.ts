@@ -212,18 +212,63 @@ export class ProcessManager {
         } as any,
       });
 
+      let pendingEcho = "";
       ptyInternal.ptyProcess.onData((data) => {
-        ptyInternal.accumulatedOutput += data;
-        ptyInternal.writeEmitter.fire(data);
-        this.onDidWriteDataEmitter.fire({
-          terminalId: id,
-          data: data,
-        });
+        let chunk = data;
+        if (pendingEcho.length > 0) {
+          let echoDropped = 0;
+          let chunkDropped = 0;
+
+          while (
+            chunkDropped < chunk.length &&
+            echoDropped < pendingEcho.length
+          ) {
+            const c = chunk[chunkDropped];
+            const e = pendingEcho[echoDropped];
+
+            if (c === e) {
+              echoDropped++;
+              chunkDropped++;
+            } else if (c === "\r" && e === "\n") {
+              // skip \r injected by terminal before \n
+              chunkDropped++;
+            } else if (c === "\r" && e === "\r") {
+              // strict match
+              echoDropped++;
+              chunkDropped++;
+            } else {
+              // mismatch, stop
+              pendingEcho = "";
+              break;
+            }
+          }
+
+          if (chunkDropped > 0) {
+            chunk = chunk.substring(chunkDropped);
+            pendingEcho = pendingEcho.substring(echoDropped);
+          }
+        }
+
+        if (chunk.length > 0) {
+          ptyInternal.accumulatedOutput += chunk;
+          ptyInternal.writeEmitter.fire(chunk);
+          this.onDidWriteDataEmitter.fire({
+            terminalId: id,
+            data: chunk,
+          });
+        }
       });
 
       ptyInternal.ptyProcess.onExit(({ exitCode }) => {
         ptyInternal.closeEmitter.fire(exitCode);
       });
+
+      // Monkeypatch handleInput to set pendingEcho
+      const originalHandleInput = ptyInternal.handleInput.bind(ptyInternal);
+      ptyInternal.handleInput = (text: string) => {
+        pendingEcho += text;
+        originalHandleInput(text);
+      };
 
       terminal.show(true);
     }

@@ -5,21 +5,25 @@
 export const stripAnsi = (str: string): string => {
   if (!str) return str;
 
-  // Pattern for ANSI escape sequences
+  let cleaned = str;
+
+  // 1. Strip Terminal Title (OSC) sequences FIRST
+  // Match \x1b] followed by command and text, ended by BEL (\x07) or ST (\x1b\\)
+  cleaned = cleaned.replace(/\x1b\][0-9;]+.*?(?:\x07|\x1b\\)/g, "");
+
+  // 2. Strip Bracketed Paste Mode sequences specifically
+  cleaned = cleaned.replace(/\x1b\[\?2004[hl]/g, "");
+
+  // 3. Pattern for general ANSI escape sequences
   const ansiPattern = [
     "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
     "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><;]))",
   ].join("|");
-
   const regex = new RegExp(ansiPattern, "g");
-  let cleaned = str.replace(regex, "");
+  cleaned = cleaned.replace(regex, "");
 
-  // Strip Bracketed Paste Mode sequences specifically if they remain
-  cleaned = cleaned.replace(/\x1b\[\?2004[hl]/g, "");
-
-  // Strip Terminal Title sequences specifically if they remain
-  cleaned = cleaned.replace(/\x1b\]0;.*?\x07/g, "");
-  cleaned = cleaned.replace(/\x1b\]0;.*?\x1b\\/g, "");
+  // Strip any remaining BEL characters
+  cleaned = cleaned.replace(/\x07/g, "");
 
   // --- Process \r (Carriage Return) ---
   // In terminal, \n usually is preceded by \r (\r\n).

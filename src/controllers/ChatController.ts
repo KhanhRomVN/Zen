@@ -1878,6 +1878,7 @@ export class ChatController {
       message.themeId,
       message.lineHighlights,
       message.startLineNumber,
+      message.showLineNumbers !== false,
     );
     webviewView.webview.postMessage({
       command: "highlightCodeResult",

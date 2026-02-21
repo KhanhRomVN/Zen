@@ -289,7 +289,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             }
 
             return (
-              <div key={group.key} style={{ marginTop: "var(--spacing-xs)" }}>
+              <div key={group.key} style={{ marginTop: "4px" }}>
                 <CodeBlock
                   code={displayCode}
                   language={isDiffBlock ? "python" : group.language}
@@ -301,6 +301,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   defaultCollapsed={defaultCollapsed}
                   prefix={prefix}
                   statusColor={statusColor}
+                  showLineNumbers={isDiffBlock} // Only show line numbers for diff blocks (file changes), not standard text blocks
+                  isCollapsible={isDiffBlock} // Only allow collapsing for diff blocks (file changes), standard code blocks are always expanded
                 />
               </div>
             );
@@ -309,7 +311,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               <div
                 key={group.key}
                 style={{
-                  marginTop: "var(--spacing-xs)",
+                  marginTop: "4px",
                 }}
               >
                 <HtmlPreview content={group.content} />
@@ -320,7 +322,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               <div
                 key={group.key}
                 style={{
-                  marginTop: "var(--spacing-xs)",
+                  marginTop: "4px",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "6px",
@@ -349,16 +351,28 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "text") {
+            // Helper to render **bold** text
+            const renderFormattedText = (text: string) => {
+              const parts = text.split(/(\*\*[\s\S]*?\*\*)/);
+              return parts.map((part, i) => {
+                if (part.startsWith("**") && part.endsWith("**")) {
+                  return <strong key={i}>{part.slice(2, -2)}</strong>;
+                }
+                return <span key={i}>{part}</span>;
+              });
+            };
+
             return (
               <div
                 key={group.key}
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: "var(--spacing-xs)",
+                  gap: "0px",
                   borderRadius: "var(--border-radius)",
                   backgroundColor: "transparent", // Clean look
                   padding: "0",
+                  marginTop: "4px",
                 }}
               >
                 <div
@@ -369,7 +383,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     whiteSpace: "pre-wrap",
                   }}
                 >
-                  {group.content}
+                  {renderFormattedText(group.content)}
                 </div>
               </div>
             );

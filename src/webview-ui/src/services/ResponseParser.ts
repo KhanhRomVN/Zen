@@ -230,48 +230,6 @@ const parseToolAction = (
 };
 
 /**
- * Helper to parse text for Markdown code blocks
- */
-const parseTextWithCodeBlocks = (text: string): ContentBlock[] => {
-  const blocks: ContentBlock[] = [];
-  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
-
-  let lastIndex = 0;
-  let match;
-
-  while ((match = codeBlockRegex.exec(text)) !== null) {
-    // Add text before the code block
-    if (match.index > lastIndex) {
-      const textContent = text.substring(lastIndex, match.index);
-      if (textContent.trim()) {
-        blocks.push({ type: "text", content: textContent });
-      }
-    }
-
-    // Add the code block
-    const language = match[1] || "text";
-    const content = match[2];
-    blocks.push({
-      type: "code",
-      content: content,
-      language: language,
-    });
-
-    lastIndex = match.index + match[0].length;
-  }
-
-  // Add remaining text
-  if (lastIndex < text.length) {
-    const textContent = text.substring(lastIndex);
-    if (textContent.trim()) {
-      blocks.push({ type: "text", content: textContent });
-    }
-  }
-
-  return blocks;
-};
-
-/**
  * Parse AI response to extract thinking, task_progress, and tool actions
  * Supports interleaved text and tool calls
  */
@@ -354,7 +312,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   ];
 
   // We need to parse linearly to maintain order
-  // Strategy: Find the first occurrence of ANY tool tag
+  // Strategy: Find the first occurrence of ANY tool tag OR markdown code block
 
   // Helper to find next tag
   const findNextTag = (str: string) => {
@@ -383,33 +341,53 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         }
       }
     }
+
+    // Also check for Markdown code blocks
+    const codeBlockMatch = /```(\w*)\n([\s\S]*?)```/.exec(str);
+    if (codeBlockMatch) {
+      if (minIndex === -1 || codeBlockMatch.index < minIndex) {
+        minIndex = codeBlockMatch.index;
+        bestMatch = codeBlockMatch;
+        bestTool = "markdown_code_block";
+      }
+    }
+
     return { index: minIndex, match: bestMatch, toolName: bestTool };
   };
 
-  let currentText = "";
   let scanStr = remainingContent;
 
   while (scanStr.length > 0) {
     const { index, match, toolName } = findNextTag(scanStr);
 
     if (index !== -1 && match) {
-      // Found a tag
-      // 1. Everything before the tag is text (PARSE FOR CODE BLOCKS)
+      // Found a tag or code block
+      // 1. Everything before the tag is text
       const prefix = scanStr.substring(0, index);
       if (prefix.trim()) {
-        const textBlocks = parseTextWithCodeBlocks(prefix);
-        result.contentBlocks.push(...textBlocks);
+        result.contentBlocks.push({ type: "text", content: prefix });
       }
 
       // 2. Handle the tag
       const rawXml = match[0];
       const innerContent = match[1];
 
-      if (toolName === "text") {
-        // Explicit <text> tag (Also parse content)
+      if (toolName === "markdown_code_block") {
+        const language = match[1] || "text";
+        // Remove trailing newline usually found before the closing backticks
+        const content = match[2].replace(/\n$/, "");
+        result.contentBlocks.push({
+          type: "code",
+          content: content,
+          language: language,
+        });
+      } else if (toolName === "text") {
+        // Explicit <text> tag (Also parse content but since we don't have parseTextWithCodeBlocks, we just push it if no codeblocks inside.
+        // Wait, what if there's a code block inside <text>? For simplicity, we can just recursively parse it or just push as text.
+        // Let's just push it as text. If there are codeblocks, they won't be parsed inside <text> anymore with this simple logic,
+        // but explicit <text> is rarely used alongside markdown code blocks inside it. Let's push as text.
         if (innerContent.trim()) {
-          const textBlocks = parseTextWithCodeBlocks(innerContent.trim());
-          result.contentBlocks.push(...textBlocks);
+          result.contentBlocks.push({ type: "text", content: innerContent });
         }
       } else if (toolName === "html_inline_css_block") {
         // Explicit <html_inline_css_block> tag
@@ -423,9 +401,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         // Explicit <code> tag
         const languageFn = extractParamValue(innerContent, "language");
         const contentFn = extractParamValue(innerContent, "content");
-        // Or if content is just innerContent? The code above used extractParamValue
-        // Let's stick to existing logic for explicit tags but improve if needed
-        // Actually, existing logic for explicit <code> is fine.
 
         if (contentFn) {
           result.contentBlocks.push({
@@ -460,10 +435,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       // 3. Advance scanStr
       scanStr = scanStr.substring(index + rawXml.length);
     } else {
-      // No more tags, the rest is text (PARSE FOR CODE BLOCKS)
+      // No more tags, the rest is text
       if (scanStr.trim()) {
-        const textBlocks = parseTextWithCodeBlocks(scanStr);
-        result.contentBlocks.push(...textBlocks);
+        result.contentBlocks.push({ type: "text", content: scanStr });
       }
       break;
     }

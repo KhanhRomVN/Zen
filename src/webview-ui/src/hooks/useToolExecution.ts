@@ -120,7 +120,21 @@ export const useToolExecution = ({
               const cmdText =
                 message.commandText || message.commandTextRaw || "command";
               const outputRaw = message.output ? message.output.trim() : "";
-              const outputContent = stripAnsi(outputRaw);
+              let outputContent = stripAnsi(outputRaw);
+
+              // Strip trailing bash/zsh/sh prompt from outputContent
+              const lines = outputContent.split("\n");
+              if (lines.length > 0) {
+                const lastLine = lines[lines.length - 1].trim();
+                if (
+                  lastLine.match(/[@\w.-]+\s*[:~].*?[$#>%]$/) ||
+                  lastLine.match(/^[$#>%]$/) ||
+                  lastLine.match(/^[PS] C:\\.*>$/i) // Windows PowerShell prompt
+                ) {
+                  lines.pop();
+                }
+                outputContent = lines.join("\n").trim();
+              }
 
               const startTime = commandStartTimes.current.get(message.actionId);
               const duration = startTime
