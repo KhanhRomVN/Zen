@@ -38,46 +38,6 @@ class ZenPTY implements vscode.Pseudoterminal {
     this.writeEmitter.fire(`\x1b]0;${title}\x07`);
   }
 
-  async execute(
-    command: string,
-  ): Promise<{ output: string; error: string | null }> {
-    if (this.isExecuting) {
-      return { output: "", error: "Terminal is already executing a command" };
-    }
-
-    this.isExecuting = true;
-    this.accumulatedOutput = "";
-
-    // Indicate command start in terminal
-    this.writeEmitter.fire(`\r\n> ${command}\r\n`);
-
-    return new Promise((resolve) => {
-      const shell = os.platform() === "win32" ? "powershell.exe" : "bash";
-
-      this.ptyProcess = pty.spawn(shell, ["-c", command], {
-        name: "xterm-color",
-        cols: 80,
-        rows: 24,
-        cwd: this.currentCwd,
-        env: { ...process.env, FORCE_COLOR: "1" } as any,
-      });
-
-      this.ptyProcess.onData((data) => {
-        this.accumulatedOutput += data;
-        this.writeEmitter.fire(data);
-      });
-
-      this.ptyProcess.onExit(({ exitCode }) => {
-        this.isExecuting = false;
-        resolve({
-          output: this.accumulatedOutput,
-          error: exitCode !== 0 ? `Process exited with code ${exitCode}` : null,
-        });
-        this.ptyProcess = null;
-      });
-    });
-  }
-
   stop() {
     if (this.ptyProcess) {
       // Use SIGKILL to stop process completely
@@ -136,35 +96,6 @@ export class ProcessManager {
         this.onTerminalsChangedEmitter.fire(); // Notify webview
       }
     }, 2000);
-  }
-
-  async start(
-    actionId: string,
-    command: string,
-    cwd: string,
-    terminalId?: string,
-  ): Promise<{ output: string; error: string | null }> {
-    let entry = terminalId ? this.terminalMap.get(terminalId) : null;
-
-    if (!entry) {
-      const id = terminalId || actionId || `zen-${this.nextId++}`;
-      const shellName = path.basename(command.split(" ")[0]);
-      const name = `(zen)${shellName}`;
-      const ptyInternal = new ZenPTY(cwd);
-      const terminal = vscode.window.createTerminal({
-        name,
-        pty: ptyInternal,
-        iconPath: new vscode.ThemeIcon("terminal"),
-      });
-
-      entry = { terminal, pty: ptyInternal, name: name };
-      ptyInternal.shellPath = command;
-      this.terminalMap.set(id, entry);
-      this.onTerminalsChangedEmitter.fire();
-      terminal.show(true);
-    }
-
-    return entry.pty.execute(command);
   }
 
   async startInteractive(
@@ -287,10 +218,9 @@ export class ProcessManager {
       return {
         id,
         name: currentName,
-        state: isBusy ? "busy" : "idle",
+        state: isBusy ? "busy" : "free",
         shellType: shellType,
         cwd: cwd || entry.pty.currentCwd,
-        uptime: Math.floor((Date.now() - entry.pty.startTime) / 1000),
         lastLog: cleanLog,
         currentCommand: currentCommand || (isBusy ? "executing..." : ""),
       };

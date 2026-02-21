@@ -56,10 +56,10 @@ const ChangesTree: React.FC<ChangesTreeProps> = ({
           status = "modified";
         } else if (action.type === "replace_in_file") {
           status = "modified";
-        } else if (action.type === "execute_command") {
+        } else if (action.type === "run_command") {
           const cmd = action.params.command || "";
           // Simple heuristic for delete
-          if (cmd.match(/^rm\s+/)) {
+          if (cmd.match(/^rm\s+/) && action.params.path) {
             status = "deleted";
           } else {
             return; // Ignore other commands

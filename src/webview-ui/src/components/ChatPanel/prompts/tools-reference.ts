@@ -34,11 +34,11 @@ search_files(folder_path, regex)
 ## Execution
 
 \`\`\`
-execute_command(command, terminal_id?)
-  → Run shell command.
+run_command(command, terminal_id?)
+  → Run shell command or interactive input.
   → terminal_id: optional, reuse existing terminal.
-  → Creates new terminal if id is empty/not found.
-  → MUST run alone (no other tools in same message)
+  → If omitted or not found, a new persistent terminal is created.
+  → Use for: both one-off commands and interactive prompts (Yes/No, passwords).
 
 list_terminals()
   → List all active terminal sessions (id, name, state).
@@ -50,10 +50,6 @@ stop_terminal(terminal_id)
   → Stop the process running in the terminal completely.
   → Use when: a command is hanging or needs to be terminated.
 
-input_to_terminal(terminal_id, text)
-  → Send raw text/input to an active process.
-  → Use for: interactive prompts (Yes/No), passwords, etc.
-
 create_terminal_shell(terminal_id?)
   → Open a persistent shell (bash/zsh) for continuous interaction.
   → Use when: need to keep environment state across multiple inputs.
@@ -61,7 +57,8 @@ create_terminal_shell(terminal_id?)
 read_terminal_logs(terminal_id)
   → Read current logs from a terminal.
   → IMPORTANT: This tool returns logs since the last read OR clear.
-  → Use frequently to monitor progress of long-running commands.\`\`\`
+  → Use frequently to monitor progress of long-running commands.
+\`\`\`
 
 ## Context Management
 

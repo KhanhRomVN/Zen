@@ -20,13 +20,12 @@ export interface ToolAction {
     | "read_file"
     | "write_to_file"
     | "replace_in_file"
-    | "execute_command"
+    | "run_command"
     | "list_files"
     | "search_files"
     | "list_terminals"
     | "remove_terminal"
     | "stop_terminal"
-    | "input_to_terminal"
     | "create_terminal_shell"
     | "read_terminal_logs"
     | "ask_followup_question"
@@ -157,7 +156,7 @@ const parseToolAction = (
       params.diff = extractParamValue(innerContent, "diff");
       break;
 
-    case "execute_command":
+    case "run_command":
       params.command = extractParamValue(innerContent, "command");
       params.terminal_id = extractParamValue(innerContent, "terminal_id");
       break;
@@ -171,11 +170,6 @@ const parseToolAction = (
     case "create_terminal_shell":
     case "read_terminal_logs":
       params.terminal_id = extractParamValue(innerContent, "terminal_id");
-      break;
-
-    case "input_to_terminal":
-      params.terminal_id = extractParamValue(innerContent, "terminal_id");
-      params.text = extractParamValue(innerContent, "text");
       break;
 
     case "list_files":
@@ -330,14 +324,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "read_file",
     "write_to_file",
     "replace_in_file",
-    "execute_command",
+    "run_command",
     "list_files",
     "search_files",
-    "execute_command",
     "list_terminals",
     "remove_terminal",
     "stop_terminal",
-    "input_to_terminal",
     "create_terminal_shell",
     "read_terminal_logs",
     "ask_followup_question",
@@ -492,11 +484,11 @@ export const formatActionForDisplay = (action: ToolAction): string => {
     case "replace_in_file":
       return `replace_in_file: ${action.params.path || "unknown"}`;
 
-    case "execute_command":
+    case "run_command":
       const termId = action.params.terminal_id
         ? ` (terminal: ${action.params.terminal_id})`
         : "";
-      return `execute_command: ${action.params.command || "unknown"}${termId}`;
+      return `run_command: ${action.params.command || "unknown"}${termId}`;
 
     case "list_terminals":
       return `list_terminals`;
@@ -506,9 +498,6 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "stop_terminal":
       return `stop_terminal: ${action.params.terminal_id || "unknown"}`;
-
-    case "input_to_terminal":
-      return `input_to_terminal: ${action.params.terminal_id || "unknown"}`;
 
     case "create_terminal_shell":
       return `create_terminal_shell: ${action.params.terminal_id || "unknown"}`;

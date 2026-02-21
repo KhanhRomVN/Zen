@@ -489,10 +489,10 @@ export const EXAMPLES_P2 = `
 
 **Turn 2** (Execute in specific terminal):
 \`\`\`xml
-<execute_command>
+<run_command>
   <command>npm start</command>
   <terminal_id>term-1</terminal_id>
-</execute_command>
+</run_command>
 \`\`\`
 <temp>Running \`npm start\` in terminal <file>dev</file> (term-1).</temp>
 `;

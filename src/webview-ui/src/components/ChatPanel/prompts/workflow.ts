@@ -138,8 +138,8 @@ Message 2: Create multiple files (batch)
 ### Command Execution
 \`\`\`
 1. list_terminals() (optional, if need to reuse)
-2. execute_command(command, terminal_id?)
-3. send_terminal_input(terminal_id, text) (for interactive prompts)
+2. run_command(command, terminal_id?) (one-off or interactive prompts)
+3. read_terminal_logs(terminal_id) (to monitor progress)
 \`\`\`
 
 ### Context Update

@@ -1,7 +1,7 @@
 export const ACTION_NAMES: Record<string, string> = {
   replace_in_file: "replace_in_file",
   write_to_file: "write_to_file",
-  execute_command: "Run Command",
+  run_command: "Run Command",
 };
 
 export const TOOL_LABELS: Record<string, string> = {
@@ -10,11 +10,10 @@ export const TOOL_LABELS: Record<string, string> = {
   replace_in_file: "Edit",
   list_files: "Listing",
   search_files: "Searching",
-  execute_command: "Executing",
+  run_command: "Executing",
   list_terminals: "Terminals",
   remove_terminal: "Removing",
   stop_terminal: "Stopping",
-  input_to_terminal: "Inputting",
   create_terminal_shell: "Starting",
   read_terminal_logs: "Reading Logs",
   update_codebase_context: "Updating",
@@ -25,11 +24,10 @@ export const TOOL_COLORS: Record<string, string> = {
   read_file: "#3b82f6", // blue
   write_to_file: "#10b981", // green
   replace_in_file: "#10b981", // green
-  execute_command: "#f59e0b", // orange
+  run_command: "#f59e0b",
   list_terminals: "#f59e0b",
   remove_terminal: "#ef4444", // red
   stop_terminal: "#ef4444",
-  input_to_terminal: "#f59e0b",
   create_terminal_shell: "#f59e0b",
   read_terminal_logs: "#3b82f6", // blue
   update_codebase_context: "#8b5cf6", // purple
@@ -43,11 +41,10 @@ export const CLICKABLE_TOOLS = [
   "replace_in_file",
   "list_files",
   "search_files",
-  "execute_command",
+  "run_command",
   "list_terminals",
   "remove_terminal",
   "stop_terminal",
-  "input_to_terminal",
   "create_terminal_shell",
   "read_terminal_logs",
   "update_codebase_context",

@@ -11,6 +11,7 @@ import {
   getConversationKey,
   deleteConversation,
 } from "../services/ConversationService";
+import { useSettings } from "../context/SettingsContext";
 
 interface UseChatLLMProps {
   apiUrl: string;
@@ -27,6 +28,7 @@ export const useChatLLM = ({
   onConversationIdChange,
   onToolRequest,
 }: UseChatLLMProps) => {
+  const { language: preferredLanguage } = useSettings();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -131,7 +133,7 @@ export const useChatLLM = ({
       let projectContextStr = "";
 
       if (isReq1) {
-        systemPrompt = getDefaultPrompt();
+        systemPrompt = getDefaultPrompt(preferredLanguage);
         try {
           // Fetch project context
           // We can move this to a service helper too, but let's keep it here for now or use ExtensionService

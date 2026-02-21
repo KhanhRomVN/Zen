@@ -25,7 +25,7 @@ Turn 2: <replace_in_file><file_path>app.ts</file_path></replace_in_file>  // Aft
 - Mixed operations: \`<list_files/><search_files/><read_file><file_path>A</file_path></read_file>\`
 
 **Prohibited**:
-- \`execute_command\` with any other tool (commands must run alone), UNLESS paired with \`list_terminals\` to find an existing session.
+- \`run_command\` with any other tool (commands must run alone), UNLESS paired with \`list_terminals\` to find an existing session.
 - Operations with dependencies (file A creates B, then C imports B)
 
 ## C3: BYTE-PERFECT-MATCHING

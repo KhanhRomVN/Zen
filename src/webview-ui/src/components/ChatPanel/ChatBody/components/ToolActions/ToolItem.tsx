@@ -340,12 +340,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
     toolType === "replace_in_file" ||
     toolType === "write_to_file" ||
     toolType === "list_files" ||
-    toolType === "execute_command" ||
+    toolType === "run_command" ||
     toolType === "search_files" ||
     toolType === "list_terminals" ||
     toolType === "remove_terminal" ||
     toolType === "stop_terminal" ||
-    toolType === "input_to_terminal" ||
     toolType === "create_terminal_shell" ||
     toolType === "read_terminal_logs" ||
     toolType === "update_codebase_context";
@@ -462,8 +461,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
       );
     }
 
-    if (toolType === "execute_command") {
-      const index = group[0].index; // execute_command is always size 1 now
+    if (toolType === "run_command") {
+      const index = group[0].index; // run_command is always size 1 now
       const action = group[0].action;
       const isLast = true; // Always last in its group
 
@@ -482,12 +481,12 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const isCompleted = hasOutput;
 
       // We need to determine if THIS action is active.
-      // Since we split execute_command into their own groups of 1,
+      // Since we split run_command into their own groups of 1,
       // isActiveGroup passed to ToolItem should be correct for this single item.
       // But just in case, we use the props.
 
       return (
-        // Container for execute_command (like grouped items)
+        // Container for run_command (like grouped items)
         <div style={{ marginBottom: "8px" }}>
           <div
             style={{
@@ -887,7 +886,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
               diffStats = { added, removed };
             }
 
-            if (action.type === "execute_command") {
+            if (action.type === "run_command") {
               const actionId = `${messageId}-action-${index}`;
               const outputData = toolOutputs?.[actionId];
 
@@ -896,7 +895,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
               const isActionSwept = clearedActions?.has(actionId);
 
               // We need to determine if THIS action is active.
-              // Since we split execute_command into their own groups of 1,
+              // Since we split run_command into their own groups of 1,
               // isActiveGroup passed to ToolItem should be correct for this single item.
               // But just in case, we use the props.
 

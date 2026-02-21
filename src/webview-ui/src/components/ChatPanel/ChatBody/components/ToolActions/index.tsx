@@ -54,7 +54,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
       const isSameType =
         currentGroup.length > 0 &&
         currentGroup[0].action.type === action.type &&
-        action.type !== "execute_command"; // Do not group execute_command
+        action.type !== "run_command";
 
       if (isSameType) {
         currentGroup.push({ action, index });

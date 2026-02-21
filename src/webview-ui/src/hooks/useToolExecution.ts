@@ -87,8 +87,8 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
               }
               const timeSuffix = duration ? ` for ${duration}s` : "";
               const resultMsg = message.error
-                ? `Output: [execute_command for '${cmdText}']${timeSuffix}\n\`\`\`\nError: ${message.error}\n${outputContent}\n\`\`\``
-                : `Output: [execute_command for '${cmdText}']${timeSuffix}\n\`\`\`\n${outputContent}\n\`\`\``;
+                ? `Output: [run_command for '${cmdText}']${timeSuffix}\n\`\`\`\nError: ${message.error}\n${outputContent}\n\`\`\``
+                : `Output: [run_command for '${cmdText}']${timeSuffix}\n\`\`\`\n${outputContent}\n\`\`\``;
 
               resolver(resultMsg);
               pendingToolResolvers.current.delete(message.actionId);
@@ -303,12 +303,12 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
           }, 10000);
           break;
         }
-        case "execute_command": {
+        case "run_command": {
           commandStartTimes.current.set((action as any).actionId, Date.now());
           extensionService.postMessage({
-            command: "executeCommand",
+            command: "runCommand",
             commandText: action.params.command,
-            terminalId: action.params.terminal_id, // New param
+            terminalId: action.params.terminal_id,
             actionId: (action as any).actionId,
           });
           pendingToolResolvers.current.set((action as any).actionId, resolve);
@@ -336,13 +336,11 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
         }
         case "remove_terminal":
         case "stop_terminal":
-        case "input_to_terminal":
         case "create_terminal_shell":
         case "read_terminal_logs": {
           const commandMap: Record<string, string> = {
             remove_terminal: "removeTerminal",
             stop_terminal: "stopTerminal",
-            input_to_terminal: "inputToTerminal",
             create_terminal_shell: "createTerminalShell",
             read_terminal_logs: "readTerminalLogs",
           };

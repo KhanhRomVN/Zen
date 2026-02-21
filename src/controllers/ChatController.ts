@@ -159,8 +159,8 @@ export class ChatController {
         case "openFile":
           await this.handleOpenFile(message);
           break;
-        case "executeCommand":
-          await this.handleExecuteCommand(message, webviewView);
+        case "runCommand":
+          await this.handleRunCommand(message, webviewView);
           break;
         case "listTerminals":
           await this.handleListTerminals(message, webviewView);
@@ -173,9 +173,6 @@ export class ChatController {
           break;
         case "stopTerminal":
           await this.handleStopTerminal(message, webviewView);
-          break;
-        case "inputToTerminal":
-          await this.handleInputToTerminal(message, webviewView);
           break;
         case "stopCommand":
           await this.handleStopCommand(message);
@@ -1518,28 +1515,35 @@ export class ChatController {
     );
   }
 
-  private async handleExecuteCommand(
+  private async handleRunCommand(
     message: any,
     webviewView: vscode.WebviewView,
   ) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-    this.processManager
-      .start(
-        message.actionId,
-        message.commandText,
-        workspaceFolder.uri.fsPath,
-        message.terminalId,
-      )
-      .then((result) => {
-        webviewView.webview.postMessage({
-          command: "commandExecuted",
-          actionId: message.actionId,
-          output: result.output,
-          error: result.error,
-          commandText: message.commandText,
-        });
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      const cwd = workspaceFolder?.uri.fsPath || os.homedir();
+      let terminalId = message.terminalId;
+
+      if (!terminalId) {
+        const result = await this.processManager.startInteractive(cwd);
+        terminalId = result.id;
+      }
+
+      this.processManager.sendInput(terminalId, `${message.commandText}\n`);
+
+      webviewView.webview.postMessage({
+        command: "runCommandResult",
+        requestId: message.requestId,
+        terminalId: terminalId,
+        actionId: message.actionId,
       });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "runCommandResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
   }
 
   private async handleListTerminals(
@@ -1664,25 +1668,6 @@ export class ChatController {
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "stopTerminalResult",
-        requestId: message.requestId,
-        error: e.message,
-      });
-    }
-  }
-
-  private async handleInputToTerminal(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      this.processManager.sendInput(message.terminalId, message.text);
-      webviewView.webview.postMessage({
-        command: "inputToTerminalResult",
-        requestId: message.requestId,
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "inputToTerminalResult",
         requestId: message.requestId,
         error: e.message,
       });

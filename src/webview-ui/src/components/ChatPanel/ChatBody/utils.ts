@@ -6,10 +6,9 @@ export const getActionName = (type: string): string => {
 
 export const getFilename = (action: any): string => {
   if (
-    action.type === "execute_command" ||
+    action.type === "run_command" ||
     action.type === "remove_terminal" ||
     action.type === "stop_terminal" ||
-    action.type === "input_to_terminal" ||
     action.type === "create_terminal_shell" ||
     action.type === "read_terminal_logs"
   ) {
