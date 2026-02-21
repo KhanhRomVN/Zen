@@ -9,6 +9,8 @@ import {
 } from "../../utils";
 import FileIcon from "../../../../common/FileIcon";
 import { CodeBlock } from "../../../../CodeBlock";
+import { TerminalBlock } from "../../../../TerminalBlock";
+import { RichtextBlock } from "../../../../RichtextBlock";
 import { parseDiff } from "../../../../../utils/diffUtils";
 import { CLICKABLE_TOOLS } from "../../constants";
 
@@ -46,6 +48,8 @@ const ExecuteButton: React.FC<{
   isSwept?: boolean;
   isSkipped?: boolean; // New prop for history skipped state
   isLoading?: boolean; // New prop for loading state
+  showText?: boolean; // New prop to show text label
+  labelText?: string; // New prop for text label
 }> = ({
   isCompleted,
   isActive,
@@ -58,6 +62,8 @@ const ExecuteButton: React.FC<{
   isSwept,
   isSkipped,
   isLoading,
+  showText,
+  labelText,
 }) => {
   return (
     <button
@@ -69,36 +75,32 @@ const ExecuteButton: React.FC<{
       // Enabled if Active (Play) OR Sweepable (Completed).
       // Disabled if !Active AND !Completed.
       // Also disabled if Loading.
-      // Also disabled if Loading.
       disabled={
         isLoading ||
         (!isActive && !isCompleted) ||
         (isCompleted && !isLastMessage)
       }
       style={{
-        background: "transparent",
+        background: showText
+          ? "var(--vscode-button-background)"
+          : "transparent",
+        color: showText
+          ? "var(--vscode-button-foreground)"
+          : "var(--vscode-icon-foreground)",
         border: "none",
         cursor: isLoading ? "wait" : "pointer",
-        padding: "2px",
+        padding: showText ? "4px 10px" : "2px",
         borderRadius: "4px",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s",
         opacity: 1,
-        color: "var(--vscode-icon-foreground)", // Ensure consistent base color
+        fontSize: "11px",
+        fontWeight: 600,
+        gap: "4px",
       }}
       title={title}
-      onMouseEnter={(e) => {
-        const svg = e.currentTarget.querySelector("svg");
-        if (svg && !isLoading && !isCompleted) svg.style.stroke = toolColor;
-        // For completed state, we might want to keep the success color or specific color
-      }}
-      onMouseLeave={(e) => {
-        const svg = e.currentTarget.querySelector("svg");
-        // Reset to currentColor/inherit
-        if (svg) svg.style.stroke = "currentColor";
-      }}
     >
       {/* LOADING STATE */}
       {isLoading && (
@@ -131,14 +133,15 @@ const ExecuteButton: React.FC<{
           >
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          {isLastMessage && (
+          {/* 🆕 Broom icon only if manual tool or explicitly sweepable */}
+          {isLastMessage && isSweepable && (
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="16"
               height="16"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="currentColor" // Use current color (controlled by div above)
+              stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -152,23 +155,26 @@ const ExecuteButton: React.FC<{
         </div>
       )}
 
-      {/* ACTIVE STATE: PLAY ICON (Only if not loading and not completed) */}
+      {/* ACTIVE STATE: PLAY ICON / TEXT */}
       {!isLoading && isActive && !isCompleted && (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor" // Allow hover to change it
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
+        <>
+          {showText && <span>{labelText || "Run"}</span>}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+        </>
       )}
 
-      {/* SKIPPED STATE: RED X (Only if not loading) */}
+      {/* SKIPPED STATE: RED X */}
       {!isLoading && isSkipped && (
         <svg
           width="16"
@@ -213,11 +219,19 @@ const ToolItem: React.FC<ToolItemProps> = ({
     Record<string, { lines: number; loading: boolean }>
   >({});
 
-  // Local state for write_to_file preview
+  // Track write_to_file preview
   const [isPreviewing, setIsPreviewing] = React.useState<string | null>(null);
 
-  // Track validated actions to prevent re-requests on prop changes
-  const validatedActions = React.useRef<Set<string>>(new Set());
+  // Tools that require manual confirmation
+  const MANUAL_CONFIRMATION_TOOLS = [
+    "remove_terminal",
+    "stop_terminal",
+    "run_command",
+    "create_terminal_shell",
+  ];
+
+  // Track validated/auto-run actions to prevent re-requests on prop changes
+  const processedActions = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     // Only run for replace_in_file actions
@@ -226,11 +240,25 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
     group.forEach((item) => {
       const { action, index } = item;
+      const actionId = `${messageId}-action-${index}`;
+
+      // [Auto-run logic]
+      const isManual = MANUAL_CONFIRMATION_TOOLS.includes(action.type);
+      if (
+        !isManual &&
+        isActiveGroup &&
+        !clickedActions.has(actionId) &&
+        !processedActions.current.has(actionId)
+      ) {
+        processedActions.current.add(actionId);
+        onToolClick(action, messageId, index);
+      }
+
       if (action.type === "replace_in_file" && action.params.diff) {
         const validationId = `${messageId}-${index}-validate`;
 
         // Gate: Skip if already validated
-        if (validatedActions.current.has(validationId)) {
+        if (processedActions.current.has(validationId)) {
           return;
         }
 
@@ -256,7 +284,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
         );
 
         // Mark as validated to prevent re-sending
-        validatedActions.current.add(validationId);
+        processedActions.current.add(validationId);
 
         if ((window as any).vscodeApi) {
           (window as any).vscodeApi.postMessage({
@@ -461,7 +489,169 @@ const ToolItem: React.FC<ToolItemProps> = ({
       );
     }
 
-    if (toolType === "run_command") {
+    const terminalToolsWithBlock = ["run_command"];
+    const simpleTerminalTools = [
+      "list_terminals",
+      "remove_terminal",
+      "stop_terminal",
+      "create_terminal_shell",
+    ];
+
+    // Minimalist single-line UI for simple terminal tools (no box)
+    if (simpleTerminalTools.includes(toolType)) {
+      return (
+        <div style={{ marginBottom: "12px" }}>
+          {group.map((item, idx) => {
+            const { action, index } = item;
+            const actionId = `${messageId}-action-${index}`;
+            const isActionClicked = clickedActions.has(actionId);
+            const isActionSwept = clearedActions?.has(actionId);
+            const outputData = toolOutputs?.[actionId];
+            const hasOutput = !!outputData;
+            const isLoading = isActionClicked && !hasOutput;
+            const isCompleted = hasOutput;
+
+            if (toolType === "list_terminals") {
+              return (
+                <RichtextBlock
+                  key={index}
+                  content={outputData?.output || "No terminals listed."}
+                  title={getToolLabel(toolType)}
+                  statusColor={toolColor}
+                  defaultCollapsed={true}
+                  headerActions={
+                    <ExecuteButton
+                      isActive={isActiveGroup || false}
+                      isCompleted={isCompleted}
+                      isLastMessage={isLastMessage}
+                      isSkipped={
+                        !isActiveGroup && !isLastMessage && !isActionClicked
+                      }
+                      isLoading={isLoading}
+                      isSweepable={false}
+                      isSwept={isActionSwept}
+                      toolColor={toolColor}
+                      title={
+                        isCompleted
+                          ? "Clear Context (Sweep)"
+                          : isLoading
+                            ? "Executing..."
+                            : "Execute action"
+                      }
+                      onExecute={() => {
+                        if (isCompleted) {
+                          if (onActionClear && !isActionSwept) {
+                            onActionClear(actionId);
+                          }
+                        } else if (!isLoading) {
+                          onToolClick(action, messageId, index);
+                        }
+                      }}
+                    />
+                  }
+                />
+              );
+            }
+
+            return (
+              <div
+                key={index}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "6px 10px",
+                  backgroundColor: `${toolColor}08`,
+                  borderRadius: "4px",
+                  marginBottom: idx === group.length - 1 ? "0" : "4px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                  }}
+                >
+                  {/* Dot */}
+                  <div
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: toolColor,
+                      flexShrink: 0,
+                    }}
+                  />
+
+                  {/* Label */}
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      color: "var(--vscode-editor-foreground)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {getToolLabel(toolType)}
+                  </div>
+
+                  {/* ID for remove/stop */}
+                  {(toolType === "remove_terminal" ||
+                    toolType === "stop_terminal") && (
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        backgroundColor: "var(--vscode-badge-background)",
+                        color: "var(--vscode-badge-foreground)",
+                        opacity: 0.8,
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {action.params.terminal_id}
+                    </div>
+                  )}
+                </div>
+
+                <ExecuteButton
+                  isActive={isActiveGroup || false}
+                  isCompleted={isCompleted}
+                  isLastMessage={isLastMessage}
+                  isSkipped={
+                    !isActiveGroup && !isLastMessage && !isActionClicked
+                  }
+                  isLoading={isLoading}
+                  isSweepable={MANUAL_CONFIRMATION_TOOLS.includes(toolType)}
+                  isSwept={isActionSwept}
+                  toolColor={toolColor}
+                  showText={MANUAL_CONFIRMATION_TOOLS.includes(toolType)}
+                  labelText="Run"
+                  title={
+                    isCompleted
+                      ? "Clear Context (Sweep)"
+                      : isLoading
+                        ? "Executing..."
+                        : "Execute action"
+                  }
+                  onExecute={() => {
+                    if (isCompleted) {
+                      if (onActionClear && !isActionSwept) {
+                        onActionClear(actionId);
+                      }
+                    } else if (!isLoading) {
+                      onToolClick(action, messageId, index);
+                    }
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (terminalToolsWithBlock.includes(toolType)) {
       const index = group[0].index; // run_command is always size 1 now
       const action = group[0].action;
       const isLast = true; // Always last in its group
@@ -530,12 +720,14 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 isSweepable={true}
                 isSwept={isActionSwept}
                 toolColor={toolColor}
+                showText={true}
+                labelText="Run"
                 title={
                   isCompleted
                     ? "Clear Context (Sweep)"
                     : isLoading
                       ? "Executing..."
-                      : "Execute command"
+                      : "Execute action"
                 }
                 onExecute={() => {
                   if (isCompleted) {
@@ -549,42 +741,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
               />
             </div>
 
-            {/* Content: Command CodeBlock (Removed headerActions) */}
+            {/* Content: Command/Params CodeBlock (Removed headerActions) */}
             <div style={{ padding: "0" }}>
-              <CodeBlock
-                code={action.params.command}
-                language="shell"
-                filename="terminal"
-                icon={
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="100%"
-                    height="100%"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m7 11 2-2-2-2" />
-                    <path d="M11 13h4" />
-                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                  </svg>
-                }
-                showCopyButton={true}
-              />
-            </div>
-
-            {/* Output CodeBlock */}
-            {outputData && (
-              <div
-                style={{ padding: "0", borderTop: `1px solid ${toolColor}20` }}
-              >
+              {action.params.command ? (
                 <CodeBlock
-                  code={outputData.output}
-                  language="text"
-                  filename="Output"
+                  code={action.params.command}
+                  language="shell"
+                  filename="terminal"
                   icon={
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -597,14 +760,48 @@ const ToolItem: React.FC<ToolItemProps> = ({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     >
-                      <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
-                      <path d="M14 2v5a1 1 0 0 0 1 1h5" />
-                      <path d="m8 16 2-2-2-2" />
-                      <path d="M12 18h4" />
+                      <path d="m7 11 2-2-2-2" />
+                      <path d="M11 13h4" />
+                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                     </svg>
                   }
-                  maxLines={10}
                   showCopyButton={true}
+                />
+              ) : (
+                <div
+                  style={{
+                    padding: "8px 12px",
+                    fontSize: "12px",
+                    color: "var(--vscode-descriptionForeground)",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  {Object.entries(action.params)
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(", ")}
+                </div>
+              )}
+            </div>
+
+            {/* Output TerminalBlock */}
+            {outputData && (
+              <div
+                style={{ padding: "0", borderTop: `1px solid ${toolColor}20` }}
+              >
+                <TerminalBlock
+                  logs={outputData.output}
+                  terminalName={
+                    action.params.terminal_name ||
+                    action.params.terminal_id ||
+                    getToolLabel(toolType)
+                  }
+                  subInfo={action.params.cwd}
+                  status={
+                    action.params.terminal_name || action.params.terminal_id
+                      ? "busy"
+                      : "idle"
+                  }
+                  statusColor={toolColor}
                 />
               </div>
             )}
@@ -669,7 +866,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
               </div>
 
               {/* File/Command in Header if single item */}
-              {group.length === 1 && (
+              {group.length === 1 && toolType !== "list_terminals" && (
                 <div
                   style={{
                     display: "flex",
@@ -735,7 +932,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   clickedActions.has(`${messageId}-action-${item.index}`),
                 )
               }
-              isSweepable={true}
+              isSweepable={group.some((item) =>
+                MANUAL_CONFIRMATION_TOOLS.includes(item.action.type),
+              )}
               isSwept={group.every((item) =>
                 clearedActions?.has(`${messageId}-action-${item.index}`),
               )}
@@ -889,10 +1088,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
             if (action.type === "run_command") {
               const actionId = `${messageId}-action-${index}`;
               const outputData = toolOutputs?.[actionId];
-
-              // Determine state for this specific action
               const isActionClicked = clickedActions.has(actionId);
               const isActionSwept = clearedActions?.has(actionId);
+              const hasOutput = !!outputData;
+              const isLoading = isActionClicked && !hasOutput;
 
               // We need to determine if THIS action is active.
               // Since we split run_command into their own groups of 1,
@@ -946,20 +1145,27 @@ const ToolItem: React.FC<ToolItemProps> = ({
                         isSkipped={
                           !isActiveGroup && !isLastMessage && !isActionClicked
                         }
-                        isSweepable={true}
+                        isLoading={isLoading}
+                        isSweepable={MANUAL_CONFIRMATION_TOOLS.includes(
+                          action.type,
+                        )}
                         isSwept={isActionSwept}
                         toolColor={toolColor}
+                        showText={MANUAL_CONFIRMATION_TOOLS.includes(
+                          action.type,
+                        )}
+                        labelText="Run"
                         title={
                           isActionClicked
                             ? "Clear Context (Sweep)"
-                            : "Execute command"
+                            : "Execute action"
                         }
                         onExecute={() => {
                           if (isActionClicked) {
                             if (onActionClear && !isActionSwept) {
                               onActionClear(actionId);
                             }
-                          } else {
+                          } else if (!isLoading) {
                             onToolClick(action, messageId, index);
                           }
                         }}

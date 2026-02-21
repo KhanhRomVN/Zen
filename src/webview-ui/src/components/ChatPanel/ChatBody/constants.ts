@@ -11,12 +11,12 @@ export const TOOL_LABELS: Record<string, string> = {
   list_files: "Listing",
   search_files: "Searching",
   run_command: "Executing",
-  list_terminals: "Terminals",
-  remove_terminal: "Removing",
-  stop_terminal: "Stopping",
-  create_terminal_shell: "Starting",
-  read_terminal_logs: "Reading Logs",
-  update_codebase_context: "Updating",
+  list_terminals: "List terminals",
+  remove_terminal: "Remove terminal",
+  stop_terminal: "Stop terminal",
+  create_terminal_shell: "Starting shell",
+  read_terminal_logs: "Reading logs",
+  update_codebase_context: "Updating context",
   default: "Zen",
 };
 

@@ -1,0 +1,112 @@
+.terminal-block-container {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--vscode-terminal-background, #1e1e1e);
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: var(
+    --vscode-editor-font-family,
+    "Courier New",
+    Courier,
+    monospace
+  );
+  margin-bottom: 8px;
+  border: 1px solid var(--vscode-panel-border, #333);
+}
+
+.terminal-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+  border-bottom: 1px solid var(--vscode-panel-border, #333);
+  user-select: none;
+}
+
+.terminal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.terminal-header-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.terminal-prefix {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-terminal-foreground, #cccccc);
+  opacity: 0.8;
+}
+
+.terminal-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-terminal-foreground, #cccccc);
+}
+
+.terminal-sub-info {
+  font-size: 11px;
+  opacity: 0.4;
+  font-family: var(--vscode-font-family);
+}
+
+.terminal-state-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background-color: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+  opacity: 0.8;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-content-wrapper {
+  padding: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--vscode-terminal-foreground, #cccccc);
+}
+
+.terminal-content-wrapper::-webkit-scrollbar {
+  width: 10px;
+}
+
+.terminal-content-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-content-wrapper::-webkit-scrollbar-thumb {
+  background: var(
+    --vscode-scrollbarSlider-background,
+    rgba(121, 121, 121, 0.4)
+  );
+}
+
+.terminal-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(
+    --vscode-scrollbarSlider-hoverBackground,
+    rgba(100, 100, 100, 0.7)
+  );
+}
+
+.terminal-log-line {
+  margin-bottom: 2px;
+}
+
+.terminal-log-line:last-child {
+  margin-bottom: 0;
+}
