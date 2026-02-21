@@ -69,9 +69,6 @@ export const useChatLLM = ({
     if (isProcessing && messagesRef.current.length <= 2) {
       const chatId = currentConversationIdRef.current;
       if (chatId) {
-        console.log(
-          `[useChatLLM] Stopping first turn. Deleting conversation: ${chatId}`,
-        );
         deleteConversation(chatId);
         setCurrentConversationId("");
         setMessages([]);
@@ -306,9 +303,6 @@ export const useChatLLM = ({
             backendConversationIdRef.current || (isNewSession ? "" : ""),
           thinking: effThinking,
         };
-        console.log(
-          `[useChatLLM] → Sending req. conversationId="${body.conversationId}" backendRef="${backendConversationIdRef.current}" isNewSession=${isNewSession}`,
-        );
 
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
@@ -364,9 +358,6 @@ export const useChatLLM = ({
                   if (recvConvId) {
                     backendConversationId = recvConvId;
                     backendConversationIdRef.current = recvConvId;
-                    console.log(
-                      `[useChatLLM] ← Received conversationId from backend: "${recvConvId}"`,
-                    );
                   }
 
                   if (data.usage) {
@@ -404,19 +395,11 @@ export const useChatLLM = ({
           const userMsgToLog = updatedMessages[updatedMessages.length - 1];
           const finalConversationId =
             backendConversationId || backendConversationIdRef.current;
-          console.log(
-            `[useChatLLM] Attempting to log USER message for ${effectiveChatUuid}:`,
-            { id: userMsgToLog.id, role: userMsgToLog.role },
-          );
           logChatToWorkspace(effectiveChatUuid, {
             ...userMsgToLog,
             conversationId: finalConversationId,
           });
 
-          console.log(
-            `[useChatLLM] Attempting to log ASSISTANT message for ${effectiveChatUuid}:`,
-            { id: assistantMessage.id, role: assistantMessage.role },
-          );
           logChatToWorkspace(effectiveChatUuid, {
             ...assistantMessage,
             conversationId: finalConversationId,

@@ -469,9 +469,6 @@ export class ChatController {
 
   private async handleLogConversation(message: any) {
     const { conversationId, logEntry } = message;
-    console.log(
-      `[ChatController] handleLogConversation called for conversationId: ${conversationId} | role: ${logEntry?.role}`,
-    );
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
@@ -482,9 +479,6 @@ export class ChatController {
       const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
       const release = await this.fileLockManager.acquire(logPath);
-      console.log(
-        `[ChatController] Lock acquired for logConversation: ${logPath}`,
-      );
       try {
         let content: any[] = [];
         try {
@@ -497,9 +491,6 @@ export class ChatController {
 
         content.push(logEntry);
         await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2));
-        console.log(
-          `[ChatController] Log updated for ${conversationId}. New count: ${content.length}`,
-        );
 
         // Cleanup old conversations
         if (this.backupManager) {
@@ -507,9 +498,6 @@ export class ChatController {
         }
       } finally {
         release();
-        console.log(
-          `[ChatController] Lock released for logConversation: ${logPath}`,
-        );
       }
     } catch (e) {
       console.error("Log conversation failed", e);
@@ -521,9 +509,6 @@ export class ChatController {
    * The file will be populated with content after the first successful API response.
    */
   private async handleCreateEmptyChatLog(message: any) {
-    console.log(
-      `[ChatController] handleCreateEmptyChatLog called for chatUuid: ${message.chatUuid}`,
-    );
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
@@ -536,16 +521,13 @@ export class ChatController {
       const logPath = path.join(projectContextDir, `${chatUuid}.json`);
 
       const release = await this.fileLockManager.acquire(logPath);
-      console.log(`[ChatController] Lock acquired for empty log: ${logPath}`);
       try {
         // Create empty array JSON if file doesn't exist yet
         if (!fs.existsSync(logPath)) {
           await fs.promises.writeFile(logPath, JSON.stringify([], null, 2));
-          console.log(`[ChatController] Empty log file created: ${logPath}`);
         }
       } finally {
         release();
-        console.log(`[ChatController] Lock released for empty log: ${logPath}`);
       }
     } catch (e) {
       console.error("Create empty chat log failed", e);
@@ -558,9 +540,6 @@ export class ChatController {
    */
   private async handleLogChat(message: any) {
     const { chatUuid, logEntry } = message;
-    console.log(
-      `[ChatController] handleLogChat called for chatUuid: ${chatUuid} | role: ${logEntry?.role} | id: ${logEntry?.id}`,
-    );
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
@@ -572,7 +551,6 @@ export class ChatController {
       const logPath = path.join(projectContextDir, `${chatUuid}.json`);
 
       const release = await this.fileLockManager.acquire(logPath);
-      console.log(`[ChatController] Lock acquired for logChat: ${logPath}`);
       try {
         let content: any[] = [];
         try {
@@ -585,9 +563,6 @@ export class ChatController {
 
         content.push(logEntry);
         await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2));
-        console.log(
-          `[ChatController] Log updated for ${chatUuid}. New count: ${content.length}`,
-        );
 
         // Cleanup old chat logs
         if (this.backupManager) {
@@ -595,7 +570,6 @@ export class ChatController {
         }
       } finally {
         release();
-        console.log(`[ChatController] Lock released for logChat: ${logPath}`);
       }
     } catch (e) {
       console.error("Log chat failed", e);

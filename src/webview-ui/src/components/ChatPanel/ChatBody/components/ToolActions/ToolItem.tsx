@@ -73,14 +73,6 @@ const ExecuteButton: React.FC<{
   return (
     <button
       onClick={(e) => {
-        console.log("[ExecuteButton] Clicked", {
-          title,
-          isLoading,
-          isLastMessage,
-          isCompleted,
-          isActive,
-          isSweepable,
-        });
         e.stopPropagation();
         onExecute(e);
       }}
@@ -649,22 +641,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
       // Completed if we have output AND terminal is no longer busy
       const isCompleted = hasOutput && !isTerminalBusy;
-
-      console.log("[ToolItem] TerminalBlock state", {
-        actionId,
-        isActiveGroup,
-        isActionClicked,
-        isLastMessage,
-        isLoading,
-        isCompleted,
-        hasOutput,
-        isTerminalBusy,
-      });
-
-      // We need to determine if THIS action is active.
-      // Since we split run_command into their own groups of 1,
-      // isActiveGroup passed to ToolItem should be correct for this single item.
-      // But just in case, we use the props.
 
       return (
         <TerminalBlock

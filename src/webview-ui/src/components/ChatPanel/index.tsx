@@ -257,15 +257,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             .find((m: Message) => m.role === "assistant" && m.conversationId);
           if (lastAssistantMsg?.conversationId) {
             setBackendConversationId(lastAssistantMsg.conversationId);
-            console.log(
-              `[ChatPanel] Restored backendConversationId: ${lastAssistantMsg.conversationId}`,
-            );
           }
 
           // Restore Tool Execution State (Metadata)
           if (data.data.metadata) {
             hydrateState(data.data.metadata);
-            console.log("[ChatPanel] Restored tool metadata state");
           }
         }
         setIsLoadingConversation(false);

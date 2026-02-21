@@ -532,13 +532,6 @@ export const useToolExecution = ({
       message: Message,
       isAutoTrigger: boolean = false,
     ) => {
-      console.log("[useToolExecution] handleToolRequest called", {
-        actionsCount: Array.isArray(actionOrActions)
-          ? actionOrActions.length
-          : 1,
-        isAutoTrigger,
-        messageId: message.id,
-      });
       const actions = (
         Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions]
       ).map((a, idx) => ({
@@ -576,9 +569,6 @@ export const useToolExecution = ({
         // Check if we should auto-execute this tool
         const isManual = MANUAL_CONFIRMATION_TOOLS.includes(action.type);
         if (isAutoTrigger && isManual) {
-          console.log(
-            `[useToolExecution] Stopping auto-execution: ${action.type} requires manual confirmation.`,
-          );
           // Set to idle so the UI doesn't show loading state falsely
           setExecutionState({
             total: actions.length,
@@ -587,11 +577,6 @@ export const useToolExecution = ({
           });
           break;
         }
-
-        console.log(`[useToolExecution] Executing action: ${action.type}`, {
-          actionId,
-          isAutoTrigger,
-        });
 
         const result = await executeSingleAction(
           { ...action, actionId },

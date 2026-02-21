@@ -24,10 +24,6 @@ export interface ChatMetadata {
 }
 
 export const logChatToWorkspace = (chatUuid: string, message: any) => {
-  console.log(
-    `[ConversationService] logChatToWorkspace called for chatUuid: ${chatUuid}`,
-    { role: message.role, id: message.id },
-  );
   try {
     const vscodeApi = (window as any).vscodeApi;
     if (!vscodeApi) {
@@ -43,9 +39,6 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
       conversationId: message.conversationId, // Backend conversationId
     };
 
-    console.log(
-      `[ConversationService] Sending logChat command for role: ${logEntry.role} | id: ${logEntry.id}`,
-    );
     extensionService.postMessage({
       command: "logChat",
       chatUuid,

@@ -179,10 +179,6 @@ export class ShikiService {
 
       // 2. Diff Highlighting Transformer
       if (lineHighlights && lineHighlights.length > 0) {
-        console.log(
-          `[ShikiService] Applying diff highlights:`,
-          JSON.stringify(lineHighlights),
-        );
         transformers.push({
           name: "zen-diff-highlights",
           line(node: any, line: number) {

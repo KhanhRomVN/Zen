@@ -139,10 +139,6 @@ export class BackupManager {
     webviewView: vscode.WebviewView,
     customBaseDir?: string,
   ): Promise<void> {
-    console.log(
-      `[BackupManager] Starting watcher for: ${conversationId} in ${customBaseDir || "default root"}`,
-    );
-
     this._activeConversationId = conversationId;
     this._activeBaseDir = customBaseDir;
     this.setWorkspaceRoot(workspaceFolder.uri.fsPath);
@@ -274,9 +270,6 @@ export class BackupManager {
   }
 
   stopBackupFileWatcher(): void {
-    console.log(
-      `[BackupManager] Stopping watcher. Active ID: ${this._activeConversationId}`,
-    );
     this._activeConversationId = undefined;
     this._activeBaseDir = undefined;
 

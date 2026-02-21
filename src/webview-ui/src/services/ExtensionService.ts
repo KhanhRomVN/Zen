@@ -41,7 +41,7 @@ class ExtensionService {
 
     // Fallback if not in VS Code environment
     return {
-      postMessage: (msg: any) => console.log("Mock postMessage:", msg),
+      postMessage: (msg: any) => {},
       getState: () => ({}),
       setState: () => {},
     };
