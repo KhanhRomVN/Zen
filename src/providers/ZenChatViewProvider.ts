@@ -100,6 +100,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         actionId: event.actionId,
         output: event.output,
         terminalId: event.terminalId,
+        commandText: event.commandText,
       });
     });
 

@@ -3,7 +3,10 @@ import { Message } from "../components/ChatPanel/ChatBody/types";
 import { TabInfo } from "../types";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 import { extensionService } from "../services/ExtensionService";
-import { getDefaultPrompt } from "../components/ChatPanel/prompts";
+import {
+  getDefaultPrompt,
+  combinePrompts,
+} from "../components/ChatPanel/prompts";
 import {
   logChatToWorkspace,
   saveConversation,
@@ -137,7 +140,37 @@ export const useChatLLM = ({
       let projectContextStr = "";
 
       if (isReq1) {
+        let systemInfo = {
+          os: "Unknown OS",
+          ide: "Zen IDE",
+          shell: "unknown",
+          homeDir: "~",
+          cwd: ".",
+          language: preferredLanguage,
+        };
+
+        try {
+          const fetchedInfo = await extensionService.getSystemInfo();
+          if (fetchedInfo?.data) {
+            systemInfo = {
+              ...systemInfo,
+              ...fetchedInfo.data,
+              language: preferredLanguage,
+            };
+          }
+        } catch (e) {
+          console.error("Failed to fetch system info", e);
+        }
+
         systemPrompt = getDefaultPrompt(preferredLanguage);
+        // Use real system info if we managed to fetch it, override the default
+        if (systemInfo.os !== "Unknown OS") {
+          systemPrompt = combinePrompts({
+            language: preferredLanguage,
+            systemInfo,
+          });
+        }
+
         try {
           // Fetch project context
           // We can move this to a service helper too, but let's keep it here for now or use ExtensionService
@@ -326,12 +359,13 @@ export const useChatLLM = ({
                   const data = JSON.parse(dataStr);
 
                   // Capture the real backend conversation_id for subsequent requests
-                  if (data.meta?.conversation_id) {
-                    backendConversationId = data.meta.conversation_id;
-                    backendConversationIdRef.current =
-                      data.meta.conversation_id;
+                  const recvConvId =
+                    data.meta?.conversation_id || data.conversation_id;
+                  if (recvConvId) {
+                    backendConversationId = recvConvId;
+                    backendConversationIdRef.current = recvConvId;
                     console.log(
-                      `[useChatLLM] ← Received conversationId from backend: "${data.meta.conversation_id}"`,
+                      `[useChatLLM] ← Received conversationId from backend: "${recvConvId}"`,
                     );
                   }
 
@@ -368,13 +402,15 @@ export const useChatLLM = ({
         // Log user message first, then assistant message, both with the real conversationId
         try {
           const userMsgToLog = updatedMessages[updatedMessages.length - 1];
+          const finalConversationId =
+            backendConversationId || backendConversationIdRef.current;
           console.log(
             `[useChatLLM] Attempting to log USER message for ${effectiveChatUuid}:`,
             { id: userMsgToLog.id, role: userMsgToLog.role },
           );
           logChatToWorkspace(effectiveChatUuid, {
             ...userMsgToLog,
-            conversationId: backendConversationId,
+            conversationId: finalConversationId,
           });
 
           console.log(
@@ -383,7 +419,7 @@ export const useChatLLM = ({
           );
           logChatToWorkspace(effectiveChatUuid, {
             ...assistantMessage,
-            conversationId: backendConversationId,
+            conversationId: finalConversationId,
           });
         } catch (logErr) {
           console.error(`[useChatLLM] Critical error during log call:`, logErr);
@@ -437,5 +473,8 @@ export const useChatLLM = ({
     setCurrentConversationId,
     sendMessage,
     stopGeneration,
+    setBackendConversationId: (id: string) => {
+      backendConversationIdRef.current = id;
+    },
   };
 };

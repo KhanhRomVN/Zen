@@ -64,6 +64,10 @@ class ExtensionService {
     };
   }
 
+  public getSystemInfo(): Promise<any> {
+    return this.storageRequest("getSystemInfo", "systemInfo", {});
+  }
+
   private storageRequest(
     command: string,
     responseCommand: string,

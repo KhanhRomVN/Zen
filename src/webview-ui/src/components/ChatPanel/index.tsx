@@ -81,6 +81,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setCurrentConversationId,
     sendMessage,
     stopGeneration,
+    setBackendConversationId,
   } = useChatLLM({
     apiUrl,
     selectedTab,
@@ -97,7 +98,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     clickedActions,
     clearedActions,
     handleToolRequest,
+    hydrateState,
   } = useToolExecution({
+    conversationId: currentConversationId,
     sendMessage: (
       content,
       files,
@@ -247,6 +250,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           );
           if (data.data.conversationId)
             setCurrentConversationId(data.data.conversationId);
+
+          // Restore backendConversationId from messages if present
+          const lastAssistantMsg = [...data.data.messages]
+            .reverse()
+            .find((m: Message) => m.role === "assistant" && m.conversationId);
+          if (lastAssistantMsg?.conversationId) {
+            setBackendConversationId(lastAssistantMsg.conversationId);
+            console.log(
+              `[ChatPanel] Restored backendConversationId: ${lastAssistantMsg.conversationId}`,
+            );
+          }
+
+          // Restore Tool Execution State (Metadata)
+          if (data.data.metadata) {
+            hydrateState(data.data.metadata);
+            console.log("[ChatPanel] Restored tool metadata state");
+          }
         }
         setIsLoadingConversation(false);
         setIsProcessing(false);

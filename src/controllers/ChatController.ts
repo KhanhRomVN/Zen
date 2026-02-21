@@ -136,7 +136,7 @@ export class ChatController {
           await this.handleValidateFuzzyMatch(message, webviewView);
           break;
         case "getSystemInfo":
-          this.handleGetSystemInfo(webviewView);
+          this.handleGetSystemInfo(message, webviewView);
           break;
         case "updateAgentPermissions":
           this.handleUpdateAgentPermissions(message);
@@ -223,6 +223,9 @@ export class ChatController {
         case "getWorkspaceTree":
           await this.handleGetWorkspaceTree(message, webviewView);
           break;
+        case "saveToolMetadata":
+          await this.handleSaveToolMetadata(message);
+          break;
       }
     } catch (error) {
       console.error(`Error handling command ${command}:`, error);
@@ -258,7 +261,7 @@ export class ChatController {
     });
   }
 
-  private handleGetSystemInfo(webviewView: vscode.WebviewView) {
+  private handleGetSystemInfo(message: any, webviewView: vscode.WebviewView) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const platform = process.platform;
     const homeDir = process.env.HOME || process.env.USERPROFILE || "~";
@@ -270,6 +273,7 @@ export class ChatController {
 
     webviewView.webview.postMessage({
       command: "systemInfo",
+      requestId: message.requestId,
       data: {
         os: osName,
         ide: "Visual Studio Code",
@@ -366,10 +370,30 @@ export class ChatController {
         `${conversationId}.json`,
       );
       const content = await fs.promises.readFile(logPath, "utf-8");
+
+      // Try to load tool metadata
+      let metadata = null;
+      const metadataPath = path.join(
+        this.getProjectContextDir(workspaceFolder.uri.fsPath),
+        `${conversationId}_metadata.json`,
+      );
+      if (fs.existsSync(metadataPath)) {
+        try {
+          const metaContent = await fs.promises.readFile(metadataPath, "utf-8");
+          metadata = JSON.parse(metaContent);
+        } catch (e) {
+          console.error("Failed to parse tool metadata", e);
+        }
+      }
+
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,
-        data: { messages: JSON.parse(content), conversationId },
+        data: {
+          messages: JSON.parse(content),
+          conversationId,
+          metadata,
+        },
       });
     } catch (error: any) {
       webviewView.webview.postMessage({
@@ -377,6 +401,69 @@ export class ChatController {
         requestId: message.requestId,
         error: String(error),
       });
+    }
+  }
+
+  private async handleSaveToolMetadata(message: any) {
+    const { conversationId, toolOutputs, clickedActions, clearedActions } =
+      message;
+    if (!conversationId) return;
+
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      await fs.promises.mkdir(projectContextDir, { recursive: true });
+      const metadataPath = path.join(
+        projectContextDir,
+        `${conversationId}_metadata.json`,
+      );
+
+      const release = await this.fileLockManager.acquire(metadataPath);
+      try {
+        const metadata = {
+          toolOutputs,
+          clickedActions: Array.isArray(clickedActions)
+            ? clickedActions
+            : Array.from(clickedActions || []),
+          clearedActions: Array.isArray(clearedActions)
+            ? clearedActions
+            : Array.from(clearedActions || []),
+          lastUpdated: Date.now(),
+        };
+        await fs.promises.writeFile(
+          metadataPath,
+          JSON.stringify(metadata, null, 2),
+        );
+      } finally {
+        release();
+      }
+
+      // Also save raw terminal outputs to a dedicated folder for future review
+      const terminalLogsDir = path.join(
+        projectContextDir,
+        conversationId,
+        "terminal_logs",
+      );
+      await fs.promises.mkdir(terminalLogsDir, { recursive: true });
+
+      if (toolOutputs) {
+        for (const [actionId, data] of Object.entries(toolOutputs)) {
+          const terminalData = data as { output: string; terminalId?: string };
+          if (terminalData.output) {
+            const logFileName = `${actionId}.log`;
+            await fs.promises.writeFile(
+              path.join(terminalLogsDir, logFileName),
+              terminalData.output,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Save tool metadata and terminal logs failed", e);
     }
   }
 
@@ -1545,7 +1632,6 @@ export class ChatController {
         requestId: message.requestId,
         terminalId: terminalId,
         actionId: message.actionId,
-        output: initialOutput,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({

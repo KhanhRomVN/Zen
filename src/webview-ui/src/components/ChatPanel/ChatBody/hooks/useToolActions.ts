@@ -55,7 +55,15 @@ export const useToolActions = ({
       message: Message,
       actionIndex: number,
     ) => {
-      if (!onSendToolRequest) return;
+      console.log("[useToolActions] handleToolClick", {
+        type: Array.isArray(actionOrActions) ? "batch" : actionOrActions.type,
+        actionIndex,
+        messageId: message.id,
+      });
+      if (!onSendToolRequest) {
+        console.warn("[useToolActions] onSendToolRequest is missing!");
+        return;
+      }
 
       if (Array.isArray(actionOrActions)) {
         // Handle Batch

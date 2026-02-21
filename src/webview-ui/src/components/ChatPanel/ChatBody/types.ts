@@ -14,6 +14,7 @@ export interface Message {
   actionIds?: string[]; // Track which action(s) generated this message (for output messages)
   uiHidden?: boolean;
   isCancelled?: boolean;
+  conversationId?: string; // Real backend conversation ID for this message
 }
 
 export interface ChatBodyProps {

@@ -3,6 +3,7 @@ import { Message } from "../components/ChatPanel/ChatBody/types";
 import { extensionService } from "../services/ExtensionService";
 import { ToolAction } from "../services/ResponseParser";
 import { MANUAL_CONFIRMATION_TOOLS } from "../components/ChatPanel/ChatBody/constants";
+import { stripAnsi } from "../utils/terminalUtils";
 
 interface UseToolExecutionProps {
   sendMessage: (
@@ -15,9 +16,13 @@ interface UseToolExecutionProps {
     uiHidden?: boolean,
     thinking?: boolean,
   ) => Promise<void>;
+  conversationId?: string;
 }
 
-export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
+export const useToolExecution = ({
+  sendMessage,
+  conversationId,
+}: UseToolExecutionProps) => {
   const [executionState, setExecutionState] = useState<{
     total: number;
     completed: number;
@@ -48,6 +53,36 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
   }>({});
 
   const terminalToActionMap = useRef<Map<string, string>>(new Map());
+
+  // Logic to save metadata to extension
+  useEffect(() => {
+    if (
+      conversationId &&
+      (Object.keys(toolOutputs).length > 0 ||
+        clickedActions.size > 0 ||
+        clearedActions.size > 0)
+    ) {
+      extensionService.postMessage({
+        command: "saveToolMetadata",
+        conversationId,
+        toolOutputs,
+        clickedActions: Array.from(clickedActions),
+        clearedActions: Array.from(clearedActions),
+      });
+    }
+  }, [conversationId, toolOutputs, clickedActions, clearedActions]);
+
+  const hydrateState = useCallback((metadata: any) => {
+    if (!metadata) return;
+    if (metadata.toolOutputs) setToolOutputs(metadata.toolOutputs);
+    if (metadata.clickedActions) {
+      const clicked = new Set<string>(metadata.clickedActions);
+      setClickedActions(clicked);
+      clickedActionsRef.current = clicked;
+    }
+    if (metadata.clearedActions)
+      setClearedActions(new Set<string>(metadata.clearedActions));
+  }, []);
 
   useEffect(() => {
     handleSendMessageRef.current = sendMessage;
@@ -82,8 +117,10 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
           if (pendingToolResolvers.current.has(message.actionId)) {
             const resolver = pendingToolResolvers.current.get(message.actionId);
             if (resolver) {
-              const cmdText = message.commandText || "command";
-              const outputContent = message.output ? message.output.trim() : "";
+              const cmdText =
+                message.commandText || message.commandTextRaw || "command";
+              const outputRaw = message.output ? message.output.trim() : "";
+              const outputContent = stripAnsi(outputRaw);
 
               const startTime = commandStartTimes.current.get(message.actionId);
               const duration = startTime
@@ -94,9 +131,12 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
                 commandStartTimes.current.delete(message.actionId);
               }
               const timeSuffix = duration ? ` for ${duration}s` : "";
+              const terminalSuffix = message.terminalId
+                ? ` on terminal ${message.terminalId}`
+                : "";
               const resultMsg = message.error
-                ? `Output: [run_command for '${cmdText}']${timeSuffix}\n\`\`\`\nError: ${message.error}\n${outputContent}\n\`\`\``
-                : `Output: [run_command for '${cmdText}']${timeSuffix}\n\`\`\`\n${outputContent}\n\`\`\``;
+                ? `Output: [run_command for '${cmdText}'${terminalSuffix}]${timeSuffix}\n\`\`\`\nError: ${message.error}\n${outputContent}\n\`\`\``
+                : `Output: [run_command for '${cmdText}'${terminalSuffix}]${timeSuffix}\n\`\`\`\n${outputContent}\n\`\`\``;
 
               resolver(resultMsg);
               pendingToolResolvers.current.delete(message.actionId);
@@ -130,7 +170,6 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
             ...prev,
             [message.actionId]: {
               ...(prev[message.actionId] || { output: "", isError: false }),
-              output: message.output || prev[message.actionId]?.output || "",
               terminalId: message.terminalId,
             },
           }));
@@ -479,6 +518,13 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
       message: Message,
       isAutoTrigger: boolean = false,
     ) => {
+      console.log("[useToolExecution] handleToolRequest called", {
+        actionsCount: Array.isArray(actionOrActions)
+          ? actionOrActions.length
+          : 1,
+        isAutoTrigger,
+        messageId: message.id,
+      });
       const actions = (
         Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions]
       ).map((a, idx) => ({
@@ -519,9 +565,19 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
           console.log(
             `[useToolExecution] Stopping auto-execution: ${action.type} requires manual confirmation.`,
           );
-          setExecutionState((prev) => ({ ...prev, status: "idle" }));
+          // Set to idle so the UI doesn't show loading state falsely
+          setExecutionState({
+            total: actions.length,
+            completed: index,
+            status: "idle",
+          });
           break;
         }
+
+        console.log(`[useToolExecution] Executing action: ${action.type}`, {
+          actionId,
+          isAutoTrigger,
+        });
 
         const result = await executeSingleAction(
           { ...action, actionId },
@@ -650,5 +706,6 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
     clearedActions,
     terminalStatus,
     handleToolRequest,
+    hydrateState,
   };
 };

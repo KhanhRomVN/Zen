@@ -45,7 +45,7 @@ export const getDefaultPrompt = (language: string = "English"): string => {
     language,
     systemInfo: {
       os: "Unknown OS",
-      ide: "Elara IDE",
+      ide: "Zen IDE",
       shell: "unknown",
       homeDir: "~",
       cwd: ".",

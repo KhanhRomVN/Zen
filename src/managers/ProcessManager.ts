@@ -21,6 +21,7 @@ class ZenPTY implements vscode.Pseudoterminal {
   public activeActionId: string | null = null;
   public lastOutputIndex: number = 0;
   public lastBusyStatus: boolean = false;
+  public lastCommandText: string | null = null;
 
   constructor(cwd: string) {
     this.currentCwd = cwd;
@@ -81,6 +82,7 @@ export class ProcessManager {
     actionId: string;
     output: string;
     terminalId: string;
+    commandText?: string;
   }>();
   public onCommandFinished = this.onCommandFinishedEmitter.event;
 
@@ -147,8 +149,10 @@ export class ProcessManager {
           actionId: entry.pty.activeActionId,
           output: output,
           terminalId: id,
+          commandText: entry.pty.lastCommandText || undefined,
         });
         entry.pty.activeActionId = null;
+        entry.pty.lastCommandText = null;
         entry.pty.lastOutputIndex = entry.pty.accumulatedOutput.length;
       }
 
@@ -321,6 +325,7 @@ export class ProcessManager {
     if (entry) {
       if (actionId) {
         entry.pty.activeActionId = actionId;
+        entry.pty.lastCommandText = text.trim();
         entry.pty.lastOutputIndex = entry.pty.accumulatedOutput.length;
       }
       entry.pty.handleInput(text);

@@ -73,18 +73,18 @@ const ExecuteButton: React.FC<{
   return (
     <button
       onClick={(e) => {
+        console.log("[ExecuteButton] Clicked", {
+          title,
+          isLoading,
+          isLastMessage,
+          isCompleted,
+          isActive,
+          isSweepable,
+        });
         e.stopPropagation();
         onExecute(e);
       }}
-      // Logic for disabled state:
-      // Enabled if Active (Play) OR Sweepable (Completed).
-      // Disabled if !Active AND !Completed.
-      // Also disabled if Loading.
-      disabled={
-        isLoading ||
-        (!isActive && !isCompleted) ||
-        (isCompleted && !isLastMessage)
-      }
+      disabled={false}
       style={{
         background: "transparent",
         color: "var(--vscode-editor-foreground)",
@@ -649,6 +649,17 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
       // Completed if we have output AND terminal is no longer busy
       const isCompleted = hasOutput && !isTerminalBusy;
+
+      console.log("[ToolItem] TerminalBlock state", {
+        actionId,
+        isActiveGroup,
+        isActionClicked,
+        isLastMessage,
+        isLoading,
+        isCompleted,
+        hasOutput,
+        isTerminalBusy,
+      });
 
       // We need to determine if THIS action is active.
       // Since we split run_command into their own groups of 1,
