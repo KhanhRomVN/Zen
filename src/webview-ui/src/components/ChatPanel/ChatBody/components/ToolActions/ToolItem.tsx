@@ -12,7 +12,8 @@ import { CodeBlock } from "../../../../CodeBlock";
 import { TerminalBlock } from "../../../../TerminalBlock";
 import { RichtextBlock } from "../../../../RichtextBlock";
 import { parseDiff } from "../../../../../utils/diffUtils";
-import { CLICKABLE_TOOLS } from "../../constants";
+import { CLICKABLE_TOOLS, MANUAL_CONFIRMATION_TOOLS } from "../../constants";
+import { extensionService } from "../../../../../services/ExtensionService";
 
 interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
@@ -33,7 +34,10 @@ interface ToolItemProps {
   isLastMessage?: boolean;
   clearedActions?: Set<string>;
   onActionClear?: (actionId: string) => void;
-  toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  toolOutputs?: Record<
+    string,
+    { output: string; isError: boolean; terminalId?: string }
+  >;
 }
 
 const ExecuteButton: React.FC<{
@@ -214,14 +218,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
   // Track write_to_file preview
   const [isPreviewing, setIsPreviewing] = React.useState<string | null>(null);
-
-  // Tools that require manual confirmation
-  const MANUAL_CONFIRMATION_TOOLS = [
-    "remove_terminal",
-    "stop_terminal",
-    "run_command",
-    "create_terminal_shell",
-  ];
 
   // Track validated/auto-run actions to prevent re-requests on prop changes
   const processedActions = React.useRef<Set<string>>(new Set());
@@ -676,6 +672,17 @@ const ToolItem: React.FC<ToolItemProps> = ({
           subInfo={action.params.cwd}
           status={isLoading ? "busy" : hasOutput ? "free" : undefined}
           statusColor={toolColor}
+          onInput={(data) => {
+            const terminalId =
+              (outputData as any)?.terminalId || action.params.terminal_id;
+            if (terminalId) {
+              extensionService.postMessage({
+                command: "terminalInput",
+                terminalId,
+                data,
+              });
+            }
+          }}
           headerActions={
             <ExecuteButton
               isActive={isActiveGroup || false}
@@ -699,7 +706,16 @@ const ToolItem: React.FC<ToolItemProps> = ({
                     onActionClear(actionId);
                   }
                 } else if (!isLoading) {
-                  onToolClick(action, messageId, index);
+                  const actionWithTerminal = {
+                    ...action,
+                    params: {
+                      ...action.params,
+                      terminal_id:
+                        (outputData as any)?.terminalId ||
+                        action.params.terminal_id,
+                    },
+                  };
+                  onToolClick(actionWithTerminal, messageId, index);
                 }
               }}
             />

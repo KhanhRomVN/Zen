@@ -49,3 +49,10 @@ export const CLICKABLE_TOOLS = [
   "read_terminal_logs",
   "update_codebase_context",
 ];
+
+export const MANUAL_CONFIRMATION_TOOLS = [
+  "remove_terminal",
+  "stop_terminal",
+  "run_command",
+  "create_terminal_shell",
+];

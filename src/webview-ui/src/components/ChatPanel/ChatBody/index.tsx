@@ -84,6 +84,29 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     });
   }, [messages, firstRequestMessageId]);
 
+  // Detect if assistant is currently streaming non-thinking content
+  const isResponding = useMemo(() => {
+    if (!isProcessing || visibleMessages.length === 0) return false;
+    const lastMessage = visibleMessages[visibleMessages.length - 1];
+    if (lastMessage.role !== "assistant") return false;
+
+    const parsedMessage = parsedMessages.find((pm) => pm.id === lastMessage.id);
+    if (!parsedMessage) return false;
+
+    const parsed = parsedMessage.parsed;
+    // Check if there's any non-thinking content being streamed
+    const hasText = parsed.displayText && parsed.displayText.trim().length > 0;
+    const hasActions = parsed.actions && parsed.actions.length > 0;
+    const hasOtherBlocks =
+      parsed.contentBlocks &&
+      parsed.contentBlocks.some((b) => {
+        if (b.type === "tool") return true;
+        return b.content.trim().length > 0;
+      });
+
+    return !!(hasText || hasActions || hasOtherBlocks);
+  }, [isProcessing, visibleMessages, parsedMessages]);
+
   return (
     <div
       style={{
@@ -140,7 +163,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         );
       })}
 
-      {isProcessing && <ProcessingIndicator />}
+      {isProcessing && <ProcessingIndicator isResponding={isResponding} />}
 
       <div ref={messagesEndRef} />
 

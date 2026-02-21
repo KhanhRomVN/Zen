@@ -18,7 +18,11 @@ interface UseChatLLMProps {
   selectedTab: TabInfo | null;
   isBackupEnabled?: boolean;
   onConversationIdChange?: (id: string) => void;
-  onToolRequest?: (actions: ToolAction[], assistantMessage: Message) => void;
+  onToolRequest?: (
+    actions: ToolAction[],
+    assistantMessage: Message,
+    isAutoTrigger?: boolean,
+  ) => void;
 }
 
 export const useChatLLM = ({
@@ -388,7 +392,7 @@ export const useChatLLM = ({
         // Tool Actions parsing
         const parsed = parseAIResponse(assistantMessage.content);
         if (parsed.actions && parsed.actions.length > 0) {
-          onToolRequest?.(parsed.actions, assistantMessage);
+          onToolRequest?.(parsed.actions, assistantMessage, true);
         } else {
           // Just finished
         }

@@ -13,6 +13,7 @@ interface TerminalBlockProps {
   maxHeight?: number;
   headerActions?: React.ReactNode;
   initialCommand?: string;
+  onInput?: (data: string) => void;
 }
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
@@ -24,6 +25,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   maxHeight = 400,
   headerActions,
   initialCommand,
+  onInput,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
@@ -70,6 +72,13 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
 
+      // Handle user input
+      if (onInput) {
+        term.onData((data) => {
+          onInput(data);
+        });
+      }
+
       const handleResize = () => {
         fitAddon.fit();
       };
@@ -84,11 +93,20 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     }
   }, [isXtermVisible, status]);
 
+  const lastWrittenIndexRef = useRef(0);
+
   useEffect(() => {
     if (xtermRef.current && isXtermVisible) {
-      xtermRef.current.clear();
-      if (logs) {
-        xtermRef.current.write(logs);
+      if (logs.length < lastWrittenIndexRef.current) {
+        // Logs were reset (e.g. cleared)
+        xtermRef.current.clear();
+        lastWrittenIndexRef.current = 0;
+      }
+
+      if (logs.length > lastWrittenIndexRef.current) {
+        const newData = logs.substring(lastWrittenIndexRef.current);
+        xtermRef.current.write(newData);
+        lastWrittenIndexRef.current = logs.length;
       }
 
       // Update cursor and blink based on status

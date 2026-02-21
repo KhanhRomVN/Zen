@@ -6,13 +6,6 @@ import ProjectContextModal from "./ProjectContextModal";
 import { ChatFooterProps } from "./types";
 
 interface ExtendedChatFooterProps extends ChatFooterProps {
-  executionState?: {
-    total: number;
-    completed: number;
-    status: "idle" | "running" | "error" | "done";
-  };
-  onExecutePendingBatch?: () => void;
-  hasPendingActions?: boolean;
   folderPath?: string | null;
   isConversationStarted?: boolean;
   hasTaskProgress?: boolean;
@@ -57,9 +50,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   onSendMessage,
   isHistoryMode = false,
   messages,
-  executionState,
-  onExecutePendingBatch,
-  hasPendingActions,
   folderPath,
   isConversationStarted,
   hasTaskProgress,
@@ -389,9 +379,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         }
         hasProjectContext={!!projectContext}
         onOpenProjectContext={() => setShowProjectContextModal(true)}
-        executionState={executionState}
-        onExecutePendingBatch={onExecutePendingBatch}
-        hasPendingActions={hasPendingActions}
         folderPath={folderPath}
         isConversationStarted={isConversationStarted}
         hasTaskProgress={hasTaskProgress}

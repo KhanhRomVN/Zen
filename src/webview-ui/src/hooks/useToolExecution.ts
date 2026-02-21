@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Message } from "../components/ChatPanel/ChatBody/types";
 import { extensionService } from "../services/ExtensionService";
 import { ToolAction } from "../services/ResponseParser";
+import { MANUAL_CONFIRMATION_TOOLS } from "../components/ChatPanel/ChatBody/constants";
 
 interface UseToolExecutionProps {
   sendMessage: (
@@ -24,7 +25,7 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
   }>({ total: 0, completed: 0, status: "idle" });
 
   const [toolOutputs, setToolOutputs] = useState<
-    Record<string, { output: string; isError: boolean }>
+    Record<string, { output: string; isError: boolean; terminalId?: string }>
   >({});
 
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
@@ -41,6 +42,8 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
   const [availableToolResultsBuffer, setAvailableToolResultsBuffer] = useState<{
     [messageId: string]: string[];
   }>({});
+
+  const terminalToActionMap = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     handleSendMessageRef.current = sendMessage;
@@ -68,6 +71,7 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
             [message.actionId]: {
               output: message.output,
               isError: !!message.error,
+              terminalId: message.terminalId,
             },
           }));
 
@@ -94,6 +98,32 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
               pendingToolResolvers.current.delete(message.actionId);
             }
           }
+        }
+      } else if (message.command === "terminalOutput") {
+        const actionId = terminalToActionMap.current.get(message.terminalId);
+        if (actionId) {
+          setToolOutputs((prev) => {
+            const existing = prev[actionId] || { output: "", isError: false };
+            return {
+              ...prev,
+              [actionId]: {
+                ...existing,
+                output: existing.output + message.data,
+                terminalId: message.terminalId,
+              },
+            };
+          });
+        }
+      } else if (message.command === "runCommandResult") {
+        if (message.terminalId && message.actionId) {
+          terminalToActionMap.current.set(message.terminalId, message.actionId);
+          setToolOutputs((prev) => ({
+            ...prev,
+            [message.actionId]: {
+              ...(prev[message.actionId] || { output: "", isError: false }),
+              terminalId: message.terminalId,
+            },
+          }));
         }
       }
     };
@@ -311,6 +341,12 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
             terminalId: action.params.terminal_id,
             actionId: (action as any).actionId,
           });
+          if (action.params.terminal_id) {
+            terminalToActionMap.current.set(
+              action.params.terminal_id,
+              (action as any).actionId,
+            );
+          }
           pendingToolResolvers.current.set((action as any).actionId, resolve);
           break;
         }
@@ -423,7 +459,11 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
   };
 
   const handleToolRequest = useCallback(
-    async (actionOrActions: any, message: Message) => {
+    async (
+      actionOrActions: any,
+      message: Message,
+      isAutoTrigger: boolean = false,
+    ) => {
       const actions = (
         Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions]
       ).map((a, idx) => ({
@@ -458,6 +498,16 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
           );
         }
 
+        // Check if we should auto-execute this tool
+        const isManual = MANUAL_CONFIRMATION_TOOLS.includes(action.type);
+        if (isAutoTrigger && isManual) {
+          console.log(
+            `[useToolExecution] Stopping auto-execution: ${action.type} requires manual confirmation.`,
+          );
+          setExecutionState((prev) => ({ ...prev, status: "idle" }));
+          break;
+        }
+
         const result = await executeSingleAction(
           { ...action, actionId },
           skipDiagnostics,
@@ -479,8 +529,17 @@ export const useToolExecution = ({ sendMessage }: UseToolExecutionProps) => {
           const isError = result.includes("Result: Error");
           setToolOutputs((prev) => ({
             ...prev,
-            [actionId]: { output: cleanOutput, isError },
+            [actionId]: {
+              output: cleanOutput,
+              isError,
+              terminalId: (action as any).params?.terminal_id,
+            },
           }));
+          // Map terminal to action for real-time updates if we got a terminalId back
+          const finalTerminalId = (action as any).params?.terminal_id;
+          if (finalTerminalId) {
+            terminalToActionMap.current.set(finalTerminalId, actionId);
+          }
           setExecutionState((prev) => ({
             ...prev,
             completed: prev.completed + 1,

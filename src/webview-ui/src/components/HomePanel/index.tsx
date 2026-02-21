@@ -83,7 +83,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
         }}
         isHistoryMode={false}
         messages={[]} // No messages in HomePanel
-        executionState={{ total: 0, completed: 0, status: "idle" }}
         isProcessing={false}
         isStreaming={false}
         currentModel={currentModel}

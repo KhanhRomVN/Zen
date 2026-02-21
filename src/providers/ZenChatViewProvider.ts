@@ -112,6 +112,15 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       });
     });
 
+    // Listen for real-time terminal data
+    this._processManager.onDidWriteData((event) => {
+      webviewView.webview.postMessage({
+        command: "terminalOutput",
+        terminalId: event.terminalId,
+        data: event.data,
+      });
+    });
+
     // Initial Theme Update
     if (this.chatController) {
       this.chatController.updateTheme(webviewView.webview);

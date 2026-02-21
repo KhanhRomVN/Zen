@@ -165,6 +165,9 @@ export class ChatController {
         case "listTerminals":
           await this.handleListTerminals(message, webviewView);
           break;
+        case "terminalInput":
+          this.processManager.sendInput(message.terminalId, message.data);
+          break;
         case "removeTerminal":
           await this.handleRemoveTerminal(message, webviewView);
           break;

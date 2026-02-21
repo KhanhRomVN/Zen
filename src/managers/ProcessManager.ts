@@ -3,7 +3,7 @@ import * as pty from "node-pty";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { v4 as uuidv4 } from "uuid";
+import * as crypto from "crypto";
 
 class ZenPTY implements vscode.Pseudoterminal {
   public writeEmitter = new vscode.EventEmitter<string>();
@@ -84,6 +84,12 @@ export class ProcessManager {
   }>();
   public onCommandFinished = this.onCommandFinishedEmitter.event;
 
+  private onDidWriteDataEmitter = new vscode.EventEmitter<{
+    terminalId: string;
+    data: string;
+  }>();
+  public onDidWriteData = this.onDidWriteDataEmitter.event;
+
   constructor() {
     vscode.window.onDidCloseTerminal((terminal) => {
       let found = false;
@@ -155,7 +161,7 @@ export class ProcessManager {
     cwd: string,
     terminalId?: string,
   ): Promise<{ id: string; name: string }> {
-    const id = terminalId || uuidv4();
+    const id = terminalId || crypto.randomUUID();
     let entry = this.terminalMap.get(id);
 
     if (!entry) {
@@ -195,6 +201,10 @@ export class ProcessManager {
       ptyInternal.ptyProcess.onData((data) => {
         ptyInternal.accumulatedOutput += data;
         ptyInternal.writeEmitter.fire(data);
+        this.onDidWriteDataEmitter.fire({
+          terminalId: id,
+          data: data,
+        });
       });
 
       ptyInternal.ptyProcess.onExit(({ exitCode }) => {

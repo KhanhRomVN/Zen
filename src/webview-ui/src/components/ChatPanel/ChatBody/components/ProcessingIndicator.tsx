@@ -1,37 +1,62 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 
-const ProcessingIndicator: React.FC = () => {
+interface ProcessingIndicatorProps {
+  isResponding?: boolean;
+}
+
+const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
+  isResponding,
+}) => {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (isResponding) {
+    return null;
+  }
+
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
         gap: "var(--spacing-xs)",
-        padding: "var(--spacing-sm)",
+        padding: "0 var(--spacing-sm)",
+        marginTop: "-var(--spacing-sm)",
         color: "var(--secondary-text)",
-        fontSize: "var(--font-size-sm)",
+        fontSize: "var(--font-size-md)", // 13px
         marginBottom: "var(--spacing-md)",
       }}
     >
-      <div className="loading-dots">
-        <span>.</span>
-        <span>.</span>
-        <span>.</span>
-      </div>
-      <span>AI is thinking</span>
+      <span className="sweep-text">Thinking...({seconds}s)</span>
       <style>
         {`
-        .loading-dots span {
-          animation: dot-pulse 1.4s infinite;
-          opacity: 0;
+        .sweep-text {
+          background: linear-gradient(
+            to right,
+            var(--secondary-text) 0%,
+            var(--secondary-text) 40%,
+            #ffffff 50%,
+            var(--secondary-text) 60%,
+            var(--secondary-text) 100%
+          );
+          background-size: 200% auto;
+          color: transparent;
+          background-clip: text;
+          -webkit-background-clip: text;
+          animation: sweep 2.5s linear infinite;
+          display: inline-block;
+          font-weight: 500;
         }
-        .loading-dots span:nth-child(1) { animation-delay: 0s; }
-        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes dot-pulse {
-          0% { opacity: 0; }
-          50% { opacity: 1; }
-          100% { opacity: 0; }
+
+        @keyframes sweep {
+          0% { background-position: -100% center; }
+          100% { background-position: 100% center; }
         }
       `}
       </style>

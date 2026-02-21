@@ -38,9 +38,6 @@ export interface ChatBodyProps {
     status: "idle" | "running" | "error" | "done";
   };
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  isAutoExecutingAll?: boolean;
-  onExecuteAll?: () => void;
-  hasPendingActions?: boolean;
   onLoadConversation?: (
     conversationId: string,
     tabId: number,

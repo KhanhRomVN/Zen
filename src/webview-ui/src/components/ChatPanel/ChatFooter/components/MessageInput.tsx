@@ -33,13 +33,6 @@ interface MessageInputProps {
   handleSend: (model: any, account: any, thinking?: boolean) => void;
   hasProjectContext: boolean;
   onOpenProjectContext: () => void;
-  executionState?: {
-    total: number;
-    completed: number;
-    status: "idle" | "running" | "error" | "done";
-  };
-  onExecutePendingBatch?: () => void;
-  hasPendingActions?: boolean;
   folderPath?: string | null;
   isConversationStarted?: boolean;
   selectedQuickModel?: {
@@ -91,9 +84,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
   handleSend,
   hasProjectContext,
   onOpenProjectContext,
-  executionState,
-  onExecutePendingBatch,
-  hasPendingActions,
   folderPath,
   isConversationStarted,
   selectedQuickModel,
@@ -446,41 +436,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
             background-color: var(--scrollbar-thumb-hover);
           }
         `}</style>
-          {/* Execution Progress Badge */}
-          {executionState && executionState.status === "running" && (
-            <div
-              style={{
-                position: "absolute",
-                top: "-24px",
-                right: "0",
-                backgroundColor: "var(--vscode-badge-background)",
-                color: "var(--vscode-badge-foreground)",
-                fontSize: "10px",
-                fontWeight: 600,
-                padding: "2px 8px",
-                borderRadius: "10px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                zIndex: 10,
-                boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                cursor: "pointer",
-              }}
-              onClick={onExecutePendingBatch}
-              title="Click to execute pending commands"
-            >
-              <div
-                style={{
-                  width: "6px",
-                  height: "6px",
-                  borderRadius: "50%",
-                  backgroundColor: "white",
-                  opacity: 0.8,
-                }}
-              />
-              Execute {executionState.completed}/{executionState.total}
-            </div>
-          )}
 
           <textarea
             ref={textareaRef}

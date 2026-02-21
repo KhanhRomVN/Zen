@@ -180,21 +180,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return null;
   }, [parsedMessages]);
 
-  const hasPendingActions = useMemo(() => {
-    return parsedMessages.some((msg: any) => {
-      if (
-        msg.isCancelled ||
-        msg.role !== "assistant" ||
-        !msg.parsed?.actions?.length
-      )
-        return false;
-      return msg.parsed.actions.some(
-        (_: any, index: number) =>
-          !clickedActions.has(`${msg.id}-action-${index}`),
-      );
-    });
-  }, [parsedMessages, clickedActions]);
-
   // --- Effects ---
   useEffect(() => {
     const storage = extensionService.getStorage();
@@ -292,26 +277,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setCurrentConversationId(Date.now().toString());
     }
   };
-
-  const handleExecutePendingBatch = useCallback(() => {
-    for (let i = parsedMessages.length - 1; i >= 0; i--) {
-      const msg = parsedMessages[i];
-      if (msg.isCancelled) continue;
-      if (msg.role === "assistant" && msg.parsed.actions.length > 0) {
-        const unclicked = msg.parsed.actions
-          .map((a: any, idx: number) => ({ ...a, _index: idx }))
-          .filter(
-            (a: any) => !clickedActions.has(`${msg.id}-action-${a._index}`),
-          );
-
-        if (unclicked.length > 0) {
-          handleToolRequest(unclicked, msg);
-          return true;
-        }
-      }
-    }
-    return false;
-  }, [parsedMessages, clickedActions, handleToolRequest]);
 
   const handleStopGeneration = useCallback(() => {
     // 🆕 REDIRECTION LOGIC: If stopping AND it was the first request (req1), go back to Home
@@ -441,9 +406,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
         isHistoryMode={isHistoryMode}
         messages={messages}
-        executionState={executionState}
-        onExecutePendingBatch={handleExecutePendingBatch}
-        hasPendingActions={hasPendingActions}
         isConversationStarted={messages.length > 0}
         hasTaskProgress={allTaskProgress.length > 0}
         selectedQuickModel={selectedQuickModel}
