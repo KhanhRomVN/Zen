@@ -13,6 +13,7 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   };
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
+  activeTerminalIds?: Set<string>;
 }
 
 // Hooks
@@ -36,6 +37,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   terminalStatus,
   firstRequestMessageId,
   onLoadConversation,
+  activeTerminalIds,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -60,13 +62,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   // Hooks
   const { collapsedSections, toggleCollapse, setInitiallyCollapsed } =
     useCollapseSections();
-  const {
-    clickedActions,
-    handleToolClick,
-    failedActions,
-    clearedActions,
-    handleActionClear,
-  } = useToolActions({
+  const { clickedActions, handleToolClick, failedActions } = useToolActions({
     onSendToolRequest,
 
     parsedMessages,
@@ -136,11 +132,17 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         }
         const parsedContent = parsedMessage.parsed;
 
+        // Find the next user message to extract historical terminal output if needed
+        const nextUserMessage = visibleMessages
+          .slice(index + 1)
+          .find((m) => m.role === "user");
+
         return (
           <MessageBox
             key={message.id}
             message={message}
             parsedContent={parsedContent}
+            nextUserMessage={nextUserMessage}
             isCollapsed={
               message.role === "user"
                 ? collapsedSections.has(`prompt-${message.id}`)
@@ -158,10 +160,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             onToolClick={handleToolClick}
             executionState={executionState}
             isLastMessage={index === visibleMessages.length - 1} // Pass isLastMessage
-            clearedActions={clearedActions}
-            onActionClear={handleActionClear}
             toolOutputs={toolOutputs}
             terminalStatus={terminalStatus}
+            activeTerminalIds={activeTerminalIds}
           />
         );
       })}

@@ -62,6 +62,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [isBackupDrawerOpen, setIsBackupDrawerOpen] = useState(false);
   const [isBlacklistDrawerOpen, setIsBlacklistDrawerOpen] = useState(false);
   const [isLoadingConversation, setIsLoadingConversation] = useState(true);
+  const [activeTerminalIds, setActiveTerminalIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [selectedQuickModel, setSelectedQuickModel] = useState<{
     providerId: string;
     modelId: string;
@@ -92,26 +95,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const { backupEventCount } = useBackupWatcher(currentConversationId);
 
-  const {
-    executionState,
-    toolOutputs,
-    clickedActions,
-    clearedActions,
-    handleToolRequest,
-    hydrateState,
-  } = useToolExecution({
-    conversationId: currentConversationId,
-    sendMessage: (
-      content,
-      files,
-      model,
-      account,
-      skipLogic,
-      actionIds,
-      uiHidden,
-      thinking,
-    ) =>
-      sendMessage(
+  const { executionState, toolOutputs, handleToolRequest, hydrateState } =
+    useToolExecution({
+      conversationId: currentConversationId,
+      sendMessage: (
         content,
         files,
         model,
@@ -120,9 +107,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionIds,
         uiHidden,
         thinking,
-        selectedQuickModel,
-      ),
-  });
+      ) =>
+        sendMessage(
+          content,
+          files,
+          model,
+          account,
+          skipLogic,
+          actionIds,
+          uiHidden,
+          thinking,
+          selectedQuickModel,
+        ),
+    });
 
   // --- Refs ---
   const hasProcessedInitial = useRef(false);
@@ -182,6 +179,39 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
     return null;
   }, [parsedMessages]);
+
+  // --- Terminal Polling ---
+  useEffect(() => {
+    const fetchTerminals = () => {
+      extensionService.postMessage({
+        command: "listTerminals",
+        requestId: `chat-panel-poll-${Date.now()}`,
+      });
+    };
+
+    fetchTerminals();
+    const interval = setInterval(fetchTerminals, 2000);
+
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (
+        message.command === "listTerminalsResult" &&
+        message.requestId?.startsWith("chat-panel-poll-")
+      ) {
+        if (message.terminals) {
+          setActiveTerminalIds(
+            new Set(message.terminals.map((t: any) => t.id)),
+          );
+        }
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      clearInterval(interval);
+    };
+  }, []);
 
   // --- Effects ---
   useEffect(() => {
@@ -404,6 +434,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         toolOutputs={toolOutputs}
         firstRequestMessageId={firstRequestMessage?.id}
         onLoadConversation={onLoadConversation}
+        activeTerminalIds={activeTerminalIds}
       />
       <ChatFooter
         folderPath={selectedTab?.folderPath || null}

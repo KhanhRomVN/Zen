@@ -165,6 +165,9 @@ export class ChatController {
         case "listTerminals":
           await this.handleListTerminals(message, webviewView);
           break;
+        case "attachTerminalToVSCode":
+          this.processManager.attachToVSCode(message.terminalId);
+          break;
         case "terminalInput":
           this.processManager.sendInput(message.terminalId, message.data);
           break;
@@ -1666,6 +1669,7 @@ export class ChatController {
         cwd,
         message.terminalId,
       );
+      this.processManager.attachToVSCode(result.id);
       webviewView.webview.postMessage({
         command: "createTerminalShellResult",
         requestId: message.requestId,

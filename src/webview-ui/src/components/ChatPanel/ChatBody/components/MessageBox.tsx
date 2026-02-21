@@ -27,10 +27,10 @@ interface MessageBoxProps {
     status: "idle" | "running" | "error" | "done";
   };
   isLastMessage?: boolean; // New prop
-  clearedActions?: Set<string>;
-  onActionClear?: (actionId: string) => void;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
+  nextUserMessage?: Message;
+  activeTerminalIds?: Set<string>;
 }
 
 const MessageBox: React.FC<MessageBoxProps> = ({
@@ -44,10 +44,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   requestNumber,
   executionState,
   isLastMessage,
-  clearedActions,
-  onActionClear,
   toolOutputs,
   terminalStatus,
+  nextUserMessage,
+  activeTerminalIds,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
@@ -398,10 +398,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 onToolClick={onToolClick}
                 executionState={executionState}
                 isLastMessage={isLastMessage}
-                clearedActions={clearedActions}
-                onActionClear={onActionClear}
                 toolOutputs={toolOutputs}
                 terminalStatus={terminalStatus}
+                nextUserMessage={nextUserMessage}
+                activeTerminalIds={activeTerminalIds}
               />
             );
           }

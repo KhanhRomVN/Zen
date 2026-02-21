@@ -16,7 +16,6 @@ export const useToolActions = ({
 }: UseToolActionsProps) => {
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
   const [failedActions, setFailedActions] = useState<Set<string>>(new Set());
-  const [clearedActions, setClearedActions] = useState<Set<string>>(new Set());
 
   // Listen for message to remove clicked action state
   useEffect(() => {
@@ -36,12 +35,7 @@ export const useToolActions = ({
       if (event.data.command === "markActionFailed" && event.data.actionId) {
         // Mark as clicked AND failed
         setClickedActions((prev) => new Set(prev).add(event.data.actionId));
-        setClickedActions((prev) => new Set(prev).add(event.data.actionId));
         setFailedActions((prev) => new Set(prev).add(event.data.actionId));
-      }
-
-      if (event.data.command === "markActionCleared" && event.data.actionId) {
-        setClearedActions((prev) => new Set(prev).add(event.data.actionId));
       }
     };
 
@@ -96,26 +90,11 @@ export const useToolActions = ({
     [onSendToolRequest, clickedActions],
   );
 
-  const handleActionClear = useCallback((actionId: string) => {
-    // Notify ChatPanel/others to clear this action's context
-    window.postMessage(
-      {
-        command: "markActionCleared",
-        actionId: actionId,
-      },
-      "*",
-    );
-    // Optimistic update
-    setClearedActions((prev) => new Set(prev).add(actionId));
-  }, []);
-
   // Auto-execute tools logic REMOVED
 
   return {
     clickedActions,
     handleToolClick,
     failedActions,
-    clearedActions,
-    handleActionClear,
   };
 };

@@ -14,6 +14,7 @@ interface TerminalBlockProps {
   headerActions?: React.ReactNode;
   initialCommand?: string;
   onInput?: (data: string) => void;
+  onAttachToVSCode?: () => void;
 }
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
@@ -26,6 +27,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   headerActions,
   initialCommand,
   onInput,
+  onAttachToVSCode,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
@@ -47,6 +49,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     if (!xtermRef.current) {
       const term = new Terminal({
         cursorBlink: status === "busy",
+        disableStdin: true,
         fontSize: 12,
         fontFamily:
           'var(--vscode-editor-font-family, "Courier New", Courier, monospace)',
@@ -156,7 +159,43 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
           </div>
           {subInfo && <span className="terminal-sub-info">{subInfo}</span>}
         </div>
-        <div className="header-actions">{headerActions}</div>
+        <div className="header-actions">
+          {onAttachToVSCode && (
+            <button
+              className="attach-terminal-btn"
+              onClick={onAttachToVSCode}
+              title="Open in VSCode Terminal"
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--vscode-icon-foreground)",
+                padding: "4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: "8px",
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </button>
+          )}
+          {headerActions}
+        </div>
       </div>
       <div
         className="terminal-content-wrapper"

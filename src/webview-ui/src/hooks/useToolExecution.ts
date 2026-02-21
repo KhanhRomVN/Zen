@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Message } from "../components/ChatPanel/ChatBody/types";
 import { extensionService } from "../services/ExtensionService";
-import { ToolAction } from "../services/ResponseParser";
+import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 import { MANUAL_CONFIRMATION_TOOLS } from "../components/ChatPanel/ChatBody/constants";
 import { stripAnsi } from "../utils/terminalUtils";
 
@@ -38,7 +38,6 @@ export const useToolExecution = ({
   >({});
 
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
-  const [clearedActions, setClearedActions] = useState<Set<string>>(new Set());
 
   const clickedActionsRef = useRef<Set<string>>(new Set());
   const pendingToolResolvers = useRef<
@@ -58,19 +57,16 @@ export const useToolExecution = ({
   useEffect(() => {
     if (
       conversationId &&
-      (Object.keys(toolOutputs).length > 0 ||
-        clickedActions.size > 0 ||
-        clearedActions.size > 0)
+      (Object.keys(toolOutputs).length > 0 || clickedActions.size > 0)
     ) {
       extensionService.postMessage({
         command: "saveToolMetadata",
         conversationId,
         toolOutputs,
         clickedActions: Array.from(clickedActions),
-        clearedActions: Array.from(clearedActions),
       });
     }
-  }, [conversationId, toolOutputs, clickedActions, clearedActions]);
+  }, [conversationId, toolOutputs, clickedActions]);
 
   const hydrateState = useCallback((metadata: any) => {
     if (!metadata) return;
@@ -80,8 +76,6 @@ export const useToolExecution = ({
       setClickedActions(clicked);
       clickedActionsRef.current = clicked;
     }
-    if (metadata.clearedActions)
-      setClearedActions(new Set<string>(metadata.clearedActions));
   }, []);
 
   useEffect(() => {
@@ -97,13 +91,7 @@ export const useToolExecution = ({
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
 
-      if (message.command === "markActionCleared" && message.actionId) {
-        setClearedActions((prev) => new Set(prev).add(message.actionId));
-        // Note: Clearing content of messages is UI concern, usually passed down or handled by message list state.
-        // But here we only track IDs. The actual message content clearing needs access to setMessages.
-        // We might need to expose this event or handle it in ChatPanel.
-        // For now, we just track cleared Actions state.
-      } else if (message.command === "commandExecuted") {
+      if (message.command === "commandExecuted") {
         if (message.actionId) {
           setToolOutputs((prev) => ({
             ...prev,
@@ -122,18 +110,41 @@ export const useToolExecution = ({
               const outputRaw = message.output ? message.output.trim() : "";
               let outputContent = stripAnsi(outputRaw);
 
-              // Strip trailing bash/zsh/sh prompt from outputContent
-              const lines = outputContent.split("\n");
-              if (lines.length > 0) {
-                const lastLine = lines[lines.length - 1].trim();
-                if (
-                  lastLine.match(/[@\w.-]+\s*[:~].*?[$#>%]$/) ||
-                  lastLine.match(/^[$#>%]$/) ||
-                  lastLine.match(/^[PS] C:\\.*>$/i) // Windows PowerShell prompt
-                ) {
-                  lines.pop();
+              // Extract actual command output between our ZEN markers if they exist
+              const startMarker = `ZEN_CMD_START: ${message.actionId}`;
+              const endMarker = `ZEN_CMD_END: ${message.actionId}`;
+
+              const startIdx = outputContent.indexOf(startMarker);
+              const endIdx = outputContent.indexOf(endMarker);
+
+              if (startIdx !== -1 && endIdx !== -1) {
+                // The output starts after the start marker line
+                let afterStart = outputContent.substring(
+                  startIdx + startMarker.length,
+                );
+                // In some shells it might follow with quotes or newlines, sanitize it
+                afterStart = afterStart.replace(/^['"]?\s*\n?/, "");
+
+                // The end marker marks the end
+                const blockContent = afterStart.substring(
+                  0,
+                  afterStart.indexOf(endMarker),
+                );
+                outputContent = blockContent.trim();
+              } else {
+                // Fallback to old trimming logic if markers aren't found cleanly
+                const lines = outputContent.split("\n");
+                if (lines.length > 0) {
+                  const lastLine = lines[lines.length - 1].trim();
+                  if (
+                    lastLine.match(/[@\w.-]+\s*[:~].*?[$#>%]$/) ||
+                    lastLine.match(/^[$#>%]$/) ||
+                    lastLine.match(/^[PS] C:\\.*>$/i) // Windows PowerShell prompt
+                  ) {
+                    lines.pop();
+                  }
+                  outputContent = lines.join("\n").trim();
                 }
-                outputContent = lines.join("\n").trim();
               }
 
               const startTime = commandStartTimes.current.get(message.actionId);
@@ -532,6 +543,8 @@ export const useToolExecution = ({
       message: Message,
       isAutoTrigger: boolean = false,
     ) => {
+      let wasInterruptedByManual = false;
+
       const actions = (
         Array.isArray(actionOrActions) ? actionOrActions : [actionOrActions]
       ).map((a, idx) => ({
@@ -569,6 +582,7 @@ export const useToolExecution = ({
         // Check if we should auto-execute this tool
         const isManual = MANUAL_CONFIRMATION_TOOLS.includes(action.type);
         if (isAutoTrigger && isManual) {
+          wasInterruptedByManual = true;
           // Set to idle so the UI doesn't show loading state falsely
           setExecutionState({
             total: actions.length,
@@ -644,8 +658,14 @@ export const useToolExecution = ({
       setAvailableToolResultsBuffer((prev) => {
         const newBuffer = [...(prev[message.id] || []), ...validResults];
 
+        if (wasInterruptedByManual) {
+          // We stopped executing because we hit a manual tool.
+          // Keep the buffer and do NOT trigger LLM yet. Let the user click the manual tool.
+          return { ...prev, [message.id]: newBuffer };
+        }
+
         if (validResults.length < actions.length) {
-          // Error case, flush immediately
+          // Error case in THIS batch, flush immediately to inform AI
           const textActionIds = actions.map(
             (a) => `${message.id}-action-${a._index}`,
           );
@@ -662,29 +682,37 @@ export const useToolExecution = ({
           return { ...prev, [message.id]: [] };
         }
 
-        // Check completeness
-        // We assume if we reached here, we processed all in 'actions' array.
-        // But we need to check if *all* actions in the message are done?
-        // The message might have more actions than what was passed here if passed partially?
-        // Original code checked parsedMessagesRef to find total actions count.
-        // We'll trust the user passed all relevant actions for this batch or we can query message
-
-        const textActionIds = actions.map(
+        // Check overall completeness across the entire message
+        const parsed = parseAIResponse(message.content);
+        const allActionIds = parsed.actions.map(
+          (_: any, idx: number) => `${message.id}-action-${idx}`,
+        );
+        const currentBatchIds = actions.map(
           (a) => `${message.id}-action-${a._index}`,
         );
-        if (handleSendMessageRef.current) {
-          handleSendMessageRef.current(
-            newBuffer.join("\n\n"),
-            undefined,
-            undefined,
-            undefined,
-            true,
-            textActionIds,
-            true,
-          );
-        }
 
-        return { ...prev, [message.id]: [] };
+        const isAllComplete = allActionIds.every(
+          (id: string) =>
+            clickedActions.has(id) || currentBatchIds.includes(id),
+        );
+
+        if (isAllComplete) {
+          if (handleSendMessageRef.current) {
+            handleSendMessageRef.current(
+              newBuffer.join("\n\n"),
+              undefined,
+              undefined,
+              undefined,
+              true,
+              allActionIds,
+              true,
+            );
+          }
+          return { ...prev, [message.id]: [] };
+        } else {
+          // Not all actions in this message are complete yet. Wait for the user to execute the rest.
+          return { ...prev, [message.id]: newBuffer };
+        }
       });
 
       // Reset isProcessing in parent?
@@ -702,7 +730,6 @@ export const useToolExecution = ({
     executionState,
     toolOutputs,
     clickedActions,
-    clearedActions,
     terminalStatus,
     handleToolRequest,
     hydrateState,

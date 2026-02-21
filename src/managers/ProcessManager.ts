@@ -22,14 +22,21 @@ class ZenPTY implements vscode.Pseudoterminal {
   public lastOutputIndex: number = 0;
   public lastBusyStatus: boolean = false;
   public lastCommandText: string | null = null;
+  public attachedToVSCode: boolean = false;
 
   constructor(cwd: string) {
     this.currentCwd = cwd;
   }
 
-  open(): void {}
+  open(): void {
+    if (this.accumulatedOutput) {
+      setTimeout(() => {
+        this.writeEmitter.fire(this.accumulatedOutput);
+      }, 50);
+    }
+  }
   close(): void {
-    this.terminate();
+    this.attachedToVSCode = false;
   }
 
   handleInput(data: string): void {
@@ -140,20 +147,11 @@ export class ProcessManager {
         }
       }
 
-      // Transition: Busy -> Not Busy
+      // We no longer fire command finish purely on busy status falling off.
+      // The exact execution boundary is now managed by ZEN_START/ZEN_END markers in the PTY output.
       if (entry.pty.lastBusyStatus && !isBusy && entry.pty.activeActionId) {
-        const output = entry.pty.accumulatedOutput.substring(
-          entry.pty.lastOutputIndex,
-        );
-        this.onCommandFinishedEmitter.fire({
-          actionId: entry.pty.activeActionId,
-          output: output,
-          terminalId: id,
-          commandText: entry.pty.lastCommandText || undefined,
-        });
-        entry.pty.activeActionId = null;
-        entry.pty.lastCommandText = null;
-        entry.pty.lastOutputIndex = entry.pty.accumulatedOutput.length;
+        // We still clear the 'busy' UI state if the process visually dies,
+        // but the actual "runCommandResult" is now fired when ZEN_CMD_END arrives.
       }
 
       if (entry.pty.lastBusyStatus !== isBusy) {
@@ -190,13 +188,9 @@ export class ProcessManager {
       const ptyInternal = new ZenPTY(cwd);
       ptyInternal.isPersistent = true;
       ptyInternal.shellPath = shell;
-      const terminal = vscode.window.createTerminal({
-        name,
-        pty: ptyInternal,
-        iconPath: new vscode.ThemeIcon("terminal"),
-      });
+      // Removed the immediate createTerminal call here. We only create the entry.
 
-      entry = { terminal, pty: ptyInternal, name: name };
+      entry = { terminal: null as any, pty: ptyInternal, name: name };
       this.terminalMap.set(id, entry);
       this.onTerminalsChangedEmitter.fire();
 
@@ -212,50 +206,42 @@ export class ProcessManager {
         } as any,
       });
 
-      let pendingEcho = "";
       ptyInternal.ptyProcess.onData((data) => {
-        let chunk = data;
-        if (pendingEcho.length > 0) {
-          let echoDropped = 0;
-          let chunkDropped = 0;
-
-          while (
-            chunkDropped < chunk.length &&
-            echoDropped < pendingEcho.length
-          ) {
-            const c = chunk[chunkDropped];
-            const e = pendingEcho[echoDropped];
-
-            if (c === e) {
-              echoDropped++;
-              chunkDropped++;
-            } else if (c === "\r" && e === "\n") {
-              // skip \r injected by terminal before \n
-              chunkDropped++;
-            } else if (c === "\r" && e === "\r") {
-              // strict match
-              echoDropped++;
-              chunkDropped++;
-            } else {
-              // mismatch, stop
-              pendingEcho = "";
-              break;
-            }
-          }
-
-          if (chunkDropped > 0) {
-            chunk = chunk.substring(chunkDropped);
-            pendingEcho = pendingEcho.substring(echoDropped);
-          }
-        }
-
-        if (chunk.length > 0) {
-          ptyInternal.accumulatedOutput += chunk;
-          ptyInternal.writeEmitter.fire(chunk);
+        if (data.length > 0) {
+          ptyInternal.accumulatedOutput += data;
+          ptyInternal.writeEmitter.fire(data);
           this.onDidWriteDataEmitter.fire({
             terminalId: id,
-            data: chunk,
+            data: data,
           });
+
+          // Look for markers in the accumulated output string from the last index
+          if (ptyInternal.activeActionId) {
+            const currentOutput = ptyInternal.accumulatedOutput.substring(
+              ptyInternal.lastOutputIndex,
+            );
+
+            // Note: The terminals may echo \r\n, so we look for ZEN_CMD_END with the action id
+            const endMarker = `ZEN_CMD_END: ${ptyInternal.activeActionId}`;
+            const endIdx = currentOutput.indexOf(endMarker);
+
+            if (endIdx !== -1) {
+              const output = currentOutput; // We send the whole chunk. The Webview will clean the markers.
+
+              this.onCommandFinishedEmitter.fire({
+                actionId: ptyInternal.activeActionId,
+                output: output,
+                terminalId: id,
+                commandText: ptyInternal.lastCommandText || undefined,
+              });
+
+              ptyInternal.activeActionId = null;
+              ptyInternal.lastCommandText = null;
+              // Set the index to AFTER the marker so next command doesn't read it again
+              ptyInternal.lastOutputIndex =
+                ptyInternal.accumulatedOutput.length;
+            }
+          }
         }
       });
 
@@ -263,17 +249,30 @@ export class ProcessManager {
         ptyInternal.closeEmitter.fire(exitCode);
       });
 
-      // Monkeypatch handleInput to set pendingEcho
-      const originalHandleInput = ptyInternal.handleInput.bind(ptyInternal);
-      ptyInternal.handleInput = (text: string) => {
-        pendingEcho += text;
-        originalHandleInput(text);
-      };
+      // No more monkeypatching handleInput for pendingEcho
+      ptyInternal.handleInput = ptyInternal.handleInput.bind(ptyInternal);
 
-      terminal.show(true);
+      // terminal.show(true); // Don't show immediately
     }
 
     return { id, name: entry.name };
+  }
+
+  attachToVSCode(id: string) {
+    const entry = this.terminalMap.get(id);
+    if (entry && !entry.pty.attachedToVSCode) {
+      entry.terminal = vscode.window.createTerminal({
+        name: entry.name,
+        pty: entry.pty,
+        iconPath: new vscode.ThemeIcon("terminal"),
+      });
+      entry.pty.attachedToVSCode = true;
+      entry.terminal.show(true);
+
+      this.onTerminalsChangedEmitter.fire();
+    } else if (entry && entry.pty.attachedToVSCode && entry.terminal) {
+      entry.terminal.show(true);
+    }
   }
 
   getOutput(id: string): string {
@@ -314,13 +313,14 @@ export class ProcessManager {
       if (entry.name !== currentName) {
         entry.name = currentName;
         entry.pty.updateTitle(currentName);
-        entry.terminal.show(true);
-        vscode.commands.executeCommand(
-          "workbench.action.terminal.renameWithArg",
-          {
-            name: currentName,
-          },
-        );
+        if (entry.pty.attachedToVSCode && entry.terminal) {
+          vscode.commands.executeCommand(
+            "workbench.action.terminal.renameWithArg",
+            {
+              name: currentName,
+            },
+          );
+        }
       }
 
       const lines = entry.pty.accumulatedOutput.trim().split("\n");
@@ -345,7 +345,9 @@ export class ProcessManager {
   close(id: string) {
     const entry = this.terminalMap.get(id);
     if (entry) {
-      entry.terminal.dispose();
+      if (entry.terminal) {
+        entry.terminal.dispose();
+      }
       this.terminalMap.delete(id);
       this.onTerminalsChangedEmitter.fire();
     }
@@ -353,7 +355,7 @@ export class ProcessManager {
 
   focus(id: string) {
     const entry = this.terminalMap.get(id);
-    if (entry) {
+    if (entry && entry.terminal) {
       entry.terminal.show();
     }
   }
@@ -368,18 +370,47 @@ export class ProcessManager {
   sendInput(id: string, text: string, actionId?: string) {
     const entry = this.terminalMap.get(id);
     if (entry) {
+      let finalInput = text;
+
       if (actionId) {
         entry.pty.activeActionId = actionId;
         entry.pty.lastCommandText = text.trim();
         entry.pty.lastOutputIndex = entry.pty.accumulatedOutput.length;
+
+        // Wrap the command with markers for detecting start and finish precisely
+        const isWindows = os.platform() === "win32";
+        const isPwsh =
+          entry.pty.shellPath.toLowerCase().includes("pwsh") ||
+          entry.pty.shellPath.toLowerCase().includes("powershell");
+        const cleanCmd = text.replace(/(?:\r?\n)+$/, ""); // remove trailing newline for wrapping
+
+        if (isWindows && !isPwsh) {
+          // cmd.exe
+          finalInput = `echo ZEN_CMD_START: ${actionId} & ${cleanCmd} & echo ZEN_CMD_END: ${actionId}\r\n`;
+        } else if (isPwsh) {
+          // PowerShell
+          finalInput = `Write-Output "ZEN_CMD_START: ${actionId}"; ${cleanCmd}; Write-Output "ZEN_CMD_END: ${actionId}"\r\n`;
+        } else {
+          // bash / zsh
+          // Use carefully constructed strings to avoid breaking the shell parser
+          finalInput = `echo "ZEN_CMD_START: ${actionId}"; ${cleanCmd}; echo "ZEN_CMD_END: ${actionId}"\n`;
+        }
+
+        // Send the input to the PTY
+        entry.pty.handleInput(finalInput);
+      } else {
+        // Direct manual user typing via terminal view (if typing was enabled)
+        entry.pty.handleInput(finalInput);
       }
-      entry.pty.handleInput(text);
     }
   }
 
   stopAll(): void {
     for (const [id, entry] of this.terminalMap) {
-      entry.terminal.dispose();
+      if (entry.terminal) {
+        entry.terminal.dispose();
+      }
+      entry.pty.stop();
     }
     this.terminalMap.clear();
   }

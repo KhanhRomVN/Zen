@@ -33,10 +33,10 @@ const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
         marginBottom: "var(--spacing-md)",
       }}
     >
-      <span className="sweep-text">Thinking...({seconds}s)</span>
+      <span className="thinking-text">Thinking...({seconds}s)</span>
       <style>
         {`
-        .sweep-text {
+        .thinking-text {
           background: linear-gradient(
             to right,
             var(--secondary-text) 0%,
@@ -49,12 +49,12 @@ const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
           color: transparent;
           background-clip: text;
           -webkit-background-clip: text;
-          animation: sweep 2.5s linear infinite;
+          animation: gradient-move 2.5s linear infinite;
           display: inline-block;
           font-weight: 500;
         }
 
-        @keyframes sweep {
+        @keyframes gradient-move {
           0% { background-position: -100% center; }
           100% { background-position: 100% center; }
         }

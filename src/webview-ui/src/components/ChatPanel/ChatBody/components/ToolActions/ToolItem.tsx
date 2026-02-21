@@ -14,6 +14,7 @@ import { RichtextBlock } from "../../../../RichtextBlock";
 import { parseDiff } from "../../../../../utils/diffUtils";
 import { CLICKABLE_TOOLS, MANUAL_CONFIRMATION_TOOLS } from "../../constants";
 import { extensionService } from "../../../../../services/ExtensionService";
+import { Message } from "../../types";
 
 interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
@@ -32,13 +33,13 @@ interface ToolItemProps {
   isActiveGroup?: boolean;
   failedActions?: Set<string>;
   isLastMessage?: boolean;
-  clearedActions?: Set<string>;
-  onActionClear?: (actionId: string) => void;
   toolOutputs?: Record<
     string,
     { output: string; isError: boolean; terminalId?: string }
   >;
   terminalStatus?: Record<string, "busy" | "free">;
+  nextUserMessage?: Message;
+  activeTerminalIds?: Set<string>;
 }
 
 const ExecuteButton: React.FC<{
@@ -49,8 +50,6 @@ const ExecuteButton: React.FC<{
   onExecute: (e: React.MouseEvent) => void;
   toolColor: string;
   title: string;
-  isSweepable?: boolean;
-  isSwept?: boolean;
   isSkipped?: boolean; // New prop for history skipped state
   isLoading?: boolean; // New prop for loading state
   showText?: boolean; // New prop to show text label
@@ -63,8 +62,6 @@ const ExecuteButton: React.FC<{
   onExecute,
   toolColor,
   title,
-  isSweepable,
-  isSwept,
   isSkipped,
   isLoading,
   showText,
@@ -100,14 +97,11 @@ const ExecuteButton: React.FC<{
         <div className="codicon codicon-loading codicon-modifier-spin" />
       )}
 
-      {/* COMPLETED STATE: SWEEP ICON (Only if not loading) */}
+      {/* COMPLETED STATE: CHECK ICON (Only if not loading) */}
       {!isLoading && isCompleted && (
         <div
           style={{
-            color: isSwept
-              ? "var(--vscode-descriptionForeground)"
-              : "var(--vscode-testing-iconPassed)",
-            opacity: isSwept ? 0.5 : 1,
+            color: "var(--vscode-testing-iconPassed)",
             display: "flex",
             alignItems: "center",
             gap: "4px",
@@ -126,25 +120,6 @@ const ExecuteButton: React.FC<{
           >
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          {/* 🆕 Broom icon only if manual tool or explicitly sweepable */}
-          {isLastMessage && isSweepable && (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m16 22-1-4" />
-              <path d="M19 14a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2h-3a1 1 0 0 1-1-1V4a2 2 0 0 0-4 0v5a1 1 0 0 1-1 1H6a2 2 0 0 0-2 2v1a1 1 0 0 0 1 1" />
-              <path d="M19 14H5l-1.973 6.767A1 1 0 0 0 4 22h16a1 1 0 0 0 .973-1.233z" />
-              <path d="m8 22 1-4" />
-            </svg>
-          )}
         </div>
       )}
 
@@ -176,10 +151,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
   isActiveGroup,
   failedActions,
   isLastMessage,
-  clearedActions,
-  onActionClear,
   toolOutputs,
   terminalStatus,
+  nextUserMessage,
+  activeTerminalIds,
 }) => {
   // Local state for fuzzy match validation (for replace_in_file)
   const [fuzzyStatus, setFuzzyStatus] = React.useState<{
@@ -352,7 +327,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const { action, index } = item;
       const actionId = `${messageId}-action-${index}`;
       const isActionClicked = clickedActions.has(actionId);
-      const isActionSwept = clearedActions?.has(actionId);
       const isActionFailed = failedActions?.has(actionId);
 
       const isNextToExecute =
@@ -471,7 +445,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
             const { action, index } = item;
             const actionId = `${messageId}-action-${index}`;
             const isActionClicked = clickedActions.has(actionId);
-            const isActionSwept = clearedActions?.has(actionId);
             const outputData = toolOutputs?.[actionId];
             const hasOutput = !!outputData;
             const isLoading = isActionClicked && !hasOutput;
@@ -494,22 +467,16 @@ const ToolItem: React.FC<ToolItemProps> = ({
                         !isActiveGroup && !isLastMessage && !isActionClicked
                       }
                       isLoading={isLoading}
-                      isSweepable={false}
-                      isSwept={isActionSwept}
                       toolColor={toolColor}
                       title={
                         isCompleted
-                          ? "Clear Context (Sweep)"
+                          ? "Completed"
                           : isLoading
                             ? "Executing..."
                             : "Execute action"
                       }
                       onExecute={() => {
-                        if (isCompleted) {
-                          if (onActionClear && !isActionSwept) {
-                            onActionClear(actionId);
-                          }
-                        } else if (!isLoading) {
+                        if (!isCompleted && !isLoading) {
                           onToolClick(action, messageId, index);
                         }
                       }}
@@ -588,24 +555,18 @@ const ToolItem: React.FC<ToolItemProps> = ({
                     !isActiveGroup && !isLastMessage && !isActionClicked
                   }
                   isLoading={isLoading}
-                  isSweepable={MANUAL_CONFIRMATION_TOOLS.includes(toolType)}
-                  isSwept={isActionSwept}
                   toolColor={toolColor}
                   showText={MANUAL_CONFIRMATION_TOOLS.includes(toolType)}
                   labelText="Run"
                   title={
                     isCompleted
-                      ? "Clear Context (Sweep)"
+                      ? "Completed"
                       : isLoading
                         ? "Executing..."
                         : "Execute action"
                   }
                   onExecute={() => {
-                    if (isCompleted) {
-                      if (onActionClear && !isActionSwept) {
-                        onActionClear(actionId);
-                      }
-                    } else if (!isLoading) {
+                    if (!isCompleted && !isLoading) {
                       onToolClick(action, messageId, index);
                     }
                   }}
@@ -625,10 +586,24 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const actionId = `${messageId}-action-${index}`;
       const outputData = toolOutputs?.[actionId];
 
+      let extractedOutput: string | undefined = undefined;
+      // If we don't have live output, check the next user message (historical data)
+      if (!outputData?.output && nextUserMessage?.content) {
+        const commandText = action.params.command;
+        if (commandText) {
+          const escapeRegExp = (str: string) =>
+            str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          const regexStr = `Output: \\[run_command for '${escapeRegExp(commandText)}'.*?\\][^\\n]*\\n\\s*\`\`\`\\n([\\s\\S]*?)\\n\\s*\`\`\``;
+          const match = new RegExp(regexStr).exec(nextUserMessage.content);
+          if (match && match[1]) {
+            extractedOutput = match[1];
+          }
+        }
+      }
+
       // Determine state for this specific action
       const isActionClicked = clickedActions.has(actionId);
-      const isActionSwept = clearedActions?.has(actionId);
-      const hasOutput = !!outputData;
+      const hasOutput = !!outputData || !!extractedOutput;
 
       // Loading state: Determine based on real terminal status if available
       const terminalId =
@@ -644,12 +619,22 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
       return (
         <TerminalBlock
-          logs={outputData?.output || ""}
+          logs={outputData?.output || extractedOutput || ""}
           initialCommand={action.params.command}
           terminalName="Execute"
           subInfo={action.params.cwd}
           status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
           statusColor={toolColor}
+          onAttachToVSCode={
+            terminalId && activeTerminalIds?.has(terminalId)
+              ? () => {
+                  extensionService.postMessage({
+                    command: "attachTerminalToVSCode",
+                    terminalId: terminalId,
+                  });
+                }
+              : undefined
+          }
           onInput={(data) => {
             const terminalId =
               (outputData as any)?.terminalId || action.params.terminal_id;
@@ -668,22 +653,16 @@ const ToolItem: React.FC<ToolItemProps> = ({
               isLastMessage={isLastMessage}
               isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
               isLoading={isLoading}
-              isSweepable={true}
-              isSwept={isActionSwept}
               toolColor={toolColor}
               title={
                 isCompleted
-                  ? "Clear Context (Sweep)"
+                  ? "Completed"
                   : isLoading
                     ? "Executing..."
                     : "Execute action"
               }
               onExecute={() => {
-                if (isCompleted) {
-                  if (onActionClear && !isActionSwept) {
-                    onActionClear(actionId);
-                  }
-                } else if (!isLoading) {
+                if (!isCompleted && !isLoading) {
                   const actionWithTerminal = {
                     ...action,
                     params: {
@@ -824,18 +803,12 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   clickedActions.has(`${messageId}-action-${item.index}`),
                 )
               }
-              isSweepable={group.some((item) =>
-                MANUAL_CONFIRMATION_TOOLS.includes(item.action.type),
-              )}
-              isSwept={group.every((item) =>
-                clearedActions?.has(`${messageId}-action-${item.index}`),
-              )}
               toolColor={toolColor}
               title={
                 group.every((item) =>
                   clickedActions.has(`${messageId}-action-${item.index}`),
                 )
-                  ? "Clear Context (Sweep)"
+                  ? "Completed"
                   : "Execute all actions"
               }
               onExecute={(e) => {
@@ -844,13 +817,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 );
 
                 if (isCompleted) {
-                  if (!onActionClear) return;
-                  group.forEach((item) => {
-                    const aId = `${messageId}-action-${item.index}`;
-                    if (!clearedActions?.has(aId)) {
-                      onActionClear(aId);
-                    }
-                  });
                   return;
                 }
 
@@ -981,14 +947,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
               const actionId = `${messageId}-action-${index}`;
               const outputData = toolOutputs?.[actionId];
               const isActionClicked = clickedActions.has(actionId);
-              const isActionSwept = clearedActions?.has(actionId);
               const hasOutput = !!outputData;
               const isLoading = isActionClicked && !hasOutput;
-
-              // We need to determine if THIS action is active.
-              // Since we split run_command into their own groups of 1,
-              // isActiveGroup passed to ToolItem should be correct for this single item.
-              // But just in case, we use the props.
 
               return (
                 <div
@@ -1038,26 +998,14 @@ const ToolItem: React.FC<ToolItemProps> = ({
                           !isActiveGroup && !isLastMessage && !isActionClicked
                         }
                         isLoading={isLoading}
-                        isSweepable={MANUAL_CONFIRMATION_TOOLS.includes(
-                          action.type,
-                        )}
-                        isSwept={isActionSwept}
                         toolColor={toolColor}
                         showText={MANUAL_CONFIRMATION_TOOLS.includes(
                           action.type,
                         )}
                         labelText="Run"
-                        title={
-                          isActionClicked
-                            ? "Clear Context (Sweep)"
-                            : "Execute action"
-                        }
+                        title={isActionClicked ? "Completed" : "Execute action"}
                         onExecute={() => {
-                          if (isActionClicked) {
-                            if (onActionClear && !isActionSwept) {
-                              onActionClear(actionId);
-                            }
-                          } else if (!isLoading) {
+                          if (!isActionClicked && !isLoading) {
                             onToolClick(action, messageId, index);
                           }
                         }}

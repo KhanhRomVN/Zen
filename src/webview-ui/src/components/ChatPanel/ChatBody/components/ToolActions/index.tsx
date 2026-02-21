@@ -20,10 +20,10 @@ interface ToolActionsListProps {
   };
   failedActions?: Set<string>;
   isLastMessage?: boolean;
-  clearedActions?: Set<string>;
-  onActionClear?: (actionId: string) => void;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
+  nextUserMessage?: Message;
+  activeTerminalIds?: Set<string>;
 }
 
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
@@ -34,10 +34,10 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   executionState,
   failedActions,
   isLastMessage,
-  clearedActions,
-  onActionClear,
   toolOutputs,
   terminalStatus,
+  nextUserMessage,
+  activeTerminalIds,
   isVisibleTool = (type: string) => type !== "read_file",
 }) => {
   // Filter out invisible tools immediately
@@ -202,10 +202,10 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             isActiveGroup={isActiveGroup}
             failedActions={failedActions}
             isLastMessage={isLastMessage}
-            clearedActions={clearedActions}
-            onActionClear={onActionClear}
             toolOutputs={toolOutputs}
             terminalStatus={terminalStatus}
+            nextUserMessage={nextUserMessage}
+            activeTerminalIds={activeTerminalIds}
           />
         </React.Fragment>
       );
@@ -218,6 +218,8 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
     isLastMessage,
     toolOutputs,
     terminalStatus,
+    activeTerminalIds,
+    nextUserMessage,
   ]);
 
   if (!visibleItems || visibleItems.length === 0) return null;
