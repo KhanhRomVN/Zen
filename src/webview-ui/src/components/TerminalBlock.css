@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 8px 4px 8px 12px;
   background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
   border-bottom: 1px solid var(--vscode-panel-border, #333);
   user-select: none;
@@ -36,23 +36,28 @@
   gap: 10px;
 }
 
-.terminal-prefix {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--vscode-terminal-foreground, #cccccc);
-  opacity: 0.8;
+.terminal-status-dot {
+  flex-shrink: 0;
 }
 
 .terminal-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--vscode-terminal-foreground, #cccccc);
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
 }
 
 .terminal-sub-info {
   font-size: 11px;
   opacity: 0.4;
   font-family: var(--vscode-font-family);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .terminal-state-badge {
@@ -62,6 +67,7 @@
   background-color: var(--vscode-badge-background, #4d4d4d);
   color: var(--vscode-badge-foreground, #ffffff);
   opacity: 0.8;
+  font-weight: 600;
 }
 
 .header-actions {
@@ -70,15 +76,39 @@
   gap: 8px;
 }
 
+.execute-button-minimal:hover {
+  color: var(--vscode-button-hoverBackground, #1177bb) !important;
+  background-color: rgba(121, 121, 121, 0.1) !important;
+}
+
 .terminal-content-wrapper {
-  padding: 12px;
-  max-height: 400px;
-  overflow-y: auto;
+  padding: 8px;
+  overflow: hidden;
+  background-color: var(--vscode-terminal-background, #1e1e1e);
+}
+
+.terminal-richtext-fallback {
+  padding: 8px 4px;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.5;
+  color: var(--vscode-terminal-foreground, #cccccc);
+  font-family: var(--vscode-editor-font-family, monospace);
   white-space: pre-wrap;
   word-break: break-all;
-  color: var(--vscode-terminal-foreground, #cccccc);
+}
+
+.xterm-container {
+  width: 100%;
+  height: 100%;
+}
+
+/* Adjust xterm styles for VS Code integration */
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+}
+
+.xterm .xterm-screen {
+  padding: 4px;
 }
 
 .terminal-content-wrapper::-webkit-scrollbar {
@@ -101,12 +131,4 @@
     --vscode-scrollbarSlider-hoverBackground,
     rgba(100, 100, 100, 0.7)
   );
-}
-
-.terminal-log-line {
-  margin-bottom: 2px;
-}
-
-.terminal-log-line:last-child {
-  margin-bottom: 0;
 }

@@ -81,25 +81,21 @@ const ExecuteButton: React.FC<{
         (isCompleted && !isLastMessage)
       }
       style={{
-        background: showText
-          ? "var(--vscode-button-background)"
-          : "transparent",
-        color: showText
-          ? "var(--vscode-button-foreground)"
-          : "var(--vscode-icon-foreground)",
+        background: "transparent",
+        color: "var(--vscode-icon-foreground)",
         border: "none",
         cursor: isLoading ? "wait" : "pointer",
-        padding: showText ? "4px 10px" : "2px",
+        padding: "4px",
         borderRadius: "4px",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         transition: "all 0.2s",
         opacity: 1,
-        fontSize: "11px",
-        fontWeight: 600,
+        fontSize: "14px",
         gap: "4px",
       }}
+      className="execute-button-minimal"
       title={title}
     >
       {/* LOADING STATE */}
@@ -155,23 +151,20 @@ const ExecuteButton: React.FC<{
         </div>
       )}
 
-      {/* ACTIVE STATE: PLAY ICON / TEXT */}
+      {/* ACTIVE STATE: PLAY ICON */}
       {!isLoading && isActive && !isCompleted && (
-        <>
-          {showText && <span>{labelText || "Run"}</span>}
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-        </>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
       )}
 
       {/* SKIPPED STATE: RED X */}
@@ -676,137 +669,42 @@ const ToolItem: React.FC<ToolItemProps> = ({
       // But just in case, we use the props.
 
       return (
-        // Container for run_command (like grouped items)
-        <div style={{ marginBottom: "8px" }}>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              backgroundColor: "var(--vscode-editor-background)",
-              border: `1px solid ${toolColor}40`,
-              borderRadius: "6px",
-              overflow: "hidden",
-            }}
-          >
-            {/* Header: Label + Execute Button */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "6px 10px",
-                borderBottom: `1px solid ${toolColor}20`,
-                backgroundColor: `${toolColor}05`,
-              }}
-            >
-              {/* Label */}
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "var(--vscode-descriptionForeground)",
-                  fontWeight: 600,
-                }}
-              >
-                {getToolLabel(toolType)}
-              </div>
-
-              {/* Execute Button */}
-              <ExecuteButton
-                isActive={isActiveGroup || false}
-                isCompleted={isCompleted}
-                isLastMessage={isLastMessage}
-                isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
-                isLoading={isLoading}
-                isSweepable={true}
-                isSwept={isActionSwept}
-                toolColor={toolColor}
-                showText={true}
-                labelText="Run"
-                title={
-                  isCompleted
-                    ? "Clear Context (Sweep)"
-                    : isLoading
-                      ? "Executing..."
-                      : "Execute action"
+        <TerminalBlock
+          logs={outputData?.output || ""}
+          initialCommand={action.params.command}
+          terminalName="Execute"
+          subInfo={action.params.cwd}
+          status={isLoading ? "busy" : hasOutput ? "free" : undefined}
+          statusColor={toolColor}
+          headerActions={
+            <ExecuteButton
+              isActive={isActiveGroup || false}
+              isCompleted={isCompleted}
+              isLastMessage={isLastMessage}
+              isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
+              isLoading={isLoading}
+              isSweepable={true}
+              isSwept={isActionSwept}
+              toolColor={toolColor}
+              title={
+                isCompleted
+                  ? "Clear Context (Sweep)"
+                  : isLoading
+                    ? "Executing..."
+                    : "Execute action"
+              }
+              onExecute={() => {
+                if (isCompleted) {
+                  if (onActionClear && !isActionSwept) {
+                    onActionClear(actionId);
+                  }
+                } else if (!isLoading) {
+                  onToolClick(action, messageId, index);
                 }
-                onExecute={() => {
-                  if (isCompleted) {
-                    if (onActionClear && !isActionSwept) {
-                      onActionClear(actionId);
-                    }
-                  } else if (!isLoading) {
-                    onToolClick(action, messageId, index);
-                  }
-                }}
-              />
-            </div>
-
-            {/* Content: Command/Params CodeBlock (Removed headerActions) */}
-            <div style={{ padding: "0" }}>
-              {action.params.command ? (
-                <CodeBlock
-                  code={action.params.command}
-                  language="shell"
-                  filename="terminal"
-                  icon={
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="100%"
-                      height="100%"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m7 11 2-2-2-2" />
-                      <path d="M11 13h4" />
-                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                    </svg>
-                  }
-                  showCopyButton={true}
-                />
-              ) : (
-                <div
-                  style={{
-                    padding: "8px 12px",
-                    fontSize: "12px",
-                    color: "var(--vscode-descriptionForeground)",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  {Object.entries(action.params)
-                    .map(([k, v]) => `${k}: ${v}`)
-                    .join(", ")}
-                </div>
-              )}
-            </div>
-
-            {/* Output TerminalBlock */}
-            {outputData && (
-              <div
-                style={{ padding: "0", borderTop: `1px solid ${toolColor}20` }}
-              >
-                <TerminalBlock
-                  logs={outputData.output}
-                  terminalName={
-                    action.params.terminal_name ||
-                    action.params.terminal_id ||
-                    getToolLabel(toolType)
-                  }
-                  subInfo={action.params.cwd}
-                  status={
-                    action.params.terminal_name || action.params.terminal_id
-                      ? "busy"
-                      : "idle"
-                  }
-                  statusColor={toolColor}
-                />
-              </div>
-            )}
-          </div>
-        </div>
+              }}
+            />
+          }
+        />
       );
     }
 

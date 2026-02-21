@@ -1529,7 +1529,11 @@ export class ChatController {
         terminalId = result.id;
       }
 
-      this.processManager.sendInput(terminalId, `${message.commandText}\n`);
+      this.processManager.sendInput(
+        terminalId,
+        `${message.commandText}\n`,
+        message.actionId,
+      );
 
       webviewView.webview.postMessage({
         command: "runCommandResult",

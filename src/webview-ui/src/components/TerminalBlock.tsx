@@ -1,4 +1,7 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { Terminal } from "xterm";
+import { FitAddon } from "xterm-addon-fit";
+import "xterm/css/xterm.css";
 import "./TerminalBlock.css";
 
 interface TerminalBlockProps {
@@ -9,6 +12,7 @@ interface TerminalBlockProps {
   statusColor?: string;
   maxHeight?: number;
   headerActions?: React.ReactNode;
+  initialCommand?: string;
 }
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
@@ -19,30 +23,102 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   statusColor,
   maxHeight = 400,
   headerActions,
+  initialCommand,
 }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const isAtBottom = useRef(true);
-
-  const handleScroll = () => {
-    if (scrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      const atBottom = scrollHeight - scrollTop - clientHeight < 50;
-      isAtBottom.current = atBottom;
-    }
-  };
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const xtermRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const [isXtermVisible, setIsXtermVisible] = useState(false);
 
   useEffect(() => {
-    if (isAtBottom.current && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // Show xterm only if we have logs or if it's busy
+    if (logs || status === "busy") {
+      setIsXtermVisible(true);
+    } else {
+      setIsXtermVisible(false);
     }
-  }, [logs]);
+  }, [logs, status]);
+
+  useEffect(() => {
+    if (!isXtermVisible || !terminalRef.current) return;
+
+    if (!xtermRef.current) {
+      const term = new Terminal({
+        cursorBlink: status === "busy",
+        fontSize: 12,
+        fontFamily:
+          'var(--vscode-editor-font-family, "Courier New", Courier, monospace)',
+        theme: {
+          background: "transparent",
+          foreground: "var(--vscode-terminal-foreground, #cccccc)",
+          cursor:
+            status === "busy"
+              ? "var(--vscode-terminal-foreground)"
+              : "transparent",
+        },
+        allowProposedApi: true,
+        rows: 15,
+        cols: 80,
+        convertEol: true,
+      });
+
+      const fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(terminalRef.current);
+      fitAddon.fit();
+
+      xtermRef.current = term;
+      fitAddonRef.current = fitAddon;
+
+      const handleResize = () => {
+        fitAddon.fit();
+      };
+      window.addEventListener("resize", handleResize);
+
+      // Clean up on unmount or visibility change
+      return () => {
+        term.dispose();
+        window.removeEventListener("resize", handleResize);
+        xtermRef.current = null;
+      };
+    }
+  }, [isXtermVisible, status]);
+
+  useEffect(() => {
+    if (xtermRef.current && isXtermVisible) {
+      xtermRef.current.clear();
+      if (logs) {
+        xtermRef.current.write(logs);
+      }
+
+      // Update cursor and blink based on status
+      xtermRef.current.options.cursorBlink = status === "busy";
+      xtermRef.current.options.theme = {
+        ...xtermRef.current.options.theme,
+        cursor:
+          status === "busy"
+            ? "var(--vscode-terminal-foreground)"
+            : "transparent",
+      };
+    }
+  }, [logs, status, isXtermVisible]);
 
   return (
     <div className="terminal-block-container">
       <div className="terminal-block-header">
         <div className="terminal-info">
           <div className="terminal-header-top">
-            <span className="terminal-prefix">(zen)</span>
+            {statusColor && (
+              <div
+                className="terminal-status-dot"
+                style={{
+                  backgroundColor: statusColor,
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                }}
+              />
+            )}
             <span className="terminal-name">{terminalName}</span>
             {status && (
               <span
@@ -56,42 +132,25 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
                     : {}
                 }
               >
-                {status === "busy"
-                  ? "Running"
-                  : status === "free"
-                    ? "Free"
-                    : "Idle"}
+                {status === "busy" ? "Running" : "Free"}
               </span>
-            )}
-            {statusColor && (
-              <div
-                className="terminal-status-dot"
-                style={{
-                  backgroundColor: statusColor,
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                }}
-              />
             )}
           </div>
           {subInfo && <span className="terminal-sub-info">{subInfo}</span>}
         </div>
-        <div className="header-actions">
-          {headerActions}
-          <div
-            className="codicon codicon-terminal"
-            style={{ fontSize: "14px", opacity: 0.7 }}
-          />
-        </div>
+        <div className="header-actions">{headerActions}</div>
       </div>
       <div
         className="terminal-content-wrapper"
-        ref={scrollRef}
-        onScroll={handleScroll}
         style={{ maxHeight: `${maxHeight}px` }}
       >
-        <div className="terminal-log-line">{logs}</div>
+        {!isXtermVisible ? (
+          <div className="terminal-richtext-fallback">
+            {initialCommand || "No command executed yet."}
+          </div>
+        ) : (
+          <div ref={terminalRef} className="xterm-container" />
+        )}
       </div>
     </div>
   );

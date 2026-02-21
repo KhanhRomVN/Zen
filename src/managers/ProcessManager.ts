@@ -3,6 +3,7 @@ import * as pty from "node-pty";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { v4 as uuidv4 } from "uuid";
 
 class ZenPTY implements vscode.Pseudoterminal {
   public writeEmitter = new vscode.EventEmitter<string>();
@@ -17,6 +18,9 @@ class ZenPTY implements vscode.Pseudoterminal {
   public isPersistent: boolean = false;
   public startTime: number = Date.now();
   public shellPath: string = "";
+  public activeActionId: string | null = null;
+  public lastOutputIndex: number = 0;
+  public lastBusyStatus: boolean = false;
 
   constructor(cwd: string) {
     this.currentCwd = cwd;
@@ -57,6 +61,7 @@ class ZenPTY implements vscode.Pseudoterminal {
 
   resetOutput() {
     this.accumulatedOutput = "";
+    this.lastOutputIndex = 0;
   }
 }
 
@@ -69,10 +74,15 @@ export class ProcessManager {
       name: string;
     }
   >();
-
-  private nextId = 1;
   private onTerminalsChangedEmitter = new vscode.EventEmitter<void>();
   public onTerminalsChanged = this.onTerminalsChangedEmitter.event;
+
+  private onCommandFinishedEmitter = new vscode.EventEmitter<{
+    actionId: string;
+    output: string;
+    terminalId: string;
+  }>();
+  public onCommandFinished = this.onCommandFinishedEmitter.event;
 
   constructor() {
     vscode.window.onDidCloseTerminal((terminal) => {
@@ -89,20 +99,63 @@ export class ProcessManager {
       }
     });
 
-    // Auto-refresh terminal states and titles every 2 seconds
+    // Auto-refresh terminal states and titles every 1 second (faster detection)
     setInterval(() => {
-      if (this.terminalMap.size > 0) {
-        this.list(); // This triggers title updates
-        this.onTerminalsChangedEmitter.fire(); // Notify webview
+      this.updateTerminalStates();
+    }, 1000);
+  }
+
+  private updateTerminalStates() {
+    let changed = false;
+    for (const [id, entry] of this.terminalMap.entries()) {
+      let isBusy = false;
+      const shellPid = entry.pty.ptyProcess?.pid;
+
+      if (shellPid) {
+        if (os.platform() === "linux") {
+          try {
+            // Check for children (busy status)
+            // On Linux, PPID is checked via /proc or ps
+            const ppidOutput = require("child_process")
+              .execSync(`ps -o args= --ppid ${shellPid}`, { encoding: "utf8" })
+              .trim();
+            if (ppidOutput) {
+              isBusy = true;
+            }
+          } catch (e) {}
+        }
       }
-    }, 2000);
+
+      // Transition: Busy -> Not Busy
+      if (entry.pty.lastBusyStatus && !isBusy && entry.pty.activeActionId) {
+        const output = entry.pty.accumulatedOutput.substring(
+          entry.pty.lastOutputIndex,
+        );
+        this.onCommandFinishedEmitter.fire({
+          actionId: entry.pty.activeActionId,
+          output: output,
+          terminalId: id,
+        });
+        entry.pty.activeActionId = null;
+        entry.pty.lastOutputIndex = entry.pty.accumulatedOutput.length;
+      }
+
+      if (entry.pty.lastBusyStatus !== isBusy) {
+        entry.pty.lastBusyStatus = isBusy;
+        changed = true;
+      }
+    }
+
+    if (changed || this.terminalMap.size > 0) {
+      this.onTerminalsChangedEmitter.fire();
+    }
   }
 
   async startInteractive(
     cwd: string,
     terminalId?: string,
   ): Promise<{ id: string; name: string }> {
-    const id = terminalId || `zen-${this.nextId++}`;
+    const id = terminalId || uuidv4();
     let entry = this.terminalMap.get(id);
 
     if (!entry) {
@@ -116,15 +169,13 @@ export class ProcessManager {
 
       const ptyInternal = new ZenPTY(cwd);
       ptyInternal.isPersistent = true;
+      ptyInternal.shellPath = shell;
       const terminal = vscode.window.createTerminal({
         name,
         pty: ptyInternal,
         iconPath: new vscode.ThemeIcon("terminal"),
       });
 
-      // Update terminal name if possible (though createTerminal name is immutable)
-      // We will use the name in our map for display
-      ptyInternal.shellPath = shell;
       entry = { terminal, pty: ptyInternal, name: name };
       this.terminalMap.set(id, entry);
       this.onTerminalsChangedEmitter.fire();
@@ -165,29 +216,26 @@ export class ProcessManager {
     return Array.from(this.terminalMap.entries()).map(([id, entry]) => {
       let cwd = "";
       let currentCommand = "";
-      let isBusy = false;
+      let isBusy = entry.pty.lastBusyStatus;
       const shellPid = entry.pty.ptyProcess?.pid;
 
       if (shellPid) {
         if (os.platform() === "linux") {
           try {
             cwd = fs.readlinkSync(`/proc/${shellPid}/cwd`);
-            // Check for children (busy status)
-            const children = fs.readdirSync(`/proc/${shellPid}/task`);
-            // Spawning 'ps' for child info
-            const ppidOutput = require("child_process")
-              .execSync(`ps -o args= --ppid ${shellPid}`, { encoding: "utf8" })
-              .trim();
-            if (ppidOutput) {
-              isBusy = true;
-              currentCommand = ppidOutput.split("\n")[0];
+            if (isBusy) {
+              const ppidOutput = require("child_process")
+                .execSync(`ps -o args= --ppid ${shellPid}`, {
+                  encoding: "utf8",
+                })
+                .trim();
+              if (ppidOutput) {
+                currentCommand = ppidOutput.split("\n")[0];
+              }
             }
           } catch (e) {}
         }
       }
-
-      const lines = entry.pty.accumulatedOutput.trim().split("\n");
-      const lastLine = lines.length > 0 ? lines[lines.length - 1] : "";
 
       const shellType = path.basename(entry.pty.shellPath || "shell");
       const currentName = isBusy
@@ -197,9 +245,6 @@ export class ProcessManager {
       if (entry.name !== currentName) {
         entry.name = currentName;
         entry.pty.updateTitle(currentName);
-
-        // Force VS Code to update the terminal name in its UI
-        // We use 'show(true)' to target the terminal without stealing focus
         entry.terminal.show(true);
         vscode.commands.executeCommand(
           "workbench.action.terminal.renameWithArg",
@@ -209,6 +254,7 @@ export class ProcessManager {
         );
       }
 
+      const lines = entry.pty.accumulatedOutput.trim().split("\n");
       const cleanLog = lines
         .slice(-3)
         .join("\n")
@@ -250,9 +296,13 @@ export class ProcessManager {
     }
   }
 
-  sendInput(id: string, text: string) {
+  sendInput(id: string, text: string, actionId?: string) {
     const entry = this.terminalMap.get(id);
     if (entry) {
+      if (actionId) {
+        entry.pty.activeActionId = actionId;
+        entry.pty.lastOutputIndex = entry.pty.accumulatedOutput.length;
+      }
       entry.pty.handleInput(text);
     }
   }
