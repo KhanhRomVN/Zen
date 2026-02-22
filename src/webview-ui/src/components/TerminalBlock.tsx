@@ -11,6 +11,7 @@ interface TerminalBlockProps {
   status?: "busy" | "idle" | "free";
   statusColor?: string;
   maxHeight?: number;
+  rows?: number;
   headerActions?: React.ReactNode;
   initialCommand?: string;
   onInput?: (data: string) => void;
@@ -26,6 +27,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   maxHeight = 400,
   headerActions,
   initialCommand,
+  rows = 15,
   onInput,
   onAttachToVSCode,
 }) => {
@@ -62,7 +64,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
               : "transparent",
         },
         allowProposedApi: true,
-        rows: 15,
+        rows: rows,
         cols: 80,
         convertEol: true,
       });

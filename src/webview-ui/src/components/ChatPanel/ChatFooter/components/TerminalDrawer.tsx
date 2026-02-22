@@ -1,15 +1,6 @@
 import React, { useEffect, useState } from "react";
-import {
-  X,
-  Plus,
-  Terminal,
-  Trash2,
-  Folder,
-  Clock,
-  Activity,
-  Cpu,
-  Code,
-} from "lucide-react";
+import { X, Plus, Terminal, Trash2 } from "lucide-react";
+import { MiniTerminal } from "./MiniTerminal";
 
 interface TerminalInfo {
   id: string;
@@ -20,6 +11,8 @@ interface TerminalInfo {
   uptime: number;
   lastLog: string;
   currentCommand: string;
+  isAttached?: boolean;
+  promptPrefix?: string;
 }
 
 interface TerminalDrawerProps {
@@ -37,8 +30,8 @@ const formatCwd = (cwd: string) => {
 
 const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
   const [terminals, setTerminals] = useState<TerminalInfo[]>([]);
+  const [terminalLogs, setTerminalLogs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const fetchTerminals = () => {
     const vscodeApi = (window as any).vscodeApi;
@@ -59,8 +52,29 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.command === "listTerminalsResult") {
-        setTerminals(message.terminals || []);
+        const newTerms = message.terminals || [];
+        setTerminals(newTerms);
+        // Synchronize logs: reset if backend log is significantly different (e.g. cleared)
+        setTerminalLogs((prev) => {
+          const next = { ...prev };
+          newTerms.forEach((t: TerminalInfo) => {
+            const currentLog = next[t.id] || "";
+            // If we don't have logs, or if the backend log is empty/shorter (terminal was likely cleared)
+            if (
+              !next[t.id] ||
+              (t.lastLog !== undefined && t.lastLog.length < currentLog.length)
+            ) {
+              next[t.id] = t.lastLog || "";
+            }
+          });
+          return next;
+        });
         setLoading(false);
+      } else if (message.command === "terminalOutput") {
+        setTerminalLogs((prev) => ({
+          ...prev,
+          [message.terminalId]: (prev[message.terminalId] || "") + message.data,
+        }));
       } else if (
         message.command === "createTerminalShellResult" ||
         message.command === "removeTerminalResult"
@@ -97,14 +111,15 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const getTerminalColor = (id: string) => {
-    // Generate a consistent color based on the terminal ID
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  const handleAttachTerminal = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      vscodeApi.postMessage({
+        command: "attachTerminalToVSCode",
+        terminalId: id,
+      });
     }
-    const h = Math.abs(hash) % 360;
-    return `hsla(${h}, 70%, 50%, 0.15)`; // Semi-transparent for subtle effect
   };
 
   if (!isOpen) return null;
@@ -224,79 +239,64 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
           terminals.map((term) => (
             <div
               key={term.id}
-              onClick={() => handleFocusTerminal(term.id)}
-              onMouseEnter={() => setHoveredId(term.id)}
-              onMouseLeave={() => setHoveredId(null)}
               style={{
                 borderBottom: "1px solid var(--border-color)",
-                padding: "12px 16px",
+                borderLeft:
+                  term.state === "busy"
+                    ? "3px solid #4caf50"
+                    : "3px solid transparent",
                 display: "flex",
                 flexDirection: "column",
-                gap: "8px",
                 transition: "all 0.2s",
-                cursor: "pointer",
-                backgroundColor:
-                  term.state === "busy"
-                    ? `linear-gradient(90deg, ${getTerminalColor(term.id)} 0%, transparent 100%)`
-                    : hoveredId === term.id
-                      ? "var(--hover-bg)"
-                      : "transparent",
+                backgroundColor: "var(--vscode-terminal-background, #1e1e1e)",
                 position: "relative",
+                cursor: "default",
+                userSelect: "none",
               }}
             >
-              {/* Row 1: Status & Title */}
+              {/* Part 1: Header - Status & Command only */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "flex-start",
+                  alignItems: "center",
+                  padding: "8px 12px",
                 }}
               >
                 <div
-                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    flex: 1,
+                    overflow: "hidden",
+                  }}
                 >
                   <div
                     style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "2px",
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor:
+                        term.state === "busy" ? "#4caf50" : "#808080", // Gray for idle
+                      boxShadow:
+                        term.state === "busy" ? "0 0 8px #4caf5066" : "none",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--vscode-editor-foreground)",
+                      opacity: 0.9,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      fontFamily:
+                        'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace',
                     }}
                   >
-                    <span
-                      style={{
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                      }}
-                    >
-                      (zen)
-                      {term.state === "busy"
-                        ? term.currentCommand
-                        : term.shellType}
-                      {term.state === "busy" && (
-                        <span
-                          style={{
-                            fontSize: "10px",
-                            padding: "2px 6px",
-                            borderRadius: "10px",
-                            backgroundColor: "rgba(76, 175, 80, 0.1)",
-                            color: "#4caf50",
-                            fontWeight: 500,
-                            marginLeft: "4px",
-                          }}
-                        >
-                          Running
-                        </span>
-                      )}
-                    </span>
-                    <span
-                      style={{ fontSize: "11px", opacity: 0.4 }}
-                      title={term.cwd}
-                    >
-                      {formatCwd(term.cwd)}
-                    </span>
+                    {term.currentCommand || "..."}
                   </div>
                 </div>
 
@@ -304,36 +304,78 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
                   style={{
                     display: "flex",
                     gap: "8px",
-                    opacity: hoveredId === term.id ? 1 : 0,
-                    transition: "opacity 0.2s",
+                    marginLeft: "8px",
                   }}
                 >
+                  {!term.isAttached && (
+                    <button
+                      onClick={(e) => handleAttachTerminal(term.id, e)}
+                      title="Attach"
+                      style={{
+                        padding: "4px",
+                        backgroundColor: "transparent",
+                        color: "var(--secondary-text)",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCloseTerminal(term.id);
                     }}
-                    title="Close Terminal"
+                    title="Close"
                     style={{
                       padding: "4px",
                       backgroundColor: "transparent",
-                      color: "inherit",
+                      color: "var(--secondary-text)",
                       border: "none",
                       borderRadius: "4px",
                       cursor: "pointer",
-                      transition: "color 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color =
-                        "var(--vscode-errorForeground, #f44336)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = "inherit";
                     }}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
+              </div>
+
+              {/* Divider */}
+              <div
+                style={{
+                  height: "1px",
+                  backgroundColor: "var(--border-color)",
+                  opacity: 0.3,
+                }}
+              />
+
+              {/* Part 2: Body - MiniTerminal (No padding) */}
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleFocusTerminal(term.id);
+                }}
+                style={{ overflow: "hidden" }}
+              >
+                <MiniTerminal
+                  logs={terminalLogs[term.id] || ""}
+                  status={term.state === "busy" ? "busy" : "free"}
+                  rows={5}
+                />
               </div>
             </div>
           ))

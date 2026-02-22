@@ -35,6 +35,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     this._extensionContext = context;
   }
 
+  public getProcessManager(): ProcessManager {
+    return this._processManager;
+  }
+
   public initializeAgentManager() {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (workspaceFolder) {
