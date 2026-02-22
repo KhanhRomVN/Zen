@@ -56,8 +56,9 @@ export class BackupManager {
   }
 
   getBackupFolderPath(conversationId: string, customBaseDir?: string): string {
-    if (customBaseDir) {
-      return path.join(customBaseDir, conversationId);
+    const baseDir = customBaseDir || this._activeBaseDir;
+    if (baseDir) {
+      return path.join(baseDir, conversationId);
     }
     throw new Error("Base directory for backup must be provided");
   }
@@ -952,13 +953,15 @@ export class BackupManager {
   }
 
   async cleanupBackup(conversationId: string): Promise<void> {
-    const backupFolder = this.getBackupFolderPath(conversationId);
     try {
+      const backupFolder = this.getBackupFolderPath(conversationId);
       await vscode.workspace.fs.delete(vscode.Uri.file(backupFolder), {
         recursive: true,
         useTrash: false,
       });
-    } catch {}
+    } catch (e) {
+      // If we can't get the folder path or it doesn't exist, just skip
+    }
   }
 
   // #endregion

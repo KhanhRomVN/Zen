@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "out",
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["src/webview-ui", "node_modules", "temp", "dist"]
+}

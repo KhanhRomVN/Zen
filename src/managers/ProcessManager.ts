@@ -5,6 +5,21 @@ import * as os from "os";
 import * as crypto from "crypto";
 import * as net from "net";
 import { spawn } from "child_process";
+import {
+  EchoSuppressor,
+  stripMarkers,
+  stripAnsi,
+} from "../utils/terminalUtils";
+
+const DEBUG_LOG_PATH = "/tmp/zen_terminal_debug.log";
+
+function appendToDebugLog(msg: string) {
+  const logLine = `[ZenTerminal] ${msg}`;
+  console.log(logLine);
+  try {
+    fs.appendFileSync(DEBUG_LOG_PATH, `[${new Date().toISOString()}] ${msg}\n`);
+  } catch (e) {}
+}
 
 const SOCKET_PATH = path.join(os.homedir(), "khanhromvn-zen", "bridge.sock");
 
@@ -28,6 +43,8 @@ class ZenPTY implements vscode.Pseudoterminal {
   public currentInputBuffer: string = "";
   public logFilePath: string = "";
   private logCurrentSizeBytes: number = 0;
+  public echoSuppressor: EchoSuppressor = new EchoSuppressor();
+  public lineBuffer: string = "";
   private readonly MAX_LOG_SIZE = 5 * 1024 * 1024; // 5 MB
 
   public commandStartEmitter = new vscode.EventEmitter<void>();
@@ -181,6 +198,7 @@ class BridgeClient {
   constructor(
     private onTerminalsChanged: () => void,
     private onStatusChange: (id: string, status: "busy" | "free") => void,
+    private onDidWriteData: (id: string, data: string) => void,
   ) {}
 
   public registerPTY(id: string, pty: ZenPTY) {
@@ -270,6 +288,57 @@ class BridgeClient {
     }
   }
 
+  private processOutputLine(id: string, pty: ZenPTY, line: string) {
+    console.log(`[ZenTerminal] processOutputLine RAW: ${JSON.stringify(line)}`);
+    appendToDebugLog(
+      `[processOutputLine] RAW: ${JSON.stringify(line)} (ActionID: ${pty.activeActionId})`,
+    );
+
+    // 1. Echo swap (Still raw, affects completion detection)
+    let processedLine = pty.echoSuppressor.process(line);
+    if (processedLine !== line) {
+      appendToDebugLog(
+        `[processOutputLine] SWAPPED: ${JSON.stringify(processedLine)}`,
+      );
+    }
+
+    // 2. Logic: Completion detection (MUST see markers)
+    let isLastLine = false;
+    if (pty.activeActionId) {
+      const endMarker = `ZEN_CMD_END: ${pty.activeActionId}`;
+      // Only detect completion if the line IS the marker (independent line)
+      // Strip ANSI and trim whitespace to be sure
+      const cleanLine = stripAnsi(processedLine).trim();
+      if (cleanLine === endMarker) {
+        isLastLine = true;
+      }
+    }
+
+    // 3. Display: Marker stripping
+    const displayLine = stripMarkers(processedLine, pty.activeActionId);
+
+    // 4. Update state AFTER stripping for this line
+    if (isLastLine && pty.activeActionId) {
+      appendToDebugLog(
+        `[ProcessManager] Completion detected for action: ${pty.activeActionId}`,
+      );
+      const finalOutput = pty.accumulatedOutput.substring(pty.lastOutputIndex);
+      pty._triggerCommandFinished(finalOutput);
+      pty.activeActionId = null;
+      pty.lastCommandText = null;
+      pty.lastOutputIndex = pty.accumulatedOutput.length + displayLine.length;
+    }
+
+    if (displayLine.length > 0) {
+      pty.accumulatedOutput += displayLine;
+      pty.writeEmitter.fire(displayLine);
+      pty.appendLog(displayLine);
+      this.onDidWriteData(id, displayLine);
+    }
+
+    this.onTerminalsChanged();
+  }
+
   private drainQueue() {
     if (!this.socket || !this.socket.writable) return;
     while (this.messageQueue.length > 0) {
@@ -284,26 +353,31 @@ class BridgeClient {
     if (!pty) return;
 
     if (type === "output") {
-      pty.accumulatedOutput += msg.data;
-      pty.writeEmitter.fire(msg.data);
-      pty.appendLog(msg.data);
+      console.log(
+        `[ZenTerminal] Bridge output received: ${JSON.stringify(msg.data)}`,
+      );
+      let rawData = pty.lineBuffer + msg.data;
+      pty.lineBuffer = "";
 
-      // Look for markers in the accumulated output string from the last index
-      if (pty.activeActionId) {
-        const currentOutput = pty.accumulatedOutput.substring(
-          pty.lastOutputIndex,
-        );
-        const endMarker = `ZEN_CMD_END: ${pty.activeActionId}`;
-        const endIdx = currentOutput.indexOf(endMarker);
+      // Process line by line for better prompt/echo handling
+      let lastProcessedIdx = 0;
+      let nextLineIdx = rawData.indexOf("\n");
 
-        if (endIdx !== -1) {
-          pty._triggerCommandFinished(currentOutput);
-          pty.activeActionId = null;
-          pty.lastCommandText = null;
-          pty.lastOutputIndex = pty.accumulatedOutput.length;
-        }
+      while (nextLineIdx !== -1) {
+        const line = rawData.substring(lastProcessedIdx, nextLineIdx + 1);
+        this.processOutputLine(id, pty, line);
+        lastProcessedIdx = nextLineIdx + 1;
+        nextLineIdx = rawData.indexOf("\n", lastProcessedIdx);
       }
-      this.onTerminalsChanged();
+
+      // Keep remaining partial line in buffer
+      pty.lineBuffer = rawData.substring(lastProcessedIdx);
+
+      // Safety: If buffer grows too large without newline, process it anyway
+      if (pty.lineBuffer.length > 4096) {
+        this.processOutputLine(id, pty, pty.lineBuffer);
+        pty.lineBuffer = "";
+      }
     } else if (type === "status" || type === "list") {
       let anyChanged = false;
       const termInfoList = type === "status" ? [msg] : msg.terminals;
@@ -388,10 +462,12 @@ export class ProcessManager {
   }
 
   constructor() {
+    appendToDebugLog("ProcessManager initialized");
     this.bridgeClient = new BridgeClient(
       () => this.onTerminalsChangedEmitter.fire(),
       (id, status) =>
         this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status }),
+      (id, data) => this.onDidWriteDataEmitter.fire({ terminalId: id, data }),
     );
 
     vscode.window.onDidCloseTerminal((terminal) => {
@@ -707,12 +783,32 @@ export class ProcessManager {
           finalInput = `Write-Output "ZEN_CMD_START: ${actionId}"; ${cleanCmd}; Write-Output "ZEN_CMD_END: ${actionId}"\r\n`;
         } else {
           // bash / zsh
-          // Use carefully constructed strings to avoid breaking the shell parser
-          finalInput = `echo "ZEN_CMD_START: ${actionId}"; ${cleanCmd}; echo "ZEN_CMD_END: ${actionId}"\n`;
+          // Use stty -echo to suppress command echo precisely
+          finalInput = `stty -echo; echo "ZEN_CMD_START: ${actionId}"; ${cleanCmd}; echo "ZEN_CMD_END: ${actionId}"; stty echo\n`;
+
+          // GHOST ECHO FIX: Add TWO entries to EchoSuppressor for bash/zsh
+          // 1. For the raw command that might be echoed immediately by TTY
+          // 2. For the command echoed with prompt by the shell's line editor
+          const cleanOutput =
+            text.endsWith("\n") || text.endsWith("\r\n") ? text : text + "\n";
+          entry.pty.echoSuppressor.add(finalInput, cleanOutput);
+          entry.pty.echoSuppressor.add(finalInput, cleanOutput);
+        }
+
+        if (os.platform() === "win32") {
+          // For Windows (cmd/pwsh) that doesn't exhibit double echo in the same way
+          entry.pty.echoSuppressor.add(
+            finalInput,
+            text.endsWith("\n") || text.endsWith("\r\n") ? text : text + "\n",
+          );
         }
 
         // Send the input to the PTY
-        entry.pty.handleInput(finalInput);
+        entry.pty.bridgeClient!.send({
+          type: "input",
+          id: entry.pty.terminalId,
+          data: finalInput,
+        });
 
         // Immediately notify UI
         entry.pty.commandStartEmitter.fire();

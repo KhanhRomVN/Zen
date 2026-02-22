@@ -114,11 +114,12 @@
     "package": "npm run package:extension && npm run package:webview",
     "package:extension": "webpack --mode production --devtool hidden-source-map --config webpack.config.js",
     "package:webview": "cd src/webview-ui && npm run build && cd ../.. && bash remove-dts-files.sh",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
+    "compile-tests": "tsc -p tsconfig.test.json",
+    "watch-tests": "tsc -p tsconfig.test.json -w",
     "pretest": "npm run compile-tests && npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "unit-test": "mocha out/test/**/*.test.js"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
