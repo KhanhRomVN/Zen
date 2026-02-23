@@ -10,7 +10,6 @@
     Courier,
     monospace
   );
-  margin-bottom: 8px;
   border: 1px solid var(--vscode-panel-border, #333);
 }
 

@@ -24,6 +24,8 @@ interface ToolActionsListProps {
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
   activeTerminalIds?: Set<string>;
+  attachedTerminalIds?: Set<string>;
+  conversationId?: string;
 }
 
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
@@ -38,6 +40,8 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   terminalStatus,
   nextUserMessage,
   activeTerminalIds,
+  attachedTerminalIds,
+  conversationId,
   isVisibleTool = (type: string) => type !== "read_file",
 }) => {
   // Filter out invisible tools immediately
@@ -206,6 +210,8 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             terminalStatus={terminalStatus}
             nextUserMessage={nextUserMessage}
             activeTerminalIds={activeTerminalIds}
+            attachedTerminalIds={attachedTerminalIds}
+            conversationId={conversationId}
           />
         </React.Fragment>
       );

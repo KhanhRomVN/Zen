@@ -17,7 +17,7 @@ export interface ChatMetadata {
 
   createdAt: number;
   totalRequests: number;
-  totalContext: number;
+  totalTokenUsage: number;
   totalTasks?: number;
   completedTasks?: number;
   uniqueTaskCount?: number;
@@ -33,11 +33,12 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
       return;
     }
 
-    const logEntry = {
-      ...message,
-      timestamp: new Date().toISOString(),
-      conversationId: message.conversationId, // Backend conversationId
-    };
+    const logEntry = { ...message };
+    delete logEntry.uiHidden;
+    delete logEntry.actionIds;
+
+    logEntry.timestamp = new Date().toISOString();
+    logEntry.conversationId = message.conversationId;
 
     extensionService.postMessage({
       command: "logChat",
@@ -94,8 +95,8 @@ export const saveConversation = async (
     const totalRequests = activeMessages.filter(
       (m: Message) => m.role === "user",
     ).length;
-    const totalContext = activeMessages.reduce(
-      (sum: number, m: Message) => sum + (m.contextSize || 0),
+    const totalTokenUsage = activeMessages.reduce(
+      (sum: number, m: Message) => sum + (m.token_usage || 0),
       0,
     );
 
@@ -147,8 +148,15 @@ export const saveConversation = async (
       }
     } catch (error) {}
 
+    const messagesToSave = messages.map((m) => {
+      const cloned = { ...m };
+      delete cloned.uiHidden;
+      delete cloned.actionIds;
+      return cloned;
+    });
+
     const data = {
-      messages,
+      messages: messagesToSave,
       conversationId: convId,
       metadata: {
         id: key,
@@ -163,7 +171,7 @@ export const saveConversation = async (
         provider: selectedTab?.provider,
         createdAt: existingCreatedAt || Date.now(),
         totalRequests,
-        totalContext,
+        totalTokenUsage,
         totalTasks,
         completedTasks,
         uniqueTaskCount,

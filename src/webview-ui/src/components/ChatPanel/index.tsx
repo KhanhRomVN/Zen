@@ -65,6 +65,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [activeTerminalIds, setActiveTerminalIds] = useState<Set<string>>(
     new Set(),
   );
+  const [attachedTerminalIds, setAttachedTerminalIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [selectedQuickModel, setSelectedQuickModel] = useState<{
     providerId: string;
     modelId: string;
@@ -82,6 +85,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     isStreaming,
     currentConversationId,
     setCurrentConversationId,
+    currentConversationIdRef,
     sendMessage,
     stopGeneration,
     setBackendConversationId,
@@ -95,10 +99,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const { backupEventCount } = useBackupWatcher(currentConversationId);
 
-  const { executionState, toolOutputs, handleToolRequest, hydrateState } =
-    useToolExecution({
-      conversationId: currentConversationId,
-      sendMessage: (
+  const { executionState, toolOutputs, handleToolRequest } = useToolExecution({
+    conversationIdRef: currentConversationIdRef,
+    sendMessage: (
+      content,
+      files,
+      model,
+      account,
+      skipLogic,
+      actionIds,
+      uiHidden,
+      thinking,
+    ) =>
+      sendMessage(
         content,
         files,
         model,
@@ -107,19 +120,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionIds,
         uiHidden,
         thinking,
-      ) =>
-        sendMessage(
-          content,
-          files,
-          model,
-          account,
-          skipLogic,
-          actionIds,
-          uiHidden,
-          thinking,
-          selectedQuickModel,
-        ),
-    });
+        selectedQuickModel,
+      ),
+  });
 
   // --- Refs ---
   const hasProcessedInitial = useRef(false);
@@ -140,7 +143,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return messages.reduce(
       (acc, msg) => {
         if (msg.isCancelled) return acc;
-        if (msg.usage) {
+
+        // Use the new standardized token_usage field if available
+        if (msg.token_usage) {
+          acc.total += msg.token_usage;
+          // Optionally attribute to prompt/completion if we have granular data
+          if (msg.usage) {
+            acc.prompt += msg.usage.prompt_tokens || 0;
+            acc.completion += msg.usage.completion_tokens || 0;
+          } else if (msg.role === "user") {
+            acc.prompt += msg.token_usage;
+          } else {
+            acc.completion += msg.token_usage;
+          }
+        } else if (msg.usage) {
+          // Fallback for legacy messages or specific API responses
           acc.prompt += msg.usage.prompt_tokens || 0;
           acc.completion += msg.usage.completion_tokens || 0;
           acc.total += msg.usage.total_tokens || 0;
@@ -156,16 +173,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       const msg = parsedMessages[i];
       if (msg.isCancelled) continue;
 
-      let progress = msg.parsed.taskProgress;
-      if (!progress || progress.length === 0) {
-        progress = msg.parsed.actions.flatMap((a) => a.taskProgress || []);
-      }
+      // Stop if we hit a user message to avoid "sticky" progress from previous turns
+      if (msg.role === "user") break;
 
-      if (progress && progress.length > 0) {
-        return progress.map((item) => ({
-          text: item.text,
-          status: (item.completed ? "done" : "todo") as "done" | "todo",
-        }));
+      if (msg.role === "assistant") {
+        let progress = msg.parsed.taskProgress;
+        if (!progress || progress.length === 0) {
+          progress = msg.parsed.actions.flatMap((a) => a.taskProgress || []);
+        }
+
+        if (progress && progress.length > 0) {
+          return progress.map((item) => ({
+            text: item.text,
+            status: (item.completed ? "done" : "todo") as "done" | "todo",
+          }));
+        }
       }
     }
     return [];
@@ -175,7 +197,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     for (let i = parsedMessages.length - 1; i >= 0; i--) {
       const msg = parsedMessages[i];
       if (msg.isCancelled) continue;
-      if (msg.parsed.taskName) return msg.parsed.taskName;
+      if (msg.role === "user") break;
+      if (msg.role === "assistant" && msg.parsed.taskName)
+        return msg.parsed.taskName;
     }
     return null;
   }, [parsedMessages]);
@@ -199,9 +223,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         message.requestId?.startsWith("chat-panel-poll-")
       ) {
         if (message.terminals) {
-          setActiveTerminalIds(
-            new Set(message.terminals.map((t: any) => t.id)),
-          );
+          const allIds = new Set<string>();
+          const attachedIds = new Set<string>();
+          message.terminals.forEach((t: any) => {
+            allIds.add(t.id);
+            if (t.isAttached) {
+              attachedIds.add(t.id);
+            }
+          });
+          setActiveTerminalIds(allIds);
+          setAttachedTerminalIds(attachedIds);
         }
       }
     };
@@ -287,11 +318,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             .find((m: Message) => m.role === "assistant" && m.conversationId);
           if (lastAssistantMsg?.conversationId) {
             setBackendConversationId(lastAssistantMsg.conversationId);
-          }
-
-          // Restore Tool Execution State (Metadata)
-          if (data.data.metadata) {
-            hydrateState(data.data.metadata);
           }
         }
         setIsLoadingConversation(false);
@@ -435,6 +461,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         firstRequestMessageId={firstRequestMessage?.id}
         onLoadConversation={onLoadConversation}
         activeTerminalIds={activeTerminalIds}
+        attachedTerminalIds={attachedTerminalIds}
+        conversationId={currentConversationId}
       />
       <ChatFooter
         folderPath={selectedTab?.folderPath || null}

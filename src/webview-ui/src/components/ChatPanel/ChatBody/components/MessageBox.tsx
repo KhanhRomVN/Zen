@@ -31,6 +31,8 @@ interface MessageBoxProps {
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
   activeTerminalIds?: Set<string>;
+  attachedTerminalIds?: Set<string>;
+  conversationId?: string;
 }
 
 const MessageBox: React.FC<MessageBoxProps> = ({
@@ -48,27 +50,32 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   terminalStatus,
   nextUserMessage,
   activeTerminalIds,
+  attachedTerminalIds,
+  conversationId,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
   // If User Message
   if (message.role === "user") {
-    // 🆕 STRICT FILTER: Only show if it is a real User Message
-    if (!message.content.startsWith("## User Message")) {
+    // 🆕 FLEXIBLE FILTER: Regex to find the user message block even if not at the start
+    const userMsgRegex = /## User Message\n```\n([\s\S]*?)\n```/;
+    const match = message.content.match(userMsgRegex);
+
+    if (!match && !message.content.includes("## User Message")) {
       return null;
     }
 
-    let displayContent = message.content;
-    const match = displayContent.match(
-      /^## User Message\n```\n([\s\S]*?)\n```$/,
-    );
-    if (match) {
-      displayContent = match[1];
-    } else {
-      // Fallback: try to strip header and surrounding backticks loosely
-      displayContent = displayContent.replace(/^## User Message\n/, "");
-      if (displayContent.startsWith("```") && displayContent.endsWith("```")) {
-        displayContent = displayContent.slice(3, -3).trim();
+    let displayContent = match
+      ? match[1]
+      : message.content.replace(/^[\s\S]*?## User Message\n/, "");
+
+    // Fallback cleanup if it didn't match the full block regex but has the header
+    if (!match) {
+      if (
+        displayContent.startsWith("```") &&
+        displayContent.includes("```", 3)
+      ) {
+        displayContent = displayContent.split("```")[1].trim();
       }
     }
 
@@ -149,7 +156,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "var(--spacing-md)",
+        gap: "var(--spacing-sm)",
         marginBottom: "var(--spacing-md)",
         opacity: message.isCancelled ? 0.4 : 1,
         filter: message.isCancelled ? "grayscale(1) blur(0.5px)" : "none",
@@ -289,7 +296,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             }
 
             return (
-              <div key={group.key} style={{ marginTop: "4px" }}>
+              <div key={group.key}>
                 <CodeBlock
                   code={displayCode}
                   language={isDiffBlock ? "python" : group.language}
@@ -308,12 +315,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             );
           } else if (group.type === "html") {
             return (
-              <div
-                key={group.key}
-                style={{
-                  marginTop: "4px",
-                }}
-              >
+              <div key={group.key}>
                 <HtmlPreview content={group.content} />
               </div>
             );
@@ -322,7 +324,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               <div
                 key={group.key}
                 style={{
-                  marginTop: "4px",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "6px",
@@ -372,7 +373,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   borderRadius: "var(--border-radius)",
                   backgroundColor: "transparent", // Clean look
                   padding: "0",
-                  marginTop: "4px",
                 }}
               >
                 <div
@@ -383,7 +383,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     whiteSpace: "pre-wrap",
                   }}
                 >
-                  {renderFormattedText(group.content)}
+                  {renderFormattedText(group.content.trim())}
                 </div>
               </div>
             );
@@ -402,6 +402,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 terminalStatus={terminalStatus}
                 nextUserMessage={nextUserMessage}
                 activeTerminalIds={activeTerminalIds}
+                attachedTerminalIds={attachedTerminalIds}
+                conversationId={conversationId}
               />
             );
           }

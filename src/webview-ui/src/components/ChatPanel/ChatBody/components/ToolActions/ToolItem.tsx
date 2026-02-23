@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { ToolAction } from "../../../../../services/ResponseParser";
 import { formatActionForDisplay } from "../../../../../services/ResponseParser";
 import {
@@ -40,6 +40,8 @@ interface ToolItemProps {
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
   activeTerminalIds?: Set<string>;
+  attachedTerminalIds?: Set<string>;
+  conversationId?: string;
 }
 
 const ExecuteButton: React.FC<{
@@ -155,6 +157,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
   terminalStatus,
   nextUserMessage,
   activeTerminalIds,
+  attachedTerminalIds,
+  conversationId,
 }) => {
   // Local state for fuzzy match validation (for replace_in_file)
   const [fuzzyStatus, setFuzzyStatus] = React.useState<{
@@ -171,8 +175,86 @@ const ToolItem: React.FC<ToolItemProps> = ({
   // Track write_to_file preview
   const [isPreviewing, setIsPreviewing] = React.useState<string | null>(null);
 
+  // Local state for ANSI terminal output from history
+  const [storedOutput, setStoredOutput] = useState<string | null>(null);
+
   // Track validated/auto-run actions to prevent re-requests on prop changes
   const processedActions = React.useRef<Set<string>>(new Set());
+
+  // Use effective actionId for identifying terminal output
+  const runCommandAction = group.find((g) => g.action.type === "run_command");
+
+  useEffect(() => {
+    console.log("[ToolItem] useEffect history check triggered:", {
+      messageId,
+      hasRunCommandAction: !!runCommandAction,
+      hasNextUserMessage: !!nextUserMessage,
+      nextUserMessageRole: nextUserMessage?.role,
+      nextUserMessageHidden: nextUserMessage?.uiHidden,
+      nextUserMessageContent: nextUserMessage?.content?.substring(0, 100),
+    });
+
+    if (!nextUserMessage?.content || !runCommandAction) return;
+
+    // Detect terminal output UUID in history
+    const commandText = runCommandAction.action.params.command;
+    if (!commandText) return;
+
+    const escapeRegExp = (str: string) =>
+      str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(
+      `Output: \\[run_command for '${escapeRegExp(
+        commandText,
+      )}'.*?\\] .*?with "terminal_output-([a-f0-9-]+)"`,
+    );
+    const match = regex.exec(nextUserMessage.content);
+
+    if (match && match[1]) {
+      const outputUuid = match[1];
+      const requestId = `read-terminal-${outputUuid}`;
+      const chatUuidToUse =
+        conversationId || nextUserMessage.conversationId || "";
+
+      // Skip if already requested or already has output
+      if (processedActions.current.has(requestId) || storedOutput) return;
+
+      console.log("[ToolItem] Found terminal output reference in history:", {
+        outputUuid,
+        chatUuid: chatUuidToUse,
+        command: commandText.substring(0, 50) + "...",
+      });
+
+      const handleMessage = (event: MessageEvent) => {
+        const msg = event.data;
+        if (
+          msg.command === "readTerminalOutputResult" &&
+          msg.outputUuid === outputUuid
+        ) {
+          console.log("[ToolItem] Received readTerminalOutputResult:", {
+            outputUuid,
+            hasContent: !!msg.content,
+            contentLength: msg.content?.length,
+          });
+          if (msg.content) {
+            setStoredOutput(msg.content);
+          }
+          window.removeEventListener("message", handleMessage);
+        }
+      };
+
+      window.addEventListener("message", handleMessage);
+      console.log("[ToolItem] Sending readTerminalOutput request to extension");
+      processedActions.current.add(requestId);
+      extensionService.postMessage({
+        command: "readTerminalOutput",
+        chatUuid: chatUuidToUse,
+        outputUuid,
+        requestId,
+      });
+
+      return () => window.removeEventListener("message", handleMessage);
+    }
+  }, [nextUserMessage, runCommandAction, messageId, storedOutput]);
 
   React.useEffect(() => {
     // Only run for replace_in_file actions
@@ -619,13 +701,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
       return (
         <TerminalBlock
-          logs={outputData?.output || extractedOutput || ""}
+          logs={outputData?.output || storedOutput || extractedOutput || ""}
           initialCommand={action.params.command}
           terminalName="Execute"
           subInfo={action.params.cwd}
           status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
           statusColor={toolColor}
-          isAttached={terminalId ? activeTerminalIds?.has(terminalId) : false}
+          isAttached={terminalId ? attachedTerminalIds?.has(terminalId) : false}
           onAttachToVSCode={
             terminalId && activeTerminalIds?.has(terminalId)
               ? () => {

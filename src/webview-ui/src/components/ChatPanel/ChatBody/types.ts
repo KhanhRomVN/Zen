@@ -5,7 +5,7 @@ export interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
-  contextSize?: number;
+  token_usage?: number;
   usage?: {
     prompt_tokens: number;
     completion_tokens: number;

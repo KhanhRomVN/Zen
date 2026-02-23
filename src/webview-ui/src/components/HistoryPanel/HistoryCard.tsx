@@ -194,7 +194,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
         </div>
 
         {/* Tokens Badge */}
-        {(item.totalContext ?? 0) > 0 && (
+        {(item.totalTokenUsage ?? 0) > 0 && (
           <div
             style={{
               display: "flex",
@@ -210,7 +210,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
           >
             <Zap size={10} style={{ color: "#eab308" }} />
             <span style={{ fontWeight: 500 }}>
-              {(item.totalContext ?? 0).toLocaleString()} tkn
+              {(item.totalTokenUsage ?? 0).toLocaleString()} tkn
             </span>
           </div>
         )}

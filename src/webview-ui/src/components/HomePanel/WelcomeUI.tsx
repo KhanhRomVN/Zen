@@ -104,7 +104,15 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.preview.toLowerCase().includes(searchQuery.toLowerCase()),
     )
-    .sort((a, b) => b.lastModified - a.lastModified)
+    .sort((a, b) => {
+      const timeA = new Date(
+        a.lastModified || a.timestamp || a.createdAt || 0,
+      ).getTime();
+      const timeB = new Date(
+        b.lastModified || b.timestamp || b.createdAt || 0,
+      ).getTime();
+      return timeB - timeA;
+    })
     .slice(0, 10); // Show top 10 recent
 
   return (

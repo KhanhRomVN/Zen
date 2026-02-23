@@ -97,20 +97,20 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     }
   }, [isXtermVisible, status]);
 
-  const lastWrittenIndexRef = useRef(0);
+  const lastWrittenLogsRef = useRef("");
 
   useEffect(() => {
     if (xtermRef.current && isXtermVisible) {
-      if (logs.length < lastWrittenIndexRef.current) {
-        // Logs were reset (e.g. cleared)
-        xtermRef.current.clear();
-        lastWrittenIndexRef.current = 0;
-      }
-
-      if (logs.length > lastWrittenIndexRef.current) {
-        const newData = logs.substring(lastWrittenIndexRef.current);
+      if (!logs.startsWith(lastWrittenLogsRef.current)) {
+        // Logs were reset or changed significantly (e.g. raw text replaced by ANSI)
+        xtermRef.current.reset();
+        xtermRef.current.write(logs);
+        lastWrittenLogsRef.current = logs;
+      } else if (logs.length > lastWrittenLogsRef.current.length) {
+        // Append new data
+        const newData = logs.substring(lastWrittenLogsRef.current.length);
         xtermRef.current.write(newData);
-        lastWrittenIndexRef.current = logs.length;
+        lastWrittenLogsRef.current = logs;
       }
 
       // 📏 AUTO-FIT HEIGHT: Calculate rows based on content + wrapping

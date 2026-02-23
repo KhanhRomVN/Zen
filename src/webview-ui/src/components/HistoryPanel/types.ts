@@ -9,8 +9,9 @@ export interface ConversationItem {
   containerName?: string;
   provider?: "deepseek" | "chatgpt" | "gemini" | "grok" | "claude";
   createdAt: number;
+  timestamp?: number;
   totalRequests: number;
-  totalContext: number;
+  totalTokenUsage: number;
   size?: number; // Size in bytes
   totalTasks?: number;
   completedTasks?: number;

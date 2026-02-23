@@ -6,7 +6,6 @@ import * as os from "os";
 import { execSync } from "child_process";
 
 const SOCKET_PATH = path.join(os.homedir(), "khanhromvn-zen", "bridge.sock");
-const LOGS_DIR = path.join(os.homedir(), "khanhromvn-zen", "terminals");
 
 if (!fs.existsSync(path.dirname(SOCKET_PATH))) {
   fs.mkdirSync(path.dirname(SOCKET_PATH), { recursive: true });
@@ -21,15 +20,14 @@ if (fs.existsSync(SOCKET_PATH)) {
 
 const terminals = new Map<
   string,
-  { pty: pty.IPty; sockets: Set<net.Socket>; cwd: string }
+  { pty: pty.IPty; sockets: Set<net.Socket>; cwd: string; logPath: string }
 >();
 
-function getLogPath(id: string) {
-  return path.join(LOGS_DIR, `${id}.log`);
-}
-
 function appendToLog(id: string, data: string) {
-  const logPath = getLogPath(id);
+  const terminal = terminals.get(id);
+  if (!terminal || !terminal.logPath) return;
+
+  const logPath = terminal.logPath;
   try {
     fs.appendFileSync(logPath, data);
     // Simple rotation: check size every 1MB
@@ -94,6 +92,10 @@ const server = net.createServer((socket) => {
         // Re-attach to existing
         const term = terminals.get(id)!;
         term.sockets.add(socket);
+        // Update logPath if provided (might change on project reload)
+        if (msg.logPath) {
+          term.logPath = msg.logPath;
+        }
         send({ type: "created", id, status: "exists" });
         // Send immediate status update
         send({
@@ -105,7 +107,7 @@ const server = net.createServer((socket) => {
         return;
       }
 
-      const { shell, args, cwd, env } = msg;
+      const { shell, args, cwd, env, logPath } = msg;
       try {
         const ptyProcess = pty.spawn(shell, args || [], {
           name: "xterm-256color",
@@ -119,6 +121,7 @@ const server = net.createServer((socket) => {
           pty: ptyProcess,
           sockets: new Set([socket]),
           cwd: cwd || os.homedir(),
+          logPath: logPath || "",
         };
         terminals.set(id, term);
 

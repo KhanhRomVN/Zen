@@ -80,10 +80,16 @@ export const useConversationHistory = (isOpen: boolean) => {
           item.preview.toLowerCase().includes(searchQuery.toLowerCase()),
       )
       .sort((a, b) => {
+        const timeA = new Date(
+          a.lastModified || a.timestamp || a.createdAt || 0,
+        ).getTime();
+        const timeB = new Date(
+          b.lastModified || b.timestamp || b.createdAt || 0,
+        ).getTime();
         if (selectedSort === "recent") {
-          return b.lastModified - a.lastModified;
+          return timeB - timeA;
         } else {
-          return a.lastModified - b.lastModified;
+          return timeA - timeB;
         }
       });
   }, [conversations, searchQuery, selectedSort]);

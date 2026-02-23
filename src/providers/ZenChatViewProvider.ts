@@ -9,6 +9,8 @@ import { BackupManager } from "../managers/BackupManager";
 import { ProcessManager } from "../managers/ProcessManager";
 import { FileLockManager } from "../managers/FileLockManager";
 import { ProjectStructureManager } from "../context/ProjectStructureManager";
+import * as crypto from "crypto";
+import * as os from "os";
 
 export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
@@ -43,6 +45,19 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (workspaceFolder) {
       const folderPath = workspaceFolder.uri.fsPath;
+
+      // Compute project directory (matching ChatController logic)
+      const hash = crypto.createHash("md5").update(folderPath).digest("hex");
+      const projectDir = path.join(
+        os.homedir(),
+        "khanhromvn-zen",
+        "projects",
+        hash,
+      );
+
+      // Set project directory in ProcessManager to enable project-specific terminals
+      this._processManager.setProjectDir(projectDir);
+
       vscode.commands.executeCommand(
         "setContext",
         "zen.workspaceFolderPath",

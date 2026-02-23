@@ -16,12 +16,12 @@ interface UseToolExecutionProps {
     uiHidden?: boolean,
     thinking?: boolean,
   ) => Promise<void>;
-  conversationId?: string;
+  conversationIdRef?: React.MutableRefObject<string>;
 }
 
 export const useToolExecution = ({
   sendMessage,
-  conversationId,
+  conversationIdRef,
 }: UseToolExecutionProps) => {
   const [executionState, setExecutionState] = useState<{
     total: number;
@@ -53,31 +53,6 @@ export const useToolExecution = ({
 
   const terminalToActionMap = useRef<Map<string, string>>(new Map());
 
-  // Logic to save metadata to extension
-  useEffect(() => {
-    if (
-      conversationId &&
-      (Object.keys(toolOutputs).length > 0 || clickedActions.size > 0)
-    ) {
-      extensionService.postMessage({
-        command: "saveToolMetadata",
-        conversationId,
-        toolOutputs,
-        clickedActions: Array.from(clickedActions),
-      });
-    }
-  }, [conversationId, toolOutputs, clickedActions]);
-
-  const hydrateState = useCallback((metadata: any) => {
-    if (!metadata) return;
-    if (metadata.toolOutputs) setToolOutputs(metadata.toolOutputs);
-    if (metadata.clickedActions) {
-      const clicked = new Set<string>(metadata.clickedActions);
-      setClickedActions(clicked);
-      clickedActionsRef.current = clicked;
-    }
-  }, []);
-
   useEffect(() => {
     handleSendMessageRef.current = sendMessage;
   }, [sendMessage]);
@@ -101,6 +76,32 @@ export const useToolExecution = ({
               terminalId: message.terminalId,
             },
           }));
+
+          // [New] Persistent Terminal Color Storage
+          // Create UUID once for this execution
+          const outputUuid = crypto.randomUUID();
+
+          // Save raw ANSI output immediately (even for manual runs)
+          const effectiveChatUuid = conversationIdRef?.current;
+          console.log(
+            `[useToolExecution] Using conversationIdRef.current: "${effectiveChatUuid}"`,
+          );
+
+          if (effectiveChatUuid) {
+            console.log(
+              "[useToolExecution] Sending saveTerminalOutput message to extension",
+            );
+            extensionService.postMessage({
+              command: "saveTerminalOutput",
+              chatUuid: effectiveChatUuid,
+              outputUuid,
+              content: message.output, // Keep original ANSI color output
+            });
+          } else {
+            console.warn(
+              "[useToolExecution] Cannot save terminal output: conversationId (from Ref) is missing",
+            );
+          }
 
           if (pendingToolResolvers.current.has(message.actionId)) {
             const resolver = pendingToolResolvers.current.get(message.actionId);
@@ -160,13 +161,16 @@ export const useToolExecution = ({
               if (startTime) {
                 commandStartTimes.current.delete(message.actionId);
               }
+
               const timeSuffix = duration ? ` for ${duration}s` : "";
               const terminalSuffix = message.terminalId
                 ? ` on terminal ${message.terminalId}`
                 : "";
+              const outputTag = ` with "terminal_output-${outputUuid}"`;
+
               const resultMsg = message.error
-                ? `Output: [run_command for '${cmdText}'${terminalSuffix}]${timeSuffix}\n\`\`\`\nError: ${message.error}\n${outputContent}\n\`\`\``
-                : `Output: [run_command for '${cmdText}'${terminalSuffix}]${timeSuffix}\n\`\`\`\n${outputContent}\n\`\`\``;
+                ? `Output: [run_command for '${cmdText}'${terminalSuffix}]${timeSuffix}${outputTag}\n\`\`\`\nError: ${message.error}\n${outputContent}\n\`\`\``
+                : `Output: [run_command for '${cmdText}'${terminalSuffix}]${timeSuffix}${outputTag}\n\`\`\`\n${outputContent}\n\`\`\``;
 
               resolver(resultMsg);
               pendingToolResolvers.current.delete(message.actionId);
@@ -737,6 +741,5 @@ export const useToolExecution = ({
     clickedActions,
     terminalStatus,
     handleToolRequest,
-    hydrateState,
   };
 };

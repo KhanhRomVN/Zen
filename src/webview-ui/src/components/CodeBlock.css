@@ -1,6 +1,6 @@
 /* 🆕 No shadows or effects for both collapsed and expanded states */
 .code-block-container {
-  border: none;
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
   border-radius: 6px;
   overflow: hidden;
   background-color: var(--vscode-editor-background);
@@ -92,7 +92,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-right: 12px; /* Phase 3: Add padding-right to avoid sticking to edge */
 }
 
 .copy-button {

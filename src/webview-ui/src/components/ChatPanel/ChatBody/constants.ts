@@ -55,4 +55,5 @@ export const MANUAL_CONFIRMATION_TOOLS = [
   "stop_terminal",
   "run_command",
   "create_terminal_shell",
+  "list_terminals",
 ];

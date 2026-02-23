@@ -467,9 +467,50 @@ export class ProcessManager {
 
   private _extensionContext: vscode.ExtensionContext | null = null;
   private readonly STORAGE_KEY = "zen.persistentTerminals";
+  private projectDir: string | null = null;
+
+  public setProjectDir(dir: string) {
+    this.projectDir = dir;
+    this.migrateLegacyLogs();
+  }
 
   private getTerminalLogsDir(): string {
+    if (this.projectDir) {
+      const dir = path.join(this.projectDir, "terminals");
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      return dir;
+    }
     return path.join(os.homedir(), "khanhromvn-zen", "terminals");
+  }
+
+  private migrateLegacyLogs() {
+    if (!this.projectDir) return;
+
+    const legacyDir = path.join(os.homedir(), "khanhromvn-zen", "terminals");
+    const targetDir = path.join(this.projectDir, "terminals");
+
+    if (!fs.existsSync(legacyDir)) return;
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    try {
+      const files = fs.readdirSync(legacyDir);
+      for (const file of files) {
+        if (file.endsWith(".log")) {
+          const oldPath = path.join(legacyDir, file);
+          const newPath = path.join(targetDir, file);
+          if (!fs.existsSync(newPath)) {
+            fs.renameSync(oldPath, newPath);
+            appendToDebugLog(`Migrated terminal log: ${file}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to migrate legacy terminal logs", e);
+    }
   }
 
   constructor() {
@@ -616,6 +657,7 @@ export class ProcessManager {
         shell,
         args,
         cwd,
+        logPath: logFilePath,
         env: {
           FORCE_COLOR: "1",
           TERM: "xterm-256color",

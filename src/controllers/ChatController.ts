@@ -223,11 +223,14 @@ export class ChatController {
           if (message.url)
             vscode.env.openExternal(vscode.Uri.parse(message.url));
           break;
+        case "saveTerminalOutput":
+          await this.handleSaveTerminalOutput(message);
+          break;
+        case "readTerminalOutput":
+          await this.handleReadTerminalOutput(message, webviewView);
+          break;
         case "getWorkspaceTree":
           await this.handleGetWorkspaceTree(message, webviewView);
-          break;
-        case "saveToolMetadata":
-          await this.handleSaveToolMetadata(message);
           break;
       }
     } catch (error) {
@@ -345,7 +348,11 @@ export class ChatController {
           } catch {}
         }
       }
-      history.sort((a, b) => b.timestamp - a.timestamp);
+      history.sort((a, b) => {
+        const timeA = new Date(a.lastModified || a.timestamp).getTime();
+        const timeB = new Date(b.lastModified || b.timestamp).getTime();
+        return timeB - timeA;
+      });
       webviewView.webview.postMessage({
         command: "historyResult",
         requestId: message.requestId,
@@ -374,28 +381,12 @@ export class ChatController {
       );
       const content = await fs.promises.readFile(logPath, "utf-8");
 
-      // Try to load tool metadata
-      let metadata = null;
-      const metadataPath = path.join(
-        this.getProjectContextDir(workspaceFolder.uri.fsPath),
-        `${conversationId}_metadata.json`,
-      );
-      if (fs.existsSync(metadataPath)) {
-        try {
-          const metaContent = await fs.promises.readFile(metadataPath, "utf-8");
-          metadata = JSON.parse(metaContent);
-        } catch (e) {
-          console.error("Failed to parse tool metadata", e);
-        }
-      }
-
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,
         data: {
           messages: JSON.parse(content),
           conversationId,
-          metadata,
         },
       });
     } catch (error: any) {
@@ -404,69 +395,6 @@ export class ChatController {
         requestId: message.requestId,
         error: String(error),
       });
-    }
-  }
-
-  private async handleSaveToolMetadata(message: any) {
-    const { conversationId, toolOutputs, clickedActions, clearedActions } =
-      message;
-    if (!conversationId) return;
-
-    try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) return;
-
-      const projectContextDir = this.getProjectContextDir(
-        workspaceFolder.uri.fsPath,
-      );
-      await fs.promises.mkdir(projectContextDir, { recursive: true });
-      const metadataPath = path.join(
-        projectContextDir,
-        `${conversationId}_metadata.json`,
-      );
-
-      const release = await this.fileLockManager.acquire(metadataPath);
-      try {
-        const metadata = {
-          toolOutputs,
-          clickedActions: Array.isArray(clickedActions)
-            ? clickedActions
-            : Array.from(clickedActions || []),
-          clearedActions: Array.isArray(clearedActions)
-            ? clearedActions
-            : Array.from(clearedActions || []),
-          lastUpdated: Date.now(),
-        };
-        await fs.promises.writeFile(
-          metadataPath,
-          JSON.stringify(metadata, null, 2),
-        );
-      } finally {
-        release();
-      }
-
-      // Also save raw terminal outputs to a dedicated folder for future review
-      const terminalLogsDir = path.join(
-        projectContextDir,
-        conversationId,
-        "terminal_logs",
-      );
-      await fs.promises.mkdir(terminalLogsDir, { recursive: true });
-
-      if (toolOutputs) {
-        for (const [actionId, data] of Object.entries(toolOutputs)) {
-          const terminalData = data as { output: string; terminalId?: string };
-          if (terminalData.output) {
-            const logFileName = `${actionId}.log`;
-            await fs.promises.writeFile(
-              path.join(terminalLogsDir, logFileName),
-              terminalData.output,
-            );
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Save tool metadata and terminal logs failed", e);
     }
   }
 
@@ -719,6 +647,109 @@ export class ChatController {
       webviewView.webview.postMessage({
         command: "renameConversationLogResult",
         success: false,
+        error: String(e),
+      });
+    }
+  }
+
+  private async handleSaveTerminalOutput(message: any) {
+    try {
+      const { chatUuid, outputUuid, content } = message;
+      console.log(
+        `[ChatController] handleSaveTerminalOutput called with chatUuid: ${chatUuid}, outputUuid: ${outputUuid}`,
+      );
+
+      if (!chatUuid || !outputUuid || content === undefined) {
+        console.warn(
+          "[ChatController] Missing required fields in handleSaveTerminalOutput",
+          { chatUuid, outputUuid, hasContent: content !== undefined },
+        );
+        return;
+      }
+
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        console.warn(
+          "[ChatController] No workspace folder found in handleSaveTerminalOutput",
+        );
+        return;
+      }
+
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      const terminalOutputsDir = path.join(
+        projectContextDir,
+        chatUuid,
+        "terminal_outputs",
+      );
+
+      console.log(
+        `[ChatController] Attempting to create directory: ${terminalOutputsDir}`,
+      );
+      await fs.promises.mkdir(terminalOutputsDir, { recursive: true });
+
+      const outputPath = path.join(terminalOutputsDir, `${outputUuid}.json`);
+      console.log(`[ChatController] Writing terminal output to: ${outputPath}`);
+
+      await fs.promises.writeFile(
+        outputPath,
+        JSON.stringify({ content }, null, 2),
+      );
+      console.log(
+        `[ChatController] Successfully saved terminal output for ${outputUuid}`,
+      );
+    } catch (e) {
+      console.error(
+        "[ChatController] Save terminal output failed with error:",
+        e,
+      );
+    }
+  }
+
+  private async handleReadTerminalOutput(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const { chatUuid, outputUuid, requestId } = message;
+      if (!chatUuid || !outputUuid) return;
+
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      const outputPath = path.join(
+        projectContextDir,
+        chatUuid,
+        "terminal_outputs",
+        `${outputUuid}.json`,
+      );
+
+      if (fs.existsSync(outputPath)) {
+        const data = await fs.promises.readFile(outputPath, "utf-8");
+        const parsed = JSON.parse(data);
+        webviewView.webview.postMessage({
+          command: "readTerminalOutputResult",
+          requestId,
+          outputUuid,
+          content: parsed.content,
+        });
+      } else {
+        webviewView.webview.postMessage({
+          command: "readTerminalOutputResult",
+          requestId,
+          outputUuid,
+          error: "Terminal output file not found",
+        });
+      }
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "readTerminalOutputResult",
+        requestId: message.requestId,
+        outputUuid: message.outputUuid,
         error: String(e),
       });
     }

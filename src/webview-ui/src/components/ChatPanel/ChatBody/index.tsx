@@ -14,6 +14,8 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
   activeTerminalIds?: Set<string>;
+  attachedTerminalIds?: Set<string>;
+  conversationId?: string;
 }
 
 // Hooks
@@ -38,6 +40,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   firstRequestMessageId,
   onLoadConversation,
   activeTerminalIds,
+  attachedTerminalIds,
+  conversationId,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -132,10 +136,16 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         }
         const parsedContent = parsedMessage.parsed;
 
-        // Find the next user message to extract historical terminal output if needed
-        const nextUserMessage = visibleMessages
-          .slice(index + 1)
+        const nextUserMessage = messages
+          .slice(messages.findIndex((m) => m.id === message.id) + 1)
           .find((m) => m.role === "user");
+
+        if (nextUserMessage) {
+          console.log(`[ChatBody] Found nextUserMessage for ${message.id}:`, {
+            nextId: nextUserMessage.id,
+            contentSnippet: nextUserMessage.content.substring(0, 50),
+          });
+        }
 
         return (
           <MessageBox
@@ -163,6 +173,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             toolOutputs={toolOutputs}
             terminalStatus={terminalStatus}
             activeTerminalIds={activeTerminalIds}
+            attachedTerminalIds={attachedTerminalIds}
+            conversationId={conversationId}
           />
         );
       })}

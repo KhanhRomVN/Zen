@@ -242,7 +242,7 @@ export const useChatLLM = ({
         role: "user",
         content: finalContent,
         timestamp: Date.now(),
-        contextSize: promptPayload.length,
+        token_usage: calculateTokens(promptPayload),
         actionIds: actionIds,
         uiHidden: uiHidden,
       };
@@ -372,6 +372,7 @@ export const useChatLLM = ({
                     assistantMessage = {
                       ...assistantMessage,
                       usage: data.usage,
+                      token_usage: data.usage.total_tokens,
                     };
                   }
                   if (data.content) {
@@ -393,6 +394,45 @@ export const useChatLLM = ({
             }
           }
         }
+
+        // Process any remaining data in buffer after stream ends
+        const remainingLines = buffer
+          .split("\n")
+          .filter((l) => l.trim().startsWith("data: "));
+        for (const line of remainingLines) {
+          const dataStr = line.slice(6).trim();
+          if (dataStr === "[DONE]") continue;
+          try {
+            const data = JSON.parse(dataStr);
+            if (data.usage) {
+              assistantMessage = {
+                ...assistantMessage,
+                usage: data.usage,
+                token_usage: data.usage.total_tokens,
+              };
+            }
+            if (data.content) {
+              assistantMessage = {
+                ...assistantMessage,
+                content: assistantMessage.content + data.content,
+              };
+            }
+          } catch (e) {}
+        }
+
+        // Final fallback: if token_usage is still missing, calculate it manually
+        if (!assistantMessage.token_usage && assistantMessage.content) {
+          assistantMessage.token_usage = calculateTokens(
+            assistantMessage.content,
+          );
+        }
+
+        // Final state update to ensure UI and subsequent logic see the latest usage info
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id ? assistantMessage : m,
+          ),
+        );
 
         setIsProcessing(false);
         setIsStreaming(false);
@@ -462,6 +502,7 @@ export const useChatLLM = ({
     isStreaming,
     currentConversationId,
     setCurrentConversationId,
+    currentConversationIdRef,
     sendMessage,
     stopGeneration,
     setBackendConversationId: (id: string) => {
