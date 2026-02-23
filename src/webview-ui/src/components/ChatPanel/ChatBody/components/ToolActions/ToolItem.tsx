@@ -185,15 +185,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
   const runCommandAction = group.find((g) => g.action.type === "run_command");
 
   useEffect(() => {
-    console.log("[ToolItem] useEffect history check triggered:", {
-      messageId,
-      hasRunCommandAction: !!runCommandAction,
-      hasNextUserMessage: !!nextUserMessage,
-      nextUserMessageRole: nextUserMessage?.role,
-      nextUserMessageHidden: nextUserMessage?.uiHidden,
-      nextUserMessageContent: nextUserMessage?.content?.substring(0, 100),
-    });
-
     if (!nextUserMessage?.content || !runCommandAction) return;
 
     // Detect terminal output UUID in history
@@ -218,23 +209,12 @@ const ToolItem: React.FC<ToolItemProps> = ({
       // Skip if already requested or already has output
       if (processedActions.current.has(requestId) || storedOutput) return;
 
-      console.log("[ToolItem] Found terminal output reference in history:", {
-        outputUuid,
-        chatUuid: chatUuidToUse,
-        command: commandText.substring(0, 50) + "...",
-      });
-
       const handleMessage = (event: MessageEvent) => {
         const msg = event.data;
         if (
           msg.command === "readTerminalOutputResult" &&
           msg.outputUuid === outputUuid
         ) {
-          console.log("[ToolItem] Received readTerminalOutputResult:", {
-            outputUuid,
-            hasContent: !!msg.content,
-            contentLength: msg.content?.length,
-          });
           if (msg.content) {
             setStoredOutput(msg.content);
           }
@@ -243,7 +223,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
       };
 
       window.addEventListener("message", handleMessage);
-      console.log("[ToolItem] Sending readTerminalOutput request to extension");
       processedActions.current.add(requestId);
       extensionService.postMessage({
         command: "readTerminalOutput",

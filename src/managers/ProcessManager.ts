@@ -14,8 +14,6 @@ import {
 const DEBUG_LOG_PATH = "/tmp/zen_terminal_debug.log";
 
 function appendToDebugLog(msg: string) {
-  const logLine = `[ZenTerminal] ${msg}`;
-  console.log(logLine);
   try {
     fs.appendFileSync(DEBUG_LOG_PATH, `[${new Date().toISOString()}] ${msg}\n`);
   } catch (e) {}
@@ -213,7 +211,6 @@ class BridgeClient {
     this.isConnecting = true;
     return new Promise((resolve) => {
       const client = net.createConnection(SOCKET_PATH, () => {
-        console.log("Connected to Terminal Bridge");
         this.socket = client;
         this.isConnecting = false;
         this.drainQueue();
@@ -238,7 +235,6 @@ class BridgeClient {
           (err as any).code === "ENOENT" ||
           (err as any).code === "ECONNREFUSED"
         ) {
-          console.log("Bridge not found, spawning...");
           const spawned = await this.spawnBridge();
           if (spawned) {
             // Retry connect once after spawn
@@ -289,7 +285,6 @@ class BridgeClient {
   }
 
   private processOutputLine(id: string, pty: ZenPTY, line: string) {
-    console.log(`[ZenTerminal] processOutputLine RAW: ${JSON.stringify(line)}`);
     appendToDebugLog(
       `[processOutputLine] RAW: ${JSON.stringify(line)} (ActionID: ${pty.activeActionId})`,
     );
@@ -353,9 +348,6 @@ class BridgeClient {
     if (!pty) return;
 
     if (type === "output") {
-      console.log(
-        `[ZenTerminal] Bridge output received: ${JSON.stringify(msg.data)}`,
-      );
       let rawData = pty.lineBuffer + msg.data;
       pty.lineBuffer = "";
 
@@ -634,9 +626,15 @@ export class ProcessManager {
       const ptyInternal = new ZenPTY(cwd, logFilePath, id);
 
       (ptyInternal as any)._triggerCommandFinished = (output: string) => {
+        const promptPrefix = this.getPromptPrefix(ptyInternal.currentCwd);
+        const cleanOutputEnding = output.trim();
+        const finalOutput = cleanOutputEnding.endsWith(promptPrefix.trim())
+          ? output
+          : `${output}\n\n${promptPrefix}`;
+
         this.onCommandFinishedEmitter.fire({
           actionId: ptyInternal.activeActionId!,
-          output: output,
+          output: finalOutput,
           terminalId: id,
           commandText: ptyInternal.lastCommandText || undefined,
         });
@@ -737,18 +735,7 @@ export class ProcessManager {
       const lines = entry.pty.accumulatedOutput.trim().split("\n");
       const cleanLog = lines.slice(-10).join("\n").substring(0, 300);
 
-      // Get prompt prefix info
-      const username = os.userInfo().username;
-      const hostname = os.hostname();
-      let promptPrefix = `${username}@${hostname}:${this.formatPath(cwd || entry.pty.currentCwd)}$`;
-
-      // Try to find conda env from process environ if possible (Linux only for now)
-      // Note: We don't have the pid here easily, but we can try to look it up from the bridge info
-      // For now, let's use a simplified version or just the system one if available
-      const condaEnv = process.env.CONDA_DEFAULT_ENV;
-      if (condaEnv) {
-        promptPrefix = `(${condaEnv}) ${promptPrefix}`;
-      }
+      const promptPrefix = this.getPromptPrefix(cwd || entry.pty.currentCwd);
 
       return {
         id,
@@ -770,6 +757,26 @@ export class ProcessManager {
       return "~" + p.substring(home.length);
     }
     return p;
+  }
+
+  private getPromptPrefix(cwd: string): string {
+    const username = os.userInfo().username;
+    const hostname = os.hostname();
+
+    // ANSI Color Codes (Ubuntu style)
+    const BOLD_GREEN = "\x1b[01;32m";
+    const BOLD_BLUE = "\x1b[01;34m";
+    const RESET = "\x1b[00m";
+
+    let promptPrefix = `${BOLD_GREEN}${username}@${hostname}${RESET}:${BOLD_BLUE}${this.formatPath(cwd)}${RESET}$ `;
+
+    // Try to find conda env from process environ if possible (Linux only for now)
+    const condaEnv = process.env.CONDA_DEFAULT_ENV;
+    if (condaEnv) {
+      promptPrefix = `(${condaEnv}) ${promptPrefix}`;
+    }
+
+    return promptPrefix;
   }
 
   close(id: string) {

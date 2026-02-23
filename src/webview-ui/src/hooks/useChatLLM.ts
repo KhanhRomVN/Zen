@@ -102,9 +102,6 @@ export const useChatLLM = ({
         accountId?: string;
       } | null,
     ) => {
-      console.log(
-        `[useChatLLM] sendMessage called. isProcessing: ${isProcessing}, skipFirstRequestLogic: ${skipFirstRequestLogic}, content.length: ${content?.length}`,
-      );
       if (!skipFirstRequestLogic) {
         // Detailed trace for user-initiated requests to catch duplicates
         console.trace("[useChatLLM] sendMessage Stack Trace");

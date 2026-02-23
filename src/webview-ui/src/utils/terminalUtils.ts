@@ -47,3 +47,38 @@ export const stripAnsi = (str: string): string => {
 
   return processedLines.join("\n");
 };
+
+export function stripMarkers(
+  chunk: string,
+  activeActionId: string | null,
+): string {
+  if (!activeActionId || !chunk) return chunk;
+
+  const startMarker = `ZEN_CMD_START: ${activeActionId}`;
+  const endMarker = `ZEN_CMD_END: ${activeActionId}`;
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const ansi = "\\x1b\\[[0-9;?]*[A-Za-z~]|\\x1b\\].*?(?:\\x07|\\x1b\\\\)";
+  // messy patterns that can surround a marker:
+  // includes \r ONLY if NOT followed by \n (to protect \r\n delimiters)
+  const messy = `(?:${ansi}|\\r(?!\\n)|[\\x00-\\x09\\x0B-\\x0C\\x0E-\\x1F\\x7F]| )*`;
+  const markerBody = (m: string) => `${messy}${esc(m)}${messy}`;
+
+  const delim = "(\\r\\n|\\n|\\r|;|\\&)";
+
+  // Start Pattern: consume marker and TRAILING delimiter
+  const startRegex = new RegExp(
+    `(?:(?:echo\\s+["']?${markerBody(startMarker)}["']?\\s*(?:;|\\&|\\r\\n|\\n|\\r)\\s*)|${markerBody(startMarker)}${delim}|${markerBody(startMarker)}$)`,
+    "g",
+  );
+
+  // End Pattern: consume LEADING delimiter and marker
+  const endRegex = new RegExp(
+    `(?:${delim}${markerBody(endMarker)}|^${markerBody(endMarker)}|${delim}?\\s*echo\\s+["']?${markerBody(endMarker)}["']?|(?:;|\\&|^)\\s*echo\\s+["']?${markerBody(endMarker)}["']?)`,
+    "g",
+  );
+
+  let result = chunk.replace(startRegex, "").replace(endRegex, "");
+
+  return result;
+}

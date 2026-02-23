@@ -140,13 +140,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           .slice(messages.findIndex((m) => m.id === message.id) + 1)
           .find((m) => m.role === "user");
 
-        if (nextUserMessage) {
-          console.log(`[ChatBody] Found nextUserMessage for ${message.id}:`, {
-            nextId: nextUserMessage.id,
-            contentSnippet: nextUserMessage.content.substring(0, 50),
-          });
-        }
-
         return (
           <MessageBox
             key={message.id}

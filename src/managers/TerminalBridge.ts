@@ -222,8 +222,6 @@ setInterval(() => {
   }
 }, 500);
 
-server.listen(SOCKET_PATH, () => {
-  console.log(`Bridge listening on ${SOCKET_PATH}`);
-});
+server.listen(SOCKET_PATH, () => {});
 
 process.stdin.resume();

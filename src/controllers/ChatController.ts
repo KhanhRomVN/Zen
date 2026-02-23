@@ -655,9 +655,6 @@ export class ChatController {
   private async handleSaveTerminalOutput(message: any) {
     try {
       const { chatUuid, outputUuid, content } = message;
-      console.log(
-        `[ChatController] handleSaveTerminalOutput called with chatUuid: ${chatUuid}, outputUuid: ${outputUuid}`,
-      );
 
       if (!chatUuid || !outputUuid || content === undefined) {
         console.warn(
@@ -684,20 +681,13 @@ export class ChatController {
         "terminal_outputs",
       );
 
-      console.log(
-        `[ChatController] Attempting to create directory: ${terminalOutputsDir}`,
-      );
       await fs.promises.mkdir(terminalOutputsDir, { recursive: true });
 
       const outputPath = path.join(terminalOutputsDir, `${outputUuid}.json`);
-      console.log(`[ChatController] Writing terminal output to: ${outputPath}`);
 
       await fs.promises.writeFile(
         outputPath,
         JSON.stringify({ content }, null, 2),
-      );
-      console.log(
-        `[ChatController] Successfully saved terminal output for ${outputUuid}`,
       );
     } catch (e) {
       console.error(

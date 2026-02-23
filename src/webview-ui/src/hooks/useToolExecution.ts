@@ -3,7 +3,7 @@ import { Message } from "../components/ChatPanel/ChatBody/types";
 import { extensionService } from "../services/ExtensionService";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 import { MANUAL_CONFIRMATION_TOOLS } from "../components/ChatPanel/ChatBody/constants";
-import { stripAnsi } from "../utils/terminalUtils";
+import { stripAnsi, stripMarkers } from "../utils/terminalUtils";
 
 interface UseToolExecutionProps {
   sendMessage: (
@@ -83,14 +83,8 @@ export const useToolExecution = ({
 
           // Save raw ANSI output immediately (even for manual runs)
           const effectiveChatUuid = conversationIdRef?.current;
-          console.log(
-            `[useToolExecution] Using conversationIdRef.current: "${effectiveChatUuid}"`,
-          );
 
           if (effectiveChatUuid) {
-            console.log(
-              "[useToolExecution] Sending saveTerminalOutput message to extension",
-            );
             extensionService.postMessage({
               command: "saveTerminalOutput",
               chatUuid: effectiveChatUuid,
@@ -113,45 +107,12 @@ export const useToolExecution = ({
 
               const cmdText =
                 message.commandText || message.commandTextRaw || "command";
-              const outputRaw = message.output ? message.output.trim() : "";
-              let outputContent = stripAnsi(outputRaw);
+              const outputRaw = message.output ? message.output : "";
 
-              // Extract actual command output between our ZEN markers if they exist
-              const startMarker = `ZEN_CMD_START: ${message.actionId}`;
-              const endMarker = `ZEN_CMD_END: ${message.actionId}`;
-
-              const startIdx = outputContent.indexOf(startMarker);
-              const endIdx = outputContent.indexOf(endMarker);
-
-              if (startIdx !== -1 && endIdx !== -1) {
-                // The output starts after the start marker line
-                let afterStart = outputContent.substring(
-                  startIdx + startMarker.length,
-                );
-                // In some shells it might follow with quotes or newlines, sanitize it
-                afterStart = afterStart.replace(/^['"]?\s*\n?/, "");
-
-                // The end marker marks the end
-                const blockContent = afterStart.substring(
-                  0,
-                  afterStart.indexOf(endMarker),
-                );
-                outputContent = blockContent.trim();
-              } else {
-                // Fallback to old trimming logic if markers aren't found cleanly
-                const lines = outputContent.split("\n");
-                if (lines.length > 0) {
-                  const lastLine = lines[lines.length - 1].trim();
-                  if (
-                    lastLine.match(/[@\w.-]+\s*[:~].*?[$#>%]$/) ||
-                    lastLine.match(/^[$#>%]$/) ||
-                    lastLine.match(/^[PS] C:\\.*>$/i) // Windows PowerShell prompt
-                  ) {
-                    lines.pop();
-                  }
-                  outputContent = lines.join("\n").trim();
-                }
-              }
+              // Use the smarter stripMarkers utility instead of aggressive substring
+              // This preserves prompt and command echo while removing technical markers.
+              let outputContent = stripMarkers(outputRaw, message.actionId);
+              outputContent = outputContent.trim();
 
               const startTime = commandStartTimes.current.get(message.actionId);
               const duration = startTime
