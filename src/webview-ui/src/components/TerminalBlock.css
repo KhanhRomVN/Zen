@@ -20,7 +20,7 @@
   justify-content: space-between;
   padding: 8px 4px 8px 12px;
   background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
-  border-bottom: 1px solid var(--vscode-panel-border, #333);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   user-select: none;
 }
 

@@ -373,6 +373,17 @@ class BridgeClient {
       // Keep remaining partial line in buffer
       pty.lineBuffer = rawData.substring(lastProcessedIdx);
 
+      // 🆕 PROMPT FLUSH: If the buffer has content and it doesn't look like a marker
+      // we should process it immediately so the prompt appears without a newline
+      if (
+        pty.lineBuffer.length > 0 &&
+        !pty.lineBuffer.includes("ZEN_CMD_START") &&
+        !pty.lineBuffer.includes("ZEN_CMD_END")
+      ) {
+        this.processOutputLine(id, pty, pty.lineBuffer);
+        pty.lineBuffer = "";
+      }
+
       // Safety: If buffer grows too large without newline, process it anyway
       if (pty.lineBuffer.length > 4096) {
         this.processOutputLine(id, pty, pty.lineBuffer);
@@ -682,11 +693,7 @@ export class ProcessManager {
       }
 
       const lines = entry.pty.accumulatedOutput.trim().split("\n");
-      const cleanLog = lines
-        .slice(-10)
-        .join("\n")
-        .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "") // Strip ANSI escape codes
-        .substring(0, 300);
+      const cleanLog = lines.slice(-10).join("\n").substring(0, 300);
 
       // Get prompt prefix info
       const username = os.userInfo().username;
@@ -787,12 +794,12 @@ export class ProcessManager {
           finalInput = `stty -echo; echo "ZEN_CMD_START: ${actionId}"; ${cleanCmd}; echo "ZEN_CMD_END: ${actionId}"; stty echo\n`;
 
           // GHOST ECHO FIX: Add TWO entries to EchoSuppressor for bash/zsh
-          // 1. For the raw command that might be echoed immediately by TTY
-          // 2. For the command echoed with prompt by the shell's line editor
+          // 1. For the raw command that might be echoed immediately by TTY (Hide it)
+          // 2. For the command echoed with prompt by the shell's line editor (Clean it)
           const cleanOutput =
             text.endsWith("\n") || text.endsWith("\r\n") ? text : text + "\n";
-          entry.pty.echoSuppressor.add(finalInput, cleanOutput);
-          entry.pty.echoSuppressor.add(finalInput, cleanOutput);
+          entry.pty.echoSuppressor.add(finalInput, ""); // First echo is usually just the command, hide it
+          entry.pty.echoSuppressor.add(finalInput, cleanOutput); // Second echo has the prompt
         }
 
         if (os.platform() === "win32") {

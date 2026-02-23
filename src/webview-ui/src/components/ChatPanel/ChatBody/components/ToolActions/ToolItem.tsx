@@ -625,6 +625,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
           subInfo={action.params.cwd}
           status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
           statusColor={toolColor}
+          isAttached={terminalId ? activeTerminalIds?.has(terminalId) : false}
           onAttachToVSCode={
             terminalId && activeTerminalIds?.has(terminalId)
               ? () => {

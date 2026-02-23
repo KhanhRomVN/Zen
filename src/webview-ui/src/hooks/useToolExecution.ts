@@ -105,6 +105,11 @@ export const useToolExecution = ({
           if (pendingToolResolvers.current.has(message.actionId)) {
             const resolver = pendingToolResolvers.current.get(message.actionId);
             if (resolver) {
+              // Clear mapping so future terminal output (like 'clear') doesn't update this block
+              if (message.terminalId) {
+                terminalToActionMap.current.delete(message.terminalId);
+              }
+
               const cmdText =
                 message.commandText || message.commandTextRaw || "command";
               const outputRaw = message.output ? message.output.trim() : "";

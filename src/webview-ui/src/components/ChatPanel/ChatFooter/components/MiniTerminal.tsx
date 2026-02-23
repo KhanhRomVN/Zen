@@ -38,6 +38,22 @@ export const MiniTerminal: React.FC<MiniTerminalProps> = ({
             status === "busy"
               ? "var(--vscode-terminal-foreground)"
               : "transparent",
+          black: "var(--vscode-terminal-ansiBlack, #000000)",
+          red: "var(--vscode-terminal-ansiRed, #cd3131)",
+          green: "var(--vscode-terminal-ansiGreen, #0dbc79)",
+          yellow: "var(--vscode-terminal-ansiYellow, #e5e510)",
+          blue: "var(--vscode-terminal-ansiBlue, #2472c8)",
+          magenta: "var(--vscode-terminal-ansiMagenta, #bc3fbc)",
+          cyan: "var(--vscode-terminal-ansiCyan, #11a8cd)",
+          white: "var(--vscode-terminal-ansiWhite, #e5e5e5)",
+          brightBlack: "var(--vscode-terminal-ansiBrightBlack, #666666)",
+          brightRed: "var(--vscode-terminal-ansiBrightRed, #f14c4c)",
+          brightGreen: "var(--vscode-terminal-ansiBrightGreen, #23d18b)",
+          brightYellow: "var(--vscode-terminal-ansiBrightYellow, #f5f543)",
+          brightBlue: "var(--vscode-terminal-ansiBrightBlue, #3b8eea)",
+          brightMagenta: "var(--vscode-terminal-ansiBrightMagenta, #d670d6)",
+          brightCyan: "var(--vscode-terminal-ansiBrightCyan, #29b8db)",
+          brightWhite: "var(--vscode-terminal-ansiBrightWhite, #e5e5e5)",
         },
         allowProposedApi: true,
         rows: 5,
@@ -53,15 +69,16 @@ export const MiniTerminal: React.FC<MiniTerminalProps> = ({
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
 
+      // Ensure fit happens after a short delay since it's in a drawer
+      setTimeout(() => fitAddon.fit(), 100);
+
+      // 🆕 PROHIBIT INPUT: Disable data listener and block all key events
+      term.attachCustomKeyEventHandler(() => false);
+
       const handleResize = () => {
         fitAddon.fit();
       };
       window.addEventListener("resize", handleResize);
-
-      // Initial logs
-      if (logs) {
-        term.write(logs);
-      }
 
       return () => {
         term.dispose();
@@ -71,7 +88,7 @@ export const MiniTerminal: React.FC<MiniTerminalProps> = ({
     }
   }, []);
 
-  const lastWrittenIndexRef = useRef(logs?.length || 0);
+  const lastWrittenIndexRef = useRef(0);
 
   useEffect(() => {
     if (xtermRef.current) {
@@ -105,21 +122,26 @@ export const MiniTerminal: React.FC<MiniTerminalProps> = ({
 
   return (
     <div
+      className="terminal-block-container mini-terminal"
       style={{
-        width: "100%",
-        height: "90px", // Fixed height for exactly 5 lines
+        marginBottom: 0,
+        border: "none",
         backgroundColor: "var(--vscode-terminal-background, #1e1e1e)",
-        padding: "0", // Padding is handled by .xterm .xterm-screen in TerminalBlock.css
-        overflow: "hidden",
-        pointerEvents: "none", // Completely non-clickable
-        userSelect: "none",
       }}
     >
       <div
-        ref={terminalRef}
-        className="xterm-container"
-        style={{ width: "100%", height: "100%" }}
-      />
+        className="terminal-content-wrapper"
+        style={{
+          height: "90px",
+          padding: "4px 8px",
+        }}
+      >
+        <div
+          ref={terminalRef}
+          className="xterm-container"
+          onPaste={(e) => e.preventDefault()}
+        />
+      </div>
     </div>
   );
 };

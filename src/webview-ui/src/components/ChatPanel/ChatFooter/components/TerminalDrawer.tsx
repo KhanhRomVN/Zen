@@ -59,12 +59,30 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
           const next = { ...prev };
           newTerms.forEach((t: TerminalInfo) => {
             const currentLog = next[t.id] || "";
-            // If we don't have logs, or if the backend log is empty/shorter (terminal was likely cleared)
-            if (
-              !next[t.id] ||
-              (t.lastLog !== undefined && t.lastLog.length < currentLog.length)
-            ) {
-              next[t.id] = t.lastLog || "";
+
+            // 1. Initial load
+            if (!currentLog && t.lastLog) {
+              next[t.id] = t.lastLog;
+            }
+            // 2. Reset detection: if lastLog is significantly different or shorter than what we expect
+            // We strip ANSI for the comparison to be more reliable
+            else if (t.lastLog !== undefined) {
+              const cleanLastLog = t.lastLog.replace(
+                /\x1b\[[0-9;]*[mGKH]/g,
+                "",
+              );
+              const cleanCurrentLog = currentLog.replace(
+                /\x1b\[[0-9;]*[mGKH]/g,
+                "",
+              );
+
+              if (
+                cleanLastLog &&
+                cleanCurrentLog.length > cleanLastLog.length + 50
+              ) {
+                // Terminal was likely cleared or reset
+                next[t.id] = t.lastLog;
+              }
             }
           });
           return next;

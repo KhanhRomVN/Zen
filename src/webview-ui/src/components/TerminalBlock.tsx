@@ -16,6 +16,7 @@ interface TerminalBlockProps {
   initialCommand?: string;
   onInput?: (data: string) => void;
   onAttachToVSCode?: () => void;
+  isAttached?: boolean;
 }
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
@@ -30,6 +31,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   rows = 15,
   onInput,
   onAttachToVSCode,
+  isAttached,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
@@ -77,12 +79,9 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
 
-      // Handle user input
-      if (onInput) {
-        term.onData((data) => {
-          onInput(data);
-        });
-      }
+      // 🆕 PROHIBIT INPUT: Disable data listener and block all key events
+      // This ensures the terminal is view-only but still allows text selection.
+      term.attachCustomKeyEventHandler(() => false);
 
       const handleResize = () => {
         fitAddon.fit();
@@ -114,6 +113,33 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
         lastWrittenIndexRef.current = logs.length;
       }
 
+      // 📏 AUTO-FIT HEIGHT: Calculate rows based on content + wrapping
+      const stripAnsi = (str: string) =>
+        str
+          .replace(/\x1B\[[0-9;?]*[A-Za-z~]/g, "")
+          .replace(/\x1b\].*?(\x07|\x1b\\)/g, "");
+      const logicalLines = logs.split(/\n/);
+      const terminalCols = xtermRef.current.cols || 80;
+      let physicalLineCount = 0;
+
+      logicalLines.forEach((line) => {
+        const cleanLine = stripAnsi(line);
+        // Each logical line takes at least 1 physical row, plus extra for wrapping
+        physicalLineCount += Math.max(
+          1,
+          Math.ceil(cleanLine.length / terminalCols),
+        );
+      });
+
+      const targetRows = Math.max(2, Math.min(rows, physicalLineCount));
+
+      if (xtermRef.current.rows !== targetRows) {
+        xtermRef.current.resize(terminalCols, targetRows);
+        if (fitAddonRef.current) {
+          fitAddonRef.current.fit();
+        }
+      }
+
       // Update cursor and blink based on status
       xtermRef.current.options.cursorBlink = status === "busy";
       xtermRef.current.options.theme = {
@@ -124,7 +150,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
             : "transparent",
       };
     }
-  }, [logs, status, isXtermVisible]);
+  }, [logs, status, isXtermVisible, rows]);
 
   return (
     <div className="terminal-block-container">
@@ -143,26 +169,22 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
               />
             )}
             <span className="terminal-name">{terminalName}</span>
-            {status && (
+            {status === "busy" && (
               <span
                 className="terminal-state-badge"
-                style={
-                  status === "busy"
-                    ? {
-                        backgroundColor: "rgba(76, 175, 80, 0.1)",
-                        color: "#4caf50",
-                      }
-                    : {}
-                }
+                style={{
+                  backgroundColor: "rgba(76, 175, 80, 0.1)",
+                  color: "#4caf50",
+                }}
               >
-                {status === "busy" ? "Running" : "Free"}
+                Running
               </span>
             )}
           </div>
           {subInfo && <span className="terminal-sub-info">{subInfo}</span>}
         </div>
         <div className="header-actions">
-          {onAttachToVSCode && (
+          {onAttachToVSCode && !isAttached && (
             <button
               className="attach-terminal-btn"
               onClick={onAttachToVSCode}
@@ -208,7 +230,11 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
             {initialCommand || "No command executed yet."}
           </div>
         ) : (
-          <div ref={terminalRef} className="xterm-container" />
+          <div
+            ref={terminalRef}
+            className="xterm-container"
+            onPaste={(e) => e.preventDefault()}
+          />
         )}
       </div>
     </div>
