@@ -223,16 +223,80 @@ export const useChatLLM = ({
         }
       }
 
+      // Resolve attached items into formatted context
+      let attachedContextStr = "";
+      if (files && files.length > 0) {
+        const attachedItems = files.filter(
+          (f: any) =>
+            f.id?.startsWith("attached-") ||
+            f.id?.startsWith("rule-") ||
+            f.id?.startsWith("terminal-"),
+        );
+        if (attachedItems.length > 0) {
+          attachedContextStr = "\n\n## Attached Context\n";
+
+          const fileItems = attachedItems.filter((f: any) => f.type === "file");
+          const folderItems = attachedItems.filter(
+            (f: any) => f.type === "folder",
+          );
+          const terminalItems = attachedItems.filter(
+            (f: any) => f.type === "terminal",
+          );
+
+          if (fileItems.length > 0) {
+            attachedContextStr += "\n### Files\n";
+            fileItems.forEach((f: any) => {
+              attachedContextStr += `- ${f.path}\n`;
+            });
+          }
+
+          if (folderItems.length > 0) {
+            attachedContextStr += "\n### Folders (Tree Structure)\n";
+            for (const f of folderItems) {
+              const requestId = `folder-tree-${Date.now()}-${Math.random()}`;
+              const treeData: any = await new Promise((resolve) => {
+                const timeoutId = setTimeout(() => resolve(null), 3000);
+                const handler = (event: MessageEvent) => {
+                  const msg = event.data;
+                  if (
+                    msg.command === "getFolderTreeResult" &&
+                    msg.requestId === requestId
+                  ) {
+                    clearTimeout(timeoutId);
+                    window.removeEventListener("message", handler);
+                    resolve(msg.tree);
+                  }
+                };
+                window.addEventListener("message", handler);
+                extensionService.postMessage({
+                  command: "getFolderTree",
+                  requestId,
+                  path: f.path,
+                });
+              });
+              attachedContextStr += `#### ${f.path}\n\`\`\`\n${treeData || "Error fetching tree structure"}\n\`\`\`\n`;
+            }
+          }
+
+          if (terminalItems.length > 0) {
+            attachedContextStr += "\n### Terminals\n";
+            terminalItems.forEach((f: any) => {
+              attachedContextStr += `- terminal_id: ${f.path}\n`;
+            });
+          }
+        }
+      }
+
       const fullContent = skipFirstRequestLogic
         ? content
         : `## User Message\n\`\`\`\n${content}\n\`\`\``;
 
       const promptPayload = isReq1
-        ? `${systemPrompt}${projectContextStr}\n\n${fullContent}`
-        : fullContent;
+        ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${fullContent}`
+        : `${attachedContextStr}\n\n${fullContent}`;
 
       // In the new schema, req1 content includes system prompt
-      const finalContent = isReq1 ? promptPayload : fullContent;
+      const finalContent = promptPayload;
 
       const userMessage: Message = {
         id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,

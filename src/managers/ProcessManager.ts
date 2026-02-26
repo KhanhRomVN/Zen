@@ -638,6 +638,9 @@ export class ProcessManager {
           terminalId: id,
           commandText: ptyInternal.lastCommandText || undefined,
         });
+
+        // Auto-close terminal after command execution
+        this.close(id);
       };
       ptyInternal.isPersistent = true;
       ptyInternal.shellPath = shell;

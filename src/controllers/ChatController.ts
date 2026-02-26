@@ -10,9 +10,11 @@ import { BackupManager } from "../managers/BackupManager";
 import { ProcessManager } from "../managers/ProcessManager";
 import { FileLockManager } from "../managers/FileLockManager";
 import { ProjectStructureManager } from "../context/ProjectStructureManager";
+import { RecentItemsManager } from "../context/RecentItemsManager";
 import { FuzzyMatcher } from "../utils/FuzzyMatcher";
 import { ShikiService } from "../services/ShikiService";
 import { ThemeService } from "../services/ThemeService";
+import { FileSystemAnalyzer } from "../context/FileSystemAnalyzer";
 
 export class ChatController {
   constructor(
@@ -23,8 +25,14 @@ export class ChatController {
     private processManager: ProcessManager,
     private fileLockManager: FileLockManager,
     private projectStructureManager: ProjectStructureManager | undefined,
+    private recentItemsManager: RecentItemsManager | undefined,
     private extensionUri: vscode.Uri,
   ) {}
+
+  private _workspaceFilesCache: any[] | null = null;
+  private _workspaceFoldersCache: any[] | null = null;
+  private _lastCacheUpdate: number = 0;
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
     const command = message.command;
@@ -141,6 +149,9 @@ export class ChatController {
         case "updateAgentPermissions":
           this.handleUpdateAgentPermissions(message);
           break;
+        case "getFolderTree":
+          await this.handleGetFolderTree(message, webviewView);
+          break;
         case "executeAgentAction":
           await this.handleExecuteAgentAction(message, webviewView);
           break;
@@ -162,32 +173,17 @@ export class ChatController {
         case "runCommand":
           await this.handleRunCommand(message, webviewView);
           break;
-        case "listTerminals":
-          await this.handleListTerminals(message, webviewView);
-          break;
         case "attachTerminalToVSCode":
           this.processManager.attachToVSCode(message.terminalId);
           break;
         case "terminalInput":
           this.processManager.sendInput(message.terminalId, message.data);
           break;
-        case "removeTerminal":
-          await this.handleRemoveTerminal(message, webviewView);
-          break;
         case "focusTerminal":
           await this.handleFocusTerminal(message);
           break;
-        case "stopTerminal":
-          await this.handleStopTerminal(message, webviewView);
-          break;
         case "stopCommand":
           await this.handleStopCommand(message);
-          break;
-        case "createTerminalShell":
-          await this.handleCreateTerminalShell(message, webviewView);
-          break;
-        case "readTerminalLogs":
-          await this.handleReadTerminalLogs(message, webviewView);
           break;
         case "openPreview":
           await this.handleOpenPreview(message);
@@ -206,6 +202,9 @@ export class ChatController {
           break;
         case "getWorkspaceFolders":
           await this.handleGetWorkspaceFolders(message, webviewView);
+          break;
+        case "openWorkspaceFolder":
+          await this.handleOpenWorkspaceFolder(message);
           break;
         case "openWorkspaceFile":
           await this.handleOpenFile(message);
@@ -241,6 +240,51 @@ export class ChatController {
   // #region Theme & System
   private async handleRequestTheme(webviewView: vscode.WebviewView) {
     await this.updateTheme(webviewView.webview);
+  }
+
+  private async handleOpenWorkspaceFolder(message: any) {
+    const folderPath = message.path;
+    if (!folderPath) return;
+
+    try {
+      // Find the first file in this folder recursively
+      const findFirstFile = async (
+        dir: string,
+      ): Promise<vscode.Uri | undefined> => {
+        const entries = await vscode.workspace.fs.readDirectory(
+          vscode.Uri.file(dir),
+        );
+
+        // Sort entries to be deterministic (files first)
+        entries.sort((a, b) => {
+          if (a[1] !== b[1]) {
+            return a[1] === vscode.FileType.File ? -1 : 1;
+          }
+          return a[0].localeCompare(b[0]);
+        });
+
+        for (const [name, type] of entries) {
+          const entryPath = path.join(dir, name);
+          if (type === vscode.FileType.File) {
+            return vscode.Uri.file(entryPath);
+          } else if (type === vscode.FileType.Directory) {
+            const result = await findFirstFile(entryPath);
+            if (result) return result;
+          }
+        }
+        return undefined;
+      };
+
+      const firstFileUri = await findFirstFile(folderPath);
+      if (firstFileUri) {
+        const document = await vscode.workspace.openTextDocument(firstFileUri);
+        await vscode.window.showTextDocument(document);
+      } else {
+        vscode.window.showInformationMessage("No files found in this folder.");
+      }
+    } catch (error) {
+      // console.error("Failed to open folder:", error);
+    }
   }
 
   public async updateTheme(webview: vscode.Webview) {
@@ -1417,30 +1461,75 @@ export class ChatController {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
+    const now = Date.now();
+    if (
+      this._workspaceFilesCache &&
+      now - this._lastCacheUpdate < this.CACHE_TTL
+    ) {
+      webviewView.webview.postMessage({
+        command: "workspaceFilesResponse",
+        requestId: message.requestId,
+        files: this._workspaceFilesCache,
+      });
+      return;
+    }
+
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
+
+    // Fetch blacklist
+    const blacklist = this.projectStructureManager
+      ? await this.projectStructureManager.getBlacklist()
+      : [];
+    const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+    const recentFiles = this.recentItemsManager
+      ? this.recentItemsManager.getRecentFiles()
+      : [];
+
     const files = await vscode.workspace.findFiles("**/*");
     const stats = await Promise.all(
       files.map(async (f) => {
+        const relativePath = vscode.workspace.asRelativePath(f);
+
+        // Filter based on blacklist
+        if (
+          blacklist.some(
+            (pattern) =>
+              relativePath === pattern ||
+              relativePath.startsWith(pattern + "/"),
+          )
+        ) {
+          return null;
+        }
+
         try {
           const s = await vscode.workspace.fs.stat(f);
+          const lines = await fsAnalyzer.getFileLineCount(f.fsPath);
           return {
-            path: vscode.workspace.asRelativePath(f),
+            path: relativePath,
             lastModified: s.mtime,
             type: "file",
             size: s.size,
+            lines,
+            isRecent: recentFiles.includes(relativePath),
           };
         } catch {
           return null;
         }
       }),
     );
+
+    const result = stats
+      .filter((x) => x)
+      .sort((a: any, b: any) => b.lastModified - a.lastModified);
+
+    this._workspaceFilesCache = result;
+    this._lastCacheUpdate = now;
+
     webviewView.webview.postMessage({
       command: "workspaceFilesResponse",
       requestId: message.requestId,
-      files: stats
-        .filter((x) => x)
-        .sort((a: any, b: any) => b.lastModified - a.lastModified),
+      files: result,
     });
   }
 
@@ -1448,15 +1537,38 @@ export class ChatController {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
-    const folders = vscode.workspace.workspaceFolders || [];
+    const now = Date.now();
+    if (
+      this._workspaceFoldersCache &&
+      now - this._lastCacheUpdate < this.CACHE_TTL
+    ) {
+      webviewView.webview.postMessage({
+        command: "workspaceFoldersResponse",
+        requestId: message.requestId,
+        folders: this._workspaceFoldersCache,
+      });
+      return;
+    }
+
+    const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+    const foldersWithCounts = await fsAnalyzer.getFolderPaths();
+    const recentFolders = this.recentItemsManager
+      ? this.recentItemsManager.getRecentFolders()
+      : [];
+
+    const result = foldersWithCounts.map((f) => ({
+      name: path.basename(f.path),
+      path: f.path, // getFolderPaths returns relative path
+      type: "folder",
+      isRecent: recentFolders.includes(f.path),
+      fileCount: f.count,
+    }));
+
+    this._workspaceFoldersCache = result;
     webviewView.webview.postMessage({
       command: "workspaceFoldersResponse",
       requestId: message.requestId,
-      folders: folders.map((f) => ({
-        name: f.name,
-        path: f.uri.fsPath,
-        type: "folder",
-      })),
+      folders: result,
     });
   }
 
@@ -1595,12 +1707,21 @@ export class ChatController {
   }
 
   private async handleOpenFile(message: any) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-    const uri = vscode.Uri.joinPath(workspaceFolder.uri, message.path);
-    vscode.window.showTextDocument(
-      await vscode.workspace.openTextDocument(uri),
-    );
+    const filePath = message.path;
+    if (!filePath) return;
+
+    try {
+      const uri = path.isAbsolute(filePath)
+        ? vscode.Uri.file(filePath)
+        : vscode.Uri.joinPath(
+            vscode.workspace.workspaceFolders![0].uri,
+            filePath,
+          );
+      const document = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(document);
+    } catch (error) {
+      // console.error("Failed to open file:", error);
+    }
   }
 
   private async handleRunCommand(
@@ -1610,20 +1731,16 @@ export class ChatController {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       const cwd = workspaceFolder?.uri.fsPath || os.homedir();
-      let terminalId = message.terminalId;
 
-      if (!terminalId) {
-        const result = await this.processManager.startInteractive(cwd);
-        terminalId = result.id;
-      }
+      // Always create a new terminal for runCommand now
+      const result = await this.processManager.startInteractive(cwd);
+      const terminalId = result.id;
 
       this.processManager.sendInput(
         terminalId,
         `${message.commandText}\n`,
         message.actionId,
       );
-
-      const initialOutput = this.processManager.getOutput(terminalId);
 
       webviewView.webview.postMessage({
         command: "runCommandResult",
@@ -1640,132 +1757,11 @@ export class ChatController {
     }
   }
 
-  private async handleListTerminals(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      const terminals = this.processManager.list();
-      webviewView.webview.postMessage({
-        command: "listTerminalsResult",
-        requestId: message.requestId,
-        terminals,
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "listTerminalsResult",
-        requestId: message.requestId,
-        error: e.message,
-      });
-    }
-  }
-
-  private async handleRemoveTerminal(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      this.processManager.close(message.terminalId);
-      webviewView.webview.postMessage({
-        command: "removeTerminalResult",
-        requestId: message.requestId,
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "removeTerminalResult",
-        requestId: message.requestId,
-        error: e.message,
-      });
-    }
-  }
-
-  private async handleCreateTerminalShell(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      const cwd = workspaceFolder?.uri.fsPath || os.homedir();
-      const result = await this.processManager.startInteractive(
-        cwd,
-        message.terminalId,
-      );
-      this.processManager.attachToVSCode(result.id);
-      webviewView.webview.postMessage({
-        command: "createTerminalShellResult",
-        requestId: message.requestId,
-        terminalId: result.id,
-        name: result.name,
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "createTerminalShellResult",
-        requestId: message.requestId,
-        error: e.message,
-      });
-    }
-  }
-
   private async handleFocusTerminal(message: any) {
     try {
       this.processManager.focus(message.terminalId);
     } catch (e: any) {
       console.error("Failed to focus terminal:", e);
-    }
-  }
-
-  private async handleReadTerminalLogs(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      const output = this.processManager.getOutput(message.terminalId);
-
-      // If requested to clear after reading (to focus on new logs later)
-      // Actually the user said "khi đọc xong sẽ xác định phần log thừa của lệnh cũ và xóa đi"
-      // This means we should probably clear the internal buffer in ProcessManager
-      // so the NEXT read only gets new stuff.
-
-      webviewView.webview.postMessage({
-        command: "readTerminalLogsResult",
-        requestId: message.requestId,
-        terminalId: message.terminalId,
-        output,
-      });
-
-      // Clear the output buffer after reading to focus on future output
-      // Note: This might be destructive if many tools read simultaneously, but usually it's sequential.
-      const entry = (this.processManager as any).terminalMap.get(
-        message.terminalId,
-      );
-      if (entry) {
-        entry.pty.resetOutput();
-      }
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "readTerminalLogsResult",
-        requestId: message.requestId,
-        error: e.message,
-      });
-    }
-  }
-
-  private async handleStopTerminal(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      this.processManager.stop(message.terminalId);
-      webviewView.webview.postMessage({
-        command: "stopTerminalResult",
-        requestId: message.requestId,
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "stopTerminalResult",
-        requestId: message.requestId,
-        error: e.message,
-      });
     }
   }
 
@@ -2049,6 +2045,63 @@ export class ChatController {
         (d) =>
           `[${d.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning"}] Line ${d.range.start.line + 1}: ${d.message}`,
       );
+  }
+
+  private async handleGetFolderTree(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+
+      const folderUri = path.isAbsolute(message.path)
+        ? vscode.Uri.file(message.path)
+        : vscode.Uri.joinPath(workspaceFolder.uri, message.path);
+
+      // Using the filesystem analyzer's recursive tree generation if possible,
+      // but let's implement a simple one for the specific folder if needed.
+      // Actually, we can just use the existing getFileTree if it supports paths.
+      // But contextManager's getFileSystemAnalyzer might only be for the whole workspace.
+
+      const tree = await this.generateMinimalTree(folderUri.fsPath);
+
+      webviewView.webview.postMessage({
+        command: "getFolderTreeResult",
+        requestId: message.requestId,
+        path: message.path,
+        tree,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "getFolderTreeResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  private async generateMinimalTree(dir: string, depth = 0): Promise<string> {
+    if (depth > 3) return "  ".repeat(depth) + "... (max depth reached)";
+
+    let result = "";
+    const items = await fs.promises.readdir(dir, { withFileTypes: true });
+
+    for (const item of items) {
+      if (item.name.startsWith(".")) continue;
+
+      const indent = "  ".repeat(depth);
+      if (item.isDirectory()) {
+        result += `${indent}${item.name}/\n`;
+        result += await this.generateMinimalTree(
+          path.join(dir, item.name),
+          depth + 1,
+        );
+      } else {
+        result += `${indent}${item.name}\n`;
+      }
+    }
+    return result;
   }
 
   private getProjectContextKey(path: string): string {

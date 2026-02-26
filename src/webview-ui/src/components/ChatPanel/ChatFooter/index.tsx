@@ -98,6 +98,15 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       const message = event.data;
       if (message.command === "projectContextResponse") {
         setProjectContext(message.context);
+      } else if (message.command === "addAttachedItem") {
+        const isFolder =
+          message.itemType === "folder" ||
+          (!message.uri.includes(".") && !message.itemType);
+        addAttachedItem({
+          id: Math.random().toString(36).substring(7),
+          path: message.uri,
+          type: isFolder ? "folder" : "file",
+        });
       }
     };
 
@@ -161,6 +170,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         vscodeApi.postMessage({ command: "getWorkspaceFolders" });
       }
     },
+    onOpenTerminal: () => setShowTerminalDrawer(true),
   });
 
   // File Handling Hook
@@ -190,10 +200,14 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
 
   // Handle Send Message
   const handleSend = (model: any, account: any, thinking?: boolean) => {
-    if (message.trim() || uploadedFiles.length > 0) {
+    if (
+      message.trim() ||
+      uploadedFiles.length > 0 ||
+      attachedItems.length > 0
+    ) {
       onSendMessage(
         message,
-        uploadedFiles,
+        [...uploadedFiles, ...attachedItems],
         model || currentModel,
         account || currentAccount,
         undefined, // skipFirstRequestLogic - always false for user input
@@ -218,6 +232,16 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       setMessage(prompt);
       textareaRef.current?.focus();
     }
+  };
+
+  // Handle terminal selection from TerminalDrawer
+  const handleTerminalSelect = (terminalId: string) => {
+    addAttachedItem({
+      id: `terminal-${terminalId}`,
+      path: terminalId,
+      type: "terminal" as any,
+    });
+    setShowTerminalDrawer(false);
   };
 
   // Handle Textarea Change
@@ -328,93 +352,108 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         onRemoveAttachedItem={removeAttachedItem}
         onOpenImage={handleOpenImage}
         onAttachedItemClick={(item) => {
-          if (item.type === "file") {
-            const vscodeApi = (window as any).vscodeApi;
-            if (vscodeApi) {
-              vscodeApi.postMessage({
-                command: "openWorkspaceFile",
-                path: item.path,
-              });
-            }
-          }
-        }}
-      />
-
-      <MessageInput
-        message={message}
-        setMessage={setMessage}
-        isHistoryMode={isHistoryMode}
-        uploadedFiles={uploadedFiles}
-        textareaRef={textareaRef}
-        handleTextareaChange={handleTextareaChange}
-        handleKeyDown={(e: React.KeyboardEvent) => {
-          // MessageInput handles Enter key for sending
-          // This prop is now only for other global key handlers if any
-        }}
-        handlePaste={handlePaste}
-        handleDragOver={handleDragOver}
-        handleDrop={handleDrop}
-        setShowAtMenu={setShowAtMenu}
-        handleFileSelect={handleFileSelect}
-        onOpenProjectStructure={() => {
-          setShowProjectStructureDrawer(true);
           const vscodeApi = (window as any).vscodeApi;
-          if (vscodeApi) {
-            if (availableFiles.length === 0 || availableFolders.length === 0) {
-              vscodeApi.postMessage({ command: "getWorkspaceFiles" });
-              vscodeApi.postMessage({ command: "getWorkspaceFolders" });
-            }
+          if (!vscodeApi) return;
+
+          if (item.type === "file") {
             vscodeApi.postMessage({
-              command: "getProjectStructureBlacklist",
+              command: "openWorkspaceFile",
+              path: item.path,
+            });
+          } else if (item.type === "folder") {
+            vscodeApi.postMessage({
+              command: "openWorkspaceFolder",
+              path: item.path,
+            });
+          } else if (item.type === ("terminal" as any)) {
+            vscodeApi.postMessage({
+              command: "focusTerminal",
+              terminalId: item.path,
             });
           }
         }}
-        showChangesDropdown={showChangesDropdown}
-        setShowChangesDropdown={setShowChangesDropdown}
-        messages={messages}
-        handleGitCommit={handleGitCommit}
-        // setShowOptionsDrawer={setShowOptionsDrawer} // Removed
-        handleSend={(model: any, account: any, thinking?: boolean) =>
-          handleSend(model, account, thinking)
-        }
-        hasProjectContext={!!projectContext}
-        onOpenProjectContext={() => setShowProjectContextModal(true)}
-        folderPath={folderPath}
-        isConversationStarted={isConversationStarted}
-        hasTaskProgress={hasTaskProgress}
-        selectedQuickModel={selectedQuickModel}
-        onQuickModelSelect={onQuickModelSelect}
-        currentModel={currentModel}
-        setCurrentModel={setCurrentModel}
-        currentAccount={currentAccount}
-        setCurrentAccount={setCurrentAccount}
-        onToggleTaskDrawer={onToggleTaskDrawer}
-        isProcessing={isProcessing}
-        isStreaming={isStreaming}
-        onStopGeneration={onStopGeneration}
-        onToggleBackupDrawer={onToggleBackupDrawer}
-        hasBackupEvents={hasBackupEvents}
-        backupEventCount={backupEventCount}
-        onToggleBlacklistDrawer={onToggleBlacklistDrawer}
-        onToggleTerminalDrawer={() =>
-          setShowTerminalDrawer(!showTerminalDrawer)
-        }
       />
 
-      <MentionDropdowns
-        showAtMenu={showAtMenu}
-        showMentionDropdown={showMentionDropdown}
-        mentionType={mentionType}
-        availableFiles={availableFiles}
-        availableFolders={availableFolders}
-        availableRules={availableRules}
-        message={message}
-        handleMentionOptionSelect={handleMentionOptionSelect}
-        handleExternalFileSelect={handleExternalFileSelect}
-        handleWorkspaceItemSelect={handleWorkspaceItemSelect}
-        handleRuleSelect={handleRuleSelect}
-        mentionDropdownRef={mentionDropdownRef}
-      />
+      <div style={{ position: "relative" }}>
+        <MessageInput
+          message={message}
+          setMessage={setMessage}
+          isHistoryMode={isHistoryMode}
+          uploadedFiles={uploadedFiles}
+          textareaRef={textareaRef}
+          handleTextareaChange={handleTextareaChange}
+          handleKeyDown={(e: React.KeyboardEvent) => {
+            // MessageInput handles Enter key for sending
+            // This prop is now only for other global key handlers if any
+          }}
+          handlePaste={handlePaste}
+          handleDragOver={handleDragOver}
+          handleDrop={handleDrop}
+          setShowAtMenu={setShowAtMenu}
+          handleFileSelect={handleFileSelect}
+          onOpenProjectStructure={() => {
+            setShowProjectStructureDrawer(true);
+            const vscodeApi = (window as any).vscodeApi;
+            if (vscodeApi) {
+              if (
+                availableFiles.length === 0 ||
+                availableFolders.length === 0
+              ) {
+                vscodeApi.postMessage({ command: "getWorkspaceFiles" });
+                vscodeApi.postMessage({ command: "getWorkspaceFolders" });
+              }
+              vscodeApi.postMessage({
+                command: "getProjectStructureBlacklist",
+              });
+            }
+          }}
+          showChangesDropdown={showChangesDropdown}
+          setShowChangesDropdown={setShowChangesDropdown}
+          messages={messages}
+          handleGitCommit={handleGitCommit}
+          // setShowOptionsDrawer={setShowOptionsDrawer} // Removed
+          handleSend={(model: any, account: any, thinking?: boolean) =>
+            handleSend(model, account, thinking)
+          }
+          hasProjectContext={!!projectContext}
+          onOpenProjectContext={() => setShowProjectContextModal(true)}
+          folderPath={folderPath}
+          isConversationStarted={isConversationStarted}
+          hasTaskProgress={hasTaskProgress}
+          selectedQuickModel={selectedQuickModel}
+          onQuickModelSelect={onQuickModelSelect}
+          currentModel={currentModel}
+          setCurrentModel={setCurrentModel}
+          currentAccount={currentAccount}
+          setCurrentAccount={setCurrentAccount}
+          onToggleTaskDrawer={onToggleTaskDrawer}
+          isProcessing={isProcessing}
+          isStreaming={isStreaming}
+          onStopGeneration={onStopGeneration}
+          onToggleBackupDrawer={onToggleBackupDrawer}
+          hasBackupEvents={hasBackupEvents}
+          backupEventCount={backupEventCount}
+          onToggleBlacklistDrawer={onToggleBlacklistDrawer}
+          onToggleTerminalDrawer={() =>
+            setShowTerminalDrawer(!showTerminalDrawer)
+          }
+        />
+
+        <MentionDropdowns
+          showAtMenu={showAtMenu}
+          showMentionDropdown={showMentionDropdown}
+          mentionType={mentionType}
+          availableFiles={availableFiles}
+          availableFolders={availableFolders}
+          availableRules={availableRules}
+          message={message}
+          handleMentionOptionSelect={handleMentionOptionSelect}
+          handleExternalFileSelect={handleExternalFileSelect}
+          handleWorkspaceItemSelect={handleWorkspaceItemSelect}
+          handleRuleSelect={handleRuleSelect}
+          mentionDropdownRef={mentionDropdownRef}
+        />
+      </div>
 
       {/* AgentOptionsDrawer removed */}
 
@@ -446,6 +485,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       <TerminalDrawer
         isOpen={showTerminalDrawer}
         onClose={() => setShowTerminalDrawer(false)}
+        onSelect={handleTerminalSelect}
       />
     </div>
   );

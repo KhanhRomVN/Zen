@@ -71,6 +71,11 @@
         "title": "New Chat",
         "category": "Zen",
         "icon": "$(add)"
+      },
+      {
+        "command": "zen.addToContext",
+        "title": "Add to Zen Context",
+        "category": "Zen"
       }
     ],
     "menus": {
@@ -97,6 +102,12 @@
           "command": "zen.refreshProjectStructure",
           "when": "view == zen-project-structure",
           "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "zen.addToContext",
+          "group": "zen@1"
         }
       ]
     }

@@ -104,6 +104,29 @@ export async function activate(extContext: vscode.ExtensionContext) {
     },
   );
 
+  const addToContextCommand = vscode.commands.registerCommand(
+    "zen.addToContext",
+    async (uri: vscode.Uri, uris?: vscode.Uri[]) => {
+      const selectedUris = uris && uris.length > 0 ? uris : [uri];
+      for (const selectedUri of selectedUris) {
+        try {
+          const stat = await vscode.workspace.fs.stat(selectedUri);
+          const isFolder = stat.type === vscode.FileType.Directory;
+          provider.postMessageToWebview({
+            command: "addAttachedItem",
+            uri: selectedUri.fsPath,
+            itemType: isFolder ? "folder" : "file",
+          });
+        } catch (e) {
+          provider.postMessageToWebview({
+            command: "addAttachedItem",
+            uri: selectedUri.fsPath,
+          });
+        }
+      }
+    },
+  );
+
   // Add all commands to subscriptions
   extContext.subscriptions.push(
     openChatCommand,
@@ -112,6 +135,7 @@ export async function activate(extContext: vscode.ExtensionContext) {
     newChatCommand,
     refreshProjectStructureCommand,
     clearOldStorageCommand,
+    addToContextCommand,
   );
 }
 

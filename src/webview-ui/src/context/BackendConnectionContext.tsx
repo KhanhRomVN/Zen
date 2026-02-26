@@ -19,7 +19,7 @@ const BackendConnectionContext = createContext<
 >(undefined);
 
 const CHECK_INTERVAL = 5000; // 5 seconds
-const HEALTH_ENDPOINT = "/health";
+const HEALTH_ENDPOINT = "/v1/health";
 
 export const BackendConnectionProvider = ({
   children,

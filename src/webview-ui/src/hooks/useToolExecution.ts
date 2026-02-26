@@ -387,71 +387,9 @@ export const useToolExecution = ({
           extensionService.postMessage({
             command: "runCommand",
             commandText: action.params.command,
-            terminalId: action.params.terminal_id,
             actionId: (action as any).actionId,
           });
-          if (action.params.terminal_id) {
-            terminalToActionMap.current.set(
-              action.params.terminal_id,
-              (action as any).actionId,
-            );
-          }
           pendingToolResolvers.current.set((action as any).actionId, resolve);
-          break;
-        }
-        case "list_terminals": {
-          const requestId = `list-terms-${Date.now()}`;
-          extensionService.postMessage({ command: "listTerminals", requestId });
-          const listener = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "listTerminalsResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", listener);
-              if (msg.error) resolve(`[list_terminals] Error: ${msg.error}`);
-              else
-                resolve(
-                  `[list_terminals] Result:\n\`\`\`json\n${JSON.stringify(msg.terminals, null, 2)}\n\`\`\``,
-                );
-            }
-          };
-          window.addEventListener("message", listener);
-          break;
-        }
-        case "remove_terminal":
-        case "stop_terminal":
-        case "create_terminal_shell":
-        case "read_terminal_logs": {
-          const commandMap: Record<string, string> = {
-            remove_terminal: "removeTerminal",
-            stop_terminal: "stopTerminal",
-            create_terminal_shell: "createTerminalShell",
-            read_terminal_logs: "readTerminalLogs",
-          };
-          const requestId = `${action.type}-${Date.now()}`;
-          extensionService.postMessage({
-            command: commandMap[action.type],
-            terminalId: action.params.terminal_id,
-            text: action.params.text,
-            requestId,
-          });
-          const listener = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === `${commandMap[action.type]}Result` &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", listener);
-              if (msg.error) resolve(`[${action.type}] Error: ${msg.error}`);
-              else if (msg.output)
-                resolve(
-                  `[${action.type}] Result:\n\`\`\`\n${msg.output}\n\`\`\``,
-                );
-              else resolve(`[${action.type}] Success`);
-            }
-          };
-          window.addEventListener("message", listener);
           break;
         }
         case "update_codebase_context": {

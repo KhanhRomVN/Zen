@@ -1,7 +1,8 @@
 import React from "react";
+import { FileIcon, ImageIcon, FolderIcon, Terminal } from "lucide-react";
 import { UploadedFile, AttachedItem } from "../types";
 import { formatFileSize } from "../utils";
-import FileIcon from "../../../common/FileIcon";
+import FileIconCommon from "../../../common/FileIcon";
 
 interface FilesPreviewsProps {
   uploadedFiles: UploadedFile[];
@@ -28,7 +29,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
           style={{
             padding: "var(--spacing-sm) var(--spacing-lg)",
             borderTop: "1px solid var(--border-color)",
-            backgroundColor: "var(--primary-bg)",
+            backgroundColor: "transparent",
             display: "flex",
             flexWrap: "nowrap",
             overflowX: "auto",
@@ -109,8 +110,8 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                   alignItems: "center",
                   gap: "var(--spacing-xs)",
                   padding: "var(--spacing-xs) var(--spacing-sm)",
-                  backgroundColor: "var(--secondary-bg)",
-                  border: "1px solid var(--border-color)",
+                  backgroundColor: "transparent",
+                  border: "none",
                   borderRadius: "var(--border-radius)",
                   fontSize: "var(--font-size-xs)",
                   color: "var(--primary-text)",
@@ -165,7 +166,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
           style={{
             padding: "var(--spacing-sm) var(--spacing-lg)",
             borderTop: "1px solid var(--border-color)",
-            backgroundColor: "var(--primary-bg)",
+            backgroundColor: "transparent",
           }}
         >
           {/* Files Row */}
@@ -201,11 +202,11 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                         alignItems: "center",
                         gap: "var(--spacing-xs)",
                         padding: "var(--spacing-xs) var(--spacing-sm)",
-                        backgroundColor: "var(--secondary-bg)",
-                        border: "1px solid var(--border-color)",
+                        backgroundColor: "transparent",
+                        border: "none",
                         borderRadius: "var(--border-radius)",
                         fontSize: "var(--font-size-xs)",
-                        color: "var(--primary-text)",
+                        color: "var(--secondary-text)",
                         cursor: "pointer",
                       }}
                       onClick={() => onAttachedItemClick(item)}
@@ -290,15 +291,17 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                         alignItems: "center",
                         gap: "var(--spacing-xs)",
                         padding: "var(--spacing-xs) var(--spacing-sm)",
-                        backgroundColor: "var(--secondary-bg)",
-                        border: "1px solid var(--border-color)",
+                        backgroundColor: "transparent",
+                        border: "none",
                         borderRadius: "var(--border-radius)",
                         fontSize: "var(--font-size-xs)",
-                        color: "var(--primary-text)",
+                        color: "var(--secondary-text)",
+                        cursor: "pointer",
                       }}
+                      onClick={() => onAttachedItemClick(item)}
                       title={item.path}
                     >
-                      <FileIcon
+                      <FileIconCommon
                         path={item.path}
                         isFolder={true}
                         style={{ width: "14px", height: "14px" }}
@@ -378,12 +381,14 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                         alignItems: "center",
                         gap: "var(--spacing-xs)",
                         padding: "var(--spacing-xs) var(--spacing-sm)",
-                        backgroundColor: "var(--secondary-bg)",
-                        border: "1px solid var(--border-color)",
+                        backgroundColor: "transparent",
+                        border: "none",
                         borderRadius: "var(--border-radius)",
                         fontSize: "var(--font-size-xs)",
-                        color: "var(--primary-text)",
+                        color: "var(--secondary-text)",
+                        cursor: "pointer",
                       }}
+                      onClick={() => onAttachedItemClick(item)}
                       title={`External file: ${item.path}`}
                     >
                       <FileIcon
@@ -401,6 +406,92 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                         {item.path.split("/").pop() ||
                           item.path.split("\\").pop() ||
                           item.path}
+                      </span>
+                      <div
+                        style={{
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: "2px",
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveAttachedItem(item.id);
+                        }}
+                      >
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Terminals Row */}
+          {attachedItems.filter((item) => item.type === ("terminal" as any))
+            .length > 0 && (
+            <div
+              style={{
+                marginBottom: "var(--spacing-xs)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "var(--font-size-xs)",
+                  color: "var(--secondary-text)",
+                  marginBottom: "var(--spacing-xs)",
+                }}
+              >
+                Terminals:
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "var(--spacing-xs)",
+                }}
+              >
+                {attachedItems
+                  .filter((item) => item.type === ("terminal" as any))
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "var(--spacing-xs)",
+                        padding: "var(--spacing-xs) var(--spacing-sm)",
+                        backgroundColor: "transparent",
+                        border: "none",
+                        borderRadius: "var(--border-radius)",
+                        fontSize: "var(--font-size-xs)",
+                        color: "var(--secondary-text)",
+                        cursor: "pointer",
+                      }}
+                      onClick={() => onAttachedItemClick(item)}
+                      title={`Terminal ID: ${item.path}`}
+                    >
+                      <Terminal size={14} />
+                      <span
+                        style={{
+                          maxWidth: "150px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {item.path}
                       </span>
                       <div
                         style={{

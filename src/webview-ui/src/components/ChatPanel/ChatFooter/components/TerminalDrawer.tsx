@@ -18,6 +18,7 @@ interface TerminalInfo {
 interface TerminalDrawerProps {
   isOpen: boolean;
   onClose: () => void;
+  onSelect?: (terminalId: string) => void;
 }
 
 const formatCwd = (cwd: string) => {
@@ -28,10 +29,18 @@ const formatCwd = (cwd: string) => {
   return `.../${lastFour.join("/")}`;
 };
 
-const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
+const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
+  isOpen,
+  onClose,
+  onSelect,
+}) => {
   const [terminals, setTerminals] = useState<TerminalInfo[]>([]);
+  // ... rest of state ...
   const [terminalLogs, setTerminalLogs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+
+  // ... rest of component logic ...
+  // (Note: view_file showed lines 1-407, but I need to be careful with the replacement)
 
   const fetchTerminals = () => {
     const vscodeApi = (window as any).vscodeApi;
@@ -45,7 +54,6 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
     let interval: any;
     if (isOpen) {
       fetchTerminals();
-      // Poll for updates every 2 seconds to keep metadata fresh
       interval = setInterval(fetchTerminals, 2000);
     }
 
@@ -54,19 +62,13 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
       if (message.command === "listTerminalsResult") {
         const newTerms = message.terminals || [];
         setTerminals(newTerms);
-        // Synchronize logs: reset if backend log is significantly different (e.g. cleared)
         setTerminalLogs((prev) => {
           const next = { ...prev };
           newTerms.forEach((t: TerminalInfo) => {
             const currentLog = next[t.id] || "";
-
-            // 1. Initial load
             if (!currentLog && t.lastLog) {
               next[t.id] = t.lastLog;
-            }
-            // 2. Reset detection: if lastLog is significantly different or shorter than what we expect
-            // We strip ANSI for the comparison to be more reliable
-            else if (t.lastLog !== undefined) {
+            } else if (t.lastLog !== undefined) {
               const cleanLastLog = t.lastLog.replace(
                 /\x1b\[[0-9;]*[mGKH]/g,
                 "",
@@ -75,12 +77,10 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
                 /\x1b\[[0-9;]*[mGKH]/g,
                 "",
               );
-
               if (
                 cleanLastLog &&
                 cleanCurrentLog.length > cleanLastLog.length + 50
               ) {
-                // Terminal was likely cleared or reset
                 next[t.id] = t.lastLog;
               }
             }
@@ -323,12 +323,37 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
                     display: "flex",
                     gap: "8px",
                     marginLeft: "8px",
+                    alignItems: "center",
                   }}
                 >
+                  {onSelect && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelect(term.id);
+                      }}
+                      title="Mention Terminal"
+                      style={{
+                        padding: "6px 10px",
+                        backgroundColor: "var(--accent-text)",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <Plus size={14} /> Mention
+                    </button>
+                  )}
                   {!term.isAttached && (
                     <button
                       onClick={(e) => handleAttachTerminal(term.id, e)}
-                      title="Attach"
+                      title="Attach to VSCode UI"
                       style={{
                         padding: "4px",
                         backgroundColor: "transparent",
@@ -357,7 +382,7 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({ isOpen, onClose }) => {
                       e.stopPropagation();
                       handleCloseTerminal(term.id);
                     }}
-                    title="Close"
+                    title="Close Terminal"
                     style={{
                       padding: "4px",
                       backgroundColor: "transparent",
