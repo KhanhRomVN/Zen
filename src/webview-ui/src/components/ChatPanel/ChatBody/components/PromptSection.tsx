@@ -30,6 +30,7 @@ const PromptSection: React.FC<PromptSectionProps> = ({
           marginBottom: "var(--spacing-sm)",
           cursor: "pointer",
           justifyContent: "space-between",
+          position: "relative",
         }}
         onClick={(e) => {
           e.stopPropagation();
@@ -37,10 +38,19 @@ const PromptSection: React.FC<PromptSectionProps> = ({
         }}
       >
         <div
+          className="timeline-dot"
+          style={{
+            backgroundColor: "var(--vscode-descriptionForeground)",
+            opacity: 0.8,
+          }}
+        />
+        <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: "var(--spacing-xs)",
+            paddingLeft: "29px",
+            paddingTop: "16px",
           }}
         >
           <svg
@@ -72,6 +82,7 @@ const PromptSection: React.FC<PromptSectionProps> = ({
       {!isCollapsed && (
         <div
           style={{
+            paddingLeft: "29px",
             fontSize: "var(--font-size-xs)",
             color: "var(--primary-text)",
             lineHeight: 1.6,
@@ -79,6 +90,7 @@ const PromptSection: React.FC<PromptSectionProps> = ({
             fontFamily: "monospace",
             maxHeight: "400px",
             overflowY: "auto",
+            paddingBottom: "var(--spacing-md)",
           }}
         >
           {message.content}

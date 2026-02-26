@@ -10,6 +10,8 @@ import {
 import FileIcon from "../../../../common/FileIcon";
 import { CodeBlock } from "../../../../CodeBlock";
 import { TerminalBlock } from "../../../../TerminalBlock";
+import { ToolHeader } from "../../../../ToolHeader";
+import { getFileIconPath } from "../../../../../utils/fileIconMapper";
 import { RichtextBlock } from "../../../../RichtextBlock";
 import { parseDiff } from "../../../../../utils/diffUtils";
 import { CLICKABLE_TOOLS, MANUAL_CONFIRMATION_TOOLS } from "../../constants";
@@ -98,48 +100,6 @@ const ExecuteButton: React.FC<{
       {isLoading && (
         <div className="codicon codicon-loading codicon-modifier-spin" />
       )}
-
-      {/* COMPLETED STATE: CHECK ICON (Only if not loading) */}
-      {!isLoading && isCompleted && (
-        <div
-          style={{
-            color: "var(--vscode-testing-iconPassed)",
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-          }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </div>
-      )}
-
-      {/* PLAY ICON FOR ACTIVE OR SKIPPED STATE */}
-      {!isLoading && (isActive || isSkipped) && !isCompleted && (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
-        </svg>
-      )}
     </button>
   );
 };
@@ -180,6 +140,54 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
   // Track validated/auto-run actions to prevent re-requests on prop changes
   const processedActions = React.useRef<Set<string>>(new Set());
+
+  // Track collapsed state for each action
+  const [collapsedActions, setCollapsedActions] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const toggleCollapse = (actionId: string) => {
+    setCollapsedActions((prev) => {
+      const next = new Set(prev);
+      if (next.has(actionId)) {
+        next.delete(actionId);
+      } else {
+        next.add(actionId);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    // Default to collapsed for certain tools (edits, creations)
+    // Expand terminal-related tools by default
+    const initialCollapsed = new Set<string>();
+    group.forEach((item, index) => {
+      const actionId = `${messageId}-action-${index}`;
+      const type = item.action.type;
+
+      // Expand run_command and terminal tools by default
+      if (
+        type === "run_command" ||
+        type === "read_terminal_logs" ||
+        type === "create_terminal_shell"
+      ) {
+        // Keep expanded
+      } else {
+        initialCollapsed.add(actionId);
+      }
+    });
+    setCollapsedActions(initialCollapsed);
+  }, [group, messageId]);
+
+  const truncatePath = (path?: string): string => {
+    if (!path) return "";
+    const segments = path.split(/[/\\]/);
+    if (segments.length <= 3) return path;
+    const first = segments[0];
+    const lastTwo = segments.slice(-2).join("/");
+    return `${first}/../${lastTwo}`;
+  };
 
   // Use effective actionId for identifying terminal output
   const runCommandAction = group.find((g) => g.action.type === "run_command");
@@ -388,18 +396,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const { action, index } = item;
       const actionId = `${messageId}-action-${index}`;
       const isActionClicked = clickedActions.has(actionId);
-      const isActionFailed = failedActions?.has(actionId);
+      const isCollapsed = collapsedActions.has(actionId);
+      const isCompleted = isActionClicked;
 
-      const isNextToExecute =
-        executionState && executionState.status !== "done"
-          ? executionState.completed === index
-          : !isActionClicked;
-
-      const isLoading =
-        executionState?.status === "running" &&
-        executionState.completed === index;
-
-      // Calculate diff string for replace_in_file
+      // Calculate code content and highlights
       let codeContent = "";
       let lineHighlights: {
         startLine: number;
@@ -408,7 +408,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
       }[] = [];
       const fileExt = getFilename(action).split(".").pop() || "txt";
 
-      // Map extension to Monaco language ID for proper syntax highlighting
       const extensionToLanguage: Record<string, string> = {
         py: "python",
         js: "javascript",
@@ -463,30 +462,60 @@ const ToolItem: React.FC<ToolItemProps> = ({
           ? action.params.content?.split("\n").length || 0
           : 0;
 
+      const prefix = toolType === "replace_in_file" ? "Edit" : "Create";
+      const displayPath = truncatePath(
+        action.params.path || getFilename(action),
+      );
+
       return (
-        <CodeBlock
-          code={codeContent}
-          language={codeLanguage}
-          maxLines={20}
-          filename={action.params.path || getFilename(action)} // Full path
-          startLineNumber={fuzzyStatus?.startLine} // Start line from fuzzy match (or 1 default)
-          lineHighlights={
-            toolType === "replace_in_file" ? lineHighlights : undefined
-          }
-          backgroundColor={
-            toolType === "write_to_file" ? "rgba(40, 167, 69, 0.2)" : undefined
-          }
-          defaultCollapsed={true} // 🆕 Collapsed by default for both edit and create
-          diffStats={
-            toolType === "replace_in_file"
-              ? diffStats || undefined
-              : linesCount > 0
-                ? { added: linesCount, removed: 0 } // 🆕 Show line count as diffStats for write_to_file
-                : undefined
-          }
-          prefix={toolType === "replace_in_file" ? "Edit" : "Create"} // 🆕 Add prefix for both types
-          statusColor={toolColor} // 🆕 Add status color dot
-        />
+        <div
+          className="timeline-item"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            paddingLeft: "29px",
+          }}
+        >
+          <ToolHeader
+            title={`${prefix} ${displayPath}`}
+            statusColor={isCompleted ? "#3fb950" : toolColor}
+            diffStats={
+              toolType === "replace_in_file"
+                ? diffStats || undefined
+                : linesCount > 0
+                  ? { added: linesCount, removed: 0 }
+                  : undefined
+            }
+            isCollapsed={isCollapsed}
+            onToggleCollapse={() => toggleCollapse(actionId)}
+            icon={
+              <img
+                src={getFileIconPath(action.params.path || getFilename(action))}
+                alt=""
+                style={{ width: "16px", height: "16px", marginRight: "4px" }}
+              />
+            }
+          />
+          {!isCollapsed && (
+            <CodeBlock
+              code={codeContent}
+              language={codeLanguage}
+              maxLines={20}
+              filename={action.params.path || getFilename(action)}
+              startLineNumber={fuzzyStatus?.startLine}
+              lineHighlights={
+                toolType === "replace_in_file" ? lineHighlights : undefined
+              }
+              backgroundColor={
+                toolType === "write_to_file"
+                  ? "rgba(40, 167, 69, 0.2)"
+                  : undefined
+              }
+              isCollapsed={isCollapsed}
+            />
+          )}
+        </div>
       );
     }
 
@@ -517,7 +546,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   key={index}
                   content={outputData?.output || "No terminals listed."}
                   title={getToolLabel(toolType)}
-                  statusColor={toolColor}
+                  statusColor={isCompleted ? "#3fb950" : toolColor}
                   defaultCollapsed={true}
                   headerActions={
                     <ExecuteButton
@@ -550,6 +579,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
             return (
               <div
                 key={index}
+                className={`timeline-item ${idx === group.length - 1 ? "last" : ""}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -558,6 +588,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   backgroundColor: `${toolColor}08`,
                   borderRadius: "4px",
                   marginBottom: idx === group.length - 1 ? "0" : "4px",
+                  marginLeft: 0,
+                  borderLeft:
+                    group.length > 1 && idx !== group.length - 1
+                      ? "1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.15))"
+                      : "none",
                 }}
               >
                 <div
@@ -565,47 +600,47 @@ const ToolItem: React.FC<ToolItemProps> = ({
                     display: "flex",
                     alignItems: "center",
                     gap: "10px",
+                    paddingLeft: "0px",
+                    flex: 1,
                   }}
                 >
                   {/* Dot */}
                   <div
+                    className="timeline-dot"
                     style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      backgroundColor: toolColor,
-                      flexShrink: 0,
+                      backgroundColor: isCompleted ? "#3fb950" : toolColor,
+                      top: "10px",
                     }}
                   />
 
-                  {/* Label */}
+                  {/* Internal Label Container for 29px offset */}
                   <div
                     style={{
-                      fontSize: "13px",
-                      color: "var(--vscode-editor-foreground)",
-                      fontWeight: 600,
+                      paddingLeft: "29px",
+                      display: "flex",
+                      flexDirection: "column",
+                      flex: 1,
                     }}
                   >
-                    {getToolLabel(toolType)}
-                  </div>
-
-                  {/* ID for remove/stop */}
-                  {(toolType === "remove_terminal" ||
-                    toolType === "stop_terminal") && (
+                    {/* Label */}
                     <div
                       style={{
-                        fontSize: "11px",
-                        padding: "2px 6px",
-                        borderRadius: "4px",
-                        backgroundColor: "var(--vscode-badge-background)",
-                        color: "var(--vscode-badge-foreground)",
-                        opacity: 0.8,
-                        fontFamily: "monospace",
+                        fontSize: "13px",
+                        color: "var(--vscode-editor-foreground)",
+                        fontWeight: 600,
                       }}
                     >
-                      {action.params.terminal_id}
+                      {getToolLabel(toolType)}
                     </div>
-                  )}
+
+                    {/* ID for remove/stop with Branch Styling */}
+                    {(toolType === "remove_terminal" ||
+                      toolType === "stop_terminal") && (
+                      <div className="terminal-sub-info">
+                        ID: {action.params.terminal_id}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <ExecuteButton
@@ -642,10 +677,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
     if (terminalToolsWithBlock.includes(toolType)) {
       const index = group[0].index; // run_command is always size 1 now
       const action = group[0].action;
-      const isLast = true; // Always last in its group
-
       const actionId = `${messageId}-action-${index}`;
       const outputData = toolOutputs?.[actionId];
+      const isCollapsed = collapsedActions.has(actionId);
 
       let extractedOutput: string | undefined = undefined;
       // If we don't have live output, check the next user message (historical data)
@@ -679,67 +713,142 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const isCompleted = hasOutput && !isTerminalBusy;
 
       return (
-        <TerminalBlock
-          logs={outputData?.output || storedOutput || extractedOutput || ""}
-          initialCommand={action.params.command}
-          terminalName="Execute"
-          subInfo={action.params.cwd}
-          status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
-          statusColor={toolColor}
-          isAttached={terminalId ? attachedTerminalIds?.has(terminalId) : false}
-          onAttachToVSCode={
-            terminalId && activeTerminalIds?.has(terminalId)
-              ? () => {
-                  extensionService.postMessage({
-                    command: "attachTerminalToVSCode",
-                    terminalId: terminalId,
-                  });
+        <div
+          className="timeline-item"
+          style={{ marginTop: "4px", paddingLeft: "29px" }}
+        >
+          {/* Dot to align with timeline axis */}
+          <div
+            className="timeline-dot"
+            style={{
+              backgroundColor: isCompleted ? "#3fb950" : toolColor,
+              top: "10px",
+            }}
+          />
+          {/* Execute header row - inline, no complex ToolHeader */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "4px 0 6px 0",
+            }}
+          >
+            {/* Left: label */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "var(--vscode-editor-foreground)",
+                }}
+              >
+                Execute
+              </span>
+              {action.params.cwd && (
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--vscode-descriptionForeground)",
+                    opacity: 0.7,
+                  }}
+                >
+                  {action.params.cwd}
+                </span>
+              )}
+            </div>
+
+            {/* Right: action buttons */}
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              {terminalId && activeTerminalIds?.has(terminalId) && (
+                <button
+                  className="attach-terminal-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    extensionService.postMessage({
+                      command: "attachTerminalToVSCode",
+                      terminalId: terminalId,
+                    });
+                  }}
+                  title="Open in VSCode Terminal"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--vscode-icon-foreground)",
+                    padding: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <line x1="10" y1="14" x2="21" y2="3"></line>
+                  </svg>
+                </button>
+              )}
+              <ExecuteButton
+                isActive={isActiveGroup || false}
+                isCompleted={isCompleted}
+                isLastMessage={isLastMessage}
+                isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
+                isLoading={isLoading}
+                toolColor={toolColor}
+                title={
+                  isCompleted
+                    ? "Completed"
+                    : isLoading
+                      ? "Executing..."
+                      : "Execute action"
                 }
-              : undefined
-          }
-          onInput={(data) => {
-            const terminalId =
-              (outputData as any)?.terminalId || action.params.terminal_id;
-            if (terminalId) {
-              extensionService.postMessage({
-                command: "terminalInput",
-                terminalId,
-                data,
-              });
-            }
-          }}
-          headerActions={
-            <ExecuteButton
-              isActive={isActiveGroup || false}
-              isCompleted={isCompleted}
-              isLastMessage={isLastMessage}
-              isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
-              isLoading={isLoading}
-              toolColor={toolColor}
-              title={
-                isCompleted
-                  ? "Completed"
-                  : isLoading
-                    ? "Executing..."
-                    : "Execute action"
+                onExecute={() => {
+                  if (!isCompleted && !isLoading) {
+                    const actionWithTerminal = {
+                      ...action,
+                      params: {
+                        ...action.params,
+                        terminal_id:
+                          (outputData as any)?.terminalId ||
+                          action.params.terminal_id,
+                      },
+                    };
+                    onToolClick(actionWithTerminal, messageId, index);
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Terminal block directly below, no gap */}
+          <TerminalBlock
+            logs={outputData?.output || extractedOutput || ""}
+            initialCommand={action.params.command}
+            status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
+            onInput={(data) => {
+              const terminalId =
+                (outputData as any)?.terminalId || action.params.terminal_id;
+              if (terminalId) {
+                extensionService.postMessage({
+                  command: "terminalInput",
+                  terminalId,
+                  data,
+                });
               }
-              onExecute={() => {
-                if (!isCompleted && !isLoading) {
-                  const actionWithTerminal = {
-                    ...action,
-                    params: {
-                      ...action.params,
-                      terminal_id:
-                        (outputData as any)?.terminalId ||
-                        action.params.terminal_id,
-                    },
-                  };
-                  onToolClick(actionWithTerminal, messageId, index);
-                }
-              }}
-            />
-          }
-        />
+            }}
+          />
+        </div>
       );
     }
 
@@ -758,147 +867,67 @@ const ToolItem: React.FC<ToolItemProps> = ({
         >
           {/* Header: Label + Execute Button */}
           {/* Header: Dot + Action + FilePath + Execute Button */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "8px 12px",
-              borderBottom: `1px solid ${toolColor}15`,
-              backgroundColor: `${toolColor}08`,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-              }}
-            >
-              {/* Dot */}
+          {/* Header: Dot + Action + FilePath + Execute Button */}
+          <ToolHeader
+            title="Steps"
+            subTitle={`${group.length} action${group.length > 1 ? "s" : ""}`}
+            statusColor={toolColor}
+            isCollapsed={false} // Group header itself not collapsed here, items are
+            icon={
               <div
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  backgroundColor: toolColor,
-                  flexShrink: 0,
+                className="codicon codicon-layers"
+                style={{ fontSize: "14px", marginRight: "4px" }}
+              />
+            }
+            headerActions={
+              <ExecuteButton
+                isActive={isActiveGroup || false}
+                isCompleted={group.every((item) =>
+                  clickedActions.has(`${messageId}-action-${item.index}`),
+                )}
+                isLastMessage={isLastMessage}
+                isSkipped={
+                  !isActiveGroup &&
+                  !isLastMessage &&
+                  !group.every((item) =>
+                    clickedActions.has(`${messageId}-action-${item.index}`),
+                  )
+                }
+                toolColor={toolColor}
+                title={
+                  group.every((item) =>
+                    clickedActions.has(`${messageId}-action-${item.index}`),
+                  )
+                    ? "Completed"
+                    : "Execute all actions"
+                }
+                onExecute={(e) => {
+                  const isCompleted = group.every((item) =>
+                    clickedActions.has(`${messageId}-action-${item.index}`),
+                  );
+
+                  if (isCompleted) {
+                    return;
+                  }
+
+                  const unclickedItems = group.filter(
+                    ({ index }) =>
+                      !clickedActions.has(`${messageId}-action-${index}`),
+                  );
+                  const actionsToExecute = unclickedItems.map(
+                    ({ action, index }) => ({
+                      ...action,
+                      _index: index,
+                    }),
+                  );
+
+                  if (actionsToExecute.length > 0) {
+                    onToolClick(actionsToExecute as any, messageId, -1);
+                  }
                 }}
               />
-
-              {/* Status/Label */}
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "var(--vscode-editor-foreground)",
-                  fontWeight: 600,
-                  fontFamily: "var(--vscode-font-family)",
-                }}
-              >
-                {getToolLabel(toolType)}
-              </div>
-
-              {/* File/Command in Header if single item */}
-              {group.length === 1 && toolType !== "list_terminals" && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "2px 6px",
-                    borderRadius: "4px",
-                    backgroundColor: "var(--vscode-badge-background)",
-                    color: "var(--vscode-badge-foreground)",
-                    fontSize: "11px",
-                    opacity: 0.9,
-                  }}
-                >
-                  <FileIcon
-                    path={getFilename(firstAction)}
-                    isFolder={firstAction.type === "list_files"}
-                    style={{ width: "14px", height: "14px" }}
-                  />
-                  <span
-                    style={{
-                      maxWidth: "150px",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                    title={
-                      firstAction.params.path || firstAction.params.command
-                    }
-                  >
-                    {getFilename(firstAction)}
-                  </span>
-                </div>
-              )}
-
-              {/* Item Count if multiple */}
-              {group.length > 1 && (
-                <span
-                  style={{
-                    fontSize: "11px",
-                    color: "var(--vscode-descriptionForeground)",
-                    backgroundColor: "var(--vscode-badge-background)",
-                    padding: "1px 6px",
-                    borderRadius: "10px",
-                    fontWeight: 500,
-                  }}
-                >
-                  {group.length} items
-                </span>
-              )}
-            </div>
-
-            {/* Execute All Button */}
-            <ExecuteButton
-              isCompleted={group.every((item) =>
-                clickedActions.has(`${messageId}-action-${item.index}`),
-              )}
-              isActive={isActiveGroup || false}
-              isLastMessage={isLastMessage}
-              isSkipped={
-                !isActiveGroup &&
-                !isLastMessage &&
-                !group.every((item) =>
-                  clickedActions.has(`${messageId}-action-${item.index}`),
-                )
-              }
-              toolColor={toolColor}
-              title={
-                group.every((item) =>
-                  clickedActions.has(`${messageId}-action-${item.index}`),
-                )
-                  ? "Completed"
-                  : "Execute all actions"
-              }
-              onExecute={(e) => {
-                const isCompleted = group.every((item) =>
-                  clickedActions.has(`${messageId}-action-${item.index}`),
-                );
-
-                if (isCompleted) {
-                  return;
-                }
-
-                const unclickedItems = group.filter(
-                  ({ index }) =>
-                    !clickedActions.has(`${messageId}-action-${index}`),
-                );
-                const actionsToExecute = unclickedItems.map(
-                  ({ action, index }) => ({
-                    ...action,
-                    _index: index,
-                  }),
-                );
-
-                if (actionsToExecute.length > 0) {
-                  onToolClick(actionsToExecute as any, messageId, -1);
-                }
-              }}
-            />
-          </div>
+            }
+          />
 
           {/* List Items */}
           {group.map((item, idx) => {
@@ -1009,82 +1038,85 @@ const ToolItem: React.FC<ToolItemProps> = ({
               const actionId = `${messageId}-action-${index}`;
               const outputData = toolOutputs?.[actionId];
               const isActionClicked = clickedActions.has(actionId);
+              const isCollapsed = collapsedActions.has(actionId);
               const hasOutput = !!outputData;
-              const isLoading = isActionClicked && !hasOutput;
+
+              // Loading state: Determine based on real terminal status if available
+              const terminalId =
+                (outputData as any)?.terminalId || action.params.terminal_id;
+              const isTerminalBusy = terminalId
+                ? terminalStatus?.[terminalId] === "busy"
+                : false;
+
+              const isLoading =
+                isActionClicked && (!hasOutput || isTerminalBusy);
+              const isCompleted = hasOutput && !isTerminalBusy;
 
               return (
                 <div
                   key={index}
                   style={{
-                    padding: "0", // Removed padding as requested
+                    padding: "0",
                     borderBottom: isLast ? "none" : `1px solid ${toolColor}20`,
                     display: "flex",
                     flexDirection: "column",
                   }}
                 >
-                  <CodeBlock
-                    code={action.params.command}
-                    language="shell"
-                    filename="terminal"
+                  <ToolHeader
+                    title="Run"
+                    subTitle={truncatePath(action.params.cwd)}
+                    statusColor={isCompleted ? "#3fb950" : toolColor}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={() => toggleCollapse(actionId)}
                     icon={
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="100%"
-                        height="100%"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="m7 11 2-2-2-2" />
-                        <path d="M11 13h4" />
-                        <rect
-                          width="18"
-                          height="18"
-                          x="3"
-                          y="3"
-                          rx="2"
-                          ry="2"
-                        />
-                      </svg>
+                      <div
+                        className="codicon codicon-terminal"
+                        style={{ fontSize: "14px", marginRight: "4px" }}
+                      />
                     }
-                    showCopyButton={true}
                     headerActions={
                       <ExecuteButton
                         isActive={isActiveGroup || false}
-                        isCompleted={isActionClicked}
+                        isCompleted={isCompleted}
                         isLastMessage={isLastMessage}
                         isSkipped={
                           !isActiveGroup && !isLastMessage && !isActionClicked
                         }
                         isLoading={isLoading}
                         toolColor={toolColor}
-                        showText={MANUAL_CONFIRMATION_TOOLS.includes(
-                          action.type,
-                        )}
-                        labelText="Run"
-                        title={isActionClicked ? "Completed" : "Execute action"}
+                        title={
+                          isCompleted
+                            ? "Completed"
+                            : isLoading
+                              ? "Executing..."
+                              : "Execute action"
+                        }
                         onExecute={() => {
-                          if (!isActionClicked && !isLoading) {
+                          if (!isCompleted && !isLoading) {
                             onToolClick(action, messageId, index);
                           }
                         }}
                       />
                     }
                   />
-
-                  {/* Output CodeBlock */}
-                  {outputData && (
-                    <div style={{ padding: "0" }}>
+                  {!isCollapsed && (
+                    <div style={{ paddingLeft: "10px" }}>
                       <CodeBlock
-                        code={outputData.output}
-                        language="text" // Or try to detect? text/shell usually fine for output
-                        // filename="Output" // Optional
-                        maxLines={10}
-                        showCopyButton={true}
+                        code={action.params.command}
+                        language="shell"
+                        filename="command"
+                        maxLines={5}
+                        isCollapsed={false}
                       />
+                      {outputData && (
+                        <CodeBlock
+                          code={outputData.output}
+                          language="text"
+                          filename="output"
+                          maxLines={10}
+                          isCollapsed={false}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -1411,7 +1443,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                         language={action.type === "read_file" ? "text" : "text"} // Simple text for now, could infer language from path
                         filename="Output"
                         maxLines={15}
-                        showCopyButton={true}
+                        isCollapsed={false}
                       />
                     </div>
                   )}

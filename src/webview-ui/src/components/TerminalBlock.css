@@ -17,10 +17,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 4px 8px 12px;
-  background-color: var(--vscode-editorGroupHeader-tabsBackground, #252526);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 6px 12px 6px 0;
+  background-color: var(
+    --vscode-editorGroupHeader-tabsBackground,
+    var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.1))
+  );
+  border-bottom: none; /* Removed overflow: hidden to prevent clipping timeline dots */
   user-select: none;
+  cursor: pointer;
 }
 
 .terminal-info {
@@ -52,11 +56,30 @@
 
 .terminal-sub-info {
   font-size: 11px;
-  opacity: 0.4;
+  opacity: 0.5;
   font-family: var(--vscode-font-family);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding-left: 29px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 18px;
+  margin-top: -2px;
+}
+
+.terminal-sub-info::before {
+  content: "";
+  position: absolute;
+  left: var(--timeline-axis);
+  top: -8px; /* Connect to vertical timeline line */
+  width: 10px;
+  height: 16px;
+  border-left: 2px solid var(--vscode-panel-border, #6a737d);
+  border-bottom: 2px solid var(--vscode-panel-border, #6a737d);
+  border-bottom-left-radius: 4px;
+  transform: translateX(-1px); /* Align with 2px line center */
 }
 
 .terminal-state-badge {
@@ -81,7 +104,7 @@
 }
 
 .terminal-content-wrapper {
-  padding: 8px;
+  padding: 8px 8px 8px 12px;
   overflow: hidden;
   background-color: var(--vscode-terminal-background, #1e1e1e);
 }
@@ -130,4 +153,93 @@
     --vscode-scrollbarSlider-hoverBackground,
     rgba(100, 100, 100, 0.7)
   );
+}
+
+/* Timeline Styles */
+:root {
+  --timeline-axis: 15px;
+  --timeline-dot-size: 10px;
+}
+
+.chat-timeline-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* No global line - line is drawn per timeline-item */
+.chat-timeline-wrapper::before {
+  display: none;
+}
+
+/* assistant-message-container scopes the timeline */
+.assistant-message-container {
+  position: relative;
+}
+
+.timeline-item {
+  position: relative;
+  margin-left: 0;
+  padding-bottom: 24px;
+  /* No z-index: avoid stacking context that hides ::before line */
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+/* Each non-last item draws a connecting line from its dot down to next item */
+.assistant-message-container .timeline-item:not(.last)::before {
+  content: "";
+  position: absolute;
+  left: var(--timeline-axis);
+  transform: translateX(-50%);
+  top: 14px; /* Start exactly at dot center (dot is at top:10px, size 8px -> center is 14px) */
+  bottom: -24px; /* Extend through 24px padding gap to connect to next item */
+  width: 2px;
+  background-color: var(--vscode-panel-border, #6a737d);
+  /* No z-index: paint naturally in stacking context */
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Final dot: explicitly no line below */
+.timeline-item.last::before {
+  display: none;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: var(--timeline-axis);
+  transform: translateX(-50%);
+  top: 22px;
+  width: var(--timeline-dot-size);
+  height: var(--timeline-dot-size);
+  border-radius: 50%;
+  z-index: 10;
+  background-color: var(--vscode-descriptionForeground);
+  box-shadow: 0 0 0 2px var(--vscode-editor-background);
+  transition: all 0.2s ease;
+}
+
+/* Mask to hide the global timeline axis for specific sections */
+.timeline-mask {
+  position: relative;
+}
+
+.timeline-mask::after {
+  content: "";
+  position: absolute;
+  left: var(--timeline-axis);
+  transform: translateX(-50%);
+  top: -24px;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--secondary-bg);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.timeline-content {
+  padding-left: 29px; /* Offset for timeline area */
 }

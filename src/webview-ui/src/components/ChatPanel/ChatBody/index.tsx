@@ -127,50 +127,56 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         <WelcomeUI onLoadConversation={onLoadConversation} />
       )}
 
-      {visibleMessages.map((message, index) => {
-        // Regular messages - Use memoized parsed content
-        const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
-        if (!parsedMessage) {
-          console.warn(`[ChatBody] Parsed message not found for ${message.id}`);
-          return null;
-        }
-        const parsedContent = parsedMessage.parsed;
+      <div className="chat-timeline-wrapper">
+        {visibleMessages.map((message, index) => {
+          // Regular messages - Use memoized parsed content
+          const parsedMessage = parsedMessages.find(
+            (pm) => pm.id === message.id,
+          );
+          if (!parsedMessage) {
+            console.warn(
+              `[ChatBody] Parsed message not found for ${message.id}`,
+            );
+            return null;
+          }
+          const parsedContent = parsedMessage.parsed;
 
-        const nextUserMessage = messages
-          .slice(messages.findIndex((m) => m.id === message.id) + 1)
-          .find((m) => m.role === "user");
+          const nextUserMessage = messages
+            .slice(messages.findIndex((m) => m.id === message.id) + 1)
+            .find((m) => m.role === "user");
 
-        return (
-          <MessageBox
-            key={message.id}
-            message={message}
-            parsedContent={parsedContent}
-            nextUserMessage={nextUserMessage}
-            isCollapsed={
-              message.role === "user"
-                ? collapsedSections.has(`prompt-${message.id}`)
-                : collapsedSections.has(`thinking-${message.id}`)
-            }
-            onToggleCollapse={() =>
-              toggleCollapse(
+          return (
+            <MessageBox
+              key={message.id}
+              message={message}
+              parsedContent={parsedContent}
+              nextUserMessage={nextUserMessage}
+              isCollapsed={
                 message.role === "user"
-                  ? `prompt-${message.id}`
-                  : `thinking-${message.id}`,
-              )
-            }
-            clickedActions={clickedActions}
-            failedActions={failedActions}
-            onToolClick={handleToolClick}
-            executionState={executionState}
-            isLastMessage={index === visibleMessages.length - 1} // Pass isLastMessage
-            toolOutputs={toolOutputs}
-            terminalStatus={terminalStatus}
-            activeTerminalIds={activeTerminalIds}
-            attachedTerminalIds={attachedTerminalIds}
-            conversationId={conversationId}
-          />
-        );
-      })}
+                  ? collapsedSections.has(`prompt-${message.id}`)
+                  : collapsedSections.has(`thinking-${message.id}`)
+              }
+              onToggleCollapse={() =>
+                toggleCollapse(
+                  message.role === "user"
+                    ? `prompt-${message.id}`
+                    : `thinking-${message.id}`,
+                )
+              }
+              clickedActions={clickedActions}
+              failedActions={failedActions}
+              onToolClick={handleToolClick}
+              executionState={executionState}
+              isLastMessage={index === visibleMessages.length - 1} // Pass isLastMessage
+              toolOutputs={toolOutputs}
+              terminalStatus={terminalStatus}
+              activeTerminalIds={activeTerminalIds}
+              attachedTerminalIds={attachedTerminalIds}
+              conversationId={conversationId}
+            />
+          );
+        })}
+      </div>
 
       {isProcessing && <ProcessingIndicator isResponding={isResponding} />}
 

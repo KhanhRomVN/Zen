@@ -6,32 +6,20 @@ import "./TerminalBlock.css";
 
 interface TerminalBlockProps {
   logs: string;
-  terminalName: string;
-  subInfo?: string;
   status?: "busy" | "idle" | "free";
-  statusColor?: string;
   maxHeight?: number;
   rows?: number;
-  headerActions?: React.ReactNode;
   initialCommand?: string;
   onInput?: (data: string) => void;
-  onAttachToVSCode?: () => void;
-  isAttached?: boolean;
 }
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   logs,
-  terminalName,
-  subInfo,
   status,
-  statusColor,
   maxHeight = 400,
-  headerActions,
   initialCommand,
   rows = 15,
   onInput,
-  onAttachToVSCode,
-  isAttached,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
@@ -154,73 +142,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
 
   return (
     <div className="terminal-block-container">
-      <div className="terminal-block-header">
-        <div className="terminal-info">
-          <div className="terminal-header-top">
-            {statusColor && (
-              <div
-                className="terminal-status-dot"
-                style={{
-                  backgroundColor: statusColor,
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                }}
-              />
-            )}
-            <span className="terminal-name">{terminalName}</span>
-            {status === "busy" && (
-              <span
-                className="terminal-state-badge"
-                style={{
-                  backgroundColor: "rgba(76, 175, 80, 0.1)",
-                  color: "#4caf50",
-                }}
-              >
-                Running
-              </span>
-            )}
-          </div>
-          {subInfo && <span className="terminal-sub-info">{subInfo}</span>}
-        </div>
-        <div className="header-actions">
-          {onAttachToVSCode && !isAttached && (
-            <button
-              className="attach-terminal-btn"
-              onClick={onAttachToVSCode}
-              title="Open in VSCode Terminal"
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--vscode-icon-foreground)",
-                padding: "4px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: "8px",
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <line x1="10" y1="14" x2="21" y2="3"></line>
-              </svg>
-            </button>
-          )}
-          {headerActions}
-        </div>
-      </div>
       <div
         className="terminal-content-wrapper"
         style={{ maxHeight: `${maxHeight}px` }}

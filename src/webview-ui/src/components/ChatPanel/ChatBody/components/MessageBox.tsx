@@ -11,6 +11,8 @@ import HtmlPreview from "./HtmlPreview";
 import FileIcon from "../../../common/FileIcon";
 import { isDiff, parseDiff } from "../../../../utils/diffUtils";
 import { extensionService } from "../../../../services/ExtensionService";
+import { ToolHeader } from "../../../ToolHeader";
+import "../../../TerminalBlock.css";
 
 interface MessageBoxProps {
   message: Message;
@@ -34,6 +36,83 @@ interface MessageBoxProps {
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
 }
+
+const MessageBoxCodeBlock: React.FC<{
+  code: string;
+  language?: string;
+  maxLines?: number;
+  lineHighlights?: any;
+  diffStats?: { added: number; removed: number };
+  isDiffBlock: boolean;
+  prefix?: string;
+  statusColor?: string;
+}> = ({
+  code,
+  language,
+  maxLines,
+  lineHighlights,
+  diffStats,
+  isDiffBlock,
+  prefix,
+  statusColor,
+}) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(isDiffBlock);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+        marginBottom: "8px",
+      }}
+    >
+      <ToolHeader
+        title={prefix || language || "code"}
+        statusColor={statusColor}
+        diffStats={diffStats}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={
+          isDiffBlock ? () => setIsCollapsed(!isCollapsed) : undefined
+        }
+        headerActions={
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(code);
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--vscode-foreground)",
+              cursor: "pointer",
+              opacity: 0.7,
+              display: "flex",
+              alignItems: "center",
+              padding: "2px",
+            }}
+            title="Copy Code"
+          >
+            <div
+              className="codicon codicon-copy"
+              style={{ fontSize: "14px" }}
+            />
+          </button>
+        }
+      />
+      <div style={{ paddingLeft: "29px" }}>
+        <CodeBlock
+          code={code}
+          language={language}
+          maxLines={maxLines}
+          isCollapsed={isCollapsed}
+          showLineNumbers={isDiffBlock}
+          lineHighlights={lineHighlights}
+        />
+      </div>
+    </div>
+  );
+};
 
 const MessageBox: React.FC<MessageBoxProps> = ({
   message,
@@ -107,6 +186,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           filter: message.isCancelled ? "grayscale(1) blur(0.5px)" : "none",
           pointerEvents: message.isCancelled ? "none" : "auto",
           transition: "all 0.3s ease",
+          position: "relative",
         }}
       >
         <div
@@ -117,6 +197,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             borderRadius: "var(--border-radius)",
             backgroundColor: "var(--input-bg)",
             padding: "var(--spacing-md)",
+            marginLeft: "0px", // Align with left edge since there is no dot
           }}
         >
           <div
@@ -153,11 +234,14 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   // If Assistant Message
   return (
     <div
+      className="assistant-message-container"
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "var(--spacing-sm)",
+        gap: "0px",
         marginBottom: "var(--spacing-md)",
+        paddingLeft: "0px",
+        position: "relative",
         opacity: message.isCancelled ? 0.4 : 1,
         filter: message.isCancelled ? "grayscale(1) blur(0.5px)" : "none",
         pointerEvents: message.isCancelled ? "none" : "auto",
@@ -166,12 +250,14 @@ const MessageBox: React.FC<MessageBoxProps> = ({
     >
       {/* 2. Thinking Section */}
       {parsedContent.thinking && (
-        <ThinkingSection
-          message={message}
-          thinking={parsedContent.thinking}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={onToggleCollapse}
-        />
+        <div className="timeline-item">
+          <ThinkingSection
+            message={message}
+            thinking={parsedContent.thinking}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={onToggleCollapse}
+          />
+        </div>
       )}
 
       {/* 3. Interleaved Content (Text + Tools) */}
@@ -270,59 +356,48 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           }
         }
 
-        return groups.map((group) => {
+        return groups.map((group, index) => {
+          const isLast = index === groups.length - 1;
+          const timelineClass = `timeline-item ${isLast ? "last" : ""}`;
+
+          let content = null;
+
           if (group.type === "code") {
             const isDiffBlock = isDiff(group.content, group.language);
             let displayCode = group.content;
             let lineHighlights: any = undefined;
-            let headerActions: any = undefined;
             let diffStats: { added: number; removed: number } | undefined =
               undefined;
 
-            let defaultCollapsed = false;
             let prefix: string | undefined = undefined;
-            let statusColor: string | undefined = undefined;
+            let statusColor: string | undefined = "#6a737d"; // Default dot color
 
             if (isDiffBlock) {
               const diffResult = parseDiff(group.content);
               displayCode = diffResult.code;
               lineHighlights = diffResult.lineHighlights;
-              // Pass diff stats to CodeBlock
               diffStats = diffResult.stats;
-              // Phase 3: Default collapsed for edits
-              defaultCollapsed = true;
               prefix = "Edit";
               statusColor = "#3fb950";
             }
 
-            return (
-              <div key={group.key}>
-                <CodeBlock
-                  code={displayCode}
-                  language={isDiffBlock ? "python" : group.language}
-                  maxLines={25}
-                  showCopyButton={true}
-                  lineHighlights={lineHighlights}
-                  diffStats={diffStats}
-                  headerActions={headerActions}
-                  defaultCollapsed={defaultCollapsed}
-                  prefix={prefix}
-                  statusColor={statusColor}
-                  showLineNumbers={isDiffBlock} // Only show line numbers for diff blocks (file changes), not standard text blocks
-                  isCollapsible={isDiffBlock} // Only allow collapsing for diff blocks (file changes), standard code blocks are always expanded
-                />
-              </div>
+            content = (
+              <MessageBoxCodeBlock
+                code={displayCode}
+                language={isDiffBlock ? "python" : group.language}
+                maxLines={25}
+                lineHighlights={lineHighlights}
+                diffStats={diffStats}
+                isDiffBlock={isDiffBlock}
+                prefix={prefix}
+                statusColor={statusColor}
+              />
             );
           } else if (group.type === "html") {
-            return (
-              <div key={group.key}>
-                <HtmlPreview content={group.content} />
-              </div>
-            );
+            content = <HtmlPreview content={group.content} />;
           } else if (group.type === "file") {
-            return (
+            content = (
               <div
-                key={group.key}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -333,6 +408,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   color: "var(--vscode-badge-foreground)",
                   fontSize: "12px",
                   cursor: "pointer",
+                  marginLeft: "29px",
                 }}
                 onClick={() => {
                   const vscodeApi = (window as any).vscodeApi;
@@ -352,7 +428,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "text") {
-            // Helper to render **bold** text
             const renderFormattedText = (text: string) => {
               const parts = text.split(/(\*\*[\s\S]*?\*\*)/);
               return parts.map((part, i) => {
@@ -363,20 +438,26 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               });
             };
 
-            return (
+            content = (
               <div
-                key={group.key}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0px",
-                  borderRadius: "var(--border-radius)",
-                  backgroundColor: "transparent", // Clean look
-                  padding: "0",
-                }}
+                style={
+                  {
+                    /* paddingBottom removed to rely on timeline-item padding */
+                  }
+                }
               >
                 <div
+                  className="timeline-dot"
                   style={{
+                    backgroundColor: "var(--vscode-descriptionForeground)",
+                    opacity: 0.8,
+                    top: "10px",
+                  }}
+                />
+                <div
+                  style={{
+                    paddingLeft: "29px", // Consistent with timeline-content
+                    paddingTop: "4px", // Nhích lên 4px để thẳng hàng với dot ở 10px
                     fontSize: "var(--font-size-sm)",
                     color: "var(--primary-text)",
                     lineHeight: 1.6,
@@ -388,9 +469,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               </div>
             );
           } else {
-            return (
+            content = (
               <ToolActionsList
-                key={group.key}
                 message={message}
                 items={group.items}
                 clickedActions={clickedActions}
@@ -407,6 +487,16 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               />
             );
           }
+
+          if (group.type === "tools") {
+            return <React.Fragment key={group.key}>{content}</React.Fragment>;
+          }
+
+          return (
+            <div key={group.key} className={timelineClass}>
+              {content}
+            </div>
+          );
         });
       })()}
 

@@ -54,26 +54,17 @@ interface CodeBlockProps {
   code: string;
   language?: string;
   filename?: string;
-  maxLines?: number; // Keep for height limiting if needed
-  showCopyButton?: boolean;
-  icon?: React.ReactNode;
-  headerActions?: React.ReactNode;
+  maxLines?: number;
+  showCopyButton?: boolean; // Still useful in ToolHeader or here? User said headers/dotUI in ChatPanel.
+  isCollapsed?: boolean;
+  showLineNumbers?: boolean;
+  startLineNumber?: number;
   lineHighlights?: {
     startLine: number;
     endLine: number;
     type: "added" | "removed";
   }[];
   backgroundColor?: string;
-  startLineNumber?: number;
-  showLineNumbers?: boolean; // 🆕 Control line number visibility
-  diffStats?: {
-    added: number;
-    removed: number;
-  };
-  defaultCollapsed?: boolean;
-  prefix?: string;
-  statusColor?: string;
-  isCollapsible?: boolean;
 }
 
 export const CodeBlock: React.FC<CodeBlockProps> = ({
@@ -81,29 +72,17 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   language,
   filename,
   maxLines,
-  showCopyButton = true,
-  icon,
-  headerActions,
+  isCollapsed = false,
+  showLineNumbers = true,
+  startLineNumber = 1,
   lineHighlights,
   backgroundColor,
-  startLineNumber = 1,
-  showLineNumbers = true,
-  diffStats,
-  defaultCollapsed = false,
-  prefix,
-  statusColor,
-  isCollapsible = true,
 }) => {
-  const [copied, setCopied] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(
-    defaultCollapsed && isCollapsible,
-  );
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef<string | null>(null);
   const { themeKind, themeId, themeVersion } = useTheme();
   const effectiveLanguage = language || getLanguageFromFilename(filename);
-  const displayPath = truncatePath(filename);
 
   // Handle Highlighting via Extension (Shiki Backend)
   useEffect(() => {
@@ -136,9 +115,9 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       themeKind,
       themeId,
       requestId,
-      lineHighlights, // 🆕 Pass highlights
-      startLineNumber, // 🆕 Pass start line
-      showLineNumbers, // 🆕 Pass toggle
+      lineHighlights,
+      startLineNumber,
+      showLineNumbers,
     });
 
     return () => {
@@ -155,265 +134,39 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     showLineNumbers,
   ]);
 
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation(); // Avoid collapsing when clicking copy
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy code:", err);
-    }
-  };
-
-  const getIconForLanguage = (lang: string) => {
-    const extRaw = filename?.split(".").pop()?.toLowerCase();
-    const ext = extRaw || "txt";
-    return getFileIconPath(`file.${ext}`);
-  };
-
-  // Calculate dynamic line number width
   const lineCount = code.trim().split("\n").length;
-  // Base width is number of digits + padding
   const lineNumberWidth = `${Math.max(3, lineCount.toString().length) + 1}ch`;
+
+  if (isCollapsed) return null;
 
   return (
     <div
-      className={`code-block-container shiki-mode ${isCollapsed ? "collapsed" : ""} ${!showLineNumbers ? "no-line-numbers" : ""}`}
+      className={`code-block-container shiki-mode ${!showLineNumbers ? "no-line-numbers" : ""}`}
       style={
         {
-          // 🆕 Only apply backgroundColor when expanded, transparent when collapsed
-          backgroundColor: isCollapsed
-            ? "transparent"
-            : backgroundColor || "var(--vscode-editor-background)",
-          "--line-number-width": lineNumberWidth, // Pass to CSS
+          backgroundColor: backgroundColor || "var(--vscode-editor-background)",
+          "--line-number-width": lineNumberWidth,
         } as React.CSSProperties
       }
     >
-      {(filename || showCopyButton || diffStats) && (
-        <>
-          {isCollapsed ? (
-            // 🆕 Collapsed State: Inline summary (no header wrapper, just a simple line)
-            <div
-              className="code-block-summary"
-              onClick={() => isCollapsible && setIsCollapsed(!isCollapsed)}
-              style={{
-                cursor: isCollapsible ? "pointer" : "default",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "8px 0", // 🆕 No left/right padding
-                fontSize: "13px",
-              }}
-            >
-              <span
-                className="collapse-icon codicon codicon-chevron-right"
-                style={{ fontSize: "12px" }}
-              />
-              {statusColor && (
-                <span
-                  className="status-dot"
-                  style={{
-                    backgroundColor: statusColor,
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    display: "inline-block",
-                  }}
-                />
-              )}
-              {prefix && (
-                <span
-                  className="header-prefix"
-                  style={{
-                    fontWeight: 500,
-                    color: "var(--vscode-foreground)",
-                  }}
-                >
-                  {prefix}
-                </span>
-              )}
-              <span
-                className="file-name"
-                style={{
-                  color: "var(--vscode-textLink-foreground)",
-                  fontFamily: "var(--vscode-editor-font-family)",
-                }}
-              >
-                {displayPath || effectiveLanguage}
-              </span>
-              {diffStats && (
-                <span
-                  className="diff-stats"
-                  style={{
-                    display: "flex",
-                    gap: "6px",
-                    fontSize: "12px",
-                    fontFamily: "monospace",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
-                    style={{
-                      color:
-                        "var(--vscode-gitDecoration-addedResourceForeground)",
-                    }}
-                  >
-                    +{diffStats.added}
-                  </span>
-                  <span
-                    style={{
-                      color:
-                        "var(--vscode-gitDecoration-deletedResourceForeground)",
-                    }}
-                  >
-                    -{diffStats.removed}
-                  </span>
-                </span>
-              )}
-            </div>
-          ) : (
-            // 🆕 Expanded State: Full header with proper layout
-            <div
-              className="code-block-header"
-              onClick={() => isCollapsible && setIsCollapsed(!isCollapsed)}
-              style={{ cursor: isCollapsible ? "pointer" : "default" }}
-            >
-              <div className="file-info">
-                {isCollapsible && (
-                  <span
-                    className="collapse-icon codicon codicon-chevron-down"
-                    style={{ fontSize: "12px" }}
-                  />
-                )}
-                {statusColor && (
-                  <span
-                    className="status-dot"
-                    style={{
-                      backgroundColor: statusColor,
-                    }}
-                  />
-                )}
-                {prefix && <span className="header-prefix">{prefix}</span>}
-                {icon || (
-                  <img
-                    src={
-                      filename
-                        ? getFileIconPath(filename)
-                        : getIconForLanguage(effectiveLanguage)
-                    }
-                    alt=""
-                    className="file-icon"
-                  />
-                )}
-                <span className="file-name">
-                  {displayPath || effectiveLanguage}
-                </span>
-                {diffStats && (
-                  <span
-                    className="diff-stats"
-                    style={{
-                      display: "flex",
-                      gap: "6px",
-                      fontSize: "12px",
-                      fontFamily: "monospace",
-                      alignItems: "center",
-                    }}
-                  >
-                    <span
-                      style={{
-                        color:
-                          "var(--vscode-gitDecoration-addedResourceForeground)",
-                      }}
-                    >
-                      +{diffStats.added}
-                    </span>
-                    <span
-                      style={{
-                        color:
-                          "var(--vscode-gitDecoration-deletedResourceForeground)",
-                      }}
-                    >
-                      -{diffStats.removed}
-                    </span>
-                  </span>
-                )}
-              </div>
-              <div className="header-actions">
-                {headerActions}
-                {showCopyButton && (
-                  <button
-                    className="copy-button"
-                    onClick={handleCopy}
-                    title={copied ? "Copied!" : "Copy code"}
-                  >
-                    {copied ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#3fb950"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="lucide lucide-check"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="lucide lucide-copy"
-                      >
-                        <rect
-                          width="14"
-                          height="14"
-                          x="8"
-                          y="8"
-                          rx="2"
-                          ry="2"
-                        />
-                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                      </svg>
-                    )}
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {!isCollapsed && (
-        <div
-          className="code-content-wrapper"
-          style={{
-            maxHeight: maxLines ? `${maxLines * 20}px` : "none",
-            overflowY: "auto",
-          }}
-        >
-          {highlightedHtml ? (
-            <div
-              className="shiki-highlighted"
-              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
-            />
-          ) : (
-            <pre className="plaintext-fallback">
-              <code>{code}</code>
-            </pre>
-          )}
-        </div>
-      )}
+      <div
+        className="code-content-wrapper"
+        style={{
+          maxLines: maxLines ? `${maxLines * 20}px` : "none",
+          overflowY: "auto",
+        }}
+      >
+        {highlightedHtml ? (
+          <div
+            className="shiki-highlighted"
+            dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+          />
+        ) : (
+          <pre className="plaintext-fallback">
+            <code>{code}</code>
+          </pre>
+        )}
+      </div>
     </div>
   );
 };
