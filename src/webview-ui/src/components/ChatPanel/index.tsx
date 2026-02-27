@@ -8,6 +8,7 @@ import React, {
 import ChatHeader from "./ChatHeader";
 import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
+import { useProject } from "../../context/ProjectContext";
 import TaskDrawer from "./TaskDrawer";
 import BackupDrawer from "./ChatFooter/components/BackupDrawer";
 import BlacklistDrawer from "./ChatFooter/components/BlacklistDrawer";
@@ -55,6 +56,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   initialMessageData,
   onClearInitialData,
 }) => {
+  const { stopWatching } = useProject();
+
+  useEffect(() => {
+    stopWatching();
+  }, [stopWatching]);
+
   // --- States ---
   const { isBackupEnabled } = useSettings();
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");

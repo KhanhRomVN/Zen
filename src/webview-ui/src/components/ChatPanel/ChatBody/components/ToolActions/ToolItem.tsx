@@ -250,17 +250,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const { action, index } = item;
       const actionId = `${messageId}-action-${index}`;
 
-      // [Auto-run logic]
-      const isManual = MANUAL_CONFIRMATION_TOOLS.includes(action.type);
-      if (
-        !isManual &&
-        isActiveGroup &&
-        !clickedActions.has(actionId) &&
-        !processedActions.current.has(actionId)
-      ) {
-        processedActions.current.add(actionId);
-        onToolClick(action, messageId, index);
-      }
+      // [Auto-run logic REMOVED - handled by useChatLLM]
 
       if (action.type === "replace_in_file" && action.params.diff) {
         const validationId = `${messageId}-${index}-validate`;

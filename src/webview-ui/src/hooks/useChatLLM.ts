@@ -15,6 +15,7 @@ import {
   deleteConversation,
 } from "../services/ConversationService";
 import { useSettings } from "../context/SettingsContext";
+import { useProject } from "../context/ProjectContext";
 
 interface UseChatLLMProps {
   apiUrl: string;
@@ -36,6 +37,7 @@ export const useChatLLM = ({
   onToolRequest,
 }: UseChatLLMProps) => {
   const { language: preferredLanguage } = useSettings();
+  const { workspace, rules, treeView } = useProject();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -174,57 +176,9 @@ export const useChatLLM = ({
         }
 
         try {
-          // Fetch project context
-          // We can move this to a service helper too, but let's keep it here for now or use ExtensionService
-          const requestId = `ctx-${Date.now()}`;
-          // We need a way to await response from extension service.
-          // ExtensionService.postMessage doesn't return promise for custom events easily unless we add it.
-          // But we can use the window.vscodeApi directly via ExtensionService if we expose it?
-          // Actually ExtensionService has getStorage but not generic request.
-          // Let's assume we can implementation a generic request in proper refactor.
-          // For now, let's implement the promise wrapper here or add it to ExtensionService.
-
-          // I'll skip the elaborate context fetching refactor for this specific step to avoid breaking logic.
-          console.log(
-            `[useChatLLM] Fetching project context (requestId: ${requestId})...`,
-          );
-          const contextData: any = await new Promise((resolve) => {
-            const timeout = setTimeout(() => {
-              console.warn(
-                `[useChatLLM] Project context fetch timed out (${requestId})`,
-              );
-              window.removeEventListener("message", handleMessage);
-              resolve(null);
-            }, 10000); // Increased to 10 seconds
-
-            const handleMessage = (event: MessageEvent) => {
-              const data = event.data;
-              if (
-                data.command === "projectContextResult" &&
-                data.requestId === requestId
-              ) {
-                console.log(
-                  `[useChatLLM] Received project context result:`,
-                  data.data,
-                );
-                clearTimeout(timeout);
-                window.removeEventListener("message", handleMessage);
-                resolve(data.data);
-              } else if (data.command === "projectContextResult") {
-                console.log(
-                  `[useChatLLM] Ignored projectContextResult with mismatched requestId: ${data.requestId} (expected ${requestId})`,
-                );
-              }
-            };
-            window.addEventListener("message", handleMessage);
-            extensionService.postMessage({
-              command: "getProjectContext",
-              requestId,
-            });
-          });
-
-          if (contextData) {
-            const { workspace, rules, treeView } = contextData;
+          // Use pre-fetched context from ProjectContext
+          console.log(`[useChatLLM] Injecting pre-fetched project context...`);
+          if (workspace || rules || treeView) {
             console.log(
               `[useChatLLM] Injecting context - Workspace: ${!!workspace}, Rules: ${!!rules}, Tree: ${!!treeView}`,
             );
@@ -232,10 +186,13 @@ export const useChatLLM = ({
             projectContextStr += `\n\n## Project Rules (workspace_rules.md)\n\`\`\`\n${rules || ""}\n\`\`\``;
             projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeView || ""}\n\`\`\``;
           } else {
-            console.warn(`[useChatLLM] No contextData received`);
+            console.warn(`[useChatLLM] No pre-fetched context available`);
           }
         } catch (e) {
-          console.error("[useChatLLM] Failed to fetch project context", e);
+          console.error(
+            "[useChatLLM] Failed to use pre-fetched project context",
+            e,
+          );
         }
       }
 

@@ -10,6 +10,7 @@ export interface FileNode {
   name: string;
   type: "file" | "directory";
   path: string;
+  lines?: number;
   children?: FileNode[];
 }
 
@@ -185,10 +186,14 @@ export class FileSystemAnalyzer {
 
         let child = currentNode.children.find((c) => c.name === part);
         if (!child) {
+          const lines = isFile
+            ? await this.getFileLineCount(currentPath)
+            : undefined;
           child = {
             name: part,
             type: isFile ? "file" : "directory",
             path: currentPath,
+            lines,
             children: isFile ? undefined : [],
           };
           currentNode.children.push(child);
@@ -229,10 +234,12 @@ export class FileSystemAnalyzer {
     const name = path.basename(dirPath);
 
     if (stats.isFile()) {
+      const lines = await this.getFileLineCount(dirPath);
       return {
         name,
         type: "file",
         path: dirPath,
+        lines,
       };
     }
 
@@ -302,7 +309,11 @@ export class FileSystemAnalyzer {
     if (depth >= 0) {
       const indent = "  ".repeat(depth);
       const suffix = node.type === "directory" ? "/" : "";
-      result += `${indent}${node.name}${suffix}\n`;
+      const lineCount =
+        node.type === "file" && node.lines !== undefined
+          ? ` (${node.lines} lines)`
+          : "";
+      result += `${indent}${node.name}${suffix}${lineCount}\n`;
     }
 
     if (node.children && node.children.length > 0) {
@@ -511,8 +522,13 @@ export class FileSystemAnalyzer {
         : path.join(rootPath, filePath);
 
       const content = await fs.promises.readFile(fullPath, "utf-8");
-      return content.split("\n").length;
-    } catch {
+      const lines = content.split("\n").length;
+      return lines;
+    } catch (e) {
+      console.error(
+        `[FileSystemAnalyzer] Failed to get line count for ${filePath}`,
+        e,
+      );
       return 0;
     }
   }

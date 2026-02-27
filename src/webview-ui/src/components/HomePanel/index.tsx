@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import ChatHeader from "../ChatPanel/ChatHeader";
 import ChatFooter from "../ChatPanel/ChatFooter";
 import WelcomeUI from "./WelcomeUI";
@@ -21,11 +21,24 @@ interface HomePanelProps {
   initialValue?: string;
 }
 
+import { useProject } from "../../context/ProjectContext";
+
 const HomePanel: React.FC<HomePanelProps> = ({
   onSendMessage,
   onLoadConversation,
   initialValue,
 }) => {
+  const { startWatching, stopWatching } = useProject();
+
+  useEffect(() => {
+    startWatching();
+    return () => {
+      // stopWatching(); // The user said into ChatPanel then stop.
+      // HomePanel unmounts when going to ChatPanel.
+      stopWatching();
+    };
+  }, [startWatching, stopWatching]);
+
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
   const [selectedQuickModel, setSelectedQuickModel] = useState<any>(null);

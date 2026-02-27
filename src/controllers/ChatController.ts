@@ -34,9 +34,11 @@ export class ChatController {
   private _lastCacheUpdate: number = 0;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+  private _projectContextWatcher?: vscode.FileSystemWatcher;
+  private _projectContextDisposables: vscode.Disposable[] = [];
+
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
     const command = message.command;
-    console.log(`[ChatController] handleMessage: ${command}`);
 
     try {
       switch (command) {
@@ -225,6 +227,12 @@ export class ChatController {
           break;
         case "getWorkspaceTree":
           await this.handleGetWorkspaceTree(message, webviewView);
+          break;
+        case "startProjectContextWatch":
+          await this.handleStartProjectContextWatch(message, webviewView);
+          break;
+        case "stopProjectContextWatch":
+          await this.handleStopProjectContextWatch(message, webviewView);
           break;
       }
     } catch (error) {
@@ -1988,29 +1996,18 @@ export class ChatController {
     webviewView: vscode.WebviewView,
   ) {
     try {
-      console.log(
-        `[ChatController] Received getProjectContext request (requestId: ${message.requestId})`,
-      );
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
 
       const projectContextDir = this.getProjectContextDir(
         workspaceFolder.uri.fsPath,
       );
-      console.log(`[ChatController] projectContextDir: ${projectContextDir}`);
 
       // 1. Read workspace.md
       let workspace = "";
       const workspacePath = path.join(projectContextDir, "workspace.md");
       if (fs.existsSync(workspacePath)) {
         workspace = await fs.promises.readFile(workspacePath, "utf-8");
-        console.log(
-          `[ChatController] Found workspace.md (${workspace.length} chars)`,
-        );
-      } else {
-        console.log(
-          `[ChatController] NOT FOUND: workspace.md at ${workspacePath}`,
-        );
       }
 
       // 2. Read workspace_rules.md
@@ -2018,23 +2015,12 @@ export class ChatController {
       const rulesPath = path.join(projectContextDir, "workspace_rules.md");
       if (fs.existsSync(rulesPath)) {
         rules = await fs.promises.readFile(rulesPath, "utf-8");
-        console.log(
-          `[ChatController] Found workspace_rules.md (${rules.length} chars)`,
-        );
-      } else {
-        console.log(
-          `[ChatController] NOT FOUND: workspace_rules.md at ${rulesPath}`,
-        );
       }
 
       // 3. Generate Tree View (FileSystem Hierarchy)
-      console.log(`[ChatController] Generating tree view (depth 3)...`);
       const treeView = await this.contextManager
         .getFileSystemAnalyzer()
         .getFileTree(3);
-      console.log(
-        `[ChatController] Generated tree view (${treeView.length} chars)`,
-      );
 
       webviewView.webview.postMessage({
         command: "projectContextResult",
@@ -2056,6 +2042,60 @@ export class ChatController {
         error: error.message,
       });
     }
+  }
+
+  private async handleStartProjectContextWatch(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    console.log("[ChatController] Starting project context watch...");
+    if (this._projectContextWatcher) {
+      return;
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+
+    this._projectContextWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(workspaceFolder, "**/*"),
+    );
+
+    const debouncedRefresh = this.debounce(async () => {
+      console.log(
+        "[ChatController] Project context change detected, refreshing...",
+      );
+      await this.handleGetProjectContext(
+        { requestId: "auto-watch" },
+        webviewView,
+      );
+    }, 2000);
+
+    this._projectContextDisposables.push(
+      this._projectContextWatcher.onDidChange(debouncedRefresh),
+      this._projectContextWatcher.onDidCreate(debouncedRefresh),
+      this._projectContextWatcher.onDidDelete(debouncedRefresh),
+    );
+  }
+
+  private async handleStopProjectContextWatch(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    console.log("[ChatController] Stopping project context watch...");
+    if (this._projectContextWatcher) {
+      this._projectContextWatcher.dispose();
+      this._projectContextWatcher = undefined;
+    }
+    this._projectContextDisposables.forEach((d) => d.dispose());
+    this._projectContextDisposables = [];
+  }
+
+  private debounce(fn: Function, delay: number) {
+    let timeout: NodeJS.Timeout;
+    return (...args: any[]) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), delay);
+    };
   }
 
   private getProjectContextKey(path: string): string {

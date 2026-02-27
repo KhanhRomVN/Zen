@@ -434,7 +434,10 @@ export class BackupManager {
         metadataUri,
         Buffer.from(JSON.stringify(metadata, null, 2), "utf8"),
       );
-    } catch (error) {
+    } catch (error: any) {
+      if (error && error.code === "EntryNotFound") {
+        return; // File disappeared, no need to log or fail
+      }
       console.error(`Failed to ensure original snapshot: ${error}`);
     }
   }
@@ -546,7 +549,10 @@ export class BackupManager {
 
       await this.appendToTimeline(conversationId, event, customBaseDir);
       await this.updateMetadata(conversationId, customBaseDir);
-    } catch (error) {
+    } catch (error: any) {
+      if (error && error.code === "EntryNotFound") {
+        return; // File disappeared, ignore
+      }
       console.error(`Failed to backup file: ${error}`);
       throw error;
     }
@@ -670,7 +676,11 @@ export class BackupManager {
     const fileName = path.basename(filePath);
     const lower = filePath.toLowerCase();
 
-    if (fileName.startsWith(".attach pid")) return true;
+    if (
+      fileName.startsWith(".attach_pid") ||
+      fileName.startsWith(".attach pid")
+    )
+      return true;
     if (lower.includes("/.git/") || lower.endsWith("/.git")) return true;
     if (lower.includes("/node_modules/") || lower.endsWith("/node_modules"))
       return true;
