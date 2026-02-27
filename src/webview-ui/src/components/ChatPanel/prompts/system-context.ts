@@ -29,8 +29,7 @@ The system automatically provides:
 1. **FILE_STRUCTURE**: List of files in project
 2. **ACTIVE_TERMINALS**: Overview of running processes.
 3. **PROJECT_CONTEXT**: Content from:
-   - \`workspace.md\` (project overview, architecture)
-   - \`workspace_rules.md\` (project-specific rules)
+   - \`workspace.md\` (plain text list of project experiences and lessons learned)
 
 ## Git Integration
 

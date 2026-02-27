@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
 import * as crypto from "crypto";
+import * as https from "https";
 import { ContextManager } from "../context/ContextManager";
 import { GlobalStorageManager } from "../storage-manager";
 import { AgentCapabilityManager } from "../agent/AgentCapabilityManager";
@@ -36,6 +37,7 @@ export class ChatController {
 
   private _projectContextWatcher?: vscode.FileSystemWatcher;
   private _projectContextDisposables: vscode.Disposable[] = [];
+  private _pingInterval?: NodeJS.Timeout;
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
     const command = message.command;
@@ -237,6 +239,62 @@ export class ChatController {
       }
     } catch (error) {
       console.error(`Error handling command ${command}:`, error);
+    }
+  }
+
+  public startPingService(webview: vscode.Webview) {
+    if (this._pingInterval) {
+      clearInterval(this._pingInterval);
+    }
+
+    const checkPing = () => {
+      const start = Date.now();
+      const req = https.get(
+        "https://www.google.com/generate_204",
+        { timeout: 3000 },
+        (res) => {
+          const end = Date.now();
+          const latency = end - start;
+          console.log(`[ChatController] Ping SUCCESS: ${latency}ms`);
+          webview.postMessage({
+            command: "networkPingUpdate",
+            ping: latency,
+          });
+          res.resume(); // Consume response
+        },
+      );
+
+      req.on("error", (err) => {
+        console.log(`[ChatController] Ping ERROR: ${err.message}`);
+        webview.postMessage({
+          command: "networkPingUpdate",
+          ping: null,
+        });
+      });
+
+      req.on("timeout", () => {
+        console.log("[ChatController] Ping TIMEOUT");
+        req.destroy();
+        webview.postMessage({
+          command: "networkPingUpdate",
+          ping: null,
+        });
+      });
+
+      req.end();
+    };
+
+    // Initial check
+    checkPing();
+
+    // Set interval
+    this._pingInterval = setInterval(checkPing, 10000); // 10s
+  }
+
+  public stopPingService() {
+    if (this._pingInterval) {
+      clearInterval(this._pingInterval);
+      this._pingInterval = undefined;
     }
   }
 
@@ -1178,10 +1236,7 @@ export class ChatController {
         throw new Error("The 'path' argument must be of type string.");
 
       let absolutePath: vscode.Uri;
-      if (
-        pathValue.endsWith("workspace.md") ||
-        pathValue.endsWith("workspace_rules.md")
-      ) {
+      if (pathValue.endsWith("workspace.md")) {
         const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
         await fs.promises.mkdir(pcDir, { recursive: true });
         absolutePath = vscode.Uri.file(
@@ -2006,15 +2061,21 @@ export class ChatController {
       // 1. Read workspace.md
       let workspace = "";
       const workspacePath = path.join(projectContextDir, "workspace.md");
+      console.log(`[ChatController] --- GET PROJECT CONTEXT ---`);
+      console.log(
+        `[ChatController] Project Root: ${workspaceFolder.uri.fsPath}`,
+      );
+      console.log(`[ChatController] Storage Path: ${workspacePath}`);
+
       if (fs.existsSync(workspacePath)) {
         workspace = await fs.promises.readFile(workspacePath, "utf-8");
-      }
-
-      // 2. Read workspace_rules.md
-      let rules = "";
-      const rulesPath = path.join(projectContextDir, "workspace_rules.md");
-      if (fs.existsSync(rulesPath)) {
-        rules = await fs.promises.readFile(rulesPath, "utf-8");
+        console.log(
+          `[ChatController] Read SUCCESS. Content length: ${workspace.length}, Content: "${workspace}"`,
+        );
+      } else {
+        console.log(
+          `[ChatController] Read FAILED: File does not exist at ${workspacePath}`,
+        );
       }
 
       // 3. Generate Tree View (FileSystem Hierarchy)
@@ -2027,7 +2088,6 @@ export class ChatController {
         requestId: message.requestId,
         data: {
           workspace,
-          rules,
           treeView,
         },
       });
@@ -2077,10 +2137,7 @@ export class ChatController {
     );
   }
 
-  private async handleStopProjectContextWatch(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
+  public stopProjectContextWatch() {
     console.log("[ChatController] Stopping project context watch...");
     if (this._projectContextWatcher) {
       this._projectContextWatcher.dispose();
@@ -2088,6 +2145,13 @@ export class ChatController {
     }
     this._projectContextDisposables.forEach((d) => d.dispose());
     this._projectContextDisposables = [];
+  }
+
+  private async handleStopProjectContextWatch(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    this.stopProjectContextWatch();
   }
 
   private debounce(fn: Function, delay: number) {

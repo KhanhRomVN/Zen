@@ -2,6 +2,7 @@ import React from "react";
 import { TabInfo } from "../../types";
 
 import { Message } from "./ChatBody/types";
+import { useNetworkPing } from "../../hooks/useNetworkPing";
 
 interface ChatHeaderProps {
   selectedTab: TabInfo;
@@ -44,6 +45,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     }
     return num.toString();
   };
+
+  const { ping, color } = useNetworkPing();
 
   const handleCopyId = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -136,6 +139,35 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               {(conversationId || selectedTab.conversationId || "NEW").slice(
                 -5,
               )}
+            </span>
+            <span
+              title="Network Ping"
+              style={{
+                fontSize: "10px",
+                color: "var(--secondary-text)",
+                fontFamily: "monospace",
+                opacity: 0.9,
+                fontWeight: "bold",
+                backgroundColor: "rgba(0,0,0,0.1)",
+                padding: "1px 5px",
+                borderRadius: "3px",
+                whiteSpace: "nowrap",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                border: `1px solid ${color}44`,
+              }}
+            >
+              <div
+                style={{
+                  width: "5px",
+                  height: "5px",
+                  borderRadius: "50%",
+                  backgroundColor: color,
+                  boxShadow: `0 0 4px ${color}`,
+                }}
+              />
+              {ping !== null ? `${ping}ms` : "OFFLINE"}
             </span>
           </div>
 

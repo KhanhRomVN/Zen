@@ -82,6 +82,7 @@ export const saveConversation = async (
   conversationId?: string, // This is the chatUuid for filename
   selectedTab?: TabInfo,
   skipTimestampUpdate?: boolean,
+  title?: string,
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
@@ -162,7 +163,8 @@ export const saveConversation = async (
         id: key,
         tabId,
         folderPath,
-        title: messages[0]?.content.substring(0, 100) || "New Conversation",
+        title:
+          title || messages[0]?.content.substring(0, 100) || "New Conversation",
         lastModified: skipTimestampUpdate
           ? existingLastModified || Date.now()
           : Date.now(),

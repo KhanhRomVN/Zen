@@ -38,53 +38,32 @@ Turn 2: <replace_in_file><file_path>app.ts</file_path></replace_in_file>  // Aft
 - Mismatch = "SEARCH block not found" error
 
 ## C4: MANDATORY-TASK-PROGRESS
-**Rule**: Create/update \`<task_progress>\` BEFORE any work operation (even 1-line changes).
+**Rule**: Create/update \`<task_progress>\` BEFORE any work operation for complex tasks.
 
 **Structure**:
 \`\`\`xml
 <task_progress>
   <task_name>Project/Task Name (stable across turns)</task_name>
-  <task_summary>
-    Concise summary of task context for model handoff:
-    - What: Core objective and scope
-    - Why: Business/technical reason
-    - Key decisions: Important choices made
-    - Current state: What's done, what remains
-    - Critical files: Main files involved with their roles
-    - Gotchas: Important constraints or edge cases discovered
-  </task_summary>
   <task_file>path/to/file1.ts</task_file>
   <task_file>path/to/file2.ts</task_file>
   <task>Current task description</task>
   <task_done>Completed task description</task_done>
+  <task_summary>Important conclusion or discovery (plain text)</task_summary>
+  <task_summary>Another distinct lesson learned</task_summary>
 </task_progress>
 \`\`\`
 
-**Best practices for task_summary**:
-- Update after significant discoveries or decisions
-- Keep under 300 words (focus on actionable insights)
-- Include file paths inline when referencing code locations
-- Mention patterns/architecture discovered (e.g., "uses Redux pattern", "follows repository pattern")
-- Note any blockers or dependencies found
-
 **Behavior**:
-- Changing \`<task_name>\` = starting new task
-- Move \`<task>\` → \`<task_done>\` when complete
-- Update \`<task_summary>\` when:
-  * Discovering critical architecture/patterns
-  * Making important technical decisions
-  * Finding unexpected blockers or constraints
-  * Completing major milestones
-  * Before switching models (to transfer context)
-- Required even for trivial changes (updates sidebar UI)
-
-**task_summary update frequency**:
-- Initial creation: After first exploration/understanding phase
-- Incremental: After each significant discovery
-- Pre-handoff: Before model switch (most critical)
+- **Optional for Simple Tasks**: Skip \`<task_name>\` for trivial tasks, single-file changes, or quick questions.
+- **task_summary as Lessons Learned**: Use \`<task_summary>\` ONLY to list important experiences, conclusions, or technical decisions. Each tag contains a single plain text summary. Multiple tags are allowed.
+- **Task Integrity Check**: If the user starts a NEW task while the current \`<task_name>\` is not yet marked complete, you MUST:
+  1. Alert the user that the current task is still in progress.
+  2. Ask for confirmation before switching task names.
+- Move \`<task>\` → \`<task_done>\` when complete.
+- Update \`<task_summary>\` after significant discoveries or at task conclusion.
 
 ## C5: CONTEXT-CHECK-FIRST
-**Rule**: At conversation start, check Project Context (workspace.md, workspace_rules.md).
+**Rule**: At conversation start, check Project Context (workspace.md).
 
 **If context is EMPTY/NULL**:
 1. PROPOSE scanning codebase

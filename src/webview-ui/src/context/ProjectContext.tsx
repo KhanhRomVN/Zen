@@ -54,14 +54,17 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.command === "projectContextResult") {
-        if (message.error) {
-          setError(message.error);
-        } else {
+        console.log(
+          "[ProjectContext] Received projectContextResult:",
+          message.data,
+        );
+        if (message.data) {
           setWorkspace(message.data.workspace || "");
-          setRules(message.data.rules || "");
           setTreeView(message.data.treeView || "");
-          setError(null);
         }
+        setRules(message.data.rules || "");
+        setTreeView(message.data.treeView || "");
+        setError(null);
         setIsLoading(false);
       }
     };

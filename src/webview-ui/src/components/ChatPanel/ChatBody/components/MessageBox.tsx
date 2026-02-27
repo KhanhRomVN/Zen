@@ -15,6 +15,7 @@ import FileIcon from "../../../common/FileIcon";
 import { isDiff, parseDiff } from "../../../../utils/diffUtils";
 import { extensionService } from "../../../../services/ExtensionService";
 import { ToolHeader } from "../../../ToolHeader";
+import { RichtextBlock } from "../../../RichtextBlock";
 import "../../../TerminalBlock.css";
 
 interface MessageBoxProps {
@@ -273,9 +274,11 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           | { type: "code"; content: string; language: string; key: string }
           | { type: "html"; content: string; key: string }
           | { type: "file"; content: string; key: string }
+          | { type: "markdown"; content: string; key: string }
           | {
               type: "task_progress";
               taskName: string | null;
+              taskSummary: string | null;
               items: TaskProgressItem[];
               key: string;
             }
@@ -318,6 +321,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               groups.push({
                 type: "task_progress",
                 taskName: block.taskName,
+                taskSummary: block.taskSummary,
                 items: block.items,
                 key: `task_progress-${idx}`,
               });
@@ -327,6 +331,13 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 type: "file",
                 content: block.content,
                 key: `file-${idx}`,
+              });
+            } else if (block.type === "markdown") {
+              flushTools();
+              groups.push({
+                type: "markdown",
+                content: block.content,
+                key: `markdown-${idx}`,
               });
             } else {
               // Flush tools before adding non-tool block
@@ -470,8 +481,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 <div
                   className="timeline-dot"
                   style={{
-                    backgroundColor: "var(--vscode-descriptionForeground)",
-                    opacity: 0.8,
+                    backgroundColor: "#3fb950",
                     top: "10px",
                   }}
                 />
@@ -490,6 +500,11 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "task_progress") {
+            const totalTasks = group.items.length;
+            const completedTasks = group.items.filter(
+              (i) => i.completed,
+            ).length;
+
             content = (
               <div>
                 <div
@@ -507,19 +522,43 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 >
                   <div
                     style={{
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      color: "var(--vscode-editor-foreground)",
-                      marginBottom: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "10px",
                     }}
                   >
-                    {group.taskName || "Task Progress"}
+                    {totalTasks > 0 && (
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          backgroundColor: "var(--vscode-badge-background)",
+                          color: "var(--vscode-badge-foreground)",
+                          padding: "1px 6px",
+                          borderRadius: "4px",
+                          fontFamily:
+                            "var(--vscode-editor-font-family, monospace)",
+                        }}
+                      >
+                        {completedTasks}/{totalTasks}
+                      </span>
+                    )}
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        color: "var(--vscode-editor-foreground)",
+                      }}
+                    >
+                      {group.taskName || "Task Progress"}
+                    </span>
                   </div>
                   <div
                     style={{
                       display: "flex",
                       flexDirection: "column",
-                      gap: "6px",
+                      gap: "4px",
                     }}
                   >
                     {group.items.map((item, i) => (
@@ -530,20 +569,32 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                           alignItems: "center",
                           gap: "8px",
                           fontSize: "12px",
-                          color: "var(--vscode-descriptionForeground)",
-                          opacity: item.completed ? 0.8 : 1,
+                          color: item.completed
+                            ? "var(--vscode-descriptionForeground)"
+                            : "var(--vscode-editor-foreground)",
+                          opacity: item.completed ? 0.7 : 0.9,
+                          padding: "2px 0",
                         }}
                       >
-                        <span style={{ flexShrink: 0 }}>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "16px",
+                            height: "16px",
+                            flexShrink: 0,
+                          }}
+                        >
                           {item.completed ? (
                             <span
                               className="codicon codicon-check"
-                              style={{ color: "#3fb950" }}
+                              style={{ color: "#3fb950", fontSize: "14px" }}
                             />
                           ) : (
                             <span
                               className="codicon codicon-circle-outline"
-                              style={{ opacity: 0.5 }}
+                              style={{ opacity: 0.4, fontSize: "12px" }}
                             />
                           )}
                         </span>
@@ -552,6 +603,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                             textDecoration: item.completed
                               ? "line-through"
                               : "none",
+                            lineHeight: 1.4,
                           }}
                         >
                           {item.text}
@@ -560,6 +612,18 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     ))}
                   </div>
                 </div>
+              </div>
+            );
+          } else if (group.type === "markdown") {
+            content = (
+              <div style={{ paddingLeft: "29px" }}>
+                <RichtextBlock
+                  content={group.content}
+                  title="Documentation"
+                  prefix="Markdown"
+                  statusColor="#0366d6"
+                  defaultCollapsed={false}
+                />
               </div>
             );
           } else {

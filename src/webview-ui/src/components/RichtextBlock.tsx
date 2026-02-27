@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import FileIcon from "./common/FileIcon";
 import "./RichtextBlock.css";
 
 interface RichtextBlockProps {
@@ -10,6 +11,7 @@ interface RichtextBlockProps {
   headerActions?: React.ReactNode;
   maxHeight?: string | number;
   showHeader?: boolean;
+  isFilePathList?: boolean; // New prop for list_files output
 }
 
 export const RichtextBlock: React.FC<RichtextBlockProps> = ({
@@ -21,12 +23,95 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
   headerActions,
   maxHeight,
   showHeader = true,
+  isFilePathList = false,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
   const contentStyle: React.CSSProperties = {
     maxHeight: maxHeight || undefined,
     overflowY: maxHeight ? "auto" : undefined,
+  };
+
+  const renderFileTree = () => {
+    if (!content) return null;
+
+    const lines = content.split("\n").filter((l) => l.trim().length > 0);
+
+    return (
+      <div
+        className="file-tree-container"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "2px",
+          padding: "8px 0",
+        }}
+      >
+        {lines.map((line, idx) => {
+          // Detect indentation (starts with spaces)
+          const indentMatch = line.match(/^(\s*)/);
+          const indentLevel = indentMatch ? indentMatch[1].length / 2 : 0;
+          const cleanLine = line.trim();
+
+          // Determine if it's a folder (ends with /)
+          const isFolder = cleanLine.endsWith("/");
+          const namePart = isFolder ? cleanLine.slice(0, -1) : cleanLine;
+
+          // Split name and line count (e.g. "filename (10 lines)")
+          const lineCountMatch = namePart.match(/^(.*)\s+\((\d+)\s+lines\)$/);
+          const name = lineCountMatch ? lineCountMatch[1] : namePart;
+          const lineCount = lineCountMatch ? lineCountMatch[2] : null;
+
+          return (
+            <div
+              key={idx}
+              className="file-tree-row"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                paddingLeft: `${indentLevel * 16 + 8}px`,
+                fontSize: "13px",
+                height: "24px",
+                borderRadius: "4px",
+                transition: "background 0.2s",
+                cursor: "default",
+              }}
+            >
+              <FileIcon
+                path={name}
+                isFolder={isFolder}
+                style={{ width: "16px", height: "16px", opacity: 0.9 }}
+              />
+              <span
+                style={{
+                  color: "var(--vscode-editor-foreground)",
+                  opacity: 0.9,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {name}
+                {isFolder && "/"}
+              </span>
+              {lineCount && (
+                <span
+                  style={{
+                    color: "var(--vscode-descriptionForeground)",
+                    fontSize: "11px",
+                    opacity: 0.6,
+                    marginLeft: "4px",
+                  }}
+                >
+                  {lineCount} lines
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -36,9 +121,13 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
       {!showHeader ? (
         <div className="richtext-block-expanded no-header">
           <div className="richtext-content" style={contentStyle}>
-            <pre className="plaintext-output">
-              <code>{content}</code>
-            </pre>
+            {isFilePathList ? (
+              renderFileTree()
+            ) : (
+              <pre className="plaintext-output">
+                <code>{content}</code>
+              </pre>
+            )}
           </div>
         </div>
       ) : isCollapsed ? (
@@ -136,9 +225,13 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
             <div className="header-actions">{headerActions}</div>
           </div>
           <div className="richtext-content" style={contentStyle}>
-            <pre className="plaintext-output">
-              <code>{content}</code>
-            </pre>
+            {isFilePathList ? (
+              renderFileTree()
+            ) : (
+              <pre className="plaintext-output">
+                <code>{content}</code>
+              </pre>
+            )}
           </div>
         </div>
       )}

@@ -7,6 +7,7 @@ export interface ParsedResponse {
   actions: ToolAction[];
   contentBlocks: ContentBlock[]; // New interleaved structure
   displayText: string;
+  conversationName: string | null;
 }
 
 export interface TaskProgressItem {
@@ -36,8 +37,10 @@ export type ContentBlock =
   | {
       type: "task_progress";
       taskName: string | null;
+      taskSummary: string | null;
       items: TaskProgressItem[];
     }
+  | { type: "markdown"; content: string }
   | { type: "tool"; action: ToolAction };
 
 /**
@@ -98,17 +101,21 @@ const parseTaskProgress = (content: string): TaskProgressItem[] | null => {
   const cleanContent = content.replace(/^```text\s*\n?|\n?```\s*$/g, "").trim();
   const items: TaskProgressItem[] = [];
 
-  // 1. Try parsing XML <task> tags first
+  // 1. Try parsing XML-style tags: <task>, <task_done>, <task_todo>, etc. (Exclude name/summary)
   const taskTagRegex =
-    /<task(?:\s+status=["'](\w+)["'])?\s*>([\s\S]*?)<\/task>/gi;
+    /<task(?:_(done|todo|x))?(?:\s+status=["'](\w+)["'])?\s*>([\s\S]*?)<\/task(?:_\w+)?>/gi;
   let match;
   while ((match = taskTagRegex.exec(cleanContent)) !== null) {
-    const status = match[1]?.toLowerCase();
-    const text = match[2].trim();
+    const taskType = match[1]?.toLowerCase();
+    const status = match[2]?.toLowerCase();
+    const text = match[3].trim();
     if (text) {
       items.push({
         completed:
-          status === "done" || status === "completed" || status === "x",
+          taskType === "done" ||
+          status === "done" ||
+          status === "completed" ||
+          status === "x",
         text: text,
       });
     }
@@ -207,6 +214,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     actions: [],
     contentBlocks: [],
     displayText: "",
+    conversationName: null,
   };
 
   let remainingContent = content;
@@ -239,11 +247,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       result.taskName = taskNameMatch[1].trim();
     }
 
-    // Remove all task_progress tags from content to avoid cluttering text blocks
-    remainingContent = remainingContent.replace(
-      /<task_progress>[\s\S]*?<\/task_progress>/g,
-      "",
-    );
+    // DO NOT remove task_progress from remainingContent here anymore,
+    // as we want it to be processed by the interleaved scanner in Step 3
+    // instead of being just a global property.
+    // remainingContent = remainingContent.replace(/<task_progress>[\s\S]*?<\/task_progress>/g, "");
   }
 
   // Hide <temp> tags
@@ -266,6 +273,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "code", // Treat <code> as a special tag
     "file", // Treat <file> as a special tag
     "task_progress", // Treat <task_progress> as a special tag
+    "markdown", // Treat <markdown> as a special tag
+    "conversation_name", // Treat <conversation_name> as a special tag
   ];
 
   // We need to parse linearly to maintain order
@@ -400,6 +409,14 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               content: innerContent.trim(),
             });
           }
+        } else if (toolName === "markdown") {
+          // Explicit <markdown> tag
+          if (innerContent && innerContent.trim()) {
+            result.contentBlocks.push({
+              type: "markdown",
+              content: innerContent.trim(),
+            });
+          }
         } else if (toolName === "task_progress") {
           // Explicit <task_progress> tag
           const items = parseTaskProgress(innerContent || "");
@@ -408,15 +425,33 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           );
           const taskName = taskNameMatch ? taskNameMatch[1].trim() : null;
 
-          if (items) {
+          const taskSummaryMatch = innerContent?.match(
+            /<task_summary>([\s\S]*?)<\/task_summary>/i,
+          );
+          const taskSummary = taskSummaryMatch
+            ? taskSummaryMatch[1].trim()
+            : null;
+
+          if (items || taskName || taskSummary) {
             result.contentBlocks.push({
               type: "task_progress",
               taskName,
-              items,
+              taskSummary,
+              items: items || [],
             });
             // Also update global for backward compatibility if needed
             result.taskProgress = items;
             result.taskName = taskName;
+          }
+        } else if (toolName === "conversation_name") {
+          // Explicit <conversation_name> tag
+          // Support both <conversation_name><value>Title</value></conversation_name>
+          // and <conversation_name>Title</conversation_name>
+          const valueFromTag = extractParamValue(innerContent || "", "value");
+          if (valueFromTag) {
+            result.conversationName = valueFromTag;
+          } else if (innerContent && innerContent.trim()) {
+            result.conversationName = innerContent.trim();
           }
         } else {
           // It's a tool
@@ -444,6 +479,37 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           // For <text> we show content even if unclosed
           if (innerContent.trim()) {
             result.contentBlocks.push({ type: "text", content: innerContent });
+          }
+        } else if (toolName === "task_progress") {
+          // Update as we go even if unclosed
+          const items = parseTaskProgress(innerContent || "");
+          const taskNameMatch = innerContent?.match(
+            /<task_name>([\s\S]*?)<\/task_name>/i,
+          );
+          const taskName = taskNameMatch ? taskNameMatch[1].trim() : null;
+
+          const taskSummaryMatch = innerContent?.match(
+            /<task_summary>([\s\S]*?)<\/task_summary>/i,
+          );
+          const taskSummary = taskSummaryMatch
+            ? taskSummaryMatch[1].trim()
+            : null;
+
+          if (items || taskName || taskSummary) {
+            result.contentBlocks.push({
+              type: "task_progress",
+              taskName,
+              taskSummary,
+              items: items || [],
+            });
+          }
+        } else if (toolName === "markdown") {
+          // For <markdown> we show content even if unclosed
+          if (innerContent.trim()) {
+            result.contentBlocks.push({
+              type: "markdown",
+              content: innerContent,
+            });
           }
         } else {
           // For tools, hide entire content including XML until closed

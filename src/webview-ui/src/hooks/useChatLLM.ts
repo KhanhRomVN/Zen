@@ -37,7 +37,7 @@ export const useChatLLM = ({
   onToolRequest,
 }: UseChatLLMProps) => {
   const { language: preferredLanguage } = useSettings();
-  const { workspace, rules, treeView } = useProject();
+  const { workspace, treeView } = useProject();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -166,9 +166,16 @@ export const useChatLLM = ({
           console.error("Failed to fetch system info", e);
         }
 
+        console.log(
+          `[useChatLLM] --- PROMPT CONSTRUCTION (isReq1: ${isReq1}) ---`,
+        );
         systemPrompt = getDefaultPrompt(preferredLanguage);
         // Use real system info if we managed to fetch it, override the default
         if (systemInfo.os !== "Unknown OS") {
+          console.log(
+            "[useChatLLM] Combining prompts with system info",
+            systemInfo,
+          );
           systemPrompt = combinePrompts({
             language: preferredLanguage,
             systemInfo,
@@ -178,15 +185,16 @@ export const useChatLLM = ({
         try {
           // Use pre-fetched context from ProjectContext
           console.log(`[useChatLLM] Injecting pre-fetched project context...`);
-          if (workspace || rules || treeView) {
-            console.log(
-              `[useChatLLM] Injecting context - Workspace: ${!!workspace}, Rules: ${!!rules}, Tree: ${!!treeView}`,
-            );
-            projectContextStr += `\n\n## Project Overview (workspace.md)\n\`\`\`\n${workspace || ""}\n\`\`\``;
-            projectContextStr += `\n\n## Project Rules (workspace_rules.md)\n\`\`\`\n${rules || ""}\n\`\`\``;
-            projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeView || ""}\n\`\`\``;
-          } else {
-            console.warn(`[useChatLLM] No pre-fetched context available`);
+          console.log(
+            `[useChatLLM] Injecting formatted workspace.md content (length: ${workspace?.length || 0})`,
+          );
+          projectContextStr += `\n\n## Workspace Experience (workspace.md)\n\`\`\`\n${workspace || ""}\n\`\`\``;
+          console.log(
+            `[useChatLLM] Current projectContextStr: "${projectContextStr}"`,
+          );
+          if (treeView && treeView.trim()) {
+            console.log(`[useChatLLM] Injecting Project Structure...`);
+            projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeView}\n\`\`\``;
           }
         } catch (e) {
           console.error(
@@ -270,6 +278,12 @@ export const useChatLLM = ({
 
       // In the new schema, req1 content includes system prompt
       const finalContent = promptPayload;
+      console.log(
+        `[useChatLLM] Final Payload Preview (first 200 chars): "${finalContent.substring(0, 200)}..."`,
+      );
+      console.log(
+        `[useChatLLM] Is projectContextStr included? ${isReq1 && projectContextStr.length > 0}`,
+      );
 
       const userMessage: Message = {
         id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
@@ -505,6 +519,8 @@ export const useChatLLM = ({
           [...updatedMessages, assistantMessage],
           effectiveChatUuid,
           selectedTab || undefined,
+          false,
+          parsed.conversationName || undefined,
         );
       } catch (error) {
         setIsStreaming(false);

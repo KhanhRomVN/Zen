@@ -60,6 +60,13 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
             conversationId: message.conversationId,
           });
         }
+      } else if (message.command === "clearAllConfirmed") {
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "deleteAllConversations",
+          });
+        }
       }
     };
 

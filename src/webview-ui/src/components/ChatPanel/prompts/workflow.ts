@@ -1,13 +1,15 @@
-export const WORKFLOW = `# EXECUTION WORKFLOW
+export const WORKFLOW = `
+# EXECUTION WORKFLOW
 
 ## Standard Task Flow
 
 ### Phase 1: UNDERSTAND
-1. Check Project Context (workspace.md, workspace_rules.md)
+1. Check Project Context (workspace.md - plain list of project experiences)
 2. If context empty → propose scan + ask permission
-3. Parse user requirements carefully
+3. MANDATORY: Use <conversation_name>Title</conversation_name> in the VERY FIRST response to set the conversation title.
+4. Parse user requirements carefully
 
-4. **CRITICAL DECISION POINT - Can I proceed?**
+5. **CRITICAL DECISION POINT - Can I proceed?**
 
 **✓ YES - Proceed to Phase 2 if ALL of these are true**:
 - All file paths are known OR can be found with confidence
@@ -38,7 +40,7 @@ Could you clarify?
 \`\`\`
 
 **CRITICAL**: When asking questions:
-- Use ONLY \`<text>\` tag
+- Use ONLY <text> tag
 - Do NOT include any tool calls
 - Wait for user response before proceeding
 
@@ -85,41 +87,36 @@ Update task progress + perform operations:
 \`\`\`xml
 <task_progress>
   <task_name>Feature Implementation</task_name>
-  <task_summary>
-    What: [Core objective - what you're building/fixing]
-    Why: [Business/technical reason]
-    Key files: [List main files with brief role description]
-    Architecture/Pattern: [e.g., uses Redux, follows repository pattern]
-    Key decisions: [Important choices made so far]
-    Current state: [What's done, what remains]
-    Gotchas: [Constraints or edge cases discovered]
-  </task_summary>
   <task_file>file1.ts</task_file>
   <task>Modify file1.ts</task>
+  <task_summary>Concluded that the Redux pattern should be used here because of X.</task_summary>
+  <task_summary>Key discovery: the API endpoint requires an additional header Y.</task_summary>
 </task_progress>
 <replace_in_file><file_path>file1.ts</file_path><diff>...</diff></replace_in_file>
 <write_to_file><file_path>new.ts</file_path><content>...</content></write_to_file>
 \`\`\`
 
-**task_summary benefits**:
-- Enables seamless model handoff without re-reading files
-- Captures "why" behind technical decisions
-- Documents discovered patterns and constraints
-- Reduces token usage in subsequent turns
+**Task Management Rules**:
+1. **Optional task_name**: Skip <task_name> (and the whole <task_progress>) for trivial tasks, single-file changes, or quick questions. Only use for complex, multi-step tasks.
+2. **task_summary as Lessons Learned**: Use <task_summary> ONLY to list important experiences, conclusions, or technical decisions made during the task. Each <task_summary> should contain a single plain text insight. Multiple tags are allowed.
+3. **Sequential Task Integrity**: If you detect the user is attempting to start a NEW task while the current <task_name> is not yet marked complete or finished, you MUST:
+   - Alert the user that the current task is still in progress.
+   - Ask if they want to abandon/pause the current task or finish it first.
+   - Do NOT automatically switch context without explicit confirmation.
 
 **Update task_summary when**:
 - Discovering critical architecture patterns
 - Making important technical decisions
 - Finding blockers or unexpected constraints
 - Completing major milestones
-- Before model switch (most critical for context transfer)
+- At the end of a task to summarize "lessons learned" for future turns.
 
 ### Phase 5: VERIFY
 - Check tool execution results
 - If error → analyze root cause
 - If unclear → ASK user for clarification
 - If clear → adjust approach and retry
-- Mark tasks complete in \`<task_progress>\`
+- Mark tasks complete in <task_progress>
 
 ## Special Cases
 
@@ -192,4 +189,5 @@ This will help me provide the exact solution you need.
 2. **No blind retries**: Max 2 search attempts before asking
 3. **Separate asking from doing**: Never mix questions with tool calls
 4. **User knows best**: When in doubt, user has the answer - just ask
-5. **Document decisions**: Update task_summary to preserve context for model handoffs`;
+5. **Document decisions**: Update task_summary to preserve context for model handoffs
+`;

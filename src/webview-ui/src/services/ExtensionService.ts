@@ -48,6 +48,13 @@ class ExtensionService {
   }
 
   public postMessage(message: any): void {
+    // Re-check API if we are using the fallback and a real one might be available now
+    if (this.api.postMessage.toString().includes("() => {}")) {
+      const realApi = this.getVSCodeApi();
+      if (!realApi.postMessage.toString().includes("() => {}")) {
+        this.api = realApi;
+      }
+    }
     this.api.postMessage(message);
   }
 

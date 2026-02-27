@@ -395,7 +395,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const actionId = `${messageId}-action-${index}`;
       const isActionClicked = clickedActions.has(actionId);
       const isCollapsed = collapsedActions.has(actionId);
-      const isCompleted = isActionClicked;
 
       // Calculate code content and highlights
       let codeContent = "";
@@ -546,10 +545,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
               ? "Rewrite"
               : "Create"
             : toolType === "list_files"
-              ? "List"
+              ? "List files"
               : toolType === "search_files"
                 ? "Search"
                 : "Read";
+      const isCompleted =
+        isActionClicked || (codeContent && codeContent.trim().length > 0);
+
       const displayPath = truncatePath(rawPath);
 
       return (
@@ -576,6 +578,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 <span style={{ fontWeight: 600, opacity: 0.8 }}>{prefix}</span>
                 <FileIcon
                   path={rawPath}
+                  isFolder={toolType === "list_files"}
                   style={{ width: "16px", height: "16px" }}
                 />
                 <span
@@ -583,6 +586,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
                     fontWeight: 500,
                     opacity: 0.9,
                     fontFamily: "var(--vscode-editor-font-family, monospace)",
+                    fontSize: "11px",
+                    backgroundColor: "var(--vscode-badge-background)",
+                    color: "var(--vscode-badge-foreground)",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
                   }}
                 >
                   {displayPath}
@@ -650,6 +658,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   showHeader={false}
                   maxHeight={300}
                   defaultCollapsed={false}
+                  isFilePathList={toolType === "list_files"}
                 />
               ) : (
                 <CodeBlock
