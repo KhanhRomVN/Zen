@@ -41,6 +41,7 @@ interface ToolItemProps {
   >;
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
+  allMessages?: Message[];
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
@@ -116,6 +117,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
   toolOutputs,
   terminalStatus,
   nextUserMessage,
+  allMessages,
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
@@ -166,12 +168,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
       const actionId = `${messageId}-action-${index}`;
       const type = item.action.type;
 
-      // Expand run_command and terminal tools by default
-      if (
-        type === "run_command" ||
-        type === "read_terminal_logs" ||
-        type === "create_terminal_shell"
-      ) {
+      // Expand run_command by default
+      if (type === "run_command") {
         // Keep expanded
       } else {
         initialCollapsed.add(actionId);
@@ -306,8 +304,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
         }
       }
 
-      // [New] Fetch file stats for read_file
-      if (action.type === "read_file" && action.params.path) {
+      // [New] Fetch file stats for read_file and write_to_file
+      if (
+        (action.type === "read_file" || action.type === "write_to_file") &&
+        action.params.path
+      ) {
         const path = action.params.path;
         if (!fileStatsMap[path]) {
           // We can't set state inside render loop safely if it triggers re-render,
@@ -319,6 +320,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
           // We'll leave fileStats logic mostly as is but fix the cleanup.
 
           const statId = `${messageId}-${index}-stats`;
+          if (processedActions.current.has(statId)) return;
+          processedActions.current.add(statId);
+
           const handleStats = (event: MessageEvent) => {
             const message = event.data;
             if (
@@ -362,14 +366,19 @@ const ToolItem: React.FC<ToolItemProps> = ({
     // Let's rely on the cleanup logic.
     // (Actually the closure approach inside forEach is risky for cleanup if dependencies change).
     // A better approach is a single global listener effect for this component.
-  }, [group, messageId]); // Keeping dependencies simple
+  }, [
+    group,
+    messageId,
+    isActiveGroup,
+    clickedActions,
+    onToolClick,
+    fileStatsMap,
+  ]); // Keeping dependencies simple
 
   if (!group || group.length === 0) return null;
 
   const firstAction = group[0].action;
   const toolType = firstAction.type;
-
-  if (toolType === "read_file") return null;
 
   const clickableTools = CLICKABLE_TOOLS;
 
@@ -380,17 +389,16 @@ const ToolItem: React.FC<ToolItemProps> = ({
     toolType === "list_files" ||
     toolType === "run_command" ||
     toolType === "search_files" ||
-    toolType === "list_terminals" ||
-    toolType === "remove_terminal" ||
-    toolType === "stop_terminal" ||
-    toolType === "create_terminal_shell" ||
-    toolType === "read_terminal_logs" ||
-    toolType === "update_codebase_context";
+    toolType === "read_file";
   if (isStyledTool) {
     // 🆕 Minimalist UI for single replace_in_file/write_to_file
     if (
       group.length === 1 &&
-      (toolType === "replace_in_file" || toolType === "write_to_file")
+      (toolType === "replace_in_file" ||
+        toolType === "write_to_file" ||
+        toolType === "read_file" ||
+        toolType === "list_files" ||
+        toolType === "search_files")
     ) {
       const item = group[0];
       const { action, index } = item;
@@ -437,10 +445,16 @@ const ToolItem: React.FC<ToolItemProps> = ({
         sql: "sql",
       };
 
-      const codeLanguage =
+      let codeLanguage =
         toolType === "replace_in_file"
           ? extensionToLanguage[fileExt.toLowerCase()] || fileExt
           : "typescript";
+
+      const rawPath =
+        action.params.file_path ||
+        action.params.folder_path ||
+        action.params.path ||
+        getFilename(action);
 
       if (action.type === "replace_in_file" && action.params.diff) {
         const result = parseDiff(action.params.diff);
@@ -448,6 +462,78 @@ const ToolItem: React.FC<ToolItemProps> = ({
         lineHighlights = result.lineHighlights;
       } else if (toolType === "write_to_file") {
         codeContent = action.params.content || "";
+      } else if (
+        toolType === "list_files" ||
+        toolType === "search_files" ||
+        toolType === "read_file"
+      ) {
+        codeContent = toolOutputs?.[actionId]?.output || "";
+
+        // Fallback for historical output
+        if (!codeContent) {
+          // 1. Search by actionId (find specific message reporting this action)
+          const resultMessage = allMessages?.find((m) =>
+            m.actionIds?.includes(actionId),
+          );
+
+          // 2. Identify potential output messages (skip empty/whitespace-only ones)
+          const currentMsgIndex = allMessages
+            ? allMessages.findIndex((m) => m.id === messageId)
+            : -1;
+          const nextNonEmptyUser = allMessages
+            ? allMessages
+                .slice(currentMsgIndex + 1)
+                .find(
+                  (m) =>
+                    m.role === "user" &&
+                    m.content &&
+                    m.content.trim().length > 0,
+                )
+            : undefined;
+
+          // Search by pattern across ALL non-empty messages
+          const escapedPathForPattern = rawPath.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&",
+          );
+          const pattern = new RegExp(
+            `\\[${toolType}\\s+for\\s+['"]?${escapedPathForPattern}['"]?\\s*\\]`,
+            "i",
+          );
+          const patternMatch = allMessages
+            ? allMessages.find(
+                (m) =>
+                  m.content &&
+                  m.content.trim().length > 0 &&
+                  pattern.test(m.content),
+              )
+            : undefined;
+
+          let outputMessage = resultMessage || patternMatch || nextNonEmptyUser;
+
+          if (outputMessage?.content) {
+            const escapeRegExp = (str: string) =>
+              str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const escapedPathRegex = escapeRegExp(rawPath);
+
+            // Flexible regex: handle spaces, quotes, and optional language identifiers (e.g. ```text)
+            const regexStr = `\\[${toolType}\\s+for\\s+['"]?${escapedPathRegex}['"]?\\s*\\]\\s*Result:?\\s*[\\r\\n]+\\s*\`\`\`[\\w]*[\\r\\n]+([\\s\\S]*?)[\\r\\n]+\\s*\`\`\``;
+            const match = new RegExp(regexStr).exec(outputMessage.content);
+
+            if (match && match[1]) {
+              codeContent = match[1];
+            } else {
+              if (resultMessage && !outputMessage.content.includes("Result:")) {
+                // If we found the message by ID but it doesn't have multiple blocks/formatting
+                codeContent = outputMessage.content
+                  .replace(/^```[\w]*\n/, "")
+                  .replace(/\n```$/, "");
+              }
+            }
+          }
+        }
+
+        codeLanguage = "text";
       }
 
       // Calculate stats
@@ -462,10 +548,19 @@ const ToolItem: React.FC<ToolItemProps> = ({
           ? action.params.content?.split("\n").length || 0
           : 0;
 
-      const prefix = toolType === "replace_in_file" ? "Edit" : "Create";
-      const displayPath = truncatePath(
-        action.params.path || getFilename(action),
-      );
+      const prefix =
+        toolType === "replace_in_file"
+          ? "Update"
+          : toolType === "write_to_file"
+            ? fileStatsMap[rawPath]
+              ? "Rewrite"
+              : "Create"
+            : toolType === "list_files"
+              ? "List"
+              : toolType === "search_files"
+                ? "Search"
+                : "Read";
+      const displayPath = truncatePath(rawPath);
 
       return (
         <div
@@ -478,201 +573,111 @@ const ToolItem: React.FC<ToolItemProps> = ({
           }}
         >
           <ToolHeader
-            title={`${prefix} ${displayPath}`}
+            title={
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  color: "var(--vscode-editor-foreground)",
+                }}
+              >
+                <span style={{ fontWeight: 600, opacity: 0.8 }}>{prefix}</span>
+                <FileIcon
+                  path={rawPath}
+                  style={{ width: "16px", height: "16px" }}
+                />
+                <span
+                  style={{
+                    fontWeight: 500,
+                    opacity: 0.9,
+                    fontFamily: "var(--vscode-editor-font-family, monospace)",
+                  }}
+                >
+                  {displayPath}
+                </span>
+                {diffStats && (
+                  <span
+                    style={{
+                      display: "flex",
+                      gap: "4px",
+                      opacity: 0.7,
+                      fontSize: "11px",
+                      marginLeft: "4px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    <span
+                      style={{
+                        color:
+                          "var(--vscode-gitDecoration-addedResourceForeground)",
+                      }}
+                    >
+                      +{diffStats.added}
+                    </span>
+                    <span
+                      style={{
+                        color:
+                          "var(--vscode-gitDecoration-deletedResourceForeground)",
+                      }}
+                    >
+                      -{diffStats.removed}
+                    </span>
+                  </span>
+                )}
+                {linesCount > 0 && action.type === "write_to_file" && (
+                  <span
+                    style={{
+                      opacity: 0.7,
+                      fontSize: "11px",
+                      marginLeft: "4px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    +{linesCount} lines
+                  </span>
+                )}
+              </div>
+            }
             statusColor={isCompleted ? "#3fb950" : toolColor}
-            diffStats={
-              toolType === "replace_in_file"
-                ? diffStats || undefined
-                : linesCount > 0
-                  ? { added: linesCount, removed: 0 }
-                  : undefined
-            }
-            isCollapsed={isCollapsed}
-            onToggleCollapse={() => toggleCollapse(actionId)}
-            icon={
-              <img
-                src={getFileIconPath(action.params.path || getFilename(action))}
-                alt=""
-                style={{ width: "16px", height: "16px", marginRight: "4px" }}
-              />
-            }
+            diffStats={undefined}
+            onClick={() => {
+              extensionService.postMessage({
+                command: "openFile",
+                path: rawPath,
+              });
+            }}
           />
-          {!isCollapsed && (
-            <CodeBlock
-              code={codeContent}
-              language={codeLanguage}
-              maxLines={20}
-              filename={action.params.path || getFilename(action)}
-              startLineNumber={fuzzyStatus?.startLine}
-              lineHighlights={
-                toolType === "replace_in_file" ? lineHighlights : undefined
-              }
-              backgroundColor={
-                toolType === "write_to_file"
-                  ? "rgba(40, 167, 69, 0.2)"
-                  : undefined
-              }
-              isCollapsed={isCollapsed}
-            />
+          {(toolType === "replace_in_file" ||
+            toolType === "write_to_file" ||
+            ((toolType === "list_files" || toolType === "search_files") &&
+              codeContent)) && (
+            <>
+              {toolType === "list_files" || toolType === "search_files" ? (
+                <RichtextBlock
+                  content={codeContent}
+                  showHeader={false}
+                  maxHeight={300}
+                  defaultCollapsed={false}
+                />
+              ) : (
+                <CodeBlock
+                  code={codeContent}
+                  language={codeLanguage}
+                  maxLines={25}
+                  isCollapsed={false}
+                  showLineNumbers={true}
+                  lineHighlights={lineHighlights}
+                />
+              )}
+            </>
           )}
         </div>
       );
     }
 
     const terminalToolsWithBlock = ["run_command"];
-    const simpleTerminalTools = [
-      "list_terminals",
-      "remove_terminal",
-      "stop_terminal",
-      "create_terminal_shell",
-    ];
-
-    // Minimalist single-line UI for simple terminal tools (no box)
-    if (simpleTerminalTools.includes(toolType)) {
-      return (
-        <div style={{ marginBottom: "12px" }}>
-          {group.map((item, idx) => {
-            const { action, index } = item;
-            const actionId = `${messageId}-action-${index}`;
-            const isActionClicked = clickedActions.has(actionId);
-            const outputData = toolOutputs?.[actionId];
-            const hasOutput = !!outputData;
-            const isLoading = isActionClicked && !hasOutput;
-            const isCompleted = hasOutput;
-
-            if (toolType === "list_terminals") {
-              return (
-                <RichtextBlock
-                  key={index}
-                  content={outputData?.output || "No terminals listed."}
-                  title={getToolLabel(toolType)}
-                  statusColor={isCompleted ? "#3fb950" : toolColor}
-                  defaultCollapsed={true}
-                  headerActions={
-                    <ExecuteButton
-                      isActive={isActiveGroup || false}
-                      isCompleted={isCompleted}
-                      isLastMessage={isLastMessage}
-                      isSkipped={
-                        !isActiveGroup && !isLastMessage && !isActionClicked
-                      }
-                      isLoading={isLoading}
-                      toolColor={toolColor}
-                      title={
-                        isCompleted
-                          ? "Completed"
-                          : isLoading
-                            ? "Executing..."
-                            : "Execute action"
-                      }
-                      onExecute={() => {
-                        if (!isCompleted && !isLoading) {
-                          onToolClick(action, messageId, index);
-                        }
-                      }}
-                    />
-                  }
-                />
-              );
-            }
-
-            return (
-              <div
-                key={index}
-                className={`timeline-item ${idx === group.length - 1 ? "last" : ""}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "6px 10px",
-                  backgroundColor: `${toolColor}08`,
-                  borderRadius: "4px",
-                  marginBottom: idx === group.length - 1 ? "0" : "4px",
-                  marginLeft: 0,
-                  borderLeft:
-                    group.length > 1 && idx !== group.length - 1
-                      ? "1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.15))"
-                      : "none",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    paddingLeft: "0px",
-                    flex: 1,
-                  }}
-                >
-                  {/* Dot */}
-                  <div
-                    className="timeline-dot"
-                    style={{
-                      backgroundColor: isCompleted ? "#3fb950" : toolColor,
-                      top: "10px",
-                    }}
-                  />
-
-                  {/* Internal Label Container for 29px offset */}
-                  <div
-                    style={{
-                      paddingLeft: "29px",
-                      display: "flex",
-                      flexDirection: "column",
-                      flex: 1,
-                    }}
-                  >
-                    {/* Label */}
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        color: "var(--vscode-editor-foreground)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {getToolLabel(toolType)}
-                    </div>
-
-                    {/* ID for remove/stop with Branch Styling */}
-                    {(toolType === "remove_terminal" ||
-                      toolType === "stop_terminal") && (
-                      <div className="terminal-sub-info">
-                        ID: {action.params.terminal_id}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <ExecuteButton
-                  isActive={isActiveGroup || false}
-                  isCompleted={isCompleted}
-                  isLastMessage={isLastMessage}
-                  isSkipped={
-                    !isActiveGroup && !isLastMessage && !isActionClicked
-                  }
-                  isLoading={isLoading}
-                  toolColor={toolColor}
-                  showText={MANUAL_CONFIRMATION_TOOLS.includes(toolType)}
-                  labelText="Run"
-                  title={
-                    isCompleted
-                      ? "Completed"
-                      : isLoading
-                        ? "Executing..."
-                        : "Execute action"
-                  }
-                  onExecute={() => {
-                    if (!isCompleted && !isLoading) {
-                      onToolClick(action, messageId, index);
-                    }
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
 
     if (terminalToolsWithBlock.includes(toolType)) {
       const index = group[0].index; // run_command is always size 1 now
@@ -1637,62 +1642,50 @@ const ToolItem: React.FC<ToolItemProps> = ({
         // ... Original rendering for non-styled ...
         return (
           <div key={index} style={{ marginBottom: "8px" }}>
-            {action.type === "attempt_completion" ? (
-              <div
+            <div
+              style={{
+                padding: "var(--spacing-sm) var(--spacing-md)",
+                backgroundColor: "var(--secondary-bg)",
+                border: `2px solid ${toolColor}`,
+                borderRadius: "var(--border-radius-lg)",
+                cursor: clickableTools.includes(action.type)
+                  ? "pointer"
+                  : "default",
+                transition: "all 0.2s",
+                display: "flex",
+                alignItems: "center",
+                gap: "var(--spacing-sm)",
+                width: "fit-content",
+              }}
+              onClick={() => {
+                if (clickableTools.includes(action.type)) {
+                  onToolClick(action, messageId, index);
+                }
+              }}
+            >
+              <span
                 style={{
-                  padding: "8px 0",
-                  fontSize: "13px",
-                  color: "var(--vscode-descriptionForeground)",
+                  fontSize: "var(--font-size-sm)",
+                  color: "var(--primary-text)",
+                  fontWeight: 600,
+                  flex: 1,
                 }}
               >
                 {formatActionForDisplay(action)}
-              </div>
-            ) : (
-              <div
-                style={{
-                  padding: "var(--spacing-sm) var(--spacing-md)",
-                  backgroundColor: "var(--secondary-bg)",
-                  border: `2px solid ${toolColor}`,
-                  borderRadius: "var(--border-radius-lg)",
-                  cursor: clickableTools.includes(action.type)
-                    ? "pointer"
-                    : "default",
-                  transition: "all 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "var(--spacing-sm)",
-                  width: "fit-content",
-                }}
-                onClick={() => {
-                  if (clickableTools.includes(action.type)) {
-                    onToolClick(action, messageId, index);
-                  }
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "var(--font-size-sm)",
-                    color: "var(--primary-text)",
-                    fontWeight: 600,
-                    flex: 1,
-                  }}
+              </span>
+              {clickableTools.includes(action.type) && (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={toolColor}
+                  strokeWidth="2"
                 >
-                  {formatActionForDisplay(action)}
-                </span>
-                {clickableTools.includes(action.type) && (
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={toolColor}
-                    strokeWidth="2"
-                  >
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                )}
-              </div>
-            )}
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              )}
+            </div>
           </div>
         );
       })}

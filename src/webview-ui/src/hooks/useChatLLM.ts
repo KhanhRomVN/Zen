@@ -185,27 +185,38 @@ export const useChatLLM = ({
           // For now, let's implement the promise wrapper here or add it to ExtensionService.
 
           // I'll skip the elaborate context fetching refactor for this specific step to avoid breaking logic.
-          // I will assume we might need to implement `request` in ExtensionService later.
-
-          // ... Context fetching logic ...
-          // For brevity, I will use a simplified version or assume `content` includes it if prepared.
-          // But actually ChatPanel Logic had this.
-
-          // Let's implement a quick helper for context since it's important.
+          console.log(
+            `[useChatLLM] Fetching project context (requestId: ${requestId})...`,
+          );
           const contextData: any = await new Promise((resolve) => {
-            const timeoutId = setTimeout(() => resolve(null), 5000);
-            const handler = (event: MessageEvent) => {
-              const msg = event.data;
+            const timeout = setTimeout(() => {
+              console.warn(
+                `[useChatLLM] Project context fetch timed out (${requestId})`,
+              );
+              window.removeEventListener("message", handleMessage);
+              resolve(null);
+            }, 10000); // Increased to 10 seconds
+
+            const handleMessage = (event: MessageEvent) => {
+              const data = event.data;
               if (
-                msg.command === "projectContextResult" &&
-                msg.requestId === requestId
+                data.command === "projectContextResult" &&
+                data.requestId === requestId
               ) {
-                clearTimeout(timeoutId);
-                window.removeEventListener("message", handler);
-                resolve(msg.data);
+                console.log(
+                  `[useChatLLM] Received project context result:`,
+                  data.data,
+                );
+                clearTimeout(timeout);
+                window.removeEventListener("message", handleMessage);
+                resolve(data.data);
+              } else if (data.command === "projectContextResult") {
+                console.log(
+                  `[useChatLLM] Ignored projectContextResult with mismatched requestId: ${data.requestId} (expected ${requestId})`,
+                );
               }
             };
-            window.addEventListener("message", handler);
+            window.addEventListener("message", handleMessage);
             extensionService.postMessage({
               command: "getProjectContext",
               requestId,
@@ -214,12 +225,17 @@ export const useChatLLM = ({
 
           if (contextData) {
             const { workspace, rules, treeView } = contextData;
+            console.log(
+              `[useChatLLM] Injecting context - Workspace: ${!!workspace}, Rules: ${!!rules}, Tree: ${!!treeView}`,
+            );
             projectContextStr += `\n\n## Project Overview (workspace.md)\n\`\`\`\n${workspace || ""}\n\`\`\``;
             projectContextStr += `\n\n## Project Rules (workspace_rules.md)\n\`\`\`\n${rules || ""}\n\`\`\``;
             projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeView || ""}\n\`\`\``;
+          } else {
+            console.warn(`[useChatLLM] No contextData received`);
           }
         } catch (e) {
-          console.error("Failed to fetch project context", e);
+          console.error("[useChatLLM] Failed to fetch project context", e);
         }
       }
 

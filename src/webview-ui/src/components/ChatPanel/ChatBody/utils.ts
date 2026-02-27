@@ -5,13 +5,7 @@ export const getActionName = (type: string): string => {
 };
 
 export const getFilename = (action: any): string => {
-  if (
-    action.type === "run_command" ||
-    action.type === "remove_terminal" ||
-    action.type === "stop_terminal" ||
-    action.type === "create_terminal_shell" ||
-    action.type === "read_terminal_logs"
-  ) {
+  if (action.type === "run_command") {
     const id = action.params.terminal_id || "";
     const cmd = action.params.command || action.params.text || "";
     if (id && cmd)
@@ -19,8 +13,11 @@ export const getFilename = (action: any): string => {
     if (id) return id;
     return cmd.length > 50 ? cmd.substring(0, 50) + "..." : cmd;
   }
-  if (action.type === "list_terminals") return "All Terminals";
-  const path = action.params.path || "";
+  const path =
+    action.params.file_path ||
+    action.params.folder_path ||
+    action.params.path ||
+    "";
   return path.split("/").pop() || path || "";
 };
 

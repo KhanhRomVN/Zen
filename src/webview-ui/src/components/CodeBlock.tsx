@@ -152,7 +152,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       <div
         className="code-content-wrapper"
         style={{
-          maxLines: maxLines ? `${maxLines * 20}px` : "none",
+          maxHeight: maxLines ? `calc(1.5em * ${maxLines} + 16px)` : "none",
           overflowY: "auto",
         }}
       >

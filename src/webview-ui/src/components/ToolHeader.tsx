@@ -2,7 +2,7 @@ import React from "react";
 import "./TerminalBlock.css";
 
 interface ToolHeaderProps {
-  title: string;
+  title: React.ReactNode;
   subTitle?: string;
   statusColor?: string;
   diffStats?: {
@@ -11,6 +11,7 @@ interface ToolHeaderProps {
   };
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onClick?: () => void;
   icon?: React.ReactNode;
   headerActions?: React.ReactNode;
 }
@@ -22,14 +23,15 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   diffStats,
   isCollapsed,
   onToggleCollapse,
+  onClick,
   icon,
   headerActions,
 }) => {
   return (
     <div
       className="terminal-block-header"
-      onClick={onToggleCollapse}
-      style={{ cursor: onToggleCollapse ? "pointer" : "default" }}
+      onClick={onClick || onToggleCollapse}
+      style={{ cursor: onClick || onToggleCollapse ? "pointer" : "default" }}
     >
       <div className="terminal-info">
         <div className="terminal-header-top">
@@ -44,10 +46,10 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
           )}
           <div
             style={{
-              paddingTop: "4px",
+              paddingTop: "2px",
               display: "flex",
               alignItems: "center",
-              gap: "8px",
+              gap: "6px",
             }}
           >
             {onToggleCollapse && (
@@ -61,7 +63,13 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                 {icon}
               </span>
             )}
-            <span className="terminal-name">{title}</span>
+            {typeof title === "string" ? (
+              <span className="terminal-name">{title}</span>
+            ) : (
+              <div className="terminal-name" style={{ display: "contents" }}>
+                {title}
+              </div>
+            )}
           </div>
         </div>
         {(subTitle || diffStats) && (

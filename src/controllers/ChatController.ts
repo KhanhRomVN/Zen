@@ -36,6 +36,7 @@ export class ChatController {
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
     const command = message.command;
+    console.log(`[ChatController] handleMessage: ${command}`);
 
     try {
       switch (command) {
@@ -131,9 +132,6 @@ export class ChatController {
         case "replaceInFile":
           await this.handleReplaceInFile(message, webviewView);
           break;
-        case "getProjectContext":
-          await this.handleGetProjectContext(message, webviewView);
-          break;
         case "listFiles":
           await this.handleListFiles(message, webviewView);
           break;
@@ -209,12 +207,6 @@ export class ChatController {
         case "openWorkspaceFile":
           await this.handleOpenFile(message);
           break;
-        case "openProjectStructure":
-          vscode.commands.executeCommand("zen-project-structure.focus");
-          break;
-        case "loadProjectContext":
-          await this.handleLoadProjectContext(message, webviewView);
-          break;
         case "highlightCode":
           await this.handleHighlightCode(message, webviewView);
           break;
@@ -227,6 +219,9 @@ export class ChatController {
           break;
         case "readTerminalOutput":
           await this.handleReadTerminalOutput(message, webviewView);
+          break;
+        case "getProjectContext":
+          await this.handleGetProjectContext(message, webviewView);
           break;
         case "getWorkspaceTree":
           await this.handleGetWorkspaceTree(message, webviewView);
@@ -849,22 +844,29 @@ export class ChatController {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
+    const pathValue =
+      message.path ||
+      message.filePath ||
+      message.file_path ||
+      message.folder_path;
+
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
-      const absPath = vscode.Uri.joinPath(workspaceFolder.uri, message.path);
+      if (!pathValue) return;
+      const absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
       const content = await vscode.workspace.fs.readFile(absPath);
       const lines = Buffer.from(content).toString("utf8").split(/\r?\n/).length;
       webviewView.webview.postMessage({
         command: "fileStatsResult",
-        path: message.path,
+        path: pathValue,
         lines,
         id: message.id,
       });
     } catch {
       webviewView.webview.postMessage({
         command: "fileStatsResult",
-        path: message.path,
+        path: pathValue || message.path,
         lines: 0,
         id: message.id,
         error: true,
@@ -876,95 +878,30 @@ export class ChatController {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
-      const dirPath = message.path;
+      const pathValue = message.path || message.folder_path || message.filePath;
+      const dirPath = pathValue || ".";
       const recursiveParam = message.recursive;
-      const typeParam = message.type || "all";
       const absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, dirPath);
 
       let maxDepth = 1;
-      if (recursiveParam === "true" || recursiveParam === true) maxDepth = 20;
+      if (recursiveParam === "true" || recursiveParam === true) maxDepth = 10;
       else if (recursiveParam)
         maxDepth = parseInt(String(recursiveParam), 10) || 1;
 
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+      const tree = await fsAnalyzer.getFileTree(maxDepth, absolutePath.fsPath);
 
-      const walk = async (
-        currentUri: vscode.Uri,
-        currentDepth: number,
-        rootPathLength: number,
-      ): Promise<string[]> => {
-        if (currentDepth > maxDepth) return [];
-        const entries = await vscode.workspace.fs.readDirectory(currentUri);
-        const results: string[] = [];
-
-        const processed = await Promise.all(
-          entries.map(async ([name, type]) => {
-            if (
-              name === "node_modules" ||
-              name === ".git" ||
-              name === "dist" ||
-              name === ".DS_Store"
-            )
-              return null;
-            const entryUri = vscode.Uri.joinPath(currentUri, name);
-            const relativePath = entryUri.fsPath.substring(rootPathLength + 1);
-            const isFile = type === vscode.FileType.File;
-            const isDirectory = type === vscode.FileType.Directory;
-
-            let include = false;
-            if (typeParam === "only_file" && isFile) include = true;
-            else if (typeParam === "only_folder" && isDirectory) include = true;
-            else if (typeParam === "all") include = true;
-
-            if (!include) {
-              if (isDirectory && currentDepth < maxDepth)
-                return { type: "recurse", uri: entryUri };
-              return null;
-            }
-
-            let suffix = "";
-            if (isFile) {
-              const lines = await fsAnalyzer.getFileLineCount(entryUri.fsPath);
-              suffix = ` (${lines} lines)`;
-            } else if (isDirectory) {
-              const count = fsAnalyzer.countFilesRecursive(entryUri.fsPath);
-              suffix = ` (${count} files)`;
-            }
-            return {
-              type: "add",
-              result: relativePath + suffix,
-              isDir: isDirectory,
-              uri: entryUri,
-            };
-          }),
-        );
-
-        for (const p of processed) {
-          if (!p) continue;
-          if (p.type === "add" && p.result) results.push(p.result);
-          if (
-            (p.type === "recurse" || (p.type === "add" && p.isDir)) &&
-            p.uri
-          ) {
-            results.push(
-              ...(await walk(p.uri, currentDepth + 1, rootPathLength)),
-            );
-          }
-        }
-        return results;
-      };
-
-      const files = await walk(absolutePath, 1, absolutePath.fsPath.length);
       webviewView.webview.postMessage({
         command: "listFilesResult",
         requestId: message.requestId,
-        path: dirPath,
-        files: files.sort(),
+        path: pathValue,
+        files: tree,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "listFilesResult",
         requestId: message.requestId,
+        path: message.path || message.folder_path,
         error: e.message,
       });
     }
@@ -1193,7 +1130,10 @@ export class ChatController {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
-      const absPath = vscode.Uri.joinPath(workspaceFolder.uri, message.path);
+      const pathValue = message.path || message.filePath || message.file_path;
+      if (!pathValue)
+        throw new Error("The 'path' argument must be of type string.");
+      const absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
       let content = Buffer.from(
         await vscode.workspace.fs.readFile(absPath),
       ).toString("utf8");
@@ -1208,7 +1148,7 @@ export class ChatController {
       webviewView.webview.postMessage({
         command: "fileContent",
         requestId: message.requestId,
-        path: message.path,
+        path: pathValue,
         content,
         diagnostics: diagnostics.length ? diagnostics : undefined,
       });
@@ -1225,18 +1165,22 @@ export class ChatController {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
+      const pathValue = message.path || message.filePath || message.file_path;
+      if (!pathValue)
+        throw new Error("The 'path' argument must be of type string.");
+
       let absolutePath: vscode.Uri;
       if (
-        message.path.endsWith("workspace.md") ||
-        message.path.endsWith("workspace_rules.md")
+        pathValue.endsWith("workspace.md") ||
+        pathValue.endsWith("workspace_rules.md")
       ) {
         const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
         await fs.promises.mkdir(pcDir, { recursive: true });
         absolutePath = vscode.Uri.file(
-          path.join(pcDir, path.basename(message.path)),
+          path.join(pcDir, path.basename(pathValue)),
         );
       } else {
-        absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, message.path);
+        absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
       }
       await vscode.workspace.fs.createDirectory(
         vscode.Uri.joinPath(absolutePath, ".."),
@@ -1255,7 +1199,7 @@ export class ChatController {
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,
-          path: message.path,
+          path: pathValue,
           success: true,
           diagnostics: diagnostics.length ? diagnostics : undefined,
         });
@@ -1263,7 +1207,7 @@ export class ChatController {
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,
-          path: message.path,
+          path: pathValue,
           success: true,
         });
       }
@@ -1271,6 +1215,7 @@ export class ChatController {
       webviewView.webview.postMessage({
         command: "writeFileResult",
         requestId: message.requestId,
+        path: message.path || message.filePath || message.file_path,
         error: e.message,
       });
     }
@@ -1282,7 +1227,16 @@ export class ChatController {
   ) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
-    const absPath = vscode.Uri.joinPath(workspaceFolder.uri, message.path);
+    const pathValue = message.path || message.filePath || message.file_path;
+    if (!pathValue) {
+      webviewView.webview.postMessage({
+        command: "replaceInFileResult",
+        requestId: message.requestId,
+        error: "The 'path' argument must be of type string.",
+      });
+      return;
+    }
+    const absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
     const release = await this.fileLockManager.acquire(absPath.fsPath);
     let newContent: string | undefined;
 
@@ -1358,8 +1312,11 @@ export class ChatController {
       const regex = message.regex;
       if (!regex) return;
 
+      const pathValue = message.path || message.folder_path || message.filePath;
+      const searchPath = pathValue || ".";
+
       const { exec } = require("child_process");
-      const cmd = `grep -rIlE "${regex.replace(/"/g, '\\"')}" "${message.path || "."}"`;
+      const cmd = `grep -rIlE "${regex.replace(/"/g, '\\"')}" "${searchPath}"`;
       exec(
         cmd,
         { cwd: workspaceFolder.uri.fsPath, maxBuffer: 1024 * 1024 * 10 },
@@ -1378,7 +1335,7 @@ export class ChatController {
             webviewView.webview.postMessage({
               command: "searchFilesResult",
               requestId: message.requestId,
-              path: message.path,
+              path: pathValue,
               results,
             });
           }
@@ -1388,6 +1345,7 @@ export class ChatController {
       webviewView.webview.postMessage({
         command: "searchFilesResult",
         requestId: message.requestId,
+        path: message.path || message.folder_path,
         error: e.message,
       });
     }
@@ -1944,85 +1902,6 @@ export class ChatController {
     await vscode.commands.executeCommand("vscode.open", right);
   }
 
-  private async handleGetProjectContext(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-
-    // Handle legacy commands or consolidated requests
-    if (message.type === "load") {
-      if (this.storageManager) {
-        const c = await this.storageManager.get(
-          this.getProjectContextKey(workspaceFolder.uri.fsPath),
-        );
-        webviewView.webview.postMessage({
-          command: "projectContextResponse",
-          requestId: message.requestId,
-          context: c ? JSON.parse(c) : null,
-        });
-      }
-      return;
-    }
-
-    if (message.type === "save") {
-      if (this.storageManager) {
-        await this.storageManager.set(
-          this.getProjectContextKey(workspaceFolder.uri.fsPath),
-          JSON.stringify(message.context),
-        );
-      }
-      return;
-    }
-
-    const dir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
-    await fs.promises.mkdir(dir, { recursive: true });
-    const workspaceMd = path.join(dir, "workspace.md");
-    const rulesMd = path.join(dir, "workspace_rules.md");
-
-    if (!fs.existsSync(workspaceMd))
-      await fs.promises.writeFile(
-        workspaceMd,
-        `# ${workspaceFolder.name}\n...`,
-      );
-    if (!fs.existsSync(rulesMd)) await fs.promises.writeFile(rulesMd, "");
-
-    const [w, r, t] = await Promise.all([
-      fs.promises.readFile(workspaceMd, "utf-8"),
-      fs.promises.readFile(rulesMd, "utf-8"),
-      this.contextManager.getFileSystemAnalyzer().getFileTree(3),
-    ]);
-
-    webviewView.webview.postMessage({
-      command: "projectContextResult",
-      requestId: message.requestId,
-      data: { workspace: w, rules: r, treeView: t, contextDir: dir },
-    });
-  }
-
-  private async handleSaveProjectContext(message: any) {
-    // Deprecated but kept for compatibility during migration if needed
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (workspaceFolder && this.storageManager) {
-      await this.storageManager.set(
-        this.getProjectContextKey(workspaceFolder.uri.fsPath),
-        JSON.stringify(message.context),
-      );
-    }
-  }
-
-  private async handleLoadProjectContext(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    // Redirect to consolidated handler
-    return this.handleGetProjectContext(
-      { ...message, type: "load" },
-      webviewView,
-    );
-  }
-
   // Helpers
   private _getTempDir(workspaceFolderPath: string): string {
     const tempDir = os.tmpdir();
@@ -2102,6 +1981,81 @@ export class ChatController {
       }
     }
     return result;
+  }
+
+  private async handleGetProjectContext(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      console.log(
+        `[ChatController] Received getProjectContext request (requestId: ${message.requestId})`,
+      );
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) throw new Error("No workspace");
+
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      console.log(`[ChatController] projectContextDir: ${projectContextDir}`);
+
+      // 1. Read workspace.md
+      let workspace = "";
+      const workspacePath = path.join(projectContextDir, "workspace.md");
+      if (fs.existsSync(workspacePath)) {
+        workspace = await fs.promises.readFile(workspacePath, "utf-8");
+        console.log(
+          `[ChatController] Found workspace.md (${workspace.length} chars)`,
+        );
+      } else {
+        console.log(
+          `[ChatController] NOT FOUND: workspace.md at ${workspacePath}`,
+        );
+      }
+
+      // 2. Read workspace_rules.md
+      let rules = "";
+      const rulesPath = path.join(projectContextDir, "workspace_rules.md");
+      if (fs.existsSync(rulesPath)) {
+        rules = await fs.promises.readFile(rulesPath, "utf-8");
+        console.log(
+          `[ChatController] Found workspace_rules.md (${rules.length} chars)`,
+        );
+      } else {
+        console.log(
+          `[ChatController] NOT FOUND: workspace_rules.md at ${rulesPath}`,
+        );
+      }
+
+      // 3. Generate Tree View (FileSystem Hierarchy)
+      console.log(`[ChatController] Generating tree view (depth 3)...`);
+      const treeView = await this.contextManager
+        .getFileSystemAnalyzer()
+        .getFileTree(3);
+      console.log(
+        `[ChatController] Generated tree view (${treeView.length} chars)`,
+      );
+
+      webviewView.webview.postMessage({
+        command: "projectContextResult",
+        requestId: message.requestId,
+        data: {
+          workspace,
+          rules,
+          treeView,
+        },
+      });
+    } catch (error: any) {
+      console.error(
+        `[ChatController] Error in handleGetProjectContext:`,
+        error,
+      );
+      webviewView.webview.postMessage({
+        command: "projectContextResult",
+        requestId: message.requestId,
+        error: error.message,
+      });
+    }
   }
 
   private getProjectContextKey(path: string): string {

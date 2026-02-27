@@ -194,9 +194,10 @@ export const useToolExecution = ({
       switch (action.type) {
         case "read_file": {
           const requestId = `read-${Date.now()}-${Math.random()}`;
+          const filePath = action.params.path || action.params.file_path;
           extensionService.postMessage({
             command: "readFile",
-            path: action.params.path,
+            path: filePath,
             startLine: action.params.start_line
               ? parseInt(action.params.start_line)
               : undefined,
@@ -219,10 +220,10 @@ export const useToolExecution = ({
                   readableError = "File not found in project";
                 }
                 resolve(
-                  `[read_file for '${action.params.path}'] Result: Error - ${readableError}`,
+                  `[read_file for '${filePath}'] Result: Error - ${readableError}`,
                 );
               } else {
-                let result = `[read_file for '${action.params.path}'] Result:\n\`\`\`\n${msg.content}\n\`\`\``;
+                let result = `[read_file for '${filePath}'] Result:\n\`\`\`\n${msg.content}\n\`\`\``;
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
                   result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
                 }
@@ -239,9 +240,10 @@ export const useToolExecution = ({
         }
         case "write_to_file": {
           const requestId = `write-${Date.now()}-${Math.random()}`;
+          const filePath = action.params.path || action.params.file_path;
           extensionService.postMessage({
             command: "writeFile",
-            path: action.params.path,
+            path: filePath,
             content: action.params.content,
             requestId: requestId,
             skipDiagnostics,
@@ -256,10 +258,10 @@ export const useToolExecution = ({
               window.removeEventListener("message", handleResponse);
               if (msg.error) {
                 resolve(
-                  `[write_to_file for '${action.params.path}'] Result: Error - ${msg.error}`,
+                  `[write_to_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
-                let result = `[write_to_file for '${action.params.path}'] Success: File written successfully`;
+                let result = `[write_to_file for '${filePath}'] Success: File written successfully`;
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
                   result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
                 }
@@ -276,9 +278,10 @@ export const useToolExecution = ({
         }
         case "replace_in_file": {
           const requestId = `replace-${Date.now()}-${Math.random()}`;
+          const filePath = action.params.path || action.params.file_path;
           extensionService.postMessage({
             command: "replaceInFile",
-            path: action.params.path,
+            path: filePath,
             diff: action.params.diff,
             requestId: requestId,
             skipDiagnostics,
@@ -293,14 +296,14 @@ export const useToolExecution = ({
               window.removeEventListener("message", handleReplaceResponse);
               if (msg.error) {
                 resolve(
-                  `[replace_in_file for '${action.params.path}'] Result: Error - ${msg.error}`,
+                  `[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
-                let result = `[replace_in_file for '${action.params.path}'] Success: Diff applied successfully`;
+                let result = `[replace_in_file for '${filePath}'] Success: Diff applied successfully`;
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
                   result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
                   if (msg.content) {
-                    result += `\n\n<current_file_content_post_edit>\n(The following is the full content of '${action.params.path}' AFTER the edit. Please review it to fix the diagnostics.)\n\`\`\`\n${msg.content}\n\`\`\`\n</current_file_content_post_edit>`;
+                    result += `\n\n<current_file_content_post_edit>\n(The following is the full content of '${filePath}' AFTER the edit. Please review it to fix the diagnostics.)\n\`\`\`\n${msg.content}\n\`\`\`\n</current_file_content_post_edit>`;
                   }
                 }
                 resolve(result);
@@ -316,9 +319,10 @@ export const useToolExecution = ({
         }
         case "list_files": {
           const requestId = `list-${Date.now()}-${Math.random()}`;
+          const folderPath = action.params.path || action.params.folder_path;
           extensionService.postMessage({
             command: "listFiles",
-            path: action.params.path,
+            path: folderPath,
             recursive: action.params.recursive,
             type: action.params.type,
             requestId: requestId,
@@ -332,11 +336,11 @@ export const useToolExecution = ({
               window.removeEventListener("message", handleListResponse);
               if (msg.error) {
                 resolve(
-                  `[list_files for '${action.params.path}'] Result: Error - ${msg.error}`,
+                  `[list_files for '${folderPath}'] Result: Error - ${msg.error}`,
                 );
               } else {
                 resolve(
-                  `[list_files for '${action.params.path}'] Result:\n\`\`\`\n${msg.files}\n\`\`\``,
+                  `[list_files for '${folderPath}'] Result:\n\`\`\`\n${msg.files}\n\`\`\``,
                 );
               }
             }
@@ -350,9 +354,10 @@ export const useToolExecution = ({
         }
         case "search_files": {
           const requestId = `search-${Date.now()}-${Math.random()}`;
+          const folderPath = action.params.path || action.params.folder_path;
           extensionService.postMessage({
             command: "searchFiles",
-            path: action.params.path,
+            path: folderPath,
             regex: action.params.regex,
             filePattern: action.params.filePattern,
             requestId: requestId,
@@ -366,11 +371,11 @@ export const useToolExecution = ({
               window.removeEventListener("message", handleSearchResponse);
               if (msg.error) {
                 resolve(
-                  `[search_files for '${action.params.path}'] Result: Error - ${msg.error}`,
+                  `[search_files for '${folderPath}'] Result: Error - ${msg.error}`,
                 );
               } else {
                 resolve(
-                  `[search_files for '${action.params.path}'] Result:\n\`\`\`\n${msg.results}\n\`\`\``,
+                  `[search_files for '${folderPath}'] Result:\n\`\`\`\n${msg.results}\n\`\`\``,
                 );
               }
             }
@@ -390,17 +395,6 @@ export const useToolExecution = ({
             actionId: (action as any).actionId,
           });
           pendingToolResolvers.current.set((action as any).actionId, resolve);
-          break;
-        }
-        case "update_codebase_context": {
-          extensionService.postMessage({
-            command: "getProjectContext",
-            type: "save",
-            context: action.params,
-          });
-          resolve(
-            `[update_codebase_context] Success: Project context updated.`,
-          );
           break;
         }
         case "execute_agent_action": {

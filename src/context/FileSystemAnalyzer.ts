@@ -107,15 +107,21 @@ export class FileSystemAnalyzer {
   }
 
   /**
-   * Lấy cấu trúc file tree của workspace
+   * Lấy cấu trúc file tree của một thư mục (mặc định là workspace root)
    */
-  public async getFileTree(maxDepth: number = 3): Promise<string> {
+  public async getFileTree(
+    maxDepth: number = 3,
+    customRootPath?: string,
+  ): Promise<string> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
+    if (
+      (!workspaceFolders || workspaceFolders.length === 0) &&
+      !customRootPath
+    ) {
       return "No workspace folder open";
     }
 
-    const rootPath = workspaceFolders[0].uri.fsPath;
+    const rootPath = customRootPath || workspaceFolders![0].uri.fsPath;
 
     try {
       // Pass true for useBlacklist

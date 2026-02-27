@@ -2,7 +2,6 @@ export interface ParsedResponse {
   thinking: string | null;
   followupQuestion: string | null;
   followupOptions: string[] | null;
-  attemptCompletion: string | null;
   taskName: string | null;
   taskProgress: TaskProgressItem[] | null;
   actions: ToolAction[];
@@ -20,17 +19,10 @@ export interface ToolAction {
     | "read_file"
     | "write_to_file"
     | "replace_in_file"
-    | "run_command"
     | "list_files"
     | "search_files"
-    | "list_terminals"
-    | "remove_terminal"
-    | "stop_terminal"
-    | "create_terminal_shell"
-    | "read_terminal_logs"
-    | "ask_followup_question"
-    | "attempt_completion"
-    | "update_codebase_context";
+    | "run_command"
+    | "execute_agent_action";
   params: Record<string, any>;
   rawXml: string;
   taskProgress?: TaskProgressItem[] | null;
@@ -41,6 +33,11 @@ export type ContentBlock =
   | { type: "code"; content: string; language?: string }
   | { type: "html"; content: string }
   | { type: "file"; content: string }
+  | {
+      type: "task_progress";
+      taskName: string | null;
+      items: TaskProgressItem[];
+    }
   | { type: "tool"; action: ToolAction };
 
 /**
@@ -167,21 +164,12 @@ const parseToolAction = (
       params.file_path = extractParamValue(innerContent, "file_path");
       params.diff = extractParamValue(innerContent, "diff");
       break;
-
     case "run_command":
       params.command = extractParamValue(innerContent, "command");
       params.terminal_id = extractParamValue(innerContent, "terminal_id");
       break;
-
-    case "list_terminals":
-      // No params
-      break;
-
-    case "remove_terminal":
-    case "stop_terminal":
-    case "create_terminal_shell":
-    case "read_terminal_logs":
-      params.terminal_id = extractParamValue(innerContent, "terminal_id");
+    case "execute_agent_action":
+      // No special param handling needed yet
       break;
 
     case "list_files":
@@ -194,30 +182,6 @@ const parseToolAction = (
       params.folder_path = extractParamValue(innerContent, "folder_path");
       params.regex = extractParamValue(innerContent, "regex");
       params.file_pattern = extractParamValue(innerContent, "file_pattern");
-      break;
-
-    case "ask_followup_question":
-      params.question = extractParamValue(innerContent, "question");
-      const optionsStr = extractParamValue(innerContent, "options");
-      if (optionsStr) {
-        try {
-          params.options = JSON.parse(optionsStr);
-        } catch {
-          params.options = null;
-        }
-      }
-      break;
-
-    case "attempt_completion":
-      params.result = extractParamValue(innerContent, "result");
-      params.command = extractParamValue(innerContent, "command");
-      break;
-
-    case "update_codebase_context":
-      params.projectName = extractParamValue(innerContent, "projectName");
-      params.language = extractParamValue(innerContent, "language");
-      params.description = extractParamValue(innerContent, "description");
-      params.keyFiles = extractParamValue(innerContent, "keyFiles");
       break;
   }
 
@@ -238,7 +202,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     thinking: null,
     followupQuestion: null,
     followupOptions: null,
-    attemptCompletion: null,
     taskName: null,
     taskProgress: null,
     actions: [],
@@ -297,18 +260,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "run_command",
     "list_files",
     "search_files",
-    "list_terminals",
-    "remove_terminal",
-    "stop_terminal",
-    "create_terminal_shell",
-    "read_terminal_logs",
-    "ask_followup_question",
-    "attempt_completion",
-    "update_codebase_context",
+    "execute_agent_action",
     "html_inline_css_block", // Treat <html_inline_css_block> as a special tag
     "text", // Treat <text> as a special tag
     "code", // Treat <code> as a special tag
     "file", // Treat <file> as a special tag
+    "task_progress", // Treat <task_progress> as a special tag
   ];
 
   // We need to parse linearly to maintain order
@@ -443,6 +400,24 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               content: innerContent.trim(),
             });
           }
+        } else if (toolName === "task_progress") {
+          // Explicit <task_progress> tag
+          const items = parseTaskProgress(innerContent || "");
+          const taskNameMatch = innerContent?.match(
+            /<task_name>([\s\S]*?)<\/task_name>/i,
+          );
+          const taskName = taskNameMatch ? taskNameMatch[1].trim() : null;
+
+          if (items) {
+            result.contentBlocks.push({
+              type: "task_progress",
+              taskName,
+              items,
+            });
+            // Also update global for backward compatibility if needed
+            result.taskProgress = items;
+            result.taskName = taskName;
+          }
         } else {
           // It's a tool
           const action = parseToolAction(toolName, innerContent || "", rawXml);
@@ -450,12 +425,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           result.actions.push(action); // Populate legacy actions array
 
           // Special handling for legacy fields (followup, completion) which were previously separate
-          if (toolName === "ask_followup_question") {
-            result.followupQuestion = action.params.question;
-            result.followupOptions = action.params.options;
-          } else if (toolName === "attempt_completion") {
-            result.attemptCompletion = action.params.result;
-          }
+          // These tools are now removed, so this block is no longer needed.
         }
 
         // 3. Advance scanStr
@@ -528,25 +498,9 @@ export const formatActionForDisplay = (action: ToolAction): string => {
       return `replace_in_file: ${action.params.file_path || "unknown"}`;
 
     case "run_command":
-      const termId = action.params.terminal_id
-        ? ` (terminal: ${action.params.terminal_id})`
-        : "";
-      return `run_command: ${action.params.command || "unknown"}${termId}`;
-
-    case "list_terminals":
-      return `list_terminals`;
-
-    case "remove_terminal":
-      return `remove_terminal: ${action.params.terminal_id || "unknown"}`;
-
-    case "stop_terminal":
-      return `stop_terminal: ${action.params.terminal_id || "unknown"}`;
-
-    case "create_terminal_shell":
-      return `create_terminal_shell: ${action.params.terminal_id || "unknown"}`;
-
-    case "read_terminal_logs":
-      return `read_terminal_logs: ${action.params.terminal_id || "unknown"}`;
+      return `Run: ${action.params.command || ""}`;
+    case "execute_agent_action":
+      return `Agent: ${action.params.action || "Execute"}`;
 
     case "list_files":
       const type = action.params.type ? ` [${action.params.type}]` : "";
@@ -554,14 +508,6 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "search_files":
       return `search_files: ${action.params.regex || "unknown"}`;
-
-    case "attempt_completion":
-      return `attempt_completion: ${action.params.command || ""}`;
-
-    case "update_codebase_context":
-      return `update_codebase_context: ${
-        action.params.projectName || "project"
-      }`;
 
     default:
       return ``;

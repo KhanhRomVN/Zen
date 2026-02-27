@@ -1,7 +1,10 @@
 import React from "react";
 import { CodeBlock } from "../../../CodeBlock";
 import { Message } from "../types";
-import { ParsedResponse } from "../../../../services/ResponseParser";
+import {
+  ParsedResponse,
+  TaskProgressItem,
+} from "../../../../services/ResponseParser";
 import PromptSection from "./PromptSection";
 import ThinkingSection from "./ThinkingSection";
 import FollowupOptions from "./FollowupOptions";
@@ -32,6 +35,7 @@ interface MessageBoxProps {
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
+  allMessages?: Message[];
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
@@ -128,6 +132,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   toolOutputs,
   terminalStatus,
   nextUserMessage,
+  allMessages,
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
@@ -269,6 +274,12 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           | { type: "html"; content: string; key: string }
           | { type: "file"; content: string; key: string }
           | {
+              type: "task_progress";
+              taskName: string | null;
+              items: TaskProgressItem[];
+              key: string;
+            }
+          | {
               type: "tools";
               items: { action: any; index: number }[];
               key: string;
@@ -283,10 +294,11 @@ const MessageBox: React.FC<MessageBoxProps> = ({
         // Helper to flush tool group
         const flushTools = () => {
           if (currentToolGroup.length > 0) {
+            const firstIndex = currentToolGroup[0].index;
             groups.push({
               type: "tools",
               items: [...currentToolGroup],
-              key: `tools-${groups.length}`,
+              key: `tools-${firstIndex}`,
             });
             currentToolGroup = [];
           }
@@ -300,12 +312,21 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 action: block.action,
                 index: actionIndex !== -1 ? actionIndex : idx, // Fallback index if not found
               });
+            } else if (block.type === "task_progress") {
+              // Flush tools before adding task_progress block
+              flushTools();
+              groups.push({
+                type: "task_progress",
+                taskName: block.taskName,
+                items: block.items,
+                key: `task_progress-${idx}`,
+              });
             } else if (block.type === "file") {
               flushTools();
               groups.push({
                 type: "file",
                 content: block.content,
-                key: `file-${groups.length}`,
+                key: `file-${idx}`,
               });
             } else {
               // Flush tools before adding non-tool block
@@ -329,7 +350,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 groups.push({
                   type: "text",
                   content: block.content,
-                  key: `text-${groups.length}`,
+                  key: `text-${idx}`,
                 });
               }
             }
@@ -468,6 +489,79 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 </div>
               </div>
             );
+          } else if (group.type === "task_progress") {
+            content = (
+              <div>
+                <div
+                  className="timeline-dot"
+                  style={{
+                    backgroundColor: "#3fb950",
+                    top: "10px",
+                  }}
+                />
+                <div
+                  style={{
+                    paddingLeft: "29px",
+                    paddingTop: "4px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "var(--vscode-editor-foreground)",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {group.taskName || "Task Progress"}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                    }}
+                  >
+                    {group.items.map((item, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          fontSize: "12px",
+                          color: "var(--vscode-descriptionForeground)",
+                          opacity: item.completed ? 0.8 : 1,
+                        }}
+                      >
+                        <span style={{ flexShrink: 0 }}>
+                          {item.completed ? (
+                            <span
+                              className="codicon codicon-check"
+                              style={{ color: "#3fb950" }}
+                            />
+                          ) : (
+                            <span
+                              className="codicon codicon-circle-outline"
+                              style={{ opacity: 0.5 }}
+                            />
+                          )}
+                        </span>
+                        <span
+                          style={{
+                            textDecoration: item.completed
+                              ? "line-through"
+                              : "none",
+                          }}
+                        >
+                          {item.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
           } else {
             content = (
               <ToolActionsList
@@ -481,6 +575,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 toolOutputs={toolOutputs}
                 terminalStatus={terminalStatus}
                 nextUserMessage={nextUserMessage}
+                allMessages={allMessages}
                 activeTerminalIds={activeTerminalIds}
                 attachedTerminalIds={attachedTerminalIds}
                 conversationId={conversationId}

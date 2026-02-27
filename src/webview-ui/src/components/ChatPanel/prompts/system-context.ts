@@ -27,11 +27,10 @@ export const buildSystemContext = (info: SystemInfo): string => {
 The system automatically provides:
 
 1. **FILE_STRUCTURE**: List of files in project
-2. **ACTIVE_TERMINALS**: Overview of running processes. Use \`list_terminals()\` to get specific IDs for interaction.
+2. **ACTIVE_TERMINALS**: Overview of running processes.
 3. **PROJECT_CONTEXT**: Content from:
    - \`workspace.md\` (project overview, architecture)
    - \`workspace_rules.md\` (project-specific rules)
-   - \`conversation_summary.md\` (current session summary)
 
 ## Git Integration
 

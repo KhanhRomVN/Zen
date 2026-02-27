@@ -23,6 +23,7 @@ interface ToolActionsListProps {
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
+  allMessages?: Message[];
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
@@ -39,10 +40,11 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   toolOutputs,
   terminalStatus,
   nextUserMessage,
+  allMessages,
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
-  isVisibleTool = (type: string) => type !== "read_file",
+  isVisibleTool = (type: string) => true,
 }) => {
   // Filter out invisible tools immediately
   const visibleItems = useMemo(() => {
@@ -209,6 +211,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             toolOutputs={toolOutputs}
             terminalStatus={terminalStatus}
             nextUserMessage={nextUserMessage}
+            allMessages={allMessages}
             activeTerminalIds={activeTerminalIds}
             attachedTerminalIds={attachedTerminalIds}
             conversationId={conversationId}

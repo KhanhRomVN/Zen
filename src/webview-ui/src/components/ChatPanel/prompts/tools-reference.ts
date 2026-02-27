@@ -48,9 +48,6 @@ update_workspace_context(content)  → Update workspace.md
 
 read_workspace_rules_context()           → Read workspace_rules.md
 update_workspace_rules_context(content)  → Update workspace_rules.md
-
-read_current_conversation_summary_context()           → Read summary.md
-update_current_conversation_summary_context(content)  → Update summary.md
 \`\`\`
 
 **Context Update Guidelines**:

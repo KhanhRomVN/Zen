@@ -102,7 +102,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     const hasOtherBlocks =
       parsed.contentBlocks &&
       parsed.contentBlocks.some((b) => {
-        if (b.type === "tool") return true;
+        if (b.type === "tool" || b.type === "task_progress") return true;
         return b.content.trim().length > 0;
       });
 
@@ -170,6 +170,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               isLastMessage={index === visibleMessages.length - 1} // Pass isLastMessage
               toolOutputs={toolOutputs}
               terminalStatus={terminalStatus}
+              allMessages={messages}
               activeTerminalIds={activeTerminalIds}
               attachedTerminalIds={attachedTerminalIds}
               conversationId={conversationId}

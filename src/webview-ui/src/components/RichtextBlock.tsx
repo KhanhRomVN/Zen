@@ -8,6 +8,8 @@ interface RichtextBlockProps {
   statusColor?: string;
   defaultCollapsed?: boolean;
   headerActions?: React.ReactNode;
+  maxHeight?: string | number;
+  showHeader?: boolean;
 }
 
 export const RichtextBlock: React.FC<RichtextBlockProps> = ({
@@ -17,14 +19,29 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
   statusColor,
   defaultCollapsed = true,
   headerActions,
+  maxHeight,
+  showHeader = true,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+
+  const contentStyle: React.CSSProperties = {
+    maxHeight: maxHeight || undefined,
+    overflowY: maxHeight ? "auto" : undefined,
+  };
 
   return (
     <div
       className={`richtext-block-container ${isCollapsed ? "collapsed" : ""}`}
     >
-      {isCollapsed ? (
+      {!showHeader ? (
+        <div className="richtext-block-expanded no-header">
+          <div className="richtext-content" style={contentStyle}>
+            <pre className="plaintext-output">
+              <code>{content}</code>
+            </pre>
+          </div>
+        </div>
+      ) : isCollapsed ? (
         // Collapsed State: Inline summary (no background as per request)
         <div
           className="richtext-block-summary"
@@ -101,6 +118,7 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
                     width: "8px",
                     height: "8px",
                     borderRadius: "50%",
+                    display: "inline-block",
                   }}
                 />
               )}
@@ -117,7 +135,7 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
             </div>
             <div className="header-actions">{headerActions}</div>
           </div>
-          <div className="richtext-content">
+          <div className="richtext-content" style={contentStyle}>
             <pre className="plaintext-output">
               <code>{content}</code>
             </pre>
