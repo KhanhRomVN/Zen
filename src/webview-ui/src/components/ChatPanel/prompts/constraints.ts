@@ -146,5 +146,9 @@ To add error handling, I need:
 **Rule**: Be responsible for terminal resources.
 **Execution**:
 - Use \`list_terminals()\` to check for reusable sessions before creating new ones.
-- Call \`close_terminal()\` when a long-running process (like a server) is no longer needed for the task.
+- **Handling Long-running Commands**: If a command (e.g. \`npm run dev\`) returns a "Still running after 5s" message:
+  1. Do NOT proceed with other unrelated tool calls or tasks.
+  2. Acknowledge the current output and inform the user you are monitoring it.
+  3. Wait for the next 5s update or decide to stop it if an error is detected.
+- **Stopping Process**: Call \`stop_terminal(terminal_id)\` when a long-running process is no longer needed or if it's stuck/errored.
 - Do NOT leave orphaned terminals running unnecessary processes.`;

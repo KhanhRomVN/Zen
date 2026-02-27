@@ -187,6 +187,9 @@ export class ChatController {
         case "stopCommand":
           await this.handleStopCommand(message);
           break;
+        case "stopTerminal":
+          this.processManager.close(message.terminalId);
+          break;
         case "openPreview":
           await this.handleOpenPreview(message);
           break;
@@ -243,45 +246,56 @@ export class ChatController {
   }
 
   public startPingService(webview: vscode.Webview) {
+    console.log("[ChatController] startPingService called");
     if (this._pingInterval) {
+      console.log("[ChatController] Clearing existing ping interval");
       clearInterval(this._pingInterval);
     }
 
     const checkPing = () => {
+      console.log("[ChatController] Executing checkPing...");
       const start = Date.now();
-      const req = https.get(
-        "https://www.google.com/generate_204",
-        { timeout: 3000 },
-        (res) => {
-          const end = Date.now();
-          const latency = end - start;
-          console.log(`[ChatController] Ping SUCCESS: ${latency}ms`);
+      try {
+        const req = https.get(
+          "https://www.google.com/generate_204",
+          { timeout: 3000 },
+          (res) => {
+            const end = Date.now();
+            const latency = end - start;
+            console.log(`[ChatController] Ping SUCCESS: ${latency}ms`);
+            webview.postMessage({
+              command: "networkPingUpdate",
+              ping: latency,
+            });
+            res.resume(); // Consume response
+          },
+        );
+
+        req.on("error", (err) => {
+          console.log(`[ChatController] Ping ERROR: ${err.message}`);
           webview.postMessage({
             command: "networkPingUpdate",
-            ping: latency,
+            ping: null,
           });
-          res.resume(); // Consume response
-        },
-      );
+        });
 
-      req.on("error", (err) => {
-        console.log(`[ChatController] Ping ERROR: ${err.message}`);
+        req.on("timeout", () => {
+          console.log("[ChatController] Ping TIMEOUT");
+          req.destroy();
+          webview.postMessage({
+            command: "networkPingUpdate",
+            ping: null,
+          });
+        });
+
+        req.end();
+      } catch (e: any) {
+        console.error("[ChatController] Error in https.get:", e);
         webview.postMessage({
           command: "networkPingUpdate",
           ping: null,
         });
-      });
-
-      req.on("timeout", () => {
-        console.log("[ChatController] Ping TIMEOUT");
-        req.destroy();
-        webview.postMessage({
-          command: "networkPingUpdate",
-          ping: null,
-        });
-      });
-
-      req.end();
+      }
     };
 
     // Initial check

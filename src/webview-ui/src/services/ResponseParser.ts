@@ -268,6 +268,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "list_files",
     "search_files",
     "execute_agent_action",
+    "stop_terminal",
     "html_inline_css_block", // Treat <html_inline_css_block> as a special tag
     "text", // Treat <text> as a special tag
     "code", // Treat <code> as a special tag

@@ -388,13 +388,43 @@ export const useToolExecution = ({
           break;
         }
         case "run_command": {
-          commandStartTimes.current.set((action as any).actionId, Date.now());
+          const actionId = (action as any).actionId;
+          commandStartTimes.current.set(actionId, Date.now());
           extensionService.postMessage({
             command: "runCommand",
             commandText: action.params.command,
-            actionId: (action as any).actionId,
+            actionId: actionId,
           });
-          pendingToolResolvers.current.set((action as any).actionId, resolve);
+          pendingToolResolvers.current.set(actionId, resolve);
+
+          // 🆕 5-second fallback for long-running commands
+          setTimeout(() => {
+            if (pendingToolResolvers.current.has(actionId)) {
+              const resolver = pendingToolResolvers.current.get(actionId);
+              if (resolver) {
+                const terminalId =
+                  terminalToActionMap.current.get(actionId) || "";
+                const currentOutput = toolOutputs[actionId]?.output || "";
+                const cleanOutput = stripMarkers(
+                  currentOutput,
+                  actionId,
+                ).trim();
+
+                const msg = `[run_command] Still running after 5s. Current output:\n\`\`\`\n${cleanOutput}\n\`\`\`\n\nI will continue to provide updates every 5s. Please decide if you want to wait or stop it.`;
+                resolver(msg);
+                pendingToolResolvers.current.delete(actionId);
+              }
+            }
+          }, 5000);
+          break;
+        }
+        case "stop_terminal": {
+          const terminalId = action.params.terminal_id;
+          extensionService.postMessage({
+            command: "stopTerminal",
+            terminalId: terminalId,
+          });
+          resolve(`[stop_terminal] Success: Stopped terminal ${terminalId}`);
           break;
         }
         case "execute_agent_action": {

@@ -72,34 +72,81 @@ const ExecuteButton: React.FC<{
   showText,
   labelText,
 }) => {
+  const iconColor = isCompleted
+    ? "#3fb950"
+    : isFailed
+      ? "var(--vscode-errorForeground)"
+      : toolColor;
+  const isClickable = !isLoading && (!isCompleted || isFailed || isActive);
+
   return (
     <button
       onClick={(e) => {
         e.stopPropagation();
-        onExecute(e);
+        if (isClickable) onExecute(e);
       }}
-      disabled={false}
+      disabled={isLoading || (isCompleted && !isFailed && !isActive)}
       style={{
-        background: "transparent",
-        color: "var(--vscode-editor-foreground)",
-        border: "none",
-        cursor: isLoading ? "wait" : "pointer",
-        padding: "4px",
-        borderRadius: "4px",
+        background: isCompleted ? "transparent" : `${toolColor}20`,
+        color: iconColor,
+        border: `1px solid ${isCompleted ? "transparent" : `${toolColor}40`}`,
+        cursor: isLoading ? "wait" : isClickable ? "pointer" : "default",
+        padding: "4px 8px",
+        borderRadius: "6px",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        transition: "all 0.2s",
-        opacity: isActive || isCompleted ? 1 : 0.6,
-        fontSize: "14px",
-        gap: "4px",
+        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+        opacity: isSkipped ? 0.5 : 1,
+        fontSize: "12px",
+        gap: "6px",
+        fontWeight: 600,
+        height: "24px",
       }}
-      className="execute-button-minimal"
+      className="execute-button-premium"
       title={title}
     >
-      {/* LOADING STATE */}
-      {isLoading && (
-        <div className="codicon codicon-loading codicon-modifier-spin" />
+      {isLoading ? (
+        <div
+          className="codicon codicon-loading codicon-modifier-spin"
+          style={{ fontSize: "14px" }}
+        />
+      ) : isCompleted ? (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      )}
+
+      {(showText || labelText || (!isCompleted && !isLoading)) && (
+        <span
+          style={{
+            fontSize: "11px",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+          }}
+        >
+          {labelText || (isCompleted ? "Done" : "Run")}
+        </span>
       )}
     </button>
   );
@@ -739,12 +786,15 @@ const ToolItem: React.FC<ToolItemProps> = ({
             }}
           >
             {/* Left: label */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span
                 style={{
-                  fontSize: "13px",
-                  fontWeight: 600,
+                  fontSize: "12px",
+                  fontWeight: 700,
                   color: "var(--vscode-editor-foreground)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  opacity: 0.8,
                 }}
               >
                 Execute
@@ -754,10 +804,15 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   style={{
                     fontSize: "11px",
                     color: "var(--vscode-descriptionForeground)",
-                    opacity: 0.7,
+                    opacity: 0.6,
+                    fontFamily: "var(--vscode-editor-font-family, monospace)",
+                    backgroundColor: "var(--vscode-editor-background)",
+                    padding: "1px 6px",
+                    borderRadius: "4px",
+                    border: "1px solid var(--vscode-widget-border)",
                   }}
                 >
-                  {action.params.cwd}
+                  {truncatePath(action.params.cwd)}
                 </span>
               )}
             </div>

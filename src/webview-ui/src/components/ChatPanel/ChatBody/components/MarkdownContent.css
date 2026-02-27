@@ -1,0 +1,79 @@
+.markdown-content-inline {
+  line-height: 1.6;
+}
+
+.markdown-content-inline h1,
+.markdown-content-inline h2,
+.markdown-content-inline h3 {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.markdown-content-inline h1 {
+  font-size: 1.25em;
+}
+.markdown-content-inline h2 {
+  font-size: 1.1em;
+}
+.markdown-content-inline h3 {
+  font-size: 1.05em;
+}
+
+.markdown-content-inline p {
+  margin-bottom: 8px;
+}
+
+.markdown-content-inline ul,
+.markdown-content-inline ol {
+  margin-bottom: 8px;
+  padding-left: 20px;
+}
+
+.markdown-content-inline li {
+  margin-bottom: 4px;
+}
+
+.markdown-content-inline table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: 0.9em;
+}
+
+.markdown-content-inline th,
+.markdown-content-inline td {
+  border: 1px solid var(--vscode-panel-border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.markdown-content-inline th {
+  background-color: var(--vscode-editor-lineHighlightBackground);
+  font-weight: 600;
+}
+
+.markdown-content-inline code {
+  background-color: var(--vscode-editor-lineHighlightBackground);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+}
+
+.markdown-content-inline a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+
+.markdown-content-inline a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content-inline blockquote {
+  border-left: 4px solid var(--vscode-panel-border);
+  padding-left: 12px;
+  color: var(--vscode-descriptionForeground);
+  margin: 12px 0;
+}

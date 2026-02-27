@@ -1,4 +1,6 @@
 import React from "react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { CodeBlock } from "../../../CodeBlock";
 import { Message } from "../types";
 import {
@@ -17,6 +19,7 @@ import { extensionService } from "../../../../services/ExtensionService";
 import { ToolHeader } from "../../../ToolHeader";
 import { RichtextBlock } from "../../../RichtextBlock";
 import "../../../TerminalBlock.css";
+import "./MarkdownContent.css";
 
 interface MessageBoxProps {
   message: Message;
@@ -615,14 +618,28 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "markdown") {
+            const htmlContent = DOMPurify.sanitize(
+              marked.parse(group.content) as string,
+            );
+
             content = (
-              <div style={{ paddingLeft: "29px" }}>
-                <RichtextBlock
-                  content={group.content}
-                  title="Documentation"
-                  prefix="Markdown"
-                  statusColor="#0366d6"
-                  defaultCollapsed={false}
+              <div>
+                <div
+                  className="timeline-dot"
+                  style={{
+                    backgroundColor: "#3fb950",
+                    top: "10px",
+                  }}
+                />
+                <div
+                  style={{
+                    paddingLeft: "29px",
+                    paddingTop: "4px",
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--primary-text)",
+                  }}
+                  className="markdown-content-inline"
+                  dangerouslySetInnerHTML={{ __html: htmlContent }}
                 />
               </div>
             );

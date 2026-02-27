@@ -36,8 +36,12 @@ search_files(folder_path, regex)
 \`\`\`
 run_command(command)
   → Run shell command or interactive input.
-  → Use for: both one-off commands and interactive prompts (Yes/No, passwords).
+  → Use for non-interactive commands. For interactive or long-running commands (e.g. \`npm run dev\`), the tool will return partial output if it runs for more than 5 seconds.
   → IMPORTANT: The terminal will be automatically CLOSED and DELETED after the command completes.
+
+stop_terminal(terminal_id)
+  → Stop a long-running terminal process by ID. Use this if a command is stuck or no longer needed.
+  → Parameters: terminal_id (string)
 \`\`\`
 
 ## Context Management
@@ -67,8 +71,12 @@ update_workspace_context(content)  → Update workspace.md (plain text list of e
 </text>
 
 <markdown>
-  Content of .md files or any markdown-formatted data you want to present.
-  Use for: documentation, README, or any structured markdown content.
+  Use ONLY for structured content requiring formatting: headers, tables, task lists, and complex links.
+  
+  **Rules**:
+  - Do NOT use for regular conversational text (use <text> instead).
+  - Use sparingly only when visual structure adds value.
+  - Will be rendered inline in the chat timeline with a dotUI.
 </markdown>
 
 <temp>
