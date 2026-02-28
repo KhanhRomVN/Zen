@@ -10,30 +10,26 @@ export interface SystemInfo {
 export const buildSystemContext = (info: SystemInfo): string => {
   return `# SYSTEM ENVIRONMENT
 
-**Operating System**: ${info.os}
-**IDE**: ${info.ide}
-**Shell**: ${info.shell}
-**Home Directory**: ${info.homeDir}
-**Current Working Directory**: ${info.cwd}
-**Language**: ${info.language}
+| Field | Value |
+|-------|-------|
+| **OS** | ${info.os} |
+| **IDE** | ${info.ide} |
+| **Shell** | ${info.shell} |
+| **Home** | ${info.homeDir} |
+| **CWD** | ${info.cwd} |
+| **Language** | ${info.language} |
 
 ## Path Rules
 - All file paths MUST be relative to CWD: \`${info.cwd}\`
-- Do NOT use \`cd\` command unless combining with other commands (e.g., \`cd dir && npm install\`)
+- Do NOT use bare \`cd\` — combine if needed: \`cd dir && npm install\`
 - Use forward slashes (/) for cross-platform compatibility
 
-## Auto-Injected Context (per message)
-
-The system automatically provides:
-
-1. **FILE_STRUCTURE**: List of files in project
-2. **ACTIVE_TERMINALS**: Overview of running processes.
-3. **PROJECT_CONTEXT**: Content from:
-   - \`workspace.md\` (plain text list of project experiences and lessons learned)
+## Auto-Injected Per Message
+- **FILE_STRUCTURE**: Current project file tree
+- **ACTIVE_TERMINALS**: Running processes overview
+- **PROJECT_CONTEXT**: Content from \`workspace.md\` (plain text lessons/experiences)
 
 ## Git Integration
-
 - File edit frequency data available
-- Use to identify critical/frequently-modified files
-- Helps prioritize which files to examine first`;
+- Use to identify critical/frequently-modified files (examine these first)`;
 };

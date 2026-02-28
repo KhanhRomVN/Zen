@@ -4,144 +4,85 @@ export const TOOLS_REFERENCE = `# TOOLS REFERENCE
 
 \`\`\`
 read_file(file_path, start_line?, end_line?)
-  → Read file content. MUST stop response after calling if you need content for edits.
+  → Read file. STOP response immediately after — wait for content before editing.
 
 write_to_file(file_path, content)
-  → Create new file or completely overwrite existing.
-  → Use for: new files, complete rewrites, small files.
+  → Create or fully overwrite. Use for: new files, complete rewrites, small files.
 
 replace_in_file(file_path, diff)
-  → Targeted edit. REQUIRES having read the file in previous turn.
+  → Targeted patch. Requires prior read_file in previous turn.
   → Format:
-    <<<<<<< SEARCH
-    exact_old_code_with_indentation
-    =======
-    new_code_with_indentation
-    >>>>>>> REPLACE
-  → Use for: existing files (default choice), large files, multiple edits in one file.
-  → Multiple SEARCH/REPLACE blocks allowed in single call.
+      <<<<<<< SEARCH
+      exact_code_with_original_indentation
+      =======
+      replacement_code
+      >>>>>>> REPLACE
+  → Multiple SEARCH/REPLACE blocks allowed in one call.
+  → Default choice for editing existing files.
 
 list_files(folder_path, recursive?, type?)
-  → List directory contents.
-  → Types: 'file' | 'directory' | undefined (both)
+  → List directory. type: 'file' | 'directory' | undefined
 
 search_files(folder_path, regex)
-  → Find files matching content pattern.
-  → Maximum useful attempts: 2
-  → After 2 failed searches → ASK user instead of retrying
+  → Regex content search. Max 2 attempts → then ASK user.
 \`\`\`
 
 ## Execution
 
 \`\`\`
 run_command(command)
-  → Run shell command or interactive input.
-  → Use for non-interactive commands. For interactive or long-running commands (e.g. \`npm run dev\`), the tool will return output when the command completes or is stopped.
-  → IMPORTANT: The terminal will be automatically CLOSED and DELETED after the command completes.
-
+  → Run shell command. Must run ALONE (no other tools in same message).
+  → Terminal auto-closes after command completes.
 \`\`\`
 
 ## Context Management
 
 \`\`\`
-read_workspace_context()           → Read workspace.md
-update_workspace_context(content)  → Update workspace.md (plain text list of experiences)
-<conversation_name>Title</conversation_name> → Set or update current conversation title
+read_workspace_context()            → Read workspace.md
+update_workspace_context(content)   → Overwrite workspace.md (plain text, lessons learned)
+<conversation_name>Title</conversation_name>  → Set conversation title (use in first response)
 \`\`\`
 
-**Context Update Guidelines**:
-- USE: Complex multi-step tasks, significant milestones, dense context
-- SKIP: Trivial tasks, single-file changes, quick questions
+---
 
 ## Response Tags
 
 \`\`\`xml
 <text>
-  Main conversational response visible in chat.
-  Use <file>path/to/file</file> to cite files (renders as chip).
-  
-  **CRITICAL - When asking questions to user**:
-  - Use ONLY <text> tag
-  - Do NOT include ANY tool calls in the same response
-  - This prevents auto-execution while waiting for user answer
-  - Wait for user to respond before proceeding with any operations
+  Conversational response visible in chat.
+  Use <file>path/to/file</file> to cite files.
+  REQUIRED for all questions — must have ZERO tool calls when asking.
 </text>
 
-<markdown>
-  Use ONLY for structured content requiring formatting: headers, tables, task lists, and complex links.
-  
-  **Rules**:
-  - Do NOT use for regular conversational text (use <text> instead).
-  - Use sparingly only when visual structure adds value.
-  - Will be rendered inline in the chat timeline with a dotUI.
-</markdown>
-
 <temp>
-  Status messages hidden from UI (system use only).
-  Do NOT include <file> tags here.
-  Use when: acknowledgment without explanation needed.
+  Status/acknowledgment hidden from UI. No <file> tags here.
 </temp>
 
+<markdown>
+  Structured content only: headers, tables, task lists, complex links.
+  NOT for regular prose — use <text> instead.
+</markdown>
+
 <code language="typescript">
-  Display code block (read-only, for showing examples).
+  Read-only code display (examples, references).
 </code>
 
 <task_progress>
-  Required before ANY work operation for complex tasks.
-  Displays in sidebar for user tracking.
-  
-  Update strategy:
-  - Add new <task> items when requirements become clear
-  - Move <task> → <task_done> when completed
-  - Skip <task_name> and <task_progress> for simple/trivial tasks.
-  - Multi-Task Handling: If starting a NEW <task_name> while current is unfinished, ASK for confirmation first.
-  - Use <task_summary> (plain text) to document lessons learned or key decisions. Multiple tags allowed.
+  Tracks work for complex/multi-step tasks. See Workflow for full rules.
+  Skip for trivial, single-file, or quick tasks.
 </task_progress>
 
 <html_inline_css_block>
-  Render raw HTML/CSS (ephemeral content).
+  Render raw HTML/CSS.
 </html_inline_css_block>
 \`\`\`
 
-## Tag Usage Rules
+## Tag Rules
 
-**DO**:
-- Minimize text outside tool calls (tools are self-explanatory)
-- Use \`<text>\` for critical explanations and **all questions to user**
-- Use \`<temp>\` for brief status updates
-- Skip both tags if tool call is obvious and requires no explanation
-- **When uncertain → use \`<text>\` to ASK (with NO tool calls)**
-
-**DON'T**:
-- No play-by-play commentary ("I will now read file X")
-- No redundant explanations for clear operations
-- No mixing \`<text>\` and \`<temp>\` in same response
-- **Never combine questions with tool calls in same response**
-- Never retry failed operations >2 times without asking user
-
-## Search Operation Guidelines
-
-**When to search**:
-- User mentions file/component but path not specified
-- Need to understand codebase structure
-- Looking for patterns or related files
-
-**Search failure protocol**:
-1. **Attempt 1**: Try primary search pattern
-2. **Attempt 2**: Try 1 alternative pattern/location
-3. **After 2 failures**: STOP and ASK user
-
-**Response after 2 failures**:
-\`\`\`xml
-<text>
-I searched for [X] but couldn't locate it:
-- Attempt 1: [location/pattern]
-- Attempt 2: [alternative location/pattern]
-
-Could you provide:
-1. Exact file path or directory?
-2. Or actual filename if different?
-</text>
-\`\`\`
-
-**Never do**: 3+ consecutive searches without asking user`;
+| DO | DON'T |
+|----|-------|
+| Use \`<text>\` for questions (no tool calls) | Play-by-play commentary ("I will now read X") |
+| Use \`<temp>\` for brief status | Mix \`<text>\` and \`<temp>\` in same response |
+| Skip tags if tool call is self-explanatory | Retry same failed search >2 times |
+| Batch all independent ops in one message | Combine \`run_command\` with other tools |
+`;

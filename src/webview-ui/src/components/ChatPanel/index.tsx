@@ -318,15 +318,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               id: msg.id || `restored-${Date.now()}-${i}`,
             })),
           );
-          if (data.data.conversationId)
+          if (data.data.conversationId) {
             setCurrentConversationId(data.data.conversationId);
 
-          // Restore backendConversationId from messages if present
-          const lastAssistantMsg = [...data.data.messages]
-            .reverse()
-            .find((m: Message) => m.role === "assistant" && m.conversationId);
-          if (lastAssistantMsg?.conversationId) {
-            setBackendConversationId(lastAssistantMsg.conversationId);
+            // Restore metadata from the last assistant message to prime the LLM hooks
+            const lastAssistantWithMeta = [...data.data.messages]
+              .reverse()
+              .find(
+                (m: Message) =>
+                  m.role === "assistant" && m.providerId && m.modelId,
+              );
+
+            const restoredMeta = lastAssistantWithMeta
+              ? {
+                  providerId: lastAssistantWithMeta.providerId,
+                  modelId: lastAssistantWithMeta.modelId,
+                  accountId: lastAssistantWithMeta.accountId,
+                }
+              : undefined;
+
+            setBackendConversationId(data.data.conversationId, restoredMeta);
           }
 
           // Restore Main Model and Account from the last assistant message

@@ -1,14 +1,11 @@
 import { buildIdentityPrompt } from "./identity";
-import { CONSTRAINTS } from "./constraints";
 import { WORKFLOW } from "./workflow";
 import { TOOLS_REFERENCE } from "./tools-reference";
 import { buildSystemContext } from "./system-context";
 import type { SystemInfo } from "./system-context";
 import { EXAMPLES } from "./examples";
 
-// Export individual modules for flexibility
 export { buildIdentityPrompt } from "./identity";
-export { CONSTRAINTS } from "./constraints";
 export { WORKFLOW } from "./workflow";
 export { TOOLS_REFERENCE } from "./tools-reference";
 export { buildSystemContext } from "./system-context";
@@ -23,22 +20,19 @@ interface PromptConfig {
 export const combinePrompts = (config: PromptConfig): string => {
   const { language, systemInfo } = config;
 
-  const identity = buildIdentityPrompt(language);
-  const system = buildSystemContext(systemInfo);
+  const sections = [
+    buildIdentityPrompt(language), // 1. Who I am + top-level rules
+    WORKFLOW, // 2. How I work + all critical constraints
+    TOOLS_REFERENCE, // 3. What tools exist + tag usage
+    buildSystemContext(systemInfo), // 4. Environment context
+    EXAMPLES, // 5. Reference patterns
+  ];
 
-  return [
-    identity,
-    CONSTRAINTS,
-    WORKFLOW,
-    TOOLS_REFERENCE,
-    system,
-    EXAMPLES,
-  ].join("\n\n---\n\n");
+  return sections.join("\n\n---\n\n");
 };
 
 /**
- * This is primarily for fallback.
- * Real values should be passed from usePlaygroundLogic using window.api.app.getSystemInfo()
+ * Fallback prompt — real values should come from window.api.app.getSystemInfo()
  */
 export const getDefaultPrompt = (language: string = "English"): string => {
   return combinePrompts({

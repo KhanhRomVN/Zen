@@ -25,7 +25,7 @@ Turn 2: <replace_in_file><file_path>app.ts</file_path></replace_in_file>  // Aft
 - Mixed operations: \`<list_files/><search_files/><read_file><file_path>A</file_path></read_file>\`
 
 **Prohibited**:
-- \`run_command\` with any other tool (commands must run alone), UNLESS paired with \`list_terminals\` to find an existing session.
+- \`run_command\` with any other tool (commands must run alone).
 - Operations with dependencies (file A creates B, then C imports B)
 
 ## C3: BYTE-PERFECT-MATCHING
@@ -141,14 +141,4 @@ To add error handling, I need:
 <search_files><folder_path>lib</folder_path><regex>api</regex></search_files>
 <search_files><folder_path>services</folder_path><regex>api</regex></search_files>
 \`\`\`
-
-## C8: TERMINAL-LIFECYCLE-MANAGEMENT
-**Rule**: Be responsible for terminal resources.
-**Execution**:
-- Use \`list_terminals()\` to check for reusable sessions before creating new ones.
-- **Handling Long-running Commands**: If a command (e.g. \`npm run dev\`) returns a "Still running after 5s" message:
-  1. Do NOT proceed with other unrelated tool calls or tasks.
-  2. If the current status is expected and you have no questions or other work, respond with ONLY \`</no_response>\` to remain silent and continue monitoring.
-  3. Wait for the next 5s update or decide to stop it if an error is detected.
-- **Stopping Process**: Call \`stop_terminal(terminal_id)\` when a long-running process is no longer needed or if it's stuck/errored.
-- Do NOT leave orphaned terminals running unnecessary processes.`;
+`;

@@ -237,6 +237,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
           if (saved.model) setCurrentModel(saved.model);
           if (saved.accountId) {
             pendingAccountIdRef.current = saved.accountId;
+            if (saved.email) {
+              setCurrentAccount({ id: saved.accountId, email: saved.email });
+            }
           }
         }
       } catch (e) {
@@ -257,6 +260,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         const data = {
           model: currentModel,
           accountId: currentAccount?.id,
+          email: currentAccount?.email,
         };
         storage.set(key, JSON.stringify(data));
       }
@@ -268,6 +272,37 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setCurrentModel,
     setCurrentAccount,
   ]);
+
+  // Handle auto-selection of account from cache once providers are loaded
+  React.useEffect(() => {
+    if (
+      pendingAccountIdRef.current &&
+      providers.length > 0 &&
+      !currentAccount?.email &&
+      currentModel?.providerId
+    ) {
+      const fetchAccountsForProvider = async () => {
+        try {
+          const response = await fetch(
+            `${apiUrl}/v1/accounts?page=1&limit=50&provider_id=${currentModel.providerId}`,
+          );
+          const result = await response.json();
+          if (result.success && result.data?.accounts) {
+            const acc = result.data.accounts.find(
+              (a: any) => a.id === pendingAccountIdRef.current,
+            );
+            if (acc) {
+              setCurrentAccount({ id: acc.id, email: acc.email });
+              pendingAccountIdRef.current = null; // Mark as resolved
+            }
+          }
+        } catch (error) {
+          // ignore
+        }
+      };
+      fetchAccountsForProvider();
+    }
+  }, [providers, currentModel, currentAccount, apiUrl, setCurrentAccount]);
 
   return (
     <div
@@ -285,177 +320,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
         />
       )}
 
-      {/* 🆕 QUICK SWITCH BADGE (Top-Left) */}
-      {selectedQuickModel && (
-        <div
-          style={{
-            position: "absolute",
-            top: "-24px",
-            left: "8px",
-            backgroundColor: "var(--accent-bg-transparent)",
-            color: "var(--accent-color)",
-            padding: "4px 8px",
-            fontSize: "11px",
-            fontWeight: 600,
-            borderTopLeftRadius: "var(--border-radius)",
-            borderTopRightRadius: "var(--border-radius)",
-            borderBottomLeftRadius: "0",
-            borderBottomRightRadius: "0",
-            border: "1px solid var(--accent-color)",
-            borderBottom: "none",
-            zIndex: 20,
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
-          }}
-          title="Quick Switch Model is Active"
-        >
-          {selectedQuickModel.favicon ? (
-            <img
-              src={selectedQuickModel.favicon}
-              alt="favicon"
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "2px",
-              }}
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-              }}
-            />
-          ) : (
-            <span
-              className="codicon codicon-server-process"
-              style={{ fontSize: "12px" }}
-            />
-          )}
-
-          <span
-            style={{
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              maxWidth: "150px",
-            }}
-          >
-            {selectedQuickModel.providerId}/{selectedQuickModel.modelId}
-          </span>
-
-          {selectedQuickModel.email && (
-            <span
-              style={{
-                opacity: 0.7,
-                fontStyle: "italic",
-                fontWeight: "normal",
-                marginLeft: "2px",
-                maxWidth: "120px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              &lt;{selectedQuickModel.email}&gt;
-            </span>
-          )}
-
-          <div
-            style={{
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              marginLeft: "4px",
-              opacity: 0.7,
-            }}
-            onClick={() => onQuickModelSelect?.(null)}
-          >
-            <X size={12} strokeWidth={2.5} />
-          </div>
-        </div>
-      )}
-
-      {/* 🆕 HOME PANEL BADGE (Top-Left) - Only when !isConversationStarted */}
-      {!isConversationStarted && (
-        <div
-          onClick={() => setIsQuickModelDropdownOpen(true)}
-          style={{
-            position: "absolute",
-            top: "-28px",
-            left: "8px",
-            backgroundColor: "var(--input-bg)",
-            color: "var(--primary-text)",
-            padding: "5px 10px",
-            fontSize: "11px",
-            fontWeight: 600,
-            borderTopLeftRadius: "8px",
-            borderTopRightRadius: "8px",
-            borderBottomLeftRadius: "0",
-            borderBottomRightRadius: "0",
-            border: "1px solid var(--border-color)",
-            borderBottom: "none",
-            zIndex: 20,
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            cursor: "pointer",
-            boxShadow: "0 -2px 6px rgba(0,0,0,0.1)",
-            transition: "all 0.2s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--input-bg)";
-          }}
-          title="Click to select Model and Account"
-        >
-          {currentModel ? (
-            <>
-              {currentModel.favicon ? (
-                <img
-                  src={currentModel.favicon}
-                  alt="favicon"
-                  style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "2px",
-                  }}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
-              ) : (
-                <span
-                  className="codicon codicon-server-process"
-                  style={{ fontSize: "12px" }}
-                />
-              )}
-              {currentModel.providerId}/{currentModel.id}
-              {currentAccount?.email && (
-                <span
-                  style={{
-                    opacity: 0.8,
-                    fontStyle: "italic",
-                    marginLeft: "2px",
-                  }}
-                >
-                  &lt;{currentAccount.email}&gt;
-                </span>
-              )}
-              <ChevronDownIcon size={12} />
-            </>
-          ) : (
-            <>
-              <span
-                className="codicon codicon-server-process"
-                style={{ fontSize: "12px" }}
-              />
-              Select Model
-              <ChevronDownIcon size={12} />
-            </>
-          )}
-        </div>
-      )}
-
       <div
         style={{
           display: "flex",
@@ -464,8 +328,181 @@ const MessageInput: React.FC<MessageInputProps> = ({
           borderRadius: "var(--border-radius)",
           border: !isConnected ? "1px solid #f44336" : "1px solid transparent",
           transition: "border 0.3s ease",
+          marginTop: "24px", // Space for badges sticking up
         }}
       >
+        {/* 🆕 QUICK SWITCH BADGE (Stuck to Border) */}
+        {selectedQuickModel && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              left: "8px",
+              backgroundColor: "var(--accent-bg-transparent)",
+              color: "var(--accent-color)",
+              padding: "4px 8px",
+              fontSize: "11px",
+              fontWeight: 600,
+              borderTopLeftRadius: "var(--border-radius)",
+              borderTopRightRadius: "var(--border-radius)",
+              borderBottomLeftRadius: "0",
+              borderBottomRightRadius: "0",
+              border: "1px solid var(--accent-color)",
+              borderBottom: "none",
+              zIndex: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
+              marginBottom: "-1px", // Overlap the border
+            }}
+            title="Quick Switch Model is Active"
+          >
+            {selectedQuickModel.favicon ? (
+              <img
+                src={selectedQuickModel.favicon}
+                alt="favicon"
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "2px",
+                }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none";
+                }}
+              />
+            ) : (
+              <span
+                className="codicon codicon-server-process"
+                style={{ fontSize: "12px" }}
+              />
+            )}
+
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "150px",
+              }}
+            >
+              {selectedQuickModel.providerId}/{selectedQuickModel.modelId}
+            </span>
+
+            {selectedQuickModel.email && (
+              <span
+                style={{
+                  opacity: 0.7,
+                  fontStyle: "italic",
+                  fontWeight: "normal",
+                  marginLeft: "2px",
+                  maxWidth: "120px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {selectedQuickModel.email}
+              </span>
+            )}
+
+            <div
+              style={{
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                marginLeft: "4px",
+                opacity: 0.7,
+              }}
+              onClick={() => onQuickModelSelect?.(null)}
+            >
+              <X size={12} strokeWidth={2.5} />
+            </div>
+          </div>
+        )}
+
+        {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
+        {!isConversationStarted && (
+          <div
+            onClick={() => setIsQuickModelDropdownOpen(true)}
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              left: "8px",
+              backgroundColor: "var(--input-bg)",
+              color: "var(--primary-text)",
+              padding: "5px 10px",
+              fontSize: "11px",
+              fontWeight: 600,
+              borderTopLeftRadius: "8px",
+              borderTopRightRadius: "8px",
+              borderBottomLeftRadius: "0",
+              borderBottomRightRadius: "0",
+              border: "1px solid var(--border-color)",
+              borderBottom: "none",
+              zIndex: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              cursor: "pointer",
+              boxShadow: "0 -2px 6px rgba(0,0,0,0.1)",
+              transition: "all 0.2s ease",
+              marginBottom: "-1px", // Overlap the border
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--input-bg)";
+            }}
+            title="Click to select Model and Account"
+          >
+            {currentModel ? (
+              <>
+                {currentModel.favicon ? (
+                  <img
+                    src={currentModel.favicon}
+                    alt="favicon"
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "2px",
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="codicon codicon-server-process"
+                    style={{ fontSize: "12px" }}
+                  />
+                )}
+                {currentModel.providerId}/{currentModel.id}
+                {currentAccount?.email && (
+                  <span
+                    style={{
+                      opacity: 0.8,
+                      fontStyle: "italic",
+                      marginLeft: "2px",
+                    }}
+                  >
+                    {currentAccount.email}
+                  </span>
+                )}
+                <ChevronDownIcon size={12} />
+              </>
+            ) : (
+              <>
+                <span
+                  className="codicon codicon-server-process"
+                  style={{ fontSize: "12px" }}
+                />
+                Select Model
+                <ChevronDownIcon size={12} />
+              </>
+            )}
+          </div>
+        )}
         <div
           style={{
             position: "relative",
@@ -920,12 +957,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
             </div>
           )}
 
-        {/* Health / Elara Badges */}
+        {/* Health / Elara Badges (Stuck to Border) */}
         {!isConnected && (
           <div
             style={{
               position: "absolute",
-              top: "-24px",
+              bottom: "100%",
               right: "8px",
               backgroundColor: "rgba(244, 67, 54, 0.1)",
               color: "#f44336",
@@ -936,11 +973,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
               borderTopRightRadius: "var(--border-radius)",
               borderBottomLeftRadius: "0",
               borderBottomRightRadius: "0",
+              border: "1px solid rgba(244, 67, 54, 0.2)",
+              borderBottom: "none",
               cursor: "pointer",
               zIndex: 20,
               display: "flex",
               alignItems: "center",
               gap: "4px",
+              boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
+              marginBottom: "-1px",
             }}
             onClick={() => {
               // Open Settings Panel
@@ -954,7 +995,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           <div
             style={{
               position: "absolute",
-              top: "-24px",
+              bottom: "100%",
               right: "8px",
               backgroundColor: "rgba(255, 152, 0, 0.1)",
               color: "#ff9800",
@@ -965,11 +1006,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
               borderTopRightRadius: "var(--border-radius)",
               borderBottomLeftRadius: "0",
               borderBottomRightRadius: "0",
+              border: "1px solid rgba(255, 152, 0, 0.2)",
+              borderBottom: "none",
               cursor: "pointer",
               zIndex: 20,
               display: "flex",
               alignItems: "center",
               gap: "4px",
+              boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
+              marginBottom: "-1px",
             }}
             onClick={() => {
               const vscodeApi = (window as any).vscodeApi;

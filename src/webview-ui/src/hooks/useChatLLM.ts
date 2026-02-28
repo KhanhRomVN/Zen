@@ -116,6 +116,11 @@ export const useChatLLM = ({
       console.log(
         `[useChatLLM] sendMessage called (content length: ${content.length}, isReq1 condition)`,
       );
+      console.log("[useChatLLM] Current Refs State:", {
+        lastUsedModel: lastUsedModelRef.current,
+        lastUsedAccount: lastUsedAccountRef.current,
+        backendConversationId: backendConversationIdRef.current,
+      });
 
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
@@ -324,8 +329,38 @@ export const useChatLLM = ({
 
       const effThinking = thinking ?? lastUsedThinkingRef.current;
 
-      if (effModel) lastUsedModelRef.current = effModel;
-      if (effAccount) lastUsedAccountRef.current = effAccount;
+      // 🆕 History Fallback: If metadata is still missing (e.g. after restoration), look back at history
+      let finalModel = effModel;
+      let finalAccount = effAccount;
+
+      if (!finalModel || !finalAccount) {
+        console.log(
+          "[useChatLLM] Metadata missing in args/refs, checking history...",
+        );
+        const lastMetadataMsg = [...filteredMessages]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.providerId && m.modelId);
+
+        if (lastMetadataMsg) {
+          console.log("[useChatLLM] Found metadata in history:", {
+            providerId: lastMetadataMsg.providerId,
+            modelId: lastMetadataMsg.modelId,
+            accountId: lastMetadataMsg.accountId,
+          });
+          if (!finalModel) {
+            finalModel = {
+              id: lastMetadataMsg.modelId!,
+              providerId: lastMetadataMsg.providerId!,
+            };
+          }
+          if (!finalAccount && lastMetadataMsg.accountId) {
+            finalAccount = { id: lastMetadataMsg.accountId };
+          }
+        }
+      }
+
+      if (finalModel) lastUsedModelRef.current = finalModel;
+      if (finalAccount) lastUsedAccountRef.current = finalAccount;
       lastUsedThinkingRef.current = effThinking;
 
       try {
@@ -342,9 +377,9 @@ export const useChatLLM = ({
         }
 
         const body = {
-          modelId: effModel?.id,
-          providerId: effModel?.providerId,
-          accountId: effAccount?.id,
+          modelId: finalModel?.id,
+          providerId: finalModel?.providerId,
+          accountId: finalAccount?.id,
           messages: payloadMessages,
           stream: true,
           // Use the real backend conversationId if we have it (req2+), otherwise empty (req1)
@@ -362,7 +397,7 @@ export const useChatLLM = ({
           `${apiUrl}/v1/chat/accounts/messages`,
         );
         console.log(
-          "[useChatLLM] Request Body:",
+          "[useChatLLM] Request Body (FULL):",
           JSON.stringify(body, null, 2),
         );
         const headers = { "Content-Type": "application/json" };
@@ -447,6 +482,19 @@ export const useChatLLM = ({
                     if (metaObj.websiteUrl)
                       assistantMessage.websiteUrl = metaObj.websiteUrl;
                     if (metaObj.email) assistantMessage.email = metaObj.email;
+
+                    // 🆕 Sync metadata to lastUsed refs for subsequent tool execution requests
+                    if (metaObj.providerId || metaObj.modelId) {
+                      lastUsedModelRef.current = {
+                        id: metaObj.modelId || lastUsedModelRef.current?.id,
+                        providerId:
+                          metaObj.providerId ||
+                          lastUsedModelRef.current?.providerId,
+                      };
+                    }
+                    if (metaObj.accountId) {
+                      lastUsedAccountRef.current = { id: metaObj.accountId };
+                    }
                   }
 
                   if (data.usage) {
@@ -496,6 +544,18 @@ export const useChatLLM = ({
               if (metaObj.websiteUrl)
                 assistantMessage.websiteUrl = metaObj.websiteUrl;
               if (metaObj.email) assistantMessage.email = metaObj.email;
+
+              // 🆕 Sync metadata during buffer cleanup
+              if (metaObj.providerId || metaObj.modelId) {
+                lastUsedModelRef.current = {
+                  id: metaObj.modelId || lastUsedModelRef.current?.id,
+                  providerId:
+                    metaObj.providerId || lastUsedModelRef.current?.providerId,
+                };
+              }
+              if (metaObj.accountId) {
+                lastUsedAccountRef.current = { id: metaObj.accountId };
+              }
             }
 
             if (data.usage) {
@@ -618,8 +678,23 @@ export const useChatLLM = ({
     currentConversationIdRef,
     sendMessage,
     stopGeneration,
-    setBackendConversationId: (id: string) => {
+    setBackendConversationId: (
+      id: string,
+      meta?: { providerId?: string; modelId?: string; accountId?: string },
+    ) => {
       backendConversationIdRef.current = id;
+      if (meta) {
+        if (meta.providerId && meta.modelId) {
+          lastUsedModelRef.current = {
+            id: meta.modelId,
+            providerId: meta.providerId,
+          };
+        }
+        if (meta.accountId) {
+          lastUsedAccountRef.current = { id: meta.accountId };
+        }
+        console.log("[useChatLLM] Primed refs from restored meta:", meta);
+      }
     },
   };
 };

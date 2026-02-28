@@ -362,15 +362,6 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
                         >
                           {model.name}
                         </span>
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--secondary-text)",
-                            marginTop: "2px",
-                          }}
-                        >
-                          {model.id}
-                        </span>
                       </div>
                       {!isDisabled && (
                         <ChevronRight

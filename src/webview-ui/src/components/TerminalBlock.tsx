@@ -21,7 +21,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   maxHeight = 400,
   initialCommand,
   cwd,
-  rows = 15,
+  rows = 22,
   onInput,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -48,7 +48,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [physicalLineCount, setPhysicalLineCount] = useState(0);
 
-  const canExpand = physicalLineCount > 3;
+  const canExpand = physicalLineCount > 15;
 
   const toggleExpand = () => {
     if (canExpand) {
@@ -155,7 +155,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       }
 
       // Calculate target rows based on expansion state
-      const effectiveMaxRows = isExpanded ? rows : 3;
+      const effectiveMaxRows = isExpanded ? rows : 15;
       const targetRows = Math.max(1, Math.min(effectiveMaxRows, count));
 
       if (xtermRef.current.rows !== targetRows) {
@@ -272,7 +272,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
             ref={terminalRef}
             className="xterm-container"
             onPaste={(e) => e.preventDefault()}
-            style={{ pointerEvents: status === "busy" ? "auto" : "none" }}
           />
         )}
       </div>
