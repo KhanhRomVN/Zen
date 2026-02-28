@@ -17,6 +17,7 @@ import { parseDiff } from "../../../../../utils/diffUtils";
 import { CLICKABLE_TOOLS, MANUAL_CONFIRMATION_TOOLS } from "../../constants";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
+import { useProject } from "../../../../../context/ProjectContext";
 
 interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
@@ -175,6 +176,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
     score?: number;
     startLine?: number;
   } | null>(null);
+  const { rootPath } = useProject();
 
   // Local state for file stats (line count)
   const [fileStatsMap, setFileStatsMap] = React.useState<
@@ -586,16 +588,16 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
       const prefix =
         toolType === "replace_in_file"
-          ? "Update"
+          ? "UPDATE"
           : toolType === "write_to_file"
             ? fileStatsMap[rawPath]
-              ? "Rewrite"
-              : "Create"
+              ? "REWRITE"
+              : "CREATE"
             : toolType === "list_files"
-              ? "List files"
+              ? "LIST"
               : toolType === "search_files"
-                ? "Search"
-                : "Read";
+                ? "SEARCH"
+                : "READ";
       const isCompleted =
         isActionClicked || (codeContent && codeContent.trim().length > 0);
 
@@ -754,9 +756,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
       // Loading state: Determine based on real terminal status if available
       const terminalId =
         (outputData as any)?.terminalId || action.params.terminal_id;
+      // If we just clicked but don't have a status yet, assume it's busy
       const isTerminalBusy = terminalId
-        ? terminalStatus?.[terminalId] === "busy"
-        : false;
+        ? terminalStatus?.[terminalId] === "busy" ||
+          (isActionClicked && terminalStatus?.[terminalId] === undefined)
+        : isActionClicked;
 
       const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
 
@@ -772,7 +776,12 @@ const ToolItem: React.FC<ToolItemProps> = ({
           <div
             className="timeline-dot"
             style={{
-              backgroundColor: isCompleted ? "#3fb950" : toolColor,
+              backgroundColor:
+                isTerminalBusy || (isActionClicked && !outputData)
+                  ? "#e3b341" // Yellow if busy OR just started (waiting for output/busy status)
+                  : isCompleted
+                    ? "#3fb950"
+                    : toolColor,
               top: "10px",
             }}
           />
@@ -797,9 +806,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   opacity: 0.8,
                 }}
               >
-                Execute
+                EXECUTE
               </span>
-              {action.params.cwd && (
+              {(action.params.cwd || rootPath) && (
                 <span
                   style={{
                     fontSize: "11px",
@@ -812,7 +821,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                     border: "1px solid var(--vscode-widget-border)",
                   }}
                 >
-                  {truncatePath(action.params.cwd)}
+                  {truncatePath(action.params.cwd || rootPath)}
                 </span>
               )}
             </div>
@@ -858,35 +867,120 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   </svg>
                 </button>
               )}
-              <ExecuteButton
-                isActive={isActiveGroup || false}
-                isCompleted={isCompleted}
-                isLastMessage={isLastMessage}
-                isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
-                isLoading={isLoading}
-                toolColor={toolColor}
-                title={
-                  isCompleted
-                    ? "Completed"
-                    : isLoading
-                      ? "Executing..."
-                      : "Execute action"
-                }
-                onExecute={() => {
-                  if (!isCompleted && !isLoading) {
-                    const actionWithTerminal = {
-                      ...action,
-                      params: {
-                        ...action.params,
-                        terminal_id:
-                          (outputData as any)?.terminalId ||
-                          action.params.terminal_id,
-                      },
-                    };
-                    onToolClick(actionWithTerminal, messageId, index);
+              {!isTerminalBusy && (
+                <ExecuteButton
+                  isActive={isActiveGroup || false}
+                  isCompleted={isCompleted}
+                  isLastMessage={isLastMessage}
+                  isSkipped={
+                    !isActiveGroup && !isLastMessage && !isActionClicked
                   }
-                }}
-              />
+                  isLoading={isLoading}
+                  toolColor={toolColor}
+                  title={
+                    isCompleted
+                      ? "Completed"
+                      : isLoading
+                        ? "Executing..."
+                        : "Execute action"
+                  }
+                  onExecute={() => {
+                    if (!isCompleted && !isLoading) {
+                      const actionWithTerminal = {
+                        ...action,
+                        params: {
+                          ...action.params,
+                          terminal_id:
+                            (outputData as any)?.terminalId ||
+                            action.params.terminal_id,
+                        },
+                      };
+                      onToolClick(actionWithTerminal, messageId, index);
+                    }
+                  }}
+                />
+              )}
+              {isTerminalBusy && (
+                <button
+                  className="stop-terminal-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log(
+                      `[ToolItem] FINALIZE clicked for action: ${actionId}, terminal: ${terminalId}`,
+                    );
+                    extensionService.postMessage({
+                      command: "stopCommand",
+                      actionId: actionId,
+                      terminalId: terminalId,
+                    });
+                  }}
+                  title="Finalize output and send"
+                  style={{
+                    background: "rgba(244, 67, 54, 0.1)",
+                    border: "1px solid rgba(244, 67, 54, 0.3)",
+                    cursor: "pointer",
+                    color: "rgb(244, 67, 54)",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    gap: "6px",
+                    height: "24px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <rect x="6" y="6" width="12" height="12" />
+                  </svg>
+                  FINALIZE
+                </button>
+              )}
+              {terminalId &&
+                (activeTerminalIds?.has(terminalId) ||
+                  attachedTerminalIds?.has(terminalId)) && (
+                  <button
+                    className="kill-terminal-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      extensionService.postMessage({
+                        command: "stopTerminal",
+                        terminalId: terminalId,
+                      });
+                    }}
+                    title="Kill process and delete terminal"
+                    style={{
+                      background: "rgba(244, 67, 54, 0.1)",
+                      border: "1px solid rgba(244, 67, 54, 0.3)",
+                      cursor: "pointer",
+                      color: "rgb(244, 67, 54)",
+                      padding: "4px 8px",
+                      borderRadius: "6px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      gap: "6px",
+                      height: "24px",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    <div
+                      className="codicon codicon-trash"
+                      style={{ fontSize: "14px" }}
+                    />
+                    Kill & Delete
+                  </button>
+                )}
             </div>
           </div>
 
@@ -894,6 +988,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
           <TerminalBlock
             logs={outputData?.output || extractedOutput || ""}
             initialCommand={action.params.command}
+            cwd={action.params.cwd || rootPath}
             status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
             onInput={(data) => {
               const terminalId =
@@ -1122,8 +1217,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   }}
                 >
                   <ToolHeader
-                    title="Run"
-                    subTitle={truncatePath(action.params.cwd)}
+                    title="RUN"
+                    subTitle={truncatePath(action.params.cwd || rootPath)}
                     statusColor={isCompleted ? "#3fb950" : toolColor}
                     isCollapsed={isCollapsed}
                     onToggleCollapse={() => toggleCollapse(actionId)}

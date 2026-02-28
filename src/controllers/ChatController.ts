@@ -246,14 +246,11 @@ export class ChatController {
   }
 
   public startPingService(webview: vscode.Webview) {
-    console.log("[ChatController] startPingService called");
     if (this._pingInterval) {
-      console.log("[ChatController] Clearing existing ping interval");
       clearInterval(this._pingInterval);
     }
 
     const checkPing = () => {
-      console.log("[ChatController] Executing checkPing...");
       const start = Date.now();
       try {
         const req = https.get(
@@ -262,7 +259,6 @@ export class ChatController {
           (res) => {
             const end = Date.now();
             const latency = end - start;
-            console.log(`[ChatController] Ping SUCCESS: ${latency}ms`);
             webview.postMessage({
               command: "networkPingUpdate",
               ping: latency,
@@ -272,7 +268,6 @@ export class ChatController {
         );
 
         req.on("error", (err) => {
-          console.log(`[ChatController] Ping ERROR: ${err.message}`);
           webview.postMessage({
             command: "networkPingUpdate",
             ping: null,
@@ -280,7 +275,6 @@ export class ChatController {
         });
 
         req.on("timeout", () => {
-          console.log("[ChatController] Ping TIMEOUT");
           req.destroy();
           webview.postMessage({
             command: "networkPingUpdate",
@@ -1803,8 +1797,16 @@ export class ChatController {
   private async handleStopCommand(message: any) {
     if (message.actionId === "all") {
       this.processManager.stopAll();
+    } else if (message.terminalId) {
+      this.processManager.stop(message.terminalId);
     } else {
-      this.processManager.stop(message.actionId);
+      // Fallback: search by actionId
+      const target = this.processManager
+        .list()
+        .find((t) => t.activeActionId === message.actionId);
+      if (target) {
+        this.processManager.stop(target.id);
+      }
     }
   }
 
@@ -2075,21 +2077,8 @@ export class ChatController {
       // 1. Read workspace.md
       let workspace = "";
       const workspacePath = path.join(projectContextDir, "workspace.md");
-      console.log(`[ChatController] --- GET PROJECT CONTEXT ---`);
-      console.log(
-        `[ChatController] Project Root: ${workspaceFolder.uri.fsPath}`,
-      );
-      console.log(`[ChatController] Storage Path: ${workspacePath}`);
-
       if (fs.existsSync(workspacePath)) {
         workspace = await fs.promises.readFile(workspacePath, "utf-8");
-        console.log(
-          `[ChatController] Read SUCCESS. Content length: ${workspace.length}, Content: "${workspace}"`,
-        );
-      } else {
-        console.log(
-          `[ChatController] Read FAILED: File does not exist at ${workspacePath}`,
-        );
       }
 
       // 3. Generate Tree View (FileSystem Hierarchy)
@@ -2103,6 +2092,8 @@ export class ChatController {
         data: {
           workspace,
           treeView,
+          rootPath: workspaceFolder.uri.fsPath,
+          homedir: os.homedir(),
         },
       });
     } catch (error: any) {
@@ -2122,7 +2113,6 @@ export class ChatController {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
-    console.log("[ChatController] Starting project context watch...");
     if (this._projectContextWatcher) {
       return;
     }
@@ -2135,9 +2125,6 @@ export class ChatController {
     );
 
     const debouncedRefresh = this.debounce(async () => {
-      console.log(
-        "[ChatController] Project context change detected, refreshing...",
-      );
       await this.handleGetProjectContext(
         { requestId: "auto-watch" },
         webviewView,
@@ -2152,7 +2139,6 @@ export class ChatController {
   }
 
   public stopProjectContextWatch() {
-    console.log("[ChatController] Stopping project context watch...");
     if (this._projectContextWatcher) {
       this._projectContextWatcher.dispose();
       this._projectContextWatcher = undefined;

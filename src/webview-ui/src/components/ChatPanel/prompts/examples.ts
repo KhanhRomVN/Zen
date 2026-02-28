@@ -37,7 +37,6 @@ def subtract(a, b):
 >>>>>>> REPLACE
 </diff>
 </replace_in_file>
-<temp>Added subtract function to <file>calculator.py</file>.</temp>
 \`\`\`
 
 ## Example 2: Multi-file Edit (optimal batching)
@@ -67,7 +66,7 @@ def subtract(a, b):
 \`\`\`xml
 <replace_in_file><file_path>math.py</file_path><diff>...</diff></replace_in_file>
 <replace_in_file><file_path>utils.py</file_path><diff>...</diff></replace_in_file>
-<temp>Updated <file>math.py</file> and <file>utils.py</file>.</temp>
+</replace_in_file>
 \`\`\`
 
 ## Example 3: New Project Setup
@@ -92,7 +91,7 @@ def subtract(a, b):
 <write_to_file><file_path>src/components/Button.tsx</file_path><content>...</content></write_to_file>
 <write_to_file><file_path>src/components/Input.tsx</file_path><content>...</content></write_to_file>
 <write_to_file><file_path>src/index.ts</file_path><content>...</content></write_to_file>
-<temp>Created component library structure.</temp>
+</write_to_file>
 \`\`\`
 
 ## Example 4: Exploration Before Work
@@ -474,9 +473,7 @@ Please provide these details so I can fix it accurately.
 - Simple, isolated task
 - Low risk of model handoff mid-task
 - Key info captured in ~3 lines
-`;
 
-export const EXAMPLES_P2 = `
 ## Example 15: Terminal Management (Reuse)
 
 **User**: "Run npm start in the existing dev terminal"
@@ -494,5 +491,10 @@ export const EXAMPLES_P2 = `
   <terminal_id>term-1</terminal_id>
 </run_command>
 \`\`\`
-<temp>Running \`npm start\` in terminal <file>dev</file> (term-1).</temp>
+</run_command>
+
+**Turn 3** (AI remains silent while monitoring):
+\`\`\`xml
+<no_response />
+\`\`\`
 `;

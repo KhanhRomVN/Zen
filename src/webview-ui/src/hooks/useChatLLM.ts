@@ -106,13 +106,16 @@ export const useChatLLM = ({
     ) => {
       if (!skipFirstRequestLogic) {
         // Detailed trace for user-initiated requests to catch duplicates
-        console.trace("[useChatLLM] sendMessage Stack Trace");
       }
 
       if (isProcessing && !skipFirstRequestLogic) {
         console.warn("[useChatLLM] Already processing a request, ignoring.");
         return;
       }
+
+      console.log(
+        `[useChatLLM] sendMessage called (content length: ${content.length}, isReq1 condition)`,
+      );
 
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
@@ -144,6 +147,9 @@ export const useChatLLM = ({
       let projectContextStr = "";
 
       if (isReq1) {
+        console.log(
+          "[useChatLLM] Constructing Req1 payload (System Info + Context)",
+        );
         let systemInfo = {
           os: "Unknown OS",
           ide: "Zen IDE",
@@ -166,16 +172,9 @@ export const useChatLLM = ({
           console.error("Failed to fetch system info", e);
         }
 
-        console.log(
-          `[useChatLLM] --- PROMPT CONSTRUCTION (isReq1: ${isReq1}) ---`,
-        );
         systemPrompt = getDefaultPrompt(preferredLanguage);
         // Use real system info if we managed to fetch it, override the default
         if (systemInfo.os !== "Unknown OS") {
-          console.log(
-            "[useChatLLM] Combining prompts with system info",
-            systemInfo,
-          );
           systemPrompt = combinePrompts({
             language: preferredLanguage,
             systemInfo,
@@ -184,18 +183,12 @@ export const useChatLLM = ({
 
         try {
           // Use pre-fetched context from ProjectContext
-          console.log(`[useChatLLM] Injecting pre-fetched project context...`);
-          console.log(
-            `[useChatLLM] Injecting formatted workspace.md content (length: ${workspace?.length || 0})`,
-          );
-          projectContextStr += `\n\n## Workspace Experience (workspace.md)\n\`\`\`\n${workspace || ""}\n\`\`\``;
-          console.log(
-            `[useChatLLM] Current projectContextStr: "${projectContextStr}"`,
-          );
           if (treeView && treeView.trim()) {
-            console.log(`[useChatLLM] Injecting Project Structure...`);
             projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeView}\n\`\`\``;
           }
+          console.log(
+            `[useChatLLM] Project context injected (workspace: ${workspace?.length || 0}, tree: ${treeView?.length || 0})`,
+          );
         } catch (e) {
           console.error(
             "[useChatLLM] Failed to use pre-fetched project context",
@@ -279,7 +272,7 @@ export const useChatLLM = ({
       // In the new schema, req1 content includes system prompt
       const finalContent = promptPayload;
       console.log(
-        `[useChatLLM] Final Payload Preview (first 200 chars): "${finalContent.substring(0, 200)}..."`,
+        `[useChatLLM] Final Payload Preview (first 200 chars): "${finalContent.substring(0, 200).replace(/\n/g, "\\n")}..."`,
       );
       console.log(
         `[useChatLLM] Is projectContextStr included? ${isReq1 && projectContextStr.length > 0}`,
@@ -364,14 +357,36 @@ export const useChatLLM = ({
         abortControllerRef.current = abortController;
         setIsStreaming(true);
 
+        console.log(
+          "[useChatLLM] Sending request to:",
+          `${apiUrl}/v1/chat/accounts/messages`,
+        );
+        console.log(
+          "[useChatLLM] Request Body:",
+          JSON.stringify(body, null, 2),
+        );
+        const headers = { "Content-Type": "application/json" };
+        console.log("[useChatLLM] Request Headers:", headers);
+
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(body),
           signal: abortController.signal,
         });
 
         if (!response.ok) {
+          console.error(
+            `[useChatLLM] API Error ${response.status}:`,
+            response.statusText,
+          );
+          try {
+            const errorData = await response.clone().json();
+            console.error("[useChatLLM] Error Response Details:", errorData);
+          } catch (e) {
+            const text = await response.clone().text();
+            console.error("[useChatLLM] Error Response Text:", text);
+          }
           throw new Error(`API Error: ${response.status}`);
         }
         if (!response.body) throw new Error("No response body");
@@ -412,6 +427,11 @@ export const useChatLLM = ({
                   const recvConvId =
                     data.meta?.conversation_id || data.conversation_id;
                   if (recvConvId) {
+                    if (backendConversationIdRef.current !== recvConvId) {
+                      console.log(
+                        `[useChatLLM] Captured backend conversation_id: ${recvConvId}`,
+                      );
+                    }
                     backendConversationId = recvConvId;
                     backendConversationIdRef.current = recvConvId;
                   }

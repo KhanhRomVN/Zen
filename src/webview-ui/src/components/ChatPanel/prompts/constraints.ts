@@ -3,7 +3,7 @@ export const CONSTRAINTS = `# CRITICAL CONSTRAINTS (Non-Negotiable)
 ## C1: READ-BEFORE-EDIT (Mandatory)
 **Rule**: MUST read file content before any edit operation.
 **Execution**: 
-- Call \`read_file()\` → **STOP response immediately**
+- Call \`read_file()\` → **STOP response immediately** (do NOT add any text or tags after the tool call).
 - Wait for system to return content
 - Next turn: call \`replace_in_file()\` or \`write_to_file()\`
 
@@ -148,7 +148,7 @@ To add error handling, I need:
 - Use \`list_terminals()\` to check for reusable sessions before creating new ones.
 - **Handling Long-running Commands**: If a command (e.g. \`npm run dev\`) returns a "Still running after 5s" message:
   1. Do NOT proceed with other unrelated tool calls or tasks.
-  2. Acknowledge the current output and inform the user you are monitoring it.
+  2. If the current status is expected and you have no questions or other work, respond with ONLY \`</no_response>\` to remain silent and continue monitoring.
   3. Wait for the next 5s update or decide to stop it if an error is detected.
 - **Stopping Process**: Call \`stop_terminal(terminal_id)\` when a long-running process is no longer needed or if it's stuck/errored.
 - Do NOT leave orphaned terminals running unnecessary processes.`;

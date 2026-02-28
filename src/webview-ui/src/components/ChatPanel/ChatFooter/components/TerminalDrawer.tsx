@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { X, Plus, Terminal, Trash2 } from "lucide-react";
+import { X, Terminal, Trash2 } from "lucide-react";
 import { MiniTerminal } from "./MiniTerminal";
 
 interface TerminalInfo {
@@ -200,33 +200,6 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
           </span>
         </div>
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          <button
-            onClick={handleCreateTerminal}
-            title="New Terminal"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "6px",
-              backgroundColor: "transparent",
-              color: "var(--secondary-text)",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              transition: "all 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor =
-                "var(--vscode-button-background, #0e639c)1a"; // 10% opacity
-              e.currentTarget.style.color = "var(--accent-text)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = "var(--secondary-text)";
-            }}
-          >
-            <Plus size={20} />
-          </button>
           <div style={{ cursor: "pointer", opacity: 0.7 }} onClick={onClose}>
             <X size={20} />
           </div>
@@ -251,7 +224,7 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
               fontSize: "13px",
             }}
           >
-            No active Zen terminals found. Click "New Terminal" icon to start.
+            No active Zen terminals found.
           </div>
         ) : (
           terminals.map((term) => (
@@ -326,57 +299,6 @@ const TerminalDrawer: React.FC<TerminalDrawerProps> = ({
                     alignItems: "center",
                   }}
                 >
-                  {onSelect && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelect(term.id);
-                      }}
-                      title="Mention Terminal"
-                      style={{
-                        padding: "6px 10px",
-                        backgroundColor: "var(--accent-text)",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                      }}
-                    >
-                      <Plus size={14} /> Mention
-                    </button>
-                  )}
-                  {!term.isAttached && (
-                    <button
-                      onClick={(e) => handleAttachTerminal(term.id, e)}
-                      title="Attach to VSCode UI"
-                      style={{
-                        padding: "4px",
-                        backgroundColor: "transparent",
-                        color: "var(--secondary-text)",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <line x1="10" y1="14" x2="21" y2="3"></line>
-                      </svg>
-                    </button>
-                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

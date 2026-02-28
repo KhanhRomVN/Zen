@@ -174,6 +174,7 @@ const parseToolAction = (
     case "run_command":
       params.command = extractParamValue(innerContent, "command");
       params.terminal_id = extractParamValue(innerContent, "terminal_id");
+      params.cwd = extractParamValue(innerContent, "cwd");
       break;
     case "execute_agent_action":
       // No special param handling needed yet
@@ -253,11 +254,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     // remainingContent = remainingContent.replace(/<task_progress>[\s\S]*?<\/task_progress>/g, "");
   }
 
-  // Hide <temp> tags
-  remainingContent = remainingContent.replace(
-    /<temp\s*>([\s\S]*?)<\/temp>/gi,
-    "",
-  );
+  // Hide </no_response> markers
+  remainingContent = remainingContent.replace(/<\/no_response\s*>/gi, "");
 
   // 3. Scan for tools and text blocks
   const toolPatterns = [
@@ -268,7 +266,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "list_files",
     "search_files",
     "execute_agent_action",
-    "stop_terminal",
     "html_inline_css_block", // Treat <html_inline_css_block> as a special tag
     "text", // Treat <text> as a special tag
     "code", // Treat <code> as a special tag

@@ -42,6 +42,7 @@ class ZenPTY implements vscode.Pseudoterminal {
   public logFilePath: string = "";
   private logCurrentSizeBytes: number = 0;
   public echoSuppressor: EchoSuppressor = new EchoSuppressor();
+  public isInsideOutputZone: boolean = false;
   public lineBuffer: string = "";
   private readonly MAX_LOG_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -176,7 +177,8 @@ class ZenPTY implements vscode.Pseudoterminal {
         fs.appendFileSync(this.logFilePath, data, "utf8");
       }
     } catch (e) {
-      console.error("Failed to append terminal log", e);
+      // SILENT FAIL: If file is missing or locked, just stop appending
+      // This prevents ENOENT spam when terminal is closing
     }
   }
 
@@ -202,6 +204,9 @@ class BridgeClient {
   public registerPTY(id: string, pty: ZenPTY) {
     this.ptyMap.set(id, pty);
     pty.bridgeClient = this;
+  }
+  public unregisterPTY(id: string) {
+    this.ptyMap.delete(id);
   }
 
   public async connect(): Promise<boolean> {
@@ -285,50 +290,77 @@ class BridgeClient {
   }
 
   private processOutputLine(id: string, pty: ZenPTY, line: string) {
-    appendToDebugLog(
-      `[processOutputLine] RAW: ${JSON.stringify(line)} (ActionID: ${pty.activeActionId})`,
-    );
-
-    // 1. Echo swap (Still raw, affects completion detection)
     let processedLine = pty.echoSuppressor.process(line);
-    if (processedLine !== line) {
-      appendToDebugLog(
-        `[processOutputLine] SWAPPED: ${JSON.stringify(processedLine)}`,
-      );
-    }
 
-    // 2. Logic: Completion detection (MUST see markers)
-    let isLastLine = false;
     if (pty.activeActionId) {
+      const startMarker = `ZEN_CMD_START: ${pty.activeActionId}`;
       const endMarker = `ZEN_CMD_END: ${pty.activeActionId}`;
-      // Only detect completion if the line IS the marker (independent line)
-      // Strip ANSI and trim whitespace to be sure
-      const cleanLine = stripAnsi(processedLine).trim();
-      if (cleanLine === endMarker) {
-        isLastLine = true;
+
+      // Handle Start Marker
+      const startIdx = processedLine.indexOf(startMarker);
+      if (startIdx !== -1) {
+        pty.isInsideOutputZone = true;
+        // If there's content AFTER the start marker on the same line, process it
+        const afterStart = processedLine.substring(
+          startIdx + startMarker.length,
+        );
+        const cleanAfter = stripAnsi(
+          stripMarkers(afterStart, pty.activeActionId),
+        );
+        if (cleanAfter.trim()) {
+          // Process the remainder as a separate line if it has content
+          this.processOutputLine(id, pty, afterStart);
+        }
+        return;
       }
-    }
 
-    // 3. Display: Marker stripping
-    const displayLine = stripMarkers(processedLine, pty.activeActionId);
+      // Handle End Marker
+      const endIdx = processedLine.indexOf(endMarker);
+      if (endIdx !== -1) {
+        // Capture everything BEFORE the end marker
+        const beforeEnd = processedLine.substring(0, endIdx);
+        if (pty.isInsideOutputZone && beforeEnd.length > 0) {
+          const displayLine = stripMarkers(beforeEnd, pty.activeActionId);
+          if (displayLine.length > 0) {
+            pty.accumulatedOutput += displayLine;
+            pty.writeEmitter.fire(displayLine);
+            pty.appendLog(displayLine);
+            this.onDidWriteData(id, displayLine);
+          }
+        }
 
-    // 4. Update state AFTER stripping for this line
-    if (isLastLine && pty.activeActionId) {
-      appendToDebugLog(
-        `[ProcessManager] Completion detected for action: ${pty.activeActionId}`,
-      );
-      const finalOutput = pty.accumulatedOutput.substring(pty.lastOutputIndex);
-      pty._triggerCommandFinished(finalOutput);
-      pty.activeActionId = null;
-      pty.lastCommandText = null;
-      pty.lastOutputIndex = pty.accumulatedOutput.length + displayLine.length;
-    }
+        // Finalize command (Trim trailing newline)
+        const finalOutput = pty.accumulatedOutput
+          .substring(pty.lastOutputIndex)
+          .replace(/\r?\n$/, "");
+        pty._triggerCommandFinished(finalOutput);
 
-    if (displayLine.length > 0) {
-      pty.accumulatedOutput += displayLine;
-      pty.writeEmitter.fire(displayLine);
-      pty.appendLog(displayLine);
-      this.onDidWriteData(id, displayLine);
+        pty.isInsideOutputZone = false;
+        pty.activeActionId = null; // Safe to clear now as we've processed the marker line
+        pty.lastCommandText = null;
+        pty.lastOutputIndex = pty.accumulatedOutput.length;
+        return;
+      }
+
+      // Inside zone handling
+      if (pty.isInsideOutputZone) {
+        const displayLine = stripMarkers(processedLine, pty.activeActionId);
+        if (displayLine.length > 0) {
+          pty.accumulatedOutput += displayLine;
+          pty.writeEmitter.fire(displayLine);
+          pty.appendLog(displayLine);
+          this.onDidWriteData(id, displayLine);
+        }
+      }
+    } else {
+      // Manual/Legacy mode: No active action, display everything
+      const displayLine = stripMarkers(processedLine, null);
+      if (displayLine.length > 0) {
+        pty.accumulatedOutput += displayLine;
+        pty.writeEmitter.fire(displayLine);
+        pty.appendLog(displayLine);
+        this.onDidWriteData(id, displayLine);
+      }
     }
 
     this.onTerminalsChanged();
@@ -626,15 +658,9 @@ export class ProcessManager {
       const ptyInternal = new ZenPTY(cwd, logFilePath, id);
 
       (ptyInternal as any)._triggerCommandFinished = (output: string) => {
-        const promptPrefix = this.getPromptPrefix(ptyInternal.currentCwd);
-        const cleanOutputEnding = output.trim();
-        const finalOutput = cleanOutputEnding.endsWith(promptPrefix.trim())
-          ? output
-          : `${output}\n\n${promptPrefix}`;
-
         this.onCommandFinishedEmitter.fire({
           actionId: ptyInternal.activeActionId!,
-          output: finalOutput,
+          output: output,
           terminalId: id,
           commandText: ptyInternal.lastCommandText || undefined,
         });
@@ -750,6 +776,7 @@ export class ProcessManager {
         currentCommand: currentCommand || (isBusy ? "executing..." : ""),
         isAttached: entry.pty.attachedToVSCode,
         promptPrefix: promptPrefix,
+        activeActionId: entry.pty.activeActionId,
       };
     });
   }
@@ -785,18 +812,25 @@ export class ProcessManager {
   close(id: string) {
     const entry = this.terminalMap.get(id);
     if (entry) {
+      // 1. Unregister FIRST to stop receiving new data and prevent appendLog from being called
+      this.bridgeClient.unregisterPTY(id);
+
+      // 2. Clear terminal if exists
       if (entry.terminal) {
         entry.terminal.dispose();
       }
+
+      // 3. Remove from map
       this.terminalMap.delete(id);
       this.saveState();
 
+      // 4. Finally delete the log file
       try {
-        if (fs.existsSync(entry.pty.logFilePath)) {
+        if (entry.pty.logFilePath && fs.existsSync(entry.pty.logFilePath)) {
           fs.unlinkSync(entry.pty.logFilePath);
         }
       } catch (e) {
-        console.error("Failed to delete terminal log file", e);
+        // Safe fail
       }
 
       this.onTerminalsChangedEmitter.fire();
@@ -813,7 +847,33 @@ export class ProcessManager {
   stop(id: string) {
     const entry = this.terminalMap.get(id);
     if (entry) {
+      console.log(
+        `[ProcessManager] Stopping terminal ${id} manually (FINALIZE)`,
+      );
       entry.pty.stop();
+
+      if (entry.pty.activeActionId) {
+        // Force command completion logic
+        const finalOutput = entry.pty.accumulatedOutput
+          .substring(entry.pty.lastOutputIndex)
+          .replace(/\r?\n$/, "");
+
+        console.log(
+          `[ProcessManager] Forcing completion for action: ${entry.pty.activeActionId}`,
+        );
+
+        // Call the assigned completion handler
+        if ((entry.pty as any)._triggerCommandFinished) {
+          (entry.pty as any)._triggerCommandFinished(finalOutput);
+        } else {
+          // Fallback if not assigned
+          entry.pty.activeActionId = null;
+          this.close(id);
+        }
+      } else {
+        // Just close if no active action
+        this.close(id);
+      }
     }
   }
 
@@ -826,6 +886,7 @@ export class ProcessManager {
         entry.pty.activeActionId = actionId;
         entry.pty.lastCommandText = text.trim();
         entry.pty.lastOutputIndex = entry.pty.accumulatedOutput.length;
+        entry.pty.isInsideOutputZone = false; // Reset for new command output
 
         // Wrap the command with markers for detecting start and finish precisely
         const isWindows = os.platform() === "win32";

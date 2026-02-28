@@ -158,7 +158,7 @@
 /* Timeline Styles */
 :root {
   --timeline-axis: 15px;
-  --timeline-dot-size: 10px;
+  --timeline-dot-size: 8px;
 }
 
 .chat-timeline-wrapper {

@@ -36,12 +36,9 @@ search_files(folder_path, regex)
 \`\`\`
 run_command(command)
   → Run shell command or interactive input.
-  → Use for non-interactive commands. For interactive or long-running commands (e.g. \`npm run dev\`), the tool will return partial output if it runs for more than 5 seconds.
+  → Use for non-interactive commands. For interactive or long-running commands (e.g. \`npm run dev\`), the tool will return output when the command completes or is stopped.
   → IMPORTANT: The terminal will be automatically CLOSED and DELETED after the command completes.
 
-stop_terminal(terminal_id)
-  → Stop a long-running terminal process by ID. Use this if a command is stuck or no longer needed.
-  → Parameters: terminal_id (string)
 \`\`\`
 
 ## Context Management

@@ -11,6 +11,8 @@ interface ProjectContextType {
   workspace: string;
   rules: string;
   treeView: string;
+  rootPath: string;
+  homedir: string;
   isLoading: boolean;
   error: string | null;
   refreshContext: () => void;
@@ -26,6 +28,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
   const [workspace, setWorkspace] = useState("");
   const [rules, setRules] = useState("");
   const [treeView, setTreeView] = useState("");
+  const [rootPath, setRootPath] = useState("");
+  const [homedir, setHomedir] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,13 +58,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.command === "projectContextResult") {
-        console.log(
-          "[ProjectContext] Received projectContextResult:",
-          message.data,
-        );
         if (message.data) {
           setWorkspace(message.data.workspace || "");
           setTreeView(message.data.treeView || "");
+          setRootPath(message.data.rootPath || "");
+          setHomedir(message.data.homedir || "");
         }
         setRules(message.data.rules || "");
         setTreeView(message.data.treeView || "");
@@ -85,6 +87,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
         workspace,
         rules,
         treeView,
+        rootPath,
+        homedir,
         isLoading,
         error,
         refreshContext,
