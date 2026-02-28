@@ -1765,18 +1765,18 @@ export class ChatController {
       const result = await this.processManager.startInteractive(cwd);
       const terminalId = result.id;
 
-      this.processManager.sendInput(
-        terminalId,
-        `${message.commandText}\n`,
-        message.actionId,
-      );
-
       webviewView.webview.postMessage({
         command: "runCommandResult",
         requestId: message.requestId,
         terminalId: terminalId,
         actionId: message.actionId,
       });
+
+      this.processManager.sendInput(
+        terminalId,
+        `${message.commandText}\n`,
+        message.actionId,
+      );
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "runCommandResult",

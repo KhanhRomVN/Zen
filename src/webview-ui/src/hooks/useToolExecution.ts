@@ -68,14 +68,29 @@ export const useToolExecution = ({
 
       if (message.command === "commandExecuted") {
         if (message.actionId) {
-          setToolOutputs((prev) => ({
-            ...prev,
-            [message.actionId]: {
-              output: message.output,
-              isError: !!message.error,
-              terminalId: message.terminalId,
-            },
-          }));
+          setToolOutputs((prev) => {
+            const existing = prev[message.actionId];
+
+            // 🛡️ SMART MERGE: Terminal output is additive.
+            // In case of race conditions or incomplete extension logs,
+            // always prioritize the LONGEST version to avoid content disappearance.
+            let finalOutput = message.output || "";
+            if (
+              existing?.output &&
+              existing.output.length > finalOutput.length
+            ) {
+              finalOutput = existing.output;
+            }
+
+            return {
+              ...prev,
+              [message.actionId]: {
+                output: finalOutput,
+                isError: !!message.error,
+                terminalId: message.terminalId,
+              },
+            };
+          });
 
           // [New] Persistent Terminal Color Storage
           // Create UUID once for this execution
@@ -154,6 +169,9 @@ export const useToolExecution = ({
           });
         }
       } else if (message.command === "terminalStatusChanged") {
+        console.log(
+          `[useToolExecution] Terminal status changed: ${message.terminalId} -> ${message.status}`,
+        );
         setTerminalStatus((prev) => ({
           ...prev,
           [message.terminalId]: message.status,
@@ -169,6 +187,9 @@ export const useToolExecution = ({
             },
           }));
           // Initially set to busy when command is run
+          console.log(
+            `[useToolExecution] Command started, setting terminal ${message.terminalId} to busy`,
+          );
           setTerminalStatus((prev) => ({
             ...prev,
             [message.terminalId]: "busy",
@@ -528,6 +549,10 @@ export const useToolExecution = ({
                 terminalId: (action as any).params?.terminal_id,
               },
             }));
+          } else {
+            console.log(
+              `[useToolExecution] Skip overwrite for run_command: ${actionId}`,
+            );
           }
 
           const finalTerminalId = (action as any).params?.terminal_id;

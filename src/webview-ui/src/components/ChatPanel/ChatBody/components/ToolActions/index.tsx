@@ -47,6 +47,14 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   isVisibleTool = (type: string) => true,
 }) => {
   // Filter out invisible tools immediately
+  React.useEffect(() => {
+    if (terminalStatus && Object.keys(terminalStatus).length > 0) {
+      console.log(
+        `[ToolActionsList ${message.id}] Terminal status prop received:`,
+        terminalStatus,
+      );
+    }
+  }, [terminalStatus, message.id]);
   const visibleItems = useMemo(() => {
     return items.filter((item) => isVisibleTool(item.action.type));
   }, [items, isVisibleTool]);

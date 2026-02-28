@@ -111,9 +111,10 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
         term.dispose();
         window.removeEventListener("resize", handleResize);
         xtermRef.current = null;
+        lastWrittenLogsRef.current = ""; // 🆕 RESET: Ensure next terminal gets full logs
       };
     }
-  }, [isXtermVisible, status]);
+  }, [isXtermVisible]); // 🛡️ FIX: Remove 'status' to prevent recreation on status change
 
   const lastWrittenLogsRef = useRef("");
 

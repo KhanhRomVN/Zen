@@ -658,15 +658,23 @@ export class ProcessManager {
       const ptyInternal = new ZenPTY(cwd, logFilePath, id);
 
       (ptyInternal as any)._triggerCommandFinished = (output: string) => {
+        const terminalId = id;
+        const actionId = ptyInternal.activeActionId;
+
         this.onCommandFinishedEmitter.fire({
-          actionId: ptyInternal.activeActionId!,
+          actionId: actionId!,
           output: output,
-          terminalId: id,
+          terminalId: terminalId,
           commandText: ptyInternal.lastCommandText || undefined,
         });
 
-        // Auto-close terminal after command execution
-        this.close(id);
+        if (actionId) {
+          ptyInternal.activeActionId = null;
+          this.onTerminalStatusChangedEmitter.fire({
+            terminalId: terminalId,
+            status: "free",
+          });
+        }
       };
       ptyInternal.isPersistent = true;
       ptyInternal.shellPath = shell;
@@ -812,6 +820,12 @@ export class ProcessManager {
   close(id: string) {
     const entry = this.terminalMap.get(id);
     if (entry) {
+      // 0. Notify that terminal is now free before deletion
+      this.onTerminalStatusChangedEmitter.fire({
+        terminalId: id,
+        status: "free",
+      });
+
       // 1. Unregister FIRST to stop receiving new data and prevent appendLog from being called
       this.bridgeClient.unregisterPTY(id);
 

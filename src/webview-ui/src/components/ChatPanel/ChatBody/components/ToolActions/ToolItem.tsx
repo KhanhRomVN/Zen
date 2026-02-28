@@ -1202,6 +1202,12 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 ? terminalStatus?.[terminalId] === "busy"
                 : false;
 
+              if (terminalId) {
+                console.log(
+                  `[ToolItem (Grouped)] Terminal activity check: id=${terminalId}, status=${terminalStatus?.[terminalId]}, isBusy=${isTerminalBusy}`,
+                );
+              }
+
               const isLoading =
                 isActionClicked && (!hasOutput || isTerminalBusy);
               const isCompleted = hasOutput && !isTerminalBusy;

@@ -108,19 +108,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const { backupEventCount } = useBackupWatcher(currentConversationId);
 
-  const { executionState, toolOutputs, handleToolRequest } = useToolExecution({
-    conversationIdRef: currentConversationIdRef,
-    sendMessage: (
-      content,
-      files,
-      model,
-      account,
-      skipLogic,
-      actionIds,
-      uiHidden,
-      thinking,
-    ) =>
-      sendMessage(
+  const { executionState, toolOutputs, terminalStatus, handleToolRequest } =
+    useToolExecution({
+      conversationIdRef: currentConversationIdRef,
+      sendMessage: (
         content,
         files,
         model,
@@ -129,9 +120,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionIds,
         uiHidden,
         thinking,
-        selectedQuickModel,
-      ),
-  });
+      ) =>
+        sendMessage(
+          content,
+          files,
+          model,
+          account,
+          skipLogic,
+          actionIds,
+          uiHidden,
+          thinking,
+          selectedQuickModel,
+        ),
+    });
+
+  useEffect(() => {
+    if (Object.keys(terminalStatus).length > 0) {
+      console.log("[ChatPanel] Terminal statuses updated:", terminalStatus);
+    }
+  }, [terminalStatus]);
 
   // --- Refs ---
   const hasProcessedInitial = useRef(false);
@@ -503,6 +510,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
         executionState={executionState}
         toolOutputs={toolOutputs}
+        terminalStatus={terminalStatus}
         firstRequestMessageId={firstRequestMessage?.id}
         onLoadConversation={onLoadConversation}
         activeTerminalIds={activeTerminalIds}

@@ -113,15 +113,6 @@ export const useChatLLM = ({
         return;
       }
 
-      console.log(
-        `[useChatLLM] sendMessage called (content length: ${content.length}, isReq1 condition)`,
-      );
-      console.log("[useChatLLM] Current Refs State:", {
-        lastUsedModel: lastUsedModelRef.current,
-        lastUsedAccount: lastUsedAccountRef.current,
-        backendConversationId: backendConversationIdRef.current,
-      });
-
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
 
@@ -152,9 +143,6 @@ export const useChatLLM = ({
       let projectContextStr = "";
 
       if (isReq1) {
-        console.log(
-          "[useChatLLM] Constructing Req1 payload (System Info + Context)",
-        );
         let systemInfo = {
           os: "Unknown OS",
           ide: "Zen IDE",
@@ -191,9 +179,6 @@ export const useChatLLM = ({
           if (treeView && treeView.trim()) {
             projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeView}\n\`\`\``;
           }
-          console.log(
-            `[useChatLLM] Project context injected (workspace: ${workspace?.length || 0}, tree: ${treeView?.length || 0})`,
-          );
         } catch (e) {
           console.error(
             "[useChatLLM] Failed to use pre-fetched project context",
@@ -276,12 +261,6 @@ export const useChatLLM = ({
 
       // In the new schema, req1 content includes system prompt
       const finalContent = promptPayload;
-      console.log(
-        `[useChatLLM] Final Payload Preview (first 200 chars): "${finalContent.substring(0, 200).replace(/\n/g, "\\n")}..."`,
-      );
-      console.log(
-        `[useChatLLM] Is projectContextStr included? ${isReq1 && projectContextStr.length > 0}`,
-      );
 
       const userMessage: Message = {
         id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
@@ -334,19 +313,11 @@ export const useChatLLM = ({
       let finalAccount = effAccount;
 
       if (!finalModel || !finalAccount) {
-        console.log(
-          "[useChatLLM] Metadata missing in args/refs, checking history...",
-        );
         const lastMetadataMsg = [...filteredMessages]
           .reverse()
           .find((m) => m.role === "assistant" && m.providerId && m.modelId);
 
         if (lastMetadataMsg) {
-          console.log("[useChatLLM] Found metadata in history:", {
-            providerId: lastMetadataMsg.providerId,
-            modelId: lastMetadataMsg.modelId,
-            accountId: lastMetadataMsg.accountId,
-          });
           if (!finalModel) {
             finalModel = {
               id: lastMetadataMsg.modelId!,
@@ -392,16 +363,7 @@ export const useChatLLM = ({
         abortControllerRef.current = abortController;
         setIsStreaming(true);
 
-        console.log(
-          "[useChatLLM] Sending request to:",
-          `${apiUrl}/v1/chat/accounts/messages`,
-        );
-        console.log(
-          "[useChatLLM] Request Body (FULL):",
-          JSON.stringify(body, null, 2),
-        );
         const headers = { "Content-Type": "application/json" };
-        console.log("[useChatLLM] Request Headers:", headers);
 
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
@@ -462,11 +424,6 @@ export const useChatLLM = ({
                   const recvConvId =
                     data.meta?.conversation_id || data.conversation_id;
                   if (recvConvId) {
-                    if (backendConversationIdRef.current !== recvConvId) {
-                      console.log(
-                        `[useChatLLM] Captured backend conversation_id: ${recvConvId}`,
-                      );
-                    }
                     backendConversationId = recvConvId;
                     backendConversationIdRef.current = recvConvId;
                   }
@@ -693,7 +650,6 @@ export const useChatLLM = ({
         if (meta.accountId) {
           lastUsedAccountRef.current = { id: meta.accountId };
         }
-        console.log("[useChatLLM] Primed refs from restored meta:", meta);
       }
     },
   };
