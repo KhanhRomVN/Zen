@@ -16,6 +16,7 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
+  previousAssistantMessage?: Message;
 }
 
 // Hooks
@@ -145,6 +146,14 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             .slice(messages.findIndex((m) => m.id === message.id) + 1)
             .find((m) => m.role === "user");
 
+          const previousAssistantMessage = messages
+            .slice(
+              0,
+              messages.findIndex((m) => m.id === message.id),
+            )
+            .reverse()
+            .find((m) => m.role === "assistant");
+
           return (
             <MessageBox
               key={message.id}
@@ -174,6 +183,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               activeTerminalIds={activeTerminalIds}
               attachedTerminalIds={attachedTerminalIds}
               conversationId={conversationId}
+              previousAssistantMessage={previousAssistantMessage}
             />
           );
         })}

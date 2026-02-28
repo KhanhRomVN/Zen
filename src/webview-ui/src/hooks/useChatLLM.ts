@@ -436,6 +436,19 @@ export const useChatLLM = ({
                     backendConversationIdRef.current = recvConvId;
                   }
 
+                  const metaObj = data.meta || data.metadata;
+                  if (metaObj) {
+                    if (metaObj.providerId)
+                      assistantMessage.providerId = metaObj.providerId;
+                    if (metaObj.modelId)
+                      assistantMessage.modelId = metaObj.modelId;
+                    if (metaObj.accountId)
+                      assistantMessage.accountId = metaObj.accountId;
+                    if (metaObj.websiteUrl)
+                      assistantMessage.websiteUrl = metaObj.websiteUrl;
+                    if (metaObj.email) assistantMessage.email = metaObj.email;
+                  }
+
                   if (data.usage) {
                     assistantMessage = {
                       ...assistantMessage,
@@ -472,6 +485,19 @@ export const useChatLLM = ({
           if (dataStr === "[DONE]") continue;
           try {
             const data = JSON.parse(dataStr);
+
+            const metaObj = data.meta || data.metadata;
+            if (metaObj) {
+              if (metaObj.providerId)
+                assistantMessage.providerId = metaObj.providerId;
+              if (metaObj.modelId) assistantMessage.modelId = metaObj.modelId;
+              if (metaObj.accountId)
+                assistantMessage.accountId = metaObj.accountId;
+              if (metaObj.websiteUrl)
+                assistantMessage.websiteUrl = metaObj.websiteUrl;
+              if (metaObj.email) assistantMessage.email = metaObj.email;
+            }
+
             if (data.usage) {
               assistantMessage = {
                 ...assistantMessage,
@@ -511,6 +537,23 @@ export const useChatLLM = ({
           const userMsgToLog = updatedMessages[updatedMessages.length - 1];
           const finalConversationId =
             backendConversationId || backendConversationIdRef.current;
+
+          userMsgToLog.providerId =
+            assistantMessage.providerId || effModel?.providerId;
+          userMsgToLog.modelId = assistantMessage.modelId || effModel?.id;
+          userMsgToLog.accountId = assistantMessage.accountId || effAccount?.id;
+          if (assistantMessage.websiteUrl)
+            userMsgToLog.websiteUrl = assistantMessage.websiteUrl;
+          if (assistantMessage.email)
+            userMsgToLog.email = assistantMessage.email;
+
+          assistantMessage.providerId = userMsgToLog.providerId;
+          assistantMessage.modelId = userMsgToLog.modelId;
+          assistantMessage.accountId = userMsgToLog.accountId;
+          if (userMsgToLog.websiteUrl)
+            assistantMessage.websiteUrl = userMsgToLog.websiteUrl;
+          if (userMsgToLog.email) assistantMessage.email = userMsgToLog.email;
+
           logChatToWorkspace(effectiveChatUuid, {
             ...userMsgToLog,
             conversationId: finalConversationId,

@@ -15,6 +15,11 @@ export interface Message {
   uiHidden?: boolean;
   isCancelled?: boolean;
   conversationId?: string; // Real backend conversation ID for this message
+  providerId?: string;
+  modelId?: string;
+  accountId?: string;
+  websiteUrl?: string;
+  email?: string;
 }
 
 export interface ChatBodyProps {

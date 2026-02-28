@@ -17,6 +17,8 @@ interface ChatHeaderProps {
   };
   taskName?: string | null;
   conversationId?: string;
+  currentModel?: any;
+  currentAccount?: any;
   onToggleTaskDrawer?: () => void;
   taskProgress?: {
     current: {
@@ -35,6 +37,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   contextUsage,
   taskName,
   conversationId,
+  currentModel,
+  currentAccount,
   taskProgress,
   onToggleTaskDrawer,
 }) => {
@@ -57,10 +61,26 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     }
   };
 
-  const modelName = "DeepSeek Chat";
-  const providerId = selectedTab.provider || "deepseek";
-  const faviconUrl =
+  const modelName = currentModel
+    ? currentModel.name || currentModel.id
+    : "DeepSeek Chat";
+  const providerId =
+    currentModel?.providerId || selectedTab.provider || "deepseek";
+
+  // Basic favicon heuristic
+  let faviconUrl =
     "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
+  if (providerId.toLowerCase().includes("openai")) {
+    faviconUrl = "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
+  } else if (providerId.toLowerCase().includes("anthropic")) {
+    faviconUrl =
+      "https://www.google.com/s2/favicons?domain=anthropic.com&sz=64";
+  } else if (providerId.toLowerCase().includes("google")) {
+    faviconUrl = "https://www.google.com/s2/favicons?domain=google.com&sz=64";
+  } else if (providerId.toLowerCase().includes("openrouter")) {
+    faviconUrl =
+      "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=64";
+  }
 
   return (
     <div
@@ -106,19 +126,27 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               style={{ width: "14px", height: "14px", borderRadius: "2px" }}
             />
             <span style={{ whiteSpace: "nowrap" }}>
-              {providerId.charAt(0).toUpperCase() + providerId.slice(1)}
+              {providerId}/{currentModel?.id || "chat"}
             </span>
-            <span style={{ opacity: 0.3 }}>|</span>
-            <span
-              style={{
-                opacity: 0.9,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {modelName}
-            </span>
+
+            {currentAccount?.email && (
+              <span
+                style={{
+                  opacity: 0.7,
+                  fontStyle: "italic",
+                  fontWeight: "normal",
+                  fontSize: "11px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: "150px",
+                }}
+                title={currentAccount.email}
+              >
+                &lt;{currentAccount.email}&gt;
+              </span>
+            )}
+
             <span style={{ opacity: 0.3 }}>|</span>
             <span
               onClick={handleCopyId}

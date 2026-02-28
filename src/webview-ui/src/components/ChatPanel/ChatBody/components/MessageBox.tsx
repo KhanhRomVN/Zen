@@ -43,6 +43,7 @@ interface MessageBoxProps {
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
+  previousAssistantMessage?: Message;
 }
 
 const MessageBoxCodeBlock: React.FC<{
@@ -140,6 +141,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
+  previousAssistantMessage,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
@@ -273,6 +275,12 @@ const MessageBox: React.FC<MessageBoxProps> = ({
       {(() => {
         // Prepare render groups
         const groups: Array<
+          | {
+              type: "metadata";
+              content: string;
+              faviconUrl?: string;
+              key: string;
+            }
           | { type: "text"; content: string; key: string }
           | { type: "code"; content: string; language: string; key: string }
           | { type: "html"; content: string; key: string }
@@ -291,6 +299,45 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               key: string;
             }
         > = [];
+
+        // --- 🆕 METADATA DOT CHECK ---
+        const metaChanged =
+          !previousAssistantMessage ||
+          message.conversationId !== previousAssistantMessage.conversationId ||
+          message.providerId !== previousAssistantMessage.providerId ||
+          message.modelId !== previousAssistantMessage.modelId ||
+          message.accountId !== previousAssistantMessage.accountId ||
+          message.email !== previousAssistantMessage.email;
+
+        // If metadata changed, inject the Metadata group
+        if (
+          metaChanged &&
+          (message.providerId || message.modelId || message.email)
+        ) {
+          const providerStr = message.providerId
+            ? `${message.providerId}/`
+            : "";
+          const modelStr = message.modelId || "unknown-model";
+          const emailStr = message.email ? ` by ${message.email}` : "";
+
+          let faviconUrl: string | undefined = undefined;
+          if (message.websiteUrl) {
+            try {
+              const url = new URL(message.websiteUrl);
+              faviconUrl = `${url.origin}/favicon.ico`;
+            } catch (e) {
+              // Ignore invalid url
+            }
+          }
+
+          groups.push({
+            type: "metadata",
+            content: `Used ${providerStr}${modelStr}${emailStr}`,
+            faviconUrl,
+            key: "metadata-info",
+          });
+        }
+        // ------------------------------
 
         let currentToolGroup: { action: any; index: number }[] = [];
 
@@ -397,7 +444,71 @@ const MessageBox: React.FC<MessageBoxProps> = ({
 
           let content = null;
 
-          if (group.type === "code") {
+          if (group.type === "metadata") {
+            content = (
+              <div style={{ paddingBottom: "8px" }}>
+                <div
+                  className="timeline-dot"
+                  style={{
+                    backgroundColor: "transparent",
+                    top: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "none",
+                  }}
+                >
+                  {group.faviconUrl ? (
+                    <img
+                      src={group.faviconUrl}
+                      alt="favicon"
+                      style={{
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "2px",
+                      }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                        const parent = (e.target as HTMLImageElement)
+                          .parentElement;
+                        if (parent) {
+                          const icon = document.createElement("span");
+                          icon.className = "codicon codicon-server-process";
+                          icon.style.color =
+                            "var(--vscode-descriptionForeground)";
+                          icon.style.fontSize = "14px";
+                          parent.appendChild(icon);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="codicon codicon-server-process"
+                      style={{
+                        color: "var(--vscode-descriptionForeground)",
+                        fontSize: "14px",
+                      }}
+                    />
+                  )}
+                </div>
+                <div
+                  style={{
+                    paddingLeft: "29px",
+                    paddingTop: "4px",
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--vscode-descriptionForeground)",
+                    lineHeight: 1.6,
+                    fontStyle: "italic",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  {group.content}
+                </div>
+              </div>
+            );
+          } else if (group.type === "code") {
             const isDiffBlock = isDiff(group.content, group.language);
             let displayCode = group.content;
             let lineHighlights: any = undefined;

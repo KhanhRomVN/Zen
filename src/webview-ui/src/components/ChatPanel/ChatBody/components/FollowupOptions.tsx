@@ -52,8 +52,8 @@ const FollowupOptions: React.FC<FollowupOptionsProps> = ({
                 selectedOption === option
                   ? "#fff"
                   : selectedOption
-                  ? "var(--disabled-text)"
-                  : "var(--primary-text)",
+                    ? "var(--disabled-text)"
+                    : "var(--primary-text)",
               border: "1px solid var(--border-color)",
               borderRadius: "var(--border-radius)",
               cursor: selectedOption ? "default" : "pointer",

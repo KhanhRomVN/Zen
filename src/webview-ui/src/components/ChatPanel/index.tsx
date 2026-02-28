@@ -79,6 +79,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     providerId: string;
     modelId: string;
     accountId?: string;
+    favicon?: string;
+    email?: string;
   } | null>(null);
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
@@ -326,6 +328,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           if (lastAssistantMsg?.conversationId) {
             setBackendConversationId(lastAssistantMsg.conversationId);
           }
+
+          // Restore Main Model and Account from the last assistant message
+          const lastAssistantMsgForMeta = [...data.data.messages]
+            .reverse()
+            .find(
+              (m: Message) =>
+                m.role === "assistant" && m.providerId && m.modelId,
+            );
+
+          if (lastAssistantMsgForMeta) {
+            setCurrentModel({
+              providerId: lastAssistantMsgForMeta.providerId!,
+              id: lastAssistantMsgForMeta.modelId!,
+              name: lastAssistantMsgForMeta.modelId!, // Fallback name
+            });
+            setCurrentAccount({
+              id: lastAssistantMsgForMeta.accountId!,
+              email: lastAssistantMsgForMeta.email!,
+            });
+            setSelectedQuickModel(null); // Clear Quick Switch
+          } else {
+            setSelectedQuickModel(null);
+          }
         }
         setIsLoadingConversation(false);
         setIsProcessing(false);
@@ -416,6 +441,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         contextUsage={contextUsage}
         taskName={currentTaskName}
         conversationId={currentConversationId}
+        currentModel={currentModel}
+        currentAccount={currentAccount}
         onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
         taskProgress={
           allTaskProgress.length > 0

@@ -11,6 +11,7 @@ import { Check, Cpu, Search, X, Clock, Ban } from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
 import { useSettings } from "../../../../context/SettingsContext";
+import QuickSwitchDrawer from "./QuickSwitchDrawer";
 
 interface MessageInputProps {
   message: string;
@@ -38,10 +39,20 @@ interface MessageInputProps {
   selectedQuickModel?: {
     providerId: string;
     modelId: string;
+    modelName?: string;
     accountId?: string;
+    favicon?: string;
+    email?: string;
   } | null;
   onQuickModelSelect?: (
-    model: { providerId: string; modelId: string; accountId?: string } | null,
+    model: {
+      providerId: string;
+      modelId: string;
+      modelName?: string;
+      accountId?: string;
+      favicon?: string;
+      email?: string;
+    } | null,
   ) => void;
   currentModel: any;
   setCurrentModel: (model: any) => void;
@@ -106,25 +117,23 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
   const [providers, setProviders] = React.useState<any[]>([]);
-  const [accounts, setAccounts] = React.useState<any[]>([]);
-  // const [selectedModel, setSelectedModel] = React.useState<any>(null); // Replaced by props
-  // const [selectedAccount, setSelectedAccount] = React.useState<any>(null); // Replaced by props
-  const [showModelDropdown, setShowModelDropdown] = React.useState(false);
-  const [showAccountDropdown, setShowAccountDropdown] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const pendingAccountIdRef = React.useRef<string | null>(null);
   const [isLoadingCache, setIsLoadingCache] = React.useState(true);
   const { language: preferredLanguage } = useSettings();
+  const pendingAccountIdRef = React.useRef<string | null>(null);
+
+  // 🆕 Quick Model Switcher Logic
+  const [isQuickModelDropdownOpen, setIsQuickModelDropdownOpen] =
+    React.useState(false);
 
   // 🆕 Capabilities Logic
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
 
   // Derive current provider config
   const currentProviderConfig = React.useMemo(() => {
-    if (!currentModel) return null;
+    if (!currentModel?.providerId) return null;
     return providers.find(
       (p) =>
-        p.provider_id.toLowerCase() === currentModel.providerId.toLowerCase(),
+        p.provider_id?.toLowerCase() === currentModel.providerId?.toLowerCase(),
     );
   }, [currentModel, providers]);
 
@@ -139,8 +148,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
     // For DeepSeek R1, it's often implicit or via regex on ID
     // or if the model object has a 'capabilities' field (mocked for now)
     // Assuming DeepSeek Reasoner models contain "reasoner" or "r1"
-    const modelId = currentModel.id.toLowerCase();
-    const modelName = currentModel.name.toLowerCase();
+    const modelId = (currentModel.id || "").toLowerCase();
+    const modelName = (currentModel.name || "").toLowerCase();
     return (
       modelId.includes("reasoner") ||
       modelId.includes("r1") ||
@@ -150,12 +159,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     // TODO: In future, this should come from API model definition
   }, [currentModel]);
 
-  // 🆕 Quick Model Switcher Logic
-  const [isQuickModelDropdownOpen, setIsQuickModelDropdownOpen] =
-    React.useState(false);
-  const [modelSearch, setModelSearch] = React.useState("");
   const quickModelDropdownRef = React.useRef<HTMLDivElement>(null);
-  const modelSelectorRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -165,47 +169,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
       ) {
         setIsQuickModelDropdownOpen(false);
       }
-      if (
-        modelSelectorRef.current &&
-        !modelSelectorRef.current.contains(event.target as Node)
-      ) {
-        setShowModelDropdown(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const allModels = React.useMemo(() => {
-    return (providers || []).flatMap((provider) =>
-      (provider.models || []).map((m: any) => {
-        // Find default account for this provider
-        const defaultAccount = accounts.find(
-          (acc) =>
-            acc.provider_id.toLowerCase() ===
-            provider.provider_id.toLowerCase(),
-        );
-
-        return {
-          ...m,
-          providerId: provider.provider_id,
-          providerName: provider.provider_name || provider.provider_id,
-          accountId: defaultAccount?.id,
-          favicon: provider.website
-            ? `https://www.google.com/s2/favicons?domain=${new URL(provider.website).hostname}&sz=64`
-            : null,
-        };
-      }),
-    );
-  }, [providers, accounts]);
-
-  const filteredModels = React.useMemo(() => {
-    return allModels.filter(
-      (m) =>
-        m.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
-        m.providerName.toLowerCase().includes(modelSearch.toLowerCase()),
-    );
-  }, [allModels, modelSearch]);
 
   const formatWorkspacePath = (path: string) => {
     if (!path) return "";
@@ -302,90 +269,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setCurrentAccount,
   ]);
 
-  // Fetch accounts when model/provider changes
-  React.useEffect(() => {
-    if (!currentModel) {
-      setAccounts([]);
-      setCurrentAccount(null);
-      return;
-    }
-
-    const fetchAccounts = async () => {
-      try {
-        const response = await fetch(
-          `${apiUrl}/v1/accounts?page=1&limit=50&provider_id=${currentModel.providerId}`,
-        );
-        const result = await response.json();
-        if (result.success) {
-          const accs = result.data.accounts;
-          setAccounts(accs);
-
-          // Auto-select pending account or first one
-          if (pendingAccountIdRef.current) {
-            const found = accs.find(
-              (a: any) => a.id === pendingAccountIdRef.current,
-            );
-            if (found) {
-              setCurrentAccount(found);
-            } else if (accs.length > 0) {
-              setCurrentAccount(accs[0]);
-            }
-            pendingAccountIdRef.current = null;
-          } else if (accs.length > 0) {
-            // Only set default if no account is currently selected (or we just switched models)
-            setCurrentAccount(accs[0]);
-          }
-        }
-      } catch (error) {
-        // console.error("Failed to fetch accounts:", error);
-      }
-    };
-    fetchAccounts();
-  }, [currentModel, apiUrl, setCurrentAccount]);
-
-  // Group models by provider based on search
-  const groupedModels = React.useMemo(() => {
-    const groups: any[] = [];
-    providers.forEach((provider) => {
-      const providerModels =
-        provider.models?.filter((model: any) =>
-          model.name.toLowerCase().includes(searchQuery.toLowerCase()),
-        ) || [];
-
-      if (
-        providerModels.length > 0 ||
-        provider.provider_name.toLowerCase().includes(searchQuery.toLowerCase())
-      ) {
-        // If provider name matches, include all its models (or filtered ones)
-        const modelsToShow =
-          providerModels.length > 0 ? providerModels : provider.models || [];
-        const getFavicon = (url: string) => {
-          try {
-            const domain = new URL(url).hostname;
-            return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
-          } catch {
-            return "";
-          }
-        };
-
-        const providerFavicon = getFavicon(provider.website);
-
-        groups.push({
-          providerId: provider.provider_id,
-          providerName: provider.provider_name,
-          favicon: providerFavicon,
-          models: modelsToShow.map((m: any) => ({
-            ...m,
-            providerId: provider.provider_id,
-            providerName: provider.provider_name,
-            favicon: providerFavicon,
-          })),
-        });
-      }
-    });
-    return groups;
-  }, [providers, searchQuery, apiUrl]);
-
   return (
     <div
       style={{
@@ -400,6 +283,177 @@ const MessageInput: React.FC<MessageInputProps> = ({
           onCommit={handleGitCommit}
           onClose={() => setShowChangesDropdown(false)}
         />
+      )}
+
+      {/* 🆕 QUICK SWITCH BADGE (Top-Left) */}
+      {selectedQuickModel && (
+        <div
+          style={{
+            position: "absolute",
+            top: "-24px",
+            left: "8px",
+            backgroundColor: "var(--accent-bg-transparent)",
+            color: "var(--accent-color)",
+            padding: "4px 8px",
+            fontSize: "11px",
+            fontWeight: 600,
+            borderTopLeftRadius: "var(--border-radius)",
+            borderTopRightRadius: "var(--border-radius)",
+            borderBottomLeftRadius: "0",
+            borderBottomRightRadius: "0",
+            border: "1px solid var(--accent-color)",
+            borderBottom: "none",
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
+          }}
+          title="Quick Switch Model is Active"
+        >
+          {selectedQuickModel.favicon ? (
+            <img
+              src={selectedQuickModel.favicon}
+              alt="favicon"
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "2px",
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <span
+              className="codicon codicon-server-process"
+              style={{ fontSize: "12px" }}
+            />
+          )}
+
+          <span
+            style={{
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              maxWidth: "150px",
+            }}
+          >
+            {selectedQuickModel.providerId}/{selectedQuickModel.modelId}
+          </span>
+
+          {selectedQuickModel.email && (
+            <span
+              style={{
+                opacity: 0.7,
+                fontStyle: "italic",
+                fontWeight: "normal",
+                marginLeft: "2px",
+                maxWidth: "120px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              &lt;{selectedQuickModel.email}&gt;
+            </span>
+          )}
+
+          <div
+            style={{
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              marginLeft: "4px",
+              opacity: 0.7,
+            }}
+            onClick={() => onQuickModelSelect?.(null)}
+          >
+            <X size={12} strokeWidth={2.5} />
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 HOME PANEL BADGE (Top-Left) - Only when !isConversationStarted */}
+      {!isConversationStarted && (
+        <div
+          onClick={() => setIsQuickModelDropdownOpen(true)}
+          style={{
+            position: "absolute",
+            top: "-28px",
+            left: "8px",
+            backgroundColor: "var(--input-bg)",
+            color: "var(--primary-text)",
+            padding: "5px 10px",
+            fontSize: "11px",
+            fontWeight: 600,
+            borderTopLeftRadius: "8px",
+            borderTopRightRadius: "8px",
+            borderBottomLeftRadius: "0",
+            borderBottomRightRadius: "0",
+            border: "1px solid var(--border-color)",
+            borderBottom: "none",
+            zIndex: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            cursor: "pointer",
+            boxShadow: "0 -2px 6px rgba(0,0,0,0.1)",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = "var(--input-bg)";
+          }}
+          title="Click to select Model and Account"
+        >
+          {currentModel ? (
+            <>
+              {currentModel.favicon ? (
+                <img
+                  src={currentModel.favicon}
+                  alt="favicon"
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "2px",
+                  }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <span
+                  className="codicon codicon-server-process"
+                  style={{ fontSize: "12px" }}
+                />
+              )}
+              {currentModel.providerId}/{currentModel.id}
+              {currentAccount?.email && (
+                <span
+                  style={{
+                    opacity: 0.8,
+                    fontStyle: "italic",
+                    marginLeft: "2px",
+                  }}
+                >
+                  &lt;{currentAccount.email}&gt;
+                </span>
+              )}
+              <ChevronDownIcon size={12} />
+            </>
+          ) : (
+            <>
+              <span
+                className="codicon codicon-server-process"
+                style={{ fontSize: "12px" }}
+              />
+              Select Model
+              <ChevronDownIcon size={12} />
+            </>
+          )}
+        </div>
       )}
 
       <div
@@ -445,7 +499,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 if (!currentModel) {
-                  setShowModelDropdown(true);
+                  setIsQuickModelDropdownOpen(true);
                   if (providers.length === 0) fetchProviders();
                   return;
                 }
@@ -741,553 +795,36 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
             {/* Quick Model Switcher (CPU Icon) */}
             {isConversationStarted && onQuickModelSelect && (
-              <div style={{ position: "relative" }} ref={quickModelDropdownRef}>
-                <div
-                  style={{
-                    cursor: "pointer",
-                    padding: "var(--spacing-xs)",
-                    borderRadius: "var(--border-radius)",
-                    transition: "background-color 0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: selectedQuickModel
-                      ? "var(--accent-color)" // Highlight if active
-                      : "var(--secondary-text)",
-                    backgroundColor: selectedQuickModel
-                      ? "var(--accent-bg-transparent)" // Subtle bg if active
-                      : "transparent",
-                  }}
-                  onClick={() => {
-                    if (selectedQuickModel) {
-                      onQuickModelSelect(null);
-                      setIsQuickModelDropdownOpen(false);
-                    } else {
-                      setIsQuickModelDropdownOpen(!isQuickModelDropdownOpen);
-                      if (!isQuickModelDropdownOpen) setModelSearch("");
-                    }
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = selectedQuickModel
-                      ? "var(--accent-bg-transparent-hover)"
-                      : "var(--hover-bg)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = selectedQuickModel
-                      ? "var(--accent-bg-transparent)"
-                      : "transparent";
-                  }}
-                  title={
-                    selectedQuickModel
-                      ? "Quick Model Active (Click to Reset)"
-                      : "Quick Switch Model"
-                  }
-                >
-                  <Cpu size={16} />
-                </div>
-
-                {/* Dropdown */}
-                {isQuickModelDropdownOpen && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: "100%",
-                      left: "0",
-                      marginBottom: "8px",
-                      backgroundColor: "var(--vscode-editor-background)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "8px",
-                      padding: "0",
-                      width: "280px",
-                      maxHeight: "360px",
-                      overflow: "hidden",
-                      display: "flex",
-                      flexDirection: "column",
-                      boxShadow: "0 8px 16px rgba(0,0,0,0.3)",
-                      zIndex: 1000,
-                    }}
-                  >
-                    {/* Search */}
-                    <div
-                      style={{
-                        padding: "8px",
-                        borderBottom: "1px solid var(--border-color)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          position: "relative",
-                          display: "flex",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Search
-                          size={12}
-                          style={{
-                            position: "absolute",
-                            left: "8px",
-                            color: "var(--secondary-text)",
-                          }}
-                        />
-                        <input
-                          autoFocus
-                          type="text"
-                          placeholder="Search models..."
-                          value={modelSearch}
-                          onChange={(e) => setModelSearch(e.target.value)}
-                          style={{
-                            width: "100%",
-                            padding: "6px 8px 6px 24px",
-                            borderRadius: "4px",
-                            border: "1px solid var(--border-color)",
-                            backgroundColor: "var(--input-bg)",
-                            color: "var(--primary-text)",
-                            fontSize: "12px",
-                            outline: "none",
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div
-                      className="custom-scrollbar"
-                      style={{ overflowY: "auto", flex: 1, padding: "4px" }}
-                    >
-                      {selectedQuickModel && (
-                        <div
-                          style={{
-                            padding: "8px",
-                            cursor: "pointer",
-                            color: "var(--vscode-errorForeground)",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            borderRadius: "4px",
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                              "var(--hover-bg)")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                              "transparent")
-                          }
-                          onClick={() => {
-                            onQuickModelSelect(null);
-                            setIsQuickModelDropdownOpen(false);
-                          }}
-                        >
-                          <X size={14} />
-                          Reset to Default Model
-                        </div>
-                      )}
-
-                      {filteredModels.length > 0 ? (
-                        // Group by Provider
-                        Array.from(
-                          new Set(filteredModels.map((m) => m.providerId)),
-                        ).map((providerId) => (
-                          <div key={providerId} style={{ marginBottom: "4px" }}>
-                            <div
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: "10px",
-                                fontWeight: 700,
-                                color: "var(--secondary-text)",
-                                textTransform: "uppercase",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px",
-                              }}
-                            >
-                              {filteredModels.find(
-                                (m) => m.providerId === providerId,
-                              )?.favicon && (
-                                <img
-                                  src={
-                                    filteredModels.find(
-                                      (m) => m.providerId === providerId,
-                                    )!.favicon!
-                                  }
-                                  style={{ width: "12px", height: "12px" }}
-                                  alt=""
-                                />
-                              )}
-                              {
-                                filteredModels.find(
-                                  (m) => m.providerId === providerId,
-                                )?.providerName
-                              }
-                            </div>
-                            {filteredModels
-                              .filter((m) => m.providerId === providerId)
-                              .map((model) => (
-                                <div
-                                  key={`${model.providerId}-${model.id}`}
-                                  style={{
-                                    padding: "6px 8px 6px 24px",
-                                    cursor: "pointer",
-                                    fontSize: "12px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    borderRadius: "4px",
-                                    backgroundColor:
-                                      selectedQuickModel?.modelId === model.id
-                                        ? "var(--hover-bg)"
-                                        : "transparent",
-                                    color:
-                                      selectedQuickModel?.modelId === model.id
-                                        ? "var(--accent-color)"
-                                        : "var(--primary-text)",
-                                  }}
-                                  onClick={() => {
-                                    onQuickModelSelect({
-                                      providerId: model.providerId,
-                                      modelId: model.id,
-                                      accountId: model.accountId, // Helper logic picked default account
-                                    });
-                                    setIsQuickModelDropdownOpen(false);
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (
-                                      selectedQuickModel?.modelId !== model.id
-                                    )
-                                      e.currentTarget.style.backgroundColor =
-                                        "var(--hover-bg)";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    if (
-                                      selectedQuickModel?.modelId !== model.id
-                                    )
-                                      e.currentTarget.style.backgroundColor =
-                                        "transparent";
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      flexDirection: "column",
-                                    }}
-                                  >
-                                    <span>{model.name}</span>
-                                  </div>
-                                  {selectedQuickModel?.modelId === model.id && (
-                                    <Check size={14} />
-                                  )}
-                                </div>
-                              ))}
-                          </div>
-                        ))
-                      ) : (
-                        <div
-                          style={{
-                            padding: "12px",
-                            textAlign: "center",
-                            color: "var(--secondary-text)",
-                            fontSize: "12px",
-                          }}
-                        >
-                          No models found
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Model Selector Badge */}
-            {!isConversationStarted && isConnected && (
-              <div style={{ position: "relative" }} ref={modelSelectorRef}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    padding: "4px 8px",
-                    backgroundColor: "transparent",
-                    borderRadius: "6px",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    color: "var(--primary-text)",
-                    transition: "all 0.2s",
-                  }}
-                  onClick={() => {
-                    if (!showModelDropdown && providers.length === 0) {
-                      fetchProviders();
-                    }
-                    setShowModelDropdown(!showModelDropdown);
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }}
-                >
-                  {currentModel ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        marginTop: "1px", // Nhích xuống 1 chút
-                      }}
-                    >
-                      <img
-                        src={currentModel.favicon}
-                        alt=""
-                        style={{ width: "12px", height: "12px" }}
-                        onError={(e) =>
-                          (e.currentTarget.style.display = "none")
-                        }
-                      />
-                      <span>{currentModel.name}</span>
-                    </div>
-                  ) : (
-                    <span>Select model</span>
-                  )}
-                  <ChevronDownIcon size={12} />
-                </div>
-
-                {showModelDropdown && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: "100%",
-                      left: "0",
-                      marginBottom: "8px",
-                      backgroundColor: "var(--vscode-editor-background)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "8px",
-                      padding: "8px 0",
-                      minWidth: "240px",
-                      maxHeight: "360px",
-                      overflow: "hidden",
-                      display: "flex",
-                      flexDirection: "column",
-                      boxShadow: "0 8px 16px rgba(0,0,0,0.3)",
-                      zIndex: 1000,
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Search Bar */}
-                    <div style={{ padding: "0 8px 8px 8px" }}>
-                      <input
-                        type="text"
-                        placeholder="Search models..."
-                        autoFocus
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "6px 10px",
-                          backgroundColor: "var(--input-bg)",
-                          border: "1px solid var(--border-color)",
-                          borderRadius: "4px",
-                          color: "var(--primary-text)",
-                          fontSize: "12px",
-                          outline: "none",
-                        }}
-                      />
-                    </div>
-
-                    {/* Models List */}
-                    <div style={{ overflowY: "auto", flex: 1 }}>
-                      {groupedModels.length > 0 ? (
-                        groupedModels.map((group) => (
-                          <div key={group.providerId}>
-                            {/* Provider Header */}
-                            <div
-                              style={{
-                                padding: "8px 12px 4px 12px",
-                                fontSize: "10px",
-                                fontWeight: 700,
-                                color: "var(--secondary-text)",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.5px",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "6px",
-                                opacity: 0.8,
-                              }}
-                            >
-                              <img
-                                src={group.favicon}
-                                alt=""
-                                style={{ width: "10px", height: "10px" }}
-                                onError={(e) =>
-                                  (e.currentTarget.style.display = "none")
-                                }
-                              />
-                              {group.providerName}
-                            </div>
-
-                            {/* Models in Group */}
-                            {group.models.map((model: any) => (
-                              <div
-                                key={`${model.providerId}-${model.id}`}
-                                style={{
-                                  padding: "8px 12px 8px 24px",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "8px",
-                                  cursor: "pointer",
-                                  backgroundColor:
-                                    currentModel?.id === model.id &&
-                                    currentModel?.providerId ===
-                                      model.providerId
-                                      ? "var(--hover-bg)"
-                                      : "transparent",
-                                }}
-                                onClick={() => {
-                                  setCurrentModel(model);
-                                  setShowModelDropdown(false);
-                                  setSearchQuery("");
-                                }}
-                                onMouseEnter={(e) =>
-                                  (e.currentTarget.style.backgroundColor =
-                                    "var(--hover-bg)")
-                                }
-                                onMouseLeave={(e) => {
-                                  if (
-                                    currentModel?.id !== model.id ||
-                                    currentModel?.providerId !==
-                                      model.providerId
-                                  ) {
-                                    e.currentTarget.style.backgroundColor =
-                                      "transparent";
-                                  }
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    fontSize: "12px",
-                                    fontWeight: 500,
-                                    color: "var(--primary-text)",
-                                  }}
-                                >
-                                  {model.name}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ))
-                      ) : (
-                        <div
-                          style={{
-                            padding: "20px",
-                            textAlign: "center",
-                            fontSize: "12px",
-                            color: "var(--secondary-text)",
-                          }}
-                        >
-                          No models found
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Account Selector Badge (Only if model selected and provider has accounts) */}
-            {!isConversationStarted && currentModel && accounts.length > 0 && (
-              <div style={{ position: "relative" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    padding: "4px 8px",
-                    backgroundColor: "transparent",
-                    borderRadius: "6px",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    color: "var(--primary-text)",
-                    transition: "all 0.2s",
-                  }}
-                  onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }}
-                >
-                  <span
-                    style={{
-                      maxWidth: "120px",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      marginTop: "1px", // Nhích xuống 1 chút
-                    }}
-                  >
-                    {currentAccount?.email || "Select account"}
-                  </span>
-                  <ChevronDownIcon size={12} />
-                </div>
-
-                {showAccountDropdown && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: "100%",
-                      left: "0",
-                      marginBottom: "8px",
-                      backgroundColor: "var(--vscode-editor-background)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: "8px",
-                      padding: "8px 0",
-                      minWidth: "180px",
-                      boxShadow: "0 8px 16px rgba(0,0,0,0.3)",
-                      zIndex: 1000,
-                    }}
-                  >
-                    {accounts.map((acc) => (
-                      <div
-                        key={acc.id}
-                        style={{
-                          padding: "8px 12px",
-                          fontSize: "12px",
-                          cursor: "pointer",
-                          color: "var(--primary-text)",
-                          backgroundColor:
-                            currentAccount?.id === acc.id
-                              ? "var(--hover-bg)"
-                              : "transparent",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                        onClick={() => {
-                          setCurrentAccount(acc);
-                          setShowAccountDropdown(false);
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            "var(--hover-bg)")
-                        }
-                        onMouseLeave={(e) => {
-                          if (currentAccount?.id !== acc.id) {
-                            e.currentTarget.style.backgroundColor =
-                              "transparent";
-                          }
-                        }}
-                      >
-                        {acc.email}
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div
+                style={{
+                  cursor: "pointer",
+                  padding: "var(--spacing-xs)",
+                  borderRadius: "var(--border-radius)",
+                  transition: "background-color 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: selectedQuickModel
+                    ? "var(--accent-color)"
+                    : "var(--secondary-text)",
+                  backgroundColor: selectedQuickModel
+                    ? "var(--accent-bg-transparent)"
+                    : "transparent",
+                }}
+                onClick={() => setIsQuickModelDropdownOpen(true)}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = selectedQuickModel
+                    ? "var(--accent-bg-transparent-hover)"
+                    : "var(--hover-bg)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = selectedQuickModel
+                    ? "var(--accent-bg-transparent)"
+                    : "transparent")
+                }
+                title="Quick Switch Model"
+              >
+                <Cpu size={16} />
               </div>
             )}
           </div>
@@ -1331,7 +868,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
                 if (!currentModel) {
                   // Alert user or show dropdown
-                  setShowModelDropdown(true);
+                  setIsQuickModelDropdownOpen(true);
                   if (providers.length === 0) fetchProviders();
                   return;
                 }
@@ -1447,6 +984,58 @@ const MessageInput: React.FC<MessageInputProps> = ({
             Elara Version Mismatch
           </div>
         )}
+      </div>
+      <div ref={quickModelDropdownRef}>
+        <QuickSwitchDrawer
+          isOpen={isQuickModelDropdownOpen}
+          onClose={() => setIsQuickModelDropdownOpen(false)}
+          providers={providers}
+          apiUrl={apiUrl}
+          onSelect={(selected) => {
+            // Find provider and model to extract name and favicon
+            const prov = providers.find(
+              (p: any) => p.provider_id === selected.providerId,
+            );
+            const modelObj = prov?.models?.find(
+              (m: any) => m.id === selected.modelId,
+            );
+            const modelName = modelObj?.name || selected.modelId;
+
+            let faviconUrl = "";
+            if (prov?.website) {
+              try {
+                const u = new URL(prov.website);
+                faviconUrl = `${u.origin}/favicon.ico`;
+              } catch {
+                // ignore
+              }
+            }
+
+            if (
+              !isConversationStarted &&
+              setCurrentModel &&
+              setCurrentAccount
+            ) {
+              setCurrentModel({
+                ...selected,
+                id: selected.modelId,
+                name: modelName,
+                favicon: faviconUrl,
+              });
+              setCurrentAccount({
+                id: selected.accountId,
+                email: selected.email,
+              });
+            } else if (onQuickModelSelect) {
+              onQuickModelSelect({
+                ...selected,
+                modelName: modelName,
+                email: selected.email,
+                favicon: faviconUrl,
+              });
+            }
+          }}
+        />
       </div>
     </div>
   );
