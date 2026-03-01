@@ -23,7 +23,9 @@ export interface ToolAction {
     | "list_files"
     | "search_files"
     | "run_command"
-    | "execute_agent_action";
+    | "execute_agent_action"
+    | "read_workspace_context"
+    | "update_workspace_context";
   params: Record<string, any>;
   rawXml: string;
   taskProgress?: TaskProgressItem[] | null;
@@ -180,6 +182,14 @@ const parseToolAction = (
       // No special param handling needed yet
       break;
 
+    case "read_workspace_context":
+      // No parameters needed
+      break;
+
+    case "update_workspace_context":
+      params.diff = extractParamValue(innerContent, "diff");
+      break;
+
     case "list_files":
       params.folder_path = extractParamValue(innerContent, "folder_path");
       params.recursive = extractParamValue(innerContent, "recursive"); // Keep as string, handle in extension (e.g. "true", "false", "1", "2")
@@ -266,6 +276,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "list_files",
     "search_files",
     "execute_agent_action",
+    "read_workspace_context",
+    "update_workspace_context",
     "html_inline_css_block", // Treat <html_inline_css_block> as a special tag
     "text", // Treat <text> as a special tag
     "code", // Treat <code> as a special tag
@@ -442,13 +454,25 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             result.taskName = taskName;
           }
         } else if (toolName === "conversation_name") {
+          console.log(
+            `[ResponseParser] Found conversation_name tag. Inner content:`,
+            innerContent,
+          );
           // Explicit <conversation_name> tag
           // Support both <conversation_name><value>Title</value></conversation_name>
           // and <conversation_name>Title</conversation_name>
           const valueFromTag = extractParamValue(innerContent || "", "value");
           if (valueFromTag) {
+            console.log(
+              `[ResponseParser] Extracted from <value>:`,
+              valueFromTag,
+            );
             result.conversationName = valueFromTag;
           } else if (innerContent && innerContent.trim()) {
+            console.log(
+              `[ResponseParser] Extracted from innerContent:`,
+              innerContent.trim(),
+            );
             result.conversationName = innerContent.trim();
           }
         } else {
@@ -565,6 +589,12 @@ export const formatActionForDisplay = (action: ToolAction): string => {
       return `Run: ${action.params.command || ""}`;
     case "execute_agent_action":
       return `Agent: ${action.params.action || "Execute"}`;
+
+    case "read_workspace_context":
+      return `read_workspace_context`;
+
+    case "update_workspace_context":
+      return `update_workspace_context`;
 
     case "list_files":
       const type = action.params.type ? ` [${action.params.type}]` : "";

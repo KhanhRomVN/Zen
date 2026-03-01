@@ -428,6 +428,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
     toolType === "list_files" ||
     toolType === "run_command" ||
     toolType === "search_files" ||
+    toolType === "read_workspace_context" ||
+    toolType === "update_workspace_context" ||
     toolType === "read_file";
   if (isStyledTool) {
     // 🆕 Minimalist UI for single replace_in_file/write_to_file
@@ -437,7 +439,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
         toolType === "write_to_file" ||
         toolType === "read_file" ||
         toolType === "list_files" ||
-        toolType === "search_files")
+        toolType === "search_files" ||
+        toolType === "read_workspace_context" ||
+        toolType === "update_workspace_context")
     ) {
       const item = group[0];
       const { action, index } = item;
@@ -484,17 +488,25 @@ const ToolItem: React.FC<ToolItemProps> = ({
       };
 
       let codeLanguage =
-        toolType === "replace_in_file"
+        toolType === "replace_in_file" ||
+        toolType === "update_workspace_context"
           ? extensionToLanguage[fileExt.toLowerCase()] || fileExt
           : "typescript";
 
       const rawPath =
-        action.params.file_path ||
-        action.params.folder_path ||
-        action.params.path ||
-        getFilename(action);
+        toolType === "read_workspace_context" ||
+        toolType === "update_workspace_context"
+          ? "workspace.md"
+          : action.params.file_path ||
+            action.params.folder_path ||
+            action.params.path ||
+            getFilename(action);
 
-      if (action.type === "replace_in_file" && action.params.diff) {
+      if (
+        (action.type === "replace_in_file" ||
+          action.type === "update_workspace_context") &&
+        action.params.diff
+      ) {
         const result = parseDiff(action.params.diff);
         codeContent = result.code;
         lineHighlights = result.lineHighlights;
@@ -503,6 +515,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
       } else if (
         toolType === "list_files" ||
         toolType === "search_files" ||
+        toolType === "read_workspace_context" ||
         toolType === "read_file"
       ) {
         codeContent = toolOutputs?.[actionId]?.output || "";
@@ -576,7 +589,11 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
       // Calculate stats
       let diffStats = null;
-      if (action.type === "replace_in_file" && action.params.diff) {
+      if (
+        (action.type === "replace_in_file" ||
+          action.type === "update_workspace_context") &&
+        action.params.diff
+      ) {
         const result = parseDiff(action.params.diff);
         diffStats = result.stats;
       }
@@ -587,7 +604,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
           : 0;
 
       const prefix =
-        toolType === "replace_in_file"
+        toolType === "replace_in_file" ||
+        toolType === "update_workspace_context"
           ? "UPDATE"
           : toolType === "write_to_file"
             ? fileStatsMap[rawPath]
@@ -697,6 +715,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
             }}
           />
           {(toolType === "replace_in_file" ||
+            toolType === "update_workspace_context" ||
             toolType === "write_to_file" ||
             ((toolType === "list_files" || toolType === "search_files") &&
               codeContent)) && (
@@ -828,45 +847,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
             {/* Right: action buttons */}
             <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              {terminalId && activeTerminalIds?.has(terminalId) && (
-                <button
-                  className="attach-terminal-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    extensionService.postMessage({
-                      command: "attachTerminalToVSCode",
-                      terminalId: terminalId,
-                    });
-                  }}
-                  title="Open in VSCode Terminal"
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--vscode-icon-foreground)",
-                    padding: "4px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                    <polyline points="15 3 21 3 21 9"></polyline>
-                    <line x1="10" y1="14" x2="21" y2="3"></line>
-                  </svg>
-                </button>
-              )}
               {!isTerminalBusy && (
                 <ExecuteButton
                   isActive={isActiveGroup || false}
@@ -913,8 +893,14 @@ const ToolItem: React.FC<ToolItemProps> = ({
                       actionId: actionId,
                       terminalId: terminalId,
                     });
+                    if (terminalId) {
+                      extensionService.postMessage({
+                        command: "stopTerminal",
+                        terminalId: terminalId,
+                      });
+                    }
                   }}
-                  title="Finalize output and send"
+                  title="Finalize output, kill process and delete terminal"
                   style={{
                     background: "rgba(244, 67, 54, 0.1)",
                     border: "1px solid rgba(244, 67, 54, 0.3)",
@@ -944,43 +930,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   FINALIZE
                 </button>
               )}
-              {terminalId &&
-                (activeTerminalIds?.has(terminalId) ||
-                  attachedTerminalIds?.has(terminalId)) && (
-                  <button
-                    className="kill-terminal-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      extensionService.postMessage({
-                        command: "stopTerminal",
-                        terminalId: terminalId,
-                      });
-                    }}
-                    title="Kill process and delete terminal"
-                    style={{
-                      background: "rgba(244, 67, 54, 0.1)",
-                      border: "1px solid rgba(244, 67, 54, 0.3)",
-                      cursor: "pointer",
-                      color: "rgb(244, 67, 54)",
-                      padding: "4px 8px",
-                      borderRadius: "6px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      gap: "6px",
-                      height: "24px",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    <div
-                      className="codicon codicon-trash"
-                      style={{ fontSize: "14px" }}
-                    />
-                    Kill & Delete
-                  </button>
-                )}
             </div>
           </div>
 

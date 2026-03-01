@@ -33,6 +33,7 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   // 🆕 Blacklist Props
   onToggleBlacklistDrawer?: () => void;
   initialValue?: string;
+  isBackupEnabled?: boolean;
 }
 
 // Hooks
@@ -44,7 +45,7 @@ import { useMentionSystem } from "./hooks/useMentionSystem";
 import FilesPreviews from "./components/FilesPreviews";
 import MentionDropdowns from "./components/MentionDropdowns";
 import MessageInput from "./components/MessageInput";
-import TerminalDrawer from "./components/TerminalDrawer";
+import BlacklistDrawer from "./components/BlacklistDrawer";
 
 const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   onSendMessage,
@@ -68,6 +69,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   backupEventCount,
   onToggleBlacklistDrawer,
   initialValue,
+  isBackupEnabled,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
 
@@ -81,7 +83,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
     useState(false);
   const [showChangesDropdown, setShowChangesDropdown] = useState(false);
   const [showProjectContextModal, setShowProjectContextModal] = useState(false);
-  const [showTerminalDrawer, setShowTerminalDrawer] = useState(false);
+  const [isBlacklistDrawerOpen, setIsBlacklistDrawerOpen] = useState(false);
   const [projectContext, setProjectContext] = useState<any>(null); // Use proper type if available
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -170,7 +172,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         vscodeApi.postMessage({ command: "getWorkspaceFolders" });
       }
     },
-    onOpenTerminal: () => setShowTerminalDrawer(true),
   });
 
   // File Handling Hook
@@ -232,16 +233,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       setMessage(prompt);
       textareaRef.current?.focus();
     }
-  };
-
-  // Handle terminal selection from TerminalDrawer
-  const handleTerminalSelect = (terminalId: string) => {
-    addAttachedItem({
-      id: `terminal-${terminalId}`,
-      path: terminalId,
-      type: "terminal" as any,
-    });
-    setShowTerminalDrawer(false);
   };
 
   // Handle Textarea Change
@@ -375,6 +366,14 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       />
 
       <div style={{ position: "relative" }}>
+        <BlacklistDrawer
+          isOpen={isBlacklistDrawerOpen || false}
+          onClose={
+            onToggleBlacklistDrawer ||
+            (() => setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen))
+          }
+        />
+
         <MessageInput
           message={message}
           setMessage={setMessage}
@@ -432,11 +431,11 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           onStopGeneration={onStopGeneration}
           onToggleBackupDrawer={onToggleBackupDrawer}
           hasBackupEvents={hasBackupEvents}
-          backupEventCount={backupEventCount}
-          onToggleBlacklistDrawer={onToggleBlacklistDrawer}
-          onToggleTerminalDrawer={() =>
-            setShowTerminalDrawer(!showTerminalDrawer)
+          onToggleBlacklistDrawer={
+            onToggleBlacklistDrawer ||
+            (() => setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen))
           }
+          isBackupEnabled={isBackupEnabled}
         />
 
         <MentionDropdowns
@@ -454,8 +453,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           mentionDropdownRef={mentionDropdownRef}
         />
       </div>
-
-      {/* AgentOptionsDrawer removed */}
 
       <ProjectStructureDrawer
         isOpen={showProjectStructureDrawer}
@@ -480,12 +477,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         onClose={() => setShowProjectContextModal(false)}
         initialContext={projectContext}
         onSave={handleSaveProjectContext}
-      />
-
-      <TerminalDrawer
-        isOpen={showTerminalDrawer}
-        onClose={() => setShowTerminalDrawer(false)}
-        onSelect={handleTerminalSelect}
       />
     </div>
   );

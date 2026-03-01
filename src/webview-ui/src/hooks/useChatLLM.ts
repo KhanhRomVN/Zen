@@ -179,6 +179,9 @@ export const useChatLLM = ({
           if (treeView && treeView.trim()) {
             projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeView}\n\`\`\``;
           }
+          if (workspace && workspace.trim()) {
+            projectContextStr += `\n\n## WORKSPACE EXPERIENCE (workspace.md)\n\`\`\`\n${workspace}\n\`\`\``;
+          }
         } catch (e) {
           console.error(
             "[useChatLLM] Failed to use pre-fetched project context",

@@ -187,7 +187,32 @@ export class ChatController {
         case "stopCommand":
           await this.handleStopCommand(message);
           break;
+        case "listTerminals":
+          console.log("[ChatController] handleMessage: listTerminals");
+          const terminals = this.processManager.list();
+          webviewView.webview.postMessage({
+            command: "listTerminalsResult",
+            requestId: message.requestId,
+            terminals,
+          });
+          break;
+        case "removeTerminal":
+          console.log(
+            "[ChatController] handleMessage: removeTerminal",
+            message.terminalId,
+          );
+          this.processManager.close(message.terminalId);
+          webviewView.webview.postMessage({
+            command: "removeTerminalResult",
+            terminalId: message.terminalId,
+            success: true,
+          });
+          break;
         case "stopTerminal":
+          console.log(
+            "[ChatController] handleMessage: stopTerminal",
+            message.terminalId,
+          );
           this.processManager.close(message.terminalId);
           break;
         case "openPreview":
@@ -449,9 +474,24 @@ export class ChatController {
                 messageCount: data.messages?.length || 0,
               });
             } else if (Array.isArray(data) && data.length > 0) {
+              let extractedTitle: string | undefined;
+              for (let i = data.length - 1; i >= 0; i--) {
+                const msg = data[i];
+                if (msg.role === "assistant" && msg.content) {
+                  // Try to match <conversation_name>value</conversation_name> or <conversation_name><value>...</value></conversation_name>
+                  const nameMatch = msg.content.match(
+                    /<conversation_name>(?:<value>)?([\s\S]*?)(?:<\/value>)?<\/conversation_name>/i,
+                  );
+                  if (nameMatch && nameMatch[1].trim()) {
+                    extractedTitle = nameMatch[1].trim();
+                    break;
+                  }
+                }
+              }
+
               history.push({
                 id: conversationId,
-                title: data[0].content.substring(0, 100),
+                title: extractedTitle || data[0].content.substring(0, 100),
                 timestamp: data[data.length - 1].timestamp || Date.now(),
                 lastModified: data[data.length - 1].timestamp || Date.now(),
                 preview: data[0].content.substring(0, 150),
@@ -1207,10 +1247,38 @@ export class ChatController {
       const pathValue = message.path || message.filePath || message.file_path;
       if (!pathValue)
         throw new Error("The 'path' argument must be of type string.");
-      const absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
-      let content = Buffer.from(
-        await vscode.workspace.fs.readFile(absPath),
-      ).toString("utf8");
+      let absPath: vscode.Uri;
+      if (pathValue.endsWith("workspace.md")) {
+        const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
+        await fs.promises.mkdir(pcDir, { recursive: true });
+        absPath = vscode.Uri.file(path.join(pcDir, path.basename(pathValue)));
+      } else {
+        absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
+      }
+
+      let content = "";
+      try {
+        console.log(`[ChatController] Attempting to read:`, absPath.fsPath);
+        content = Buffer.from(
+          await vscode.workspace.fs.readFile(absPath),
+        ).toString("utf8");
+        console.log(
+          `[ChatController] Read success for:`,
+          absPath.fsPath,
+          `Length:`,
+          content.length,
+        );
+      } catch (e: any) {
+        console.error(`[ChatController] Reading ${absPath.fsPath} failed:`, e);
+        if (pathValue.endsWith("workspace.md")) {
+          console.log(
+            `[ChatController] Ignoring error for workspace.md, returning empty content.`,
+          );
+          content = ""; // Treat missing workspace.md as an empty file
+        } else {
+          throw e;
+        }
+      }
 
       if (message.startLine !== undefined) {
         const lines = content.split(/\r?\n/);
@@ -1307,14 +1375,41 @@ export class ChatController {
       });
       return;
     }
-    const absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
+    let absPath: vscode.Uri;
+    if (pathValue.endsWith("workspace.md")) {
+      const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
+      await fs.promises.mkdir(pcDir, { recursive: true });
+      absPath = vscode.Uri.file(path.join(pcDir, path.basename(pathValue)));
+      console.log(
+        `[ChatController] handleReplaceInFile workspace.md resolution:`,
+        absPath.fsPath,
+      );
+    } else {
+      absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
+    }
     const release = await this.fileLockManager.acquire(absPath.fsPath);
     let newContent: string | undefined;
 
     try {
-      const content = Buffer.from(
-        await vscode.workspace.fs.readFile(absPath),
-      ).toString("utf8");
+      let content = "";
+      try {
+        console.log(
+          `[ChatController] Attempting to read before replace:`,
+          absPath.fsPath,
+        );
+        content = Buffer.from(
+          await vscode.workspace.fs.readFile(absPath),
+        ).toString("utf8");
+      } catch (e: any) {
+        console.error(
+          `[ChatController] Reading ${absPath.fsPath} before replace failed:`,
+          e,
+        );
+        if (!pathValue.endsWith("workspace.md")) {
+          throw e; // Only ignore read errors for workspace.md
+        }
+      }
+
       const match = message.diff.match(
         /<<<<<<< SEARCH\s*\n([\s\S]*?)\n\s*=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
       );

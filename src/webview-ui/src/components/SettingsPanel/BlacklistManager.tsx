@@ -5,9 +5,13 @@ import { useBlacklistManager, TreeNode } from "../../hooks/useBlacklistManager";
 
 interface BlacklistManagerProps {
   className?: string;
+  onClose?: () => void;
 }
 
-const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
+const BlacklistManager: React.FC<BlacklistManagerProps> = ({
+  className,
+  onClose,
+}) => {
   const {
     blacklist,
     treeData,
@@ -170,7 +174,12 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
 
   return (
     <div
-      style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        height: "100%",
+      }}
       className={className}
     >
       <div
@@ -228,6 +237,32 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
               <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3" />
             </svg>
           </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              style={{
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: "var(--vscode-descriptionForeground)",
+                display: "flex",
+                padding: "2px",
+              }}
+              title="Close"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
       <div
@@ -256,8 +291,8 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({ className }) => {
           border: "1px solid var(--vscode-settings-textInputBorder)",
           borderRadius: "4px",
           backgroundColor: "var(--vscode-settings-textInputBackground)",
-          minHeight: "300px",
-          maxHeight: "500px",
+          flex: 1, // Take up remaining space
+          minHeight: "0", // Important for flex scrolling
           overflow: "auto",
           padding: "4px",
         }}

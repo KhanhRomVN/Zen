@@ -1,12 +1,7 @@
 import React from "react";
 import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
-import {
-  PlusIcon,
-  ChevronDownIcon,
-  SendIcon,
-  SquareTerminalIcon,
-} from "./Icons";
+import { PlusIcon, ChevronDownIcon, SendIcon } from "./Icons";
 import { Check, Cpu, Search, X, Clock, Ban } from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
@@ -70,8 +65,7 @@ interface MessageInputProps {
   backupEventCount?: number;
   // 🆕 Blacklist Props
   onToggleBlacklistDrawer?: () => void;
-  // 🆕 Terminal Props
-  onToggleTerminalDrawer?: () => void;
+  isBackupEnabled?: boolean;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -112,7 +106,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   hasBackupEvents,
   backupEventCount,
   onToggleBlacklistDrawer,
-  onToggleTerminalDrawer,
+  isBackupEnabled,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -728,7 +722,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             )}
 
             {/* 🆕 Backup Blacklist Toggle */}
-            {onToggleBlacklistDrawer && (
+            {onToggleBlacklistDrawer && isBackupEnabled && (
               <div
                 style={{
                   cursor: "pointer",
@@ -801,32 +795,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     />
                   )}
                 </div>
-              </div>
-            )}
-
-            {/* 🆕 Terminal Drawer Toggle */}
-            {onToggleTerminalDrawer && (
-              <div
-                style={{
-                  cursor: "pointer",
-                  padding: "var(--spacing-xs)",
-                  borderRadius: "var(--border-radius)",
-                  transition: "background-color 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--secondary-text)",
-                }}
-                onClick={onToggleTerminalDrawer}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "transparent")
-                }
-                title="Manage Terminals"
-              >
-                <SquareTerminalIcon size={16} />
               </div>
             )}
 

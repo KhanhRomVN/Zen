@@ -39,7 +39,7 @@ run_command(command)
 
 \`\`\`
 read_workspace_context()            → Read workspace.md
-update_workspace_context(content)   → Overwrite workspace.md (plain text, lessons learned)
+update_workspace_context(diff)      → Update workspace.md using diff block (same SEARCH/REPLACE format as replace_in_file)
 <conversation_name>Title</conversation_name>  → Set conversation title (use in first response)
 \`\`\`
 

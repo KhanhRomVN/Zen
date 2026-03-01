@@ -6,7 +6,7 @@ export const WORKFLOW = `# WORKFLOW & RULES
 
 1. Set conversation title: \`<conversation_name>Title</conversation_name>\` (FIRST response, always)
 2. Check \`workspace.md\` via \`read_workspace_context()\`
-   - Empty? → Propose codebase scan, wait for approval before any action
+   - Learn and apply the recorded rules/experiences
 3. Evaluate clarity:
 
 ### GO / NO-GO Gate
@@ -103,7 +103,7 @@ Only after receiving file contents. Batch all independent writes/replaces:
 
 - Tool error → analyze root cause → fix or ask (never silently retry same approach)
 - Mark completed tasks in \`<task_progress>\`
-- Update \`workspace.md\` only for: complex multi-turn tasks, major milestones, dense context
+- Update \`workspace.md\` freely at ANY time to record new experiences, knowledge, or info (using a bulleted list format: \`- <ý 1>\`, \`- <ý 2>\`, ...)
 
 ---
 

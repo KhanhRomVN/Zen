@@ -420,6 +420,89 @@ export const useToolExecution = ({
 
           break;
         }
+
+        case "read_workspace_context": {
+          const requestId = `read-workspace-${Date.now()}-${Math.random()}`;
+          extensionService.postMessage({
+            command: "readFile",
+            path: "workspace.md",
+            requestId: requestId,
+          });
+
+          const handleReadWorkspaceResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (msg.command === "fileContent" && msg.requestId === requestId) {
+              window.removeEventListener(
+                "message",
+                handleReadWorkspaceResponse,
+              );
+              if (msg.error) {
+                let readableError = msg.error;
+                if (
+                  readableError.includes("tồn tại") ||
+                  readableError.includes("no such file")
+                ) {
+                  readableError = "workspace.md not found in project context";
+                }
+                resolve(
+                  `[read_workspace_context] Result: Error - ${readableError}`,
+                );
+              } else {
+                let result = `[read_workspace_context] Result:\n\`\`\`\n${msg.content}\n\`\`\``;
+                resolve(result);
+              }
+            }
+          };
+          window.addEventListener("message", handleReadWorkspaceResponse);
+          setTimeout(() => {
+            window.removeEventListener("message", handleReadWorkspaceResponse);
+            resolve(null);
+          }, 10000);
+          break;
+        }
+
+        case "update_workspace_context": {
+          const requestId = `update-workspace-${Date.now()}-${Math.random()}`;
+
+          extensionService.postMessage({
+            command: "replaceInFile",
+            path: "workspace.md",
+            diff: action.params.diff,
+            requestId: requestId,
+            skipDiagnostics: true,
+          });
+
+          const handleUpdateWorkspaceResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "replaceInFileResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener(
+                "message",
+                handleUpdateWorkspaceResponse,
+              );
+              if (msg.error) {
+                resolve(
+                  `[update_workspace_context] Result: Error - ${msg.error}`,
+                );
+              } else {
+                let result = `[update_workspace_context] Success: Workspace context updated successfully`;
+                resolve(result);
+              }
+            }
+          };
+          window.addEventListener("message", handleUpdateWorkspaceResponse);
+          setTimeout(() => {
+            window.removeEventListener(
+              "message",
+              handleUpdateWorkspaceResponse,
+            );
+            resolve(null);
+          }, 10000);
+          break;
+        }
+
         case "execute_agent_action": {
           const requestId = `agent-${Date.now()}-${Math.random()}`;
           extensionService.postMessage({

@@ -11,7 +11,6 @@ import ChatFooter from "./ChatFooter";
 import { useProject } from "../../context/ProjectContext";
 import TaskDrawer from "./TaskDrawer";
 import BackupDrawer from "./ChatFooter/components/BackupDrawer";
-import BlacklistDrawer from "./ChatFooter/components/BlacklistDrawer";
 
 import { extensionService } from "../../services/ExtensionService";
 import {
@@ -67,7 +66,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
   const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
   const [isBackupDrawerOpen, setIsBackupDrawerOpen] = useState(false);
-  const [isBlacklistDrawerOpen, setIsBlacklistDrawerOpen] = useState(false);
   const [isLoadingConversation, setIsLoadingConversation] = useState(true);
   const [activeTerminalIds, setActiveTerminalIds] = useState<Set<string>>(
     new Set(),
@@ -549,9 +547,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onToggleBackupDrawer={() => setIsBackupDrawerOpen(!isBackupDrawerOpen)}
         hasBackupEvents={backupEventCount > 0}
         backupEventCount={backupEventCount}
-        onToggleBlacklistDrawer={() =>
-          setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen)
-        }
+        isBackupEnabled={isBackupEnabled}
       />
       {currentConversationId && (
         <BackupDrawer
@@ -560,10 +556,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           onClose={() => setIsBackupDrawerOpen(false)}
         />
       )}
-      <BlacklistDrawer
-        isOpen={isBlacklistDrawerOpen}
-        onClose={() => setIsBlacklistDrawerOpen(false)}
-      />
     </div>
   );
 };

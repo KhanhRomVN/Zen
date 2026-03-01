@@ -9,7 +9,6 @@ interface UseMentionSystemProps {
   availableFolders: WorkspaceItem[];
   onRequestWorkspaceFiles: () => void;
   onRequestWorkspaceFolders: () => void;
-  onOpenTerminal: () => void;
 }
 
 export const useMentionSystem = ({
@@ -20,7 +19,6 @@ export const useMentionSystem = ({
   availableFolders,
   onRequestWorkspaceFiles,
   onRequestWorkspaceFolders,
-  onOpenTerminal,
 }: UseMentionSystemProps) => {
   const [showAtMenu, setShowAtMenu] = useState(false);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -81,10 +79,6 @@ export const useMentionSystem = ({
       setMessage((prev) => prev.slice(0, -1)); // Remove @
       setMentionType("rules");
       setShowMentionDropdown(true);
-    } else if (option === "terminal") {
-      // Remove @ and open terminal drawer
-      setMessage((prev) => prev.slice(0, -1));
-      onOpenTerminal();
     } else if (option === "conver") {
       // Placeholder for future implementation
     }

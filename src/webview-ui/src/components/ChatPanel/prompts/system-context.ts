@@ -12,6 +12,7 @@ export const buildSystemContext = (info: SystemInfo): string => {
 
 | Field | Value |
 |-------|-------|
+
 | **OS** | ${info.os} |
 | **IDE** | ${info.ide} |
 | **Shell** | ${info.shell} |
@@ -27,7 +28,7 @@ export const buildSystemContext = (info: SystemInfo): string => {
 ## Auto-Injected Per Message
 - **FILE_STRUCTURE**: Current project file tree
 - **ACTIVE_TERMINALS**: Running processes overview
-- **PROJECT_CONTEXT**: Content from \`workspace.md\` (plain text lessons/experiences)
+- **PROJECT_CONTEXT**: Content from \`workspace.md\` (project experiences, important knowledge, and info, formatted as bullet points: \`- <ý 1>\`)
 
 ## Git Integration
 - File edit frequency data available

@@ -65,10 +65,11 @@ Turn 2: <replace_in_file><file_path>app.ts</file_path></replace_in_file>  // Aft
 ## C5: CONTEXT-CHECK-FIRST
 **Rule**: At conversation start, check Project Context (workspace.md).
 
-**If context is EMPTY/NULL**:
-1. PROPOSE scanning codebase
-2. ASK user permission (do not auto-execute)
-3. Only proceed after explicit approval
+**workspace.md Rules**:
+- Records project experiences, important knowledge, and info as a bulleted list (\`- <ý 1>\`, \`- <ý 2>\`, ...).
+- Read or update at ANY time (not restricted to task completion).
+- No restrictions on content type (experiences, info, knowledge, etc.).
+- If empty, DO NOT propose scanning the codebase.
 
 ## C6: TOKEN-LIMIT-PREVENTION
 **Rule**: Estimate output tokens before responding.

@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import ChatHeader from "../ChatPanel/ChatHeader";
 import ChatFooter from "../ChatPanel/ChatFooter";
 import WelcomeUI from "./WelcomeUI";
-import BlacklistDrawer from "../ChatPanel/ChatFooter/components/BlacklistDrawer";
 import { TabInfo } from "../../types";
 
 interface HomePanelProps {
@@ -22,6 +21,7 @@ interface HomePanelProps {
 }
 
 import { useProject } from "../../context/ProjectContext";
+import { useSettings } from "../../context/SettingsContext";
 
 const HomePanel: React.FC<HomePanelProps> = ({
   onSendMessage,
@@ -29,6 +29,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
   initialValue,
 }) => {
   const { startWatching, stopWatching } = useProject();
+  const { isBackupEnabled } = useSettings();
 
   useEffect(() => {
     startWatching();
@@ -42,7 +43,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
   const [selectedQuickModel, setSelectedQuickModel] = useState<any>(null);
-  const [isBlacklistDrawerOpen, setIsBlacklistDrawerOpen] = useState(false);
 
   // Dummy tab for Header to verify visual consistency
   const dummyTab: TabInfo = {
@@ -104,14 +104,8 @@ const HomePanel: React.FC<HomePanelProps> = ({
         setCurrentAccount={setCurrentAccount}
         selectedQuickModel={selectedQuickModel}
         onQuickModelSelect={setSelectedQuickModel}
-        onToggleBlacklistDrawer={() =>
-          setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen)
-        }
         initialValue={initialValue}
-      />
-      <BlacklistDrawer
-        isOpen={isBlacklistDrawerOpen}
-        onClose={() => setIsBlacklistDrawerOpen(false)}
+        isBackupEnabled={isBackupEnabled}
       />
     </div>
   );

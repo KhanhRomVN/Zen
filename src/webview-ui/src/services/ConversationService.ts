@@ -128,24 +128,38 @@ export const saveConversation = async (
     }
 
     const uniqueTaskNames = new Set<string>();
+    let latestConversationName: string | undefined = undefined;
     for (const msg of activeMessages) {
       if (msg.role === "assistant") {
         const parsed = parseAIResponse(msg.content);
         if (parsed.taskName) {
           uniqueTaskNames.add(parsed.taskName);
         }
+        if (parsed.conversationName) {
+          console.log(
+            `[ConversationService] Found conversationName in message ${msg.id}:`,
+            parsed.conversationName,
+          );
+          latestConversationName = parsed.conversationName;
+        }
       }
     }
+    console.log(
+      `[ConversationService] Final latestConversationName:`,
+      latestConversationName,
+    );
     const uniqueTaskCount = uniqueTaskNames.size;
 
     let existingCreatedAt: number | undefined;
     let existingLastModified: number | undefined;
+    let existingTitle: string | undefined;
     try {
       const existingData = await storage.get(key, false);
       if (existingData && existingData.value) {
         const parsed = JSON.parse(existingData.value);
         existingCreatedAt = parsed.metadata?.createdAt;
         existingLastModified = parsed.metadata?.lastModified;
+        existingTitle = parsed.metadata?.title;
       }
     } catch (error) {}
 
@@ -164,7 +178,11 @@ export const saveConversation = async (
         tabId,
         folderPath,
         title:
-          title || messages[0]?.content.substring(0, 100) || "New Conversation",
+          latestConversationName ||
+          title ||
+          existingTitle ||
+          messages[0]?.content.substring(0, 100) ||
+          "New Conversation",
         lastModified: skipTimestampUpdate
           ? existingLastModified || Date.now()
           : Date.now(),
