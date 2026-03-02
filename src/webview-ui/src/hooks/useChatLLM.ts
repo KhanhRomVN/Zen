@@ -366,11 +366,6 @@ export const useChatLLM = ({
           thinking: effThinking,
         };
 
-        console.log(
-          "[useChatLLM] Sending Request Body:",
-          JSON.stringify(body, null, 2),
-        );
-
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
         setIsStreaming(true);
@@ -629,6 +624,7 @@ export const useChatLLM = ({
           role: "assistant",
           content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
           timestamp: Date.now(),
+          isError: true,
         };
         setMessages((prev) => [...prev, errorMessage]);
         setIsProcessing(false);

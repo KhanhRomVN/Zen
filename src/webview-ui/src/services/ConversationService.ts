@@ -145,10 +145,6 @@ export const saveConversation = async (
         }
       }
     }
-    console.log(
-      `[ConversationService] Final latestConversationName:`,
-      latestConversationName,
-    );
     const uniqueTaskCount = uniqueTaskNames.size;
 
     let existingCreatedAt: number | undefined;

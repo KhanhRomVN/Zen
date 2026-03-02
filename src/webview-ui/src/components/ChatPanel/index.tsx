@@ -86,6 +86,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     text: string;
     nonce: number;
   } | null>(null);
+  const [isRawMode, setIsRawMode] = useState(false);
 
   // --- Hooks ---
   const {
@@ -542,6 +543,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         attachedTerminalIds={attachedTerminalIds}
         conversationId={currentConversationId}
         onRevert={handleRevertMessage}
+        isRawMode={isRawMode}
       />
       <ChatFooter
         folderPath={selectedTab?.folderPath || null}
@@ -578,6 +580,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isBackupEnabled={isBackupEnabled}
         initialValue={revertData?.text}
         initialValueNonce={revertData?.nonce}
+        isRawMode={isRawMode}
+        onToggleRawMode={() => setIsRawMode(!isRawMode)}
       />
       {currentConversationId && (
         <BackupDrawer

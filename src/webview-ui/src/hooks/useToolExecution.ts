@@ -523,6 +523,41 @@ export const useToolExecution = ({
           break;
         }
 
+        case "ask_bypass_gitignore": {
+          const requestId = `bypass-${Date.now()}-${Math.random()}`;
+          const pathValue = action.params.path;
+          extensionService.postMessage({
+            command: "askBypassGitignore",
+            path: pathValue,
+            requestId: requestId,
+          });
+
+          const handleBypassResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "askBypassGitignoreResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener("message", handleBypassResponse);
+              if (msg.error) {
+                resolve(
+                  `[ask_bypass_gitignore for '${pathValue}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                resolve(
+                  `[ask_bypass_gitignore for '${pathValue}'] Result: Bypass approved for current conversation. You can now access this path.`,
+                );
+              }
+            }
+          };
+          window.addEventListener("message", handleBypassResponse);
+          setTimeout(() => {
+            window.removeEventListener("message", handleBypassResponse);
+            resolve(null);
+          }, 10000);
+          break;
+        }
+
         case "read_workspace_context": {
           const requestId = `read-workspace-${Date.now()}-${Math.random()}`;
           extensionService.postMessage({

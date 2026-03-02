@@ -20,6 +20,7 @@ export interface Message {
   accountId?: string;
   websiteUrl?: string;
   email?: string;
+  isError?: boolean;
 }
 
 export interface ChatBodyProps {

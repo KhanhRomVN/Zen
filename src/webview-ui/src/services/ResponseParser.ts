@@ -29,6 +29,7 @@ export interface ToolAction {
     | "update_workspace_context"
     | "get_symbol_definition"
     | "get_references"
+    | "ask_bypass_gitignore"
     | "get_file_outline";
   params: Record<string, any>;
   rawXml: string;
@@ -225,6 +226,10 @@ const parseToolAction = (
     case "get_file_outline":
       params.file_path = extractParamValue(innerContent, "file_path");
       break;
+
+    case "ask_bypass_gitignore":
+      params.path = extractParamValue(innerContent, "path");
+      break;
   }
 
   return {
@@ -301,6 +306,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "get_symbol_definition",
     "get_references",
     "get_file_outline",
+    "ask_bypass_gitignore",
     "code", // Treat <code> as a special tag
     "file", // Treat <file> as a special tag
     "task_progress", // Treat <task_progress> as a special tag
@@ -372,7 +378,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       }
 
       const language = match[1] || "text";
-      const codeContent = match[2].replace(/\n$/, "");
+      const codeContent = match[2].trimEnd();
       segments.push({
         type: "code",
         content: codeContent,
@@ -617,6 +623,9 @@ export const formatActionForDisplay = (action: ToolAction): string => {
       return `get_references: ${action.params.symbol || "unknown"}`;
     case "get_file_outline":
       return `get_file_outline: ${action.params.file_path || "unknown"}`;
+
+    case "ask_bypass_gitignore":
+      return `Bypass request: ${action.params.path || "unknown"}`;
 
     default:
       return ``;

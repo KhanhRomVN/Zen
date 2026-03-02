@@ -64,6 +64,7 @@ export class FileSystemAnalyzer {
   ];
 
   private blacklist: Set<string> = new Set();
+  private bypassedPaths: Set<string> = new Set();
 
   /**
    * Set the blacklist of files/folders
@@ -83,6 +84,27 @@ export class FileSystemAnalyzer {
     });
 
     this.blacklist = new Set(absolutePaths);
+  }
+
+  /**
+   * Add a path to the bypass list for the current session
+   */
+  public addBypassPath(pathValue: string) {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    let absolutePath = pathValue;
+
+    if (
+      !path.isAbsolute(pathValue) &&
+      workspaceFolders &&
+      workspaceFolders.length > 0
+    ) {
+      absolutePath = path.join(workspaceFolders[0].uri.fsPath, pathValue);
+    }
+
+    absolutePath = path.normalize(absolutePath);
+
+    this.bypassedPaths.add(absolutePath);
+    console.log(`[FileSystemAnalyzer] Added bypass path: ${absolutePath}`);
   }
 
   /**
@@ -142,8 +164,21 @@ export class FileSystemAnalyzer {
     maxDepth: number,
     useBlacklist: boolean = false,
   ): Promise<FileNode> {
+    // Check if bypass should apply to disable gitignore in rg
+    let extraFlags = "";
+    const normalizedRoot = path.normalize(rootPath);
+    for (const bypassed of this.bypassedPaths) {
+      if (
+        normalizedRoot === bypassed ||
+        normalizedRoot.startsWith(bypassed + path.sep)
+      ) {
+        extraFlags = "--no-ignore ";
+        break;
+      }
+    }
+
     const { stdout } = await execAsync(
-      `"${rgPath}" --files --max-depth ${maxDepth}`,
+      `"${rgPath}" ${extraFlags}--files --max-depth ${maxDepth}`,
       {
         cwd: rootPath,
         maxBuffer: 1024 * 1024 * 10,
@@ -329,7 +364,7 @@ export class FileSystemAnalyzer {
   /**
    * Check if file/folder should be ignored
    */
-  private shouldIgnore(name: string): boolean {
+  public shouldIgnore(name: string): boolean {
     return this.ignoredPatterns.some((pattern) => {
       if (pattern.includes("*")) {
         const regex = new RegExp(pattern.replace("*", ".*"));
@@ -340,9 +375,100 @@ export class FileSystemAnalyzer {
   }
 
   /**
+   * Unified check if a path is ignored (by pattern, blacklist, or .gitignore)
+   */
+  public async isIgnored(filePath: string): Promise<{
+    ignored: boolean;
+    reason?: "pattern" | "blacklist" | "gitignore";
+  }> {
+    // 0. Check if path or any parent is bypassed
+    const normalizedFilePath = path.normalize(
+      path.isAbsolute(filePath)
+        ? filePath
+        : path.join(this.getWorkspaceRoot() || "", filePath),
+    );
+
+    console.log(`[FileSystemAnalyzer] isIgnored check: ${normalizedFilePath}`);
+    console.log(
+      `[FileSystemAnalyzer] Bypassed paths:`,
+      Array.from(this.bypassedPaths),
+    );
+
+    for (const bypassed of this.bypassedPaths) {
+      if (
+        normalizedFilePath === bypassed ||
+        normalizedFilePath.startsWith(bypassed + path.sep)
+      ) {
+        console.log(
+          `[FileSystemAnalyzer] Bypass HIT for: ${normalizedFilePath}`,
+        );
+        return { ignored: false };
+      }
+    }
+
+    // 1. Check predefined patterns
+    if (this.shouldIgnore(path.basename(filePath))) {
+      console.log(
+        `[FileSystemAnalyzer] isIgnored result: TRUE (pattern) for ${normalizedFilePath}`,
+      );
+      return { ignored: true, reason: "pattern" };
+    }
+
+    // 2. Check blacklist
+    if (this.isBlacklisted(filePath)) {
+      console.log(
+        `[FileSystemAnalyzer] isIgnored result: TRUE (blacklist) for ${normalizedFilePath}`,
+      );
+      return { ignored: true, reason: "blacklist" };
+    }
+
+    // 3. Check .gitignore using git check-ignore
+    const workspaceRoot = this.getWorkspaceRoot();
+    if (workspaceRoot) {
+      try {
+        const relativePath = path.relative(workspaceRoot, filePath);
+        // Skip check-ignore for files outside workspace or the workspace root itself
+        if (!relativePath.startsWith("..") && relativePath !== "") {
+          const { stdout } = await execAsync(
+            `git check-ignore "${relativePath}"`,
+            {
+              cwd: workspaceRoot,
+            },
+          );
+          if (stdout.trim().length > 0) {
+            console.log(
+              `[FileSystemAnalyzer] isIgnored result: TRUE (gitignore) for ${normalizedFilePath}`,
+            );
+            return { ignored: true, reason: "gitignore" };
+          }
+        }
+      } catch (error: any) {
+        // git check-ignore returns exit code 1 if file is NOT ignored, which is caught here
+        // We only care if it actually found a match (exit code 0)
+      }
+    }
+
+    console.log(
+      `[FileSystemAnalyzer] isIgnored result: FALSE (not ignored) for ${normalizedFilePath}`,
+    );
+    return { ignored: false };
+  }
+
+  /**
    * Check if path is in blacklist
    */
   private isBlacklisted(filePath: string): boolean {
+    // 0. Check bypasses
+    const normalizedFilePath = path.normalize(filePath);
+    for (const bypassed of this.bypassedPaths) {
+      if (
+        normalizedFilePath === bypassed ||
+        normalizedFilePath.startsWith(bypassed + path.sep)
+      ) {
+        return false;
+      }
+    }
+
     // Check exact match
     if (this.blacklist.has(filePath)) {
       return true;

@@ -47,6 +47,13 @@ Batch all exploration in ONE message:
 <search_files><folder_path>src</folder_path><regex>pattern</regex></search_files>
 \`\`\`
 
+### Ignored Path Protocol
+If a path is ignored (e.g., in node_modules, dist, or custom .gitignore rule):
+1. **Never** attempt to read/list it directly if you know it's ignored.
+2. Read \`.gitignore\` to analyze the scope.
+3. Call \`ask_bypass_gitignore(path)\` to request temporary access.
+4. Wait for user permission before calling \`read_file\` or \`list_files\` on it.
+
 ### Diagnostic Tools — Use Early, Use Often
 
 **\`get_file_outline\`** — Run BEFORE reading any large/unfamiliar file:

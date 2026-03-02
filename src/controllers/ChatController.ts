@@ -142,6 +142,9 @@ export class ChatController {
         case "searchFiles":
           await this.handleSearchFiles(message, webviewView);
           break;
+        case "askBypassGitignore":
+          await this.handleAskBypassGitignore(message, webviewView);
+          break;
         case "getSymbolDefinition":
           await this.handleGetSymbolDefinition(message, webviewView);
           break;
@@ -1012,6 +1015,12 @@ export class ChatController {
         maxDepth = parseInt(String(recursiveParam), 10) || 1;
 
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+      const ignoreCheck = await fsAnalyzer.isIgnored(absolutePath.fsPath);
+      if (ignoreCheck.ignored) {
+        throw new Error(
+          `Path '${dirPath}' is out of scope (ignored by .gitignore or project settings).`,
+        );
+      }
       const tree = await fsAnalyzer.getFileTree(maxDepth, absolutePath.fsPath);
 
       webviewView.webview.postMessage({
@@ -1273,6 +1282,14 @@ export class ChatController {
         absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
       }
 
+      const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+      const ignoreCheck = await fsAnalyzer.isIgnored(absPath.fsPath);
+      if (ignoreCheck.ignored && !pathValue.endsWith("workspace.md")) {
+        throw new Error(
+          `Path '${pathValue}' is out of scope (ignored by .gitignore or project settings).`,
+        );
+      }
+
       let content = "";
       try {
         console.log(`[ChatController] Attempting to read:`, absPath.fsPath);
@@ -1485,6 +1502,39 @@ export class ChatController {
     }
   }
 
+  private async handleAskBypassGitignore(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const { path: pathValue, requestId } = message;
+      console.log(
+        `[ChatController] Received bypass request for: ${pathValue}, requestId: ${requestId}`,
+      );
+      if (!pathValue) throw new Error("Path is required");
+
+      const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+      fsAnalyzer.addBypassPath(pathValue);
+
+      webviewView.webview.postMessage({
+        command: "askBypassGitignoreResult",
+        requestId,
+        path: pathValue,
+        success: true,
+      });
+    } catch (error: any) {
+      console.error(
+        `[ChatController] Failed to process bypass request:`,
+        error,
+      );
+      webviewView.webview.postMessage({
+        command: "askBypassGitignoreResult",
+        requestId: message.requestId,
+        error: String(error),
+      });
+    }
+  }
+
   private async handleSearchFiles(
     message: any,
     webviewView: vscode.WebviewView,
@@ -1497,6 +1547,15 @@ export class ChatController {
 
       const pathValue = message.path || message.folder_path || message.filePath;
       const searchPath = pathValue || ".";
+      const uri = vscode.Uri.joinPath(workspaceFolder.uri, searchPath);
+
+      const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+      const ignoreCheck = await fsAnalyzer.isIgnored(uri.fsPath);
+      if (ignoreCheck.ignored) {
+        throw new Error(
+          `Path '${searchPath}' is out of scope (ignored by .gitignore or project settings).`,
+        );
+      }
 
       const { exec } = require("child_process");
       const cmd = `grep -rIlE "${regex.replace(/"/g, '\\"')}" "${searchPath}"`;
@@ -2304,6 +2363,14 @@ export class ChatController {
               uri,
             );
 
+          const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+          const ignoreCheck = await fsAnalyzer.isIgnored(uri.fsPath);
+          if (ignoreCheck.ignored) {
+            throw new Error(
+              `Path '${filePath}' is out of scope (ignored by .gitignore or project settings).`,
+            );
+          }
+
           if (documentSymbols) {
             const findSymbol = (
               syms: vscode.DocumentSymbol[],
@@ -2341,9 +2408,15 @@ export class ChatController {
 
         if (workspaceSymbols && workspaceSymbols.length > 0) {
           // Filter out node_modules and exact matches
-          const relevant = workspaceSymbols
-            .filter((s) => !s.location.uri.fsPath.includes("node_modules"))
-            .filter((s) => s.name === symbol);
+          const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+          const relevant: vscode.SymbolInformation[] = [];
+          for (const s of workspaceSymbols) {
+            if (s.location.uri.fsPath.includes("node_modules")) continue;
+            const check = await fsAnalyzer.isIgnored(s.location.uri.fsPath);
+            if (!check.ignored && s.name === symbol) {
+              relevant.push(s);
+            }
+          }
 
           definitions =
             relevant.length > 0
@@ -2448,6 +2521,14 @@ export class ChatController {
               uri,
             );
 
+          const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+          const ignoreCheck = await fsAnalyzer.isIgnored(uri.fsPath);
+          if (ignoreCheck.ignored) {
+            throw new Error(
+              `Path '${filePath}' is out of scope (ignored by .gitignore or project settings).`,
+            );
+          }
+
           if (documentSymbols) {
             const findSymbol = (
               syms: vscode.DocumentSymbol[],
@@ -2522,9 +2603,15 @@ export class ChatController {
       }
 
       // Filter out node_modules
-      const filteredRefs = references.filter(
-        (ref) => !ref.uri.fsPath.includes("node_modules"),
-      );
+      const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+      const filteredRefs: vscode.Location[] = [];
+      for (const ref of references) {
+        if (ref.uri.fsPath.includes("node_modules")) continue;
+        const check = await fsAnalyzer.isIgnored(ref.uri.fsPath);
+        if (!check.ignored) {
+          filteredRefs.push(ref);
+        }
+      }
 
       if (filteredRefs.length === 0) {
         webviewView.webview.postMessage({
@@ -2616,6 +2703,14 @@ export class ChatController {
         ? vscode.Uri.file(filePath)
         : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
       const absolutePath = uri.fsPath;
+
+      const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
+      const ignoreCheck = await fsAnalyzer.isIgnored(absolutePath);
+      if (ignoreCheck.ignored) {
+        throw new Error(
+          `Path '${filePath}' is out of scope (ignored by .gitignore or project settings).`,
+        );
+      }
 
       if (!fs.existsSync(absolutePath)) {
         throw new Error(`File not found: ${filePath}`);

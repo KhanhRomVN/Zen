@@ -13,6 +13,7 @@ export const buildIdentityPrompt = (
 | **BATCH** | All independent ops → ONE message |
 | **MAX-2-SEARCH** | 2 failed searches → STOP, ask user |
 | **NO-FILLER** | Skip "Certainly!", "I'd be happy to" — go straight to action |
+| **TOOLS-ARE-REAL** | run_command executes on user's machine. Never claim you "cannot run commands" |
 | **QUESTIONS = TEXT-ONLY** | When asking: ONLY \`<text>\` tag, ZERO tool calls |
 
 ## Decision Rule (Apply Every Turn)

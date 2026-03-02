@@ -18,6 +18,7 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   conversationId?: string;
   previousAssistantMessage?: Message;
   onRevert?: (messageId: string) => void;
+  isRawMode?: boolean;
 }
 
 // Hooks
@@ -45,6 +46,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   attachedTerminalIds,
   conversationId,
   onRevert,
+  isRawMode,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -208,6 +210,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               conversationId={conversationId}
               previousAssistantMessage={previousAssistantMessage}
               onRevert={onRevert}
+              isRawMode={isRawMode}
             />
           );
         })}

@@ -435,6 +435,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
     toolType === "read_file" ||
     toolType === "get_symbol_definition" ||
     toolType === "get_references" ||
+    toolType === "ask_bypass_gitignore" ||
     toolType === "get_file_outline";
   if (isStyledTool) {
     // 🆕 Minimalist UI for single replace_in_file/write_to_file
@@ -449,6 +450,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
         toolType === "update_workspace_context" ||
         toolType === "get_symbol_definition" ||
         toolType === "get_references" ||
+        toolType === "ask_bypass_gitignore" ||
         toolType === "get_file_outline")
     ) {
       const item = group[0];
@@ -601,6 +603,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
         codeLanguage = "text";
       }
 
+      const isBypassTool = toolType === "ask_bypass_gitignore";
+
       // Calculate stats
       let diffStats = null;
       if (
@@ -637,7 +641,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
                       ? "FIND REFERENCES"
                       : toolType === "get_file_outline"
                         ? "GET OUTLINE"
-                        : "READ";
+                        : toolType === "ask_bypass_gitignore"
+                          ? "BYPASS"
+                          : "READ";
       const isCompleted =
         isActionClicked || (codeContent && codeContent.trim().length > 0);
 
@@ -672,7 +678,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 <span style={{ fontWeight: 600, opacity: 0.8 }}>{prefix}</span>
                 <FileIcon
                   path={rawPath}
-                  isFolder={toolType === "list_files"}
+                  isFolder={
+                    toolType === "list_files" ||
+                    !!action.params.folder_path ||
+                    (toolType === "ask_bypass_gitignore" &&
+                      (rawPath.endsWith("/") ||
+                        !rawPath.split("/").pop()?.includes(".")))
+                  }
                   style={{ width: "16px", height: "16px" }}
                 />
                 <span
@@ -741,6 +753,22 @@ const ToolItem: React.FC<ToolItemProps> = ({
               });
             }}
           />
+          {isBypassTool && !isCompleted && (
+            <div style={{ marginTop: "8px", marginBottom: "8px" }}>
+              <ExecuteButton
+                isActive={!!isActiveGroup || (!!isLastMessage && !isCompleted)}
+                isCompleted={!!isCompleted}
+                isLastMessage={!!isLastMessage}
+                isLoading={
+                  !!processedActions.current.has(actionId) && !isCompleted
+                }
+                toolColor={toolColor}
+                title="Approve bypass"
+                labelText="Approve"
+                onExecute={() => onToolClick(action, messageId, index)}
+              />
+            </div>
+          )}
           {(toolType === "replace_in_file" ||
             toolType === "update_workspace_context" ||
             toolType === "write_to_file" ||

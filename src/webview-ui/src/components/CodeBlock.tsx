@@ -110,7 +110,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
     vscodeApi.postMessage({
       command: "highlightCode",
-      code,
+      code: code.trimEnd(),
       language: effectiveLanguage,
       themeKind,
       themeId,
@@ -134,7 +134,8 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     showLineNumbers,
   ]);
 
-  const lineCount = code.trim().split("\n").length;
+  const trimmedCode = code.trim();
+  const lineCount = trimmedCode.split("\n").length;
   const lineNumberWidth = `${Math.max(3, lineCount.toString().length) + 1}ch`;
 
   if (isCollapsed) return null;

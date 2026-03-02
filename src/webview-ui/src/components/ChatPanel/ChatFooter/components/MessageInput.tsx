@@ -2,7 +2,7 @@ import React from "react";
 import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
 import { PlusIcon, ChevronDownIcon, SendIcon } from "./Icons";
-import { Check, Cpu, Search, X, Clock, Ban } from "lucide-react";
+import { Check, Cpu, Search, X, Clock, Ban, FileText } from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
 import { useSettings } from "../../../../context/SettingsContext";
@@ -66,6 +66,8 @@ interface MessageInputProps {
   // 🆕 Blacklist Props
   onToggleBlacklistDrawer?: () => void;
   isBackupEnabled?: boolean;
+  isRawMode?: boolean;
+  onToggleRawMode?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -107,6 +109,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   backupEventCount,
   onToggleBlacklistDrawer,
   isBackupEnabled,
+  isRawMode,
+  onToggleRawMode,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -753,6 +757,37 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 <Ban size={16} />
               </div>
             )}
+
+            {/* Raw Mode Toggle */}
+            <div
+              style={{
+                cursor: "pointer",
+                padding: "var(--spacing-xs)",
+                borderRadius: "var(--border-radius)",
+                transition: "background-color 0.2s",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: isRawMode
+                  ? "var(--accent-color)"
+                  : "var(--secondary-text)",
+                backgroundColor: isRawMode
+                  ? "var(--accent-bg-transparent)"
+                  : "transparent",
+              }}
+              onClick={onToggleRawMode}
+              onMouseEnter={(e) => {
+                if (!isRawMode)
+                  e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+              }}
+              onMouseLeave={(e) => {
+                if (!isRawMode)
+                  e.currentTarget.style.backgroundColor = "transparent";
+              }}
+              title={isRawMode ? "Processed Mode" : "Raw Mode"}
+            >
+              <FileText size={16} />
+            </div>
 
             {/* Thinking Mode Toggle */}
             {supportsThinking && (

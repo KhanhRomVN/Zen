@@ -35,6 +35,8 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   initialValue?: string;
   initialValueNonce?: number;
   isBackupEnabled?: boolean;
+  isRawMode?: boolean;
+  onToggleRawMode?: () => void;
 }
 
 // Hooks
@@ -72,6 +74,8 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   initialValue,
   initialValueNonce,
   isBackupEnabled,
+  isRawMode,
+  onToggleRawMode,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
 
@@ -439,6 +443,8 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
             (() => setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen))
           }
           isBackupEnabled={isBackupEnabled}
+          isRawMode={isRawMode}
+          onToggleRawMode={onToggleRawMode}
         />
 
         <MentionDropdowns

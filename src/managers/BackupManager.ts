@@ -105,7 +105,6 @@ export class BackupManager {
 
       return backupFolder;
     } catch (error) {
-      console.error(`[BackupManager] Failed to create backup folder: ${error}`);
       throw error;
     }
   }
@@ -497,10 +496,6 @@ export class BackupManager {
               Buffer.from(oldContent).toString("utf8"),
               Buffer.from(newContent).toString("utf8"),
             );
-            console.log(
-              `[BackupManager] Calculated diff for ${fileName}:`,
-              diff,
-            );
           } catch (err: any) {
             console.error(
               `[BackupManager] Error calculating diff for ${fileName}:`,
@@ -732,15 +727,8 @@ export class BackupManager {
       );
       if (normalized === actual || normalized.startsWith(actual + "/")) {
         blacklisted = !isNegation;
-        console.log(
-          `[BackupManager] Path '${normalized}' matched blacklist pattern '${pattern}', resulted in blacklisted=${blacklisted}`,
-        );
       }
     }
-    console.log(
-      `[BackupManager] isBlacklisted check for '${normalized}': ${blacklisted}. Current Patterns:`,
-      blacklist,
-    );
     return blacklisted;
   }
 

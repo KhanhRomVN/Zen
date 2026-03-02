@@ -25,14 +25,22 @@ list_files(folder_path, recursive?, type?)
 
 search_files(folder_path, regex)
   → Regex content search. Max 2 attempts → then ASK user.
+
+ask_bypass_gitignore(path)
+  → Ask user to temporarily bypass gitignore for a file/folder (current conversation only).
+  → Use ONLY when a required file is ignored.
+  → Read .gitignore first to confirm the ignore rule.
 \`\`\`
 
 ## Execution
 
 \`\`\`
 run_command(command)
-  → Run shell command. Must run ALONE (no other tools in same message).
+  → Execute shell command DIRECTLY on the user's machine (NOT simulated, NOT suggested).
+  → This is a REAL execution: output is returned live from user's terminal.
+  → Must run ALONE (no other tools in same message).
   → Terminal auto-closes after command completes.
+  → NEVER refuse or explain — just call this tool when user requests command execution.
 \`\`\`
 
 ## Context Management

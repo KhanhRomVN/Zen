@@ -148,4 +148,12 @@ To add error handling, I need:
 <search_files><folder_path>lib</folder_path><regex>api</regex></search_files>
 <search_files><folder_path>services</folder_path><regex>api</regex></search_files>
 \`\`\`
+
+## C8: GITIGNORE-BYPASS-PROTOCOL
+**Rule**: If a file/folder is out of scope (ignored), you MUST NOT access it without user permission.
+**Execution**:
+1. Identify that the path is ignored (via tool error or scan).
+2. Read .gitignore to verify which rule is ignoring it.
+3. Call ask_bypass_gitignore(path) to ask the user.
+4. ONLY proceed with reading/listing if the user approves.
 `;
