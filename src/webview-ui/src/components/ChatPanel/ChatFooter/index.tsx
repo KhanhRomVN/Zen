@@ -431,6 +431,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           onStopGeneration={onStopGeneration}
           onToggleBackupDrawer={onToggleBackupDrawer}
           hasBackupEvents={hasBackupEvents}
+          backupEventCount={backupEventCount}
           onToggleBlacklistDrawer={
             onToggleBlacklistDrawer ||
             (() => setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen))

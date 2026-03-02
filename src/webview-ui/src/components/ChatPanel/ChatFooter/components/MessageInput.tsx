@@ -703,21 +703,28 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 title="Code Backup History"
               >
                 <Clock size={16} />
-                {hasBackupEvents &&
-                  backupEventCount &&
-                  backupEventCount > 0 && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: -2,
-                        right: -2,
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        backgroundColor: "var(--accent-color)",
-                      }}
-                    />
-                  )}
+                {backupEventCount !== undefined && backupEventCount > 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: -4,
+                      right: -4,
+                      minWidth: 14,
+                      height: 14,
+                      borderRadius: "7px",
+                      backgroundColor: "rgba(0, 122, 204, 0.1)", // hardcoded badgeBG / 10
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "9px",
+                      fontWeight: 600,
+                      color: "#007acc", // hardcoded textColor
+                      padding: "0 4px",
+                    }}
+                  >
+                    {backupEventCount}
+                  </div>
+                )}
               </div>
             )}
 

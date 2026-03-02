@@ -1,5 +1,15 @@
-import React, { useState, useCallback } from "react";
-import { ChevronRight, ChevronDown, ListFilter, Info } from "lucide-react";
+import React, { useState, useCallback, useEffect } from "react";
+import {
+  ChevronRight,
+  ChevronDown,
+  ListFilter,
+  Info,
+  Plus,
+  Trash2,
+  Filter,
+  ChevronsUpDown,
+  ChevronsDownUp,
+} from "lucide-react";
 import { getFileIconPath, getFolderIconPath } from "../../utils/fileIconMapper";
 import { useBlacklistManager, TreeNode } from "../../hooks/useBlacklistManager";
 
@@ -25,6 +35,56 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({
     new Set(),
   );
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
+  const [hideNonBlacklisted, setHideNonBlacklisted] = useState(false);
+
+  const blacklistCounts = React.useMemo(() => {
+    let files = 0;
+    let folders = 0;
+
+    // Create a map of known path types from the tree
+    const knownTypes = new Map<string, "file" | "directory">();
+    const traverse = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        knownTypes.set(node.path, node.type);
+        if (node.children) traverse(node.children);
+      }
+    };
+    if (treeData) traverse([treeData]);
+
+    for (const item of blacklist) {
+      if (item.startsWith("!")) continue;
+
+      const type = knownTypes.get(item);
+      if (type === "directory") {
+        folders++;
+      } else if (type === "file") {
+        files++;
+      } else {
+        // Fallback: guess by extension
+        if (item.includes(".") && !item.startsWith(".")) {
+          files++;
+        } else {
+          folders++; // Default guess for extensionless paths
+        }
+      }
+    }
+
+    return { files, folders };
+  }, [blacklist, treeData]);
+
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    path: string;
+    name: string;
+    isExplicitBlacklisted: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    window.addEventListener("click", handleClickOutside);
+    return () => window.removeEventListener("click", handleClickOutside);
+  }, []);
 
   const toggleExpanded = useCallback((path: string) => {
     setExpandedFolders((prev) => {
@@ -35,13 +95,68 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({
     });
   }, []);
 
+  const expandAll = useCallback(() => {
+    if (!treeData) return;
+    const allPaths = new Set<string>();
+    const traverse = (node: TreeNode) => {
+      if (node.type === "directory") {
+        allPaths.add(node.path);
+        if (node.children) {
+          node.children.forEach(traverse);
+        }
+      }
+    };
+    traverse(treeData);
+    setExpandedFolders(allPaths);
+  }, [treeData]);
+
+  const collapseAll = useCallback(() => {
+    setExpandedFolders(new Set());
+  }, []);
+
+  const checkHasBlacklistedDescendant = useCallback(
+    (node: TreeNode): boolean => {
+      if (!node.children) return false;
+      return node.children.some(
+        (child) =>
+          checkIsBlacklisted(child.path) ||
+          checkHasBlacklistedDescendant(child),
+      );
+    },
+    [checkIsBlacklisted],
+  );
+
   const renderNode = (node: TreeNode, depth: number = 0) => {
     const isBlacklisted = checkIsBlacklisted(node.path);
     const isExplicitNegation = blacklist.includes("!" + node.path);
     const isExplicitBlacklisted = blacklist.includes(node.path);
+    const isImplicitBlacklisted = isBlacklisted && !isExplicitBlacklisted;
     const isExpanded = expandedFolders.has(node.path);
     const isHovered = hoveredPath === node.path;
     const isDirectory = node.type === "directory";
+    const hasBlacklistedDescendant = isDirectory
+      ? checkHasBlacklistedDescendant(node)
+      : false;
+
+    // Filter logic
+    if (hideNonBlacklisted && !isBlacklisted && !hasBlacklistedDescendant) {
+      return null;
+    }
+
+    let bgColor = "transparent";
+    if (isHovered) {
+      bgColor = "var(--vscode-list-hoverBackground)";
+    }
+
+    let textColor = "var(--vscode-foreground)";
+    if (isDirectory && isExplicitBlacklisted) {
+      textColor = "var(--vscode-errorForeground)";
+    } else if (isImplicitBlacklisted) {
+      textColor =
+        "color-mix(in srgb, var(--vscode-errorForeground) 45%, var(--vscode-descriptionForeground))";
+    } else if (!isDirectory && isExplicitBlacklisted) {
+      textColor = "var(--vscode-charts-purple)";
+    }
 
     return (
       <div key={node.path}>
@@ -56,18 +171,23 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({
             cursor: "pointer",
             borderRadius: "4px",
             transition: "all 0.2s",
-            backgroundColor: isHovered
-              ? "var(--vscode-list-hoverBackground)"
-              : "transparent",
-            opacity: isBlacklisted ? 1 : 0.4,
-            filter: isBlacklisted ? "none" : "grayscale(0.5)",
+            backgroundColor: bgColor,
+            opacity: isBlacklisted ? 1 : 0.6,
+            filter: "none",
           }}
           onMouseEnter={() => setHoveredPath(node.path)}
           onMouseLeave={() => setHoveredPath(null)}
           onClick={() => isDirectory && toggleExpanded(node.path)}
           onContextMenu={(e) => {
             e.preventDefault();
-            toggleBlacklist(node.path, isBlacklisted);
+            e.stopPropagation();
+            setContextMenu({
+              x: e.clientX,
+              y: e.clientY,
+              path: node.path,
+              name: node.name,
+              isExplicitBlacklisted: isExplicitBlacklisted,
+            });
           }}
           title={
             isBlacklisted
@@ -117,51 +237,12 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
               fontSize: "13px",
-              color: isBlacklisted
-                ? "var(--vscode-errorForeground)"
-                : "var(--vscode-foreground)",
-              fontWeight: isBlacklisted ? 600 : 400,
+              color: textColor,
+              fontWeight: 400,
             }}
           >
             {node.name}
           </span>
-          {isBlacklisted && (
-            <span
-              style={{
-                marginLeft: "auto",
-                fontSize: "10px",
-                backgroundColor: isExplicitBlacklisted
-                  ? "rgba(255,0,0,0.1)"
-                  : "rgba(255,255,255,0.05)",
-                color: isExplicitBlacklisted
-                  ? "var(--vscode-errorForeground)"
-                  : "var(--vscode-descriptionForeground)",
-                padding: "0 4px",
-                borderRadius: "2px",
-                border: "1px solid",
-                borderColor: isExplicitBlacklisted
-                  ? "var(--vscode-errorForeground)"
-                  : "transparent",
-              }}
-            >
-              {isExplicitBlacklisted ? "Blacklisted" : "Banned"}
-            </span>
-          )}
-          {isExplicitNegation && (
-            <span
-              style={{
-                marginLeft: "auto",
-                fontSize: "10px",
-                backgroundColor: "rgba(0,255,0,0.1)",
-                color: "var(--vscode-charts-green)",
-                padding: "0 4px",
-                borderRadius: "2px",
-                border: "1px solid var(--vscode-charts-green)",
-              }}
-            >
-              Excluded
-            </span>
-          )}
         </div>
         {isDirectory && isExpanded && node.children && (
           <div>
@@ -200,42 +281,95 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({
           Backup Blacklist
         </h3>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <span
-            style={{
-              fontSize: "10px",
-              backgroundColor: "var(--vscode-badge-background)",
-              color: "var(--vscode-badge-foreground)",
-              padding: "2px 8px",
-              borderRadius: "10px",
-              fontWeight: 500,
-            }}
-          >
-            {blacklist.length} blacklisted
-          </span>
+          <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+            <span
+              style={{
+                fontSize: "10px",
+                backgroundColor:
+                  "color-mix(in srgb, var(--vscode-charts-purple) 15%, transparent)",
+                color: "var(--vscode-charts-purple)",
+                padding: "2px 8px",
+                borderRadius: "10px",
+                fontWeight: 600,
+              }}
+            >
+              {blacklistCounts.files} files
+            </span>
+            <span
+              style={{
+                fontSize: "10px",
+                backgroundColor:
+                  "color-mix(in srgb, var(--vscode-errorForeground) 15%, transparent)",
+                color: "var(--vscode-errorForeground)",
+                padding: "2px 8px",
+                borderRadius: "10px",
+                fontWeight: 600,
+              }}
+            >
+              {blacklistCounts.folders} folders
+            </span>
+            <span
+              style={{
+                fontSize: "11px",
+                color: "var(--vscode-descriptionForeground)",
+                fontWeight: 500,
+                marginLeft: "2px",
+              }}
+            >
+              in blacklist
+            </span>
+          </div>
           <button
-            onClick={fetchData}
+            onClick={() => setHideNonBlacklisted(!hideNonBlacklisted)}
+            style={{
+              border: "none",
+              background: hideNonBlacklisted
+                ? "var(--vscode-list-activeSelectionBackground)"
+                : "transparent",
+              cursor: "pointer",
+              color: hideNonBlacklisted
+                ? "var(--vscode-list-activeSelectionForeground)"
+                : "var(--vscode-descriptionForeground)",
+              display: "flex",
+              padding: "4px",
+              borderRadius: "4px",
+              marginLeft: "4px",
+            }}
+            title={
+              hideNonBlacklisted ? "Show All Files" : "Show Only Blacklisted"
+            }
+          >
+            <Filter size={14} />
+          </button>
+          <button
+            onClick={expandAll}
             style={{
               border: "none",
               background: "transparent",
               cursor: "pointer",
               color: "var(--vscode-descriptionForeground)",
               display: "flex",
-              padding: "2px",
+              padding: "4px",
+              borderRadius: "4px",
             }}
-            title="Refresh"
+            title="Expand All"
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3" />
-            </svg>
+            <ChevronsUpDown size={14} />
+          </button>
+          <button
+            onClick={collapseAll}
+            style={{
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "var(--vscode-descriptionForeground)",
+              display: "flex",
+              padding: "4px",
+              borderRadius: "4px",
+            }}
+            title="Collapse All"
+          >
+            <ChevronsDownUp size={14} />
           </button>
           {onClose && (
             <button
@@ -267,34 +401,10 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({
       </div>
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          padding: "6px 8px",
-          backgroundColor: "rgba(0,0,0,0.2)",
-          borderRadius: "4px",
-          borderLeft: "3px solid var(--vscode-infoForeground)",
-        }}
-      >
-        <Info size={14} style={{ color: "var(--vscode-infoForeground)" }} />
-        <span
-          style={{
-            fontSize: "11px",
-            color: "var(--vscode-descriptionForeground)",
-          }}
-        >
-          Right-click on File/Folder to toggle Blacklist.
-        </span>
-      </div>
-      <div
-        style={{
-          border: "1px solid var(--vscode-settings-textInputBorder)",
-          borderRadius: "4px",
-          backgroundColor: "var(--vscode-settings-textInputBackground)",
           flex: 1, // Take up remaining space
           minHeight: "0", // Important for flex scrolling
           overflow: "auto",
-          padding: "4px",
+          padding: "4px 0",
         }}
       >
         {isLoading && !treeData ? (
@@ -333,6 +443,79 @@ const BlacklistManager: React.FC<BlacklistManagerProps> = ({
           </div>
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          style={{
+            position: "fixed",
+            top: contextMenu.y,
+            left: Math.min(contextMenu.x, window.innerWidth - 180),
+            backgroundColor: "var(--vscode-menu-background)",
+            color: "var(--vscode-menu-foreground)",
+            border: "1px solid var(--vscode-menu-border)",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            borderRadius: "4px",
+            zIndex: 1000,
+            minWidth: "160px",
+            padding: "4px 0",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              padding: "8px 12px",
+              fontSize: "13px",
+              borderBottom: "1px solid var(--vscode-menu-separatorBackground)",
+              marginBottom: "4px",
+              opacity: 0.7,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={contextMenu.name}
+          >
+            {contextMenu.name}
+          </div>
+          <div
+            className="context-menu-item"
+            onClick={() => {
+              toggleBlacklist(
+                contextMenu.path,
+                contextMenu.isExplicitBlacklisted,
+              );
+              setContextMenu(null);
+            }}
+            style={{
+              padding: "6px 12px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "13px",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor =
+                "var(--vscode-menu-selectionBackground)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+          >
+            {contextMenu.isExplicitBlacklisted ? (
+              <>
+                <Trash2 size={14} />
+                <span>Remove from Blacklist</span>
+              </>
+            ) : (
+              <>
+                <Plus size={14} />
+                <span>Add to Blacklist</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -421,6 +421,108 @@ export const useToolExecution = ({
           break;
         }
 
+        case "get_symbol_definition": {
+          const requestId = `def-${Date.now()}-${Math.random()}`;
+          extensionService.postMessage({
+            command: "getSymbolDefinition",
+            symbol: action.params.symbol,
+            path: action.params.file_path,
+            requestId: requestId,
+          });
+          const handleDefResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "getSymbolDefinitionResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener("message", handleDefResponse);
+              if (msg.error) {
+                resolve(
+                  `[get_symbol_definition for '${action.params.symbol}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                resolve(
+                  `[get_symbol_definition for '${action.params.symbol}'] Result:\n\`\`\`\n${msg.result}\n\`\`\``,
+                );
+              }
+            }
+          };
+          window.addEventListener("message", handleDefResponse);
+          setTimeout(() => {
+            window.removeEventListener("message", handleDefResponse);
+            resolve(null);
+          }, 10000);
+          break;
+        }
+
+        case "get_references": {
+          const requestId = `ref-${Date.now()}-${Math.random()}`;
+          extensionService.postMessage({
+            command: "getReferences",
+            symbol: action.params.symbol,
+            path: action.params.file_path,
+            requestId: requestId,
+          });
+          const handleRefResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "getReferencesResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener("message", handleRefResponse);
+              if (msg.error) {
+                resolve(
+                  `[get_references for '${action.params.symbol}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                resolve(
+                  `[get_references for '${action.params.symbol}'] Result:\n\`\`\`\n${msg.result}\n\`\`\``,
+                );
+              }
+            }
+          };
+          window.addEventListener("message", handleRefResponse);
+          setTimeout(() => {
+            window.removeEventListener("message", handleRefResponse);
+            resolve(null);
+          }, 10000);
+          break;
+        }
+
+        case "get_file_outline": {
+          const requestId = `outline-${Date.now()}-${Math.random()}`;
+          const filePath = action.params.path || action.params.file_path;
+          extensionService.postMessage({
+            command: "getFileOutline",
+            path: filePath,
+            requestId: requestId,
+          });
+          const handleOutlineResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "getFileOutlineResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener("message", handleOutlineResponse);
+              if (msg.error) {
+                resolve(
+                  `[get_file_outline for '${filePath}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                resolve(
+                  `[get_file_outline for '${filePath}'] Result:\n\`\`\`\n${msg.result}\n\`\`\``,
+                );
+              }
+            }
+          };
+          window.addEventListener("message", handleOutlineResponse);
+          setTimeout(() => {
+            window.removeEventListener("message", handleOutlineResponse);
+            resolve(null);
+          }, 10000);
+          break;
+        }
+
         case "read_workspace_context": {
           const requestId = `read-workspace-${Date.now()}-${Math.random()}`;
           extensionService.postMessage({

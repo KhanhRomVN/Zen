@@ -142,6 +142,15 @@ export class ChatController {
         case "searchFiles":
           await this.handleSearchFiles(message, webviewView);
           break;
+        case "getSymbolDefinition":
+          await this.handleGetSymbolDefinition(message, webviewView);
+          break;
+        case "getReferences":
+          await this.handleGetReferences(message, webviewView);
+          break;
+        case "getFileOutline":
+          await this.handleGetFileOutline(message, webviewView);
+          break;
         case "validateFuzzyMatch":
           await this.handleValidateFuzzyMatch(message, webviewView);
           break;
@@ -1150,8 +1159,16 @@ export class ChatController {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
     let pathToAdd = message.path;
+    console.log(
+      "[DEBUG] handleAddToBackupBlacklist before relative:",
+      pathToAdd,
+    );
     if (path.isAbsolute(pathToAdd))
       pathToAdd = path.relative(workspaceFolder.uri.fsPath, pathToAdd);
+    console.log(
+      "[DEBUG] handleAddToBackupBlacklist after relative:",
+      pathToAdd,
+    );
     await this.backupManager.addToBackupBlacklist(
       workspaceFolder.uri.fsPath,
       pathToAdd,
@@ -2259,6 +2276,438 @@ export class ChatController {
 
   private getProjectContextKey(path: string): string {
     return `project-context-${crypto.createHash("md5").update(path).digest("hex")}`;
+  }
+
+  // #region Diagnostic Tools
+  private async handleGetSymbolDefinition(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const { symbol, path: filePath, requestId } = message;
+      if (!symbol) throw new Error("Symbol is required");
+
+      let definitions: any[] = [];
+
+      // If a file path is provided, try to find the symbol in that specific file first
+      // by getting document symbols and filtering
+      if (filePath) {
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) throw new Error("No workspace");
+          const uri = path.isAbsolute(filePath)
+            ? vscode.Uri.file(filePath)
+            : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
+          const documentSymbols: vscode.DocumentSymbol[] | undefined =
+            await vscode.commands.executeCommand(
+              "vscode.executeDocumentSymbolProvider",
+              uri,
+            );
+
+          if (documentSymbols) {
+            const findSymbol = (
+              syms: vscode.DocumentSymbol[],
+            ): vscode.DocumentSymbol | undefined => {
+              for (const sym of syms) {
+                if (sym.name === symbol) return sym;
+                if (sym.children) {
+                  const found = findSymbol(sym.children);
+                  if (found) return found;
+                }
+              }
+              return undefined;
+            };
+
+            const found = findSymbol(documentSymbols);
+            if (found) {
+              definitions.push({
+                uri: uri,
+                range: found.range,
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Error finding symbol in specific file:", e);
+        }
+      }
+
+      // Fallback to workspace symbol search
+      if (definitions.length === 0) {
+        const workspaceSymbols: vscode.SymbolInformation[] | undefined =
+          await vscode.commands.executeCommand(
+            "vscode.executeWorkspaceSymbolProvider",
+            symbol,
+          );
+
+        if (workspaceSymbols && workspaceSymbols.length > 0) {
+          // Filter out node_modules and exact matches
+          const relevant = workspaceSymbols
+            .filter((s) => !s.location.uri.fsPath.includes("node_modules"))
+            .filter((s) => s.name === symbol);
+
+          definitions =
+            relevant.length > 0
+              ? relevant.map((s) => s.location)
+              : workspaceSymbols.map((s) => s.location);
+        }
+      }
+
+      if (definitions.length === 0) {
+        webviewView.webview.postMessage({
+          command: "getSymbolDefinitionResult",
+          requestId,
+          result: `No definition found for symbol: ${symbol}`,
+        });
+        return;
+      }
+
+      // Format the results
+      let resultText = `Definitions for '${symbol}':\n`;
+      let count = 0;
+
+      for (const def of definitions) {
+        if (count >= 5) {
+          resultText += `\n... and ${definitions.length - count} more.`;
+          break;
+        }
+
+        try {
+          const document = await vscode.workspace.openTextDocument(def.uri);
+
+          // Get a few lines of context around the definition
+          const startLine = Math.max(0, def.range.start.line - 2);
+          const endLine = Math.min(
+            document.lineCount - 1,
+            def.range.end.line + 5,
+          );
+
+          let snippet = "";
+          for (let i = startLine; i <= endLine; i++) {
+            const prefix =
+              i >= def.range.start.line && i <= def.range.end.line
+                ? "> "
+                : "  ";
+            snippet += `${prefix}${i + 1}: ${document.lineAt(i).text}\n`;
+          }
+
+          // Make path relative to workspace if possible
+          let displayPath = def.uri.fsPath;
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (
+            workspaceFolder &&
+            displayPath.startsWith(workspaceFolder.uri.fsPath)
+          ) {
+            displayPath = path.relative(
+              workspaceFolder.uri.fsPath,
+              displayPath,
+            );
+          }
+
+          resultText += `\nFile: ${displayPath} (Line ${def.range.start.line + 1})\n\`\`\`${path.extname(displayPath).substring(1)}\n${snippet}\`\`\`\n`;
+          count++;
+        } catch (e) {
+          resultText += `\nFile: ${def.uri.fsPath} (Error reading content)\n`;
+        }
+      }
+
+      webviewView.webview.postMessage({
+        command: "getSymbolDefinitionResult",
+        requestId,
+        result: resultText,
+      });
+    } catch (error: any) {
+      webviewView.webview.postMessage({
+        command: "getSymbolDefinitionResult",
+        requestId: message.requestId,
+        error: String(error),
+      });
+    }
+  }
+
+  private async handleGetReferences(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const { symbol, path: filePath, requestId } = message;
+      if (!symbol) throw new Error("Symbol is required");
+
+      let targetLocation: vscode.Location | undefined;
+
+      // Step 1: Find the definition or at least one instance of the symbol to use as a base for get references
+      if (filePath) {
+        try {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (!workspaceFolder) throw new Error("No workspace");
+          const uri = path.isAbsolute(filePath)
+            ? vscode.Uri.file(filePath)
+            : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
+          const documentSymbols: vscode.DocumentSymbol[] | undefined =
+            await vscode.commands.executeCommand(
+              "vscode.executeDocumentSymbolProvider",
+              uri,
+            );
+
+          if (documentSymbols) {
+            const findSymbol = (
+              syms: vscode.DocumentSymbol[],
+            ): vscode.DocumentSymbol | undefined => {
+              for (const sym of syms) {
+                if (sym.name === symbol) return sym;
+                if (sym.children) {
+                  const found = findSymbol(sym.children);
+                  if (found) return found;
+                }
+              }
+              return undefined;
+            };
+
+            const found = findSymbol(documentSymbols);
+            if (found) {
+              targetLocation = new vscode.Location(
+                uri,
+                found.selectionRange.start,
+              );
+            }
+          }
+        } catch (e) {
+          // Ignored
+        }
+      }
+
+      // Fallback: search workspace
+      if (!targetLocation) {
+        const workspaceSymbols: vscode.SymbolInformation[] | undefined =
+          await vscode.commands.executeCommand(
+            "vscode.executeWorkspaceSymbolProvider",
+            symbol,
+          );
+
+        if (workspaceSymbols && workspaceSymbols.length > 0) {
+          const relevant = workspaceSymbols.find(
+            (s) =>
+              s.name === symbol &&
+              !s.location.uri.fsPath.includes("node_modules"),
+          );
+          targetLocation = relevant
+            ? relevant.location
+            : workspaceSymbols[0].location;
+        }
+      }
+
+      if (!targetLocation) {
+        webviewView.webview.postMessage({
+          command: "getReferencesResult",
+          requestId,
+          result: `Could not locate symbol '${symbol}' to find references for. Try providing the file_path.`,
+        });
+        return;
+      }
+
+      // Step 2: Get references
+      const references: vscode.Location[] | undefined =
+        await vscode.commands.executeCommand(
+          "vscode.executeReferenceProvider",
+          targetLocation.uri,
+          targetLocation.range.start,
+        );
+
+      if (!references || references.length === 0) {
+        webviewView.webview.postMessage({
+          command: "getReferencesResult",
+          requestId,
+          result: `No references found for symbol: ${symbol}`,
+        });
+        return;
+      }
+
+      // Filter out node_modules
+      const filteredRefs = references.filter(
+        (ref) => !ref.uri.fsPath.includes("node_modules"),
+      );
+
+      if (filteredRefs.length === 0) {
+        webviewView.webview.postMessage({
+          command: "getReferencesResult",
+          requestId,
+          result: `References found, but all were in node_modules.`,
+        });
+        return;
+      }
+
+      // Group by file
+      const refsByFile = new Map<string, vscode.Location[]>();
+      for (const ref of filteredRefs) {
+        const fsPath = ref.uri.fsPath;
+        if (!refsByFile.has(fsPath)) {
+          refsByFile.set(fsPath, []);
+        }
+        refsByFile.get(fsPath)!.push(ref);
+      }
+
+      const workspaceFolder =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+      let resultText = `Found ${filteredRefs.length} references for '${symbol}' in ${refsByFile.size} files:\n\n`;
+      let fileCount = 0;
+
+      for (const [fsPath, locs] of refsByFile.entries()) {
+        if (fileCount >= 10) {
+          resultText += `\n... and ${refsByFile.size - fileCount} more files.`;
+          break;
+        }
+
+        let displayPath = fsPath;
+        if (workspaceFolder && displayPath.startsWith(workspaceFolder)) {
+          displayPath = path.relative(workspaceFolder, displayPath);
+        }
+
+        resultText += `**${displayPath}** (${locs.length} usages):\n`;
+
+        try {
+          const document = await vscode.workspace.openTextDocument(
+            vscode.Uri.file(fsPath),
+          );
+
+          // Show up to 3 usages per file
+          let locCount = 0;
+          for (const loc of locs) {
+            if (locCount >= 3) {
+              resultText += `  ... and ${locs.length - locCount} more in this file.\n`;
+              break;
+            }
+            const line = loc.range.start.line;
+            const text = document.lineAt(line).text.trim();
+            resultText += `  L${line + 1}: \`${text}\`\n`;
+            locCount++;
+          }
+        } catch (e) {
+          resultText += `  (Could not read file contents)\n`;
+        }
+        resultText += "\n";
+        fileCount++;
+      }
+
+      webviewView.webview.postMessage({
+        command: "getReferencesResult",
+        requestId,
+        result: resultText.trim(),
+      });
+    } catch (error: any) {
+      webviewView.webview.postMessage({
+        command: "getReferencesResult",
+        requestId: message.requestId,
+        error: String(error),
+      });
+    }
+  }
+
+  private async handleGetFileOutline(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const { path: filePath, requestId } = message;
+      if (!filePath) throw new Error("File path is required");
+
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) throw new Error("No workspace");
+      const uri = path.isAbsolute(filePath)
+        ? vscode.Uri.file(filePath)
+        : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
+      const absolutePath = uri.fsPath;
+
+      if (!fs.existsSync(absolutePath)) {
+        throw new Error(`File not found: ${filePath}`);
+      }
+      const documentSymbols: vscode.DocumentSymbol[] | undefined =
+        await vscode.commands.executeCommand(
+          "vscode.executeDocumentSymbolProvider",
+          uri,
+        );
+
+      if (!documentSymbols || documentSymbols.length === 0) {
+        // Fallback: file might be too large or symbol provider not ready/available
+        webviewView.webview.postMessage({
+          command: "getFileOutlineResult",
+          requestId,
+          result: `No structural outline available for ${filePath}. The file might not be supported by language servers, or has no symbols. Try read_file instead.`,
+        });
+        return;
+      }
+
+      // Convert vscode symbol kind to string
+      const getKindString = (kind: vscode.SymbolKind): string => {
+        const kinds = Object.keys(vscode.SymbolKind).filter((k) =>
+          isNaN(Number(k)),
+        );
+        return kinds[kind] || "Unknown";
+      };
+
+      let resultText = `Outline for ${filePath}:\n\n`;
+
+      const processSymbol = (
+        sym: vscode.DocumentSymbol,
+        indent: string = "",
+      ) => {
+        let kindInfo = "";
+        // Simplify kinds
+        if (sym.kind === vscode.SymbolKind.Class) kindInfo = "Class: ";
+        else if (
+          sym.kind === vscode.SymbolKind.Function ||
+          sym.kind === vscode.SymbolKind.Method
+        )
+          kindInfo = "Function: ";
+        else if (sym.kind === vscode.SymbolKind.Interface)
+          kindInfo = "Interface: ";
+        else if (sym.kind === vscode.SymbolKind.Variable && indent === "")
+          kindInfo = "Export: "; // Heuristic
+        else if (sym.kind === vscode.SymbolKind.Property)
+          kindInfo = "Property: ";
+        else if (sym.kind === vscode.SymbolKind.Enum) kindInfo = "Enum: ";
+        else if (sym.kind === vscode.SymbolKind.EnumMember) kindInfo = "- ";
+        else kindInfo = `[${getKindString(sym.kind)}] `;
+
+        // Skip low-value symbols if deeply nested
+        if (
+          indent.length > 4 &&
+          (sym.kind === vscode.SymbolKind.Variable ||
+            sym.kind === vscode.SymbolKind.Constant)
+        ) {
+          return;
+        }
+
+        resultText += `${indent}${kindInfo}${sym.name} (Lines ${sym.range.start.line + 1}-${sym.range.end.line + 1})\n`;
+
+        if (sym.children && sym.children.length > 0) {
+          const sortedChildren = [...sym.children].sort(
+            (a, b) => a.range.start.line - b.range.start.line,
+          );
+          for (const child of sortedChildren) {
+            processSymbol(child, indent + "  ");
+          }
+        }
+      };
+
+      const sortedSymbols = [...documentSymbols].sort(
+        (a, b) => a.range.start.line - b.range.start.line,
+      );
+      for (const sym of sortedSymbols) {
+        processSymbol(sym);
+      }
+
+      webviewView.webview.postMessage({
+        command: "getFileOutlineResult",
+        requestId,
+        result: resultText,
+      });
+    } catch (error: any) {
+      webviewView.webview.postMessage({
+        command: "getFileOutlineResult",
+        requestId: message.requestId,
+        error: String(error),
+      });
+    }
   }
   // #endregion
 }

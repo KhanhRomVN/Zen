@@ -166,16 +166,19 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               message={message}
               parsedContent={parsedContent}
               nextUserMessage={nextUserMessage}
+              isGenerating={
+                isProcessing && index === visibleMessages.length - 1
+              }
               isCollapsed={
                 message.role === "user"
                   ? collapsedSections.has(`prompt-${message.id}`)
-                  : collapsedSections.has(`thinking-${message.id}`)
+                  : !collapsedSections.has(`thinking-expanded-${message.id}`)
               }
               onToggleCollapse={() =>
                 toggleCollapse(
                   message.role === "user"
                     ? `prompt-${message.id}`
-                    : `thinking-${message.id}`,
+                    : `thinking-expanded-${message.id}`,
                 )
               }
               clickedActions={clickedActions}

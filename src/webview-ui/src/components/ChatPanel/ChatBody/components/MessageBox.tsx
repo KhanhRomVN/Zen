@@ -8,7 +8,6 @@ import {
   TaskProgressItem,
 } from "../../../../services/ResponseParser";
 import PromptSection from "./PromptSection";
-import ThinkingSection from "./ThinkingSection";
 import FollowupOptions from "./FollowupOptions";
 import RequestDivider from "./RequestDivider";
 import ToolActionsList from "./ToolActions/index";
@@ -44,6 +43,7 @@ interface MessageBoxProps {
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
   previousAssistantMessage?: Message;
+  isGenerating?: boolean; // Prop to indicate if this message is currently being generated
 }
 
 const MessageBoxCodeBlock: React.FC<{
@@ -142,6 +142,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   attachedTerminalIds,
   conversationId,
   previousAssistantMessage,
+  isGenerating,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
@@ -268,17 +269,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
         transition: "all 0.3s ease",
       }}
     >
-      {/* 2. Thinking Section */}
-      {parsedContent.thinking && (
-        <div className="timeline-item">
-          <ThinkingSection
-            message={message}
-            thinking={parsedContent.thinking}
-            isCollapsed={isCollapsed}
-            onToggleCollapse={onToggleCollapse}
-          />
-        </div>
-      )}
+      {/* 2. Thinking Section (Moved inside interleaved content) */}
 
       {/* 3. Interleaved Content (Text + Tools) */}
       {(() => {
@@ -290,11 +281,16 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               faviconUrl?: string;
               key: string;
             }
-          | { type: "text"; content: string; key: string }
+          | { type: "thinking"; content: string; key: string }
           | { type: "code"; content: string; language: string; key: string }
           | { type: "html"; content: string; key: string }
           | { type: "file"; content: string; key: string }
           | { type: "markdown"; content: string; key: string }
+          | {
+              type: "mixed_content";
+              segments: any[];
+              key: string;
+            }
           | {
               type: "task_progress";
               taskName: string | null;
@@ -344,6 +340,19 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             content: `Used ${providerStr}${modelStr}${emailStr}`,
             faviconUrl,
             key: "metadata-info",
+          });
+        }
+
+        // --- 🆕 THINKING BLOCK ---
+        if (
+          parsedContent.thinking &&
+          isGenerating &&
+          !parsedContent.isThinkingClosed
+        ) {
+          groups.push({
+            type: "thinking",
+            content: parsedContent.thinking,
+            key: "thinking-info",
           });
         }
         // ------------------------------
@@ -398,6 +407,13 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 content: block.content,
                 key: `markdown-${idx}`,
               });
+            } else if (block.type === "mixed_content") {
+              flushTools();
+              groups.push({
+                type: "mixed_content",
+                segments: block.segments,
+                key: `mixed_content-${idx}`,
+              });
             } else {
               // Flush tools before adding non-tool block
               flushTools();
@@ -416,11 +432,11 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   key: `html-${groups.length}`,
                 });
               } else {
-                // Text block
+                // Text block (legacy map to markdown)
                 groups.push({
-                  type: "text",
+                  type: "markdown",
                   content: block.content,
-                  key: `text-${idx}`,
+                  key: `markdown-${idx}`,
                 });
               }
             }
@@ -429,12 +445,12 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           flushTools();
         } else {
           // Legacy Fallback
-          // 1. Text
+          // 1. Text (Legacy Fallback)
           if (parsedContent.displayText) {
             groups.push({
-              type: "text",
+              type: "markdown",
               content: parsedContent.displayText,
-              key: "text-legacy",
+              key: "markdown-legacy",
             });
           }
           // 2. Tools
@@ -511,6 +527,32 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
+                  }}
+                >
+                  {group.content}
+                </div>
+              </div>
+            );
+          } else if (group.type === "thinking") {
+            content = (
+              <div>
+                <div
+                  className="timeline-dot"
+                  style={{
+                    backgroundColor: "var(--vscode-descriptionForeground)",
+                    top: "10px",
+                  }}
+                />
+                <div
+                  style={{
+                    paddingLeft: "29px",
+                    paddingTop: "4px",
+                    paddingBottom: "8px",
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--secondary-text)",
+                    lineHeight: 1.6,
+                    whiteSpace: "pre-wrap",
+                    opacity: 0.8,
                   }}
                 >
                   {group.content}
@@ -761,6 +803,60 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   className="markdown-content-inline"
                   dangerouslySetInnerHTML={{ __html: htmlContent }}
                 />
+              </div>
+            );
+          } else if (group.type === "mixed_content") {
+            content = (
+              <div>
+                <div
+                  className="timeline-dot"
+                  style={{
+                    backgroundColor: "#3fb950",
+                    top: "10px",
+                  }}
+                />
+                <div style={{ paddingLeft: "29px", paddingTop: "4px" }}>
+                  {group.segments.map((seg: any, i: number) => {
+                    if (seg.type === "code") {
+                      return (
+                        <div
+                          key={i}
+                          style={{ marginBottom: "8px", marginTop: "4px" }}
+                        >
+                          <CodeBlock
+                            code={seg.content}
+                            language={seg.language}
+                            isCollapsed={false}
+                            showLineNumbers={false}
+                          />
+                        </div>
+                      );
+                    } else if (seg.type === "markdown") {
+                      const htmlContent = DOMPurify.sanitize(
+                        marked.parse(seg.content) as string,
+                      );
+                      return (
+                        <div
+                          key={i}
+                          className="markdown-content-inline"
+                          dangerouslySetInnerHTML={{ __html: htmlContent }}
+                        />
+                      );
+                    } else {
+                      // Fallback for any other segment type, render as markdown
+                      const htmlContent = DOMPurify.sanitize(
+                        marked.parse(seg.content) as string,
+                      );
+                      return (
+                        <div
+                          key={i}
+                          className="markdown-content-inline"
+                          dangerouslySetInnerHTML={{ __html: htmlContent }}
+                        />
+                      );
+                    }
+                  })}
+                </div>
               </div>
             );
           } else {

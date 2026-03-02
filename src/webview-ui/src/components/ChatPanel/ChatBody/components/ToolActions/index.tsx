@@ -62,29 +62,9 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   // Memoize action handlers to prevent unnecessary re-renders
   const memoizedActions = useMemo(() => {
     const groups: { action: ToolAction; index: number }[][] = [];
-    let currentGroup: { action: ToolAction; index: number }[] = [];
-
     visibleItems.forEach((item) => {
-      const { action, index } = item;
-
-      const isSameType =
-        currentGroup.length > 0 &&
-        currentGroup[0].action.type === action.type &&
-        action.type !== "run_command";
-
-      if (isSameType) {
-        currentGroup.push({ action, index });
-      } else {
-        if (currentGroup.length > 0) {
-          groups.push(currentGroup);
-        }
-        currentGroup = [{ action, index }];
-      }
+      groups.push([item]);
     });
-
-    if (currentGroup.length > 0) {
-      groups.push(currentGroup);
-    }
 
     // Calculate the first unclicked index to enforce sequential execution
     // We need to check GLOBAL order. The passed `items` might be a subset.
@@ -196,17 +176,6 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
 
       return (
         <React.Fragment key={key}>
-          {/* Separator between groups */}
-          {groupIdx > 0 && (
-            <div
-              style={{
-                height: "1px",
-                backgroundColor: "var(--border-color)",
-                margin: "var(--spacing-xs) 0",
-              }}
-            />
-          )}
-
           <ToolItem
             group={group}
             messageId={message.id}
@@ -216,6 +185,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             isActiveGroup={isActiveGroup}
             failedActions={failedActions}
             isLastMessage={isLastMessage}
+            isLastItemInList={groupIdx === groups.length - 1}
             toolOutputs={toolOutputs}
             terminalStatus={terminalStatus}
             nextUserMessage={nextUserMessage}
@@ -246,7 +216,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "var(--spacing-sm)",
+        gap: "4px",
       }}
     >
       {memoizedActions}

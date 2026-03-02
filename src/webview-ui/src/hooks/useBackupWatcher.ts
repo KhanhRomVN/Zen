@@ -38,12 +38,30 @@ export const useBackupWatcher = (currentConversationId: string) => {
         setBackupEventCount((prev) => prev + 1);
       } else if (message.command === "backupSizeWarning") {
         console.warn(`[BackupWatcher] Size warning for ${message.filePath}`);
+      } else if (
+        message.command === "backupTimelineResult" &&
+        message.requestId === "watcher-initial"
+      ) {
+        if (message.timeline) {
+          setBackupEventCount(message.timeline.length);
+        }
       }
     };
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, []);
+
+  // Fetch initial timeline count when conversation changes
+  useEffect(() => {
+    if (currentConversationId) {
+      extensionService.postMessage({
+        command: "getBackupTimeline",
+        conversationId: currentConversationId,
+        requestId: "watcher-initial",
+      });
+    }
+  }, [currentConversationId]);
 
   return { backupEventCount };
 };

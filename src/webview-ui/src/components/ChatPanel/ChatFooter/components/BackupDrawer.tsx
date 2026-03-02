@@ -6,12 +6,15 @@ import {
   Edit,
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   FileText,
   EllipsisVertical,
   History,
   Check,
   Undo2,
   Ban,
+  List,
+  Network,
 } from "lucide-react";
 import {
   getFileIconPath,
@@ -139,6 +142,7 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const [blacklist, setBlacklist] = useState<string[]>([]);
+  const [isListView, setIsListView] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const checkIsBlacklisted = (filePath: string) => {
@@ -189,9 +193,13 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
 
   // Build Tree when timeline changes
   useEffect(() => {
-    const tree = buildTree(timeline);
+    // 🆕 Filter out blacklisted files before building tree
+    const visibleTimeline = timeline.filter(
+      (e) => !checkIsBlacklisted(e.filePath),
+    );
+    const tree = buildTree(visibleTimeline);
     setTreeData(tree);
-  }, [timeline]);
+  }, [timeline, blacklist]);
 
   // Expand all folders by default when tree changes
   useEffect(() => {
@@ -224,7 +232,7 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
         isOpen
       ) {
         fetchTimeline();
-      } else if (message.command === "backupBlacklistResult" && isOpen) {
+      } else if (message.command === "backupBlacklistResult") {
         setBlacklist(message.blacklist || []);
       } else if (message.command === "promptLargeBinaryBackup") {
         setLargeFilesPrompt((prev) => ({
@@ -238,6 +246,14 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
             },
           ],
         }));
+      } else if (message.command === "deleteBackupFileResult") {
+        if (message.success) {
+          fetchTimeline();
+          setSelectedEvent(null);
+          setSelectedFile(null);
+        } else {
+          console.error("Failed to delete backup:", message.error);
+        }
       }
     };
 
@@ -373,14 +389,6 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
         }
         setIsLoading(false);
         window.removeEventListener("message", handler);
-      } else if (message.command === "deleteBackupFileResult") {
-        if (message.success) {
-          fetchTimeline();
-          setSelectedEvent(null);
-          setSelectedFile(null);
-        } else {
-          console.error("Failed to delete backup:", message.error);
-        }
       }
     };
     window.addEventListener("message", handler);
@@ -398,10 +406,25 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
   const deleteBackupFile = (filePath: string) => {
     const vscodeApi = (window as any).vscodeApi;
     if (vscodeApi) {
+      // 🆕 Use extensionService if available, but here we post message directly
       vscodeApi.postMessage({
         command: "deleteBackupFile",
         conversationId,
         filePath,
+      });
+      // Clear selected file if it was the one deleted
+      if (selectedFile === filePath) {
+        setSelectedFile(null);
+      }
+    }
+  };
+
+  const openWorkspaceFile = (filePath: string) => {
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      vscodeApi.postMessage({
+        command: "openFile", // Opens the file in VS Code text editor
+        path: filePath,
       });
     }
     setContextMenu(null);
@@ -421,6 +444,10 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
         command: "addToBackupBlacklist",
         path: filePath,
       });
+      // 🆕 Also clear selected file if it's the one being blacklisted
+      if (selectedFile === filePath) {
+        setSelectedFile(null);
+      }
     }
     setContextMenu(null);
   };
@@ -451,21 +478,15 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
   const handleRevert = async (event: TimelineEvent) => {
     if (!event.snapshotPath) return;
 
-    const action =
-      event.eventType === "file_deleted" ? "Restore" : "Revert code to";
-    const confirmed = confirm(`${action} this version of ${event.fileName}?`);
-
-    if (confirmed) {
-      const vscodeApi = (window as any).vscodeApi;
-      if (vscodeApi) {
-        vscodeApi.postMessage({
-          command: "revertToSnapshot",
-          conversationId,
-          filePath: event.filePath,
-          snapshotPath: event.snapshotPath,
-          eventType: event.eventType,
-        });
-      }
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      vscodeApi.postMessage({
+        command: "revertToSnapshot",
+        conversationId,
+        filePath: event.filePath,
+        snapshotPath: event.snapshotPath,
+        eventType: event.eventType,
+      });
     }
   };
 
@@ -549,7 +570,7 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
         style={{
           position: "fixed",
           top: contextMenu.y,
-          left: contextMenu.x,
+          left: Math.min(contextMenu.x, window.innerWidth - 180), // Prevent overflow on the right
           backgroundColor: "var(--vscode-menu-background)",
           color: "var(--vscode-menu-foreground)",
           border: "1px solid var(--vscode-menu-border)",
@@ -574,12 +595,31 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
         </div>
         <div
           className="context-menu-item"
+          onClick={() => openWorkspaceFile(contextMenu.filePath)}
+          style={{
+            padding: "6px 12px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontSize: "13px",
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor =
+              "var(--vscode-menu-selectionBackground)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "transparent")
+          }
+        >
+          <FileText size={14} />
+          <span>View Workspace File</span>
+        </div>
+        <div
+          className="context-menu-item"
           onClick={() => {
-            if (confirm(`Delete backup history for ${contextMenu.fileName}?`)) {
-              deleteBackupFile(contextMenu.filePath);
-            } else {
-              setContextMenu(null);
-            }
+            deleteBackupFile(contextMenu.filePath);
+            setContextMenu(null);
           }}
           style={{
             padding: "6px 12px",
@@ -606,16 +646,9 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
             if (checkIsBlacklisted(contextMenu.filePath)) {
               removeFromBlacklist(contextMenu.filePath);
             } else {
-              if (
-                confirm(
-                  `Add ${contextMenu.fileName} to blacklist? It will no longer be backed up in this workspace.`,
-                )
-              ) {
-                addToBlacklist(contextMenu.filePath);
-              } else {
-                setContextMenu(null);
-              }
+              addToBlacklist(contextMenu.filePath);
             }
+            setContextMenu(null);
           }}
           style={{
             padding: "6px 12px",
@@ -658,6 +691,8 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
       const isExpanded = expandedFolders.has(node.path);
       const isSelected = selectedFile === node.path;
       const isHovered = hoveredNodePath === node.path;
+
+      // Blacklisted files are not in the tree anymore, but keep the check just in case
       const isBlacklisted = checkIsBlacklisted(node.path);
 
       return (
@@ -833,7 +868,7 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
                     e.stopPropagation();
                     const rect = e.currentTarget.getBoundingClientRect();
                     setContextMenu({
-                      x: rect.left,
+                      x: rect.left - 150, // Shift left so it opens inwards instead of overflowing right
                       y: rect.bottom,
                       filePath: node.path,
                       fileName: node.name,
@@ -855,13 +890,192 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
     });
   };
 
+  const renderList = () => {
+    // Collect all files from the Tree data to maintaining correct status
+    const allFiles: TreeNode[] = [];
+    const traverse = (nodes: TreeNode[]) => {
+      nodes.forEach((n) => {
+        if (n.type === "file") allFiles.push(n);
+        if (n.children) traverse(n.children);
+      });
+    };
+    traverse(treeData);
+
+    return allFiles.map((node) => {
+      const isSelected = selectedFile === node.path;
+      const isHovered = hoveredNodePath === node.path;
+
+      // Blacklisted files are not in the tree anymore, but keep the check just in case
+      const isBlacklisted = checkIsBlacklisted(node.path);
+
+      return (
+        <div
+          key={node.path}
+          style={{
+            padding: "6px 16px",
+            display: "flex",
+            alignItems: "center",
+            cursor: "pointer",
+            userSelect: "none",
+            opacity: isBlacklisted ? 1 : node.isDeleted ? 0.6 : 1,
+            borderLeft: isBlacklisted
+              ? "2px solid var(--vscode-errorForeground)"
+              : "none",
+            backgroundColor: isSelected
+              ? "var(--vscode-list-focusBackground)"
+              : isHovered
+                ? "var(--list-hover-background)"
+                : isBlacklisted
+                  ? "rgba(255, 0, 0, 0.05)"
+                  : "transparent",
+            gap: "8px",
+          }}
+          onClick={() => handleFileSelect(node)}
+          onMouseEnter={() => setHoveredNodePath(node.path)}
+          onMouseLeave={() => {
+            if (hoveredNodePath === node.path) setHoveredNodePath(null);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setContextMenu({
+              x: e.clientX,
+              y: e.clientY,
+              filePath: node.path,
+              fileName: node.name,
+            });
+          }}
+        >
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+            <img
+              src={getFileIconPath(node.name)}
+              alt="file"
+              style={{
+                width: "16px",
+                height: "16px",
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              flex: 1,
+              overflow: "hidden",
+              display: "flex",
+              alignItems: "baseline",
+              gap: "6px",
+            }}
+          >
+            <span
+              style={
+                {
+                  color: isBlacklisted
+                    ? "var(--vscode-errorForeground)"
+                    : "inherit",
+                  fontWeight: isBlacklisted ? 600 : 500,
+                  fontSize: "13px",
+                  whiteSpace: "nowrap",
+                } as React.CSSProperties
+              }
+            >
+              {node.name}
+            </span>
+            <span
+              className="truncate"
+              style={{
+                fontSize: "11px",
+                color: "var(--secondary-text)",
+                opacity: 0.7,
+              }}
+              title={node.path}
+            >
+              {node.path}
+            </span>
+          </div>
+
+          {node.fileSize !== undefined && (
+            <span
+              style={{
+                fontSize: "10px",
+                opacity: 0.5,
+                fontWeight: 400,
+                flexShrink: 0,
+              }}
+            >
+              {(node.fileSize / 1024).toFixed(1)} KB
+            </span>
+          )}
+          {node.isDeleted && (
+            <span style={{ fontSize: "10px", opacity: 0.7, flexShrink: 0 }}>
+              (deleted)
+            </span>
+          )}
+
+          {node.unconfirmed && (isHovered || isSelected) && (
+            <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const ext = node.name.split(".").pop() || "no_ext";
+                  handleBinaryDecision(ext, true);
+                }}
+                className="p-1 hover:bg-[var(--vscode-gitDecoration-addedResourceForeground)] hover:bg-opacity-20 rounded text-[var(--vscode-gitDecoration-addedResourceForeground)]"
+                title="Keep Always"
+              >
+                <Check size={14} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const ext = node.name.split(".").pop() || "no_ext";
+                  handleBinaryDecision(ext, false);
+                }}
+                className="p-1 hover:bg-[var(--vscode-gitDecoration-deletedResourceForeground)] hover:bg-opacity-20 rounded text-[var(--vscode-gitDecoration-deletedResourceForeground)]"
+                title="Never Backup"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {(isHovered || contextMenu?.filePath === node.path) &&
+            !node.unconfirmed && (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setContextMenu({
+                    x: rect.left - 150, // Shift left so it opens inwards instead of overflowing right
+                    y: rect.bottom,
+                    filePath: node.path,
+                    fileName: node.name,
+                  });
+                }}
+                style={{ padding: "2px", opacity: 0.8, flexShrink: 0 }}
+                title="Options"
+              >
+                <EllipsisVertical size={14} />
+              </div>
+            )}
+        </div>
+      );
+    });
+  };
+
   if (!isOpen) return null;
 
-  const selectedFileEvents = selectedFile
-    ? timeline
-        .filter((e) => e.filePath === selectedFile)
-        .sort((a, b) => b.timestamp - a.timestamp)
-    : [];
+  // Filter selectedFileEvents to exclude blacklisted files just in case
+  const selectedFileEvents =
+    selectedFile && !checkIsBlacklisted(selectedFile)
+      ? timeline
+          .filter((e) => e.filePath === selectedFile)
+          .sort((a, b) => b.timestamp - a.timestamp)
+      : [];
+
+  // Calculate total visible events
+  const visibleEventsCount = timeline.filter(
+    (e) => !checkIsBlacklisted(e.filePath),
+  ).length;
 
   return (
     <div
@@ -910,7 +1124,7 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
               }
               title="Back to file list"
             >
-              <Undo2 size={16} />
+              <ChevronLeft size={16} />
             </div>
           ) : (
             <div style={{ color: "var(--accent-color)" }}>
@@ -919,27 +1133,19 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
           )}
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              {selectedFile && (
+                <img
+                  src={getFileIconPath(selectedFile.split("/").pop() || "")}
+                  alt="file"
+                  style={{ width: "16px", height: "16px" }}
+                />
+              )}
               <span style={{ fontSize: "13px", fontWeight: 600 }}>
                 {selectedFile
                   ? selectedFile.split("/").pop()
                   : "Code Backup History"}
               </span>
             </div>
-            {selectedFile && (
-              <span
-                style={{
-                  fontSize: "10px",
-                  color: "var(--secondary-text)",
-                  opacity: 0.7,
-                  maxWidth: "200px",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {selectedFile}
-              </span>
-            )}
           </div>
           {!selectedFile && (
             <span
@@ -951,28 +1157,52 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
                 borderRadius: "10px",
               }}
             >
-              {timeline.length} events
+              {visibleEventsCount} events
             </span>
           )}
         </div>
 
-        <div
-          onClick={onClose}
-          style={{
-            cursor: "pointer",
-            padding: "4px",
-            borderRadius: "4px",
-            display: "flex",
-            alignItems: "center",
-          }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = "transparent")
-          }
-        >
-          <X size={16} />
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          {!selectedFile && (
+            <div
+              onClick={() => setIsListView(!isListView)}
+              style={{
+                cursor: "pointer",
+                padding: "2px 4px",
+                borderRadius: "4px",
+                display: "flex",
+                alignItems: "center",
+                color: "var(--secondary-text)",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = "transparent")
+              }
+              title={isListView ? "Switch to Tree View" : "Switch to List View"}
+            >
+              {isListView ? <Network size={14} /> : <List size={14} />}
+            </div>
+          )}
+          <div
+            onClick={onClose}
+            style={{
+              cursor: "pointer",
+              padding: "4px",
+              borderRadius: "4px",
+              display: "flex",
+              alignItems: "center",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = "transparent")
+            }
+          >
+            <X size={16} />
+          </div>
         </div>
       </div>
 
@@ -1010,6 +1240,8 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
               >
                 No backups found in this conversation
               </div>
+            ) : isListView ? (
+              renderList()
             ) : (
               renderTree(treeData)
             )
@@ -1101,10 +1333,14 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
                         }}
                       >
                         {event.eventType === "initial_state"
-                          ? "Original Version"
-                          : event.eventType
-                              .replace(/_/g, " ")
-                              .replace(/\b\w/g, (l) => l.toUpperCase())}
+                          ? "Original"
+                          : event.eventType === "file_added"
+                            ? "Create"
+                            : event.eventType === "file_modified"
+                              ? "Modified"
+                              : event.eventType
+                                  .replace(/_/g, " ")
+                                  .replace(/\b\w/g, (l) => l.toUpperCase())}
                       </span>
 
                       {/* Metadata Row */}
@@ -1118,21 +1354,6 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
                         <span style={{ fontSize: "11px", opacity: 0.5 }}>
                           {formatTimestamp(event.timestamp)}
                         </span>
-
-                        {event.fileSize !== undefined && (
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              fontSize: "11px",
-                              opacity: 0.5,
-                            }}
-                          >
-                            <FileText size={12} />
-                            <span>{(event.fileSize / 1024).toFixed(1)} KB</span>
-                          </div>
-                        )}
 
                         {event.diff && (
                           <div
@@ -1173,78 +1394,81 @@ const BackupDrawer: React.FC<BackupDrawerProps> = ({
                         gap: "4px",
                       }}
                     >
-                      {event.snapshotPath && event.fileExists && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenDiffWithCurrent(event);
-                          }}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            padding: "5px",
-                            cursor: "pointer",
-                            color: "var(--vscode-descriptionForeground)",
-                            display: "flex",
-                            alignItems: "center",
-                            borderRadius: "4px",
-                            transition: "all 0.2s",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor =
-                              "var(--vscode-charts-orange)1a"; // 10% opacity
-                            e.currentTarget.style.color =
-                              "var(--vscode-charts-orange)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor =
-                              "transparent";
-                            e.currentTarget.style.color =
-                              "var(--vscode-descriptionForeground)";
-                          }}
-                          title="Compare with workspace file"
-                        >
-                          <FileDiffIcon size={16} />
-                        </button>
-                      )}
-                      {event.snapshotPath && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRevert(event);
-                          }}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            padding: "5px",
-                            cursor: "pointer",
-                            color: "var(--vscode-descriptionForeground)",
-                            display: "flex",
-                            alignItems: "center",
-                            borderRadius: "4px",
-                            transition: "all 0.2s",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor =
-                              "var(--vscode-textLink-foreground)1a"; // 10% opacity
-                            e.currentTarget.style.color =
-                              "var(--vscode-textLink-foreground)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor =
-                              "transparent";
-                            e.currentTarget.style.color =
-                              "var(--vscode-descriptionForeground)";
-                          }}
-                          title={
-                            event.eventType === "file_deleted"
-                              ? "Restore File"
-                              : "Revert to this version"
-                          }
-                        >
-                          <Undo2 size={16} />
-                        </button>
-                      )}
+                      {event.snapshotPath &&
+                        event.fileExists &&
+                        event.eventType !== "file_added" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDiffWithCurrent(event);
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              padding: "5px",
+                              cursor: "pointer",
+                              color: "var(--vscode-descriptionForeground)",
+                              display: "flex",
+                              alignItems: "center",
+                              borderRadius: "4px",
+                              transition: "all 0.2s",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor =
+                                "var(--vscode-charts-orange)1a"; // 10% opacity
+                              e.currentTarget.style.color =
+                                "var(--vscode-charts-orange)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor =
+                                "transparent";
+                              e.currentTarget.style.color =
+                                "var(--vscode-descriptionForeground)";
+                            }}
+                            title="Compare with workspace file"
+                          >
+                            <FileDiffIcon size={16} />
+                          </button>
+                        )}
+                      {event.snapshotPath &&
+                        event.eventType !== "file_added" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRevert(event);
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              padding: "5px",
+                              cursor: "pointer",
+                              color: "var(--vscode-descriptionForeground)",
+                              display: "flex",
+                              alignItems: "center",
+                              borderRadius: "4px",
+                              transition: "all 0.2s",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor =
+                                "var(--vscode-textLink-foreground)1a"; // 10% opacity
+                              e.currentTarget.style.color =
+                                "var(--vscode-textLink-foreground)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor =
+                                "transparent";
+                              e.currentTarget.style.color =
+                                "var(--vscode-descriptionForeground)";
+                            }}
+                            title={
+                              event.eventType === "file_deleted"
+                                ? "Restore File"
+                                : "Revert to this version"
+                            }
+                          >
+                            <Undo2 size={16} />
+                          </button>
+                        )}
                     </div>
                   </div>
                 );

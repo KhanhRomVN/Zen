@@ -4,6 +4,7 @@ import * as os from "os";
 import * as crypto from "crypto";
 import * as fs from "fs";
 import { GlobalStorageManager } from "../storage-manager";
+import { calculateLineDiff } from "../utils/diff";
 
 export interface TimelineEvent {
   timestamp: number;
@@ -298,7 +299,7 @@ export class BackupManager {
         const blacklist = await this.getBackupBlacklist(
           workspaceFolder.uri.fsPath,
         );
-        await this.backupFile(
+        const backedUp = await this.backupFile(
           this._activeConversationId,
           uri.fsPath,
           eventType,
@@ -306,10 +307,12 @@ export class BackupManager {
           blacklist,
           this._activeBaseDir,
         );
-        webviewView.webview.postMessage({
-          command: "backupEventAdded",
-          conversationId: this._activeConversationId,
-        });
+        if (backedUp) {
+          webviewView.webview.postMessage({
+            command: "backupEventAdded",
+            conversationId: this._activeConversationId,
+          });
+        }
       } catch {}
       return;
     }
@@ -453,13 +456,13 @@ export class BackupManager {
     unconfirmed?: boolean,
     blacklist: string[] = [],
     customBaseDir?: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (!this.workspaceRoot) throw new Error("Workspace root not set");
 
     // Check ignored/blacklisted
-    if (BackupManager.isIgnoredFile(absoluteFilePath)) return;
+    if (BackupManager.isIgnoredFile(absoluteFilePath)) return false;
     const relativePath = this.getRelativePath(absoluteFilePath);
-    if (BackupManager.isBlacklisted(relativePath, blacklist)) return;
+    if (BackupManager.isBlacklisted(relativePath, blacklist)) return false;
 
     try {
       const backupFolder = this.getBackupFolderPath(
@@ -468,31 +471,41 @@ export class BackupManager {
       );
       const fileName = path.basename(absoluteFilePath);
 
-      // Batching logic for modifiers
+      let diff: { additions: number; deletions: number } | undefined;
+
+      // Extract last event to calculate diff against
       if (eventType === "file_modified") {
         const lastEvent = await this.getLastEventForFile(
           conversationId,
           relativePath,
           customBaseDir,
         );
-        if (
-          lastEvent &&
-          lastEvent.eventType === "file_modified" &&
-          Date.now() - lastEvent.timestamp < 60000
-        ) {
-          if (lastEvent.snapshotPath) {
-            const absoluteSnapshotPath = path.join(
-              backupFolder,
-              lastEvent.snapshotPath,
+
+        if (lastEvent && lastEvent.snapshotPath) {
+          const absoluteLastSnapshotPath = path.join(
+            backupFolder,
+            lastEvent.snapshotPath,
+          );
+          try {
+            const oldContent = await vscode.workspace.fs.readFile(
+              vscode.Uri.file(absoluteLastSnapshotPath),
             );
-            const fileContent = await vscode.workspace.fs.readFile(
+            const newContent = await vscode.workspace.fs.readFile(
               vscode.Uri.file(absoluteFilePath),
             );
-            await vscode.workspace.fs.writeFile(
-              vscode.Uri.file(absoluteSnapshotPath),
-              fileContent,
+            diff = calculateLineDiff(
+              Buffer.from(oldContent).toString("utf8"),
+              Buffer.from(newContent).toString("utf8"),
             );
-            return;
+            console.log(
+              `[BackupManager] Calculated diff for ${fileName}:`,
+              diff,
+            );
+          } catch (err: any) {
+            console.error(
+              `[BackupManager] Error calculating diff for ${fileName}:`,
+              err,
+            );
           }
         }
       }
@@ -545,16 +558,18 @@ export class BackupManager {
         fileSize,
         snapshotPath,
         unconfirmed,
+        diff,
       };
 
       await this.appendToTimeline(conversationId, event, customBaseDir);
       await this.updateMetadata(conversationId, customBaseDir);
+      return true;
     } catch (error: any) {
       if (error && error.code === "EntryNotFound") {
-        return; // File disappeared, ignore
+        return false; // File disappeared, ignore
       }
       console.error(`Failed to backup file: ${error}`);
-      throw error;
+      return false;
     }
   }
 
@@ -717,8 +732,15 @@ export class BackupManager {
       );
       if (normalized === actual || normalized.startsWith(actual + "/")) {
         blacklisted = !isNegation;
+        console.log(
+          `[BackupManager] Path '${normalized}' matched blacklist pattern '${pattern}', resulted in blacklisted=${blacklisted}`,
+        );
       }
     }
+    console.log(
+      `[BackupManager] isBlacklisted check for '${normalized}': ${blacklisted}. Current Patterns:`,
+      blacklist,
+    );
     return blacklisted;
   }
 
@@ -783,14 +805,20 @@ export class BackupManager {
   ): Promise<void> {
     if (!this._storageManager) return;
     const blacklist = await this.getBackupBlacklist(workspaceFolderPath);
-    // Logic from extension.ts
+    console.log("[DEBUG] BackupManager.ts - addToBackupBlacklist", {
+      pathToAdd,
+      currentBlacklist: blacklist,
+    });
     let updated = blacklist.filter(
       (p) => p !== "!" + pathToAdd && !p.startsWith("!" + pathToAdd + "/"),
     );
-    if (!BackupManager.isBlacklisted(pathToAdd, updated)) {
-      updated = updated.filter((p) => !p.startsWith(pathToAdd + "/"));
+    if (!updated.includes(pathToAdd)) {
       updated.push(pathToAdd);
     }
+    console.log(
+      "[DEBUG] BackupManager.ts - addToBackupBlacklist updated:",
+      updated,
+    );
     const hash = crypto
       .createHash("md5")
       .update(workspaceFolderPath)
@@ -807,9 +835,7 @@ export class BackupManager {
   ): Promise<void> {
     if (!this._storageManager) return;
     const blacklist = await this.getBackupBlacklist(workspaceFolderPath);
-    let updated = blacklist.filter(
-      (p) => p !== pathToRemove && !p.startsWith(pathToRemove + "/"),
-    );
+    let updated = blacklist.filter((p) => p !== pathToRemove);
     if (BackupManager.isBlacklisted(pathToRemove, updated)) {
       updated.push("!" + pathToRemove);
     } else {

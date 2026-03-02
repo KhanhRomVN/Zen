@@ -36,6 +36,7 @@ interface ToolItemProps {
   isActiveGroup?: boolean;
   failedActions?: Set<string>;
   isLastMessage?: boolean;
+  isLastItemInList?: boolean;
   toolOutputs?: Record<
     string,
     { output: string; isError: boolean; terminalId?: string }
@@ -169,6 +170,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
+  isLastItemInList = true,
 }) => {
   // Local state for fuzzy match validation (for replace_in_file)
   const [fuzzyStatus, setFuzzyStatus] = React.useState<{
@@ -430,7 +432,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
     toolType === "search_files" ||
     toolType === "read_workspace_context" ||
     toolType === "update_workspace_context" ||
-    toolType === "read_file";
+    toolType === "read_file" ||
+    toolType === "get_symbol_definition" ||
+    toolType === "get_references" ||
+    toolType === "get_file_outline";
   if (isStyledTool) {
     // 🆕 Minimalist UI for single replace_in_file/write_to_file
     if (
@@ -441,7 +446,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
         toolType === "list_files" ||
         toolType === "search_files" ||
         toolType === "read_workspace_context" ||
-        toolType === "update_workspace_context")
+        toolType === "update_workspace_context" ||
+        toolType === "get_symbol_definition" ||
+        toolType === "get_references" ||
+        toolType === "get_file_outline")
     ) {
       const item = group[0];
       const { action, index } = item;
@@ -497,10 +505,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
         toolType === "read_workspace_context" ||
         toolType === "update_workspace_context"
           ? "workspace.md"
-          : action.params.file_path ||
-            action.params.folder_path ||
-            action.params.path ||
-            getFilename(action);
+          : toolType === "get_symbol_definition" ||
+              toolType === "get_references"
+            ? action.params.symbol
+            : action.params.file_path ||
+              action.params.folder_path ||
+              action.params.path ||
+              getFilename(action);
 
       if (
         (action.type === "replace_in_file" ||
@@ -516,7 +527,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
         toolType === "list_files" ||
         toolType === "search_files" ||
         toolType === "read_workspace_context" ||
-        toolType === "read_file"
+        toolType === "read_file" ||
+        toolType === "get_symbol_definition" ||
+        toolType === "get_references" ||
+        toolType === "get_file_outline"
       ) {
         codeContent = toolOutputs?.[actionId]?.output || "";
 
@@ -615,7 +629,15 @@ const ToolItem: React.FC<ToolItemProps> = ({
               ? "LIST"
               : toolType === "search_files"
                 ? "SEARCH"
-                : "READ";
+                : toolType === "read_workspace_context"
+                  ? "READ WORKSPACE CONTEXT"
+                  : toolType === "get_symbol_definition"
+                    ? "FIND DEFINITION"
+                    : toolType === "get_references"
+                      ? "FIND REFERENCES"
+                      : toolType === "get_file_outline"
+                        ? "GET OUTLINE"
+                        : "READ";
       const isCompleted =
         isActionClicked || (codeContent && codeContent.trim().length > 0);
 
@@ -627,8 +649,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "8px",
+            gap: "0px",
             paddingLeft: "29px",
+            paddingBottom: isLastItemInList
+              ? isLastMessage
+                ? "0px"
+                : "24px"
+              : "8px",
           }}
         >
           <ToolHeader
@@ -717,10 +744,18 @@ const ToolItem: React.FC<ToolItemProps> = ({
           {(toolType === "replace_in_file" ||
             toolType === "update_workspace_context" ||
             toolType === "write_to_file" ||
-            ((toolType === "list_files" || toolType === "search_files") &&
+            ((toolType === "list_files" ||
+              toolType === "search_files" ||
+              toolType === "get_symbol_definition" ||
+              toolType === "get_references" ||
+              toolType === "get_file_outline") &&
               codeContent)) && (
             <>
-              {toolType === "list_files" || toolType === "search_files" ? (
+              {toolType === "list_files" ||
+              toolType === "search_files" ||
+              toolType === "get_symbol_definition" ||
+              toolType === "get_references" ||
+              toolType === "get_file_outline" ? (
                 <RichtextBlock
                   content={codeContent}
                   showHeader={false}
@@ -956,7 +991,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
     }
 
     return (
-      <div style={{ marginBottom: "8px" }}>
+      <div style={{ marginBottom: "0px" }}>
         {/* Container for grouped items (now includes header) */}
         <div
           style={{

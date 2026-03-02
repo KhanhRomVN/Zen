@@ -1,5 +1,11 @@
 export const CONSTRAINTS = `# CRITICAL CONSTRAINTS (Non-Negotiable)
 
+## C0: MANDATORY-THINKING
+**Rule**: EVERY single response MUST begin with a \`<thinking>...</thinking>\` block.
+**Execution**:
+- Use this block to plan your approach, analyze the problem, and decide on the next tools to call.
+- The more detailed your thinking, the fewer mistakes you will make. Do not skip this!
+
 ## C1: READ-BEFORE-EDIT (Mandatory)
 **Rule**: MUST read file content before any edit operation.
 **Execution**: 
@@ -82,8 +88,8 @@ Turn 2: <replace_in_file><file_path>app.ts</file_path></replace_in_file>  // Aft
 
 **Format**:
 \`\`\`
-<text>Task requires X operations (~Y tokens). Splitting into Z parts.</text>
-<text>Part 1/Z: [brief description]</text>
+<markdown>Task requires X operations (~Y tokens). Splitting into Z parts.</markdown>
+<markdown>Part 1/Z: [brief description]</markdown>
 [execute operations]
 \`\`\`
 
@@ -101,7 +107,7 @@ Turn 2: <replace_in_file><file_path>app.ts</file_path></replace_in_file>  // Aft
 
 **How to ask (CRITICAL FORMAT)**:
 \`\`\`xml
-<text>
+<markdown>
 [Brief explanation of what you tried/found]
 
 To proceed accurately, I need clarification on:
@@ -109,11 +115,11 @@ To proceed accurately, I need clarification on:
 2. [Specific question about expected behavior/outcome]
 
 Could you provide this information?
-</text>
+</markdown>
 \`\`\`
 
 **CRITICAL RULES when asking**:
-- Use ONLY \`<text>\` tag
+- Use ONLY \`<markdown>\` tag
 - Do NOT include ANY tool calls in the same response
 - This prevents auto-execution while waiting for user answer
 - Do NOT proceed with assumptions or guesses
@@ -127,18 +133,18 @@ Could you provide this information?
 
 **Example - CORRECT asking**:
 \`\`\`xml
-<text>
+<markdown>
 I searched for the API service file in src/ and root directory but couldn't locate it.
 
 To add error handling, I need:
 1. What's the exact path or filename of the API service?
 2. Or should I create a new API service file?
-</text>
+</markdown>
 \`\`\`
 
 **Example - WRONG (do NOT do this)**:
 \`\`\`xml
-<text>I couldn't find the file, let me try another search...</text>
+<markdown>I couldn't find the file, let me try another search...</markdown>
 <search_files><folder_path>lib</folder_path><regex>api</regex></search_files>
 <search_files><folder_path>services</folder_path><regex>api</regex></search_files>
 \`\`\`
