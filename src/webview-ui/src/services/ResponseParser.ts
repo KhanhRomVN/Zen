@@ -473,10 +473,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         } else if (toolName === "conversation_name") {
           const valueFromTag = extractParamValue(innerContent || "", "value");
           if (valueFromTag) {
-            console.log(
-              `[ResponseParser] Extracted from <value>:`,
-              valueFromTag,
-            );
             result.conversationName = valueFromTag;
           } else if (innerContent && innerContent.trim()) {
             result.conversationName = innerContent.trim();

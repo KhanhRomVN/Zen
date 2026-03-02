@@ -818,10 +818,8 @@ export class ProcessManager {
   }
 
   close(id: string) {
-    console.log("[ProcessManager] close called for id:", id);
     const entry = this.terminalMap.get(id);
     if (entry) {
-      console.log("[ProcessManager] Found terminal entry for id:", id);
       // 0. Notify that terminal is now free before deletion
       this.onTerminalStatusChangedEmitter.fire({
         terminalId: id,
@@ -829,36 +827,26 @@ export class ProcessManager {
       });
 
       // 1. Unregister FIRST to stop receiving new data and prevent appendLog from being called
-      console.log("[ProcessManager] Unregistering PTY for id:", id);
       this.bridgeClient.unregisterPTY(id);
 
       // 2. Clear terminal if exists
       if (entry.terminal) {
-        console.log("[ProcessManager] Disposing VS Code terminal for id:", id);
         entry.terminal.dispose();
       }
 
       // 3. Remove from map
-      console.log("[ProcessManager] Removing from terminalMap for id:", id);
       this.terminalMap.delete(id);
       this.saveState();
 
       // 4. Finally delete the log file
       try {
         if (entry.pty.logFilePath && fs.existsSync(entry.pty.logFilePath)) {
-          console.log(
-            "[ProcessManager] Deleting log file for id:",
-            id,
-            "path:",
-            entry.pty.logFilePath,
-          );
           fs.unlinkSync(entry.pty.logFilePath);
         }
       } catch (e) {
         console.error("[ProcessManager] Error deleting log file:", e);
       }
 
-      console.log("[ProcessManager] Firing onTerminalsChangedEmitter");
       this.onTerminalsChangedEmitter.fire();
     } else {
       console.warn("[ProcessManager] Terminal entry NOT found for id:", id);
@@ -875,9 +863,6 @@ export class ProcessManager {
   stop(id: string) {
     const entry = this.terminalMap.get(id);
     if (entry) {
-      console.log(
-        `[ProcessManager] Stopping terminal ${id} manually (FINALIZE)`,
-      );
       entry.pty.stop();
 
       if (entry.pty.activeActionId) {
@@ -885,10 +870,6 @@ export class ProcessManager {
         const finalOutput = entry.pty.accumulatedOutput
           .substring(entry.pty.lastOutputIndex)
           .replace(/\r?\n$/, "");
-
-        console.log(
-          `[ProcessManager] Forcing completion for action: ${entry.pty.activeActionId}`,
-        );
 
         // Call the assigned completion handler
         if ((entry.pty as any)._triggerCommandFinished) {

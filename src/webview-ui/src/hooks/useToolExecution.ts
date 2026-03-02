@@ -169,9 +169,6 @@ export const useToolExecution = ({
           });
         }
       } else if (message.command === "terminalStatusChanged") {
-        console.log(
-          `[useToolExecution] Terminal status changed: ${message.terminalId} -> ${message.status}`,
-        );
         setTerminalStatus((prev) => ({
           ...prev,
           [message.terminalId]: message.status,
@@ -187,9 +184,6 @@ export const useToolExecution = ({
             },
           }));
           // Initially set to busy when command is run
-          console.log(
-            `[useToolExecution] Command started, setting terminal ${message.terminalId} to busy`,
-          );
           setTerminalStatus((prev) => ({
             ...prev,
             [message.terminalId]: "busy",
@@ -769,10 +763,6 @@ export const useToolExecution = ({
                 terminalId: (action as any).params?.terminal_id,
               },
             }));
-          } else {
-            console.log(
-              `[useToolExecution] Skip overwrite for run_command: ${actionId}`,
-            );
           }
 
           const finalTerminalId = (action as any).params?.terminal_id;

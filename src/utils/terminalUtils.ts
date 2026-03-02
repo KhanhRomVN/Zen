@@ -15,7 +15,6 @@ export class EchoSuppressor {
       const match = this.findMatchWithAnsi(result, current.wrapped);
 
       if (match) {
-        console.log(`[ZenTerminal] EchoSuppressor: MATCH FOUND!`);
         this.queue.shift();
         result =
           result.substring(0, match.start) +
@@ -28,9 +27,6 @@ export class EchoSuppressor {
         const next = this.queue[1];
         const nextMatch = this.findMatchWithAnsi(result, next.wrapped);
         if (nextMatch) {
-          console.log(
-            `[ZenTerminal] EchoSuppressor: MATCH FOUND FOR NEXT ITEM!`,
-          );
           this.queue.splice(0, 2);
           result =
             result.substring(0, nextMatch.start) +

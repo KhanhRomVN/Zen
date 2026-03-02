@@ -50,12 +50,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (terminalStatus && Object.keys(terminalStatus).length > 0) {
-      console.log("[ChatBody] Terminal status prop received:", terminalStatus);
-    }
-  }, [terminalStatus]);
-
   // Memoize parsed messages
   const parsedMessages = useMemo(() => {
     const cache = new Map<string, ParsedResponse>();

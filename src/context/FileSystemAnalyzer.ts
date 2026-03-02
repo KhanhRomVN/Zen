@@ -104,7 +104,6 @@ export class FileSystemAnalyzer {
     absolutePath = path.normalize(absolutePath);
 
     this.bypassedPaths.add(absolutePath);
-    console.log(`[FileSystemAnalyzer] Added bypass path: ${absolutePath}`);
   }
 
   /**
@@ -388,37 +387,22 @@ export class FileSystemAnalyzer {
         : path.join(this.getWorkspaceRoot() || "", filePath),
     );
 
-    console.log(`[FileSystemAnalyzer] isIgnored check: ${normalizedFilePath}`);
-    console.log(
-      `[FileSystemAnalyzer] Bypassed paths:`,
-      Array.from(this.bypassedPaths),
-    );
-
     for (const bypassed of this.bypassedPaths) {
       if (
         normalizedFilePath === bypassed ||
         normalizedFilePath.startsWith(bypassed + path.sep)
       ) {
-        console.log(
-          `[FileSystemAnalyzer] Bypass HIT for: ${normalizedFilePath}`,
-        );
         return { ignored: false };
       }
     }
 
     // 1. Check predefined patterns
     if (this.shouldIgnore(path.basename(filePath))) {
-      console.log(
-        `[FileSystemAnalyzer] isIgnored result: TRUE (pattern) for ${normalizedFilePath}`,
-      );
       return { ignored: true, reason: "pattern" };
     }
 
     // 2. Check blacklist
     if (this.isBlacklisted(filePath)) {
-      console.log(
-        `[FileSystemAnalyzer] isIgnored result: TRUE (blacklist) for ${normalizedFilePath}`,
-      );
       return { ignored: true, reason: "blacklist" };
     }
 
@@ -436,9 +420,6 @@ export class FileSystemAnalyzer {
             },
           );
           if (stdout.trim().length > 0) {
-            console.log(
-              `[FileSystemAnalyzer] isIgnored result: TRUE (gitignore) for ${normalizedFilePath}`,
-            );
             return { ignored: true, reason: "gitignore" };
           }
         }
@@ -448,9 +429,6 @@ export class FileSystemAnalyzer {
       }
     }
 
-    console.log(
-      `[FileSystemAnalyzer] isIgnored result: FALSE (not ignored) for ${normalizedFilePath}`,
-    );
     return { ignored: false };
   }
 

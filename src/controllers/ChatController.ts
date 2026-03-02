@@ -200,7 +200,6 @@ export class ChatController {
           await this.handleStopCommand(message);
           break;
         case "listTerminals":
-          console.log("[ChatController] handleMessage: listTerminals");
           const terminals = this.processManager.list();
           webviewView.webview.postMessage({
             command: "listTerminalsResult",
@@ -209,10 +208,6 @@ export class ChatController {
           });
           break;
         case "removeTerminal":
-          console.log(
-            "[ChatController] handleMessage: removeTerminal",
-            message.terminalId,
-          );
           this.processManager.close(message.terminalId);
           webviewView.webview.postMessage({
             command: "removeTerminalResult",
@@ -221,10 +216,6 @@ export class ChatController {
           });
           break;
         case "stopTerminal":
-          console.log(
-            "[ChatController] handleMessage: stopTerminal",
-            message.terminalId,
-          );
           this.processManager.close(message.terminalId);
           break;
         case "openPreview":
@@ -1168,16 +1159,8 @@ export class ChatController {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
     let pathToAdd = message.path;
-    console.log(
-      "[DEBUG] handleAddToBackupBlacklist before relative:",
-      pathToAdd,
-    );
     if (path.isAbsolute(pathToAdd))
       pathToAdd = path.relative(workspaceFolder.uri.fsPath, pathToAdd);
-    console.log(
-      "[DEBUG] handleAddToBackupBlacklist after relative:",
-      pathToAdd,
-    );
     await this.backupManager.addToBackupBlacklist(
       workspaceFolder.uri.fsPath,
       pathToAdd,
@@ -1292,22 +1275,12 @@ export class ChatController {
 
       let content = "";
       try {
-        console.log(`[ChatController] Attempting to read:`, absPath.fsPath);
         content = Buffer.from(
           await vscode.workspace.fs.readFile(absPath),
         ).toString("utf8");
-        console.log(
-          `[ChatController] Read success for:`,
-          absPath.fsPath,
-          `Length:`,
-          content.length,
-        );
       } catch (e: any) {
         console.error(`[ChatController] Reading ${absPath.fsPath} failed:`, e);
         if (pathValue.endsWith("workspace.md")) {
-          console.log(
-            `[ChatController] Ignoring error for workspace.md, returning empty content.`,
-          );
           content = ""; // Treat missing workspace.md as an empty file
         } else {
           throw e;
@@ -1414,10 +1387,6 @@ export class ChatController {
       const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
       await fs.promises.mkdir(pcDir, { recursive: true });
       absPath = vscode.Uri.file(path.join(pcDir, path.basename(pathValue)));
-      console.log(
-        `[ChatController] handleReplaceInFile workspace.md resolution:`,
-        absPath.fsPath,
-      );
     } else {
       absPath = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
     }
@@ -1427,10 +1396,6 @@ export class ChatController {
     try {
       let content = "";
       try {
-        console.log(
-          `[ChatController] Attempting to read before replace:`,
-          absPath.fsPath,
-        );
         content = Buffer.from(
           await vscode.workspace.fs.readFile(absPath),
         ).toString("utf8");
@@ -1508,9 +1473,6 @@ export class ChatController {
   ) {
     try {
       const { path: pathValue, requestId } = message;
-      console.log(
-        `[ChatController] Received bypass request for: ${pathValue}, requestId: ${requestId}`,
-      );
       if (!pathValue) throw new Error("Path is required");
 
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();

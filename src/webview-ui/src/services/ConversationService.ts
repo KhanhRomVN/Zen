@@ -137,10 +137,6 @@ export const saveConversation = async (
           uniqueTaskNames.add(parsed.taskName);
         }
         if (parsed.conversationName) {
-          console.log(
-            `[ConversationService] Found conversationName in message ${msg.id}:`,
-            parsed.conversationName,
-          );
           latestConversationName = parsed.conversationName;
         }
       }

@@ -138,12 +138,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         ),
     });
 
-  useEffect(() => {
-    if (Object.keys(terminalStatus).length > 0) {
-      console.log("[ChatPanel] Terminal statuses updated:", terminalStatus);
-    }
-  }, [terminalStatus]);
-
   // --- Refs ---
   const hasProcessedInitial = useRef(false);
 

@@ -948,9 +948,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   className="stop-terminal-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    console.log(
-                      `[ToolItem] FINALIZE clicked for action: ${actionId}, terminal: ${terminalId}`,
-                    );
                     extensionService.postMessage({
                       command: "stopCommand",
                       actionId: actionId,
@@ -1213,12 +1210,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
               const isTerminalBusy = terminalId
                 ? terminalStatus?.[terminalId] === "busy"
                 : false;
-
-              if (terminalId) {
-                console.log(
-                  `[ToolItem (Grouped)] Terminal activity check: id=${terminalId}, status=${terminalStatus?.[terminalId]}, isBusy=${isTerminalBusy}`,
-                );
-              }
 
               const isLoading =
                 isActionClicked && (!hasOutput || isTerminalBusy);

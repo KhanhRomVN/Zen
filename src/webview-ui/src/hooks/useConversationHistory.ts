@@ -35,10 +35,6 @@ export const useConversationHistory = (isOpen: boolean) => {
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const message = event.data;
-      console.log(
-        `[useConversationHistory] Received message: ${message.command}`,
-        message,
-      );
       if (message.command === "historyResult") {
         if (message.history) {
           setConversations(message.history);
@@ -91,7 +87,6 @@ export const useConversationHistory = (isOpen: boolean) => {
   }, []);
 
   const deleteConversation = useCallback((id: string) => {
-    console.log(`[useConversationHistory] deleteConversation: ${id}`);
     extensionService.postMessage({
       command: "confirmDelete",
       conversationId: id,
@@ -99,7 +94,6 @@ export const useConversationHistory = (isOpen: boolean) => {
   }, []);
 
   const clearAllHistory = useCallback(() => {
-    console.log("[useConversationHistory] clearAllHistory");
     extensionService.postMessage({
       command: "confirmClearAll",
     });

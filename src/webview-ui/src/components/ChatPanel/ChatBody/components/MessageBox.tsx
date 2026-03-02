@@ -151,15 +151,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
-  React.useEffect(() => {
-    if (terminalStatus && Object.keys(terminalStatus).length > 0) {
-      console.log(
-        `[MessageBox ${message.id}] Terminal status prop received:`,
-        terminalStatus,
-      );
-    }
-  }, [terminalStatus, message.id]);
-
   // If User Message
   if (message.role === "user") {
     // 🆕 FLEXIBLE FILTER: Regex to find the user message block even if not at the start

@@ -793,20 +793,12 @@ export class BackupManager {
   ): Promise<void> {
     if (!this._storageManager) return;
     const blacklist = await this.getBackupBlacklist(workspaceFolderPath);
-    console.log("[DEBUG] BackupManager.ts - addToBackupBlacklist", {
-      pathToAdd,
-      currentBlacklist: blacklist,
-    });
     let updated = blacklist.filter(
       (p) => p !== "!" + pathToAdd && !p.startsWith("!" + pathToAdd + "/"),
     );
     if (!updated.includes(pathToAdd)) {
       updated.push(pathToAdd);
     }
-    console.log(
-      "[DEBUG] BackupManager.ts - addToBackupBlacklist updated:",
-      updated,
-    );
     const hash = crypto
       .createHash("md5")
       .update(workspaceFolderPath)
