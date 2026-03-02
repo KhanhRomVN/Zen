@@ -465,13 +465,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             result.taskName = taskName;
           }
         } else if (toolName === "conversation_name") {
-          console.log(
-            `[ResponseParser] Found conversation_name tag. Inner content:`,
-            innerContent,
-          );
-          // Explicit <conversation_name> tag
-          // Support both <conversation_name><value>Title</value></conversation_name>
-          // and <conversation_name>Title</conversation_name>
           const valueFromTag = extractParamValue(innerContent || "", "value");
           if (valueFromTag) {
             console.log(
@@ -480,10 +473,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             );
             result.conversationName = valueFromTag;
           } else if (innerContent && innerContent.trim()) {
-            console.log(
-              `[ResponseParser] Extracted from innerContent:`,
-              innerContent.trim(),
-            );
             result.conversationName = innerContent.trim();
           }
         } else if (toolName === "thinking") {

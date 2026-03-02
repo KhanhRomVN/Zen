@@ -1,4 +1,5 @@
 import React from "react";
+import { RotateCcw } from "lucide-react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { CodeBlock } from "../../../CodeBlock";
@@ -44,6 +45,7 @@ interface MessageBoxProps {
   conversationId?: string;
   previousAssistantMessage?: Message;
   isGenerating?: boolean; // Prop to indicate if this message is currently being generated
+  onRevert?: (messageId: string) => void;
 }
 
 const MessageBoxCodeBlock: React.FC<{
@@ -143,6 +145,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   conversationId,
   previousAssistantMessage,
   isGenerating,
+  onRevert,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
@@ -193,7 +196,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
 
     const truncatedContent =
       isLongMessage && isMessageCollapsed
-        ? displayContent.split("\n").slice(0, 5).join("\n") + "..."
+        ? "..." + displayContent.split("\n").slice(-5).join("\n")
         : displayContent;
 
     return (
@@ -219,8 +222,38 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             backgroundColor: "var(--input-bg)",
             padding: "var(--spacing-md)",
             marginLeft: "0px", // Align with left edge since there is no dot
+            position: "relative",
           }}
         >
+          {onRevert && (
+            <div
+              style={{
+                position: "absolute",
+                top: "8px",
+                right: "8px",
+                opacity: 0,
+                transition: "opacity 0.2s ease",
+                cursor: "pointer",
+                padding: "4px",
+                borderRadius: "4px",
+                backgroundColor: "var(--hover-bg)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--secondary-text)",
+              }}
+              className="revert-button"
+              onClick={() => onRevert(message.id)}
+              title="Revert conversation to this message"
+            >
+              <RotateCcw size={14} />
+            </div>
+          )}
+          <style>{`
+            .chat-panel div:hover > .revert-button {
+              opacity: 1 !important;
+            }
+          `}</style>
           <div
             style={{
               fontSize: "var(--font-size-sm)",
@@ -431,13 +464,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   content: block.content,
                   key: `html-${groups.length}`,
                 });
-              } else {
-                // Text block (legacy map to markdown)
-                groups.push({
-                  type: "markdown",
-                  content: block.content,
-                  key: `markdown-${idx}`,
-                });
               }
             }
           });
@@ -622,46 +648,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   style={{ width: "14px", height: "14px" }}
                 />
                 <span>{group.content}</span>
-              </div>
-            );
-          } else if (group.type === "text") {
-            const renderFormattedText = (text: string) => {
-              const parts = text.split(/(\*\*[\s\S]*?\*\*)/);
-              return parts.map((part, i) => {
-                if (part.startsWith("**") && part.endsWith("**")) {
-                  return <strong key={i}>{part.slice(2, -2)}</strong>;
-                }
-                return <span key={i}>{part}</span>;
-              });
-            };
-
-            content = (
-              <div
-                style={
-                  {
-                    /* paddingBottom removed to rely on timeline-item padding */
-                  }
-                }
-              >
-                <div
-                  className="timeline-dot"
-                  style={{
-                    backgroundColor: "#3fb950",
-                    top: "10px",
-                  }}
-                />
-                <div
-                  style={{
-                    paddingLeft: "29px", // Consistent with timeline-content
-                    paddingTop: "4px", // Nhích lên 4px để thẳng hàng với dot ở 10px
-                    fontSize: "var(--font-size-sm)",
-                    color: "var(--primary-text)",
-                    lineHeight: 1.6,
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {renderFormattedText(group.content.trim())}
-                </div>
               </div>
             );
           } else if (group.type === "task_progress") {

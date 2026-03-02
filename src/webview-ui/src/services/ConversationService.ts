@@ -83,6 +83,7 @@ export const saveConversation = async (
   selectedTab?: TabInfo,
   skipTimestampUpdate?: boolean,
   title?: string,
+  backendConversationId?: string,
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
@@ -153,6 +154,7 @@ export const saveConversation = async (
     let existingCreatedAt: number | undefined;
     let existingLastModified: number | undefined;
     let existingTitle: string | undefined;
+    let existingBackendConversationId: string | undefined;
     try {
       const existingData = await storage.get(key, false);
       if (existingData && existingData.value) {
@@ -160,6 +162,7 @@ export const saveConversation = async (
         existingCreatedAt = parsed.metadata?.createdAt;
         existingLastModified = parsed.metadata?.lastModified;
         existingTitle = parsed.metadata?.title;
+        existingBackendConversationId = parsed.backendConversationId;
       }
     } catch (error) {}
 
@@ -173,6 +176,8 @@ export const saveConversation = async (
     const data = {
       messages: messagesToSave,
       conversationId: convId,
+      backendConversationId:
+        backendConversationId || existingBackendConversationId,
       metadata: {
         id: key,
         tabId,

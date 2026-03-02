@@ -82,6 +82,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   } | null>(null);
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
+  const [revertData, setRevertData] = useState<{
+    text: string;
+    nonce: number;
+  } | null>(null);
 
   // --- Hooks ---
   const {
@@ -96,6 +100,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     sendMessage,
     stopGeneration,
     setBackendConversationId,
+    revertToMessage,
   } = useChatLLM({
     apiUrl,
     selectedTab,
@@ -326,6 +331,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           if (data.data.conversationId) {
             setCurrentConversationId(data.data.conversationId);
 
+            // 🆕 Restore Backend Conversation ID from messages if available
+            const lastMsgWithBackendId = [...data.data.messages]
+              .reverse()
+              .find((m: Message) => m.conversationId);
+
+            const backendIdFromMsg = lastMsgWithBackendId?.conversationId;
+
             // Restore metadata from the last assistant message to prime the LLM hooks
             const lastAssistantWithMeta = [...data.data.messages]
               .reverse()
@@ -342,7 +354,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 }
               : undefined;
 
-            setBackendConversationId(data.data.conversationId, restoredMeta);
+            // Use backendId from message history, or the top-level backendConversationId, or fallback to local UUID
+            const backendIdToUse =
+              backendIdFromMsg ||
+              data.data.backendConversationId ||
+              data.data.conversationId;
+            setBackendConversationId(backendIdToUse, restoredMeta);
           }
 
           // Restore Main Model and Account from the last assistant message
@@ -397,6 +414,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setCurrentConversationId(Date.now().toString());
     }
   };
+
+  const handleRevertMessage = useCallback(
+    async (messageId: string) => {
+      const content = await revertToMessage(messageId);
+      if (content !== null) {
+        setRevertData({ text: content, nonce: Date.now() });
+      }
+    },
+    [revertToMessage],
+  );
 
   const handleStopGeneration = useCallback(() => {
     // 🆕 REDIRECTION LOGIC: If stopping AND it was the first request (req1), go back to Home
@@ -514,6 +541,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         activeTerminalIds={activeTerminalIds}
         attachedTerminalIds={attachedTerminalIds}
         conversationId={currentConversationId}
+        onRevert={handleRevertMessage}
       />
       <ChatFooter
         folderPath={selectedTab?.folderPath || null}
@@ -548,6 +576,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         hasBackupEvents={backupEventCount > 0}
         backupEventCount={backupEventCount}
         isBackupEnabled={isBackupEnabled}
+        initialValue={revertData?.text}
+        initialValueNonce={revertData?.nonce}
       />
       {currentConversationId && (
         <BackupDrawer

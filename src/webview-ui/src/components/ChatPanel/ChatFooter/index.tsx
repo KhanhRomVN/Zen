@@ -33,6 +33,7 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   // 🆕 Blacklist Props
   onToggleBlacklistDrawer?: () => void;
   initialValue?: string;
+  initialValueNonce?: number;
   isBackupEnabled?: boolean;
 }
 
@@ -69,15 +70,16 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   backupEventCount,
   onToggleBlacklistDrawer,
   initialValue,
+  initialValueNonce,
   isBackupEnabled,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (initialValue) {
-      setMessage(initialValue);
+    if (initialValue !== undefined) {
+      setMessage(initialValue || "");
     }
-  }, [initialValue]);
+  }, [initialValue, initialValueNonce]);
   // const [showOptionsDrawer, setShowOptionsDrawer] = useState(false); // Removed
   const [showProjectStructureDrawer, setShowProjectStructureDrawer] =
     useState(false);

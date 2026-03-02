@@ -273,6 +273,7 @@ export const useChatLLM = ({
         token_usage: calculateTokens(promptPayload),
         actionIds: actionIds,
         uiHidden: uiHidden,
+        conversationId: backendConversationIdRef.current || undefined,
       };
 
       const updatedMessages = [...filteredMessages, userMessage];
@@ -286,6 +287,9 @@ export const useChatLLM = ({
         updatedMessages,
         effectiveChatUuid,
         selectedTab || undefined,
+        false,
+        undefined,
+        backendConversationIdRef.current,
       );
       // User message log will happen after response when we have backendConversationId
 
@@ -362,6 +366,11 @@ export const useChatLLM = ({
           thinking: effThinking,
         };
 
+        console.log(
+          "[useChatLLM] Sending Request Body:",
+          JSON.stringify(body, null, 2),
+        );
+
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
         setIsStreaming(true);
@@ -429,6 +438,7 @@ export const useChatLLM = ({
                   if (recvConvId) {
                     backendConversationId = recvConvId;
                     backendConversationIdRef.current = recvConvId;
+                    assistantMessage.conversationId = recvConvId;
                   }
 
                   const metaObj = data.meta || data.metadata;
@@ -604,6 +614,7 @@ export const useChatLLM = ({
           selectedTab || undefined,
           false,
           parsed.conversationName || undefined,
+          backendConversationId || backendConversationIdRef.current,
         );
       } catch (error) {
         setIsStreaming(false);
@@ -638,6 +649,62 @@ export const useChatLLM = ({
     currentConversationIdRef,
     sendMessage,
     stopGeneration,
+    revertToMessage: async (messageId: string) => {
+      const currentMessages = messagesRef.current;
+      const targetIndex = currentMessages.findIndex((m) => m.id === messageId);
+      if (targetIndex === -1) return null;
+
+      let userMessageIndex = targetIndex;
+      while (
+        userMessageIndex >= 0 &&
+        currentMessages[userMessageIndex].role !== "user"
+      ) {
+        userMessageIndex--;
+      }
+
+      if (userMessageIndex === -1) return null;
+
+      const userMessage = currentMessages[userMessageIndex];
+      let contentToReturn = userMessage.content;
+      if (contentToReturn.startsWith("## User Message")) {
+        const match = contentToReturn.match(
+          /^## User Message\n```\n([\s\S]*?)\n```$/,
+        );
+        if (match) contentToReturn = match[1];
+      }
+
+      const newMessages = currentMessages.slice(0, userMessageIndex);
+      setMessages(newMessages);
+
+      if (currentConversationIdRef.current) {
+        extensionService.postMessage({
+          command: "rollbackConversationLog",
+          conversationId: currentConversationIdRef.current,
+          // Since we might have logged both user and assistant messages to the array,
+          // we need to know how many entries to keep.
+          // Wait, logChattoWorkspace saves each as an entry.
+          // newMessages.length accurately reflects the number of messages to keep IF
+          // each message in UI corresponds to one entry in JSON.
+          // It does!
+          keepCount: newMessages.length,
+        });
+
+        const tabId = selectedTab?.tabId || -1;
+        const folderPath = selectedTab?.folderPath || null;
+        saveConversation(
+          tabId,
+          folderPath,
+          newMessages,
+          currentConversationIdRef.current,
+          selectedTab || undefined,
+          false,
+          undefined,
+          backendConversationIdRef.current,
+        );
+      }
+
+      return contentToReturn;
+    },
     setBackendConversationId: (
       id: string,
       meta?: { providerId?: string; modelId?: string; accountId?: string },

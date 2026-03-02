@@ -17,6 +17,7 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
   previousAssistantMessage?: Message;
+  onRevert?: (messageId: string) => void;
 }
 
 // Hooks
@@ -43,6 +44,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
+  onRevert,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -109,8 +111,20 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     const hasOtherBlocks =
       parsed.contentBlocks &&
       parsed.contentBlocks.some((b) => {
-        if (b.type === "tool" || b.type === "task_progress") return true;
-        return b.content.trim().length > 0;
+        switch (b.type) {
+          case "tool":
+          case "task_progress":
+            return true;
+          case "mixed_content":
+            return b.segments.length > 0;
+          case "code":
+          case "html":
+          case "file":
+          case "markdown":
+            return b.content.trim().length > 0;
+          default:
+            return false;
+        }
       });
 
     return !!(hasText || hasActions || hasOtherBlocks);
@@ -193,6 +207,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               attachedTerminalIds={attachedTerminalIds}
               conversationId={conversationId}
               previousAssistantMessage={previousAssistantMessage}
+              onRevert={onRevert}
             />
           );
         })}
