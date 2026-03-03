@@ -16,6 +16,7 @@
     "marked": "^17.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "shiki": "^1.29.2",
     "styled-components": "^6.1.19",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",

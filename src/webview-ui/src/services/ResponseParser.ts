@@ -34,6 +34,7 @@ export interface ToolAction {
   params: Record<string, any>;
   rawXml: string;
   taskProgress?: TaskProgressItem[] | null;
+  isPartial?: boolean;
 }
 
 export type ContentBlock =
@@ -82,7 +83,7 @@ const extractParamValue = (
   );
   const standardMatch = content.match(standardRegex);
   if (standardMatch) {
-    let value = standardMatch[1].trim();
+    let value = standardMatch[1];
     // Remove ```text wrappers if present
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
     return decodeHtmlEntities(value);
@@ -95,7 +96,7 @@ const extractParamValue = (
   );
   const selfClosingMatch = content.match(selfClosingRegex);
   if (selfClosingMatch) {
-    let value = selfClosingMatch[1].trim();
+    let value = selfClosingMatch[1];
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
     return decodeHtmlEntities(value);
   }
@@ -546,6 +547,16 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               result.thinking += "\\n" + thinkingText; // Wait, actually the whole remainingContent is the unclosed tag content for this block.
             }
           }
+        } else if (
+          toolName !== "code" &&
+          toolName !== "file" &&
+          toolName !== "conversation_name"
+        ) {
+          // It's a tool, let it stream!
+          const action = parseToolAction(toolName, innerContent || "", rawXml);
+          action.isPartial = true;
+          result.contentBlocks.push({ type: "tool", action });
+          result.actions.push(action);
         } else {
           // For tools, hide entire content including XML until closed
         }
@@ -570,8 +581,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   // Generate legacy displayText for fallback
   result.displayText = result.contentBlocks
-    .filter((b) => b.type === "markdown")
-    .map((b) => (b as any).content)
+    .filter((b: any) => b.type === "markdown")
+    .map((b: any) => (b as any).content)
     .join("\n\n");
 
   return result;

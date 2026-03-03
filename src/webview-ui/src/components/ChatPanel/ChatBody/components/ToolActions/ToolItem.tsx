@@ -218,9 +218,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
     group.forEach((item, index) => {
       const actionId = `${messageId}-action-${index}`;
       const type = item.action.type;
+      const isPartial = item.action.isPartial;
 
-      // Expand run_command by default
-      if (type === "run_command") {
+      // Expand run_command by default OR any partial tool (for streaming)
+      if (type === "run_command" || isPartial) {
         // Keep expanded
       } else {
         initialCollapsed.add(actionId);
@@ -644,8 +645,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
                         : toolType === "ask_bypass_gitignore"
                           ? "BYPASS"
                           : "READ";
+      const isPartial = action.isPartial;
       const isCompleted =
-        isActionClicked || (codeContent && codeContent.trim().length > 0);
+        !isPartial &&
+        (isActionClicked || (codeContent && codeContent.trim().length > 0));
 
       const displayPath = truncatePath(rawPath);
 
@@ -701,6 +704,25 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 >
                   {displayPath}
                 </span>
+                {isPartial && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      opacity: 0.6,
+                      fontStyle: "italic",
+                      marginLeft: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <span
+                      className="codicon codicon-loading codicon-modifier-spin"
+                      style={{ fontSize: "10px" }}
+                    />
+                    Streaming...
+                  </span>
+                )}
                 {diffStats && (
                   <span
                     style={{
@@ -746,6 +768,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
             }
             statusColor={isCompleted ? "#3fb950" : toolColor}
             diffStats={undefined}
+            isPartial={isPartial}
             onClick={() => {
               extensionService.postMessage({
                 command: "openFile",
@@ -760,11 +783,12 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 isCompleted={!!isCompleted}
                 isLastMessage={!!isLastMessage}
                 isLoading={
-                  !!processedActions.current.has(actionId) && !isCompleted
+                  (!!processedActions.current.has(actionId) || isPartial) &&
+                  !isCompleted
                 }
                 toolColor={toolColor}
-                title="Approve bypass"
-                labelText="Approve"
+                title={isPartial ? "Streaming content..." : "Approve bypass"}
+                labelText={isPartial ? "Streaming" : "Approve"}
                 onExecute={() => onToolClick(action, messageId, index)}
               />
             </div>

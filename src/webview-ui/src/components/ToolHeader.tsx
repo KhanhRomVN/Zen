@@ -14,6 +14,7 @@ interface ToolHeaderProps {
   onClick?: () => void;
   icon?: React.ReactNode;
   headerActions?: React.ReactNode;
+  isPartial?: boolean;
 }
 
 export const ToolHeader: React.FC<ToolHeaderProps> = ({
@@ -26,6 +27,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   onClick,
   icon,
   headerActions,
+  isPartial,
 }) => {
   return (
     <div
@@ -37,12 +39,26 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
         <div className="terminal-header-top">
           {statusColor && (
             <div
-              className="terminal-status-dot timeline-dot"
+              className={`terminal-status-dot timeline-dot ${isPartial ? "streaming-pulse" : ""}`}
               style={{
                 backgroundColor: statusColor,
                 top: "10px",
+                boxShadow: isPartial ? `0 0 0 0 ${statusColor}40` : "none",
               }}
             />
+          )}
+          {isPartial && (
+            <style>{`
+              @keyframes pulse {
+                0% { box-shadow: 0 0 0 0 var(--pulse-color); }
+                70% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+              }
+              .streaming-pulse {
+                animation: pulse 2s infinite;
+                --pulse-color: ${statusColor}60;
+              }
+            `}</style>
           )}
           <div
             style={{

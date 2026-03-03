@@ -111,8 +111,57 @@ export const parseDiff = (diffText: string): DiffResult => {
         added += addedLines.length;
       }
     });
-
     return { code: codeContent, lineHighlights, stats: { added, removed } };
+  }
+
+  // 1b. Detect PARTIAL SEARCH/REPLACE format (unclosed)
+  const partialSearchPattern = /<<<<<<< SEARCH\s+([\s\S]*?)(?:=======|$)/g;
+  const partialMatches = [...diffText.matchAll(partialSearchPattern)];
+  if (partialMatches.length > 0) {
+    const lastMatch = partialMatches[partialMatches.length - 1];
+    const isActuallyUnclosed = !diffText.includes(">>>>>>> REPLACE");
+
+    if (isActuallyUnclosed) {
+      const searchBlock = lastMatch[1] || "";
+      // If we have ======= but no REPLACE, we are streaming the replacement
+      const replacementPart = diffText.split("=======").pop() || "";
+      const hasSeparator = diffText.includes("=======");
+
+      if (!hasSeparator) {
+        // Just show the search block as "removed" (or just plain text for now)
+        return {
+          code: searchBlock,
+          lineHighlights: [
+            {
+              startLine: 1,
+              endLine: searchBlock.split("\n").length,
+              type: "removed",
+            },
+          ],
+          stats: { added: 0, removed: searchBlock.split("\n").length },
+        };
+      } else {
+        // Show both search and replacement (as far as we have it)
+        const searchLines = searchBlock.split("\n");
+        const replaceLines = replacementPart.split("\n");
+
+        const codeLines = [...searchLines, ...replaceLines];
+        const searchCount = searchLines.length;
+
+        return {
+          code: codeLines.join("\n"),
+          lineHighlights: [
+            { startLine: 1, endLine: searchCount, type: "removed" },
+            {
+              startLine: searchCount + 1,
+              endLine: codeLines.length,
+              type: "added",
+            },
+          ],
+          stats: { added: replaceLines.length, removed: searchLines.length },
+        };
+      }
+    }
   }
 
   // 2. Detect Git-style diff format (basic check)

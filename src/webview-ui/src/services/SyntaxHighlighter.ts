@@ -41,15 +41,15 @@ class SyntaxHighlighterService {
       const colors = {
         background: getColor(
           "--vscode-editor-background",
-          this.defaultDarkColors.background
+          this.defaultDarkColors.background,
         ),
         foreground: getColor(
           "--vscode-editor-foreground",
-          this.defaultDarkColors.foreground
+          this.defaultDarkColors.foreground,
         ),
         comment: getColor(
           "--vscode-editorLineNumber-foreground",
-          this.defaultDarkColors.comment
+          this.defaultDarkColors.comment,
         ),
         string: this.defaultDarkColors.string, // No direct VSCode variable
         number: this.defaultDarkColors.number, // No direct VSCode variable
@@ -58,11 +58,11 @@ class SyntaxHighlighterService {
         class: this.defaultDarkColors.class, // No direct VSCode variable
         operator: getColor(
           "--vscode-editor-foreground",
-          this.defaultDarkColors.operator
+          this.defaultDarkColors.operator,
         ),
         punctuation: getColor(
           "--vscode-editor-foreground",
-          this.defaultDarkColors.punctuation
+          this.defaultDarkColors.punctuation,
         ),
         variable: this.defaultDarkColors.variable, // No direct VSCode variable
         property: this.defaultDarkColors.property, // No direct VSCode variable
@@ -148,24 +148,24 @@ class SyntaxHighlighterService {
    */
   private highlightJavaScript(
     code: string,
-    colors: typeof this.darkColors
+    colors: typeof this.darkColors,
   ): string {
     // Comments (must be first to avoid interfering with other patterns)
     code = code.replace(
       /(\/\/.*$|\/\*[\s\S]*?\*\/)/gm,
-      `<span style="color: ${colors.comment}">$1</span>`
+      `<span style="color: ${colors.comment}">$1</span>`,
     );
 
     // Strings
     code = code.replace(
       /(&quot;(?:[^&]|&(?!quot;))*&quot;|&#039;(?:[^&]|&(?!#039;))*&#039;|`(?:[^`\\]|\\.)*`)/g,
-      `<span style="color: ${colors.string}">$1</span>`
+      `<span style="color: ${colors.string}">$1</span>`,
     );
 
     // Numbers
     code = code.replace(
       /\b(\d+\.?\d*)\b/g,
-      `<span style="color: ${colors.number}">$1</span>`
+      `<span style="color: ${colors.number}">$1</span>`,
     );
 
     // Keywords
@@ -225,14 +225,14 @@ class SyntaxHighlighterService {
       const regex = new RegExp(`\\b(${keyword})\\b`, "g");
       code = code.replace(
         regex,
-        `<span style="color: ${colors.keyword}">$1</span>`
+        `<span style="color: ${colors.keyword}">$1</span>`,
       );
     });
 
     // Function calls
     code = code.replace(
       /\b([a-zA-Z_$][\w$]*)\s*(?=\()/g,
-      `<span style="color: ${colors.function}">$1</span>`
+      `<span style="color: ${colors.function}">$1</span>`,
     );
 
     return code;
@@ -243,24 +243,24 @@ class SyntaxHighlighterService {
    */
   private highlightPython(
     code: string,
-    colors: typeof this.darkColors
+    colors: typeof this.darkColors,
   ): string {
     // Comments
     code = code.replace(
       /(#.*$)/gm,
-      `<span style="color: ${colors.comment}">$1</span>`
+      `<span style="color: ${colors.comment}">$1</span>`,
     );
 
     // Strings
     code = code.replace(
       /(&quot;(?:[^&]|&(?!quot;))*&quot;|&#039;(?:[^&]|&(?!#039;))*&#039;)/g,
-      `<span style="color: ${colors.string}">$1</span>`
+      `<span style="color: ${colors.string}">$1</span>`,
     );
 
     // Numbers
     code = code.replace(
       /\b(\d+\.?\d*)\b/g,
-      `<span style="color: ${colors.number}">$1</span>`
+      `<span style="color: ${colors.number}">$1</span>`,
     );
 
     // Keywords
@@ -304,14 +304,14 @@ class SyntaxHighlighterService {
       const regex = new RegExp(`\\b(${keyword})\\b`, "g");
       code = code.replace(
         regex,
-        `<span style="color: ${colors.keyword}">$1</span>`
+        `<span style="color: ${colors.keyword}">$1</span>`,
       );
     });
 
     // Function definitions
     code = code.replace(
       /\bdef\s+([a-zA-Z_]\w*)/g,
-      `<span style="color: ${colors.keyword}">def</span> <span style="color: ${colors.function}">$1</span>`
+      `<span style="color: ${colors.keyword}">def</span> <span style="color: ${colors.function}">$1</span>`,
     );
 
     return code;
@@ -324,25 +324,25 @@ class SyntaxHighlighterService {
     // Property names
     code = code.replace(
       /&quot;([^&]+)&quot;\s*:/g,
-      `<span style="color: ${colors.property}">&quot;$1&quot;</span>:`
+      `<span style="color: ${colors.property}">&quot;$1&quot;</span>:`,
     );
 
     // String values
     code = code.replace(
       /:\s*&quot;([^&]*)&quot;/g,
-      `: <span style="color: ${colors.string}">&quot;$1&quot;</span>`
+      `: <span style="color: ${colors.string}">&quot;$1&quot;</span>`,
     );
 
     // Numbers
     code = code.replace(
       /:\s*(\d+\.?\d*)/g,
-      `: <span style="color: ${colors.number}">$1</span>`
+      `: <span style="color: ${colors.number}">$1</span>`,
     );
 
     // Booleans and null
     code = code.replace(
       /\b(true|false|null)\b/g,
-      `<span style="color: ${colors.keyword}">$1</span>`
+      `<span style="color: ${colors.keyword}">$1</span>`,
     );
 
     return code;
@@ -355,25 +355,25 @@ class SyntaxHighlighterService {
     // Comments
     code = code.replace(
       /(\/\*[\s\S]*?\*\/)/g,
-      `<span style="color: ${colors.comment}">$1</span>`
+      `<span style="color: ${colors.comment}">$1</span>`,
     );
 
     // Selectors
     code = code.replace(
       /^([.#]?[a-zA-Z][\w-]*)\s*\{/gm,
-      `<span style="color: ${colors.class}">$1</span> {`
+      `<span style="color: ${colors.class}">$1</span> {`,
     );
 
     // Properties
     code = code.replace(
       /([a-zA-Z-]+)\s*:/g,
-      `<span style="color: ${colors.property}">$1</span>:`
+      `<span style="color: ${colors.property}">$1</span>:`,
     );
 
     // Values
     code = code.replace(
       /:\s*([^;{]+);/g,
-      `: <span style="color: ${colors.string}">$1</span>;`
+      `: <span style="color: ${colors.string}">$1</span>;`,
     );
 
     return code;
@@ -386,19 +386,19 @@ class SyntaxHighlighterService {
     // Tags
     code = code.replace(
       /(&lt;\/?)([\w-]+)/g,
-      `$1<span style="color: ${colors.keyword}">$2</span>`
+      `$1<span style="color: ${colors.keyword}">$2</span>`,
     );
 
     // Attributes
     code = code.replace(
       /\s([\w-]+)=/g,
-      ` <span style="color: ${colors.property}">$1</span>=`
+      ` <span style="color: ${colors.property}">$1</span>=`,
     );
 
     // Attribute values
     code = code.replace(
       /=&quot;([^&]*)&quot;/g,
-      `=<span style="color: ${colors.string}">&quot;$1&quot;</span>`
+      `=<span style="color: ${colors.string}">&quot;$1&quot;</span>`,
     );
 
     return code;
@@ -409,24 +409,24 @@ class SyntaxHighlighterService {
    */
   private highlightGeneric(
     code: string,
-    colors: typeof this.darkColors
+    colors: typeof this.darkColors,
   ): string {
     // Comments
     code = code.replace(
       /(\/\/.*$|\/\*[\s\S]*?\*\/|#.*$)/gm,
-      `<span style="color: ${colors.comment}">$1</span>`
+      `<span style="color: ${colors.comment}">$1</span>`,
     );
 
     // Strings
     code = code.replace(
       /(&quot;(?:[^&]|&(?!quot;))*&quot;|&#039;(?:[^&]|&(?!#039;))*&#039;)/g,
-      `<span style="color: ${colors.string}">$1</span>`
+      `<span style="color: ${colors.string}">$1</span>`,
     );
 
     // Numbers
     code = code.replace(
       /\b(\d+\.?\d*)\b/g,
-      `<span style="color: ${colors.number}">$1</span>`
+      `<span style="color: ${colors.number}">$1</span>`,
     );
 
     return code;
