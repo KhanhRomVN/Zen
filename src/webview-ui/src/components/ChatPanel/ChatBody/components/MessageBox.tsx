@@ -889,6 +889,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   activeTerminalIds={activeTerminalIds}
                   attachedTerminalIds={attachedTerminalIds}
                   conversationId={conversationId}
+                  allActions={parsedContent.actions}
                 />
               );
             }

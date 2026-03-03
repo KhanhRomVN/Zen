@@ -29,12 +29,15 @@ const getLanguageFromFilename = (filename?: string): string => {
     scss: "scss",
     json: "json",
     xml: "xml",
+    properties: "properties",
+    ini: "ini",
+    toml: "toml",
     yaml: "yaml",
     yml: "yaml",
-    md: "markdown",
-    sh: "shellscript",
-    bash: "shellscript",
-    sql: "sql",
+    makefile: "makefile",
+    plaintext: "plaintext",
+    txt: "plaintext",
+    text: "plaintext",
   };
 
   return languageMap[ext || ""] || "plaintext";

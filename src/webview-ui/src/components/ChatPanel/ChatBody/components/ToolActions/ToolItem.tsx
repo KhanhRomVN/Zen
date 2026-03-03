@@ -496,6 +496,10 @@ const ToolItem: React.FC<ToolItemProps> = ({
         sh: "shell",
         bash: "shell",
         sql: "sql",
+        properties: "properties",
+        ini: "ini",
+        toml: "toml",
+        makefile: "makefile",
       };
 
       let codeLanguage =
@@ -940,39 +944,43 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
             {/* Right: action buttons */}
             <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              {!isTerminalBusy && (
-                <ExecuteButton
-                  isActive={isActiveGroup || false}
-                  isCompleted={isCompleted}
-                  isLastMessage={isLastMessage}
-                  isSkipped={
-                    !isActiveGroup && !isLastMessage && !isActionClicked
-                  }
-                  isLoading={isLoading}
-                  toolColor={toolColor}
-                  title={
-                    isCompleted
-                      ? "Completed"
-                      : isLoading
-                        ? "Executing..."
-                        : "Execute action"
-                  }
-                  onExecute={() => {
-                    if (!isCompleted && !isLoading) {
-                      const actionWithTerminal = {
-                        ...action,
-                        params: {
-                          ...action.params,
-                          terminal_id:
-                            (outputData as any)?.terminalId ||
-                            action.params.terminal_id,
-                        },
-                      };
-                      onToolClick(actionWithTerminal, messageId, index);
+              {!isTerminalBusy &&
+                (isActiveGroup ||
+                  isCompleted ||
+                  isLoading ||
+                  !isLastMessage) && (
+                  <ExecuteButton
+                    isActive={isActiveGroup || false}
+                    isCompleted={isCompleted}
+                    isLastMessage={isLastMessage}
+                    isSkipped={
+                      !isActiveGroup && !isLastMessage && !isActionClicked
                     }
-                  }}
-                />
-              )}
+                    isLoading={isLoading}
+                    toolColor={toolColor}
+                    title={
+                      isCompleted
+                        ? "Completed"
+                        : isLoading
+                          ? "Executing..."
+                          : "Execute action"
+                    }
+                    onExecute={() => {
+                      if (!isCompleted && !isLoading) {
+                        const actionWithTerminal = {
+                          ...action,
+                          params: {
+                            ...action.params,
+                            terminal_id:
+                              (outputData as any)?.terminalId ||
+                              action.params.terminal_id,
+                          },
+                        };
+                        onToolClick(actionWithTerminal, messageId, index);
+                      }
+                    }}
+                  />
+                )}
               {isTerminalBusy && (
                 <button
                   className="stop-terminal-btn"
@@ -1073,52 +1081,58 @@ const ToolItem: React.FC<ToolItemProps> = ({
               />
             }
             headerActions={
-              <ExecuteButton
-                isActive={isActiveGroup || false}
-                isCompleted={group.every((item) =>
+              (isActiveGroup ||
+                group.every((item) =>
                   clickedActions.has(`${messageId}-action-${item.index}`),
-                )}
-                isLastMessage={isLastMessage}
-                isSkipped={
-                  !isActiveGroup &&
-                  !isLastMessage &&
-                  !group.every((item) =>
+                ) ||
+                !isLastMessage) && (
+                <ExecuteButton
+                  isActive={isActiveGroup || false}
+                  isCompleted={group.every((item) =>
                     clickedActions.has(`${messageId}-action-${item.index}`),
-                  )
-                }
-                toolColor={toolColor}
-                title={
-                  group.every((item) =>
-                    clickedActions.has(`${messageId}-action-${item.index}`),
-                  )
-                    ? "Completed"
-                    : "Execute all actions"
-                }
-                onExecute={(e) => {
-                  const isCompleted = group.every((item) =>
-                    clickedActions.has(`${messageId}-action-${item.index}`),
-                  );
-
-                  if (isCompleted) {
-                    return;
+                  )}
+                  isLastMessage={isLastMessage}
+                  isSkipped={
+                    !isActiveGroup &&
+                    !isLastMessage &&
+                    !group.every((item) =>
+                      clickedActions.has(`${messageId}-action-${item.index}`),
+                    )
                   }
-
-                  const unclickedItems = group.filter(
-                    ({ index }) =>
-                      !clickedActions.has(`${messageId}-action-${index}`),
-                  );
-                  const actionsToExecute = unclickedItems.map(
-                    ({ action, index }) => ({
-                      ...action,
-                      _index: index,
-                    }),
-                  );
-
-                  if (actionsToExecute.length > 0) {
-                    onToolClick(actionsToExecute as any, messageId, -1);
+                  toolColor={toolColor}
+                  title={
+                    group.every((item) =>
+                      clickedActions.has(`${messageId}-action-${item.index}`),
+                    )
+                      ? "Completed"
+                      : "Execute all actions"
                   }
-                }}
-              />
+                  onExecute={(e) => {
+                    const isCompleted = group.every((item) =>
+                      clickedActions.has(`${messageId}-action-${item.index}`),
+                    );
+
+                    if (isCompleted) {
+                      return;
+                    }
+
+                    const unclickedItems = group.filter(
+                      ({ index }) =>
+                        !clickedActions.has(`${messageId}-action-${index}`),
+                    );
+                    const actionsToExecute = unclickedItems.map(
+                      ({ action, index }) => ({
+                        ...action,
+                        _index: index,
+                      }),
+                    );
+
+                    if (actionsToExecute.length > 0) {
+                      onToolClick(actionsToExecute as any, messageId, -1);
+                    }
+                  }}
+                />
+              )
             }
           />
 
@@ -1268,28 +1282,34 @@ const ToolItem: React.FC<ToolItemProps> = ({
                       />
                     }
                     headerActions={
-                      <ExecuteButton
-                        isActive={isActiveGroup || false}
-                        isCompleted={isCompleted}
-                        isLastMessage={isLastMessage}
-                        isSkipped={
-                          !isActiveGroup && !isLastMessage && !isActionClicked
-                        }
-                        isLoading={isLoading}
-                        toolColor={toolColor}
-                        title={
-                          isCompleted
-                            ? "Completed"
-                            : isLoading
-                              ? "Executing..."
-                              : "Execute action"
-                        }
-                        onExecute={() => {
-                          if (!isCompleted && !isLoading) {
-                            onToolClick(action, messageId, index);
+                      (isActiveGroup ||
+                        isNextToExecute ||
+                        isCompleted ||
+                        isLoading ||
+                        !isLastMessage) && (
+                        <ExecuteButton
+                          isActive={isActiveGroup || false}
+                          isCompleted={isCompleted}
+                          isLastMessage={isLastMessage}
+                          isSkipped={
+                            !isActiveGroup && !isLastMessage && !isActionClicked
                           }
-                        }}
-                      />
+                          isLoading={isLoading}
+                          toolColor={toolColor}
+                          title={
+                            isCompleted
+                              ? "Completed"
+                              : isLoading
+                                ? "Executing..."
+                                : "Execute action"
+                          }
+                          onExecute={() => {
+                            if (!isCompleted && !isLoading) {
+                              onToolClick(action, messageId, index);
+                            }
+                          }}
+                        />
+                      )
                     }
                   />
                   {!isCollapsed && (

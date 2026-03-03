@@ -27,6 +27,7 @@ interface ToolActionsListProps {
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
+  allActions?: ToolAction[];
 }
 
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
@@ -44,6 +45,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
+  allActions,
   isVisibleTool = (type: string) => true,
 }) => {
   // Filter out invisible tools immediately
@@ -151,11 +153,28 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
       // It is active if its first item's index matches the global firstUnclickedIndex.
 
       // Calculate globalFirstUnclicked (lazy way: check 0..firstItem.index)
-      let isPreviousAllClicked = true;
+      let isPreviousAllDone = true;
       for (let i = 0; i < firstItem.index; i++) {
-        if (!clickedActions.has(`${message.id}-action-${i}`)) {
-          isPreviousAllClicked = false;
+        const actionId = `${message.id}-action-${i}`;
+        if (!clickedActions.has(actionId)) {
+          isPreviousAllDone = false;
           break;
+        }
+
+        // If it's a run_command, check if it's actually finished
+        const action = allActions ? allActions[i] : null;
+        if (action && action.type === "run_command") {
+          const output = toolOutputs?.[actionId];
+          if (!output) {
+            isPreviousAllDone = false;
+            break;
+          }
+          const terminalId =
+            (output as any)?.terminalId || action.params.terminal_id;
+          if (terminalId && terminalStatus?.[terminalId] === "busy") {
+            isPreviousAllDone = false;
+            break;
+          }
         }
       }
 
@@ -164,7 +183,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
       );
 
       const isActiveGroup =
-        isLastMessage && isPreviousAllClicked && !isThisActionClicked;
+        isLastMessage && isPreviousAllDone && !isThisActionClicked;
 
       return (
         <React.Fragment key={key}>

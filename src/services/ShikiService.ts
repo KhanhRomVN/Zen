@@ -92,6 +92,7 @@ export class ShikiService {
             "markdown",
             "shellscript",
             "yaml",
+            "yml",
             "sql",
             "cpp",
             "c",
@@ -99,6 +100,12 @@ export class ShikiService {
             "go",
             "rust",
             "php",
+            "properties",
+            "ini",
+            "toml",
+            "makefile",
+            "plaintext",
+            "text",
           ],
         });
       } catch (error) {
@@ -155,86 +162,85 @@ export class ShikiService {
         ? "github-light"
         : "dark-plus";
 
-    try {
-      // 🆕 Create Transformers
-      const transformers = [];
+    // 🆕 Create Transformers
+    const transformers = [];
 
-      // 1. Line Numbers Transformer
-      if (showLineNumbers) {
-        transformers.push({
-          name: "zen-line-numbers",
-          line(node: any, line: number) {
-            const actualLine = line + startLineNumber - 1;
-            node.properties["data-line"] = actualLine;
-            // Inject line number span
-            node.children.unshift({
-              type: "element",
-              tagName: "span",
-              properties: { className: ["line-number"] },
-              children: [{ type: "text", value: actualLine.toString() }],
-            });
-          },
-        });
-      }
-
-      // 2. Diff Highlighting Transformer
-      if (lineHighlights && lineHighlights.length > 0) {
-        transformers.push({
-          name: "zen-diff-highlights",
-          line(node: any, line: number) {
-            // Shiki transformer 'line' is 1-indexed
-            const h = lineHighlights.find(
-              (lh) => line >= lh.startLine && line <= lh.endLine,
-            );
-            if (h) {
-              const className =
-                h.type === "added" ? "diff-line-added" : "diff-line-removed";
-
-              // Ensure we don't duplicate classes and apply to the line node
-              if (!node.properties) node.properties = {};
-
-              // [Fix] Handle potential 'class' vs 'className' conflict
-              // If Shiki sets 'class' (string), convert it to 'className' (array) to avoid duplicate attributes
-              if (node.properties.class) {
-                if (typeof node.properties.class === "string") {
-                  const existing = node.properties.class.split(" ");
-                  if (!node.properties.className)
-                    node.properties.className = [];
-                  node.properties.className.push(...existing);
-                }
-                delete node.properties.class;
-              }
-
-              if (!node.properties.className) node.properties.className = [];
-              if (!node.properties.className.includes(className)) {
-                node.properties.className.push(className);
-              }
-            }
-          },
-        });
-      }
-
-      // 3. Clean structure transformer
+    // 1. Line Numbers Transformer
+    if (showLineNumbers) {
       transformers.push({
-        name: "zen-clean-structure",
-        pre(node: any) {
-          // Remove inline background-color from shiki's pre tag
-          if (node.properties.style) {
-            delete node.properties.style;
-          }
-        },
-        code(node: any) {
-          // Filter out empty text nodes (newlines) between line spans
-          // which cause extra spacing in some rendering modes
-          node.children = node.children.filter((child: any) => {
-            if (child.type === "text" && child.value === "\n") {
-              return false;
-            }
-            return true;
+        name: "zen-line-numbers",
+        line(node: any, line: number) {
+          const actualLine = line + startLineNumber - 1;
+          node.properties["data-line"] = actualLine;
+          // Inject line number span
+          node.children.unshift({
+            type: "element",
+            tagName: "span",
+            properties: { className: ["line-number"] },
+            children: [{ type: "text", value: actualLine.toString() }],
           });
         },
       });
+    }
 
+    // 2. Diff Highlighting Transformer
+    if (lineHighlights && lineHighlights.length > 0) {
+      transformers.push({
+        name: "zen-diff-highlights",
+        line(node: any, line: number) {
+          // Shiki transformer 'line' is 1-indexed
+          const h = lineHighlights.find(
+            (lh) => line >= lh.startLine && line <= lh.endLine,
+          );
+          if (h) {
+            const className =
+              h.type === "added" ? "diff-line-added" : "diff-line-removed";
+
+            // Ensure we don't duplicate classes and apply to the line node
+            if (!node.properties) node.properties = {};
+
+            // [Fix] Handle potential 'class' vs 'className' conflict
+            // If Shiki sets 'class' (string), convert it to 'className' (array) to avoid duplicate attributes
+            if (node.properties.class) {
+              if (typeof node.properties.class === "string") {
+                const existing = node.properties.class.split(" ");
+                if (!node.properties.className) node.properties.className = [];
+                node.properties.className.push(...existing);
+              }
+              delete node.properties.class;
+            }
+
+            if (!node.properties.className) node.properties.className = [];
+            if (!node.properties.className.includes(className)) {
+              node.properties.className.push(className);
+            }
+          }
+        },
+      });
+    }
+
+    // 3. Clean structure transformer
+    transformers.push({
+      name: "zen-clean-structure",
+      pre(node: any) {
+        // Remove inline background-color from shiki's pre tag
+        if (node.properties.style) {
+          delete node.properties.style;
+        }
+      },
+      code(node: any) {
+        // Filter out empty text nodes (newlines) between line spans
+        // which cause extra spacing in some rendering modes
+        node.children = node.children.filter((child: any) => {
+          if (child.type === "text" && child.value === "\n") {
+            return false;
+          }
+          return true;
+        });
+      },
+    });
+
+    try {
       const html = await this.highlighter.codeToHtml(code, {
         lang: language,
         theme: theme,
@@ -243,16 +249,20 @@ export class ShikiService {
       return html;
     } catch (error) {
       console.warn(
-        `[ShikiService] Highlighting failed for ${language}, falling back to plaintext:`,
+        `[ShikiService] Highlighting failed for ${language}, falling back to plaintext with transformers:`,
         error,
       );
       try {
-        return this.highlighter.codeToHtml(code, {
+        // [Fix] Attempt highlighting with 'plaintext' but STILL include transformers
+        // This ensures line numbers and diff highlights work even for unsupported languages.
+        return await this.highlighter.codeToHtml(code, {
           lang: "plaintext",
           theme: theme,
+          transformers,
         });
       } catch (e) {
-        return `<pre><code>${code}</code></pre>`;
+        console.error("[ShikiService] Absolute fallback triggered:", e);
+        return `<pre class="shiki-fallback"><code>${code}</code></pre>`;
       }
     }
   }

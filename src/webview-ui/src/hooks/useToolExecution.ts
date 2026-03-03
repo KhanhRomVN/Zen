@@ -788,7 +788,11 @@ export const useToolExecution = ({
             },
             "*",
           );
-          setClickedActions((prev) => new Set(prev).add(actionId));
+          setClickedActions((prev) => {
+            const next = new Set(prev).add(actionId);
+            clickedActionsRef.current = next;
+            return next;
+          });
         } else {
           setExecutionState((prev) => ({ ...prev, status: "error" }));
           break;
@@ -838,7 +842,7 @@ export const useToolExecution = ({
 
         const isAllComplete = allActionIds.every(
           (id: string) =>
-            clickedActions.has(id) || currentBatchIds.includes(id),
+            clickedActionsRef.current.has(id) || currentBatchIds.includes(id),
         );
 
         if (isAllComplete) {
