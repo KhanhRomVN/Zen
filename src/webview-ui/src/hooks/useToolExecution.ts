@@ -349,13 +349,19 @@ export const useToolExecution = ({
               msg.requestId === requestId
             ) {
               window.removeEventListener("message", handleListResponse);
+              console.log("[useToolExecution] listFiles result received:", msg);
               if (msg.error) {
                 resolve(
                   `[list_files for '${folderPath}'] Result: Error - ${msg.error}`,
                 );
               } else {
+                const listResults = msg.files || msg.results;
+                const formattedOutput = Array.isArray(listResults)
+                  ? JSON.stringify(listResults, null, 2)
+                  : String(listResults);
+
                 resolve(
-                  `[list_files for '${folderPath}'] Result:\n\`\`\`\n${msg.files}\n\`\`\``,
+                  `[list_files for '${folderPath}'] Result:\n\`\`\`\n${formattedOutput}\n\`\`\``,
                 );
               }
             }

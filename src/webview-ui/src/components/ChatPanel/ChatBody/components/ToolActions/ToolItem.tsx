@@ -816,14 +816,20 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   isFilePathList={toolType === "list_files"}
                 />
               ) : (
-                <CodeBlock
-                  code={codeContent}
-                  language={codeLanguage}
-                  maxLines={25}
-                  isCollapsed={false}
-                  showLineNumbers={true}
-                  lineHighlights={lineHighlights}
-                />
+                !(
+                  isPartial &&
+                  (toolType === "replace_in_file" ||
+                    toolType === "write_to_file")
+                ) && (
+                  <CodeBlock
+                    code={codeContent}
+                    language={codeLanguage}
+                    maxLines={25}
+                    isCollapsed={false}
+                    showLineNumbers={true}
+                    lineHighlights={lineHighlights}
+                  />
+                )
               )}
             </>
           )}

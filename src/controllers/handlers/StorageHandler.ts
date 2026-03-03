@@ -8,33 +8,55 @@ export class StorageHandler {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
-    const { command, requestId, key, value } = message;
     if (!this.storageManager) {
       webviewView.webview.postMessage({
-        command: `${command}Response`,
-        requestId,
+        command: `${message.command}Response`,
+        requestId: message.requestId,
         error: "Storage manager not initialized",
       });
       return;
     }
 
-    let result: any;
-    if (command === "storageGet") result = await this.storageManager.get(key);
-    else if (command === "storageSet")
-      await this.storageManager.set(key, value);
-    else if (command === "storageDelete") await this.storageManager.delete(key);
-    else if (command === "storageList")
-      result = await this.storageManager.list();
+    try {
+      let result: any;
+      const { command, requestId, key, value } = message;
 
-    const responsePayload: any = {
-      command: `${command}Response`,
-      requestId,
-    };
-
-    if (command === "storageGet") responsePayload.value = result;
-    else if (command === "storageList") responsePayload.keys = result;
-    else responsePayload.result = result;
-
-    webviewView.webview.postMessage(responsePayload);
+      if (command === "storageGet") {
+        result = await this.storageManager.get(key);
+        webviewView.webview.postMessage({
+          command: "storageGetResponse",
+          requestId,
+          key,
+          value: result,
+        });
+      } else if (command === "storageSet") {
+        await this.storageManager.set(key, value);
+        webviewView.webview.postMessage({
+          command: "storageSetResponse",
+          requestId,
+          success: true,
+        });
+      } else if (command === "storageDelete") {
+        await this.storageManager.delete(key);
+        webviewView.webview.postMessage({
+          command: "storageDeleteResponse",
+          requestId,
+          success: true,
+        });
+      } else if (command === "storageList") {
+        result = await this.storageManager.list(message.prefix);
+        webviewView.webview.postMessage({
+          command: "storageListResponse",
+          requestId,
+          keys: result,
+        });
+      }
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: `${message.command}Response`,
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
   }
 }

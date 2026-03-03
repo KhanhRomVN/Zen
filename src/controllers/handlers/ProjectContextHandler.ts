@@ -5,6 +5,7 @@ import * as crypto from "crypto";
 import * as os from "os";
 import { ContextManager } from "../../context/ContextManager";
 import { ProjectStructureManager } from "../../context/ProjectStructureManager";
+import { GlobalStorageManager } from "../../storage-manager";
 
 export class ProjectContextHandler {
   private _projectContextWatcher?: vscode.FileSystemWatcher;
@@ -13,6 +14,7 @@ export class ProjectContextHandler {
   constructor(
     private contextManager: ContextManager,
     private projectStructureManager: ProjectStructureManager | undefined,
+    private storageManager: GlobalStorageManager | undefined,
   ) {}
 
   private getContextRoot(): string {
@@ -25,6 +27,13 @@ export class ProjectContextHandler {
       .update(workspaceFolderPath)
       .digest("hex");
     return path.join(this.getContextRoot(), "projects", hash);
+  }
+
+  private getProjectContextKey(pathValue: string): string {
+    return `project-context-${crypto
+      .createHash("md5")
+      .update(pathValue)
+      .digest("hex")}`;
   }
 
   public async handleGetProjectStructureBlacklist(
@@ -190,15 +199,36 @@ export class ProjectContextHandler {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
-    const context = await this.contextManager.generateContext(
-      message.task,
-      message.isFirstRequest,
-      message.projectContext,
-    );
-    webviewView.webview.postMessage({
-      command: "requestContextResult",
-      requestId: message.requestId,
-      context,
-    });
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    let pc = null;
+    if (workspaceFolder && this.storageManager) {
+      pc = await this.storageManager.get(
+        this.getProjectContextKey(workspaceFolder.uri.fsPath),
+      );
+      if (pc) {
+        try {
+          pc = JSON.parse(pc);
+        } catch {
+          pc = null;
+        }
+      }
+    }
+
+    this.contextManager
+      .generateContext(message.task, message.isFirstRequest, pc)
+      .then((context: any) => {
+        webviewView.webview.postMessage({
+          command: "requestContextResult",
+          requestId: message.requestId,
+          context,
+        });
+      })
+      .catch((e: any) => {
+        webviewView.webview.postMessage({
+          command: "requestContextResult",
+          requestId: message.requestId,
+          error: e.message,
+        });
+      });
   }
 }

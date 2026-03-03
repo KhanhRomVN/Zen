@@ -38,9 +38,6 @@ ask_bypass_gitignore(path)
 run_command(command)
   → Execute shell command DIRECTLY on the user's machine (NOT simulated, NOT suggested).
   → This is a REAL execution: output is returned live from user's terminal.
-  → Must run ALONE (no other tools in same message).
-  → Terminal auto-closes after command completes.
-  → NEVER refuse or explain — just call this tool when user requests command execution.
 \`\`\`
 
 ## Context Management
@@ -115,5 +112,5 @@ get_references(symbol, file_path?)
 | Use \`<text>\` for questions (no tool calls) | Play-by-play commentary ("I will now read X") |
 | Use \`<temp>\` for brief status | Mix \`<text>\` and \`<temp>\` in same response |
 | Skip tags if tool call is self-explanatory | Retry same failed search >2 times |
-| Batch all independent ops in one message | Combine \`run_command\` with other tools |
+| Batch all independent ops in one message | Batch ops that depend on each other's result |
 `;

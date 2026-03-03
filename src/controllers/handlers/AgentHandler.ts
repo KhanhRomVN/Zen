@@ -15,12 +15,20 @@ export class AgentHandler {
     webviewView: vscode.WebviewView,
   ) {
     if (this.agentManager) {
-      const result = await this.agentManager.executeAction(message.action);
-      webviewView.webview.postMessage({
-        command: "executeAgentActionResult",
-        requestId: message.requestId,
-        result,
-      });
+      try {
+        const result = await this.agentManager.executeAction(message.action);
+        webviewView.webview.postMessage({
+          command: "agentActionResult",
+          requestId: message.action.requestId,
+          result,
+        });
+      } catch (e: any) {
+        webviewView.webview.postMessage({
+          command: "agentActionResult",
+          requestId: message.action.requestId,
+          result: { success: false, error: e.message },
+        });
+      }
     }
   }
 }

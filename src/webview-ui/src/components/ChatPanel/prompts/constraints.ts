@@ -31,8 +31,7 @@ Turn 2: <replace_in_file><file_path>app.ts</file_path></replace_in_file>  // Aft
 - Mixed operations: \`<list_files/><search_files/><read_file><file_path>A</file_path></read_file>\`
 
 **Prohibited**:
-- \`run_command\` with any other tool (commands must run alone).
-- Operations with dependencies (file A creates B, then C imports B)
+- Operations with dependencies or conflicts (file A creates B, then C imports B — these must be sequential)
 
 ## C3: BYTE-PERFECT-MATCHING
 **Rule**: SEARCH block in \`replace_in_file()\` must match EXACTLY (whitespace, indentation, line breaks).

@@ -1,7 +1,4 @@
 import * as vscode from "vscode";
-import * as path from "path";
-import * as fs from "fs";
-import * as os from "os";
 import * as https from "https";
 import { ContextManager } from "../context/ContextManager";
 import { GlobalStorageManager } from "../storage-manager";
@@ -18,6 +15,8 @@ import { TerminalHandler } from "./handlers/TerminalHandler";
 import { SystemHandler } from "./handlers/SystemHandler";
 import { ProjectContextHandler } from "./handlers/ProjectContextHandler";
 import { DiagnosticHandler } from "./handlers/DiagnosticHandler";
+import { AgentHandler } from "./handlers/AgentHandler";
+import { StorageHandler } from "./handlers/StorageHandler";
 
 export class ChatController {
   private conversationHandler: ConversationHandler;
@@ -27,6 +26,8 @@ export class ChatController {
   private systemHandler: SystemHandler;
   private projectContextHandler: ProjectContextHandler;
   private diagnosticHandler: DiagnosticHandler;
+  private agentHandler: AgentHandler;
+  private storageHandler: StorageHandler;
 
   private _pingInterval?: NodeJS.Timeout;
 
@@ -57,8 +58,11 @@ export class ChatController {
     this.projectContextHandler = new ProjectContextHandler(
       this.contextManager,
       this.projectStructureManager,
+      this.storageManager,
     );
     this.diagnosticHandler = new DiagnosticHandler(this.contextManager);
+    this.agentHandler = new AgentHandler(this.agentManager);
+    this.storageHandler = new StorageHandler(this.storageManager);
   }
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
@@ -177,6 +181,9 @@ export class ChatController {
         case "getWorkspaceTree":
           await this.fileHandler.handleGetWorkspaceTree(message, webviewView);
           break;
+        case "getFileStats":
+          await this.fileHandler.handleGetFileStats(message, webviewView);
+          break;
 
         // Backup
         case "startBackupWatch":
@@ -228,10 +235,10 @@ export class ChatController {
           await this.backupHandler.handleRevertToSnapshot(message, webviewView);
           break;
         case "openSnapshotDiffWithCurrent":
-          await this.handleOpenSnapshotDiffWithCurrent(message);
+          await this.backupHandler.handleOpenSnapshotDiffWithCurrent(message);
           break;
         case "openDiff":
-          await this.handleOpenDiff(message);
+          await this.systemHandler.handleOpenDiff(message);
           break;
 
         // Terminal
@@ -322,34 +329,43 @@ export class ChatController {
         case "confirmDelete":
         case "confirmClearAll":
         case "confirmClearChat":
-          await this.handleConfirmation(message, webviewView);
+          await this.systemHandler.handleConfirmation(message, webviewView);
           break;
         case "showError":
           vscode.window.showErrorMessage(message.message);
           break;
-        case "getFileStats":
-          await this.handleGetFileStats(message, webviewView);
-          break;
         case "updateAgentPermissions":
-          this.handleUpdateAgentPermissions(message);
+          this.agentHandler.handleUpdateAgentPermissions(message);
           break;
         case "executeAgentAction":
-          await this.handleExecuteAgentAction(message, webviewView);
+          await this.agentHandler.handleExecuteAgentAction(
+            message,
+            webviewView,
+          );
           break;
         case "storageGet":
         case "storageSet":
         case "storageDelete":
         case "storageList":
-          await this.handleStorageOperation(message, webviewView);
+          await this.storageHandler.handleStorageOperation(
+            message,
+            webviewView,
+          );
           break;
         case "sendMessage":
-          await this.handleSendMessage(message, webviewView);
+          await this.conversationHandler.handleSendMessage(
+            message,
+            webviewView,
+          );
           break;
         case "getGitChanges":
-          await this.handleGetGitChanges(message, webviewView);
+          await this.fileHandler.handleGetGitChanges(message, webviewView);
           break;
         case "requestContext":
-          await this.handleRequestContext(message, webviewView);
+          await this.projectContextHandler.handleRequestContext(
+            message,
+            webviewView,
+          );
           break;
       }
     } catch (error) {
@@ -407,185 +423,5 @@ export class ChatController {
 
   public stopProjectContextWatch() {
     this.projectContextHandler.stopProjectContextWatch();
-  }
-
-  private async handleConfirmation(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const rawAction = message.command.replace("confirm", "");
-    const action = rawAction.charAt(0).toLowerCase() + rawAction.slice(1);
-    const result = await vscode.window.showWarningMessage(
-      message.text || `Are you sure you want to ${action}?`,
-      { modal: true },
-      "Yes",
-    );
-    if (result === "Yes") {
-      webviewView.webview.postMessage({
-        command: `${action}Confirmed`,
-        requestId: message.requestId,
-        conversationId: message.conversationId,
-        confirmed: true,
-      });
-    }
-  }
-
-  private async handleGetFileStats(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) return;
-      const uri = vscode.Uri.joinPath(workspaceFolder.uri, message.path);
-      const stat = await vscode.workspace.fs.stat(uri);
-      const content = await vscode.workspace.fs.readFile(uri);
-      const lines = Buffer.from(content).toString("utf8").split("\n").length;
-
-      webviewView.webview.postMessage({
-        command: "fileStatsResult",
-        requestId: message.requestId,
-        id: message.id, // For ToolItem.tsx
-        path: message.path, // For ToolItem.tsx
-        lines: lines, // For ToolItem.tsx
-        stats: {
-          size: stat.size,
-          mtime: stat.mtime,
-          type: stat.type === vscode.FileType.Directory ? "directory" : "file",
-        },
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "fileStatsResult",
-        requestId: message.requestId,
-        id: message.id,
-        path: message.path,
-        error: e.message,
-      });
-    }
-  }
-
-  private handleUpdateAgentPermissions(message: any) {
-    if (this.agentManager) {
-      this.agentManager.updatePermissions(message.permissions);
-    }
-  }
-
-  private async handleExecuteAgentAction(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    if (this.agentManager) {
-      const result = await this.agentManager.executeAction(message.action);
-      webviewView.webview.postMessage({
-        command: "executeAgentActionResult",
-        requestId: message.requestId,
-        result,
-      });
-    }
-  }
-
-  private async handleStorageOperation(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const { command, requestId, key, value } = message;
-    if (!this.storageManager) {
-      webviewView.webview.postMessage({
-        command: `${command}Response`,
-        requestId,
-        error: "Storage manager not initialized",
-      });
-      return;
-    }
-
-    let result: any;
-    if (command === "storageGet") result = await this.storageManager.get(key);
-    else if (command === "storageSet")
-      await this.storageManager.set(key, value);
-    else if (command === "storageDelete") await this.storageManager.delete(key);
-    else if (command === "storageList")
-      result = await this.storageManager.list();
-
-    const responsePayload: any = {
-      command: `${command}Response`,
-      requestId,
-    };
-
-    if (command === "storageGet") responsePayload.value = result;
-    else if (command === "storageList") responsePayload.keys = result;
-    else responsePayload.result = result;
-
-    webviewView.webview.postMessage(responsePayload);
-  }
-
-  private async handleSendMessage(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    // Basic messaging logic if needed
-  }
-
-  private async handleGetGitChanges(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    // Git changes logic via git extension or simple shell
-  }
-
-  private async handleRequestContext(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const context = await this.contextManager.generateContext(
-      message.task,
-      message.isFirstRequest,
-      message.projectContext,
-    );
-    webviewView.webview.postMessage({
-      command: "requestContextResult",
-      requestId: message.requestId,
-      context,
-    });
-  }
-
-  private async handleOpenSnapshotDiffWithCurrent(message: any) {
-    if (!this.backupManager) return;
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-    const { conversationId, fileEvent } = message;
-    const { snapshotPath, filePath } = fileEvent;
-
-    if (!snapshotPath || !filePath) return;
-
-    const snapshotContent = await this.backupManager.getSnapshotContent(
-      conversationId,
-      snapshotPath,
-    );
-    const tmpDir = path.join(os.tmpdir(), "khanhromvn-zen-diff");
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-    const tmpFile = vscode.Uri.file(
-      path.join(tmpDir, path.basename(snapshotPath)),
-    );
-    await vscode.workspace.fs.writeFile(
-      tmpFile,
-      Buffer.from(snapshotContent, "utf8"),
-    );
-    const currentFile = vscode.Uri.joinPath(workspaceFolder.uri, filePath);
-    await vscode.commands.executeCommand(
-      "vscode.diff",
-      tmpFile,
-      currentFile,
-      `Snapshot ↔ Current`,
-    );
-  }
-
-  private async handleOpenDiff(message: any) {
-    await vscode.commands.executeCommand(
-      "vscode.diff",
-      vscode.Uri.file(message.leftPath),
-      vscode.Uri.file(message.rightPath),
-      message.title || "Diff",
-    );
   }
 }

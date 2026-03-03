@@ -543,29 +543,30 @@ export class FileHandler {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
-      const pathValue = message.path || message.folder_path || ".";
-      const uri = vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
+      const pathValue = message.path || message.folder_path || message.filePath;
+      const dirPath = pathValue || ".";
+      const recursiveParam = message.recursive;
+      const absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, dirPath);
+
+      let maxDepth = 1;
+      if (recursiveParam === "true" || recursiveParam === true) maxDepth = 10;
+      else if (recursiveParam)
+        maxDepth = parseInt(String(recursiveParam), 10) || 1;
 
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
-      const ignoreCheck = await fsAnalyzer.isIgnored(uri.fsPath);
+      const ignoreCheck = await fsAnalyzer.isIgnored(absolutePath.fsPath);
       if (ignoreCheck.ignored) {
         throw new Error(
-          `Path '${pathValue}' is out of scope (ignored by .gitignore or project settings).`,
+          `Path '${dirPath}' is out of scope (ignored by .gitignore or project settings).`,
         );
       }
-
-      const entries = await vscode.workspace.fs.readDirectory(uri);
-      const results = entries.map(([name, type]) => ({
-        name,
-        type: type === vscode.FileType.Directory ? "directory" : "file",
-        path: path.join(pathValue, name),
-      }));
+      const tree = await fsAnalyzer.getFileTree(maxDepth, absolutePath.fsPath);
 
       webviewView.webview.postMessage({
         command: "listFilesResult",
         requestId: message.requestId,
         path: pathValue,
-        results,
+        files: tree,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({

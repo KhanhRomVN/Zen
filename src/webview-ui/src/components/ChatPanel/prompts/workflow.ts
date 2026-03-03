@@ -157,8 +157,7 @@ Prohibited: combining read + edit in same message when content is unknown.
 
 ### R2 — BATCH INDEPENDENT OPERATIONS
 ✅ Allowed in one message: multiple reads, multiple writes, multiple replaces, mixed explore ops  
-❌ Prohibited: \`run_command\` with any other tool (commands run alone)  
-❌ Prohibited: operations with dependencies (A creates B, then C imports B → sequential)
+❌ Prohibited: operations with dependencies or conflicts (A creates B, then C imports B → sequential)
 
 ### R3 — BYTE-PERFECT MATCHING (replace_in_file)
 - Copy indentation character-by-character from source
