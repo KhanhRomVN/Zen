@@ -18,6 +18,7 @@ import { CLICKABLE_TOOLS, MANUAL_CONFIRMATION_TOOLS } from "../../constants";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import { useProject } from "../../../../../context/ProjectContext";
+import { Check, CheckCheck, X, ShieldCheck, Play } from "lucide-react";
 
 interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
@@ -27,6 +28,7 @@ interface ToolItemProps {
     action: ToolAction,
     messageId: string,
     actionIndex: number,
+    type: "accept_all" | "accept_once" | "reject",
   ) => void;
   executionState?: {
     total: number;
@@ -54,13 +56,16 @@ const ExecuteButton: React.FC<{
   isActive: boolean;
   isFailed?: boolean;
   isLastMessage?: boolean;
-  onExecute: (e: React.MouseEvent) => void;
+  onExecute: (
+    e: React.MouseEvent,
+    type: "accept_all" | "accept_once" | "reject",
+  ) => void;
   toolColor: string;
   title: string;
-  isSkipped?: boolean; // New prop for history skipped state
-  isLoading?: boolean; // New prop for loading state
-  showText?: boolean; // New prop to show text label
-  labelText?: string; // New prop for text label
+  isSkipped?: boolean;
+  isLoading?: boolean;
+  showText?: boolean;
+  labelText?: string;
 }> = ({
   isCompleted,
   isActive,
@@ -81,76 +86,189 @@ const ExecuteButton: React.FC<{
       : toolColor;
   const isClickable = !isLoading && (!isCompleted || isFailed || isActive);
 
-  return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        if (isClickable) onExecute(e);
-      }}
-      disabled={isLoading || (isCompleted && !isFailed && !isActive)}
-      style={{
-        background: isCompleted ? "transparent" : `${toolColor}20`,
-        color: iconColor,
-        border: `1px solid ${isCompleted ? "transparent" : `${toolColor}40`}`,
-        cursor: isLoading ? "wait" : isClickable ? "pointer" : "default",
-        padding: "4px 8px",
-        borderRadius: "6px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-        opacity: isSkipped ? 0.5 : 1,
-        fontSize: "12px",
-        gap: "6px",
-        fontWeight: 600,
-        height: "24px",
-      }}
-      className="execute-button-premium"
-      title={title}
-    >
-      {isLoading ? (
-        <div
-          className="codicon codicon-loading codicon-modifier-spin"
-          style={{ fontSize: "14px" }}
-        />
-      ) : isCompleted ? (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      ) : (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-        >
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      )}
+  if (isCompleted || isLoading || !isActive) {
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isClickable) onExecute(e, "accept_once");
+        }}
+        disabled={isLoading || (isCompleted && !isFailed && !isActive)}
+        style={{
+          background: isCompleted ? "transparent" : `${toolColor}20`,
+          color: iconColor,
+          border: `1px solid ${isCompleted ? "transparent" : `${toolColor}40`}`,
+          cursor: isLoading ? "wait" : isClickable ? "pointer" : "default",
+          padding: "4px 8px",
+          borderRadius: "6px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+          opacity: isSkipped ? 0.5 : 1,
+          fontSize: "12px",
+          gap: "6px",
+          fontWeight: 600,
+          height: "24px",
+        }}
+        className="execute-button-premium"
+        title={title}
+      >
+        {isLoading ? (
+          <div
+            className="codicon codicon-loading codicon-modifier-spin"
+            style={{ fontSize: "14px" }}
+          />
+        ) : isCompleted ? (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ) : (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
 
-      {(showText || labelText || (!isCompleted && !isLoading)) && (
-        <span
-          style={{
-            fontSize: "11px",
-            textTransform: "uppercase",
-            letterSpacing: "0.5px",
-          }}
-        >
-          {labelText || (isCompleted ? "Done" : "Run")}
-        </span>
-      )}
-    </button>
+        {(showText || labelText || (!isCompleted && !isLoading)) && (
+          <span
+            style={{
+              fontSize: "11px",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            {labelText || (isCompleted ? "Done" : "Run")}
+          </span>
+        )}
+      </button>
+    );
+  }
+
+  // 3-button layout for active pending requests (Simplified & Colorful)
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: "6px",
+        marginTop: "8px",
+        marginBottom: "8px",
+      }}
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isClickable) onExecute(e, "accept_once");
+        }}
+        disabled={isLoading}
+        style={{
+          background: `${toolColor}1A`,
+          color: toolColor,
+          border: `1px solid ${toolColor}33`,
+          cursor: isLoading ? "wait" : "pointer",
+          padding: "4px",
+          width: "24px",
+          borderRadius: "5px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "12px",
+          fontWeight: 600,
+          height: "24px",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = `${toolColor}26`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = `${toolColor}1A`;
+        }}
+        title="Accept Once"
+      >
+        <Check size={14} strokeWidth={2.5} />
+      </button>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isClickable) onExecute(e, "accept_all");
+        }}
+        disabled={isLoading}
+        style={{
+          background: `#3fb9501A`,
+          color: "#3fb950",
+          border: `1px solid #3fb95033`,
+          cursor: isLoading ? "wait" : "pointer",
+          padding: "4px",
+          width: "24px",
+          borderRadius: "5px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "12px",
+          fontWeight: 600,
+          height: "24px",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = `#3fb95026`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = `#3fb9501A`;
+        }}
+        title="Always (Auto-confirm exact same calls)"
+      >
+        <CheckCheck size={14} strokeWidth={2.5} />
+      </button>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isClickable) onExecute(e, "reject");
+        }}
+        disabled={isLoading}
+        style={{
+          background: `#ff4d4d1A`,
+          color: "#ff4d4d",
+          border: `1px solid #ff4d4d33`,
+          cursor: isLoading ? "wait" : "pointer",
+          padding: "4px",
+          width: "24px",
+          borderRadius: "5px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "12px",
+          fontWeight: 600,
+          height: "24px",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = `#ff4d4d26`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = `#ff4d4d1A`;
+        }}
+        title="Reject this tool call"
+      >
+        <X size={14} strokeWidth={2.5} />
+      </button>
+    </div>
   );
 };
 
@@ -573,12 +691,14 @@ const ToolItem: React.FC<ToolItemProps> = ({
             "i",
           );
           const patternMatch = allMessages
-            ? allMessages.find(
-                (m) =>
-                  m.content &&
-                  m.content.trim().length > 0 &&
-                  pattern.test(m.content),
-              )
+            ? allMessages
+                .slice(currentMsgIndex + 1)
+                .find(
+                  (m) =>
+                    m.content &&
+                    m.content.trim().length > 0 &&
+                    pattern.test(m.content),
+                )
             : undefined;
 
           let outputMessage = resultMessage || patternMatch || nextNonEmptyUser;
@@ -656,18 +776,21 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
       const displayPath = truncatePath(rawPath);
 
+      const isLoading =
+        (!!processedActions.current.has(actionId) || isPartial) && !isCompleted;
+
       return (
         <div
           className="timeline-item"
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "0px",
+            gap: "6px",
             paddingLeft: "29px",
             paddingBottom: isLastItemInList
               ? isLastMessage
                 ? "0px"
-                : "24px"
+                : "12px"
               : "8px",
           }}
         >
@@ -700,10 +823,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
                     opacity: 0.9,
                     fontFamily: "var(--vscode-editor-font-family, monospace)",
                     fontSize: "11px",
-                    backgroundColor: "var(--vscode-badge-background)",
-                    color: "var(--vscode-badge-foreground)",
-                    padding: "1px 6px",
-                    borderRadius: "4px",
                   }}
                 >
                   {displayPath}
@@ -770,7 +889,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 )}
               </div>
             }
-            statusColor={isCompleted ? "#3fb950" : toolColor}
+            statusColor={
+              isCompleted
+                ? "#3fb950"
+                : isActiveGroup
+                  ? "var(--vscode-button-background)"
+                  : "var(--vscode-descriptionForeground)"
+            }
             diffStats={undefined}
             isPartial={isPartial}
             onClick={() => {
@@ -780,20 +905,19 @@ const ToolItem: React.FC<ToolItemProps> = ({
               });
             }}
           />
-          {isBypassTool && !isCompleted && (
+          {!isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
             <div style={{ marginTop: "8px", marginBottom: "8px" }}>
               <ExecuteButton
-                isActive={!!isActiveGroup || (!!isLastMessage && !isCompleted)}
+                isActive={!!isActiveGroup}
                 isCompleted={!!isCompleted}
                 isLastMessage={!!isLastMessage}
-                isLoading={
-                  (!!processedActions.current.has(actionId) || isPartial) &&
-                  !isCompleted
-                }
+                isLoading={isLoading}
                 toolColor={toolColor}
-                title={isPartial ? "Streaming content..." : "Approve bypass"}
+                title={isPartial ? "Streaming content..." : "Approve action"}
                 labelText={isPartial ? "Streaming" : "Approve"}
-                onExecute={() => onToolClick(action, messageId, index)}
+                onExecute={(e, type) =>
+                  onToolClick(action, messageId, index, type)
+                }
               />
             </div>
           )}
@@ -818,6 +942,21 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   maxHeight={300}
                   defaultCollapsed={false}
                   isFilePathList={toolType === "list_files"}
+                  basePath={
+                    toolType === "list_files"
+                      ? action.params.path || action.params.folder_path || ""
+                      : undefined
+                  }
+                  onFileClick={
+                    toolType === "list_files"
+                      ? (fullPath) => {
+                          extensionService.postMessage({
+                            command: "openFile",
+                            path: fullPath,
+                          });
+                        }
+                      : undefined
+                  }
                 />
               ) : (
                 !(
@@ -892,12 +1031,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
           <div
             className="timeline-dot"
             style={{
-              backgroundColor:
-                isTerminalBusy || (isActionClicked && !outputData)
-                  ? "#e3b341" // Yellow if busy OR just started (waiting for output/busy status)
-                  : isCompleted
-                    ? "#3fb950"
-                    : toolColor,
+              backgroundColor: isCompleted
+                ? "#3fb950"
+                : isTerminalBusy || (isActionClicked && !outputData)
+                  ? "#e3b341" // Yellow if busy
+                  : isActiveGroup
+                    ? "var(--vscode-button-background)"
+                    : "var(--vscode-descriptionForeground)",
               top: "10px",
             }}
           />
@@ -965,7 +1105,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                           ? "Executing..."
                           : "Execute action"
                     }
-                    onExecute={() => {
+                    onExecute={(e, type) => {
                       if (!isCompleted && !isLoading) {
                         const actionWithTerminal = {
                           ...action,
@@ -976,7 +1116,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                               action.params.terminal_id,
                           },
                         };
-                        onToolClick(actionWithTerminal, messageId, index);
+                        onToolClick(actionWithTerminal, messageId, index, type);
                       }
                     }}
                   />
@@ -1072,7 +1212,15 @@ const ToolItem: React.FC<ToolItemProps> = ({
           <ToolHeader
             title="Steps"
             subTitle={`${group.length} action${group.length > 1 ? "s" : ""}`}
-            statusColor={toolColor}
+            statusColor={
+              group.every((item) =>
+                clickedActions.has(`${messageId}-action-${item.index}`),
+              )
+                ? "#3fb950"
+                : isActiveGroup
+                  ? "var(--vscode-button-background)"
+                  : "var(--vscode-descriptionForeground)"
+            }
             isCollapsed={false} // Group header itself not collapsed here, items are
             icon={
               <div
@@ -1107,7 +1255,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                       ? "Completed"
                       : "Execute all actions"
                   }
-                  onExecute={(e) => {
+                  onExecute={(e, type) => {
                     const isCompleted = group.every((item) =>
                       clickedActions.has(`${messageId}-action-${item.index}`),
                     );
@@ -1128,7 +1276,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
                     );
 
                     if (actionsToExecute.length > 0) {
-                      onToolClick(actionsToExecute as any, messageId, -1);
+                      onToolClick(actionsToExecute as any, messageId, -1, type);
                     }
                   }}
                 />
@@ -1272,7 +1420,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
                   <ToolHeader
                     title="RUN"
                     subTitle={truncatePath(action.params.cwd || rootPath)}
-                    statusColor={isCompleted ? "#3fb950" : toolColor}
+                    statusColor={
+                      isCompleted
+                        ? "#3fb950"
+                        : isActiveGroup
+                          ? "var(--vscode-button-background)"
+                          : "var(--vscode-descriptionForeground)"
+                    }
                     isCollapsed={isCollapsed}
                     onToggleCollapse={() => toggleCollapse(actionId)}
                     icon={
@@ -1282,10 +1436,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
                       />
                     }
                     headerActions={
-                      (isActiveGroup ||
-                        isNextToExecute ||
-                        isCompleted ||
-                        isLoading ||
+                      ((isActiveGroup &&
+                        (isNextToExecute || isCompleted || isLoading)) ||
                         !isLastMessage) && (
                         <ExecuteButton
                           isActive={isActiveGroup || false}
@@ -1303,9 +1455,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
                                 ? "Executing..."
                                 : "Execute action"
                           }
-                          onExecute={() => {
+                          onExecute={(e, type) => {
                             if (!isCompleted && !isLoading) {
-                              onToolClick(action, messageId, index);
+                              onToolClick(action, messageId, index, type);
                             }
                           }}
                         />
@@ -1665,10 +1817,13 @@ const ToolItem: React.FC<ToolItemProps> = ({
                 {clickableTools.includes(action.type) &&
                   executionState &&
                   executionState.status === "running" &&
+                  isActiveGroup &&
                   // For styled tools group, we only show button if it's the NEXT one to run
                   executionState.completed === index && (
                     <button
-                      onClick={() => onToolClick(action, messageId, index)}
+                      onClick={() =>
+                        onToolClick(action, messageId, index, "accept_once")
+                      }
                       className="execute-btn"
                       title="Execute this action"
                       style={{
@@ -1867,7 +2022,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
               }}
               onClick={() => {
                 if (clickableTools.includes(action.type)) {
-                  onToolClick(action, messageId, index);
+                  onToolClick(action, messageId, index, "accept_once");
                 }
               }}
             >

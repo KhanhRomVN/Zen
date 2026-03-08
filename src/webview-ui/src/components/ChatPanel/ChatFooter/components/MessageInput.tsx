@@ -2,11 +2,23 @@ import React from "react";
 import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
 import { PlusIcon, ChevronDownIcon, SendIcon } from "./Icons";
-import { Check, Cpu, Search, X, Clock, Ban, FileText } from "lucide-react";
+import {
+  Check,
+  Cpu,
+  Search,
+  X,
+  Clock,
+  Ban,
+  FileText,
+  Wrench,
+  Brain,
+  Zap,
+} from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
 import { useSettings } from "../../../../context/SettingsContext";
 import QuickSwitchDrawer from "./QuickSwitchDrawer";
+import ToolSettingsDrawer from "./ToolSettingsDrawer";
 
 interface MessageInputProps {
   message: string;
@@ -122,6 +134,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // 🆕 Quick Model Switcher Logic
   const [isQuickModelDropdownOpen, setIsQuickModelDropdownOpen] =
     React.useState(false);
+
+  // 🆕 Tool Settings Drawer Logic
+  const [isToolSettingsOpen, setIsToolSettingsOpen] = React.useState(false);
 
   // 🆕 Capabilities Logic
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
@@ -317,6 +332,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
           onClose={() => setShowChangesDropdown(false)}
         />
       )}
+
+      <ToolSettingsDrawer
+        isOpen={isToolSettingsOpen}
+        onClose={() => setIsToolSettingsOpen(false)}
+      />
 
       <div
         style={{
@@ -789,6 +809,37 @@ const MessageInput: React.FC<MessageInputProps> = ({
               <FileText size={16} />
             </div>
 
+            {/* 🆕 Tool Settings Toggle */}
+            <div
+              style={{
+                cursor: "pointer",
+                padding: "var(--spacing-xs)",
+                borderRadius: "var(--border-radius)",
+                transition: "background-color 0.2s",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: isToolSettingsOpen
+                  ? "var(--accent-color)"
+                  : "var(--secondary-text)",
+                backgroundColor: isToolSettingsOpen
+                  ? "var(--accent-bg-transparent)"
+                  : "transparent",
+              }}
+              onClick={() => setIsToolSettingsOpen(!isToolSettingsOpen)}
+              onMouseEnter={(e) => {
+                if (!isToolSettingsOpen)
+                  e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+              }}
+              onMouseLeave={(e) => {
+                if (!isToolSettingsOpen)
+                  e.currentTarget.style.backgroundColor = "transparent";
+              }}
+              title="Tool Settings"
+            >
+              <Wrench size={16} />
+            </div>
+
             {/* Thinking Mode Toggle */}
             {supportsThinking && (
               <div
@@ -821,7 +872,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 }
               >
                 <div style={{ position: "relative" }}>
-                  <Cpu size={16} />
+                  <Brain size={16} />
                   {thinkingEnabled && (
                     <div
                       style={{
@@ -871,7 +922,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 }
                 title="Quick Switch Model"
               >
-                <Cpu size={16} />
+                <Zap size={16} />
               </div>
             )}
           </div>

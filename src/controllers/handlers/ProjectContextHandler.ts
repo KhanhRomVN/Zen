@@ -79,7 +79,7 @@ export class ProjectContextHandler {
   }
 
   private async generateMinimalTree(dir: string, depth = 0): Promise<string> {
-    if (depth > 3) return "  ".repeat(depth) + "... (max depth reached)";
+    if (depth > 20) return "  ".repeat(depth) + "... (max depth reached)";
 
     let result = "";
     const items = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -121,7 +121,7 @@ export class ProjectContextHandler {
 
       const treeView = await this.contextManager
         .getFileSystemAnalyzer()
-        .getFileTree(3);
+        .getFileTree(20);
 
       webviewView.webview.postMessage({
         command: "projectContextResult",

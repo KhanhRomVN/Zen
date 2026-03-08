@@ -244,7 +244,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
             <strong style={{ color: "#eab308" }}>Prerequisite:</strong> This
             extension requires{" "}
             <a
-              href="https://github.com/KhanhRomVN/Elara"
+              href="https://elara-home.vercel.app/"
               target="_blank"
               style={{
                 color: "var(--accent-color)",
@@ -252,7 +252,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                 fontWeight: 600,
               }}
             >
-              Elara Backend
+              Elara
             </a>{" "}
             to function. Ensure it is running.
           </div>

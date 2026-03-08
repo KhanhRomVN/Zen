@@ -74,3 +74,4 @@ playwright-report/
 src/webview-ui/public/vs/
 
 bypass_test.log
+temp

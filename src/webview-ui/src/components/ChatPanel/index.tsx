@@ -92,6 +92,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const {
     messages,
     setMessages,
+    messagesRef,
     isProcessing,
     setIsProcessing,
     isStreaming,
@@ -102,12 +103,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     stopGeneration,
     setBackendConversationId,
     revertToMessage,
+    conversationToolOverrides,
+    setConversationToolOverrides,
+    handleToolAction,
+    handleSelectOption,
   } = useChatLLM({
     apiUrl,
     selectedTab,
     isBackupEnabled,
-    onToolRequest: (actions, assistantMessage, isAutoTrigger) =>
-      handleToolRequest(actions, assistantMessage, isAutoTrigger),
+    onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
+      handleToolRequest(
+        actions,
+        assistantMessage,
+        isAutoTrigger,
+        conversationToolOverrides,
+        actionType,
+      ),
   });
 
   const { backupEventCount } = useBackupWatcher(currentConversationId);
@@ -115,6 +126,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const { executionState, toolOutputs, terminalStatus, handleToolRequest } =
     useToolExecution({
       conversationIdRef: currentConversationIdRef,
+      messagesRef: messagesRef,
       sendMessage: (
         content,
         files,
@@ -514,7 +526,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       <ChatBody
         messages={messages}
         isProcessing={isProcessing}
-        onSendToolRequest={handleToolRequest}
+        onSendToolRequest={(actions, msg, isAuto, type) =>
+          handleToolRequest(
+            actions,
+            msg,
+            isAuto,
+            conversationToolOverrides,
+            type,
+          )
+        }
         onSendMessage={(c, f, m, a, skip, ids, hidden, thinking) =>
           sendMessage(
             c,
@@ -538,6 +558,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         conversationId={currentConversationId}
         onRevert={handleRevertMessage}
         isRawMode={isRawMode}
+        onToolAction={handleToolAction}
+        onSelectOption={handleSelectOption}
       />
       <ChatFooter
         folderPath={selectedTab?.folderPath || null}

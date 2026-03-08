@@ -12,6 +12,8 @@ interface RichtextBlockProps {
   maxHeight?: string | number;
   showHeader?: boolean;
   isFilePathList?: boolean; // New prop for list_files output
+  onFileClick?: (fullPath: string) => void; // Callback when a file is clicked
+  basePath?: string; // Base folder path for reconstructing full paths
 }
 
 export const RichtextBlock: React.FC<RichtextBlockProps> = ({
@@ -24,6 +26,8 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
   maxHeight,
   showHeader = true,
   isFilePathList = false,
+  onFileClick,
+  basePath = "",
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
 
@@ -36,6 +40,9 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
     if (!content) return null;
 
     const lines = content.split("\n").filter((l) => l.trim().length > 0);
+
+    // Track folder stack per indent level to reconstruct full paths
+    const folderStack: string[] = [];
 
     return (
       <div
@@ -62,10 +69,26 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
           const name = lineCountMatch ? lineCountMatch[1] : namePart;
           const lineCount = lineCountMatch ? lineCountMatch[2] : null;
 
+          // Update folder stack based on current indent level
+          folderStack.splice(indentLevel);
+          if (isFolder) {
+            folderStack[indentLevel] = name;
+          }
+
+          // Reconstruct full path
+          const parentPath = folderStack.slice(0, indentLevel).join("/");
+          const relativePath = parentPath ? `${parentPath}/${name}` : name;
+          const fullPath = basePath
+            ? `${basePath}/${relativePath}`
+            : relativePath;
+
+          const isClickable = !isFolder && !!onFileClick;
+
           return (
             <div
               key={idx}
               className="file-tree-row"
+              onClick={isClickable ? () => onFileClick!(fullPath) : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -74,9 +97,24 @@ export const RichtextBlock: React.FC<RichtextBlockProps> = ({
                 fontSize: "13px",
                 height: "24px",
                 borderRadius: "4px",
-                transition: "background 0.2s",
-                cursor: "default",
+                transition: "background 0.15s",
+                cursor: isClickable ? "pointer" : "default",
               }}
+              onMouseEnter={
+                isClickable
+                  ? (e) => {
+                      e.currentTarget.style.background =
+                        "var(--vscode-list-hoverBackground, rgba(255,255,255,0.06))";
+                    }
+                  : undefined
+              }
+              onMouseLeave={
+                isClickable
+                  ? (e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }
+                  : undefined
+              }
             >
               <FileIcon
                 path={name}

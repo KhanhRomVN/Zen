@@ -47,6 +47,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   conversationId,
   onRevert,
   isRawMode,
+  onToolAction,
+  onSelectOption,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +75,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     useCollapseSections();
   const { clickedActions, handleToolClick, failedActions } = useToolActions({
     onSendToolRequest,
-
+    onToolAction,
     parsedMessages,
   });
   const { isAtBottom, scrollToBottom } = useScrollBehavior(messagesEndRef, [
@@ -84,12 +86,21 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   // 🆕 Debug logging and filtering logic
   const visibleMessages = useMemo(() => {
     return messages.filter((message) => {
-      if (message.uiHidden) {
+      if (message.uiHidden || message.isCancelled) {
         return false;
       }
       return true;
     });
   }, [messages, firstRequestMessageId]);
+
+  // Find the index of the last assistant message (it might not be the literal last if followed by user input)
+  // This ensures tools in that assistant block remain interactive.
+  const lastAssistantIndex = useMemo(() => {
+    for (let i = visibleMessages.length - 1; i >= 0; i--) {
+      if (visibleMessages[i].role === "assistant") return i;
+    }
+    return -1;
+  }, [visibleMessages]);
 
   // Detect if assistant is currently streaming non-thinking content
   const isResponding = useMemo(() => {
@@ -195,7 +206,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               failedActions={failedActions}
               onToolClick={handleToolClick}
               executionState={executionState}
-              isLastMessage={index === visibleMessages.length - 1} // Pass isLastMessage
+              isLastMessage={
+                index === visibleMessages.length - 1 ||
+                index === lastAssistantIndex
+              } // Pass isLastMessage (keep last assistant block live)
               toolOutputs={toolOutputs}
               terminalStatus={terminalStatus}
               allMessages={messages}
@@ -205,6 +219,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               previousAssistantMessage={previousAssistantMessage}
               onRevert={onRevert}
               isRawMode={isRawMode}
+              onSendMessage={onSendMessage}
+              onSelectOption={onSelectOption}
             />
           );
         })}

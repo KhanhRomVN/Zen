@@ -8,9 +8,10 @@ interface ToolActionsListProps {
   items: { action: ToolAction; index: number }[]; // Changed from actions: ToolAction[]
   clickedActions: Set<string>;
   onToolClick: (
-    action: ToolAction,
+    action: ToolAction | ToolAction[],
     message: Message,
     actionIndex: number,
+    type: "accept_all" | "accept_once" | "reject",
   ) => void;
   isVisibleTool?: (type: string) => boolean;
   executionState?: {
@@ -28,6 +29,7 @@ interface ToolActionsListProps {
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
   allActions?: ToolAction[];
+  isBlockedByPrecedingInteraction?: boolean;
 }
 
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
@@ -46,6 +48,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   attachedTerminalIds,
   conversationId,
   allActions,
+  isBlockedByPrecedingInteraction = false,
   isVisibleTool = (type: string) => true,
 }) => {
   // Filter out invisible tools immediately
@@ -183,7 +186,10 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
       );
 
       const isActiveGroup =
-        isLastMessage && isPreviousAllDone && !isThisActionClicked;
+        isLastMessage &&
+        isPreviousAllDone &&
+        !isThisActionClicked &&
+        !isBlockedByPrecedingInteraction;
 
       return (
         <React.Fragment key={key}>
@@ -191,7 +197,9 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             group={group}
             messageId={message.id}
             clickedActions={clickedActions}
-            onToolClick={(act, msgId, aIdx) => onToolClick(act, message, aIdx)}
+            onToolClick={(act, msgId, aIdx, type) =>
+              onToolClick(act, message, aIdx, type)
+            }
             executionState={executionState}
             isActiveGroup={isActiveGroup}
             failedActions={failedActions}

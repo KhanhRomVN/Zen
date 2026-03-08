@@ -8,10 +8,9 @@ import {
   ParsedResponse,
   TaskProgressItem,
 } from "../../../../services/ResponseParser";
-import PromptSection from "./PromptSection";
 import FollowupOptions from "./FollowupOptions";
-import RequestDivider from "./RequestDivider";
 import ToolActionsList from "./ToolActions/index";
+import QuestionBlock from "./QuestionBlock";
 import HtmlPreview from "./HtmlPreview";
 import FileIcon from "../../../common/FileIcon";
 import { isDiff, parseDiff } from "../../../../utils/diffUtils";
@@ -28,7 +27,12 @@ interface MessageBoxProps {
   onToggleCollapse: () => void;
   clickedActions: Set<string>;
   failedActions?: Set<string>;
-  onToolClick: (action: any, message: Message, index: number) => void; // Using any for action temporarily to match ToolAction
+  onToolClick: (
+    action: any,
+    message: Message,
+    index: number,
+    type: "accept_all" | "accept_once" | "reject",
+  ) => void; // Using any for action temporarily to match ToolAction
   requestNumber?: number | null; // For user messages
   executionState?: {
     total: number;
@@ -47,6 +51,17 @@ interface MessageBoxProps {
   isGenerating?: boolean; // Prop to indicate if this message is currently being generated
   onRevert?: (messageId: string) => void;
   isRawMode?: boolean;
+  onSendMessage?: (
+    content: string,
+    files?: any[],
+    model?: any,
+    account?: any,
+    skipLogic?: boolean,
+    actionIds?: string[],
+    uiHidden?: boolean,
+    thinking?: boolean,
+  ) => void;
+  onSelectOption?: (messageId: string, option: string) => void;
 }
 
 const MessageBoxCodeBlock: React.FC<{
@@ -148,6 +163,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   isGenerating,
   onRevert,
   isRawMode,
+  onSendMessage,
+  onSelectOption,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
 
@@ -204,6 +221,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           pointerEvents: message.isCancelled ? "none" : "auto",
           transition: "all 0.3s ease",
           position: "relative",
+          zIndex: 1, // Add z-index to avoid overlap issues
         }}
       >
         <div
@@ -363,6 +381,13 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 items: { action: any; index: number }[];
                 key: string;
               }
+            | {
+                type: "question";
+                options: string[];
+                title?: string;
+                optional?: boolean;
+                key: string;
+              }
           > = [];
 
           // --- 🆕 METADATA DOT CHECK ---
@@ -407,8 +432,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           // --- 🆕 THINKING BLOCK ---
           if (
             parsedContent.thinking &&
-            isGenerating &&
-            !parsedContent.isThinkingClosed
+            ((!parsedContent.isThinkingClosed && isGenerating) ||
+              parsedContent.isThinkingClosed)
           ) {
             groups.push({
               type: "thinking",
@@ -468,6 +493,15 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   content: block.content,
                   key: `markdown-${idx}`,
                 });
+              } else if (block.type === "question") {
+                flushTools();
+                groups.push({
+                  type: "question",
+                  options: block.options,
+                  title: block.title,
+                  optional: block.optional,
+                  key: `question-${idx}`,
+                });
               } else if (block.type === "mixed_content") {
                 flushTools();
                 groups.push({
@@ -516,6 +550,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               flushTools();
             }
           }
+
+          let isInteractionBlocked = false;
 
           return groups.map((group, index) => {
             const isLast = index === groups.length - 1;
@@ -872,6 +908,57 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   </div>
                 </div>
               );
+            } else if (group.type === "question") {
+              const isAnswered = !!message.selectedOption;
+              const isThisActive = isLastMessage && !isInteractionBlocked;
+              const dotColor = isAnswered
+                ? "#3fb950"
+                : isThisActive
+                  ? "var(--vscode-button-background)"
+                  : "var(--vscode-descriptionForeground)";
+
+              content = (
+                <div>
+                  <div
+                    className="timeline-dot"
+                    style={{
+                      backgroundColor: dotColor,
+                      top: "28px",
+                    }}
+                  />
+                  <QuestionBlock
+                    options={group.options}
+                    title={group.title}
+                    optional={group.optional}
+                    selectedOption={message.selectedOption}
+                    onOptionSelect={(option) => {
+                      if (onSelectOption) {
+                        onSelectOption(message.id, option);
+                      }
+
+                      // Check if there are tools in this message.
+                      // If so, useToolExecution will handle sending the combined request
+                      // once all tools are complete.
+                      const hasTools = (parsedContent.actions?.length || 0) > 0;
+
+                      if (onSendMessage && !hasTools) {
+                        const questionTitle = group.title || "Question";
+                        onSendMessage(
+                          `[question: "${questionTitle}"] Answer: ${option}`,
+                          undefined,
+                          undefined,
+                          undefined,
+                          true,
+                        );
+                      }
+                    }}
+                    disabled={!!nextUserMessage || isGenerating}
+                  />
+                </div>
+              );
+
+              // Update blocking state
+              if (!isAnswered) isInteractionBlocked = true;
             } else {
               content = (
                 <ToolActionsList
@@ -890,8 +977,28 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   attachedTerminalIds={attachedTerminalIds}
                   conversationId={conversationId}
                   allActions={parsedContent.actions}
+                  isBlockedByPrecedingInteraction={isInteractionBlocked}
                 />
               );
+
+              // Check if THIS group has any pending or busy action that should block subsequent ones
+              const hasUnclickedOrBusyAction = group.items.some((item) => {
+                const actionId = `${message.id}-action-${item.index}`;
+                if (!clickedActions.has(actionId)) return true;
+
+                // Also block if a run_command is still busy
+                if (item.action.type === "run_command") {
+                  const outputData = toolOutputs?.[actionId];
+                  const terminalId =
+                    (outputData as any)?.terminalId ||
+                    item.action.params.terminal_id;
+                  if (terminalId && terminalStatus?.[terminalId] === "busy") {
+                    return true;
+                  }
+                }
+                return false;
+              });
+              if (hasUnclickedOrBusyAction) isInteractionBlocked = true;
             }
 
             if (group.type === "tools") {
@@ -906,15 +1013,16 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           });
         })()}
 
-      {/* 6. Follow-up Options */}
-      {parsedContent.followupOptions && (
-        <FollowupOptions
-          options={parsedContent.followupOptions}
-          messageId={message.id}
-          selectedOption={undefined}
-          onOptionClick={(opt) => {}}
-        />
-      )}
+      {/* 6. Follow-up Options (Legacy) - Hide if we have a proper Question block */}
+      {parsedContent.followupOptions &&
+        !parsedContent.contentBlocks.some((b) => b.type === "question") && (
+          <FollowupOptions
+            options={parsedContent.followupOptions}
+            messageId={message.id}
+            selectedOption={undefined}
+            onOptionClick={(opt: string) => {}}
+          />
+        )}
     </div>
   );
 };

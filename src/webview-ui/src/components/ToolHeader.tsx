@@ -42,7 +42,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
               className={`terminal-status-dot timeline-dot ${isPartial ? "streaming-pulse" : ""}`}
               style={{
                 backgroundColor: statusColor,
-                top: "10px",
+                top: "8px",
                 boxShadow: isPartial ? `0 0 0 0 ${statusColor}40` : "none",
               }}
             />
@@ -62,7 +62,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
           )}
           <div
             style={{
-              paddingTop: "2px",
+              marginTop: "1px",
               display: "flex",
               alignItems: "center",
               gap: "6px",

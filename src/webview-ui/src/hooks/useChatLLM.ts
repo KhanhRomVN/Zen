@@ -26,6 +26,7 @@ interface UseChatLLMProps {
     actions: ToolAction[],
     assistantMessage: Message,
     isAutoTrigger?: boolean,
+    actionType?: "accept_all" | "accept_once" | "reject",
   ) => void;
 }
 
@@ -43,6 +44,9 @@ export const useChatLLM = ({
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentConversationId, setCurrentConversationId] =
     useState<string>("");
+  const [conversationToolOverrides, setConversationToolOverrides] = useState<
+    Record<string, "auto">
+  >({});
 
   const messagesRef = useRef<Message[]>([]);
   const currentConversationIdRef = useRef<string>("");
@@ -104,10 +108,6 @@ export const useChatLLM = ({
         accountId?: string;
       } | null,
     ) => {
-      if (!skipFirstRequestLogic) {
-        // Detailed trace for user-initiated requests to catch duplicates
-      }
-
       if (isProcessing && !skipFirstRequestLogic) {
         console.warn("[useChatLLM] Already processing a request, ignoring.");
         return;
@@ -130,6 +130,7 @@ export const useChatLLM = ({
         lastUsedModelRef.current = null;
         lastUsedAccountRef.current = null;
         lastUsedThinkingRef.current = false;
+        setConversationToolOverrides({});
 
         // Tell extension to create an empty log file
         extensionService.postMessage({
@@ -257,6 +258,40 @@ export const useChatLLM = ({
       const fullContent = skipFirstRequestLogic
         ? content
         : `## User Message\n\`\`\`\n${content}\n\`\`\``;
+
+      if (skipFirstRequestLogic) {
+        // Detailed trace for tool results to catch duplicates
+        const lastToolMsg = [...messagesRef.current]
+          .reverse()
+          .find((m) => m.role === "user" && m.actionIds);
+
+        if (lastToolMsg && lastToolMsg.content === fullContent) {
+          console.warn(
+            "[useChatLLM] Duplicate tool result detected. Cancelling previous response and prioritizing new request.",
+          );
+          stopGeneration();
+
+          // Mark the assistant message that was responding to the previous identical request as cancelled
+          let lastAssistantIdx = -1;
+          for (let i = messagesRef.current.length - 1; i >= 0; i--) {
+            if (messagesRef.current[i].role === "assistant") {
+              lastAssistantIdx = i;
+              break;
+            }
+          }
+
+          if (lastAssistantIdx !== -1) {
+            const updated = [...messagesRef.current];
+            updated[lastAssistantIdx] = {
+              ...updated[lastAssistantIdx],
+              isCancelled: true,
+            };
+            setMessages(updated);
+            // Update messagesRef immediately so filteredMessages below is accurate
+            messagesRef.current = updated;
+          }
+        }
+      }
 
       const promptPayload = isReq1
         ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${fullContent}`
@@ -592,13 +627,8 @@ export const useChatLLM = ({
           console.error(`[useChatLLM] Critical error during log call:`, logErr);
         }
 
-        // Tool Actions parsing
+        // Parse for metadata (e.g. conversation name)
         const parsed = parseAIResponse(assistantMessage.content);
-        if (parsed.actions && parsed.actions.length > 0) {
-          onToolRequest?.(parsed.actions, assistantMessage, true);
-        } else {
-          // Just finished
-        }
 
         // Save final conversation state
         saveConversation(
@@ -717,6 +747,39 @@ export const useChatLLM = ({
           lastUsedAccountRef.current = { id: meta.accountId };
         }
       }
+    },
+    conversationToolOverrides,
+    setConversationToolOverrides,
+    handleToolAction: (
+      actionId: string,
+      actionType: "accept_all" | "accept_once" | "reject",
+      toolName?: string,
+    ) => {
+      if (actionType === "accept_all" && toolName) {
+        setConversationToolOverrides((prev) => ({
+          ...prev,
+          [toolName]: "auto",
+        }));
+      }
+    },
+    handleSelectOption: (messageId: string, option: string) => {
+      const updatedMessages = messagesRef.current.map((m) =>
+        m.id === messageId ? { ...m, selectedOption: option } : m,
+      );
+      setMessages(updatedMessages);
+
+      const tabId = selectedTab?.tabId || -1;
+      const folderPath = selectedTab?.folderPath || null;
+      saveConversation(
+        tabId,
+        folderPath,
+        updatedMessages,
+        currentConversationIdRef.current,
+        selectedTab || undefined,
+        true, // skipTimestampUpdate
+        undefined,
+        backendConversationIdRef.current,
+      );
     },
   };
 };

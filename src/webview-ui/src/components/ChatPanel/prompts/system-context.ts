@@ -12,7 +12,6 @@ export const buildSystemContext = (info: SystemInfo): string => {
 
 | Field | Value |
 |-------|-------|
-
 | **OS** | ${info.os} |
 | **IDE** | ${info.ide} |
 | **Shell** | ${info.shell} |
@@ -21,16 +20,15 @@ export const buildSystemContext = (info: SystemInfo): string => {
 | **Language** | ${info.language} |
 
 ## Path Rules
-- All file paths MUST be relative to CWD: \`${info.cwd}\`
-- Do NOT use bare \`cd\` — combine if needed: \`cd dir && npm install\`
+- All paths MUST be relative to CWD: \`${info.cwd}\`
+- Do NOT use bare \`cd\` — combine: \`cd dir && npm install\`
 - Use forward slashes (/) for cross-platform compatibility
 
 ## Auto-Injected Per Message
 - **FILE_STRUCTURE**: Current project file tree
-- **ACTIVE_TERMINALS**: Running processes overview
-- **PROJECT_CONTEXT**: Content from \`workspace.md\` (project experiences, important knowledge, and info, formatted as bullet points: \`- <ý 1>\`)
+- **ACTIVE_TERMINALS**: Running processes
+- **PROJECT_CONTEXT**: \`workspace.md\` content (bullet list: \`- <point>\`)
 
 ## Git Integration
-- File edit frequency data available
-- Use to identify critical/frequently-modified files (examine these first)`;
+- File edit frequency data available — use to identify critical/hot files (examine these first)`;
 };

@@ -9,6 +9,7 @@ export interface ParsedResponse {
   displayText: string;
   conversationName: string | null;
   isThinkingClosed: boolean;
+  question: ContentBlock | null;
 }
 
 export interface TaskProgressItem {
@@ -48,6 +49,7 @@ export type ContentBlock =
       items: TaskProgressItem[];
     }
   | { type: "markdown"; content: string }
+  | { type: "question"; options: string[]; title?: string; optional?: boolean }
   | {
       type: "mixed_content";
       segments: (
@@ -55,7 +57,7 @@ export type ContentBlock =
         | { type: "code"; content: string; language?: string }
       )[];
     }
-  | { type: "tool"; action: ToolAction };
+  | { type: "tool"; action: ToolAction; actionIndex?: number };
 
 /**
  * Decode common HTML entities back to their original characters
@@ -256,7 +258,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     contentBlocks: [],
     displayText: "",
     conversationName: null,
-    isThinkingClosed: true, // Default to true, we only set to false if we find an unclosed thinking tag
+    isThinkingClosed: true,
+    question: null,
   };
 
   let remainingContent = content;
@@ -314,6 +317,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "markdown", // Treat <markdown> as a special tag
     "conversation_name", // Treat <conversation_name> as a special tag
     "thinking", // Treat <thinking> as a special tag
+    "question", // Treat <question> as a special tag
   ];
 
   // We need to parse linearly to maintain order
@@ -478,6 +482,41 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           } else if (innerContent && innerContent.trim()) {
             result.conversationName = innerContent.trim();
           }
+        } else if (toolName === "question") {
+          // Explicit <question> tag
+          const options: string[] = [];
+          let title: string | undefined = undefined;
+
+          // Extract title if present
+          const titleMatch =
+            /<question_title>([\s\S]*?)<\/question_title>/i.exec(
+              innerContent || "",
+            );
+          if (titleMatch) {
+            title = titleMatch[1].trim();
+          }
+
+          const optionRegex = /<option>([\s\S]*?)<\/option>/gi;
+          let optMatch;
+          while ((optMatch = optionRegex.exec(innerContent || "")) !== null) {
+            if (optMatch[1].trim()) {
+              options.push(optMatch[1].trim());
+            }
+          }
+          if (options.length > 0) {
+            const openTag = match[0].split(">")[0];
+            const optional = /optional=["']true["']/i.test(openTag);
+            const qBlock: ContentBlock = {
+              type: "question",
+              options,
+              title,
+              optional,
+            };
+            result.contentBlocks.push(qBlock);
+            result.question = qBlock;
+            // Also populate legacy for compatibility
+            result.followupOptions = options;
+          }
         } else if (toolName === "thinking") {
           // Explicit <thinking> tag
           const thinkingText = innerContent || "";
@@ -490,12 +529,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           }
         } else {
           // It's a tool
+          const actionIndex = result.actions.length;
           const action = parseToolAction(toolName, innerContent || "", rawXml);
-          result.contentBlocks.push({ type: "tool", action });
+          result.contentBlocks.push({ type: "tool", action, actionIndex });
           result.actions.push(action); // Populate legacy actions array
-
-          // Special handling for legacy fields (followup, completion) which were previously separate
-          // These tools are now removed, so this block is no longer needed.
         }
 
         // 3. Advance scanStr
@@ -553,9 +590,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           toolName !== "conversation_name"
         ) {
           // It's a tool, let it stream!
+          const actionIndex = result.actions.length;
           const action = parseToolAction(toolName, innerContent || "", rawXml);
           action.isPartial = true;
-          result.contentBlocks.push({ type: "tool", action });
+          result.contentBlocks.push({ type: "tool", action, actionIndex });
           result.actions.push(action);
         } else {
           // For tools, hide entire content including XML until closed

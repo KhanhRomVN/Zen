@@ -110,7 +110,7 @@ export class FileSystemAnalyzer {
    * Lấy cấu trúc file tree của workspace (ignoring blacklist)
    * This is used for the Project Structure UI where we need to see everything
    */
-  public async getRawFileTree(maxDepth: number = 5): Promise<FileNode | null> {
+  public async getRawFileTree(maxDepth: number = 20): Promise<FileNode | null> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
       return null;
@@ -132,7 +132,7 @@ export class FileSystemAnalyzer {
    * Lấy cấu trúc file tree của một thư mục (mặc định là workspace root)
    */
   public async getFileTree(
-    maxDepth: number = 3,
+    maxDepth: number = 20,
     customRootPath?: string,
   ): Promise<string> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -166,6 +166,9 @@ export class FileSystemAnalyzer {
     // Check if bypass should apply to disable gitignore in rg
     let extraFlags = "";
     const normalizedRoot = path.normalize(rootPath);
+    console.log(
+      `[FileSystemAnalyzer] Building tree for: ${normalizedRoot} (maxDepth: ${maxDepth})`,
+    );
     for (const bypassed of this.bypassedPaths) {
       if (
         normalizedRoot === bypassed ||
@@ -176,21 +179,55 @@ export class FileSystemAnalyzer {
       }
     }
 
-    const { stdout } = await execAsync(
-      `"${rgPath}" ${extraFlags}--files --max-depth ${maxDepth}`,
-      {
-        cwd: rootPath,
-        maxBuffer: 1024 * 1024 * 10,
-      },
-    );
-    const files = stdout.split("\n").filter((line) => line.trim() !== "");
-
     const root: FileNode = {
       name: path.basename(rootPath),
       type: "directory",
       path: rootPath,
       children: [],
     };
+
+    // 1. Quét folder trực tiếp trước (Đảm bảo folder như src luôn có mặt)
+    try {
+      const entries = fs.readdirSync(rootPath, { withFileTypes: true });
+      console.log(
+        `[FileSystemAnalyzer] Local entries found: ${entries.length} in ${rootPath}`,
+      );
+      for (const entry of entries) {
+        if (this.shouldIgnore(entry.name)) {
+          console.log(`[FileSystemAnalyzer] Pattern ignore: ${entry.name}`);
+          continue;
+        }
+        const entryPath = path.join(rootPath, entry.name);
+        if (useBlacklist && this.isBlacklisted(entryPath)) {
+          console.log(`[FileSystemAnalyzer] Blacklist ignore: ${entryPath}`);
+          continue;
+        }
+
+        if (!root.children) root.children = [];
+        if (!root.children.find((c) => c.name === entry.name)) {
+          root.children.push({
+            name: entry.name,
+            type: entry.isDirectory() ? "directory" : "file",
+            path: entryPath,
+            children: entry.isDirectory() ? [] : undefined,
+          });
+        }
+      }
+    } catch (e) {
+      console.error(
+        `[FileSystemAnalyzer] readdirSync failed for ${rootPath}:`,
+        e,
+      );
+    }
+
+    // 2. Chạy Ripgrep để quét sâu hơn
+    const cmd = `"${rgPath}" ${extraFlags}--files --max-depth ${maxDepth}`;
+    console.log(`[FileSystemAnalyzer] Executing rg: ${cmd}`);
+    const { stdout } = await execAsync(cmd, {
+      cwd: rootPath,
+      maxBuffer: 1024 * 1024 * 10,
+    });
+    const files = stdout.split("\n").filter((line) => line.trim() !== "");
 
     for (const fileRelativePath of files) {
       // Check blacklist if enabled
@@ -366,7 +403,11 @@ export class FileSystemAnalyzer {
   public shouldIgnore(name: string): boolean {
     return this.ignoredPatterns.some((pattern) => {
       if (pattern.includes("*")) {
-        const regex = new RegExp(pattern.replace("*", ".*"));
+        // Escape regex special characters except '*'
+        // Reference: https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript
+        const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+        const regexStr = "^" + escaped.replace(/\*/g, ".*") + "$";
+        const regex = new RegExp(regexStr);
         return regex.test(name);
       }
       return name === pattern;
@@ -377,6 +418,19 @@ export class FileSystemAnalyzer {
    * Unified check if a path is ignored (by pattern, blacklist, or .gitignore)
    */
   public async isIgnored(filePath: string): Promise<{
+    ignored: boolean;
+    reason?: "pattern" | "blacklist" | "gitignore";
+  }> {
+    const result = await this.performIgnoreCheck(filePath);
+    if (result.ignored) {
+      console.log(
+        `[FileSystemAnalyzer] Ignored: ${filePath} (${result.reason})`,
+      );
+    }
+    return result;
+  }
+
+  private async performIgnoreCheck(filePath: string): Promise<{
     ignored: boolean;
     reason?: "pattern" | "blacklist" | "gitignore";
   }> {

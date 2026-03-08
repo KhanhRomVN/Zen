@@ -2,8 +2,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Message } from "../components/ChatPanel/ChatBody/types";
 import { extensionService } from "../services/ExtensionService";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
-import { MANUAL_CONFIRMATION_TOOLS } from "../components/ChatPanel/ChatBody/constants";
 import { stripAnsi, stripMarkers } from "../utils/terminalUtils";
+import { useSettings } from "../context/SettingsContext";
 
 interface UseToolExecutionProps {
   sendMessage: (
@@ -17,12 +17,15 @@ interface UseToolExecutionProps {
     thinking?: boolean,
   ) => Promise<void>;
   conversationIdRef?: React.MutableRefObject<string>;
+  messagesRef?: React.MutableRefObject<Message[]>;
 }
 
 export const useToolExecution = ({
   sendMessage,
   conversationIdRef,
+  messagesRef,
 }: UseToolExecutionProps) => {
+  const { toolPermissions } = useSettings();
   const [executionState, setExecutionState] = useState<{
     total: number;
     completed: number;
@@ -52,6 +55,7 @@ export const useToolExecution = ({
   }>({});
 
   const terminalToActionMap = useRef<Map<string, string>>(new Map());
+  const flushedMessageIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     handleSendMessageRef.current = sendMessage;
@@ -138,15 +142,9 @@ export const useToolExecution = ({
                 commandStartTimes.current.delete(message.actionId);
               }
 
-              const timeSuffix = duration ? ` for ${duration}s` : "";
-              const terminalSuffix = message.terminalId
-                ? ` on terminal ${message.terminalId}`
-                : "";
-              const outputTag = ` with "terminal_output-${outputUuid}"`;
-
               const resultMsg = message.error
-                ? `Output: [run_command for '${cmdText}'${terminalSuffix}]${timeSuffix}${outputTag}\n\`\`\`\nError: ${message.error}\n${outputContent}\n\`\`\``
-                : `Output: [run_command for '${cmdText}'${terminalSuffix}]${timeSuffix}${outputTag}\n\`\`\`\n${outputContent}\n\`\`\``;
+                ? `[run_command for '${cmdText}'] Result: Error - ${message.error}\n\`\`\`\n${outputContent}\n\`\`\``
+                : `[run_command for '${cmdText}'] Result:\n\`\`\`\n${outputContent}\n\`\`\``;
 
               resolver(resultMsg);
               pendingToolResolvers.current.delete(message.actionId);
@@ -276,7 +274,7 @@ export const useToolExecution = ({
                   `[write_to_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
-                let result = `[write_to_file for '${filePath}'] Success: File written successfully`;
+                let result = `[write_to_file for '${filePath}'] Result: File written successfully`;
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
                   result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
                 }
@@ -314,7 +312,7 @@ export const useToolExecution = ({
                   `[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
-                let result = `[replace_in_file for '${filePath}'] Success: Diff applied successfully`;
+                let result = `[replace_in_file for '${filePath}'] Result: Diff applied successfully`;
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
                   result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
                   if (msg.content) {
@@ -687,6 +685,8 @@ export const useToolExecution = ({
       actionOrActions: any,
       message: Message,
       isAutoTrigger: boolean = false,
+      conversationToolOverrides: Record<string, "auto"> = {},
+      actionType?: "accept_all" | "accept_once" | "reject",
     ) => {
       let wasInterruptedByManual = false;
 
@@ -708,7 +708,20 @@ export const useToolExecution = ({
 
       for (let index = 0; index < actions.length; index++) {
         const action = actions[index];
-        const actionId = `${message.id}-action-${action._index}`;
+        const actionId =
+          action.actionId || `${message.id}-action-${action._index}`;
+
+        // GUARD: Prevent duplicate execution of same action Id
+        if (clickedActionsRef.current.has(actionId)) {
+          console.warn(
+            `[useToolExecution] Action ${actionId} already triggered, skipping.`,
+          );
+          continue;
+        }
+
+        // Optimistically mark as clicked to prevent race conditions
+        clickedActionsRef.current.add(actionId);
+        setClickedActions(new Set(clickedActionsRef.current));
 
         // Skip diagnostics logic optimization
         const isEditAction =
@@ -725,8 +738,17 @@ export const useToolExecution = ({
         }
 
         // Check if we should auto-execute this tool
-        const isManual = MANUAL_CONFIRMATION_TOOLS.includes(action.type);
-        if (isAutoTrigger && isManual) {
+        // Logic:
+        // 1. If global setting is 'request', it's manual.
+        // 2. If global setting is 'auto', it's auto-triggered UNLESS it's a sensitive tool that isn't overridden in the conversation yet.
+        const globalPermission = toolPermissions[action.type] || "auto";
+        const isConversationAuto =
+          conversationToolOverrides[action.type] === "auto";
+
+        const shouldPauseForManual =
+          globalPermission === "request" && !isConversationAuto;
+
+        if (isAutoTrigger && shouldPauseForManual) {
           wasInterruptedByManual = true;
           // Set to idle so the UI doesn't show loading state falsely
           setExecutionState({
@@ -737,10 +759,15 @@ export const useToolExecution = ({
           break;
         }
 
-        const result = await executeSingleAction(
-          { ...action, actionId },
-          skipDiagnostics,
-        );
+        let result: string | null = null;
+        if (actionType === "reject") {
+          result = `Output: [${action.type}] Tool execution rejected by user.`;
+        } else {
+          result = await executeSingleAction(
+            { ...action, actionId },
+            skipDiagnostics,
+          );
+        }
 
         if (result !== null) {
           validResults.push(result);
@@ -831,8 +858,14 @@ export const useToolExecution = ({
           return { ...prev, [message.id]: [] };
         }
 
-        // Check overall completeness across the entire message
+        const currentMessage = messagesRef?.current.find(
+          (m) => m.id === message.id,
+        );
+        const selectedOption = currentMessage?.selectedOption;
         const parsed = parseAIResponse(message.content);
+        const hasQuestion = !!parsed.question;
+        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+
         const allActionIds = parsed.actions.map(
           (_: any, idx: number) => `${message.id}-action-${idx}`,
         );
@@ -840,15 +873,26 @@ export const useToolExecution = ({
           (a) => `${message.id}-action-${a._index}`,
         );
 
-        const isAllComplete = allActionIds.every(
-          (id: string) =>
-            clickedActionsRef.current.has(id) || currentBatchIds.includes(id),
-        );
+        const isAllComplete =
+          allActionIds.every(
+            (id: string) =>
+              clickedActionsRef.current.has(id) || currentBatchIds.includes(id),
+          ) && isQuestionAnswered;
 
-        if (isAllComplete) {
+        if (isAllComplete && !flushedMessageIdsRef.current.has(message.id)) {
           if (handleSendMessageRef.current) {
+            flushedMessageIdsRef.current.add(message.id);
+            let finalContent = newBuffer.join("\n\n");
+            if (selectedOption) {
+              const questionTitle =
+                parsed.question?.type === "question"
+                  ? (parsed.question as any).title
+                  : "Question";
+              finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
+            }
+
             handleSendMessageRef.current(
-              newBuffer.join("\n\n"),
+              finalContent,
               undefined,
               undefined,
               undefined,
@@ -858,8 +902,11 @@ export const useToolExecution = ({
             );
           }
           return { ...prev, [message.id]: [] };
+        } else if (flushedMessageIdsRef.current.has(message.id)) {
+          // Already flushed, clear buffer just in case
+          return { ...prev, [message.id]: [] };
         } else {
-          // Not all actions in this message are complete yet. Wait for the user to execute the rest.
+          // Not all actions (incl. question) in this message are complete yet. Wait.
           return { ...prev, [message.id]: newBuffer };
         }
       });
@@ -874,6 +921,66 @@ export const useToolExecution = ({
     },
     [],
   );
+
+  // 🆕 Auto-flush effect: When messages state changes, check if we can now flush buffered results
+  // because a question was finally answered.
+  useEffect(() => {
+    Object.entries(availableToolResultsBuffer).forEach(
+      ([messageId, buffer]) => {
+        if (buffer.length === 0) return;
+
+        const msg = messagesRef?.current.find((m) => m.id === messageId);
+        if (!msg) return;
+
+        const parsed = parseAIResponse(msg.content);
+        const hasQuestion = !!parsed.question;
+        const isQuestionAnswered = hasQuestion ? !!msg.selectedOption : true;
+
+        const allActionIds = parsed.actions.map(
+          (_, idx: number) => `${msg.id}-action-${idx}`,
+        );
+        const allToolsDone = allActionIds.every((id) =>
+          clickedActionsRef.current.has(id),
+        );
+
+        if (
+          allToolsDone &&
+          isQuestionAnswered &&
+          !flushedMessageIdsRef.current.has(messageId)
+        ) {
+          // Flush!
+          if (handleSendMessageRef.current) {
+            flushedMessageIdsRef.current.add(messageId);
+            let finalContent = buffer.join("\n\n");
+            if (msg.selectedOption) {
+              const questionTitle =
+                parsed.question?.type === "question"
+                  ? (parsed.question as any).title
+                  : "Question";
+              finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${msg.selectedOption}\n\n${finalContent}`;
+            }
+
+            handleSendMessageRef.current(
+              finalContent,
+              undefined,
+              undefined,
+              undefined,
+              true,
+              allActionIds,
+              true,
+            );
+
+            // Clear buffer for this message
+            setAvailableToolResultsBuffer((prev) => {
+              const next = { ...prev };
+              delete next[messageId];
+              return next;
+            });
+          }
+        }
+      },
+    );
+  }, [messagesRef?.current, clickedActions]);
 
   return {
     executionState,

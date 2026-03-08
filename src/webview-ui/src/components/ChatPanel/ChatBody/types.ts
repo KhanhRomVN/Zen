@@ -21,12 +21,23 @@ export interface Message {
   websiteUrl?: string;
   email?: string;
   isError?: boolean;
+  selectedOption?: string;
 }
 
 export interface ChatBodyProps {
   messages: Message[];
   isProcessing: boolean;
-  onSendToolRequest?: (action: ToolAction, message: Message) => void;
+  onSendToolRequest?: (
+    action: ToolAction | ToolAction[],
+    message: Message,
+    isAutoTrigger?: boolean,
+    actionType?: "accept_all" | "accept_once" | "reject",
+  ) => void;
+  onToolAction?: (
+    actionId: string,
+    actionType: "accept_all" | "accept_once" | "reject",
+    toolName?: string,
+  ) => void;
   onSendMessage?: (
     content: string,
     files?: any[],
@@ -37,6 +48,7 @@ export interface ChatBodyProps {
     uiHidden?: boolean,
     thinking?: boolean,
   ) => void | Promise<void>;
+  onSelectOption?: (messageId: string, option: string) => void;
 
   firstRequestMessageId?: string; // ID of the first request message to skip rendering
   executionState?: {

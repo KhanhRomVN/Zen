@@ -549,7 +549,7 @@ export class FileHandler {
       const absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, dirPath);
 
       let maxDepth = 1;
-      if (recursiveParam === "true" || recursiveParam === true) maxDepth = 10;
+      if (recursiveParam === "true" || recursiveParam === true) maxDepth = 20;
       else if (recursiveParam)
         maxDepth = parseInt(String(recursiveParam), 10) || 1;
 

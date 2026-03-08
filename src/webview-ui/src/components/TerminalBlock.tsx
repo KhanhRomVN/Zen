@@ -4,6 +4,7 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import "./TerminalBlock.css";
 import { useProject } from "../context/ProjectContext";
+import { Copy, Check } from "lucide-react";
 
 interface TerminalBlockProps {
   logs: string;
@@ -47,6 +48,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   const [isXtermVisible, setIsXtermVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [physicalLineCount, setPhysicalLineCount] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   const canExpand = physicalLineCount > 15;
 
@@ -54,6 +56,20 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     if (canExpand) {
       setIsExpanded(!isExpanded);
     }
+  };
+
+  const stripAnsi = (str: string) =>
+    str
+      .replace(/\x1B\[[0-9;?]*[A-Za-z~]/g, "")
+      .replace(/\x1b\].*?(\x07|\x1b\\)/g, "");
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const cleanLogs = stripAnsi(logs);
+    const textToCopy = `${cwd ? `${cwd}$ ` : ""}${initialCommand || ""}\n\n${cleanLogs}`;
+    navigator.clipboard.writeText(textToCopy);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   useEffect(() => {
@@ -138,10 +154,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       }
 
       // 📏 AUTO-FIT HEIGHT: Calculate rows based on content + wrapping
-      const stripAnsi = (str: string) =>
-        str
-          .replace(/\x1B\[[0-9;?]*[A-Za-z~]/g, "")
-          .replace(/\x1b\].*?(\x07|\x1b\\)/g, "");
       const logicalLines = logs.split(/\n/);
       const terminalCols = xtermRef.current.cols || 80;
       let count = 0;
@@ -227,12 +239,50 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
               {initialCommand ? formatCommand(initialCommand) : "Terminal"}
             </span>
           </div>
-          {canExpand && (
-            <div
-              className={`codicon codicon-chevron-${isExpanded ? "up" : "down"}`}
-              style={{ fontSize: "12px", opacity: 0.8 }}
-            />
-          )}
+          <div
+            className="terminal-header-actions"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginLeft: "auto",
+            }}
+          >
+            <button
+              className="terminal-copy-button"
+              onClick={handleCopy}
+              title="Copy terminal content"
+              style={{
+                background: "none",
+                border: "none",
+                padding: "2px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "inherit",
+                opacity: 0.7,
+                transition: "opacity 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+            >
+              {copied ? (
+                <Check
+                  size={14}
+                  style={{ color: "var(--vscode-charts-green)" }}
+                />
+              ) : (
+                <Copy size={14} />
+              )}
+            </button>
+            {canExpand && (
+              <div
+                className={`codicon codicon-chevron-${isExpanded ? "up" : "down"}`}
+                style={{ fontSize: "12px", opacity: 0.8 }}
+              />
+            )}
+          </div>
         </div>
       )}
       <div

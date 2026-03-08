@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px 6px 0;
+  padding: 2px 12px 0px 0;
   background-color: var(
     --vscode-editorGroupHeader-tabsBackground,
     var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.1))
