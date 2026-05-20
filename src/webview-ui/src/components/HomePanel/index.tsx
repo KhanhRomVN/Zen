@@ -10,7 +10,6 @@ interface HomePanelProps {
     files: any[],
     model: any,
     account: any,
-    thinking?: boolean,
   ) => void;
   onLoadConversation: (
     conversationId: string,
@@ -21,7 +20,6 @@ interface HomePanelProps {
 }
 
 import { useProject } from "../../context/ProjectContext";
-import { useSettings } from "../../context/SettingsContext";
 
 const HomePanel: React.FC<HomePanelProps> = ({
   onSendMessage,
@@ -29,7 +27,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
   initialValue,
 }) => {
   const { startWatching, stopWatching } = useProject();
-  const { isBackupEnabled } = useSettings();
 
   useEffect(() => {
     startWatching();
@@ -42,7 +39,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
 
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
-  const [selectedQuickModel, setSelectedQuickModel] = useState<any>(null);
 
   // Dummy tab for Header to verify visual consistency
   const dummyTab: TabInfo = {
@@ -53,7 +49,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
     status: "free",
     conversationId: "",
     folderPath: null,
-    provider: selectedQuickModel?.providerId || currentModel?.providerId,
+    provider: currentModel?.providerId,
     containerName: "Home",
     canAccept: true,
     requestCount: 0,
@@ -82,17 +78,8 @@ const HomePanel: React.FC<HomePanelProps> = ({
         <WelcomeUI onLoadConversation={onLoadConversation} />
       </div>
       <ChatFooter
-        onSendMessage={(
-          content,
-          files,
-          model,
-          account,
-          skipFirstRequestLogic,
-          actionIds,
-          uiHidden,
-          thinking,
-        ) => {
-          onSendMessage(content, files || [], model, account, thinking);
+        onSendMessage={(content, files, model, account) => {
+          onSendMessage(content, files || [], model, account);
         }}
         isHistoryMode={false}
         messages={[]} // No messages in HomePanel
@@ -102,10 +89,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
         setCurrentModel={setCurrentModel}
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
-        selectedQuickModel={selectedQuickModel}
-        onQuickModelSelect={setSelectedQuickModel}
         initialValue={initialValue}
-        isBackupEnabled={isBackupEnabled}
       />
     </div>
   );

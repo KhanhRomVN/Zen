@@ -5,7 +5,6 @@ import * as crypto from "crypto";
 import * as os from "os";
 import { ContextManager } from "../../context/ContextManager";
 import { FileLockManager } from "../../managers/FileLockManager";
-import { ProjectStructureManager } from "../../context/ProjectStructureManager";
 import { RecentItemsManager } from "../../context/RecentItemsManager";
 import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
 
@@ -18,7 +17,6 @@ export class FileHandler {
   constructor(
     private contextManager: ContextManager,
     private fileLockManager: FileLockManager,
-    private projectStructureManager: ProjectStructureManager | undefined,
     private recentItemsManager: RecentItemsManager | undefined,
   ) {}
 
@@ -425,9 +423,6 @@ export class FileHandler {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
 
-    const blacklist = this.projectStructureManager
-      ? await this.projectStructureManager.getBlacklist()
-      : [];
     const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
     const recentFiles = this.recentItemsManager
       ? this.recentItemsManager.getRecentFiles()
@@ -437,16 +432,6 @@ export class FileHandler {
     const stats = await Promise.all(
       files.map(async (f) => {
         const relativePath = vscode.workspace.asRelativePath(f);
-
-        if (
-          blacklist.some(
-            (pattern) =>
-              relativePath === pattern ||
-              relativePath.startsWith(pattern + "/"),
-          )
-        ) {
-          return null;
-        }
 
         try {
           const s = await vscode.workspace.fs.stat(f);

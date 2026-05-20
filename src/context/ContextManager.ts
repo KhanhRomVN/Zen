@@ -98,7 +98,7 @@ export class ContextManager {
   }
 
   public setBlacklist(paths: string[]): void {
-    this.fileSystemAnalyzer.setBlacklist(paths);
+    // Blacklist feature removed: no-op kept for backward compatibility if any call sites remain.
   }
 
   public async getRawFileTree(): Promise<any> {

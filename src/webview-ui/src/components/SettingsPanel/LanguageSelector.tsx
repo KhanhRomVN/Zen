@@ -1,20 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronDown, Check, Search } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 // Simple language definition with emoji flags
 export const LANGUAGES = [
   { code: "en", name: "English", flag: "🇺🇸" },
   { code: "vi", name: "Vietnamese", flag: "🇻🇳" },
-  { code: "ja", name: "Japanese", flag: "🇯🇵" },
-  { code: "ko", name: "Korean", flag: "🇰🇷" },
-  { code: "zh", name: "Chinese", flag: "🇨🇳" },
-  { code: "fr", name: "French", flag: "🇫🇷" },
-  { code: "de", name: "German", flag: "🇩🇪" },
-  { code: "es", name: "Spanish", flag: "🇪🇸" },
-  { code: "it", name: "Italian", flag: "🇮🇹" },
-  { code: "pt", name: "Portuguese", flag: "🇵🇹" },
-  { code: "ru", name: "Russian", flag: "🇷🇺" },
 ];
 
 interface LanguageSelectorProps {

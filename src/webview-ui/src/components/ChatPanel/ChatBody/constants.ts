@@ -11,17 +11,15 @@ export const TOOL_LABELS: Record<string, string> = {
   list_files: "Listing",
   search_files: "Searching",
   run_command: "Executing",
-  ask_bypass_gitignore: "Asking Bypass",
   default: "Zen",
 };
 
 export const TOOL_COLORS: Record<string, string> = {
-  read_file: "#3b82f6", // blue
-  write_to_file: "#10b981", // green
-  replace_in_file: "#10b981", // green
+  read_file: "#3b82f6",
+  write_to_file: "#10b981",
+  replace_in_file: "#10b981",
   run_command: "#f59e0b",
-  ask_bypass_gitignore: "#8b5cf6", // purple
-  default: "#6b7280", // gray
+  default: "#6b7280",
 };
 
 export const CLICKABLE_TOOLS = [
@@ -31,10 +29,8 @@ export const CLICKABLE_TOOLS = [
   "list_files",
   "search_files",
   "run_command",
-  "ask_bypass_gitignore",
 ];
 
 export const MANUAL_CONFIRMATION_TOOLS = [
   "run_command",
-  "ask_bypass_gitignore",
 ];

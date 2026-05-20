@@ -14,7 +14,6 @@ interface UseToolExecutionProps {
     skipFirstRequestLogic?: boolean,
     actionIds?: string[],
     uiHidden?: boolean,
-    thinking?: boolean,
   ) => Promise<void>;
   conversationIdRef?: React.MutableRefObject<string>;
   messagesRef?: React.MutableRefObject<Message[]>;
@@ -419,225 +418,6 @@ export const useToolExecution = ({
           break;
         }
 
-        case "get_symbol_definition": {
-          const requestId = `def-${Date.now()}-${Math.random()}`;
-          extensionService.postMessage({
-            command: "getSymbolDefinition",
-            symbol: action.params.symbol,
-            path: action.params.file_path,
-            requestId: requestId,
-          });
-          const handleDefResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "getSymbolDefinitionResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleDefResponse);
-              if (msg.error) {
-                resolve(
-                  `[get_symbol_definition for '${action.params.symbol}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                resolve(
-                  `[get_symbol_definition for '${action.params.symbol}'] Result:\n\`\`\`\n${msg.result}\n\`\`\``,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleDefResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleDefResponse);
-            resolve(null);
-          }, 10000);
-          break;
-        }
-
-        case "get_references": {
-          const requestId = `ref-${Date.now()}-${Math.random()}`;
-          extensionService.postMessage({
-            command: "getReferences",
-            symbol: action.params.symbol,
-            path: action.params.file_path,
-            requestId: requestId,
-          });
-          const handleRefResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "getReferencesResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleRefResponse);
-              if (msg.error) {
-                resolve(
-                  `[get_references for '${action.params.symbol}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                resolve(
-                  `[get_references for '${action.params.symbol}'] Result:\n\`\`\`\n${msg.result}\n\`\`\``,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleRefResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleRefResponse);
-            resolve(null);
-          }, 10000);
-          break;
-        }
-
-        case "get_file_outline": {
-          const requestId = `outline-${Date.now()}-${Math.random()}`;
-          const filePath = action.params.path || action.params.file_path;
-          extensionService.postMessage({
-            command: "getFileOutline",
-            path: filePath,
-            requestId: requestId,
-          });
-          const handleOutlineResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "getFileOutlineResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleOutlineResponse);
-              if (msg.error) {
-                resolve(
-                  `[get_file_outline for '${filePath}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                resolve(
-                  `[get_file_outline for '${filePath}'] Result:\n\`\`\`\n${msg.result}\n\`\`\``,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleOutlineResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleOutlineResponse);
-            resolve(null);
-          }, 10000);
-          break;
-        }
-
-        case "ask_bypass_gitignore": {
-          const requestId = `bypass-${Date.now()}-${Math.random()}`;
-          const pathValue = action.params.path;
-          extensionService.postMessage({
-            command: "askBypassGitignore",
-            path: pathValue,
-            requestId: requestId,
-          });
-
-          const handleBypassResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "askBypassGitignoreResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleBypassResponse);
-              if (msg.error) {
-                resolve(
-                  `[ask_bypass_gitignore for '${pathValue}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                resolve(
-                  `[ask_bypass_gitignore for '${pathValue}'] Result: Bypass approved for current conversation. You can now access this path.`,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleBypassResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleBypassResponse);
-            resolve(null);
-          }, 10000);
-          break;
-        }
-
-        case "read_workspace_context": {
-          const requestId = `read-workspace-${Date.now()}-${Math.random()}`;
-          extensionService.postMessage({
-            command: "readFile",
-            path: "workspace.md",
-            requestId: requestId,
-          });
-
-          const handleReadWorkspaceResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (msg.command === "fileContent" && msg.requestId === requestId) {
-              window.removeEventListener(
-                "message",
-                handleReadWorkspaceResponse,
-              );
-              if (msg.error) {
-                let readableError = msg.error;
-                if (
-                  readableError.includes("tồn tại") ||
-                  readableError.includes("no such file")
-                ) {
-                  readableError = "workspace.md not found in project context";
-                }
-                resolve(
-                  `[read_workspace_context] Result: Error - ${readableError}`,
-                );
-              } else {
-                let result = `[read_workspace_context] Result:\n\`\`\`\n${msg.content}\n\`\`\``;
-                resolve(result);
-              }
-            }
-          };
-          window.addEventListener("message", handleReadWorkspaceResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleReadWorkspaceResponse);
-            resolve(null);
-          }, 10000);
-          break;
-        }
-
-        case "update_workspace_context": {
-          const requestId = `update-workspace-${Date.now()}-${Math.random()}`;
-
-          extensionService.postMessage({
-            command: "replaceInFile",
-            path: "workspace.md",
-            diff: action.params.diff,
-            requestId: requestId,
-            skipDiagnostics: true,
-          });
-
-          const handleUpdateWorkspaceResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "replaceInFileResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener(
-                "message",
-                handleUpdateWorkspaceResponse,
-              );
-              if (msg.error) {
-                resolve(
-                  `[update_workspace_context] Result: Error - ${msg.error}`,
-                );
-              } else {
-                let result = `[update_workspace_context] Success: Workspace context updated successfully`;
-                resolve(result);
-              }
-            }
-          };
-          window.addEventListener("message", handleUpdateWorkspaceResponse);
-          setTimeout(() => {
-            window.removeEventListener(
-              "message",
-              handleUpdateWorkspaceResponse,
-            );
-            resolve(null);
-          }, 10000);
-          break;
-        }
-
         case "execute_agent_action": {
           const requestId = `agent-${Date.now()}-${Math.random()}`;
           extensionService.postMessage({
@@ -697,9 +477,19 @@ export const useToolExecution = ({
         _index: a._index !== undefined ? a._index : idx,
       }));
 
+      console.log("[Zen Flow Log] [handleToolRequest] Initiated.", {
+        messageId: message.id,
+        actionsCount: actions.length,
+        actionsList: actions.map(a => a.type),
+        isAutoTrigger,
+        actionType,
+      });
+
       // Validation check for duplicate actions or re-runs if needed (omitted for brevity)
 
+      // Track actions that were pre-skipped (already triggered) vs actually executed
       const validResults: string[] = [];
+      let skippedCount = 0;
       setExecutionState({
         total: actions.length,
         completed: 0,
@@ -711,11 +501,17 @@ export const useToolExecution = ({
         const actionId =
           action.actionId || `${message.id}-action-${action._index}`;
 
+        console.log(`[Zen Flow Log] [handleToolRequest] Starting action ${index + 1}/${actions.length}: ${action.type}`, {
+          actionId,
+          params: action.params,
+        });
+
         // GUARD: Prevent duplicate execution of same action Id
         if (clickedActionsRef.current.has(actionId)) {
           console.warn(
-            `[useToolExecution] Action ${actionId} already triggered, skipping.`,
+            `[Zen Flow Log] [handleToolRequest] Action ${actionId} already triggered, skipping (duplicate guard).`,
           );
+          skippedCount++;
           continue;
         }
 
@@ -738,15 +534,12 @@ export const useToolExecution = ({
         }
 
         // Check if we should auto-execute this tool
-        // Logic:
-        // 1. If global setting is 'request', it's manual.
-        // 2. If global setting is 'auto', it's auto-triggered UNLESS it's a sensitive tool that isn't overridden in the conversation yet.
-        const globalPermission = toolPermissions[action.type] || "auto";
+        const globalPermission = toolPermissions[action.type] || "full_access";
         const isConversationAuto =
           conversationToolOverrides[action.type] === "auto";
 
         const shouldPauseForManual =
-          globalPermission === "request" && !isConversationAuto;
+          globalPermission === "review" && !isConversationAuto;
 
         if (isAutoTrigger && shouldPauseForManual) {
           wasInterruptedByManual = true;
@@ -761,13 +554,21 @@ export const useToolExecution = ({
 
         let result: string | null = null;
         if (actionType === "reject") {
+          console.log(`[Zen Flow Log] [handleToolRequest] Action ${action.type} rejected by user.`);
           result = `Output: [${action.type}] Tool execution rejected by user.`;
         } else {
+          console.log(`[Zen Flow Log] [handleToolRequest] Calling executeSingleAction for: ${action.type}`);
           result = await executeSingleAction(
             { ...action, actionId },
             skipDiagnostics,
           );
         }
+
+        console.log(`[Zen Flow Log] [handleToolRequest] Action ${action.type} execution result:`, {
+          actionId,
+          success: result !== null,
+          resultLength: result ? result.length : 0,
+        });
 
         if (result !== null) {
           validResults.push(result);
@@ -826,6 +627,23 @@ export const useToolExecution = ({
         }
       }
 
+      console.log("[Zen Flow Log] [handleToolRequest] All actions in the request finished execution loop.", {
+        validResultsCount: validResults.length,
+        skippedCount,
+        actionsCount: actions.length,
+      });
+
+      // If ALL actions were pre-skipped (already triggered by a prior call), do nothing.
+      // This prevents sending empty content to the LLM when a duplicate handleToolRequest
+      // fires (e.g. useChatLLM called onToolRequest after stream while useToolActions
+      // already triggered and flushed the same batch mid-stream).
+      const allActionsPreSkipped = skippedCount === actions.length;
+      if (allActionsPreSkipped) {
+        console.warn("[Zen Flow Log] [handleToolRequest] All actions were pre-skipped (duplicate trigger). Exiting without flushing.");
+        setExecutionState((prev) => prev.status === "error" ? prev : { ...prev, status: "done" });
+        return;
+      }
+
       setExecutionState((prev) =>
         prev.status === "error" ? prev : { ...prev, status: "done" },
       );
@@ -835,17 +653,19 @@ export const useToolExecution = ({
         const newBuffer = [...(prev[message.id] || []), ...validResults];
 
         if (wasInterruptedByManual) {
-          // We stopped executing because we hit a manual tool.
-          // Keep the buffer and do NOT trigger LLM yet. Let the user click the manual tool.
+          console.log("[Zen Flow Log] [handleToolRequest] Interrupted by manual approval requirement. Buffering results.", {
+            bufferedCount: newBuffer.length,
+          });
           return { ...prev, [message.id]: newBuffer };
         }
 
         if (validResults.length < actions.length) {
-          // Error case in THIS batch, flush immediately to inform AI
+          console.error("[Zen Flow Log] [handleToolRequest] Execution failed/errored for one or more actions. Flushing immediately to inform LLM.");
           const textActionIds = actions.map(
             (a) => `${message.id}-action-${a._index}`,
           );
           if (handleSendMessageRef.current) {
+            console.log("[Zen Flow Log] [handleToolRequest] Calling handleSendMessageRef for error recovery.");
             handleSendMessageRef.current(
               newBuffer.join("\n\n"),
               undefined,
@@ -879,8 +699,17 @@ export const useToolExecution = ({
               clickedActionsRef.current.has(id) || currentBatchIds.includes(id),
           ) && isQuestionAnswered;
 
+        console.log("[Zen Flow Log] [handleToolRequest] Checking if all actions in response are complete:", {
+          messageId: message.id,
+          allActionIds,
+          isAllComplete,
+          isQuestionAnswered,
+          hasAlreadyFlushed: flushedMessageIdsRef.current.has(message.id),
+        });
+
         if (isAllComplete && !flushedMessageIdsRef.current.has(message.id)) {
           if (handleSendMessageRef.current) {
+            console.log("[Zen Flow Log] [handleToolRequest] All actions completed. Flushing accumulated results to LLM.");
             flushedMessageIdsRef.current.add(message.id);
             let finalContent = newBuffer.join("\n\n");
             if (selectedOption) {
@@ -903,10 +732,12 @@ export const useToolExecution = ({
           }
           return { ...prev, [message.id]: [] };
         } else if (flushedMessageIdsRef.current.has(message.id)) {
-          // Already flushed, clear buffer just in case
+          console.log("[Zen Flow Log] [handleToolRequest] Already flushed results for this message. Clearing buffer.");
           return { ...prev, [message.id]: [] };
         } else {
-          // Not all actions (incl. question) in this message are complete yet. Wait.
+          console.log("[Zen Flow Log] [handleToolRequest] Some actions or questions are still pending. Buffering results.", {
+            bufferedCount: newBuffer.length,
+          });
           return { ...prev, [message.id]: newBuffer };
         }
       });
@@ -943,6 +774,14 @@ export const useToolExecution = ({
           clickedActionsRef.current.has(id),
         );
 
+        console.log("[Zen Flow Log] [auto-flush effect] Checking:", {
+          messageId,
+          bufferSize: buffer.length,
+          allToolsDone,
+          isQuestionAnswered,
+          hasAlreadyFlushed: flushedMessageIdsRef.current.has(messageId),
+        });
+
         if (
           allToolsDone &&
           isQuestionAnswered &&
@@ -950,6 +789,7 @@ export const useToolExecution = ({
         ) {
           // Flush!
           if (handleSendMessageRef.current) {
+            console.log("[Zen Flow Log] [auto-flush effect] Conditions met. Flushing buffered results.");
             flushedMessageIdsRef.current.add(messageId);
             let finalContent = buffer.join("\n\n");
             if (msg.selectedOption) {
@@ -980,7 +820,7 @@ export const useToolExecution = ({
         }
       },
     );
-  }, [messagesRef?.current, clickedActions]);
+  }, [messagesRef?.current, clickedActions, availableToolResultsBuffer]);
 
   return {
     executionState,

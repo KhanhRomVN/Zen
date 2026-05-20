@@ -46,7 +46,6 @@ export interface ChatBodyProps {
     skipFirstRequestLogic?: boolean,
     actionIds?: string[],
     uiHidden?: boolean,
-    thinking?: boolean,
   ) => void | Promise<void>;
   onSelectOption?: (messageId: string, option: string) => void;
 

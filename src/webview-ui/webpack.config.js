@@ -1,6 +1,8 @@
 const path = require("path");
 
 module.exports = {
+  // Make webpack output use paths relative to this folder in logs/errors
+  context: __dirname,
   entry: "./src/index.tsx",
   output: {
     path: path.resolve(__dirname, "dist"),
@@ -64,6 +66,10 @@ module.exports = {
   devtool: process.env.NODE_ENV === "production" ? false : "source-map",
   performance: {
     hints: false,
+  },
+  stats: {
+    context: __dirname,
+    colors: true,
   },
   // Disable code splitting to avoid CSP issues in VS Code webview
   optimization: {

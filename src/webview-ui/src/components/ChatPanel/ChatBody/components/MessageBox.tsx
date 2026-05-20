@@ -1,12 +1,10 @@
 import React from "react";
-import { RotateCcw } from "lucide-react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { CodeBlock } from "../../../CodeBlock";
 import { Message } from "../types";
 import {
   ParsedResponse,
-  TaskProgressItem,
 } from "../../../../services/ResponseParser";
 import FollowupOptions from "./FollowupOptions";
 import ToolActionsList from "./ToolActions/index";
@@ -23,7 +21,7 @@ import "./MarkdownContent.css";
 interface MessageBoxProps {
   message: Message;
   parsedContent: ParsedResponse; // For assistant messages
-  isCollapsed: boolean; // For prompt/thinking sections
+  isCollapsed: boolean; // For prompt sections
   onToggleCollapse: () => void;
   clickedActions: Set<string>;
   failedActions?: Set<string>;
@@ -48,9 +46,7 @@ interface MessageBoxProps {
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
   previousAssistantMessage?: Message;
-  isGenerating?: boolean; // Prop to indicate if this message is currently being generated
-  onRevert?: (messageId: string) => void;
-  isRawMode?: boolean;
+  isGenerating?: boolean;
   onSendMessage?: (
     content: string,
     files?: any[],
@@ -59,7 +55,6 @@ interface MessageBoxProps {
     skipLogic?: boolean,
     actionIds?: string[],
     uiHidden?: boolean,
-    thinking?: boolean,
   ) => void;
   onSelectOption?: (messageId: string, option: string) => void;
 }
@@ -161,8 +156,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   conversationId,
   previousAssistantMessage,
   isGenerating,
-  onRevert,
-  isRawMode,
   onSendMessage,
   onSelectOption,
 }) => {
@@ -236,35 +229,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             position: "relative",
           }}
         >
-          {onRevert && (
-            <div
-              style={{
-                position: "absolute",
-                top: "8px",
-                right: "8px",
-                opacity: 0,
-                transition: "opacity 0.2s ease",
-                cursor: "pointer",
-                padding: "4px",
-                borderRadius: "4px",
-                backgroundColor: "var(--hover-bg)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--secondary-text)",
-              }}
-              className="revert-button"
-              onClick={() => onRevert(message.id)}
-              title="Revert conversation to this message"
-            >
-              <RotateCcw size={14} />
-            </div>
-          )}
-          <style>{`
-            .chat-panel div:hover > .revert-button {
-              opacity: 1 !important;
-            }
-          `}</style>
+          <style>{``}</style>
           <div
             style={{
               fontSize: "var(--font-size-sm)",
@@ -319,38 +284,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
         padding: message.isError ? "var(--spacing-sm)" : "0px",
       }}
     >
-      {/* 2. Thinking Section (Moved inside interleaved content) */}
-
-      {/* 🆕 RAW MODE RENDERING */}
-      {isRawMode && (
-        <div
-          style={{
-            padding: "var(--spacing-md)",
-            paddingLeft: "29px",
-            backgroundColor: "var(--input-bg)",
-            borderRadius: "var(--border-radius)",
-            fontSize: "var(--font-size-sm)",
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            color: "var(--primary-text)",
-            opacity: 0.9,
-            lineHeight: 1.6,
-            marginTop: "8px",
-            position: "relative",
-          }}
-        >
-          <div
-            className="timeline-dot"
-            style={{ backgroundColor: "var(--secondary-text)", top: "10px" }}
-          />
-          {message.content}
-        </div>
-      )}
-
       {/* 3. Interleaved Content (Text + Tools) */}
-      {!isRawMode &&
-        (() => {
+      {(() => {
           // Prepare render groups
           const groups: Array<
             | {
@@ -359,7 +294,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 faviconUrl?: string;
                 key: string;
               }
-            | { type: "thinking"; content: string; key: string }
             | { type: "code"; content: string; language: string; key: string }
             | { type: "html"; content: string; key: string }
             | { type: "file"; content: string; key: string }
@@ -367,13 +301,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             | {
                 type: "mixed_content";
                 segments: any[];
-                key: string;
-              }
-            | {
-                type: "task_progress";
-                taskName: string | null;
-                taskSummary: string | null;
-                items: TaskProgressItem[];
                 key: string;
               }
             | {
@@ -429,18 +356,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             });
           }
 
-          // --- 🆕 THINKING BLOCK ---
-          if (
-            parsedContent.thinking &&
-            ((!parsedContent.isThinkingClosed && isGenerating) ||
-              parsedContent.isThinkingClosed)
-          ) {
-            groups.push({
-              type: "thinking",
-              content: parsedContent.thinking,
-              key: "thinking-info",
-            });
-          }
           // ------------------------------
 
           let currentToolGroup: { action: any; index: number }[] = [];
@@ -467,17 +382,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 const actionIndex = parsedContent.actions.indexOf(block.action);
                 currentToolGroup.push({
                   action: block.action,
-                  index: actionIndex !== -1 ? actionIndex : idx, // Fallback index if not found
-                });
-              } else if (block.type === "task_progress") {
-                // Flush tools before adding task_progress block
-                flushTools();
-                groups.push({
-                  type: "task_progress",
-                  taskName: block.taskName,
-                  taskSummary: block.taskSummary,
-                  items: block.items,
-                  key: `task_progress-${idx}`,
+                  index: actionIndex !== -1 ? actionIndex : idx,
                 });
               } else if (block.type === "file") {
                 flushTools();
@@ -623,32 +528,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   </div>
                 </div>
               );
-            } else if (group.type === "thinking") {
-              content = (
-                <div>
-                  <div
-                    className="timeline-dot"
-                    style={{
-                      backgroundColor: "var(--vscode-descriptionForeground)",
-                      top: "10px",
-                    }}
-                  />
-                  <div
-                    style={{
-                      paddingLeft: "29px",
-                      paddingTop: "4px",
-                      paddingBottom: "8px",
-                      fontSize: "var(--font-size-sm)",
-                      color: "var(--secondary-text)",
-                      lineHeight: 1.6,
-                      whiteSpace: "pre-wrap",
-                      opacity: 0.8,
-                    }}
-                  >
-                    {group.content}
-                  </div>
-                </div>
-              );
             } else if (group.type === "code") {
               const isDiffBlock = isDiff(group.content, group.language);
               let displayCode = group.content;
@@ -712,121 +591,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     style={{ width: "14px", height: "14px" }}
                   />
                   <span>{group.content}</span>
-                </div>
-              );
-            } else if (group.type === "task_progress") {
-              const totalTasks = group.items.length;
-              const completedTasks = group.items.filter(
-                (i) => i.completed,
-              ).length;
-
-              content = (
-                <div>
-                  <div
-                    className="timeline-dot"
-                    style={{
-                      backgroundColor: message.isError ? "#ff4d4f" : "#3fb950",
-                      top: "10px",
-                    }}
-                  />
-                  <div
-                    style={{
-                      paddingLeft: "29px",
-                      paddingTop: "4px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      {totalTasks > 0 && (
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            backgroundColor: "var(--vscode-badge-background)",
-                            color: "var(--vscode-badge-foreground)",
-                            padding: "1px 6px",
-                            borderRadius: "4px",
-                            fontFamily:
-                              "var(--vscode-editor-font-family, monospace)",
-                          }}
-                        >
-                          {completedTasks}/{totalTasks}
-                        </span>
-                      )}
-                      <span
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          color: "var(--vscode-editor-foreground)",
-                        }}
-                      >
-                        {group.taskName || "Task Progress"}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "4px",
-                      }}
-                    >
-                      {group.items.map((item, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            fontSize: "12px",
-                            color: item.completed
-                              ? "var(--vscode-descriptionForeground)"
-                              : "var(--vscode-editor-foreground)",
-                            opacity: item.completed ? 0.7 : 0.9,
-                            padding: "2px 0",
-                          }}
-                        >
-                          <span
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              width: "16px",
-                              height: "16px",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {item.completed ? (
-                              <span
-                                className="codicon codicon-check"
-                                style={{ color: "#3fb950", fontSize: "14px" }}
-                              />
-                            ) : (
-                              <span
-                                className="codicon codicon-circle-outline"
-                                style={{ opacity: 0.4, fontSize: "12px" }}
-                              />
-                            )}
-                          </span>
-                          <span
-                            style={{
-                              textDecoration: item.completed
-                                ? "line-through"
-                                : "none",
-                              lineHeight: 1.4,
-                            }}
-                          >
-                            {item.text}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               );
             } else if (group.type === "markdown") {

@@ -186,7 +186,7 @@ export const useToolActions = ({
 
         // Check if settings specify this tool runs auto
         const allowed = toolPermissions[action.type];
-        if (allowed === "auto") {
+        if (allowed === "full_access") {
           // Optimistic Synchronous Update
           triggeredIdsRef.current.add(actionId);
           setClickedActions((prev: Set<string>) => new Set(prev).add(actionId));

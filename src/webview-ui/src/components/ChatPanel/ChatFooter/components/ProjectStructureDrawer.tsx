@@ -7,7 +7,6 @@ interface ProjectStructureDrawerProps {
   onClose: () => void;
   files: { path: string; type: "file" | "folder"; size?: number }[];
   folders: { path: string; type: "file" | "folder"; size?: number }[];
-  blacklist: string[];
   onRefresh: () => void;
 }
 
@@ -50,28 +49,9 @@ const ProjectStructureDrawer: React.FC<ProjectStructureDrawerProps> = ({
   onClose,
   files,
   folders,
-  blacklist,
   onRefresh,
 }) => {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
-  const blacklistSet = useMemo(() => new Set(blacklist), [blacklist]);
-
-  // Helper function to check if a path matches any blacklist pattern
-  const isPathBlacklisted = (path: string): boolean => {
-    // Check exact match
-    if (blacklistSet.has(path)) return true;
-
-    // Check if any blacklist pattern matches this path
-    for (const pattern of blacklist) {
-      // Exact match
-      if (path === pattern) return true;
-      // Match if path ends with /pattern (for nested folders)
-      if (path.endsWith(`/${pattern}`)) return true;
-      // Match if path starts with pattern/ (for files/folders inside)
-      if (path.startsWith(`${pattern}/`)) return true;
-    }
-    return false;
-  };
 
   // Convert flat list to tree structure
   const treeData = useMemo(() => {
@@ -153,14 +133,12 @@ const ProjectStructureDrawer: React.FC<ProjectStructureDrawerProps> = ({
     });
   }, [files, folders]);
 
-  // Calculate total project size (excluding blacklisted items)
+  // Calculate total project size
   const totalSize = useMemo(() => {
     return treeData.reduce((sum, node) => {
-      // Skip blacklisted nodes
-      if (isPathBlacklisted(node.path)) return sum;
       return sum + node.size;
     }, 0);
-  }, [treeData, blacklist]);
+  }, [treeData]);
 
   const toggleExpand = (path: string) => {
     const newExpanded = new Set(expandedPaths);
@@ -174,15 +152,12 @@ const ProjectStructureDrawer: React.FC<ProjectStructureDrawerProps> = ({
 
   const renderTree = (
     nodes: TreeNode[],
-    depth: number = 0,
-    parentBlacklisted: boolean = false
+    depth: number = 0
   ) => {
     return nodes.map((node) => {
       const isExpanded = expandedPaths.has(node.path);
       const isFolder = node.type === "folder";
       const paddingLeft = depth * 16 + 16;
-      const isExplicitlyBlacklisted = isPathBlacklisted(node.path);
-      const isBlacklisted = parentBlacklisted || isExplicitlyBlacklisted;
 
       return (
         <div key={node.path}>
@@ -243,8 +218,6 @@ const ProjectStructureDrawer: React.FC<ProjectStructureDrawerProps> = ({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
-                color: isBlacklisted ? "var(--secondary-text)" : "inherit",
-                textDecoration: isBlacklisted ? "line-through" : "none",
               }}
             >
               {node.name}
@@ -258,7 +231,7 @@ const ProjectStructureDrawer: React.FC<ProjectStructureDrawerProps> = ({
           {isFolder && isExpanded && (
             <div>
               {node.children.length > 0 ? (
-                renderTree(node.children, depth + 1, isBlacklisted)
+                renderTree(node.children, depth + 1)
               ) : (
                 <div
                   style={{

@@ -33,10 +33,10 @@ const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
         marginBottom: "var(--spacing-md)",
       }}
     >
-      <span className="thinking-text">Thinking...({seconds}s)</span>
+      <span className="processing-text">Processing...({seconds}s)</span>
       <style>
         {`
-        .thinking-text {
+        .processing-text {
           background: linear-gradient(
             to right,
             var(--secondary-text) 0%,

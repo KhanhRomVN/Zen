@@ -17,8 +17,6 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
   previousAssistantMessage?: Message;
-  onRevert?: (messageId: string) => void;
-  isRawMode?: boolean;
 }
 
 // Hooks
@@ -45,8 +43,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
-  onRevert,
-  isRawMode,
   onToolAction,
   onSelectOption,
 }: ExtendedChatBodyProps) => {
@@ -102,7 +98,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     return -1;
   }, [visibleMessages]);
 
-  // Detect if assistant is currently streaming non-thinking content
+  // Detect if assistant is currently streaming content
   const isResponding = useMemo(() => {
     if (!isProcessing || visibleMessages.length === 0) return false;
     const lastMessage = visibleMessages[visibleMessages.length - 1];
@@ -112,7 +108,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     if (!parsedMessage) return false;
 
     const parsed = parsedMessage.parsed;
-    // Check if there's any non-thinking content being streamed
+    // Check if there's any content being streamed
     const hasText = parsed.displayText && parsed.displayText.trim().length > 0;
     const hasActions = parsed.actions && parsed.actions.length > 0;
     const hasOtherBlocks =
@@ -120,7 +116,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       parsed.contentBlocks.some((b) => {
         switch (b.type) {
           case "tool":
-          case "task_progress":
             return true;
           case "mixed_content":
             return b.segments.length > 0;
@@ -149,6 +144,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         display: "flex",
         flexDirection: "column",
         gap: "var(--spacing-md)",
+        fontSize: "14px",
       }}
     >
       {visibleMessages.length === 0 && !isProcessing && (
@@ -193,14 +189,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               isCollapsed={
                 message.role === "user"
                   ? collapsedSections.has(`prompt-${message.id}`)
-                  : !collapsedSections.has(`thinking-expanded-${message.id}`)
+                  : false
               }
               onToggleCollapse={() =>
-                toggleCollapse(
-                  message.role === "user"
-                    ? `prompt-${message.id}`
-                    : `thinking-expanded-${message.id}`,
-                )
+                toggleCollapse(`prompt-${message.id}`)
               }
               clickedActions={clickedActions}
               failedActions={failedActions}
@@ -217,8 +209,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               attachedTerminalIds={attachedTerminalIds}
               conversationId={conversationId}
               previousAssistantMessage={previousAssistantMessage}
-              onRevert={onRevert}
-              isRawMode={isRawMode}
               onSendMessage={onSendMessage}
               onSelectOption={onSelectOption}
             />

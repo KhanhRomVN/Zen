@@ -4,7 +4,6 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 import * as os from "os";
 import { ContextManager } from "../../context/ContextManager";
-import { ProjectStructureManager } from "../../context/ProjectStructureManager";
 import { GlobalStorageManager } from "../../storage-manager";
 
 export class ProjectContextHandler {
@@ -13,7 +12,6 @@ export class ProjectContextHandler {
 
   constructor(
     private contextManager: ContextManager,
-    private projectStructureManager: ProjectStructureManager | undefined,
     private storageManager: GlobalStorageManager | undefined,
   ) {}
 
@@ -34,19 +32,6 @@ export class ProjectContextHandler {
       .createHash("md5")
       .update(pathValue)
       .digest("hex")}`;
-  }
-
-  public async handleGetProjectStructureBlacklist(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    if (!this.projectStructureManager) return;
-    const blacklist = await this.projectStructureManager.getBlacklist();
-    webviewView.webview.postMessage({
-      command: "projectStructureBlacklistResult",
-      requestId: message.requestId,
-      blacklist,
-    });
   }
 
   public async handleGetFolderTree(

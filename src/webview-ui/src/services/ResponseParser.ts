@@ -1,20 +1,11 @@
 export interface ParsedResponse {
-  thinking: string | null;
   followupQuestion: string | null;
   followupOptions: string[] | null;
   taskName: string | null;
-  taskProgress: TaskProgressItem[] | null;
   actions: ToolAction[];
-  contentBlocks: ContentBlock[]; // New interleaved structure
+  contentBlocks: ContentBlock[];
   displayText: string;
-  conversationName: string | null;
-  isThinkingClosed: boolean;
   question: ContentBlock | null;
-}
-
-export interface TaskProgressItem {
-  text: string;
-  completed: boolean;
 }
 
 export interface ToolAction {
@@ -25,16 +16,9 @@ export interface ToolAction {
     | "list_files"
     | "search_files"
     | "run_command"
-    | "execute_agent_action"
-    | "read_workspace_context"
-    | "update_workspace_context"
-    | "get_symbol_definition"
-    | "get_references"
-    | "ask_bypass_gitignore"
-    | "get_file_outline";
+    | "execute_agent_action";
   params: Record<string, any>;
   rawXml: string;
-  taskProgress?: TaskProgressItem[] | null;
   isPartial?: boolean;
 }
 
@@ -42,12 +26,6 @@ export type ContentBlock =
   | { type: "code"; content: string; language?: string }
   | { type: "html"; content: string }
   | { type: "file"; content: string }
-  | {
-      type: "task_progress";
-      taskName: string | null;
-      taskSummary: string | null;
-      items: TaskProgressItem[];
-    }
   | { type: "markdown"; content: string }
   | { type: "question"; options: string[]; title?: string; optional?: boolean }
   | {
@@ -106,61 +84,6 @@ const extractParamValue = (
 };
 
 /**
- * Parse task_progress content to extract checklist items
- */
-const parseTaskProgress = (content: string): TaskProgressItem[] | null => {
-  if (!content) {
-    return null;
-  }
-
-  // Remove ```text wrappers
-  const cleanContent = content.replace(/^```text\s*\n?|\n?```\s*$/g, "").trim();
-  const items: TaskProgressItem[] = [];
-
-  // 1. Try parsing XML-style tags: <task>, <task_done>, <task_todo>, etc. (Exclude name/summary)
-  const taskTagRegex =
-    /<task(?:_(done|todo|x))?(?:\s+status=["'](\w+)["'])?\s*>([\s\S]*?)<\/task(?:_\w+)?>/gi;
-  let match;
-  while ((match = taskTagRegex.exec(cleanContent)) !== null) {
-    const taskType = match[1]?.toLowerCase();
-    const status = match[2]?.toLowerCase();
-    const text = match[3].trim();
-    if (text) {
-      items.push({
-        completed:
-          taskType === "done" ||
-          status === "done" ||
-          status === "completed" ||
-          status === "x",
-        text: text,
-      });
-    }
-  }
-
-  if (items.length > 0) {
-    return items;
-  }
-
-  // 2. Fallback to Markdown checklist patterns:
-  const lines = cleanContent.split("\n");
-  for (const line of lines) {
-    // - [x] Task
-    // - [ ] Task
-    // - [X] Task (uppercase)
-    const checkboxMatch = line.match(/^\s*-\s*\[([ xX])\]\s*(.+)$/);
-    if (checkboxMatch) {
-      const item = {
-        completed: checkboxMatch[1].toLowerCase() === "x",
-        text: checkboxMatch[2].trim(),
-      };
-      items.push(item);
-    }
-  }
-
-  return items.length > 0 ? items : null;
-};
-
-/**
  * Extract tool actions from inner content
  */
 const parseToolAction = (
@@ -196,14 +119,6 @@ const parseToolAction = (
       // No special param handling needed yet
       break;
 
-    case "read_workspace_context":
-      // No parameters needed
-      break;
-
-    case "update_workspace_context":
-      params.diff = extractParamValue(innerContent, "diff");
-      break;
-
     case "list_files":
       params.folder_path = extractParamValue(innerContent, "folder_path");
       params.recursive = extractParamValue(innerContent, "recursive"); // Keep as string, handle in extension (e.g. "true", "false", "1", "2")
@@ -215,88 +130,36 @@ const parseToolAction = (
       params.regex = extractParamValue(innerContent, "regex");
       params.file_pattern = extractParamValue(innerContent, "file_pattern");
       break;
-
-    case "get_symbol_definition":
-      params.symbol = extractParamValue(innerContent, "symbol");
-      params.file_path = extractParamValue(innerContent, "file_path");
-      break;
-
-    case "get_references":
-      params.symbol = extractParamValue(innerContent, "symbol");
-      params.file_path = extractParamValue(innerContent, "file_path");
-      break;
-
-    case "get_file_outline":
-      params.file_path = extractParamValue(innerContent, "file_path");
-      break;
-
-    case "ask_bypass_gitignore":
-      params.path = extractParamValue(innerContent, "path");
-      break;
   }
 
   return {
     type: toolName as any,
     params,
     rawXml,
-    taskProgress: null,
   };
 };
 
 /**
- * Parse AI response to extract thinking, task_progress, and tool actions
+ * Parse AI response to extract tool actions
  * Supports interleaved text and tool calls
  */
 export const parseAIResponse = (content: string): ParsedResponse => {
   const result: ParsedResponse = {
-    thinking: null,
     followupQuestion: null,
     followupOptions: null,
     taskName: null,
-    taskProgress: null,
     actions: [],
     contentBlocks: [],
     displayText: "",
-    conversationName: null,
-    isThinkingClosed: true,
     question: null,
   };
 
   let remainingContent = content;
 
-  // 1. Extract <thinking> content (Removed from flow - handled during tool stream to support streaming)
-  // We no longer extract and remove the thinking tag here because we want to parse it as a block
-  // to support streaming in the UI.
-
-  // 2. Extract global <task_progress> (Independent tag, Removed from flow)
-  // Logic: Extract ALL task_progress tags and use the LAST one found (most recent state).
-  const taskProgressMatches = [
-    ...remainingContent.matchAll(/<task_progress>([\s\S]*?)<\/task_progress>/g),
-  ];
-  if (taskProgressMatches.length > 0) {
-    // Use the last match
-    const lastMatch = taskProgressMatches[taskProgressMatches.length - 1];
-    const innerContent = lastMatch[1];
-    result.taskProgress = parseTaskProgress(innerContent);
-
-    // Extract task_name
-    const taskNameMatch = innerContent.match(
-      /<task_name>([\s\S]*?)<\/task_name>/i,
-    );
-    if (taskNameMatch) {
-      result.taskName = taskNameMatch[1].trim();
-    }
-
-    // DO NOT remove task_progress from remainingContent here anymore,
-    // as we want it to be processed by the interleaved scanner in Step 3
-    // instead of being just a global property.
-    // remainingContent = remainingContent.replace(/<task_progress>[\s\S]*?<\/task_progress>/g, "");
-  }
-
   // Hide </no_response> markers
   remainingContent = remainingContent.replace(/<\/no_response\s*>/gi, "");
 
-  // 3. Scan for tools and text blocks
+  // Scan for tools and text blocks
   const toolPatterns = [
     "read_file",
     "write_to_file",
@@ -305,20 +168,24 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "list_files",
     "search_files",
     "execute_agent_action",
-    "read_workspace_context",
-    "update_workspace_context",
-    "get_symbol_definition",
-    "get_references",
-    "get_file_outline",
-    "ask_bypass_gitignore",
-    "code", // Treat <code> as a special tag
-    "file", // Treat <file> as a special tag
-    "task_progress", // Treat <task_progress> as a special tag
-    "markdown", // Treat <markdown> as a special tag
-    "conversation_name", // Treat <conversation_name> as a special tag
-    "thinking", // Treat <thinking> as a special tag
-    "question", // Treat <question> as a special tag
+    "code",
+    "file",
+    "markdown",
+    "question",
   ];
+
+  // Fix missing opening bracket for the first tool call due to prefix/prefill stripping
+  const toolNamesPattern = toolPatterns.join("|");
+  const missingBracketRegex = new RegExp(
+    `^(\\s*(?:•\\s*)?)(${toolNamesPattern})>`,
+    "i",
+  );
+  if (missingBracketRegex.test(remainingContent)) {
+    remainingContent = remainingContent.replace(
+      missingBracketRegex,
+      "$1<$2>",
+    );
+  }
 
   // We need to parse linearly to maintain order
   // Strategy: Find the first occurrence of ANY tool tag OR markdown code block
@@ -449,39 +316,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           if (innerContent && innerContent.trim()) {
             pushTextOrCodeBlocks("markdown", innerContent.trim());
           }
-        } else if (toolName === "task_progress") {
-          // Explicit <task_progress> tag
-          const items = parseTaskProgress(innerContent || "");
-          const taskNameMatch = innerContent?.match(
-            /<task_name>([\s\S]*?)<\/task_name>/i,
-          );
-          const taskName = taskNameMatch ? taskNameMatch[1].trim() : null;
-
-          const taskSummaryMatch = innerContent?.match(
-            /<task_summary>([\s\S]*?)<\/task_summary>/i,
-          );
-          const taskSummary = taskSummaryMatch
-            ? taskSummaryMatch[1].trim()
-            : null;
-
-          if (items || taskName || taskSummary) {
-            result.contentBlocks.push({
-              type: "task_progress",
-              taskName,
-              taskSummary,
-              items: items || [],
-            });
-            // Also update global for backward compatibility if needed
-            result.taskProgress = items;
-            result.taskName = taskName;
-          }
-        } else if (toolName === "conversation_name") {
-          const valueFromTag = extractParamValue(innerContent || "", "value");
-          if (valueFromTag) {
-            result.conversationName = valueFromTag;
-          } else if (innerContent && innerContent.trim()) {
-            result.conversationName = innerContent.trim();
-          }
         } else if (toolName === "question") {
           // Explicit <question> tag
           const options: string[] = [];
@@ -517,16 +351,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             // Also populate legacy for compatibility
             result.followupOptions = options;
           }
-        } else if (toolName === "thinking") {
-          // Explicit <thinking> tag
-          const thinkingText = innerContent || "";
-          if (thinkingText.trim()) {
-            if (!result.thinking) {
-              result.thinking = thinkingText;
-            } else {
-              result.thinking += "\\n" + thinkingText;
-            }
-          }
         } else {
           // It's a tool
           const actionIndex = result.actions.length;
@@ -541,48 +365,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         // Handle unclosed tags: capture content until EOF
         const innerContent = scanStr.substring(index + rawXml.length);
 
-        if (toolName === "task_progress") {
-          // Update as we go even if unclosed
-          const items = parseTaskProgress(innerContent || "");
-          const taskNameMatch = innerContent?.match(
-            /<task_name>([\s\S]*?)<\/task_name>/i,
-          );
-          const taskName = taskNameMatch ? taskNameMatch[1].trim() : null;
-
-          const taskSummaryMatch = innerContent?.match(
-            /<task_summary>([\s\S]*?)<\/task_summary>/i,
-          );
-          const taskSummary = taskSummaryMatch
-            ? taskSummaryMatch[1].trim()
-            : null;
-
-          if (items || taskName || taskSummary) {
-            result.contentBlocks.push({
-              type: "task_progress",
-              taskName,
-              taskSummary,
-              items: items || [],
-            });
-          }
-        } else if (toolName === "markdown") {
+        if (toolName === "markdown") {
           // For <markdown> we show content even if unclosed
           if (innerContent.trim()) {
             result.contentBlocks.push({
               type: "markdown",
               content: innerContent,
             });
-          }
-        } else if (toolName === "thinking") {
-          // For <thinking> we update result.thinking even if unclosed
-          const thinkingText = innerContent || "";
-          result.isThinkingClosed = false;
-          if (thinkingText.trim()) {
-            if (!result.thinking) {
-              result.thinking = thinkingText;
-            } else {
-              // Usually we just want to replace it because it's re-parsing the whole stream
-              result.thinking += "\\n" + thinkingText; // Wait, actually the whole remainingContent is the unclosed tag content for this block.
-            }
           }
         } else if (
           toolName !== "code" &&
@@ -649,28 +438,12 @@ export const formatActionForDisplay = (action: ToolAction): string => {
     case "execute_agent_action":
       return `Agent: ${action.params.action || "Execute"}`;
 
-    case "read_workspace_context":
-      return `read_workspace_context`;
-
-    case "update_workspace_context":
-      return `update_workspace_context`;
-
     case "list_files":
       const type = action.params.type ? ` [${action.params.type}]` : "";
       return `list_files: ${action.params.folder_path || "unknown"}${type}`;
 
     case "search_files":
       return `search_files: ${action.params.regex || "unknown"}`;
-
-    case "get_symbol_definition":
-      return `get_symbol_definition: ${action.params.symbol || "unknown"}`;
-    case "get_references":
-      return `get_references: ${action.params.symbol || "unknown"}`;
-    case "get_file_outline":
-      return `get_file_outline: ${action.params.file_path || "unknown"}`;
-
-    case "ask_bypass_gitignore":
-      return `Bypass request: ${action.params.path || "unknown"}`;
 
     default:
       return ``;

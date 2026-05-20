@@ -63,28 +63,7 @@ export class FileSystemAnalyzer {
     "pnpm-lock.yaml",
   ];
 
-  private blacklist: Set<string> = new Set();
   private bypassedPaths: Set<string> = new Set();
-
-  /**
-   * Set the blacklist of files/folders
-   */
-  public setBlacklist(paths: string[]) {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders || workspaceFolders.length === 0) {
-      this.blacklist = new Set(paths);
-      return;
-    }
-    const rootPath = workspaceFolders[0].uri.fsPath;
-
-    // Resolve all paths to absolute paths
-    const absolutePaths = paths.map((p) => {
-      if (path.isAbsolute(p)) return p;
-      return path.join(rootPath, p);
-    });
-
-    this.blacklist = new Set(absolutePaths);
-  }
 
   /**
    * Add a path to the bypass list for the current session
@@ -107,8 +86,8 @@ export class FileSystemAnalyzer {
   }
 
   /**
-   * Lấy cấu trúc file tree của workspace (ignoring blacklist)
-   * This is used for the Project Structure UI where we need to see everything
+   * Lấy cấu trúc file tree của workspace.
+   * This is used for the Project Structure UI where we need to see everything.
    */
   public async getRawFileTree(maxDepth: number = 20): Promise<FileNode | null> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -118,8 +97,7 @@ export class FileSystemAnalyzer {
 
     const rootPath = workspaceFolders[0].uri.fsPath;
 
-    // For raw file tree, we still want to ignore standard system folders like node_modules
-    // but NOT the user defined blacklist
+    // For raw file tree, we still want to ignore standard system folders like node_modules.
     try {
       // Use efficient rg check first but with our standard ignore list
       return await this.buildFileTreeWithRg(rootPath, maxDepth);
@@ -198,10 +176,7 @@ export class FileSystemAnalyzer {
           continue;
         }
         const entryPath = path.join(rootPath, entry.name);
-        if (useBlacklist && this.isBlacklisted(entryPath)) {
-          console.log(`[FileSystemAnalyzer] Blacklist ignore: ${entryPath}`);
-          continue;
-        }
+        // Blacklist feature removed (no-op).
 
         if (!root.children) root.children = [];
         if (!root.children.find((c) => c.name === entry.name)) {
@@ -230,13 +205,7 @@ export class FileSystemAnalyzer {
     const files = stdout.split("\n").filter((line) => line.trim() !== "");
 
     for (const fileRelativePath of files) {
-      // Check blacklist if enabled
-      if (useBlacklist) {
-        const fullPath = path.join(rootPath, fileRelativePath);
-        if (this.isBlacklisted(fullPath)) {
-          continue;
-        }
-      }
+      // Blacklist feature removed (no-op).
 
       const parts = fileRelativePath.split(path.sep);
       let currentNode = root;
@@ -246,10 +215,7 @@ export class FileSystemAnalyzer {
         const isFile = i === parts.length - 1;
         const currentPath = path.join(rootPath, ...parts.slice(0, i + 1));
 
-        // Also check intermediate directories against blacklist if using blacklist
-        if (useBlacklist && this.isBlacklisted(currentPath)) {
-          break; // Stop processing this branch
-        }
+        // Blacklist feature removed (no-op).
 
         if (!currentNode.children) {
           currentNode.children = [];
@@ -334,10 +300,7 @@ export class FileSystemAnalyzer {
       for (const entry of filteredEntries) {
         const entryPath = path.join(dirPath, entry);
 
-        // Check blacklist
-        if (useBlacklist && this.isBlacklisted(entryPath)) {
-          continue;
-        }
+        // Blacklist feature removed (no-op).
 
         try {
           const childNode = await this.buildFileTree(
@@ -419,7 +382,7 @@ export class FileSystemAnalyzer {
    */
   public async isIgnored(filePath: string): Promise<{
     ignored: boolean;
-    reason?: "pattern" | "blacklist" | "gitignore";
+    reason?: "pattern" | "gitignore";
   }> {
     const result = await this.performIgnoreCheck(filePath);
     if (result.ignored) {
@@ -432,7 +395,7 @@ export class FileSystemAnalyzer {
 
   private async performIgnoreCheck(filePath: string): Promise<{
     ignored: boolean;
-    reason?: "pattern" | "blacklist" | "gitignore";
+    reason?: "pattern" | "gitignore";
   }> {
     // 0. Check if path or any parent is bypassed
     const normalizedFilePath = path.normalize(
@@ -455,12 +418,7 @@ export class FileSystemAnalyzer {
       return { ignored: true, reason: "pattern" };
     }
 
-    // 2. Check blacklist
-    if (this.isBlacklisted(filePath)) {
-      return { ignored: true, reason: "blacklist" };
-    }
-
-    // 3. Check .gitignore using git check-ignore
+    // 2. Check .gitignore using git check-ignore
     const workspaceRoot = this.getWorkspaceRoot();
     if (workspaceRoot) {
       try {
@@ -486,36 +444,7 @@ export class FileSystemAnalyzer {
     return { ignored: false };
   }
 
-  /**
-   * Check if path is in blacklist
-   */
-  private isBlacklisted(filePath: string): boolean {
-    // 0. Check bypasses
-    const normalizedFilePath = path.normalize(filePath);
-    for (const bypassed of this.bypassedPaths) {
-      if (
-        normalizedFilePath === bypassed ||
-        normalizedFilePath.startsWith(bypassed + path.sep)
-      ) {
-        return false;
-      }
-    }
-
-    // Check exact match
-    if (this.blacklist.has(filePath)) {
-      return true;
-    }
-
-    // Check if parent directory is in blacklist
-    for (const ignoredPath of this.blacklist) {
-      if (
-        filePath.startsWith(ignoredPath + path.sep) ||
-        filePath === ignoredPath
-      ) {
-        return true;
-      }
-    }
-
+  private isBlacklisted(_filePath: string): boolean {
     return false;
   }
 
@@ -544,11 +473,6 @@ export class FileSystemAnalyzer {
 
   public countFilesRecursive(dirPath: string): number {
     try {
-      // Check blacklist
-      if (this.isBlacklisted(dirPath)) {
-        return 0;
-      }
-
       const stats = fs.statSync(dirPath);
       if (stats.isFile()) {
         return 1;
@@ -609,21 +533,11 @@ export class FileSystemAnalyzer {
       for (const file of files) {
         const fullPath = path.join(rootPath, file);
 
-        // Check blacklist
-        if (this.isBlacklisted(fullPath)) {
-          continue;
-        }
-
         // Extract all parent directories
         const parts = file.split(path.sep);
         for (let i = 0; i < parts.length - 1; i++) {
           const folderPath = parts.slice(0, i + 1).join(path.sep);
           const fullFolderPath = path.join(rootPath, folderPath);
-
-          // Check blacklist for the folder itself
-          if (this.isBlacklisted(fullFolderPath)) {
-            continue;
-          }
 
           // Calculate depth based on relative path
           const depth = folderPath.split(path.sep).length;
@@ -702,9 +616,6 @@ export class FileSystemAnalyzer {
     folderCounts: Map<string, number>,
   ): number {
     try {
-      // Check blacklist
-      if (this.isBlacklisted(currentPath)) return 0;
-
       let totalFiles = 0;
       const entries = fs.readdirSync(currentPath);
 
@@ -712,7 +623,6 @@ export class FileSystemAnalyzer {
         if (this.shouldIgnore(entry)) continue;
 
         const entryPath = path.join(currentPath, entry);
-        if (this.isBlacklisted(entryPath)) continue;
 
         const stat = fs.statSync(entryPath);
         if (stat.isFile()) {

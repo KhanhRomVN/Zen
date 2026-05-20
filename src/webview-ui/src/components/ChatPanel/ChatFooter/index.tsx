@@ -8,36 +8,16 @@ import { ChatFooterProps } from "./types";
 interface ExtendedChatFooterProps extends ChatFooterProps {
   folderPath?: string | null;
   isConversationStarted?: boolean;
-  hasTaskProgress?: boolean;
-  selectedQuickModel?: {
-    providerId: string;
-    modelId: string;
-    accountId?: string;
-  } | null;
-  onQuickModelSelect?: (
-    model: { providerId: string; modelId: string; accountId?: string } | null,
-  ) => void;
   currentModel: any;
   setCurrentModel: (model: any) => void;
   currentAccount: any;
   setCurrentAccount: (account: any) => void;
-  onToggleTaskDrawer?: () => void;
   isProcessing?: boolean;
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
-  // 🆕 Backup Props
-  onToggleBackupDrawer?: () => void;
-  hasBackupEvents?: boolean;
-  backupEventCount?: number;
-  // 🆕 Blacklist Props
-  onToggleBlacklistDrawer?: () => void;
   initialValue?: string;
-  initialValueNonce?: number;
-  isBackupEnabled?: boolean;
-  isRawMode?: boolean;
-  onToggleRawMode?: () => void;
-}
+  initialValueNonce?: number;}
 
 // Hooks
 import { useWorkspaceData } from "./hooks/useWorkspaceData";
@@ -48,7 +28,6 @@ import { useMentionSystem } from "./hooks/useMentionSystem";
 import FilesPreviews from "./components/FilesPreviews";
 import MentionDropdowns from "./components/MentionDropdowns";
 import MessageInput from "./components/MessageInput";
-import BlacklistDrawer from "./components/BlacklistDrawer";
 
 const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   onSendMessage,
@@ -56,26 +35,15 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   messages,
   folderPath,
   isConversationStarted,
-  hasTaskProgress,
-  selectedQuickModel,
-  onQuickModelSelect,
   currentModel,
   setCurrentModel,
   currentAccount,
   setCurrentAccount,
-  onToggleTaskDrawer,
   isProcessing,
   isStreaming,
   onStopGeneration,
-  onToggleBackupDrawer,
-  hasBackupEvents,
-  backupEventCount,
-  onToggleBlacklistDrawer,
   initialValue,
   initialValueNonce,
-  isBackupEnabled,
-  isRawMode,
-  onToggleRawMode,
 }: ExtendedChatFooterProps) => {
   const [message, setMessage] = useState("");
 
@@ -89,7 +57,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
     useState(false);
   const [showChangesDropdown, setShowChangesDropdown] = useState(false);
   const [showProjectContextModal, setShowProjectContextModal] = useState(false);
-  const [isBlacklistDrawerOpen, setIsBlacklistDrawerOpen] = useState(false);
   const [projectContext, setProjectContext] = useState<any>(null); // Use proper type if available
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -139,9 +106,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   const {
     availableFiles,
     availableFolders,
-    blacklist,
     availableRules,
-    getGitCommitMessage,
   } = useWorkspaceData();
 
   // Mention System Hook
@@ -206,7 +171,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   // Agent Options Helper - REMOVED
 
   // Handle Send Message
-  const handleSend = (model: any, account: any, thinking?: boolean) => {
+  const handleSend = (model: any, account: any) => {
     if (
       message.trim() ||
       uploadedFiles.length > 0 ||
@@ -220,7 +185,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         undefined, // skipFirstRequestLogic - always false for user input
         undefined, // actionIds
         undefined, // uiHidden
-        thinking,
       );
       setMessage("");
       clearFiles();
@@ -231,15 +195,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
     }
   };
 
-  // Handle Git Commit Generation
-  const handleGitCommit = async () => {
-    if (message.trim() !== "") return;
-    const prompt = await getGitCommitMessage();
-    if (prompt) {
-      setMessage(prompt);
-      textareaRef.current?.focus();
-    }
-  };
+  // Handle Git Commit Generation removed
 
   // Handle Textarea Change
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -372,14 +328,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       />
 
       <div style={{ position: "relative" }}>
-        <BlacklistDrawer
-          isOpen={isBlacklistDrawerOpen || false}
-          onClose={
-            onToggleBlacklistDrawer ||
-            (() => setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen))
-          }
-        />
-
         <MessageInput
           message={message}
           setMessage={setMessage}
@@ -407,44 +355,26 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
                 vscodeApi.postMessage({ command: "getWorkspaceFiles" });
                 vscodeApi.postMessage({ command: "getWorkspaceFolders" });
               }
-              vscodeApi.postMessage({
-                command: "getProjectStructureBlacklist",
-              });
             }
           }}
           showChangesDropdown={showChangesDropdown}
           setShowChangesDropdown={setShowChangesDropdown}
           messages={messages}
-          handleGitCommit={handleGitCommit}
           // setShowOptionsDrawer={setShowOptionsDrawer} // Removed
-          handleSend={(model: any, account: any, thinking?: boolean) =>
-            handleSend(model, account, thinking)
+          handleSend={(model: any, account: any) =>
+            handleSend(model, account)
           }
           hasProjectContext={!!projectContext}
           onOpenProjectContext={() => setShowProjectContextModal(true)}
           folderPath={folderPath}
           isConversationStarted={isConversationStarted}
-          hasTaskProgress={hasTaskProgress}
-          selectedQuickModel={selectedQuickModel}
-          onQuickModelSelect={onQuickModelSelect}
           currentModel={currentModel}
           setCurrentModel={setCurrentModel}
           currentAccount={currentAccount}
           setCurrentAccount={setCurrentAccount}
-          onToggleTaskDrawer={onToggleTaskDrawer}
           isProcessing={isProcessing}
           isStreaming={!!isStreaming}
           onStopGeneration={onStopGeneration}
-          onToggleBackupDrawer={onToggleBackupDrawer}
-          hasBackupEvents={hasBackupEvents}
-          backupEventCount={backupEventCount}
-          onToggleBlacklistDrawer={
-            onToggleBlacklistDrawer ||
-            (() => setIsBlacklistDrawerOpen(!isBlacklistDrawerOpen))
-          }
-          isBackupEnabled={isBackupEnabled}
-          isRawMode={isRawMode}
-          onToggleRawMode={onToggleRawMode}
         />
 
         <MentionDropdowns
@@ -468,15 +398,11 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         onClose={() => setShowProjectStructureDrawer(false)}
         files={availableFiles}
         folders={availableFolders}
-        blacklist={blacklist}
         onRefresh={() => {
           const vscodeApi = (window as any).vscodeApi;
           if (vscodeApi) {
             vscodeApi.postMessage({ command: "getWorkspaceFiles" });
             vscodeApi.postMessage({ command: "getWorkspaceFolders" });
-            vscodeApi.postMessage({
-              command: "getProjectStructureBlacklist",
-            });
           }
         }}
       />

@@ -104,7 +104,6 @@ const App: React.FC = () => {
     files: any[];
     model: any;
     account: any;
-    thinking?: boolean;
   } | null>(null);
 
   useEffect(() => {
@@ -150,14 +149,12 @@ const App: React.FC = () => {
       files: any[],
       model: any,
       account: any,
-      thinking?: boolean,
     ) => {
       setInitialMessageData({
         content,
         files,
         model,
         account,
-        thinking,
       });
       // Switch to ChatPanel by setting a dummy selectedTab or relying on logic?
       // Actually ChatPanel works in standalone mode (selectedTab=null) if we want.

@@ -3,14 +3,11 @@ import * as https from "https";
 import { ContextManager } from "../context/ContextManager";
 import { GlobalStorageManager } from "../storage-manager";
 import { AgentCapabilityManager } from "../agent/AgentCapabilityManager";
-import { BackupManager } from "../managers/BackupManager";
 import { ProcessManager } from "../managers/ProcessManager";
 import { FileLockManager } from "../managers/FileLockManager";
-import { ProjectStructureManager } from "../context/ProjectStructureManager";
 import { RecentItemsManager } from "../context/RecentItemsManager";
 import { ConversationHandler } from "./handlers/ConversationHandler";
 import { FileHandler } from "./handlers/FileHandler";
-import { BackupHandler } from "./handlers/BackupHandler";
 import { TerminalHandler } from "./handlers/TerminalHandler";
 import { SystemHandler } from "./handlers/SystemHandler";
 import { ProjectContextHandler } from "./handlers/ProjectContextHandler";
@@ -21,7 +18,6 @@ import { StorageHandler } from "./handlers/StorageHandler";
 export class ChatController {
   private conversationHandler: ConversationHandler;
   private fileHandler: FileHandler;
-  private backupHandler: BackupHandler;
   private terminalHandler: TerminalHandler;
   private systemHandler: SystemHandler;
   private projectContextHandler: ProjectContextHandler;
@@ -35,29 +31,23 @@ export class ChatController {
     private contextManager: ContextManager,
     private storageManager: GlobalStorageManager | undefined,
     private agentManager: AgentCapabilityManager | undefined,
-    private backupManager: BackupManager | undefined,
     private processManager: ProcessManager,
     private fileLockManager: FileLockManager,
-    private projectStructureManager: ProjectStructureManager | undefined,
     private recentItemsManager: RecentItemsManager | undefined,
     private extensionUri: vscode.Uri,
   ) {
     this.conversationHandler = new ConversationHandler(
       this.fileLockManager,
-      this.backupManager,
     );
     this.fileHandler = new FileHandler(
       this.contextManager,
       this.fileLockManager,
-      this.projectStructureManager,
       this.recentItemsManager,
     );
-    this.backupHandler = new BackupHandler(this.backupManager);
     this.terminalHandler = new TerminalHandler(this.processManager);
     this.systemHandler = new SystemHandler();
     this.projectContextHandler = new ProjectContextHandler(
       this.contextManager,
-      this.projectStructureManager,
       this.storageManager,
     );
     this.diagnosticHandler = new DiagnosticHandler(this.contextManager);
@@ -187,55 +177,17 @@ export class ChatController {
 
         // Backup
         case "startBackupWatch":
-          await this.backupHandler.handleStartBackupWatch(message, webviewView);
-          break;
         case "stopBackupWatch":
-          await this.backupHandler.handleStopBackupWatch(message, webviewView);
-          break;
         case "getBackupTimeline":
-          await this.backupHandler.handleGetBackupTimeline(
-            message,
-            webviewView,
-          );
-          break;
         case "getBackupSnapshot":
-          await this.backupHandler.handleGetBackupSnapshot(
-            message,
-            webviewView,
-          );
-          break;
         case "getBackupBlacklist":
-          await this.backupHandler.handleGetBackupBlacklist(
-            message,
-            webviewView,
-          );
-          break;
         case "addToBackupBlacklist":
-          await this.backupHandler.handleAddToBackupBlacklist(
-            message,
-            webviewView,
-          );
-          break;
         case "removeFromBackupBlacklist":
-          await this.backupHandler.handleRemoveFromBackupBlacklist(
-            message,
-            webviewView,
-          );
-          break;
         case "deleteBackupFile":
-          await this.backupHandler.handleDeleteBackupFile(message, webviewView);
-          break;
         case "backupBinaryFileDecision":
-          await this.backupHandler.handleBackupBinaryFileDecision(
-            message,
-            webviewView,
-          );
-          break;
         case "revertToSnapshot":
-          await this.backupHandler.handleRevertToSnapshot(message, webviewView);
-          break;
         case "openSnapshotDiffWithCurrent":
-          await this.backupHandler.handleOpenSnapshotDiffWithCurrent(message);
+          // Backup feature removed
           break;
         case "openDiff":
           await this.systemHandler.handleOpenDiff(message);
@@ -268,12 +220,6 @@ export class ChatController {
           break;
 
         // Project Context
-        case "getProjectStructureBlacklist":
-          await this.projectContextHandler.handleGetProjectStructureBlacklist(
-            message,
-            webviewView,
-          );
-          break;
         case "getFolderTree":
           await this.projectContextHandler.handleGetFolderTree(
             message,

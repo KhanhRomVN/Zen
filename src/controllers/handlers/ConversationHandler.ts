@@ -4,12 +4,10 @@ import * as fs from "fs";
 import * as os from "os";
 import * as crypto from "crypto";
 import { FileLockManager } from "../../managers/FileLockManager";
-import { BackupManager } from "../../managers/BackupManager";
 
 export class ConversationHandler {
   constructor(
     private fileLockManager: FileLockManager,
-    private backupManager: BackupManager | undefined,
   ) {}
 
   private getContextRoot(): string {
@@ -53,23 +51,9 @@ export class ConversationHandler {
                 messageCount: data.messages?.length || 0,
               });
             } else if (Array.isArray(data) && data.length > 0) {
-              let extractedTitle: string | undefined;
-              for (let i = data.length - 1; i >= 0; i--) {
-                const msg = data[i];
-                if (msg.role === "assistant" && msg.content) {
-                  const nameMatch = msg.content.match(
-                    /<conversation_name>(?:<value>)?([\s\S]*?)(?:<\/value>)?<\/conversation_name>/i,
-                  );
-                  if (nameMatch && nameMatch[1].trim()) {
-                    extractedTitle = nameMatch[1].trim();
-                    break;
-                  }
-                }
-              }
-
               history.push({
                 id: conversationId,
-                title: extractedTitle || data[0].content.substring(0, 100),
+                title: data[0].content.substring(0, 100),
                 timestamp: data[data.length - 1].timestamp || Date.now(),
                 lastModified: data[data.length - 1].timestamp || Date.now(),
                 preview: data[0].content.substring(0, 150),
@@ -153,10 +137,6 @@ export class ConversationHandler {
 
         content.push(logEntry);
         await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2));
-
-        if (this.backupManager) {
-          await this.backupManager.cleanupOldConversations(projectContextDir);
-        }
       } finally {
         release();
       }
@@ -215,10 +195,6 @@ export class ConversationHandler {
 
         content.push(logEntry);
         await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2));
-
-        if (this.backupManager) {
-          await this.backupManager.cleanupOldConversations(projectContextDir);
-        }
       } finally {
         release();
       }

@@ -1,30 +1,24 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
+import type { LanguageCode } from "../i18n";
 
 interface SettingsContextType {
-  language: string;
-  setLanguage: (lang: string) => void;
+  language: LanguageCode;
+  setLanguage: (lang: LanguageCode) => void;
   apiUrl: string;
   setApiUrl: (url: string) => void;
-  isBackupEnabled: boolean;
-  setIsBackupEnabled: (enabled: boolean) => void;
-  toolPermissions: Record<string, "auto" | "request">;
-  setToolPermission: (toolId: string, value: "auto" | "request") => void;
+  toolPermissions: Record<string, "full_access" | "review">;
+  setToolPermission: (toolId: string, value: "full_access" | "review") => void;
+  setAllToolPermissions: (value: "full_access" | "review") => void;
 }
 
-export const defaultToolPermissions: Record<string, "auto" | "request"> = {
-  read_file: "auto",
-  write_to_file: "auto",
-  replace_in_file: "auto",
-  list_files: "auto",
-  search_files: "auto",
-  ask_bypass_gitignore: "auto",
-  run_command: "auto",
-  read_workspace_context: "auto",
-  update_workspace_context: "auto",
-  get_file_outline: "auto",
-  get_symbol_definition: "auto",
-  get_references: "auto",
+export const defaultToolPermissions: Record<string, "full_access" | "review"> = {
+  read_file: "full_access",
+  write_to_file: "full_access",
+  replace_in_file: "full_access",
+  list_files: "full_access",
+  search_files: "full_access",
+  run_command: "full_access",
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -34,11 +28,10 @@ const SettingsContext = createContext<SettingsContextType | undefined>(
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [language, setLanguageState] = useState("en");
+  const [language, setLanguageState] = useState<LanguageCode>("en");
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
-  const [isBackupEnabled, setIsBackupEnabledState] = useState(true);
   const [toolPermissionsState, setToolPermissionsState] = useState<
-    Record<string, "auto" | "request">
+    Record<string, "full_access" | "review">
   >(defaultToolPermissions);
 
   useEffect(() => {
@@ -50,19 +43,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         typeof res.value === "string" &&
         res.value.length < 10
       ) {
-        setLanguageState(res.value);
+        setLanguageState(res.value === "vi" ? "vi" : "en");
       }
     });
 
     storage.get("backend-api-url").then((res: any) => {
       if (res?.value) {
         setApiUrlState(res.value);
-      }
-    });
-
-    storage.get("zen_backup_enabled").then((res: any) => {
-      if (res?.value !== undefined) {
-        setIsBackupEnabledState(res.value === "true" || res.value === true);
       }
     });
 
@@ -78,8 +65,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   }, []);
 
-  const setLanguage = (lang: string) => {
-    setLanguageState(lang);
+  const setLanguage = (lang: LanguageCode) => {
+    setLanguageState(lang === "vi" ? "vi" : "en");
     const storage = extensionService.getStorage();
     storage.set("zen_preferred_language", lang);
   };
@@ -90,19 +77,20 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("backend-api-url", url);
   };
 
-  const setIsBackupEnabled = (enabled: boolean) => {
-    setIsBackupEnabledState(enabled);
-    const storage = extensionService.getStorage();
-    storage.set("zen_backup_enabled", enabled);
-  };
-
-  const setToolPermission = (toolId: string, value: "auto" | "request") => {
+  const setToolPermission = (toolId: string, value: "full_access" | "review") => {
     setToolPermissionsState((prev) => {
       const next = { ...prev, [toolId]: value };
       const storage = extensionService.getStorage();
       storage.set("zen_tool_permissions", JSON.stringify(next));
       return next;
     });
+  };
+
+  const setAllToolPermissions = (value: "full_access" | "review") => {
+    const next = Object.fromEntries(Object.keys(defaultToolPermissions).map((k) => [k, value])) as Record<string, "full_access" | "review">;
+    setToolPermissionsState(next);
+    const storage = extensionService.getStorage();
+    storage.set("zen_tool_permissions", JSON.stringify(next));
   };
 
   return (
@@ -112,10 +100,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setLanguage,
         apiUrl,
         setApiUrl,
-        isBackupEnabled,
-        setIsBackupEnabled,
         toolPermissions: toolPermissionsState,
         setToolPermission,
+        setAllToolPermissions,
       }}
     >
       {children}

@@ -5,10 +5,8 @@ import { ContextManager } from "../context/ContextManager";
 import { GlobalStorageManager } from "../storage-manager";
 import { AgentCapabilityManager } from "../agent/AgentCapabilityManager";
 import { AgentPermissions } from "../agent/types/AgentTypes";
-import { BackupManager } from "../managers/BackupManager";
 import { ProcessManager } from "../managers/ProcessManager";
 import { FileLockManager } from "../managers/FileLockManager";
-import { ProjectStructureManager } from "../context/ProjectStructureManager";
 import { RecentItemsManager } from "../context/RecentItemsManager";
 import * as crypto from "crypto";
 import * as os from "os";
@@ -21,18 +19,15 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _agentManager?: AgentCapabilityManager;
   private _processManager: ProcessManager;
   private _fileLockManager: FileLockManager;
-  private _backupManager?: BackupManager;
   private _recentItemsManager?: RecentItemsManager;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _contextManager: ContextManager,
     private readonly _storageManager: GlobalStorageManager,
-    private readonly _projectStructureManager: ProjectStructureManager,
   ) {
     this._processManager = new ProcessManager();
     this._fileLockManager = new FileLockManager();
-    this._backupManager = new BackupManager(this._storageManager);
   }
 
   public setExtensionContext(context: vscode.ExtensionContext) {
@@ -102,10 +97,8 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       this._contextManager,
       this._storageManager,
       this._agentManager,
-      this._backupManager,
       this._processManager,
       this._fileLockManager,
-      this._projectStructureManager,
       this._recentItemsManager,
       this._extensionUri,
     );

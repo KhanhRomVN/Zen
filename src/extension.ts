@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import { ContextManager } from "./context/ContextManager";
 import { GlobalStorageManager } from "./storage-manager";
-import { ProjectStructureManager } from "./context/ProjectStructureManager";
 import { ShikiService } from "./services/ShikiService";
 import { ZenChatViewProvider } from "./providers/ZenChatViewProvider";
 
@@ -18,18 +17,11 @@ export async function activate(extContext: vscode.ExtensionContext) {
   // Initialize ShikiService with extension URI for asset resolution
   ShikiService.getInstance().setExtensionUri(extContext.extensionUri);
 
-  const projectStructureManager = new ProjectStructureManager(
-    extContext.extensionUri,
-    contextManager,
-  );
-  await projectStructureManager.initialize();
-
   // Create provider with dependencies
   const provider = new ZenChatViewProvider(
     extContext.extensionUri,
     contextManager,
     storageManager,
-    projectStructureManager,
   );
   provider.setExtensionContext(extContext);
 
@@ -39,15 +31,6 @@ export async function activate(extContext: vscode.ExtensionContext) {
 
   provider.initializeAgentManager();
   activeProvider = provider;
-
-  // Setup callback to notify webview when blacklist changes
-  projectStructureManager.setOnChange(async () => {
-    const blacklist = await projectStructureManager.getBlacklist();
-    provider.postMessageToWebview({
-      command: "projectStructureBlacklistResponse",
-      blacklist,
-    });
-  });
 
   extContext.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -90,9 +73,8 @@ export async function activate(extContext: vscode.ExtensionContext) {
     "zen.clearOldStorage",
     async () => {
       try {
-        await storageManager.delete("zen-blacklist");
         vscode.window.showInformationMessage(
-          "✅ Cleared old blacklist storage. Please reload the extension.",
+          "Zen: no legacy storage to clear.",
         );
       } catch (error) {
         vscode.window.showErrorMessage(

@@ -10,14 +10,7 @@ import {
   FileCode,
   List,
   Search,
-  ShieldCheck,
   Terminal,
-  BookOpen,
-  Edit3,
-  Layout,
-  Crosshair,
-  Link,
-  X,
 } from "lucide-react";
 
 interface ToolSettingsDrawerProps {
@@ -25,34 +18,13 @@ interface ToolSettingsDrawerProps {
   onClose: () => void;
 }
 
-const TOOL_DESCRIPTIONS: Record<string, string> = {
-  read_file: "Read the content of any file.",
-  write_to_file: "Create or overwrite a file entirely.",
-  replace_in_file: "Edit code using search and replace blocks.",
-  list_files: "List files and directories in a path.",
-  search_files: "Search for text strings across the codebase.",
-  ask_bypass_gitignore: "Request permission to access ignored files.",
-  run_command: "Execute a terminal command (bash/sh).",
-  read_workspace_context: "Read the project's workspace.md knowledge file.",
-  update_workspace_context: "Update the project's workspace.md knowledge file.",
-  get_file_outline: "Get the class and function structure of a file.",
-  get_symbol_definition: "Find the definition of a specific symbol.",
-  get_references: "Find all references to a specific symbol.",
-};
-
 const TOOL_ICONS: Record<string, React.ReactNode> = {
-  read_file: <FileText size={16} />,
-  write_to_file: <FilePlus size={16} />,
-  replace_in_file: <FileCode size={16} />,
-  list_files: <List size={16} />,
-  search_files: <Search size={16} />,
-  ask_bypass_gitignore: <ShieldCheck size={16} />,
-  run_command: <Terminal size={16} />,
-  read_workspace_context: <BookOpen size={16} />,
-  update_workspace_context: <Edit3 size={16} />,
-  get_file_outline: <Layout size={16} />,
-  get_symbol_definition: <Crosshair size={16} />,
-  get_references: <Link size={16} />,
+  read_file: <FileText size={14} />,
+  write_to_file: <FilePlus size={14} />,
+  replace_in_file: <FileCode size={14} />,
+  list_files: <List size={14} />,
+  search_files: <Search size={14} />,
+  run_command: <Terminal size={14} />,
 };
 
 const ToolSettingsDrawer: React.FC<ToolSettingsDrawerProps> = ({
@@ -70,75 +42,44 @@ const ToolSettingsDrawer: React.FC<ToolSettingsDrawerProps> = ({
         onClick={onClose}
         style={{
           position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.4)",
-          zIndex: 1000,
-          backdropFilter: "blur(2px)",
+          inset: 0,
+          zIndex: 999,
         }}
       />
-      {/* Drawer */}
+      {/* Dropdown */}
       <div
         style={{
-          position: "fixed",
-          bottom: 0,
+          position: "absolute",
+          bottom: "calc(100% + 8px)",
           left: 0,
-          right: 0,
-          height: "60%",
+          width: "280px",
           backgroundColor: "var(--vscode-sideBar-background)",
-          borderTop: "1px solid var(--vscode-widget-border)",
-          zIndex: 1001,
-          display: "flex",
-          flexDirection: "column",
-          padding: "16px",
-          boxShadow: "0 -4px 12px rgba(0,0,0,0.2)",
-          borderTopLeftRadius: "12px",
-          borderTopRightRadius: "12px",
+          border: "1px solid var(--vscode-widget-border)",
+          borderRadius: "8px",
+          zIndex: 1000,
+          boxShadow: "0 -4px 16px rgba(0,0,0,0.25)",
           overflow: "hidden",
         }}
       >
+        {/* Header */}
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
+            padding: "8px 12px",
+            borderBottom: "1px solid var(--vscode-widget-border)",
+            fontSize: "11px",
+            fontWeight: 600,
+            opacity: 0.6,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
           }}
         >
-          <span style={{ fontWeight: 600, fontSize: "14px", opacity: 0.9 }}>
-            Tool Execution Permissions
-          </span>
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--vscode-foreground)",
-              cursor: "pointer",
-              opacity: 0.7,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <X size={18} />
-          </button>
+          Tool Permissions
         </div>
 
-        <div
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: "12px",
-            paddingBottom: "20px",
-          }}
-        >
+        {/* Tool list */}
+        <div style={{ maxHeight: "320px", overflowY: "auto" }}>
           {Object.keys(defaultToolPermissions).map((toolId) => {
-            const permission = toolPermissions[toolId] || "auto";
+            const permission = toolPermissions[toolId] || "full_access";
             const toolColor = getToolColor(toolId as any);
 
             return (
@@ -147,16 +88,17 @@ const ToolSettingsDrawer: React.FC<ToolSettingsDrawerProps> = ({
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "12px",
-                  padding: "4px 0",
+                  gap: "8px",
+                  padding: "6px 12px",
+                  borderBottom: "1px solid var(--vscode-widget-border)",
                 }}
               >
-                {/* Tool Icon */}
+                {/* Icon */}
                 <div
                   style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "6px",
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "4px",
                     backgroundColor: `${toolColor}1A`,
                     color: toolColor,
                     display: "flex",
@@ -165,84 +107,72 @@ const ToolSettingsDrawer: React.FC<ToolSettingsDrawerProps> = ({
                     flexShrink: 0,
                   }}
                 >
-                  {TOOL_ICONS[toolId] || <Terminal size={16} />}
+                  {TOOL_ICONS[toolId] || <Terminal size={14} />}
                 </div>
 
-                {/* Info */}
-                <div
-                  style={{ flex: 1, display: "flex", flexDirection: "column" }}
+                {/* Tool name */}
+                <span
+                  style={{
+                    flex: 1,
+                    fontSize: "11px",
+                    fontFamily: "monospace",
+                    fontWeight: 500,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
                 >
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    {toolId}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      opacity: 0.6,
-                      marginTop: "2px",
-                    }}
-                  >
-                    {TOOL_DESCRIPTIONS[toolId]}
-                  </span>
-                </div>
+                  {toolId}
+                </span>
 
-                {/* Toggle logic */}
+                {/* Toggle */}
                 <div
                   style={{
                     display: "flex",
                     backgroundColor: "var(--vscode-editor-background)",
-                    borderRadius: "6px",
+                    borderRadius: "4px",
                     padding: "2px",
                     border: "1px solid var(--vscode-widget-border)",
+                    flexShrink: 0,
                   }}
                 >
                   <button
-                    onClick={() => setToolPermission(toolId, "auto")}
+                    onClick={() => setToolPermission(toolId, "full_access")}
                     style={{
-                      padding: "2px 8px",
+                      padding: "2px 7px",
                       fontSize: "10px",
-                      borderRadius: "4px",
+                      borderRadius: "3px",
                       border: "none",
                       cursor: "pointer",
                       backgroundColor:
-                        permission === "auto"
+                        permission === "full_access"
                           ? "var(--vscode-button-background)"
                           : "transparent",
                       color:
-                        permission === "auto"
+                        permission === "full_access"
                           ? "var(--vscode-button-foreground)"
                           : "var(--vscode-foreground)",
                       fontWeight: 500,
                     }}
                   >
-                    Auto
+                    Full Access
                   </button>
                   <button
-                    onClick={() => setToolPermission(toolId, "request")}
+                    disabled
+                    title="Review mode coming soon"
                     style={{
-                      padding: "2px 8px",
+                      padding: "2px 7px",
                       fontSize: "10px",
-                      borderRadius: "4px",
+                      borderRadius: "3px",
                       border: "none",
-                      cursor: "pointer",
-                      backgroundColor:
-                        permission === "request"
-                          ? "var(--vscode-button-background)"
-                          : "transparent",
-                      color:
-                        permission === "request"
-                          ? "var(--vscode-button-foreground)"
-                          : "var(--vscode-foreground)",
+                      cursor: "not-allowed",
+                      backgroundColor: "transparent",
+                      color: "var(--vscode-foreground)",
                       fontWeight: 500,
+                      opacity: 0.35,
                     }}
                   >
-                    Request
+                    Review
                   </button>
                 </div>
               </div>

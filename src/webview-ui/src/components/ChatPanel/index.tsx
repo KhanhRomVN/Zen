@@ -9,8 +9,6 @@ import ChatHeader from "./ChatHeader";
 import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
 import { useProject } from "../../context/ProjectContext";
-import TaskDrawer from "./TaskDrawer";
-import BackupDrawer from "./ChatFooter/components/BackupDrawer";
 
 import { extensionService } from "../../services/ExtensionService";
 import {
@@ -19,9 +17,7 @@ import {
   getConversationKey,
 } from "../../services/ConversationService";
 import { parseAIResponse } from "../../services/ResponseParser";
-import { useSettings } from "../../context/SettingsContext";
 import { useChatLLM } from "../../hooks/useChatLLM";
-import { useBackupWatcher } from "../../hooks/useBackupWatcher";
 import { useToolExecution } from "../../hooks/useToolExecution";
 import { TabInfo } from "../../types";
 import { Message } from "./ChatBody/types";
@@ -41,7 +37,6 @@ interface ChatPanelProps {
     files: any[];
     model: any;
     account: any;
-    thinking?: boolean;
   } | null;
   onClearInitialData?: () => void;
 }
@@ -62,10 +57,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [stopWatching]);
 
   // --- States ---
-  const { isBackupEnabled } = useSettings();
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
-  const [isTaskDrawerOpen, setIsTaskDrawerOpen] = useState(false);
-  const [isBackupDrawerOpen, setIsBackupDrawerOpen] = useState(false);
   const [isLoadingConversation, setIsLoadingConversation] = useState(true);
   const [activeTerminalIds, setActiveTerminalIds] = useState<Set<string>>(
     new Set(),
@@ -73,20 +65,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [attachedTerminalIds, setAttachedTerminalIds] = useState<Set<string>>(
     new Set(),
   );
-  const [selectedQuickModel, setSelectedQuickModel] = useState<{
-    providerId: string;
-    modelId: string;
-    accountId?: string;
-    favicon?: string;
-    email?: string;
-  } | null>(null);
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
-  const [revertData, setRevertData] = useState<{
-    text: string;
-    nonce: number;
-  } | null>(null);
-  const [isRawMode, setIsRawMode] = useState(false);
 
   // --- Hooks ---
   const {
@@ -102,7 +82,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     sendMessage,
     stopGeneration,
     setBackendConversationId,
-    revertToMessage,
     conversationToolOverrides,
     setConversationToolOverrides,
     handleToolAction,
@@ -110,7 +89,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   } = useChatLLM({
     apiUrl,
     selectedTab,
-    isBackupEnabled,
     onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
       handleToolRequest(
         actions,
@@ -120,8 +98,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionType,
       ),
   });
-
-  const { backupEventCount } = useBackupWatcher(currentConversationId);
 
   const { executionState, toolOutputs, terminalStatus, handleToolRequest } =
     useToolExecution({
@@ -135,7 +111,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         skipLogic,
         actionIds,
         uiHidden,
-        thinking,
       ) =>
         sendMessage(
           content,
@@ -145,8 +120,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           skipLogic,
           actionIds,
           uiHidden,
-          thinking,
-          selectedQuickModel,
         ),
     });
 
@@ -193,31 +166,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       { prompt: 0, completion: 0, total: 0 },
     );
   }, [messages]);
-
-  const allTaskProgress = useMemo(() => {
-    for (let i = parsedMessages.length - 1; i >= 0; i--) {
-      const msg = parsedMessages[i];
-      if (msg.isCancelled) continue;
-
-      // Stop if we hit a user message to avoid "sticky" progress from previous turns
-      if (msg.role === "user") break;
-
-      if (msg.role === "assistant") {
-        let progress = msg.parsed.taskProgress;
-        if (!progress || progress.length === 0) {
-          progress = msg.parsed.actions.flatMap((a) => a.taskProgress || []);
-        }
-
-        if (progress && progress.length > 0) {
-          return progress.map((item) => ({
-            text: item.text,
-            status: (item.completed ? "done" : "todo") as "done" | "todo",
-          }));
-        }
-      }
-    }
-    return [];
-  }, [parsedMessages]);
 
   const currentTaskName = useMemo(() => {
     for (let i = parsedMessages.length - 1; i >= 0; i--) {
@@ -291,12 +239,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         false,
         undefined,
         undefined,
-        initialMessageData.thinking,
-        selectedQuickModel,
       );
       onClearInitialData?.();
     }
-  }, [initialMessageData, sendMessage, onClearInitialData, selectedQuickModel]);
+  }, [initialMessageData, sendMessage, onClearInitialData]);
 
   // Load conversation from extension
   useEffect(() => {
@@ -387,9 +333,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               id: lastAssistantMsgForMeta.accountId!,
               email: lastAssistantMsgForMeta.email!,
             });
-            setSelectedQuickModel(null); // Clear Quick Switch
-          } else {
-            setSelectedQuickModel(null);
           }
         }
         setIsLoadingConversation(false);
@@ -421,16 +364,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setCurrentConversationId(Date.now().toString());
     }
   };
-
-  const handleRevertMessage = useCallback(
-    async (messageId: string) => {
-      const content = await revertToMessage(messageId);
-      if (content !== null) {
-        setRevertData({ text: content, nonce: Date.now() });
-      }
-    },
-    [revertToMessage],
-  );
 
   const handleStopGeneration = useCallback(() => {
     // 🆕 REDIRECTION LOGIC: If stopping AND it was the first request (req1), go back to Home
@@ -493,35 +426,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         conversationId={currentConversationId}
         currentModel={currentModel}
         currentAccount={currentAccount}
-        onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
-        taskProgress={
-          allTaskProgress.length > 0
-            ? {
-                current: {
-                  taskName: currentTaskName || "Unknown Task",
-                  tasks: allTaskProgress,
-                  files: [] as string[],
-                  taskIndex: 0,
-                  totalTasks: 1,
-                },
-                history: [],
-              }
-            : undefined
-        }
-      />
-      <TaskDrawer
-        isOpen={isTaskDrawerOpen}
-        onClose={() => setIsTaskDrawerOpen(false)}
-        taskProgress={{
-          current: allTaskProgress.length
-            ? {
-                taskName: currentTaskName || "Task",
-                tasks: allTaskProgress,
-                files: [] as string[],
-              }
-            : null,
-          history: [],
-        }}
       />
       <ChatBody
         messages={messages}
@@ -535,18 +439,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             type,
           )
         }
-        onSendMessage={(c, f, m, a, skip, ids, hidden, thinking) =>
-          sendMessage(
-            c,
-            f,
-            m,
-            a,
-            skip,
-            ids,
-            hidden,
-            thinking,
-            selectedQuickModel,
-          )
+        onSendMessage={(c, f, m, a, skip, ids, hidden) =>
+          sendMessage(c, f, m, a, skip, ids, hidden)
         }
         executionState={executionState}
         toolOutputs={toolOutputs}
@@ -556,56 +450,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         activeTerminalIds={activeTerminalIds}
         attachedTerminalIds={attachedTerminalIds}
         conversationId={currentConversationId}
-        onRevert={handleRevertMessage}
-        isRawMode={isRawMode}
         onToolAction={handleToolAction}
         onSelectOption={handleSelectOption}
       />
       <ChatFooter
         folderPath={selectedTab?.folderPath || null}
-        onSendMessage={(c, f, m, a, skip, ids, hidden, thinking) =>
-          sendMessage(
-            c,
-            f,
-            m,
-            a,
-            skip,
-            ids,
-            hidden,
-            thinking,
-            selectedQuickModel,
-          )
+        onSendMessage={(c, f, m, a, skip, ids, hidden) =>
+          sendMessage(c, f, m, a, skip, ids, hidden)
         }
         isHistoryMode={isHistoryMode}
         messages={messages}
         isConversationStarted={messages.length > 0}
-        hasTaskProgress={allTaskProgress.length > 0}
-        selectedQuickModel={selectedQuickModel}
-        onQuickModelSelect={setSelectedQuickModel}
         currentModel={currentModel}
         setCurrentModel={setCurrentModel}
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
-        onToggleTaskDrawer={() => setIsTaskDrawerOpen(!isTaskDrawerOpen)}
         isProcessing={isProcessing}
         isStreaming={isStreaming}
         onStopGeneration={handleStopGeneration}
-        onToggleBackupDrawer={() => setIsBackupDrawerOpen(!isBackupDrawerOpen)}
-        hasBackupEvents={backupEventCount > 0}
-        backupEventCount={backupEventCount}
-        isBackupEnabled={isBackupEnabled}
-        initialValue={revertData?.text}
-        initialValueNonce={revertData?.nonce}
-        isRawMode={isRawMode}
-        onToggleRawMode={() => setIsRawMode(!isRawMode)}
       />
-      {currentConversationId && (
-        <BackupDrawer
-          conversationId={currentConversationId}
-          isOpen={isBackupDrawerOpen}
-          onClose={() => setIsBackupDrawerOpen(false)}
-        />
-      )}
     </div>
   );
 };

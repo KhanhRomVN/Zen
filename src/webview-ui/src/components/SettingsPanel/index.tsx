@@ -1,7 +1,7 @@
 import React from "react";
 import { LanguageSelector } from "./LanguageSelector";
-import BlacklistManager from "./BlacklistManager";
 import { useSettings } from "../../context/SettingsContext";
+import { useI18n } from "../../hooks/useI18n";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -14,16 +14,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
     setApiUrl,
     language,
     setLanguage,
-    isBackupEnabled,
-    setIsBackupEnabled,
   } = useSettings();
+  const { t } = useI18n();
 
   const handleApiUrlChange = (value: string) => {
     setApiUrl(value);
   };
 
   const handleLanguageChange = (value: string) => {
-    setLanguage(value);
+    setLanguage(value === "vi" ? "vi" : "en");
   };
 
   if (!isOpen) return null;
@@ -65,7 +64,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             margin: 0,
           }}
         >
-          Settings
+          {t("settings.title")}
         </h2>
         <div
           style={{
@@ -119,7 +118,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               color: "var(--primary-text)",
             }}
           >
-            Backend API URL
+            {t("settings.backendApiUrl")}
           </label>
           <input
             type="text"
@@ -143,7 +142,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               color: "var(--secondary-text)",
             }}
           >
-            API address to fetch models and accounts.
+            {t("settings.backendApiUrlHelp")}
           </span>
         </div>
 
@@ -155,7 +154,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               color: "var(--primary-text)",
             }}
           >
-            Language
+            {t("settings.language")}
           </label>
           <LanguageSelector
             value={language}
@@ -168,69 +167,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               color: "var(--secondary-text)",
             }}
           >
-            Interface and AI response language.
-          </span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <label
-              style={{
-                fontSize: "14px",
-                fontWeight: 600,
-                color: "var(--primary-text)",
-              }}
-            >
-              Enable File Backups
-            </label>
-            <div
-              onClick={() => setIsBackupEnabled(!isBackupEnabled)}
-              style={{
-                width: "40px",
-                height: "20px",
-                backgroundColor: isBackupEnabled
-                  ? "var(--vscode-button-background)"
-                  : "#3c3c3c",
-                borderRadius: "10px",
-                position: "relative",
-                cursor: "pointer",
-                transition: "background-color 0.2s",
-              }}
-            >
-              <div
-                style={{
-                  width: "16px",
-                  height: "16px",
-                  backgroundColor: "#ffffff",
-                  borderRadius: "50%",
-                  position: "absolute",
-                  top: "2px",
-                  left: isBackupEnabled ? "22px" : "2px",
-                  transition: "left 0.2s ease-in-out",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
-                }}
-              />
-            </div>
-          </div>
-          <span
-            style={{
-              fontSize: "13px",
-              color: "var(--secondary-text)",
-            }}
-          >
-            Automatically create backups when AI modifies your files.
+            {t("settings.languageHelp")}
           </span>
         </div>
 
         <div className="h-[1px] bg-[var(--border-color)] my-2" />
-
-        <BlacklistManager />
       </div>
     </div>
   );

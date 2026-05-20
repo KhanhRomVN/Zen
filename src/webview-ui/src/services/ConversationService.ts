@@ -18,8 +18,6 @@ export interface ChatMetadata {
   createdAt: number;
   totalRequests: number;
   totalTokenUsage: number;
-  totalTasks?: number;
-  completedTasks?: number;
   uniqueTaskCount?: number;
 }
 
@@ -104,40 +102,12 @@ export const saveConversation = async (
 
     const { parseAIResponse } = require("./ResponseParser");
 
-    let totalTasks = 0;
-    let completedTasks = 0;
-
-    for (let i = activeMessages.length - 1; i >= 0; i--) {
-      const msg = activeMessages[i];
-      if (msg.role === "assistant") {
-        const parsed = parseAIResponse(msg.content);
-        let progress = parsed.taskProgress || [];
-        if (progress.length === 0) {
-          progress = parsed.actions.flatMap(
-            (action: any) => action.taskProgress || [],
-          );
-        }
-
-        if (progress.length > 0) {
-          totalTasks = progress.length;
-          completedTasks = progress.filter(
-            (t: any) => t.status === "done",
-          ).length;
-          break;
-        }
-      }
-    }
-
     const uniqueTaskNames = new Set<string>();
-    let latestConversationName: string | undefined = undefined;
     for (const msg of activeMessages) {
       if (msg.role === "assistant") {
         const parsed = parseAIResponse(msg.content);
         if (parsed.taskName) {
           uniqueTaskNames.add(parsed.taskName);
-        }
-        if (parsed.conversationName) {
-          latestConversationName = parsed.conversationName;
         }
       }
     }
@@ -175,7 +145,6 @@ export const saveConversation = async (
         tabId,
         folderPath,
         title:
-          latestConversationName ||
           title ||
           existingTitle ||
           messages[0]?.content.substring(0, 100) ||
@@ -189,8 +158,6 @@ export const saveConversation = async (
         createdAt: existingCreatedAt || Date.now(),
         totalRequests,
         totalTokenUsage,
-        totalTasks,
-        completedTasks,
         uniqueTaskCount,
       } as ChatMetadata,
     };

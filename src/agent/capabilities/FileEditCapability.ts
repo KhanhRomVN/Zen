@@ -13,19 +13,12 @@ export class FileEditCapability {
         throw new Error("Missing content");
       }
 
-      // Create backup before editing
-      const backupPath = `${action.path}.backup`;
-      if (fs.existsSync(action.path)) {
-        await fs.promises.copyFile(action.path, backupPath);
-      }
-
       await fs.promises.writeFile(action.path, action.content, "utf-8");
 
       return {
         success: true,
         data: {
           path: action.path,
-          backupPath: backupPath,
           size: Buffer.byteLength(action.content, "utf-8"),
         },
         timestamp: Date.now(),

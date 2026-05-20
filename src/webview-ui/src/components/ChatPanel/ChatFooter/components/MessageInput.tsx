@@ -1,24 +1,121 @@
 import React from "react";
 import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
-import { PlusIcon, ChevronDownIcon, SendIcon } from "./Icons";
-import {
-  Check,
-  Cpu,
-  Search,
-  X,
-  Clock,
-  Ban,
-  FileText,
-  Wrench,
-  Brain,
-  Zap,
-} from "lucide-react";
+import { PlusIcon, SendIcon } from "./Icons";
+import { X } from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
 import { useSettings } from "../../../../context/SettingsContext";
+import { useI18n } from "../../../../hooks/useI18n";
 import QuickSwitchDrawer from "./QuickSwitchDrawer";
-import ToolSettingsDrawer from "./ToolSettingsDrawer";
+
+const ShieldCheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+    <path d="m9 12 2 2 4-4"/>
+  </svg>
+);
+
+const TriangleAlertIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
+    <path d="M12 9v4"/>
+    <path d="M12 17h.01"/>
+  </svg>
+);
+
+const GlobalPermissionButton: React.FC = () => {
+  const { toolPermissions, setAllToolPermissions } = useSettings();
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  const allFull = Object.values(toolPermissions).every((v) => v === "full_access");
+  const current = allFull ? "full_access" : "review";
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: "0 4px",
+          height: "22px",
+          boxSizing: "border-box",
+          borderRadius: "4px",
+          color: "var(--vscode-foreground)",
+          opacity: 0.7,
+          lineHeight: 1,
+          verticalAlign: "middle",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--hover-bg)"; e.currentTarget.style.opacity = "1"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.opacity = "0.7"; }}
+        title="Tool permission mode"
+      >
+        {current === "full_access" ? <TriangleAlertIcon /> : <ShieldCheckIcon />}
+        <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>
+          {current === "full_access" ? "Full access" : "Review"}
+        </span>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute",
+          bottom: "calc(100% + 4px)",
+          left: 0,
+          zIndex: 1000,
+          backgroundColor: "color-mix(in srgb, var(--input-bg) 100%, black 15%)",
+          border: "1px solid var(--vscode-widget-border)",
+          borderRadius: "6px",
+          overflow: "hidden",
+          boxShadow: "0 -4px 12px rgba(0,0,0,0.2)",
+          minWidth: "130px",
+        }}>
+          <button
+            onClick={() => { setAllToolPermissions("full_access"); setOpen(false); }}
+            style={{
+              display: "flex", alignItems: "center", gap: "6px",
+              width: "100%", padding: "7px 12px",
+              fontSize: "12px", fontWeight: 500, textAlign: "left",
+              border: "none", cursor: "pointer",
+              background: current === "full_access" ? "var(--vscode-button-background)" : "transparent",
+              color: current === "full_access" ? "var(--vscode-button-foreground)" : "var(--vscode-foreground)",
+            }}
+            onMouseEnter={(e) => { if (current !== "full_access") e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)"; }}
+            onMouseLeave={(e) => { if (current !== "full_access") e.currentTarget.style.backgroundColor = "transparent"; }}
+          >
+            <TriangleAlertIcon /> Full access
+          </button>
+          <button
+            disabled
+            title="Review mode coming soon"
+            style={{
+              display: "flex", alignItems: "center", gap: "6px",
+              width: "100%", padding: "7px 12px",
+              fontSize: "12px", fontWeight: 500, textAlign: "left",
+              border: "none", cursor: "not-allowed",
+              background: "transparent", color: "var(--vscode-foreground)", opacity: 0.35,
+            }}
+          >
+            <ShieldCheckIcon /> Review
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface MessageInputProps {
   message: string;
@@ -37,49 +134,20 @@ interface MessageInputProps {
   showChangesDropdown: boolean;
   setShowChangesDropdown: (show: boolean) => void;
   messages: any[];
-  handleGitCommit: () => void;
-  handleSend: (model: any, account: any, thinking?: boolean) => void;
+  handleSend: (model: any, account: any) => void;
   hasProjectContext: boolean;
   onOpenProjectContext: () => void;
   folderPath?: string | null;
   isConversationStarted?: boolean;
-  selectedQuickModel?: {
-    providerId: string;
-    modelId: string;
-    modelName?: string;
-    accountId?: string;
-    favicon?: string;
-    email?: string;
-  } | null;
-  onQuickModelSelect?: (
-    model: {
-      providerId: string;
-      modelId: string;
-      modelName?: string;
-      accountId?: string;
-      favicon?: string;
-      email?: string;
-    } | null,
-  ) => void;
   currentModel: any;
   setCurrentModel: (model: any) => void;
   currentAccount: any;
   setCurrentAccount: (account: any) => void;
   onToggleTaskDrawer?: () => void;
-  hasTaskProgress?: boolean;
   isProcessing?: boolean;
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
-  // 🆕 Backup Props
-  onToggleBackupDrawer?: () => void;
-  hasBackupEvents?: boolean;
-  backupEventCount?: number;
-  // 🆕 Blacklist Props
-  onToggleBlacklistDrawer?: () => void;
-  isBackupEnabled?: boolean;
-  isRawMode?: boolean;
-  onToggleRawMode?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -99,49 +167,37 @@ const MessageInput: React.FC<MessageInputProps> = ({
   showChangesDropdown,
   setShowChangesDropdown,
   messages,
-  handleGitCommit,
   handleSend,
   hasProjectContext,
   onOpenProjectContext,
   folderPath,
   isConversationStarted,
-  selectedQuickModel,
-  onQuickModelSelect,
   currentModel,
   setCurrentModel,
   currentAccount,
   setCurrentAccount,
-  onToggleTaskDrawer,
-  hasTaskProgress,
   isProcessing,
   isStreaming,
   onStopGeneration,
-  onToggleBackupDrawer,
-  hasBackupEvents,
-  backupEventCount,
-  onToggleBlacklistDrawer,
-  isBackupEnabled,
-  isRawMode,
-  onToggleRawMode,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
   const [providers, setProviders] = React.useState<any[]>([]);
   const [isLoadingCache, setIsLoadingCache] = React.useState(true);
   const { language: preferredLanguage } = useSettings();
+  const { t } = useI18n();
   const pendingAccountIdRef = React.useRef<string | null>(null);
+  const [showModelDrawer, setShowModelDrawer] = React.useState(false);
 
-  // 🆕 Quick Model Switcher Logic
-  const [isQuickModelDropdownOpen, setIsQuickModelDropdownOpen] =
-    React.useState(false);
+  const displayModel = React.useMemo(() => {
+    return currentModel || null;
+  }, [currentModel]);
 
-  // 🆕 Tool Settings Drawer Logic
-  const [isToolSettingsOpen, setIsToolSettingsOpen] = React.useState(false);
+  const displayAccount = React.useMemo(() => {
+    return currentAccount || null;
+  }, [currentAccount]);
 
-  // 🆕 Capabilities Logic
-  const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
-
-  // Derive current provider config
+  // 🆕 Tool Settings Drawer Logic removed - now per-tool dropdown in ToolItem
   const currentProviderConfig = React.useMemo(() => {
     if (!currentModel?.providerId) return null;
     return providers.find(
@@ -154,38 +210,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
     if (!currentProviderConfig) return false;
     return !!currentProviderConfig.is_upload;
   }, [currentProviderConfig]);
-
-  const supportsThinking = React.useMemo(() => {
-    if (!currentModel) return false;
-    // Check if model supports thinking (usually inferred from ID or specific config)
-    // For DeepSeek R1, it's often implicit or via regex on ID
-    // or if the model object has a 'capabilities' field (mocked for now)
-    // Assuming DeepSeek Reasoner models contain "reasoner" or "r1"
-    const modelId = (currentModel.id || "").toLowerCase();
-    const modelName = (currentModel.name || "").toLowerCase();
-    return (
-      modelId.includes("reasoner") ||
-      modelId.includes("r1") ||
-      modelName.includes("reasoner") ||
-      modelName.includes("r1")
-    );
-    // TODO: In future, this should come from API model definition
-  }, [currentModel]);
-
-  const quickModelDropdownRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        quickModelDropdownRef.current &&
-        !quickModelDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsQuickModelDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const formatWorkspacePath = (path: string) => {
     if (!path) return "";
@@ -328,15 +352,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
       {showChangesDropdown && (
         <ChangesTree
           messages={messages}
-          onCommit={handleGitCommit}
           onClose={() => setShowChangesDropdown(false)}
         />
       )}
-
-      <ToolSettingsDrawer
-        isOpen={isToolSettingsOpen}
-        onClose={() => setIsToolSettingsOpen(false)}
-      />
 
       <div
         style={{
@@ -349,102 +367,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
           marginTop: "24px", // Space for badges sticking up
         }}
       >
-        {/* 🆕 QUICK SWITCH BADGE (Stuck to Border) */}
-        {selectedQuickModel && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "100%",
-              left: "8px",
-              backgroundColor: "var(--accent-bg-transparent)",
-              color: "var(--accent-color)",
-              padding: "4px 8px",
-              fontSize: "11px",
-              fontWeight: 600,
-              borderTopLeftRadius: "var(--border-radius)",
-              borderTopRightRadius: "var(--border-radius)",
-              borderBottomLeftRadius: "0",
-              borderBottomRightRadius: "0",
-              border: "1px solid var(--accent-color)",
-              borderBottom: "none",
-              zIndex: 20,
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
-              marginBottom: "-1px", // Overlap the border
-            }}
-            title="Quick Switch Model is Active"
-          >
-            {selectedQuickModel.favicon ? (
-              <img
-                src={selectedQuickModel.favicon}
-                alt="favicon"
-                style={{
-                  width: "12px",
-                  height: "12px",
-                  borderRadius: "2px",
-                }}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
-            ) : (
-              <span
-                className="codicon codicon-server-process"
-                style={{ fontSize: "12px" }}
-              />
-            )}
-
-            <span
-              style={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                maxWidth: "150px",
-              }}
-            >
-              {selectedQuickModel.providerId}/{selectedQuickModel.modelId}
-            </span>
-
-            {selectedQuickModel.email && (
-              <span
-                style={{
-                  opacity: 0.7,
-                  fontStyle: "italic",
-                  fontWeight: "normal",
-                  marginLeft: "2px",
-                  maxWidth: "120px",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {selectedQuickModel.email}
-              </span>
-            )}
-
-            <div
-              style={{
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                marginLeft: "4px",
-                opacity: 0.7,
-              }}
-              onClick={() => onQuickModelSelect?.(null)}
-            >
-              <X size={12} strokeWidth={2.5} />
-            </div>
-          </div>
-        )}
-
         {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
         {!isConversationStarted && (
           <div
-            onClick={() => setIsQuickModelDropdownOpen(true)}
+            onClick={() => { if (providers.length === 0) fetchProviders(); setShowModelDrawer((v) => !v); }}
             style={{
               position: "absolute",
-              bottom: "100%",
+              bottom: !isConnected ? "calc(100% + 2px)" : "100%",
               left: "8px",
               backgroundColor: "var(--input-bg)",
               color: "var(--primary-text)",
@@ -456,7 +385,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
               borderBottomLeftRadius: "0",
               borderBottomRightRadius: "0",
               border: "1px solid var(--border-color)",
-              borderBottom: "none",
+              borderBottom: !isConnected
+                ? "1px solid var(--border-color)"
+                : "none",
               zIndex: 20,
               display: "flex",
               alignItems: "center",
@@ -464,7 +395,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               cursor: "pointer",
               boxShadow: "0 -2px 6px rgba(0,0,0,0.1)",
               transition: "all 0.2s ease",
-              marginBottom: "-1px", // Overlap the border
+              marginBottom: isConnected ? "-1px" : "0", // avoid inheriting red border when disconnected
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = "var(--hover-bg)";
@@ -474,11 +405,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
             }}
             title="Click to select Model and Account"
           >
-            {currentModel ? (
+            {displayModel ? (
               <>
-                {currentModel.favicon ? (
+                {displayModel.favicon ? (
                   <img
-                    src={currentModel.favicon}
+                    src={displayModel.favicon}
                     alt="favicon"
                     style={{
                       width: "12px",
@@ -495,8 +426,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     style={{ fontSize: "12px" }}
                   />
                 )}
-                {currentModel.providerId}/{currentModel.id}
-                {currentAccount?.email && (
+                {displayModel.providerId}/{displayModel.id}
+                {displayAccount?.email && (
                   <span
                     style={{
                       opacity: 0.8,
@@ -504,10 +435,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
                       marginLeft: "2px",
                     }}
                   >
-                    {currentAccount.email}
+                    {displayAccount.email}
                   </span>
                 )}
-                <ChevronDownIcon size={12} />
               </>
             ) : (
               <>
@@ -516,10 +446,33 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   style={{ fontSize: "12px" }}
                 />
                 Select Model
-                <ChevronDownIcon size={12} />
               </>
             )}
           </div>
+        )}
+        {showModelDrawer && (
+          <QuickSwitchDrawer
+            isOpen={showModelDrawer}
+            onClose={() => setShowModelDrawer(false)}
+            providers={providers}
+            apiUrl={apiUrl}
+            onSelect={(selected) => {
+              const prov = providers.find((p: any) => p.provider_id === selected.providerId);
+              const modelObj = prov?.models?.find((m: any) => m.id === selected.modelId);
+              let faviconUrl = "";
+              if (prov?.website) {
+                try { faviconUrl = `${new URL(prov.website).origin}/favicon.ico`; } catch {}
+              }
+              setCurrentModel({
+                ...selected,
+                id: selected.modelId,
+                name: modelObj?.name || selected.modelId,
+                favicon: faviconUrl,
+              });
+              setCurrentAccount({ id: selected.accountId, email: selected.email });
+              setShowModelDrawer(false);
+            }}
+          />
         )}
         <div
           style={{
@@ -553,12 +506,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                if (!currentModel) {
-                  setIsQuickModelDropdownOpen(true);
-                  if (providers.length === 0) fetchProviders();
-                  return;
-                }
-                handleSend(currentModel, currentAccount, thinkingEnabled);
+                handleSend(currentModel, currentAccount);
               } else {
                 handleKeyDown(e);
               }
@@ -587,11 +535,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
               isHistoryMode
                 ? "History mode - sending messages is disabled"
                 : !isConnected
-                  ? "Đang lỗi kết nối với backend..."
+                  ? t("chat.connectionErrorPlaceholder")
                   : isLoadingCache
                     ? "Đang tải dữ liệu từ cache..."
                     : isProcessing
-                      ? "Assistant is thinking..."
+                      ? "Assistant is processing..."
                       : "Type @ to mention files, folders, or rules..."
             }
             disabled={
@@ -661,334 +609,78 @@ const MessageInput: React.FC<MessageInputProps> = ({
               </div>
             )}
 
-            {/* Task Progress Toggle */}
-            {isConversationStarted && hasTaskProgress && (
-              <div
-                style={{
-                  cursor: "pointer",
-                  padding: "var(--spacing-xs)",
-                  borderRadius: "var(--border-radius)",
-                  transition: "background-color 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--secondary-text)",
-                }}
-                onClick={onToggleTaskDrawer}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "transparent")
-                }
-                title="Task Progress"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M13 5h8" />
-                  <path d="M13 12h8" />
-                  <path d="M13 19h8" />
-                  <path d="m3 17 2 2 4-4" />
-                  <rect x="3" y="4" width="6" height="6" rx="1" />
-                </svg>
-              </div>
-            )}
+            {/* Blacklist feature removed */}
 
-            {/* Backup History Toggle */}
-            {isConversationStarted && onToggleBackupDrawer && (
-              <div
-                style={{
-                  cursor: "pointer",
-                  padding: "var(--spacing-xs)",
-                  borderRadius: "var(--border-radius)",
-                  transition: "background-color 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--secondary-text)",
-                  position: "relative",
-                }}
-                onClick={onToggleBackupDrawer}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "transparent")
-                }
-                title="Code Backup History"
-              >
-                <Clock size={16} />
-                {backupEventCount !== undefined && backupEventCount > 0 && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: -4,
-                      right: -4,
-                      minWidth: 14,
-                      height: 14,
-                      borderRadius: "7px",
-                      backgroundColor: "rgba(0, 122, 204, 0.1)", // hardcoded badgeBG / 10
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "9px",
-                      fontWeight: 600,
-                      color: "#007acc", // hardcoded textColor
-                      padding: "0 4px",
-                    }}
-                  >
-                    {backupEventCount}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 🆕 Backup Blacklist Toggle */}
-            {onToggleBlacklistDrawer && isBackupEnabled && (
-              <div
-                style={{
-                  cursor: "pointer",
-                  padding: "var(--spacing-xs)",
-                  borderRadius: "var(--border-radius)",
-                  transition: "background-color 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--secondary-text)",
-                }}
-                onClick={onToggleBlacklistDrawer}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "transparent")
-                }
-                title="Backup Blacklist"
-              >
-                <Ban size={16} />
-              </div>
-            )}
-
-            {/* Raw Mode Toggle */}
-            <div
-              style={{
-                cursor: "pointer",
-                padding: "var(--spacing-xs)",
-                borderRadius: "var(--border-radius)",
-                transition: "background-color 0.2s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: isRawMode
-                  ? "var(--accent-color)"
-                  : "var(--secondary-text)",
-                backgroundColor: isRawMode
-                  ? "var(--accent-bg-transparent)"
-                  : "transparent",
-              }}
-              onClick={onToggleRawMode}
-              onMouseEnter={(e) => {
-                if (!isRawMode)
-                  e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-              }}
-              onMouseLeave={(e) => {
-                if (!isRawMode)
-                  e.currentTarget.style.backgroundColor = "transparent";
-              }}
-              title={isRawMode ? "Processed Mode" : "Raw Mode"}
-            >
-              <FileText size={16} />
-            </div>
-
-            {/* 🆕 Tool Settings Toggle */}
-            <div
-              style={{
-                cursor: "pointer",
-                padding: "var(--spacing-xs)",
-                borderRadius: "var(--border-radius)",
-                transition: "background-color 0.2s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: isToolSettingsOpen
-                  ? "var(--accent-color)"
-                  : "var(--secondary-text)",
-                backgroundColor: isToolSettingsOpen
-                  ? "var(--accent-bg-transparent)"
-                  : "transparent",
-              }}
-              onClick={() => setIsToolSettingsOpen(!isToolSettingsOpen)}
-              onMouseEnter={(e) => {
-                if (!isToolSettingsOpen)
-                  e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-              }}
-              onMouseLeave={(e) => {
-                if (!isToolSettingsOpen)
-                  e.currentTarget.style.backgroundColor = "transparent";
-              }}
-              title="Tool Settings"
-            >
-              <Wrench size={16} />
-            </div>
-
-            {/* Thinking Mode Toggle */}
-            {supportsThinking && (
-              <div
-                style={{
-                  cursor: "pointer",
-                  padding: "var(--spacing-xs)",
-                  borderRadius: "var(--border-radius)",
-                  transition: "background-color 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: thinkingEnabled
-                    ? "var(--accent-color)"
-                    : "var(--secondary-text)",
-                  backgroundColor: thinkingEnabled
-                    ? "var(--accent-bg-transparent)"
-                    : "transparent",
-                }}
-                onClick={() => setThinkingEnabled(!thinkingEnabled)}
-                onMouseEnter={(e) => {
-                  if (!thinkingEnabled)
-                    e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                }}
-                onMouseLeave={(e) => {
-                  if (!thinkingEnabled)
-                    e.currentTarget.style.backgroundColor = "transparent";
-                }}
-                title={
-                  thinkingEnabled ? "Thinking Mode On" : "Thinking Mode Off"
-                }
-              >
-                <div style={{ position: "relative" }}>
-                  <Brain size={16} />
-                  {thinkingEnabled && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: -2,
-                        right: -2,
-                        width: 6,
-                        height: 6,
-                        borderRadius: "50%",
-                        backgroundColor: "var(--accent-color)",
-                        border: "1px solid var(--input-bg)",
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Quick Model Switcher (CPU Icon) */}
-            {isConversationStarted && onQuickModelSelect && (
-              <div
-                style={{
-                  cursor: "pointer",
-                  padding: "var(--spacing-xs)",
-                  borderRadius: "var(--border-radius)",
-                  transition: "background-color 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: selectedQuickModel
-                    ? "var(--accent-color)"
-                    : "var(--secondary-text)",
-                  backgroundColor: selectedQuickModel
-                    ? "var(--accent-bg-transparent)"
-                    : "transparent",
-                }}
-                onClick={() => setIsQuickModelDropdownOpen(true)}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = selectedQuickModel
-                    ? "var(--accent-bg-transparent-hover)"
-                    : "var(--hover-bg)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = selectedQuickModel
-                    ? "var(--accent-bg-transparent)"
-                    : "transparent")
-                }
-                title="Quick Switch Model"
-              >
-                <Zap size={16} />
-              </div>
-            )}
+            {/* Global Tool Permission */}
+            <GlobalPermissionButton />
           </div>
 
           {/* Right Icons */}
           <div style={{ display: "flex", gap: "var(--spacing-xs)" }}>
             {/* Send / Stop Button */}
-            <div
-              style={{
-                cursor:
-                  isHistoryMode || isLoadingCache
-                    ? "not-allowed"
-                    : isStreaming
-                      ? "pointer"
-                      : message.trim() || uploadedFiles.length > 0
+            {isConnected && (
+              <div
+                style={{
+                  cursor:
+                    isHistoryMode || isLoadingCache
+                      ? "not-allowed"
+                      : isStreaming
                         ? "pointer"
-                        : "default",
-                padding: "var(--spacing-xs)",
-                borderRadius: "var(--border-radius)",
-                transition: "background-color 0.2s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color:
-                  isHistoryMode || isLoadingCache
-                    ? "var(--secondary-text)"
-                    : isStreaming
-                      ? "#f44336" // Red color for stop
-                      : message.trim() || uploadedFiles.length > 0
-                        ? "var(--accent-text)"
-                        : "var(--secondary-text)",
-                pointerEvents:
-                  isHistoryMode || isLoadingCache ? "none" : "auto",
-              }}
-              onClick={() => {
-                if (isStreaming && onStopGeneration) {
-                  // Stop generation
-                  onStopGeneration();
-                  return;
-                }
+                        : message.trim() || uploadedFiles.length > 0
+                          ? "pointer"
+                          : "default",
+                  padding: "var(--spacing-xs)",
+                  borderRadius: "var(--border-radius)",
+                  transition: "background-color 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color:
+                    isHistoryMode || isLoadingCache
+                      ? "var(--secondary-text)"
+                      : isStreaming
+                        ? "#f44336" // Red color for stop
+                        : message.trim() || uploadedFiles.length > 0
+                          ? "var(--accent-text)"
+                          : "var(--secondary-text)",
+                  pointerEvents:
+                    isHistoryMode || isLoadingCache ? "none" : "auto",
+                }}
+                onClick={() => {
+                  if (isStreaming && onStopGeneration) {
+                    // Stop generation
+                    onStopGeneration();
+                    return;
+                  }
 
-                if (!currentModel) {
-                  // Alert user or show dropdown
-                  setIsQuickModelDropdownOpen(true);
-                  if (providers.length === 0) fetchProviders();
-                  return;
-                }
-                handleSend(currentModel, currentAccount);
-              }}
-              onMouseEnter={(e) => {
-                if (isStreaming || message.trim() || uploadedFiles.length > 0) {
-                  e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "transparent";
-              }}
-              title={isStreaming ? "Stop Generation" : "Send Message"}
-            >
-              {isStreaming ? <X size={16} strokeWidth={2.5} /> : <SendIcon />}
-            </div>
+                  if (!currentModel) {
+                    return;
+                  }
+                  handleSend(currentModel, currentAccount);
+                }}
+                onMouseEnter={(e) => {
+                  if (
+                    isStreaming ||
+                    message.trim() ||
+                    uploadedFiles.length > 0
+                  ) {
+                    e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+                title={isStreaming ? "Stop Generation" : "Send Message"}
+              >
+                {isStreaming ? <X size={16} strokeWidth={2.5} /> : <SendIcon />}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Language Badge */}
-        {isConnected &&
+        {/* Language Badge - HomePanel only */}
+        {!isConversationStarted &&
+          isConnected &&
           !isElaraMismatch &&
           LANGUAGES.some((l) => l.code === preferredLanguage) && (
             <div
@@ -1019,39 +711,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
           )}
 
         {/* Health / Elara Badges (Stuck to Border) */}
-        {!isConnected && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "100%",
-              right: "8px",
-              backgroundColor: "rgba(244, 67, 54, 0.1)",
-              color: "#f44336",
-              padding: "4px 12px",
-              fontSize: "11px",
-              fontWeight: 600,
-              borderTopLeftRadius: "var(--border-radius)",
-              borderTopRightRadius: "var(--border-radius)",
-              borderBottomLeftRadius: "0",
-              borderBottomRightRadius: "0",
-              border: "1px solid rgba(244, 67, 54, 0.2)",
-              borderBottom: "none",
-              cursor: "pointer",
-              zIndex: 20,
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
-              marginBottom: "-1px",
-            }}
-            onClick={() => {
-              // Open Settings Panel
-              window.postMessage({ command: "showSettings" }, "*");
-            }}
-          >
-            Connection Error
-          </div>
-        )}
         {isConnected && isElaraMismatch && (
           <div
             style={{
@@ -1090,58 +749,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
             Elara Version Mismatch
           </div>
         )}
-      </div>
-      <div ref={quickModelDropdownRef}>
-        <QuickSwitchDrawer
-          isOpen={isQuickModelDropdownOpen}
-          onClose={() => setIsQuickModelDropdownOpen(false)}
-          providers={providers}
-          apiUrl={apiUrl}
-          onSelect={(selected) => {
-            // Find provider and model to extract name and favicon
-            const prov = providers.find(
-              (p: any) => p.provider_id === selected.providerId,
-            );
-            const modelObj = prov?.models?.find(
-              (m: any) => m.id === selected.modelId,
-            );
-            const modelName = modelObj?.name || selected.modelId;
-
-            let faviconUrl = "";
-            if (prov?.website) {
-              try {
-                const u = new URL(prov.website);
-                faviconUrl = `${u.origin}/favicon.ico`;
-              } catch {
-                // ignore
-              }
-            }
-
-            if (
-              !isConversationStarted &&
-              setCurrentModel &&
-              setCurrentAccount
-            ) {
-              setCurrentModel({
-                ...selected,
-                id: selected.modelId,
-                name: modelName,
-                favicon: faviconUrl,
-              });
-              setCurrentAccount({
-                id: selected.accountId,
-                email: selected.email,
-              });
-            } else if (onQuickModelSelect) {
-              onQuickModelSelect({
-                ...selected,
-                modelName: modelName,
-                email: selected.email,
-                favicon: faviconUrl,
-              });
-            }
-          }}
-        />
       </div>
     </div>
   );

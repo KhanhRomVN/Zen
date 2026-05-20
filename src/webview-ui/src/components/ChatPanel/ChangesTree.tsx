@@ -5,7 +5,6 @@ import FileIcon from "../common/FileIcon";
 interface ChangesTreeProps {
   messages: any[];
   onClose?: () => void;
-  onCommit?: () => void;
 }
 
 interface FileNode {
@@ -22,11 +21,7 @@ interface FlatFileChange {
   timestamp: number;
 }
 
-const ChangesTree: React.FC<ChangesTreeProps> = ({
-  messages,
-  onClose,
-  onCommit,
-}) => {
+const ChangesTree: React.FC<ChangesTreeProps> = ({ messages, onClose }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
@@ -40,32 +35,27 @@ const ChangesTree: React.FC<ChangesTreeProps> = ({
 
       const parsed = parseAIResponse(msg.content);
       parsed.actions.forEach((action: ToolAction) => {
-        if (!action.params.path) return;
+        if (!action.params.file_path && !action.params.path) return;
 
-        const path = action.params.path;
+        const path = (action.params.file_path || action.params.path) as string;
         const timestamp = msg.timestamp;
 
         // Determine status
         let status: "added" | "modified" | "deleted" = "modified";
 
         if (action.type === "write_to_file") {
-          // Heuristic: if write_to_file and no previous record, maybe "added"?
-          // But usually hard to tell without git. We'll default to 'modified'
-          // unless we can be sure.
-          // For now, let's treat write_to_file as 'modified' as it overwrites.
           status = "modified";
         } else if (action.type === "replace_in_file") {
           status = "modified";
         } else if (action.type === "run_command") {
-          const cmd = action.params.command || "";
-          // Simple heuristic for delete
+          const cmd = (action.params.command as string) || "";
           if (cmd.match(/^rm\s+/) && action.params.path) {
             status = "deleted";
           } else {
-            return; // Ignore other commands
+            return;
           }
         } else {
-          return; // Ignore read, list, search
+          return;
         }
 
         // Update record (last write wins)
@@ -189,7 +179,7 @@ const ChangesTree: React.FC<ChangesTreeProps> = ({
             opacity: node.status === "deleted" ? 0.6 : 1,
             textDecoration: node.status === "deleted" ? "line-through" : "none",
           }}
-          className="hover:bg-[var(--vscode-list-hoverBackground)]"
+          className="hover:bg-(--vscode-list-hoverBackground)"
         >
           {/* Icon */}
           {node.type === "folder" ? (
@@ -346,33 +336,6 @@ const ChangesTree: React.FC<ChangesTreeProps> = ({
       </div>
 
       <div style={{ flex: 1, overflowY: "auto" }}>{renderRoot()}</div>
-
-      {onCommit && changes.length > 0 && (
-        <div
-          style={{
-            padding: "8px 12px",
-            borderTop: "1px solid var(--vscode-widget-border)",
-            display: "flex",
-            justifyContent: "flex-end",
-          }}
-        >
-          <button
-            onClick={onCommit}
-            style={{
-              backgroundColor: "var(--vscode-button-background)",
-              color: "var(--vscode-button-foreground)",
-              border: "none",
-              padding: "4px 12px",
-              borderRadius: "2px",
-              cursor: "pointer",
-              fontSize: "12px",
-            }}
-            className="hover:bg-[var(--vscode-button-hoverBackground)]"
-          >
-            Commit Changes
-          </button>
-        </div>
-      )}
     </div>
   );
 };

@@ -4,12 +4,6 @@ export const EXAMPLES = `# REFERENCE EXAMPLES
 
 **Turn 1** — Read then STOP:
 \`\`\`xml
-<task_progress>
-  <task_name>Add subtract to calculator.py</task_name>
-  <task_file>calculator.py</task_file>
-  <task>Read file</task>
-  <task>Add subtract function</task>
-</task_progress>
 <read_file><file_path>calculator.py</file_path></read_file>
 \`\`\`
 
@@ -83,26 +77,7 @@ Searched src/ and root with 2 patterns — no results.
 
 ---
 
-## Ex 5: Long Task — task_summary for Handoff ✅
-
-\`\`\`xml
-<task_progress>
-  <task_name>Migrate Auth to JWT</task_name>
-  <task_summary>Using RS256 (asymmetric) for multi-service support — not HS256</task_summary>
-  <task_summary>Dual-mode: session + JWT work simultaneously during migration</task_summary>
-  <task_summary>Refresh tokens in tokens.refresh_tokens table (not Redis)</task_summary>
-  <task_file>src/auth/jwt.service.ts</task_file>
-  <task_file>src/middleware/auth.middleware.ts</task_file>
-  <task_done>Implement JWT service</task_done>
-  <task_done>Update middleware for dual-mode</task_done>
-  <task>Write migration guide</task>
-  <task>Create DB migration script</task>
-</task_progress>
-\`\`\`
-
----
-
-## Ex 6: Command Execution ✅
+## Ex 5: Command Execution ✅
 
 **Offer (command known, user hasn't asked):**
 \`\`\`xml
@@ -130,7 +105,6 @@ Searched src/ and root with 2 patterns — no results.
 
 If \`run_command\` fails → fix and retry once:
 \`\`\`xml
-<thinking>Error: "JAVA_HOME not set". Fix: set JAVA_HOME inline.</thinking>
 <run_command><command>export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java)))) && ./gradlew desktop:run</command></run_command>
 \`\`\`
 

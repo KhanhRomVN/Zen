@@ -17,10 +17,45 @@ import {
 import { useSettings } from "../context/SettingsContext";
 import { useProject } from "../context/ProjectContext";
 
+/** Returns only top-level entries from a formatted tree string.
+ *  Files keep their "(N lines)" annotation.
+ *  Folders show "(N files)" counted from all their descendants. */
+const getShallowTree = (tree: string): string => {
+  const lines = tree.split("\n");
+  const result: string[] = [];
+  let currentFolder: string | null = null;
+  let fileCount = 0;
+
+  const flush = () => {
+    if (currentFolder !== null) {
+      result.push(`${currentFolder} (${fileCount} files)`);
+      currentFolder = null;
+      fileCount = 0;
+    }
+  };
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const isTopLevel = !/^ /.test(line);
+    if (isTopLevel) {
+      flush();
+      if (line.trimEnd().endsWith("/")) {
+        currentFolder = line.trimEnd();
+      } else {
+        result.push(line);
+      }
+    } else if (currentFolder !== null) {
+      // count every non-directory descendant as a file
+      if (!line.trimEnd().endsWith("/")) fileCount++;
+    }
+  }
+  flush();
+  return result.join("\n");
+};
+
 interface UseChatLLMProps {
   apiUrl: string;
   selectedTab: TabInfo | null;
-  isBackupEnabled?: boolean;
   onConversationIdChange?: (id: string) => void;
   onToolRequest?: (
     actions: ToolAction[],
@@ -33,7 +68,6 @@ interface UseChatLLMProps {
 export const useChatLLM = ({
   apiUrl,
   selectedTab,
-  isBackupEnabled = true,
   onConversationIdChange,
   onToolRequest,
 }: UseChatLLMProps) => {
@@ -53,7 +87,6 @@ export const useChatLLM = ({
   const backendConversationIdRef = useRef<string>(""); // real conversation_id from backend API
   const lastUsedModelRef = useRef<any>(null);
   const lastUsedAccountRef = useRef<any>(null);
-  const lastUsedThinkingRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -101,13 +134,15 @@ export const useChatLLM = ({
       skipFirstRequestLogic?: boolean,
       actionIds?: string[],
       uiHidden?: boolean,
-      thinking?: boolean,
-      selectedQuickModel?: {
-        providerId: string;
-        modelId: string;
-        accountId?: string;
-      } | null,
     ) => {
+      console.log(`[Zen Flow Log] [sendMessage] Triggered.`, {
+        contentLength: content?.length,
+        skipFirstRequestLogic,
+        actionIds,
+        isProcessing,
+        isStreaming,
+      });
+
       if (isProcessing && !skipFirstRequestLogic) {
         console.warn("[useChatLLM] Already processing a request, ignoring.");
         return;
@@ -129,7 +164,6 @@ export const useChatLLM = ({
         backendConversationIdRef.current = ""; // reset for new session
         lastUsedModelRef.current = null;
         lastUsedAccountRef.current = null;
-        lastUsedThinkingRef.current = false;
         setConversationToolOverrides({});
 
         // Tell extension to create an empty log file
@@ -178,7 +212,7 @@ export const useChatLLM = ({
         try {
           // Use pre-fetched context from ProjectContext
           if (treeView && treeView.trim()) {
-            projectContextStr += `\n\n## Project Structure\n\`\`\`\n${treeView}\n\`\`\``;
+            projectContextStr += `\n\n## Project Structure\n\`\`\`\n${getShallowTree(treeView)}\n\`\`\``;
           }
           if (workspace && workspace.trim()) {
             projectContextStr += `\n\n## WORKSPACE EXPERIENCE (workspace.md)\n\`\`\`\n${workspace}\n\`\`\``;
@@ -313,6 +347,7 @@ export const useChatLLM = ({
 
       const updatedMessages = [...filteredMessages, userMessage];
       setMessages(updatedMessages);
+      console.log("[Zen Flow Log] [sendMessage] setMessages and setIsProcessing(true) set.");
       setIsProcessing(true);
 
       // Save & Log
@@ -328,27 +363,9 @@ export const useChatLLM = ({
       );
       // User message log will happen after response when we have backendConversationId
 
-      // Start backup watch if new session and enabled
-      if (isReq1 && isBackupEnabled) {
-        extensionService.postMessage({
-          command: "startBackupWatch",
-          conversationId: effectiveChatUuid,
-        });
-      }
-
       // Persist / Resolve Model and Account
-      const effModel = selectedQuickModel
-        ? {
-            id: selectedQuickModel.modelId,
-            providerId: selectedQuickModel.providerId,
-          }
-        : model || lastUsedModelRef.current;
-
-      const effAccount = selectedQuickModel?.accountId
-        ? { id: selectedQuickModel.accountId }
-        : account || lastUsedAccountRef.current;
-
-      const effThinking = thinking ?? lastUsedThinkingRef.current;
+      const effModel = model || lastUsedModelRef.current;
+      const effAccount = account || lastUsedAccountRef.current;
 
       // 🆕 History Fallback: If metadata is still missing (e.g. after restoration), look back at history
       let finalModel = effModel;
@@ -374,7 +391,6 @@ export const useChatLLM = ({
 
       if (finalModel) lastUsedModelRef.current = finalModel;
       if (finalAccount) lastUsedAccountRef.current = finalAccount;
-      lastUsedThinkingRef.current = effThinking;
 
       try {
         const effPromptPayload = isReq1
@@ -395,10 +411,8 @@ export const useChatLLM = ({
           accountId: finalAccount?.id,
           messages: payloadMessages,
           stream: true,
-          // Use the real backend conversationId if we have it (req2+), otherwise empty (req1)
           conversationId:
             backendConversationIdRef.current || (isNewSession ? "" : ""),
-          thinking: effThinking,
         };
 
         const abortController = new AbortController();
@@ -407,6 +421,7 @@ export const useChatLLM = ({
 
         const headers = { "Content-Type": "application/json" };
 
+        console.log("[Zen Flow Log] [sendMessage] Initiating API request fetch to:", `${apiUrl}/v1/chat/accounts/messages`, { body });
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
           headers,
@@ -588,6 +603,8 @@ export const useChatLLM = ({
           ),
         );
 
+        console.log("[Zen Flow Log] [sendMessage] Stream reading done. Total assistant content length:", assistantMessage.content.length);
+        console.log("[Zen Flow Log] [sendMessage] Setting setIsProcessing(false) and setIsStreaming(false).");
         setIsProcessing(false);
         setIsStreaming(false);
         abortControllerRef.current = null;
@@ -627,8 +644,14 @@ export const useChatLLM = ({
           console.error(`[useChatLLM] Critical error during log call:`, logErr);
         }
 
-        // Parse for metadata (e.g. conversation name)
+        // Parse for metadata logging only.
+        // NOTE: Do NOT call onToolRequest here. Auto-triggering is handled exclusively
+        // by useToolActions.ts via parsedMessages useEffect to avoid duplicate triggers.
+        // (RES1 may still be streaming when useToolActions triggers tools mid-stream;
+        //  calling onToolRequest here after stream-done would cause a double-trigger.)
+        console.log("[Zen Flow Log] [sendMessage] Parsing final response content for tool calls...");
         const parsed = parseAIResponse(assistantMessage.content);
+        console.log("[Zen Flow Log] [sendMessage] Parsed actions (handled by useToolActions):", parsed.actions.map(a => a.type));
 
         // Save final conversation state
         saveConversation(
@@ -638,7 +661,7 @@ export const useChatLLM = ({
           effectiveChatUuid,
           selectedTab || undefined,
           false,
-          parsed.conversationName || undefined,
+          undefined,
           backendConversationId || backendConversationIdRef.current,
         );
       } catch (error) {
@@ -675,62 +698,6 @@ export const useChatLLM = ({
     currentConversationIdRef,
     sendMessage,
     stopGeneration,
-    revertToMessage: async (messageId: string) => {
-      const currentMessages = messagesRef.current;
-      const targetIndex = currentMessages.findIndex((m) => m.id === messageId);
-      if (targetIndex === -1) return null;
-
-      let userMessageIndex = targetIndex;
-      while (
-        userMessageIndex >= 0 &&
-        currentMessages[userMessageIndex].role !== "user"
-      ) {
-        userMessageIndex--;
-      }
-
-      if (userMessageIndex === -1) return null;
-
-      const userMessage = currentMessages[userMessageIndex];
-      let contentToReturn = userMessage.content;
-      if (contentToReturn.startsWith("## User Message")) {
-        const match = contentToReturn.match(
-          /^## User Message\n```\n([\s\S]*?)\n```$/,
-        );
-        if (match) contentToReturn = match[1];
-      }
-
-      const newMessages = currentMessages.slice(0, userMessageIndex);
-      setMessages(newMessages);
-
-      if (currentConversationIdRef.current) {
-        extensionService.postMessage({
-          command: "rollbackConversationLog",
-          conversationId: currentConversationIdRef.current,
-          // Since we might have logged both user and assistant messages to the array,
-          // we need to know how many entries to keep.
-          // Wait, logChattoWorkspace saves each as an entry.
-          // newMessages.length accurately reflects the number of messages to keep IF
-          // each message in UI corresponds to one entry in JSON.
-          // It does!
-          keepCount: newMessages.length,
-        });
-
-        const tabId = selectedTab?.tabId || -1;
-        const folderPath = selectedTab?.folderPath || null;
-        saveConversation(
-          tabId,
-          folderPath,
-          newMessages,
-          currentConversationIdRef.current,
-          selectedTab || undefined,
-          false,
-          undefined,
-          backendConversationIdRef.current,
-        );
-      }
-
-      return contentToReturn;
-    },
     setBackendConversationId: (
       id: string,
       meta?: { providerId?: string; modelId?: string; accountId?: string },
