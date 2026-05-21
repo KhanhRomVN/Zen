@@ -32,7 +32,6 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
     }
 
     const logEntry = { ...message };
-    delete logEntry.uiHidden;
     delete logEntry.actionIds;
 
     logEntry.timestamp = new Date().toISOString();
@@ -130,7 +129,6 @@ export const saveConversation = async (
 
     const messagesToSave = messages.map((m) => {
       const cloned = { ...m };
-      delete cloned.uiHidden;
       delete cloned.actionIds;
       return cloned;
     });

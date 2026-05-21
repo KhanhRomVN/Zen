@@ -210,12 +210,35 @@ export const useChatLLM = ({
         }
 
         try {
-          // Use pre-fetched context from ProjectContext
-          if (treeView && treeView.trim()) {
-            projectContextStr += `\n\n## Project Structure\n\`\`\`\n${getShallowTree(treeView)}\n\`\`\``;
+          // Use pre-fetched context from ProjectContext, or fetch fresh if not ready yet
+          let effectiveTreeView = treeView;
+          let effectiveWorkspace = workspace;
+
+          if (!effectiveTreeView.trim()) {
+            // treeView not ready yet (race condition on first request) — fetch directly
+            const freshContext = await new Promise<{ treeView: string; workspace: string }>((resolve) => {
+              const requestId = `req1-tree-${Date.now()}`;
+              const timeout = setTimeout(() => resolve({ treeView: "", workspace: effectiveWorkspace }), 5000);
+              const handler = (event: MessageEvent) => {
+                const msg = event.data;
+                if (msg.command === "projectContextResult" && msg.requestId === requestId) {
+                  clearTimeout(timeout);
+                  window.removeEventListener("message", handler);
+                  resolve({ treeView: msg.data?.treeView || "", workspace: msg.data?.workspace || effectiveWorkspace });
+                }
+              };
+              window.addEventListener("message", handler);
+              (window as any).vscodeApi?.postMessage({ command: "getProjectContext", requestId });
+            });
+            effectiveTreeView = freshContext.treeView;
+            effectiveWorkspace = freshContext.workspace || effectiveWorkspace;
           }
-          if (workspace && workspace.trim()) {
-            projectContextStr += `\n\n## WORKSPACE EXPERIENCE (workspace.md)\n\`\`\`\n${workspace}\n\`\`\``;
+
+          if (effectiveTreeView && effectiveTreeView.trim()) {
+            projectContextStr += `\n\n## Project Structure\n\`\`\`\n${getShallowTree(effectiveTreeView)}\n\`\`\``;
+          }
+          if (effectiveWorkspace && effectiveWorkspace.trim()) {
+            projectContextStr += `\n\n## WORKSPACE EXPERIENCE (workspace.md)\n\`\`\`\n${effectiveWorkspace}\n\`\`\``;
           }
         } catch (e) {
           console.error(

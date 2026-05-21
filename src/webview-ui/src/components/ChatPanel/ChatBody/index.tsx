@@ -28,6 +28,7 @@ import WelcomeUI from "../../HomePanel/WelcomeUI";
 import ProcessingIndicator from "./components/ProcessingIndicator";
 import ScrollToBottomButton from "./components/ScrollToBottomButton";
 import MessageBox from "./components/MessageBox";
+import ProcessGroup from "./components/ProcessGroup";
 
 const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   messages,
@@ -133,6 +134,96 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     return !!(hasText || hasActions || hasOtherBlocks);
   }, [isProcessing, visibleMessages, parsedMessages]);
 
+  // Group consecutive auto-process messages (assistant-with-tools + hidden-user pairs)
+  // into ProcessGroups. A group ends when an assistant message has NO tool actions.
+  // NOTE: Run on full `messages` (not visibleMessages) so uiHidden user messages are visible to the algorithm.
+  const renderItems = useMemo(() => {
+    if (isProcessing) return null; // Don't group while still processing
+
+    type RenderItem =
+      | { kind: "single"; message: Message; index: number }
+      | { kind: "group"; messages: Message[] };
+
+    const items: RenderItem[] = [];
+    // Use non-cancelled messages (but include uiHidden for grouping logic)
+    const allNonCancelled = messages.filter(m => !m.isCancelled);
+    console.log(`[ProcessGroup] Running grouping on ${allNonCancelled.length} messages (isProcessing=${isProcessing})`);
+    let i = 0;
+
+    while (i < allNonCancelled.length) {
+      const msg = allNonCancelled[i];
+
+      if (msg.role === "assistant") {
+        const parsed = parsedMessages.find(pm => pm.id === msg.id)?.parsed;
+        const hasTools = (parsed?.actions?.length || 0) > 0;
+
+        if (hasTools) {
+          const groupMsgs: Message[] = [msg];
+          let j = i + 1;
+
+          while (j < allNonCancelled.length) {
+            const next = allNonCancelled[j];
+            if (next.role === "user" && next.uiHidden) {
+              groupMsgs.push(next);
+              j++;
+              continue;
+            }
+            if (next.role === "assistant") {
+              const nextParsed = parsedMessages.find(pm => pm.id === next.id)?.parsed;
+              const nextHasTools = (nextParsed?.actions?.length || 0) > 0;
+              groupMsgs.push(next);
+              j++;
+              if (!nextHasTools) break;
+              continue;
+            }
+            break;
+          }
+
+          const assistantCount = groupMsgs.filter(m => m.role === "assistant").length;
+          console.log(`[ProcessGroup] candidate group: ${groupMsgs.length} msgs, ${assistantCount} assistants`, groupMsgs.map(m => `${m.role}(hidden=${m.uiHidden})`));
+          if (assistantCount > 1) {
+            // Separate the final markdown-only assistant from the group so it renders outside
+            const lastMsg = groupMsgs[groupMsgs.length - 1];
+            const lastParsed = parsedMessages.find(pm => pm.id === lastMsg.id)?.parsed;
+            const lastHasTools = (lastParsed?.actions?.length || 0) > 0;
+
+            let processGroupMsgs = groupMsgs;
+            let finalMsg: Message | null = null;
+            if (!lastHasTools && lastMsg.role === "assistant") {
+              processGroupMsgs = groupMsgs.slice(0, -1);
+              finalMsg = lastMsg;
+            }
+
+            console.log(`[ProcessGroup] ✅ Formed group with ${processGroupMsgs.filter(m=>m.role==="assistant").length} assistants${finalMsg ? " + 1 final markdown" : ""}`);
+            items.push({ kind: "group", messages: processGroupMsgs });
+            if (finalMsg) {
+              items.push({ kind: "single", message: finalMsg, index: visibleMessages.indexOf(finalMsg) });
+            }
+            i = j;
+            continue;
+          } else {
+            console.log(`[ProcessGroup] ❌ Not enough assistants, treating as single`);
+          }
+        }
+      }
+
+      // Only add as single if not uiHidden
+      if (!msg.uiHidden) {
+        items.push({ kind: "single", message: msg, index: visibleMessages.indexOf(msg) });
+      }
+      i++;
+    }
+
+    console.log(`[ProcessGroup] Result: ${items.filter(r => r.kind === "group").length} groups, ${items.filter(r => r.kind === "single").length} singles`);
+    return items;
+  }, [messages, parsedMessages, isProcessing]);
+
+  const parsedMap = useMemo(() => {
+    const map = new Map<string, any>();
+    parsedMessages.forEach(pm => map.set(pm.id, pm.parsed));
+    return map;
+  }, [parsedMessages]);
+
   return (
     <div
       style={{
@@ -153,17 +244,36 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       )}
 
       <div className="chat-timeline-wrapper">
-        {visibleMessages.map((message, index) => {
-          // Regular messages - Use memoized parsed content
-          const parsedMessage = parsedMessages.find(
-            (pm) => pm.id === message.id,
-          );
-          if (!parsedMessage) {
-            console.warn(
-              `[ChatBody] Parsed message not found for ${message.id}`,
+        {(renderItems || visibleMessages.map((message, index) => ({ kind: "single" as const, message, index }))).map((item) => {
+          if (item.kind === "group") {
+            return (
+              <ProcessGroup
+                key={item.messages[0].id}
+                messages={item.messages}
+                parsedMap={parsedMap}
+                clickedActions={clickedActions}
+                failedActions={failedActions}
+                onToolClick={handleToolClick}
+                toolOutputs={toolOutputs}
+                terminalStatus={terminalStatus}
+                allMessages={messages}
+                activeTerminalIds={activeTerminalIds}
+                attachedTerminalIds={attachedTerminalIds}
+                conversationId={conversationId}
+                onSendMessage={onSendMessage}
+                onSelectOption={onSelectOption}
+                executionState={executionState}
+                previousAssistantMessage={messages
+                  .slice(0, messages.findIndex(m => m.id === item.messages[0].id))
+                  .reverse()
+                  .find(m => m.role === "assistant")}
+              />
             );
-            return null;
           }
+
+          const { message, index } = item;
+          const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
+          if (!parsedMessage) return null;
           const parsedContent = parsedMessage.parsed;
 
           const nextUserMessage = messages
@@ -171,10 +281,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             .find((m) => m.role === "user");
 
           const previousAssistantMessage = messages
-            .slice(
-              0,
-              messages.findIndex((m) => m.id === message.id),
-            )
+            .slice(0, messages.findIndex((m) => m.id === message.id))
             .reverse()
             .find((m) => m.role === "assistant");
 
@@ -184,17 +291,13 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               message={message}
               parsedContent={parsedContent}
               nextUserMessage={nextUserMessage}
-              isGenerating={
-                isProcessing && index === visibleMessages.length - 1
-              }
+              isGenerating={isProcessing && index === visibleMessages.length - 1}
               isCollapsed={
                 message.role === "user"
                   ? collapsedSections.has(`prompt-${message.id}`)
                   : false
               }
-              onToggleCollapse={() =>
-                toggleCollapse(`prompt-${message.id}`)
-              }
+              onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
               clickedActions={clickedActions}
               failedActions={failedActions}
               onToolClick={handleToolClick}
@@ -202,7 +305,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               isLastMessage={
                 index === visibleMessages.length - 1 ||
                 index === lastAssistantIndex
-              } // Pass isLastMessage (keep last assistant block live)
+              }
               toolOutputs={toolOutputs}
               terminalStatus={terminalStatus}
               allMessages={messages}

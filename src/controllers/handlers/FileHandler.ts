@@ -294,7 +294,9 @@ export class FileHandler {
 
       const pathValue = message.path || message.folder_path || message.filePath;
       const searchPath = pathValue || ".";
-      const uri = vscode.Uri.joinPath(workspaceFolder.uri, searchPath);
+      const uri = path.isAbsolute(searchPath)
+        ? vscode.Uri.file(searchPath)
+        : vscode.Uri.joinPath(workspaceFolder.uri, searchPath);
 
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
       const ignoreCheck = await fsAnalyzer.isIgnored(uri.fsPath);
@@ -531,7 +533,9 @@ export class FileHandler {
       const pathValue = message.path || message.folder_path || message.filePath;
       const dirPath = pathValue || ".";
       const recursiveParam = message.recursive;
-      const absolutePath = vscode.Uri.joinPath(workspaceFolder.uri, dirPath);
+      const absolutePath = path.isAbsolute(dirPath)
+        ? vscode.Uri.file(dirPath)
+        : vscode.Uri.joinPath(workspaceFolder.uri, dirPath);
 
       let maxDepth = 1;
       if (recursiveParam === "true" || recursiveParam === true) maxDepth = 20;
