@@ -392,8 +392,11 @@ export const useToolExecution = ({
                   `[search_files for '${folderPath}'] Result: Error - ${msg.error}`,
                 );
               } else {
+                const formattedResults = Array.isArray(msg.results)
+                  ? msg.results.join("\n")
+                  : String(msg.results);
                 resolve(
-                  `[search_files for '${folderPath}'] Result:\n\`\`\`\n${msg.results}\n\`\`\``,
+                  `[search_files for '${folderPath}'] Result:\n\`\`\`\n${formattedResults}\n\`\`\``,
                 );
               }
             }
@@ -695,8 +698,7 @@ export const useToolExecution = ({
 
         const isAllComplete =
           allActionIds.every(
-            (id: string) =>
-              clickedActionsRef.current.has(id) || currentBatchIds.includes(id),
+            (id: string) => clickedActionsRef.current.has(id),
           ) && isQuestionAnswered;
 
         console.log("[Zen Flow Log] [handleToolRequest] Checking if all actions in response are complete:", {

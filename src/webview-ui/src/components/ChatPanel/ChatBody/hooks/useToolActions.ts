@@ -17,12 +17,14 @@ interface UseToolActionsProps {
     toolName?: string,
   ) => void;
   parsedMessages: any[];
+  isProcessing?: boolean; // Prevents auto-triggering mid-stream
 }
 
 export const useToolActions = ({
   onSendToolRequest,
   onToolAction,
   parsedMessages,
+  isProcessing = false,
 }: UseToolActionsProps) => {
   const { toolPermissions } = useSettings();
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
@@ -138,6 +140,11 @@ export const useToolActions = ({
   useEffect(() => {
     if (!onSendToolRequest || parsedMessages.length === 0) return;
 
+    // CRITICAL: Do NOT auto-trigger while the LLM is still streaming.
+    // Triggering mid-stream causes the flush logic to parseAIResponse on
+    // incomplete content, flushing early and skipping later actions (e.g. SEARCH).
+    if (isProcessing) return;
+
     const lastMessage = parsedMessages[parsedMessages.length - 1];
     if (lastMessage.role !== "assistant") return;
     if (lastMessage.isCancelled) return;
@@ -204,6 +211,7 @@ export const useToolActions = ({
     clickedActions,
     failedActions,
     toolPermissions,
+    isProcessing,
   ]);
 
   return {

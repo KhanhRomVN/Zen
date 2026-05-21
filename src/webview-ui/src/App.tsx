@@ -17,6 +17,12 @@ import { extensionService } from "./services/ExtensionService";
 (window as any).storage = extensionService.getStorage();
 
 const App: React.FC = () => {
+  // Notify extension host rằng React app đã mount xong
+  // Extension sẽ dùng signal này để lazy-load theme (tránh block render lần đầu)
+  useEffect(() => {
+    extensionService.postMessage({ command: "webviewReady" });
+  }, []);
+
   // 🆕 Clear stale state on mount
   useEffect(() => {
     try {

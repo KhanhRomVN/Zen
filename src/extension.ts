@@ -32,6 +32,12 @@ export async function activate(extContext: vscode.ExtensionContext) {
   provider.initializeAgentManager();
   activeProvider = provider;
 
+  // Pre-warm Shiki trong background (không block activate)
+  // Khi user mở panel lần đầu, Shiki sẽ đã được khởi tạo xong
+  ShikiService.getInstance().initialize().catch(() => {
+    // Silent fail — Shiki sẽ tự khởi tạo lại khi cần
+  });
+
   extContext.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       ZenChatViewProvider.viewType,

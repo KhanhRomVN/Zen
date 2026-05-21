@@ -593,9 +593,15 @@ export class FileSystemAnalyzer {
         ? filePath
         : path.join(rootPath, filePath);
 
+      const stat = await fs.promises.stat(fullPath);
+      // Skip files larger than 10MB or binary file extensions
+      const binaryExts = /\.(a|o|so|dll|exe|bin|lib|obj|pyc|class|wasm)$/i;
+      if (stat.size > 10 * 1024 * 1024 || binaryExts.test(fullPath)) {
+        return 0;
+      }
+
       const content = await fs.promises.readFile(fullPath, "utf-8");
-      const lines = content.split("\n").length;
-      return lines;
+      return content.split("\n").length;
     } catch (e) {
       console.error(
         `[FileSystemAnalyzer] Failed to get line count for ${filePath}`,

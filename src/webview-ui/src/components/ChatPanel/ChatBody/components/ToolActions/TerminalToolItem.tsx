@@ -5,7 +5,7 @@ import { getToolColor } from "../../utils";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
-import ToolPermissionDropdown from "./ToolPermissionDropdown";
+
 import { truncatePath } from "./FileToolItem";
 
 interface TerminalToolItemProps {
@@ -81,7 +81,6 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          <ToolPermissionDropdown toolId="run_command" />
           {!isTerminalBusy && (isActiveGroup || isCompleted || isLoading || !isLastMessage) && (
             <ExecuteButton
               isActive={isActiveGroup || false}

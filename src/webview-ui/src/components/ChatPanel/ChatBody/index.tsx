@@ -73,6 +73,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     onSendToolRequest,
     onToolAction,
     parsedMessages,
+    isProcessing,
   });
   const { isAtBottom, scrollToBottom } = useScrollBehavior(messagesEndRef, [
     messages,

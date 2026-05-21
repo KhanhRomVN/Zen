@@ -492,6 +492,8 @@ export class ProcessManager {
   private _extensionContext: vscode.ExtensionContext | null = null;
   private readonly STORAGE_KEY = "zen.persistentTerminals";
   private projectDir: string | null = null;
+  // Interval chỉ chạy khi có ít nhất 1 terminal, nhằm tránh poll mỗi giây khi idle
+  private _stateInterval: NodeJS.Timeout | null = null;
 
   public setProjectDir(dir: string) {
     this.projectDir = dir;
@@ -563,9 +565,24 @@ export class ProcessManager {
     });
 
     // Auto-refresh terminal states and titles every 1 second (faster detection)
-    setInterval(() => {
-      this.updateTerminalStates();
-    }, 1000);
+    // Interval sẽ được start khi terminal đầu tiên được tạo (xem startInteractive)
+  }
+
+  /** Bắt đầu polling nếu chưa chạy */
+  private startStateInterval() {
+    if (!this._stateInterval) {
+      this._stateInterval = setInterval(() => {
+        this.updateTerminalStates();
+      }, 1000);
+    }
+  }
+
+  /** Dừng polling khi không còn terminal nào */
+  private stopStateIntervalIfEmpty() {
+    if (this._stateInterval && this.terminalMap.size === 0) {
+      clearInterval(this._stateInterval);
+      this._stateInterval = null;
+    }
   }
 
   private updateTerminalStates() {
@@ -685,6 +702,9 @@ export class ProcessManager {
       entry = newEntry;
       this.saveState();
       this.onTerminalsChangedEmitter.fire();
+
+      // Bắt đầu interval khi có terminal đầu tiên
+      this.startStateInterval();
 
       this.bridgeClient.send({
         type: "create",
@@ -837,6 +857,9 @@ export class ProcessManager {
       // 3. Remove from map
       this.terminalMap.delete(id);
       this.saveState();
+
+      // Dừng interval nếu không còn terminal nào
+      this.stopStateIntervalIfEmpty();
 
       // 4. Finally delete the log file
       try {

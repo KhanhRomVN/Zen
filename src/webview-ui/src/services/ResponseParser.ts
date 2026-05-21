@@ -66,7 +66,7 @@ const extractParamValue = (
     let value = standardMatch[1];
     // Remove ```text wrappers if present
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-    return decodeHtmlEntities(value);
+    return decodeHtmlEntities(value).trim();
   }
 
   // Try self-closing tag with content
@@ -78,10 +78,15 @@ const extractParamValue = (
   if (selfClosingMatch) {
     let value = selfClosingMatch[1];
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-    return decodeHtmlEntities(value);
+    let decoded = decodeHtmlEntities(value).trim();
+    // Strip malformed closing tag suffix like /paramName> or paramName>
+    const malformedCloseRegex = new RegExp(`/?${paramName}>?$`, "i");
+    decoded = decoded.replace(malformedCloseRegex, "").trim();
+    return decoded;
   }
   return null;
 };
+
 
 /**
  * Extract tool actions from inner content

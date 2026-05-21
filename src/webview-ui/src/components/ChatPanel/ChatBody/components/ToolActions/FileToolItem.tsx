@@ -9,7 +9,7 @@ import { getFilename, getToolColor } from "../../utils";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
-import ToolPermissionDropdown from "./ToolPermissionDropdown";
+
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   py: "python", js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
@@ -45,6 +45,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   action, actionIndex, messageId, isActionClicked, isActiveGroup,
   isLastMessage, isLastItemInList, toolOutputs, allMessages, fileStatsMap, onToolClick,
 }) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(true);
   const toolType = action.type;
   const toolColor = getToolColor(toolType);
   const actionId = `${messageId}-action-${actionIndex}`;
@@ -153,8 +154,13 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         statusColor={isCompleted ? "#3fb950" : isActiveGroup ? "var(--vscode-button-background)" : "var(--vscode-descriptionForeground)"}
         diffStats={undefined}
         isPartial={isPartial}
-        onClick={() => extensionService.postMessage({ command: "openFile", path: rawPath })}
-        headerActions={<ToolPermissionDropdown toolId={toolType} />}
+        onClick={() => {
+          if (toolType === "list_files" || toolType === "search_files") {
+            setIsCollapsed((v) => !v);
+          } else {
+            extensionService.postMessage({ command: "openFile", path: rawPath });
+          }
+        }}
       />
 
       {!isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
@@ -176,17 +182,17 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         ((toolType === "list_files" || toolType === "search_files") && codeContent)) && (
         <>
           {toolType === "list_files" || toolType === "search_files" ? (
-            <RichtextBlock
-              content={codeContent}
-              showHeader={false}
-              maxHeight={300}
-              defaultCollapsed={false}
-              isFilePathList={toolType === "list_files"}
-              basePath={toolType === "list_files" ? action.params.path || action.params.folder_path || "" : undefined}
-              onFileClick={toolType === "list_files"
-                ? (fullPath) => extensionService.postMessage({ command: "openFile", path: fullPath })
-                : undefined}
-            />
+            !isCollapsed && (
+              <RichtextBlock
+                content={codeContent}
+                showHeader={false}
+                maxHeight={300}
+                defaultCollapsed={false}
+                isFilePathList={true}
+                basePath={action.params.path || action.params.folder_path || ""}
+                onFileClick={(fullPath) => extensionService.postMessage({ command: "openFile", path: fullPath })}
+              />
+            )
           ) : (
             !(isPartial && (toolType === "replace_in_file" || toolType === "write_to_file")) && (
               <CodeBlock
