@@ -71,7 +71,7 @@ export const useChatLLM = ({
   onConversationIdChange,
   onToolRequest,
 }: UseChatLLMProps) => {
-  const { language: preferredLanguage } = useSettings();
+  const { language: preferredLanguage, aiLanguage } = useSettings();
   const { workspace, treeView } = useProject();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -186,7 +186,7 @@ export const useChatLLM = ({
           shell: "unknown",
           homeDir: "~",
           cwd: ".",
-          language: preferredLanguage,
+          language: aiLanguage || preferredLanguage,
         };
 
         try {
@@ -195,18 +195,19 @@ export const useChatLLM = ({
             systemInfo = {
               ...systemInfo,
               ...fetchedInfo.data,
-              language: preferredLanguage,
+              language: aiLanguage || preferredLanguage,
             };
           }
         } catch (e) {
           console.error("Failed to fetch system info", e);
         }
 
-        systemPrompt = getDefaultPrompt(preferredLanguage);
+        const effectiveLang = aiLanguage || preferredLanguage;
+        systemPrompt = getDefaultPrompt(effectiveLang);
         // Use real system info if we managed to fetch it, override the default
         if (systemInfo.os !== "Unknown OS") {
           systemPrompt = combinePrompts({
-            language: preferredLanguage,
+            language: effectiveLang,
             systemInfo,
           });
         }

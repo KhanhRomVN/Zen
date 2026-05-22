@@ -1,9 +1,7 @@
 import React from "react";
 import { ConversationItem } from "./types";
-import { Clock, Trash2, Copy, FolderOpen, Zap } from "lucide-react";
+import { Trash2, Copy, FolderOpen, Zap } from "lucide-react";
 import { extensionService } from "../../services/ExtensionService";
-import { getProviderStyle } from "../../utils/providerStyles";
-import { getProviderIconPath } from "../../utils/fileIconMapper";
 
 interface HistoryCardProps {
   item: ConversationItem;
@@ -22,7 +20,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDelete, form
     return () => document.removeEventListener("click", close);
   }, [menuVisible]);
 
-  const providerInfo = getProviderStyle(item.provider);
+  const providerInfo = undefined; // unused, kept for safety
 
   const handleCopyContent = () => {
     const requestId = `copy-${Date.now()}`;
@@ -55,6 +53,15 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDelete, form
     ? (item.title.length > 60 ? item.title.substring(0, 57) + "..." : item.title)
     : "Untitled";
 
+  // Token badge color based on amount
+  const getTokenColor = (n: number) => {
+    if (n >= 500000) return { bg: "rgba(239,68,68,0.15)", border: "rgba(239,68,68,0.4)", text: "#ef4444" };
+    if (n >= 100000) return { bg: "rgba(249,115,22,0.15)", border: "rgba(249,115,22,0.4)", text: "#f97316" };
+    if (n >= 50000)  return { bg: "rgba(234,179,8,0.15)",  border: "rgba(234,179,8,0.4)",  text: "#ca8a04" };
+    if (n >= 10000)  return { bg: "rgba(34,197,94,0.15)",  border: "rgba(34,197,94,0.4)",  text: "#16a34a" };
+    return                  { bg: "rgba(99,102,241,0.15)", border: "rgba(99,102,241,0.4)", text: "#6366f1" };
+  };
+
   const formatTokens = (n: number) => {
     if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
     if (n >= 1000) return (n / 1000).toFixed(1) + "k";
@@ -71,49 +78,34 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDelete, form
           setMenuPosition({ x: e.clientX, y: e.clientY });
           setMenuVisible(true);
         }}
-        style={{ width: "100%", padding: "10px 14px", display: "flex", flexDirection: "column", gap: "6px" }}
+        style={{
+          width: "100%", padding: "7px 10px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px",
+        }}
       >
         {/* Title */}
-        <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--primary-text)", lineHeight: 1.4 }}>
+        <span style={{
+          fontSize: "13px", fontWeight: 500, color: "var(--primary-text)",
+          overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", flex: 1,
+        }}>
           {title}
-        </div>
+        </span>
 
-        {/* Badges row */}
-        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-          {/* Date */}
-          <div style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "10px", color: "var(--secondary-text)" }}>
-            <Clock size={10} />
-            <span>{formatDate(item.lastModified)}</span>
-          </div>
-
-          {/* Provider */}
-          {item.provider && (
+        {/* Token badge */}
+        {(item.totalTokenUsage ?? 0) > 0 && (() => {
+          const c = getTokenColor(item.totalTokenUsage ?? 0);
+          return (
             <div style={{
-              display: "flex", alignItems: "center", gap: "3px",
-              padding: "1px 5px", borderRadius: "4px",
-              border: `1px solid ${providerInfo.border}`,
-              backgroundColor: providerInfo.bg, color: providerInfo.fg,
-              fontSize: "9px", fontWeight: 700, textTransform: "uppercase",
-            }}>
-              <img src={getProviderIconPath(item.provider)} alt={item.provider} style={{ width: "9px", height: "9px", objectFit: "contain" }} />
-              {providerInfo.name}
-            </div>
-          )}
-
-          {/* Token badge */}
-          {(item.totalTokenUsage ?? 0) > 0 && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: "3px",
+              display: "flex", alignItems: "center", gap: "3px", flexShrink: 0,
               padding: "1px 6px", borderRadius: "4px",
-              backgroundColor: "rgba(234,179,8,0.12)",
-              border: "1px solid rgba(234,179,8,0.3)",
-              color: "#ca8a04", fontSize: "10px", fontWeight: 600,
+              backgroundColor: c.bg, border: `1px solid ${c.border}`, color: c.text,
+              fontSize: "10px", fontWeight: 700,
             }}>
               <Zap size={9} />
               <span>{formatTokens(item.totalTokenUsage ?? 0)}</span>
             </div>
-          )}
-        </div>
+          );
+        })()}
       </div>
 
       {/* Context menu */}
@@ -164,9 +156,8 @@ const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDelete, form
 
       <style>{`
         .history-card-container {
-          width: 100%; border-radius: 8px;
-          border: 1px solid var(--border-color);
-          background-color: var(--input-bg);
+          width: 100%; border-radius: 6px;
+          border: none; background-color: transparent;
           cursor: pointer; position: relative; overflow: hidden;
         }
         .history-card-container:hover { background-color: var(--hover-bg); }

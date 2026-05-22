@@ -1,2 +1,1 @@
-1/ xóa appbar của HistoryPanel
-2/ xóa thanh "Newest first" và "Clear All". ở cạnh searchbar 
+tạo 1 file .md ở root project. file .md này tôi sẽ dùng cho AI khac để nó hiểu rõ thông suốt toàn bộ về dự án này để tạo landing page. file .md phải càng chi tiết thông tin càng tốt.

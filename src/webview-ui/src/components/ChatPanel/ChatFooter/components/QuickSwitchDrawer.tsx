@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { Search, ChevronRight, X, User, ChevronLeft } from "lucide-react";
+import { Search, ChevronRight, X, ChevronLeft } from "lucide-react";
+import { useI18n } from "../../../../hooks/useI18n";
 
 interface Provider {
   provider_id: string;
@@ -38,6 +39,7 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
   apiUrl,
   onSelect,
 }) => {
+  const { t } = useI18n();
   const [step, setStep] = useState<"model" | "account">("model");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState<any | null>(null);
@@ -94,7 +96,7 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
 
   const filteredProviders = useMemo(() => {
     return providers
-      .filter((p) => p.is_enabled !== false)
+      .filter((p) => p.is_enabled !== false && p.total_accounts > 0)
       .map((provider) => {
         const filteredModels = (provider.models || []).filter(
           (m) =>
@@ -105,8 +107,7 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
       })
       .filter(
         (p) =>
-          (p.models.length > 0 &&
-            (p.total_accounts === undefined || p.total_accounts > 0)) ||
+          p.models.length > 0 ||
           p.provider_name.toLowerCase().includes(searchQuery.toLowerCase()),
       );
   }, [providers, searchQuery]);
@@ -184,7 +185,7 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
               letterSpacing: "0.05em",
             }}
           >
-            {step === "model" ? "Select Quick Switch Model" : "Select Account"}
+          {step === "model" ? t("home.quickSwitchTitle") : t("home.selectAccount")}
           </span>
         </div>
 

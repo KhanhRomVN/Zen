@@ -1,5 +1,6 @@
 import React from "react";
 import { Check, CheckCheck, X } from "lucide-react";
+import { useI18n } from "../../../../../hooks/useI18n";
 
 export interface ExecuteButtonProps {
   isCompleted: boolean;
@@ -19,6 +20,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   isCompleted, isActive, isFailed, isLastMessage, onExecute,
   toolColor, title, isSkipped, isLoading, showText, labelText,
 }) => {
+  const { t } = useI18n();
   const iconColor = isCompleted ? "#3fb950" : isFailed ? "var(--vscode-errorForeground)" : toolColor;
   const isClickable = !isLoading && (!isCompleted || isFailed || isActive);
 
@@ -53,7 +55,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
         )}
         {(showText || labelText || (!isCompleted && !isLoading)) && (
           <span style={{ fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            {labelText || (isCompleted ? "Done" : "Run")}
+            {labelText || (isCompleted ? t("tools.done") : t("tools.run"))}
           </span>
         )}
       </button>

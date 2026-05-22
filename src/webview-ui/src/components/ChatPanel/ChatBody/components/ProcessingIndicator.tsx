@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useI18n } from "../../../../hooks/useI18n";
 
 interface ProcessingIndicatorProps {
   isResponding?: boolean;
@@ -8,6 +9,7 @@ const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
   isResponding,
 }) => {
   const [seconds, setSeconds] = useState(0);
+  const { t } = useI18n();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -33,7 +35,9 @@ const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
         marginBottom: "var(--spacing-md)",
       }}
     >
-      <span className="processing-text">Processing...({seconds}s)</span>
+      <span className="processing-text">
+        {t("chat.processing")}({seconds}s)
+      </span>
       <style>
         {`
         .processing-text {

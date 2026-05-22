@@ -215,11 +215,13 @@ const SearchButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) => 
 };
 
 const GlobalPermissionButton: React.FC = () => {
-  const { permissionMode, setPermissionMode, language } = useSettings();
+  const { permissionMode, setPermissionMode } = useSettings();
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = React.useState(false);
-  const isVi = language === "vi";
+  const [tooltip, setTooltip] = React.useState<{ id: string; x: number; y: number } | null>(null);
+  const tooltipTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -230,37 +232,30 @@ const GlobalPermissionButton: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const MODE_METADATA: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-    bypassPermissions: {
-      label: isVi ? "Cho phép toàn bộ" : "Full Access",
-      icon: <Zap size={11} />,
-      color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)",
-    },
-    acceptEdits: {
-      label: isVi ? "Tự động sửa File" : "Auto Edits",
-      icon: <FileCode size={11} />,
-      color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
-    },
-    auto: {
-      label: isVi ? "Tự động Đọc" : "Auto Reads",
-      icon: <Brain size={11} />,
-      color: "var(--vscode-symbolIcon-constructorForeground, #10b981)",
-    },
-    default: {
-      label: isVi ? "Hỏi mọi lúc" : "Ask Every Time",
-      icon: <ShieldCheck size={11} />,
-      color: "var(--vscode-disabledForeground, #a3a3a3)",
-    },
-    dontAsk: {
-      label: isVi ? "Chặn toàn bộ" : "Deny All",
-      icon: <Ban size={11} />,
-      color: "var(--vscode-errorForeground, #ef4444)",
-    },
-    plan: {
-      label: isVi ? "Chỉ đọc" : "Read Only",
-      icon: <Eye size={11} />,
-      color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
-    },
+  const MODE_METADATA: Record<string, { label: string; desc: string; icon: React.ReactNode; color: string }> = {
+    bypassPermissions: { label: t("permission.bypassPermissions"), desc: t("settings.bypassPermissionsDesc"), icon: <Zap size={11} />, color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)" },
+    acceptEdits:       { label: t("permission.acceptEdits"),       desc: t("settings.acceptEditsDesc"),       icon: <FileCode size={11} />, color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)" },
+    auto:              { label: t("permission.auto"),              desc: t("settings.autoDesc"),              icon: <Brain size={11} />, color: "var(--vscode-symbolIcon-constructorForeground, #10b981)" },
+    default:           { label: t("permission.default"),           desc: t("settings.defaultDesc"),           icon: <ShieldCheck size={11} />, color: "var(--vscode-disabledForeground, #a3a3a3)" },
+    dontAsk:           { label: t("permission.dontAsk"),           desc: t("settings.dontAskDesc"),           icon: <Ban size={11} />, color: "var(--vscode-errorForeground, #ef4444)" },
+    plan:              { label: t("permission.plan"),              desc: t("settings.planDesc"),              icon: <Eye size={11} />, color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)" },
+  };
+
+  const handleItemMouseEnter = (id: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!e.currentTarget.parentElement) return;
+    if (!e.currentTarget.style.backgroundColor || e.currentTarget.style.backgroundColor === "transparent") {
+      e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    tooltipTimer.current = setTimeout(() => {
+      setTooltip({ id, x: rect.right + 6, y: rect.top });
+    }, 500);
+  };
+
+  const handleItemMouseLeave = (isSelected: boolean, e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!isSelected) e.currentTarget.style.backgroundColor = "transparent";
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    setTooltip(null);
   };
 
   const metadata = MODE_METADATA[permissionMode] || MODE_METADATA.default;
@@ -333,8 +328,8 @@ const GlobalPermissionButton: React.FC = () => {
                   background: isSelected ? "var(--vscode-button-background)" : "transparent",
                   color: isSelected ? "var(--vscode-button-foreground)" : "var(--vscode-foreground)",
                 }}
-                onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)"; }}
-                onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "transparent"; }}
+                onMouseEnter={(e) => handleItemMouseEnter(modeId, e)}
+                onMouseLeave={(e) => handleItemMouseLeave(isSelected, e)}
               >
                 <span style={{ color: isSelected ? "inherit" : meta.color, display: "flex", alignItems: "center" }}>
                   {meta.icon}
@@ -343,6 +338,29 @@ const GlobalPermissionButton: React.FC = () => {
               </button>
             );
           })}
+        </div>
+      )}
+      {tooltip && MODE_METADATA[tooltip.id] && (
+        <div style={{
+          position: "fixed",
+          left: tooltip.x,
+          top: tooltip.y,
+          zIndex: 9999,
+          backgroundColor: "var(--vscode-editorHoverWidget-background, #1e1e1e)",
+          border: "1px solid var(--vscode-editorHoverWidget-border, #454545)",
+          borderRadius: "6px",
+          padding: "8px 10px",
+          maxWidth: "220px",
+          fontSize: "11px",
+          color: "var(--vscode-foreground)",
+          lineHeight: 1.5,
+          pointerEvents: "none",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: "3px", color: MODE_METADATA[tooltip.id].color }}>
+            {MODE_METADATA[tooltip.id].label}
+          </div>
+          {MODE_METADATA[tooltip.id].desc}
         </div>
       )}
     </div>
@@ -841,14 +859,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
             }}
             placeholder={
               isHistoryMode
-                ? "History mode - sending messages is disabled"
+                ? t("chat.inputHistoryMode")
                 : !isConnected
                   ? t("chat.connectionErrorPlaceholder")
                   : isLoadingCache
-                    ? "Đang tải dữ liệu từ cache..."
+                    ? t("chat.inputLoadingCache")
                     : isProcessing
-                      ? "Assistant is processing..."
-                      : "Type @ to mention files, folders, or rules..."
+                      ? t("chat.inputProcessing")
+                      : t("chat.inputMentionHint")
             }
             disabled={
               isHistoryMode || !isConnected || isLoadingCache || isProcessing

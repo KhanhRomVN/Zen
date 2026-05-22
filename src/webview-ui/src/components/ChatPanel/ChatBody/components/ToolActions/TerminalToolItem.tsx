@@ -5,8 +5,8 @@ import { getToolColor } from "../../utils";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
-
 import { truncatePath } from "./FileToolItem";
+import { useI18n } from "../../../../../hooks/useI18n";
 
 interface TerminalToolItemProps {
   action: ToolAction;
@@ -27,6 +27,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
   isLastMessage, toolOutputs, terminalStatus, nextUserMessage, rootPath, onToolClick,
 }) => {
   const toolColor = getToolColor("run_command");
+  const { t } = useI18n();
   const actionId = `${messageId}-action-${actionIndex}`;
   const outputData = toolOutputs?.[actionId];
 
@@ -70,8 +71,8 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0 6px 0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--vscode-editor-foreground)", textTransform: "uppercase", letterSpacing: "0.5px", opacity: 0.8 }}>
-            EXECUTE
-          </span>
+              {t("tools.execute")}
+            </span>
           {(action.params.cwd || rootPath) && (
             <span style={{
               fontSize: "11px", color: "var(--vscode-descriptionForeground)", opacity: 0.6,
@@ -120,7 +121,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="6" y="6" width="12" height="12" />
               </svg>
-              FINALIZE
+              {t("tools.finalize")}
             </button>
           )}
         </div>

@@ -1,41 +1,22 @@
-export const en: {
-  settings: {
-    title: string;
-    backendApiUrl: string;
-    backendApiUrlHelp: string;
-    language: string;
-    languageHelp: string;
-    permissionMode: string;
-    permissionModeHelp: string;
-    bypassPermissionsLabel: string;
-    bypassPermissionsDesc: string;
-    acceptEditsLabel: string;
-    acceptEditsDesc: string;
-    autoLabel: string;
-    autoDesc: string;
-    defaultLabel: string;
-    defaultDesc: string;
-    dontAskLabel: string;
-    dontAskDesc: string;
-    planLabel: string;
-    planDesc: string;
-  };
-  chat: {
-    connectionErrorPlaceholder: string;
-  };
-} = {
+export const en = {
   settings: {
     title: "Settings",
+    desc: "Configure your AI provider and preferences",
     backendApiUrl: "Backend API URL",
     backendApiUrlHelp: "API address to fetch models and accounts.",
-    language: "Language",
-    languageHelp: "Interface and AI response language.",
+    language: "Interface Language",
+    languageHelp: "Language of the Zen UI.",
+    aiLanguage: "AI Response Language",
+    aiLanguageHelp: "Language the AI will use when responding.",
+    aiLanguagePlaceholder: "e.g. English, Vietnamese, Japanese...",
+    simpleMode: "Simple Mode",
+    simpleModeDesc: "Show only WRITE & RUN tools. Disable for full tool visibility.",
     permissionMode: "Permission Mode",
     permissionModeHelp: "Determines how the agent executes tools.",
     bypassPermissionsLabel: "Full Access (Bypass)",
     bypassPermissionsDesc: "All tools execute automatically without prompting.",
     acceptEditsLabel: "Auto File Edits",
-    acceptEditsDesc: "Reads and file writes execute automatically; commands/sub-agents require approval.",
+    acceptEditsDesc: "Reads and file writes execute automatically; commands require approval.",
     autoLabel: "Auto Reads",
     autoDesc: "Safe read-only tools execute automatically; file writes and commands require approval.",
     defaultLabel: "Ask Every Time",
@@ -47,5 +28,114 @@ export const en: {
   },
   chat: {
     connectionErrorPlaceholder: "Backend connection error...",
+    newChat: "New Chat",
+    clearChat: "Clear Chat",
+    stopGeneration: "Stop",
+    sendMessage: "Send",
+    inputPlaceholder: "Ask anything...",
+    inputLoadingCache: "Loading cache...",
+    inputProcessing: "Assistant is processing...",
+    inputMentionHint: "Type @ to mention files, folders, or rules...",
+    inputHistoryMode: "History mode - sending messages is disabled",
+    processing: "Processing...",
+    thinking: "Thinking...",
+    retry: "Retry",
+    showMore: "Show more",
+    showLess: "Show less",
+    continueTask: "Continue Task",
+  },
+  home: {
+    slogan0: "Feel Free Chat Free",
+    slogan1: "Chat Free With All Model In the World",
+    slogan2: "Limitless Intelligence, Zero Cost",
+    slogan3: "Powering Your Code with Global AI",
+    slogan4: "High-Performance Chat, Powered by Zen",
+    slogan5: "Your Gateway to All AI Models",
+    prerequisiteLabel: "Prerequisite:",
+    prerequisiteText: "This extension requires",
+    prerequisiteEnsure: "to function. Ensure it is running.",
+    tabAnalytics: "Analytics",
+    statTotalChats: "Today's Tokens",
+    statToolsExecuted: "Today's Requests",
+    statEstimatedSavings: "Favorite Model",
+    statSuccessRate: "Total Accounts",
+    aiModelDistribution: "AI Model Distribution",
+    aiModelDeepseek: "DeepSeek Models",
+    aiModelClaude: "Claude Models",
+    aiModelOthers: "Gemini / OpenAI / Others",
+    recentActivities: "Recent Activities",
+    viewAll: "View All",
+    noRecentChats: "No recent chats available.",
+    loadingHistory: "Loading...",
+    quickSwitchTitle: "Quick Switch Model",
+    selectAccount: "Select Account",
+  },
+  tools: {
+    create: "CREATE",
+    rewrite: "REWRITE",
+    update: "UPDATE",
+    list: "LIST",
+    search: "SEARCH",
+    read: "READ",
+    execute: "EXECUTE",
+    finalize: "FINALIZE",
+    streaming: "Streaming...",
+    approve: "Approve",
+    done: "Done",
+    run: "Run",
+  },
+  history: {
+    title: "History",
+    desc: "Browse and restore past conversations",
+    searchPlaceholder: "Search conversations...",
+    newestFirst: "Newest first",
+    oldestFirst: "Oldest first",
+    clearAll: "Clear All",
+    clearAllTitle: "Clear all history?",
+    clearAllDesc: "This will permanently delete all conversations.",
+    noConversations: "No conversations yet",
+    noResults: "No results found",
+    noResultsHint: "Try a different search term",
+    noConversationsHint: "Start a new conversation to see it here",
+    loading: "Loading conversations...",
+    delete: "Delete",
+    copyContent: "Copy Content",
+    openFolder: "Open Folder",
+  },
+  revert: {
+    title: "Revert conversation?",
+    description: "This will restore all modified files to their state before this message. Messages after this point will be removed.",
+    confirm: "Revert",
+    cancel: "Cancel",
+  },
+  permission: {
+    bypassPermissions: "Full Access",
+    acceptEdits: "Auto Edits",
+    auto: "Auto Reads",
+    default: "Ask Every Time",
+    dontAsk: "Deny All",
+    plan: "Read Only",
+  },
+  toolActions: {
+    accept: "Accept",
+    acceptAll: "Accept All",
+    reject: "Reject",
+    running: "Running...",
+    done: "Done",
+    error: "Error",
+  },
+  common: {
+    close: "Close",
+    save: "Save",
+    cancel: "Cancel",
+    confirm: "Confirm",
+    delete: "Delete",
+    copy: "Copy",
+    copied: "Copied!",
+    loading: "Loading...",
+    error: "Error",
+    success: "Success",
   },
 };
+
+export type I18nDict = typeof en;

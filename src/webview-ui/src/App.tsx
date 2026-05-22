@@ -209,58 +209,32 @@ const App: React.FC = () => {
           <ProjectProvider>
             <div className="app-container">
               {console.log("[App] render state", { showHistory, showSettings, selectedTab: selectedTab?.tabId, conversationId: (selectedTab as any)?.conversationId }) as any}
-              {!showHistory && !showSettings && (
-                <>
-                  {selectedTab ? (
-                    <ChatPanel
-                      selectedTab={selectedTab}
-                      onBack={handleBack}
-                      tabs={tabs}
-                      onTabSelect={handleTabSelect}
-                      onLoadConversation={handleLoadConversation}
-                      initialMessageData={initialMessageData}
-                      onClearInitialData={() => setInitialMessageData(null)}
-                    />
-                  ) : (
-                    <HomePanel
-                      onSendMessage={handleHomeSendMessage}
-                      onLoadConversation={handleLoadConversation}
-                      initialValue={homeInitialValue}
-                    />
-                  )}
-                </>
-              )}
-              {showHistory && (
-                <HistoryPanel
-                  isOpen={showHistory}
-                  onClose={() => {
-                    setShowHistory(false);
-                    // Restore previous panel
-                    if (previousPanel === "chat" && selectedTab) {
-                      // Stay in chat
-                    } else {
-                      setSelectedTab(null); // Go back to tab panel
-                    }
-                    setPreviousPanel(null);
-                  }}
+              {selectedTab ? (
+                <ChatPanel
+                  selectedTab={selectedTab}
+                  onBack={handleBack}
+                  tabs={tabs}
+                  onTabSelect={handleTabSelect}
                   onLoadConversation={handleLoadConversation}
+                  initialMessageData={initialMessageData}
+                  onClearInitialData={() => setInitialMessageData(null)}
+                />
+              ) : (
+                <HomePanel
+                  onSendMessage={handleHomeSendMessage}
+                  onLoadConversation={handleLoadConversation}
+                  initialValue={homeInitialValue}
                 />
               )}
-              {showSettings && (
-                <SettingsPanel
-                  isOpen={showSettings}
-                  onClose={() => {
-                    setShowSettings(false);
-                    // Restore previous panel
-                    if (previousPanel === "chat" && selectedTab) {
-                      // Stay in chat
-                    } else {
-                      setSelectedTab(null); // Go back to tab panel
-                    }
-                    setPreviousPanel(null);
-                  }}
-                />
-              )}
+              <HistoryPanel
+                isOpen={showHistory}
+                onClose={() => { setShowHistory(false); setPreviousPanel(null); }}
+                onLoadConversation={handleLoadConversation}
+              />
+              <SettingsPanel
+                isOpen={showSettings}
+                onClose={() => { setShowSettings(false); setPreviousPanel(null); }}
+              />
             </div>
           </ProjectProvider>
         </BackendConnectionProvider>

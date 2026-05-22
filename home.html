@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zen — Free AI Chat For ALL LLM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg2: #111118;
+  --bg3: #18181f;
+  --bg4: #1e1e28;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #f0f0f8;
+  --text2: #a0a0b8;
+  --text3: #606078;
+  --accent: #7c6af5;
+  --accent2: #9d8fff;
+  --accent-glow: rgba(124,106,245,0.15);
+  --green: #3de89a;
+  --amber: #f5a623;
+  --red: #f5504a;
+  --blue: #4a9eff;
+  --teal: #2dd4bf;
+  --card-bg: rgba(255,255,255,0.03);
+  --card-border: rgba(255,255,255,0.06);
+  --nav-bg: rgba(10,10,15,0.85);
+  --hero-grad: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(124,106,245,0.18) 0%, transparent 70%);
+}
+[data-theme="light"] {
+  --bg: #f5f5fa;
+  --bg2: #ffffff;
+  --bg3: #ededf5;
+  --bg4: #e8e8f2;
+  --border: rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.12);
+  --text: #0f0f1a;
+  --text2: #555568;
+  --text3: #9090a8;
+  --accent: #6054e0;
+  --accent2: #7c6af5;
+  --accent-glow: rgba(96,84,224,0.1);
+  --green: #17a86a;
+  --amber: #d4830a;
+  --red: #d93e39;
+  --blue: #2878d4;
+  --teal: #0d9488;
+  --card-bg: rgba(255,255,255,0.8);
+  --card-border: rgba(0,0,0,0.08);
+  --nav-bg: rgba(245,245,250,0.85);
+  --hero-grad: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(96,84,224,0.1) 0%, transparent 70%);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Instrument Sans',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.6;
+  overflow-x:hidden;
+  transition:background .3s,color .3s;
+}
+::selection{background:var(--accent);color:#fff}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(20px);
+  background:var(--nav-bg);
+  border-bottom:1px solid var(--border);
+  transition:background .3s;
+}
+.nav-inner{
+  max-width:1400px;margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 2rem;height:60px;
+}
+.nav-logo{
+  display:flex;align-items:center;gap:.6rem;
+  font-family:'Syne',sans-serif;font-weight:800;font-size:1.15rem;
+  color:var(--text);text-decoration:none;
+}
+.logo-icon{
+  width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:.75rem;color:#fff;font-weight:700;letter-spacing:-.5px;
+}
+.nav-links{display:flex;align-items:center;gap:2rem}
+.nav-links a{
+  color:var(--text2);text-decoration:none;font-size:.875rem;
+  font-weight:500;transition:color .2s;
+}
+.nav-links a:hover{color:var(--text)}
+.nav-actions{display:flex;align-items:center;gap:.75rem}
+.btn{
+  display:inline-flex;align-items:center;gap:.4rem;
+  padding:.5rem 1.1rem;border-radius:8px;font-size:.875rem;
+  font-weight:500;text-decoration:none;cursor:pointer;
+  font-family:'Instrument Sans',sans-serif;
+  transition:all .2s;border:none;
+}
+.btn-ghost{
+  color:var(--text2);background:transparent;
+  border:1px solid var(--border2);
+}
+.btn-ghost:hover{color:var(--text);background:var(--bg3)}
+.btn-primary{
+  background:var(--accent);color:#fff;
+  box-shadow:0 0 20px var(--accent-glow);
+}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-1px);box-shadow:0 0 30px var(--accent-glow)}
+.theme-toggle{
+  width:36px;height:36px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border2);background:transparent;
+  cursor:pointer;color:var(--text2);transition:all .2s;
+  font-size:1rem;
+}
+.theme-toggle:hover{background:var(--bg3);color:var(--text)}
+.hamburger{display:none;flex-direction:column;gap:4px;cursor:pointer;padding:4px;background:none;border:none}
+.hamburger span{width:22px;height:2px;background:var(--text2);border-radius:2px;transition:all .3s}
+.mobile-menu{display:none}
+
+/* HERO */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;padding:6rem 2rem 4rem;
+  position:relative;overflow:hidden;
+}
+.hero::before{
+  content:'';position:absolute;inset:0;
+  background:var(--hero-grad);pointer-events:none;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.35rem .9rem;border-radius:999px;
+  background:var(--accent-glow);border:1px solid rgba(124,106,245,0.25);
+  color:var(--accent2);font-size:.8rem;font-weight:500;
+  font-family:'DM Mono',monospace;margin-bottom:2rem;
+  animation:fadeUp .6s ease both;
+}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero h1{
+  font-family:'Syne',sans-serif;font-weight:800;
+  font-size:clamp(2.8rem,7vw,6rem);line-height:1.05;
+  letter-spacing:-.03em;margin-bottom:1.5rem;
+  animation:fadeUp .7s .1s ease both;
+}
+.hero h1 .accent-word{color:var(--accent2)}
+.hero h1 .outline-word{
+  -webkit-text-stroke:1.5px var(--accent);
+  color:transparent;
+}
+.hero-sub{
+  font-size:clamp(1rem,2vw,1.2rem);color:var(--text2);
+  max-width:520px;margin:0 auto 2.5rem;line-height:1.7;
+  animation:fadeUp .7s .2s ease both;
+}
+.hero-actions{
+  display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;
+  animation:fadeUp .7s .3s ease both;
+}
+.btn-large{padding:.75rem 1.75rem;font-size:1rem;border-radius:10px}
+.hero-stats{
+  display:flex;gap:3rem;justify-content:center;margin-top:4rem;
+  flex-wrap:wrap;animation:fadeUp .7s .5s ease both;
+}
+.hero-stat{text-align:center}
+.hero-stat-num{
+  font-family:'Syne',sans-serif;font-weight:800;font-size:1.8rem;
+  color:var(--text);letter-spacing:-.03em;
+}
+.hero-stat-label{font-size:.8rem;color:var(--text3);margin-top:.2rem}
+.hero-divider{width:1px;height:40px;background:var(--border2);align-self:center}
+
+/* SCROLL INDICATOR */
+.scroll-hint{
+  position:absolute;bottom:2rem;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:.5rem;
+  color:var(--text3);font-size:.75rem;animation:bounce 2s infinite;
+}
+.scroll-hint::after{
+  content:'';width:1px;height:30px;background:linear-gradient(to bottom,var(--text3),transparent);
+}
+@keyframes bounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(5px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* MARQUEE */
+.marquee-wrap{
+  overflow:hidden;padding:1.5rem 0;
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  background:var(--bg2);
+}
+.marquee-track{
+  display:flex;gap:3rem;white-space:nowrap;
+  animation:marquee 20s linear infinite;
+}
+.marquee-track:hover{animation-play-state:paused}
+.marquee-item{
+  display:flex;align-items:center;gap:.6rem;
+  font-size:.875rem;color:var(--text3);flex-shrink:0;
+}
+.marquee-item strong{color:var(--text2);font-weight:500}
+.marquee-dot{width:4px;height:4px;border-radius:50%;background:var(--accent);opacity:.5}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* SECTIONS */
+section{padding:6rem 2rem}
+.container{max-width:1200px;margin:0 auto}
+.container-wide{max-width:1400px;margin:0 auto}
+.section-label{
+  font-family:'DM Mono',monospace;font-size:.75rem;
+  color:var(--accent2);letter-spacing:.12em;text-transform:uppercase;
+  margin-bottom:1rem;
+}
+.section-title{
+  font-family:'Syne',sans-serif;font-weight:800;
+  font-size:clamp(1.8rem,4vw,3rem);letter-spacing:-.03em;
+  line-height:1.1;margin-bottom:1.25rem;
+}
+.section-sub{font-size:1.05rem;color:var(--text2);max-width:520px;line-height:1.7}
+
+/* FEATURES GRID */
+.features-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:1.5px;margin-top:4rem;
+  border:1.5px solid var(--border);border-radius:16px;overflow:hidden;
+}
+.feature-card{
+  padding:2rem;background:var(--bg2);
+  transition:background .2s;position:relative;
+}
+.feature-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,var(--accent-glow),transparent);
+  opacity:0;transition:opacity .3s;pointer-events:none;
+}
+.feature-card:hover{background:var(--bg3)}
+.feature-card:hover::before{opacity:1}
+.feature-icon{
+  width:44px;height:44px;border-radius:10px;
+  background:var(--accent-glow);border:1px solid rgba(124,106,245,0.2);
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:1.25rem;font-size:1.2rem;
+}
+.feature-card h3{
+  font-family:'Syne',sans-serif;font-weight:700;font-size:1.05rem;
+  margin-bottom:.5rem;letter-spacing:-.01em;
+}
+.feature-card p{font-size:.9rem;color:var(--text2);line-height:1.65}
+
+/* TOOL TIMELINE */
+.tools-section{background:var(--bg2)}
+.tool-list{
+  display:flex;flex-direction:column;gap:0;margin-top:3rem;
+  border:1px solid var(--border);border-radius:14px;overflow:hidden;
+}
+.tool-item{
+  display:flex;align-items:center;gap:1.5rem;
+  padding:1.25rem 1.75rem;background:var(--bg2);
+  border-bottom:1px solid var(--border);transition:background .2s;
+  cursor:default;
+}
+.tool-item:last-child{border-bottom:none}
+.tool-item:hover{background:var(--bg3)}
+.tool-badge{
+  display:inline-flex;align-items:center;
+  padding:.3rem .7rem;border-radius:6px;
+  font-family:'DM Mono',monospace;font-size:.72rem;font-weight:500;
+  flex-shrink:0;min-width:80px;justify-content:center;letter-spacing:.04em;
+}
+.tool-badge.blue{background:rgba(74,158,255,.12);color:var(--blue);border:1px solid rgba(74,158,255,.2)}
+.tool-badge.orange{background:rgba(245,166,35,.12);color:var(--amber);border:1px solid rgba(245,166,35,.2)}
+.tool-badge.gray{background:rgba(150,150,180,.1);color:var(--text3);border:1px solid var(--border2)}
+.tool-badge.purple{background:rgba(124,106,245,.12);color:var(--accent2);border:1px solid rgba(124,106,245,.2)}
+.tool-badge.teal{background:rgba(45,212,191,.12);color:var(--teal);border:1px solid rgba(45,212,191,.2)}
+.tool-badge.red{background:rgba(245,80,74,.12);color:var(--red);border:1px solid rgba(245,80,74,.2)}
+.tool-info h4{font-size:.95rem;font-weight:500;margin-bottom:.2rem}
+.tool-info p{font-size:.83rem;color:var(--text3);line-height:1.5}
+.tool-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-left:auto;
+  background:var(--border2);
+}
+
+/* PERMISSION MODES */
+.modes-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:1rem;margin-top:3rem;
+}
+.mode-card{
+  padding:1.5rem;border-radius:12px;
+  border:1px solid var(--card-border);background:var(--card-bg);
+  transition:all .2s;cursor:default;
+}
+.mode-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.mode-tag{
+  display:inline-block;padding:.25rem .6rem;border-radius:5px;
+  font-family:'DM Mono',monospace;font-size:.7rem;margin-bottom:.75rem;
+}
+.mode-card h4{font-size:.9rem;font-weight:600;margin-bottom:.4rem}
+.mode-card p{font-size:.82rem;color:var(--text2);line-height:1.5}
+
+/* UI MOCKUP */
+.mockup-wrap{
+  position:relative;margin-top:4rem;
+  border-radius:16px;overflow:hidden;
+  border:1px solid var(--border2);
+  box-shadow:0 40px 80px rgba(0,0,0,.4);
+}
+.mockup-bar{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.75rem 1rem;background:var(--bg3);
+  border-bottom:1px solid var(--border);
+}
+.mockup-dots{display:flex;gap:.4rem}
+.dot{width:12px;height:12px;border-radius:50%}
+.dot.r{background:#f5504a}.dot.y{background:#f5a623}.dot.g{background:#3de89a}
+.mockup-title{
+  flex:1;text-align:center;font-family:'DM Mono',monospace;
+  font-size:.75rem;color:var(--text3);
+}
+.mockup-body{
+  display:grid;grid-template-columns:52px 1fr;
+  background:var(--bg);min-height:420px;
+}
+.sidebar-icons{
+  display:flex;flex-direction:column;align-items:center;
+  padding:.75rem 0;gap:.5rem;background:var(--bg2);
+  border-right:1px solid var(--border);
+}
+.si-icon{
+  width:36px;height:36px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;cursor:pointer;transition:background .2s;color:var(--text3);
+}
+.si-icon:hover{background:var(--bg3);color:var(--text)}
+.si-icon.active{background:var(--accent-glow);color:var(--accent2)}
+.si-sep{width:24px;height:1px;background:var(--border);margin:.25rem 0}
+.chat-area{display:flex;flex-direction:column}
+.chat-header-mock{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.75rem 1.25rem;border-bottom:1px solid var(--border);
+}
+.chat-header-left{display:flex;align-items:center;gap:.75rem}
+.back-btn{
+  width:28px;height:28px;border-radius:6px;background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;color:var(--text3);
+}
+.chat-task{font-size:.85rem;font-weight:500}
+.ctx-badge{
+  font-family:'DM Mono',monospace;font-size:.7rem;
+  padding:.2rem .5rem;border-radius:5px;
+  background:var(--accent-glow);color:var(--accent2);
+  border:1px solid rgba(124,106,245,.2);
+}
+.model-badge-mock{
+  font-family:'DM Mono',monospace;font-size:.7rem;
+  padding:.2rem .5rem;border-radius:5px;
+  background:var(--bg3);color:var(--text3);border:1px solid var(--border2);
+}
+.chat-messages{flex:1;padding:1.25rem;display:flex;flex-direction:column;gap:1rem;overflow:hidden}
+.msg{display:flex;gap:.75rem;align-items:flex-start}
+.msg-avatar{
+  width:28px;height:28px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;
+}
+.msg-avatar.user{background:var(--accent);color:#fff}
+.msg-avatar.ai{background:linear-gradient(135deg,var(--teal),var(--blue));color:#fff}
+.msg-bubble{
+  padding:.6rem .9rem;border-radius:10px;font-size:.82rem;line-height:1.5;max-width:85%;
+}
+.msg-bubble.user{background:var(--accent);color:#fff;border-radius:10px 10px 3px 10px}
+.msg-bubble.ai{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:10px 10px 10px 3px}
+.tool-timeline{padding:.25rem .75rem 0}
+.timeline-item{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.4rem .75rem;border-radius:7px;
+  background:var(--bg2);border:1px solid var(--border);
+  margin-bottom:.4rem;font-size:.75rem;
+}
+.ti-badge-small{
+  padding:.15rem .5rem;border-radius:4px;
+  font-family:'DM Mono',monospace;font-size:.65rem;font-weight:500;
+}
+.ti-badge-small.blue{background:rgba(74,158,255,.12);color:var(--blue)}
+.ti-badge-small.orange{background:rgba(245,166,35,.12);color:var(--amber)}
+.ti-badge-small.red{background:rgba(245,80,74,.12);color:var(--red)}
+.ti-path{color:var(--text3);font-family:'DM Mono',monospace}
+.ti-check{color:var(--green);margin-left:auto}
+.chat-input-mock{
+  padding:.75rem 1rem;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:.5rem;
+}
+.chat-input-box{
+  flex:1;padding:.5rem .75rem;border-radius:8px;
+  background:var(--bg3);border:1px solid var(--border2);
+  font-size:.8rem;color:var(--text2);display:flex;align-items:center;gap:.5rem;
+}
+.input-cursor{
+  width:2px;height:14px;background:var(--accent);
+  animation:blink 1s infinite;display:inline-block;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.send-btn-mock{
+  width:32px;height:32px;border-radius:7px;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.9rem;color:#fff;flex-shrink:0;
+}
+.toolbar-mock{display:flex;gap:.4rem;align-items:center}
+.toolbar-btn{
+  width:28px;height:28px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border2);background:var(--bg3);
+  font-size:.75rem;color:var(--text3);cursor:pointer;
+}
+
+/* ANALYTICS SECTION */
+.analytics-wrap{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:1rem;margin-top:3rem;
+}
+.analytics-card{
+  padding:1.5rem;border-radius:12px;
+  border:1px solid var(--card-border);background:var(--card-bg);
+  position:relative;overflow:hidden;
+}
+.analytics-card::after{
+  content:'';position:absolute;top:-30px;right:-30px;
+  width:80px;height:80px;border-radius:50%;
+  background:var(--accent-glow);
+}
+.analytics-card .a-num{
+  font-family:'Syne',sans-serif;font-weight:800;
+  font-size:2rem;letter-spacing:-.04em;color:var(--text);
+}
+.analytics-card .a-label{font-size:.8rem;color:var(--text3);margin-top:.25rem}
+.analytics-card .a-change{
+  font-size:.75rem;font-family:'DM Mono',monospace;margin-top:.75rem;
+  color:var(--green);
+}
+.model-bar-section{margin-top:1.5rem}
+.model-bar-label{display:flex;justify-content:space-between;font-size:.8rem;color:var(--text2);margin-bottom:.4rem}
+.model-bar-track{height:6px;border-radius:999px;background:var(--bg3);overflow:hidden}
+.model-bar-fill{height:100%;border-radius:999px;transition:width .6s ease}
+.mbar-deepseek{background:linear-gradient(90deg,var(--blue),var(--teal))}
+.mbar-claude{background:linear-gradient(90deg,var(--amber),#f5804a)}
+.mbar-other{background:linear-gradient(90deg,var(--accent),#c4b5fd)}
+
+/* REVERT SYSTEM */
+.revert-demo{
+  margin-top:3rem;border-radius:14px;overflow:hidden;
+  border:1px solid var(--border2);
+}
+.checkpoint-bar{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.6rem 1rem;background:var(--bg3);
+  border-bottom:1px solid var(--border);font-size:.8rem;
+}
+.checkpoint-icon{color:var(--accent2);font-size:1rem}
+.checkpoint-label{
+  font-family:'DM Mono',monospace;font-size:.72rem;
+  color:var(--text2);font-weight:500;letter-spacing:.05em;
+}
+.cp-action{
+  margin-left:auto;display:flex;gap:.5rem;
+}
+.cp-btn{
+  padding:.25rem .6rem;border-radius:6px;font-size:.72rem;font-weight:500;
+  border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;
+  transition:all .2s;
+}
+.cp-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.diff-view{padding:1rem;background:var(--bg);font-family:'DM Mono',monospace;font-size:.78rem}
+.diff-line{display:flex;gap:.75rem;padding:.15rem .5rem;border-radius:4px}
+.diff-line.removed{background:rgba(245,80,74,.08);color:var(--red)}
+.diff-line.added{background:rgba(61,232,154,.08);color:var(--green)}
+.diff-line.context{color:var(--text3)}
+.diff-sign{flex-shrink:0;width:12px}
+
+/* INSTALL */
+.install-box{
+  margin-top:3rem;border-radius:14px;overflow:hidden;
+  border:1px solid var(--border);
+}
+.install-tab-bar{
+  display:flex;border-bottom:1px solid var(--border);
+  background:var(--bg2);
+}
+.install-tab{
+  padding:.65rem 1.25rem;font-size:.82rem;font-weight:500;
+  color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .2s;margin-bottom:-1px;
+}
+.install-tab.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+.install-tab:hover{color:var(--text2)}
+.install-content{padding:1.25rem;background:var(--bg)}
+.code-block{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:10px;padding:1rem 1.25rem;position:relative;
+}
+.code-block code{
+  font-family:'DM Mono',monospace;font-size:.83rem;
+  color:var(--text2);display:block;line-height:1.7;
+}
+.code-block code .cmd{color:var(--teal)}
+.code-block code .arg{color:var(--text)}
+.code-block code .comment{color:var(--text3)}
+.copy-btn{
+  position:absolute;top:.75rem;right:.75rem;
+  padding:.25rem .6rem;border-radius:6px;font-size:.72rem;
+  border:1px solid var(--border2);background:var(--bg3);
+  color:var(--text3);cursor:pointer;transition:all .2s;
+  font-family:'Instrument Sans',sans-serif;
+}
+.copy-btn:hover{color:var(--text);border-color:var(--border2)}
+.install-steps{display:flex;flex-direction:column;gap:.75rem;margin-top:1rem}
+.install-step{
+  display:flex;align-items:flex-start;gap:.75rem;padding:.75rem;
+  border-radius:10px;background:var(--bg2);border:1px solid var(--border);
+}
+.step-num{
+  width:24px;height:24px;border-radius:50%;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.72rem;font-weight:700;color:#fff;flex-shrink:0;margin-top:.1rem;
+}
+.step-text{font-size:.875rem;line-height:1.5}
+.step-text strong{color:var(--accent2)}
+
+/* CTA */
+.cta-section{
+  text-align:center;padding:8rem 2rem;
+  position:relative;overflow:hidden;
+}
+.cta-section::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 60% 60% at 50% 50%, var(--accent-glow), transparent);
+}
+.cta-section .section-title{font-size:clamp(2rem,5vw,4rem)}
+.cta-section .section-sub{margin:0 auto 2.5rem;max-width:460px}
+.cta-badges{
+  display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-top:2rem;
+}
+.cta-badge{
+  display:inline-flex;align-items:center;gap:.4rem;
+  padding:.35rem .8rem;border-radius:999px;
+  background:var(--bg3);border:1px solid var(--border2);
+  font-size:.8rem;color:var(--text2);
+}
+.cta-badge .icon{font-size:.75rem}
+
+/* FOOTER */
+footer{
+  border-top:1px solid var(--border);
+  background:var(--bg2);
+}
+.footer-inner-wide{max-width:1400px;margin:0 auto;padding:4rem 2rem 2rem}
+.footer-top{
+  display:grid;grid-template-columns:280px 1fr;
+  gap:4rem;padding-bottom:3rem;
+  border-bottom:1px solid var(--border);
+}
+.footer-brand{display:flex;flex-direction:column;gap:1rem}
+.footer-brand-logo{display:flex;align-items:center;gap:.6rem}
+.logo-icon-sm{
+  width:28px;height:28px;border-radius:7px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;color:#fff;font-weight:700;flex-shrink:0;
+}
+.footer-brand-name{font-family:'Syne',sans-serif;font-weight:800;font-size:1.05rem;color:var(--text)}
+.footer-brand-desc{font-size:.83rem;color:var(--text3);line-height:1.65;max-width:220px}
+.footer-socials{display:flex;gap:.5rem;margin-top:.25rem}
+.social-link{
+  display:inline-flex;align-items:center;gap:.35rem;
+  padding:.35rem .75rem;border-radius:7px;
+  border:1px solid var(--border2);background:transparent;
+  font-size:.78rem;color:var(--text3);text-decoration:none;
+  font-weight:500;transition:all .2s;
+}
+.social-link:hover{color:var(--text);background:var(--bg3);border-color:var(--border2)}
+.footer-cols{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:2rem;
+}
+.footer-col{display:flex;flex-direction:column;gap:.5rem}
+.footer-col-title{
+  font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--text3);
+  margin-bottom:.35rem;
+}
+.footer-col a{
+  font-size:.83rem;color:var(--text2);text-decoration:none;
+  font-weight:400;transition:color .2s;width:fit-content;
+}
+.footer-col a:hover{color:var(--accent2)}
+.footer-bottom{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:1rem;padding-top:1.5rem;
+}
+.footer-copy{font-size:.78rem;color:var(--text3)}
+.footer-bottom-links{display:flex;align-items:center;gap:.5rem}
+.footer-bottom-links a{font-size:.78rem;color:var(--text3);text-decoration:none;transition:color .2s}
+.footer-bottom-links a:hover{color:var(--text)}
+.footer-sep{color:var(--text3);font-size:.7rem}
+@media(max-width:900px){
+  .footer-top{grid-template-columns:1fr;gap:2.5rem}
+  .footer-brand-desc{max-width:100%}
+  .footer-cols{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .footer-cols{grid-template-columns:1fr}
+  .footer-bottom{flex-direction:column;align-items:flex-start}
+}
+
+/* SLOGAN CYCLE */
+.slogan-cycle{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.4rem 1rem;border-radius:999px;
+  border:1px solid var(--border2);background:var(--bg3);
+  font-size:.82rem;color:var(--text2);margin-bottom:1.5rem;
+  overflow:hidden;height:36px;position:relative;
+}
+.slogan-inner{
+  animation:sloganCycle 12s infinite;
+  display:flex;flex-direction:column;gap:0;
+}
+.slogan-inner span{height:20px;display:flex;align-items:center;white-space:nowrap}
+@keyframes sloganCycle{
+  0%,15%{transform:translateY(0)}
+  20%,35%{transform:translateY(-20px)}
+  40%,55%{transform:translateY(-40px)}
+  60%,75%{transform:translateY(-60px)}
+  80%,95%{transform:translateY(-80px)}
+  100%{transform:translateY(-100px)}
+}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .nav-links{display:none}
+  .hamburger{display:flex}
+  .mobile-menu{
+    display:none;flex-direction:column;gap:1rem;
+    position:fixed;top:60px;left:0;right:0;
+    background:var(--nav-bg);backdrop-filter:blur(20px);
+    padding:1.5rem 2rem;border-bottom:1px solid var(--border);
+    z-index:99;
+  }
+  .mobile-menu.open{display:flex}
+  .mobile-menu a{
+    color:var(--text2);text-decoration:none;font-size:1rem;font-weight:500;padding:.5rem 0;
+    border-bottom:1px solid var(--border);
+  }
+  .mobile-menu a:last-child{border-bottom:none}
+  .hero-stats{gap:1.5rem}
+  .hero-divider{display:none}
+  .mockup-body{grid-template-columns:1fr}
+  .sidebar-icons{display:none}
+  .chat-header-left{gap:.4rem}
+  .install-tab-bar{overflow-x:auto}
+  section{padding:4rem 1.5rem}
+  .footer-inner{flex-direction:column;text-align:center}
+  .footer-links{justify-content:center}
+}
+@media(max-width:480px){
+  .hero{padding:5rem 1.25rem 3rem}
+  .nav-inner{padding:0 1.25rem}
+  .btn-large{padding:.65rem 1.25rem;font-size:.9rem}
+}
+@media(min-width:1600px){
+  .hero h1{font-size:7rem}
+  .features-grid{grid-template-columns:repeat(3,1fr)}
+}
+
+/* VISIBLE ANIMATIONS ON SCROLL */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .6s ease,transform .6s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+
+/* GLOW LINE */
+.glow-line{
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  opacity:.4;margin:0;
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">
+      <div class="logo-icon">ZN</div>
+      Zen
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#tools">Tools</a>
+      <a href="#modes">Permissions</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/KhanhRomVN/Zen" target="_blank">GitHub ↗</a>
+    </div>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="themeBtn" title="Toggle theme">🌙</button>
+      <a href="https://elara-home.vercel.app/" class="btn btn-ghost" target="_blank">Elara Backend</a>
+      <a href="https://github.com/KhanhRomVN/Zen" class="btn btn-primary" target="_blank">Get Zen Free</a>
+      <button class="hamburger" id="hamburger" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#features" onclick="closeMobile()">Features</a>
+  <a href="#tools" onclick="closeMobile()">Tools</a>
+  <a href="#modes" onclick="closeMobile()">Permissions</a>
+  <a href="#install" onclick="closeMobile()">Install</a>
+  <a href="https://github.com/KhanhRomVN/Zen" target="_blank">GitHub ↗</a>
+</div>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="slogan-cycle">
+    <span>✦</span>
+    <div class="slogan-inner">
+      <span>Feel Free Chat Free</span>
+      <span>Chat Free With All Model In the World</span>
+      <span>Limitless Intelligence, Zero Cost</span>
+      <span>Powering Your Code with Global AI</span>
+      <span>Your Gateway to All AI Models</span>
+      <span>Feel Free Chat Free</span>
+    </div>
+  </div>
+
+  <div class="hero-badge">
+    <span class="badge-dot"></span>
+    v1.1.2 · MIT License · Free Forever
+  </div>
+
+  <h1>
+    The AI Agent<br>
+    that <span class="accent-word">lives</span> in<br>
+    <span class="outline-word">VSCode</span>
+  </h1>
+
+  <p class="hero-sub">
+    Zen turns your editor into a full AI agent. Write files, run commands, search code — powered by every LLM on Earth. No subscription. No limits.
+  </p>
+
+  <div class="hero-actions">
+    <a href="https://github.com/KhanhRomVN/Zen" class="btn btn-primary btn-large" target="_blank">
+      ⬇ Install Free
+    </a>
+    <a href="#features" class="btn btn-ghost btn-large">Explore Features →</a>
+  </div>
+
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-num">$0</div>
+      <div class="hero-stat-label">Forever Free</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">∞</div>
+      <div class="hero-stat-label">Any LLM Provider</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">6</div>
+      <div class="hero-stat-label">Agent Tools</div>
+    </div>
+    <div class="hero-divider"></div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">MIT</div>
+      <div class="hero-stat-label">Open Source</div>
+    </div>
+  </div>
+
+  <div class="scroll-hint">scroll</div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track" id="marqueeTrack">
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>DeepSeek</strong> R1 · V3</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Claude</strong> 3.5 Sonnet · Haiku</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Gemini</strong> 2.0 Flash · Pro</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>GPT-4o</strong> · o3-mini</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Llama 3</strong> · Mixtral</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Qwen</strong> 2.5 · Coder</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Mistral</strong> Large · Nemo</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Any Provider</strong> via Elara</div>
+    <!-- duplicate for seamless -->
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>DeepSeek</strong> R1 · V3</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Claude</strong> 3.5 Sonnet · Haiku</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Gemini</strong> 2.0 Flash · Pro</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>GPT-4o</strong> · o3-mini</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Llama 3</strong> · Mixtral</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Qwen</strong> 2.5 · Coder</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Mistral</strong> Large · Nemo</div>
+    <div class="marquee-item"><span class="marquee-dot"></span><strong>Any Provider</strong> via Elara</div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Why Zen</div>
+      <h2 class="section-title">Everything you need.<br>Nothing you don't.</h2>
+      <p class="section-sub">Built for developers who want full control over their AI tools — without vendor lock-in or monthly bills.</p>
+    </div>
+
+    <div class="features-grid reveal">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Truly Free</h3>
+        <p>No subscription. No usage limits. No credit card. Bring your own API keys through Elara and pay only for what you use — often nothing with free tiers.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <h3>Every LLM</h3>
+        <p>Switch between DeepSeek, Claude, Gemini, OpenAI, Llama, Qwen and more in one click. Never be locked to a single provider again.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3>Real Agent</h3>
+        <p>Zen doesn't just suggest code — it writes files, runs terminal commands, searches your codebase, and executes multi-step tasks autonomously.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔄</div>
+        <h3>Revert Anything</h3>
+        <p>Every AI response creates a checkpoint. Undo any file change or command at any point in the conversation with one click.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Private by Default</h3>
+        <p>Your code goes to your own Elara instance — never to a third-party cloud. Full data sovereignty, always.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📝</div>
+        <h3>Full History</h3>
+        <p>Search, restore, and branch from any past conversation. Date-grouped history with title, model, and workspace context preserved.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- UI MOCKUP -->
+<div class="glow-line"></div>
+<section style="padding:4rem 2rem;background:var(--bg2)">
+  <div class="container">
+    <div class="reveal" style="text-align:center;margin-bottom:0">
+      <div class="section-label">Interface</div>
+      <h2 class="section-title">Lives in your sidebar</h2>
+      <p class="section-sub" style="margin:0 auto">No new windows. No context switching. Zen is always there, right where you need it.</p>
+    </div>
+    <div class="mockup-wrap reveal">
+      <div class="mockup-bar">
+        <div class="mockup-dots">
+          <div class="dot r"></div>
+          <div class="dot y"></div>
+          <div class="dot g"></div>
+        </div>
+        <div class="mockup-title">Visual Studio Code — zen-project</div>
+        <div style="font-size:.72rem;color:var(--text3);font-family:'DM Mono',monospace">v1.1.2</div>
+      </div>
+      <div class="mockup-body">
+        <div class="sidebar-icons">
+          <div class="si-icon" title="Explorer">📁</div>
+          <div class="si-icon" title="Search">🔍</div>
+          <div class="si-icon active" title="Zen AI">ZN</div>
+          <div class="si-sep"></div>
+          <div class="si-icon" title="Extensions">⧉</div>
+        </div>
+        <div class="chat-area">
+          <div class="chat-header-mock">
+            <div class="chat-header-left">
+              <div class="back-btn">←</div>
+              <div class="chat-task">Refactor auth module</div>
+              <div class="ctx-badge">2.4k / 8k tokens</div>
+            </div>
+            <div style="display:flex;gap:.4rem;align-items:center">
+              <div class="model-badge-mock">deepseek/deepseek-coder · dev@acme.com</div>
+              <div class="back-btn" title="New chat">+</div>
+            </div>
+          </div>
+          <div class="chat-messages">
+            <div class="msg">
+              <div class="msg-avatar user">U</div>
+              <div class="msg-bubble user">Refactor the auth module to use JWT tokens and add refresh token support</div>
+            </div>
+            <div class="msg">
+              <div class="msg-avatar ai">AI</div>
+              <div style="flex:1">
+                <div class="msg-bubble ai">I'll refactor the auth module for you. Let me start by reading the current implementation...</div>
+                <div class="tool-timeline">
+                  <div class="timeline-item">
+                    <span class="ti-badge-small blue">READ</span>
+                    <span class="ti-path">src/auth/auth.service.ts</span>
+                    <span class="ti-check">✓</span>
+                  </div>
+                  <div class="timeline-item">
+                    <span class="ti-badge-small orange">UPDATE</span>
+                    <span class="ti-path">src/auth/auth.service.ts</span>
+                    <span class="ti-check">✓</span>
+                  </div>
+                  <div class="timeline-item">
+                    <span class="ti-badge-small blue">CREATE</span>
+                    <span class="ti-path">src/auth/refresh.service.ts</span>
+                    <span class="ti-check">✓</span>
+                  </div>
+                  <div class="timeline-item">
+                    <span class="ti-badge-small red">EXECUTE</span>
+                    <span class="ti-path">npm run test:auth</span>
+                    <span style="font-family:'DM Mono',monospace;font-size:.68rem;color:var(--green);margin-left:auto">3 passed ✓</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chat-input-mock">
+            <div class="toolbar-mock">
+              <div class="toolbar-btn" title="Attach">+</div>
+              <div class="toolbar-btn" title="Permission Mode" style="background:rgba(124,106,245,.1);color:var(--accent2);border-color:rgba(124,106,245,.3)">⚙</div>
+              <div class="toolbar-btn" title="Thinking Mode" style="background:rgba(167,139,250,.08);color:#c4b5fd;border-color:rgba(167,139,250,.2)">🧠</div>
+            </div>
+            <div class="chat-input-box">
+              <span style="color:var(--text3)">Ask Zen anything...</span>
+              <span class="input-cursor"></span>
+            </div>
+            <div class="send-btn-mock">→</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="glow-line"></div>
+
+<!-- TOOLS -->
+<section id="tools">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Agent Tools</div>
+      <h2 class="section-title">Six tools.<br>Infinite possibilities.</h2>
+      <p class="section-sub">Every action Zen takes is shown as a live timeline in the chat — transparent, auditable, reversible.</p>
+    </div>
+    <div class="tool-list reveal">
+      <div class="tool-item">
+        <span class="tool-badge blue">CREATE</span>
+        <div class="tool-info">
+          <h4>write_to_file</h4>
+          <p>Creates a new file or completely rewrites an existing one with the AI's output</p>
+        </div>
+        <div class="tool-dot" style="background:var(--blue)"></div>
+      </div>
+      <div class="tool-item">
+        <span class="tool-badge orange">UPDATE</span>
+        <div class="tool-info">
+          <h4>replace_in_file</h4>
+          <p>Smart diff-based partial replacement — only changes what needs changing, preserving context</p>
+        </div>
+        <div class="tool-dot" style="background:var(--amber)"></div>
+      </div>
+      <div class="tool-item">
+        <span class="tool-badge gray">READ</span>
+        <div class="tool-info">
+          <h4>read_file</h4>
+          <p>Reads file content and feeds it into the AI's context for understanding and analysis</p>
+        </div>
+        <div class="tool-dot" style="background:var(--text3)"></div>
+      </div>
+      <div class="tool-item">
+        <span class="tool-badge purple">LIST</span>
+        <div class="tool-info">
+          <h4>list_files</h4>
+          <p>Maps out directory structure so the AI understands your project layout before acting</p>
+        </div>
+        <div class="tool-dot" style="background:var(--accent2)"></div>
+      </div>
+      <div class="tool-item">
+        <span class="tool-badge teal">SEARCH</span>
+        <div class="tool-info">
+          <h4>search_files</h4>
+          <p>Pattern-based search across your entire workspace — finds references, usages, and definitions</p>
+        </div>
+        <div class="tool-dot" style="background:var(--teal)"></div>
+      </div>
+      <div class="tool-item">
+        <span class="tool-badge red">EXECUTE</span>
+        <div class="tool-info">
+          <h4>run_command</h4>
+          <p>Runs terminal commands with live output streaming — tests, builds, installs, deploys</p>
+        </div>
+        <div class="tool-dot" style="background:var(--red)"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ANALYTICS -->
+<section style="background:var(--bg2);padding:6rem 2rem">
+  <div class="container">
+    <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:start">
+      <div>
+        <div class="section-label">Dashboard</div>
+        <h2 class="section-title">Track your<br>AI usage</h2>
+        <p class="section-sub" style="max-width:400px">The HomePanel gives you an at-a-glance view of your productivity, estimated savings, and which models you use most.</p>
+      </div>
+      <div>
+        <div class="analytics-wrap">
+          <div class="analytics-card">
+            <div class="a-num">247</div>
+            <div class="a-label">Total Chats</div>
+            <div class="a-change">↑ 12 this week</div>
+          </div>
+          <div class="analytics-card">
+            <div class="a-num">2.2k</div>
+            <div class="a-label">Tools Executed</div>
+            <div class="a-change">↑ 94 today</div>
+          </div>
+          <div class="analytics-card">
+            <div class="a-num">$111</div>
+            <div class="a-label">Estimated Savings</div>
+            <div class="a-change" style="color:var(--teal)">vs. Copilot</div>
+          </div>
+          <div class="analytics-card">
+            <div class="a-num">99.4%</div>
+            <div class="a-label">API Success Rate</div>
+            <div class="a-change">All systems nominal</div>
+          </div>
+        </div>
+        <div style="margin-top:1.5rem;padding:1.25rem;border-radius:12px;border:1px solid var(--card-border);background:var(--card-bg)">
+          <div style="font-size:.8rem;color:var(--text3);margin-bottom:1rem;font-family:'DM Mono',monospace;letter-spacing:.05em">MODEL DISTRIBUTION</div>
+          <div class="model-bar-section">
+            <div class="model-bar-label"><span>DeepSeek Models</span><span style="color:var(--blue)">50%</span></div>
+            <div class="model-bar-track"><div class="model-bar-fill mbar-deepseek" style="width:50%"></div></div>
+          </div>
+          <div class="model-bar-section" style="margin-top:.75rem">
+            <div class="model-bar-label"><span>Claude Models</span><span style="color:var(--amber)">30%</span></div>
+            <div class="model-bar-track"><div class="model-bar-fill mbar-claude" style="width:30%"></div></div>
+          </div>
+          <div class="model-bar-section" style="margin-top:.75rem">
+            <div class="model-bar-label"><span>Gemini / OpenAI / Others</span><span style="color:var(--accent2)">20%</span></div>
+            <div class="model-bar-track"><div class="model-bar-fill mbar-other" style="width:20%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PERMISSION MODES -->
+<section id="modes">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Control</div>
+      <h2 class="section-title">You decide<br>how much AI does.</h2>
+      <p class="section-sub">Six permission modes let you tune the agent's autonomy — from fully automated to completely manual.</p>
+    </div>
+    <div class="modes-grid reveal">
+      <div class="mode-card">
+        <div class="mode-tag" style="background:rgba(245,80,74,.1);color:var(--red);border:1px solid rgba(245,80,74,.2)">bypassPermissions</div>
+        <h4>Full Access</h4>
+        <p>All tools execute automatically. Maximum speed for trusted workflows.</p>
+      </div>
+      <div class="mode-card">
+        <div class="mode-tag" style="background:rgba(245,166,35,.1);color:var(--amber);border:1px solid rgba(245,166,35,.2)">acceptEdits</div>
+        <h4>Auto File Edits</h4>
+        <p>File reads and writes are automatic. Commands still require your approval.</p>
+      </div>
+      <div class="mode-card" style="border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-glow)">
+        <div style="position:absolute;top:-.5rem;left:1rem;background:var(--accent);color:#fff;font-size:.65rem;padding:.15rem .5rem;border-radius:999px;font-weight:600">DEFAULT</div>
+        <div class="mode-tag" style="background:var(--accent-glow);color:var(--accent2);border:1px solid rgba(124,106,245,.3)">auto</div>
+        <h4>Auto Reads</h4>
+        <p>Safe read-only tools run automatically. Writes and commands need approval.</p>
+      </div>
+      <div class="mode-card">
+        <div class="mode-tag" style="background:rgba(74,158,255,.1);color:var(--blue);border:1px solid rgba(74,158,255,.2)">default</div>
+        <h4>Ask Every Time</h4>
+        <p>Maximum control. Every single tool action requires manual confirmation.</p>
+      </div>
+      <div class="mode-card">
+        <div class="mode-tag" style="background:rgba(150,150,180,.1);color:var(--text3);border:1px solid var(--border2)">plan</div>
+        <h4>Read Only (Plan)</h4>
+        <p>AI can read and plan but cannot write files or run commands.</p>
+      </div>
+      <div class="mode-card">
+        <div class="mode-tag" style="background:rgba(45,212,191,.1);color:var(--teal);border:1px solid rgba(45,212,191,.2)">dontAsk</div>
+        <h4>Deny All</h4>
+        <p>All tools are silently blocked. Pure conversation mode, no actions.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- REVERT SYSTEM -->
+<section style="background:var(--bg2);padding:6rem 2rem">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center" class="reveal">
+      <div>
+        <div class="section-label">Safety Net</div>
+        <h2 class="section-title">Undo any<br>AI decision.</h2>
+        <p class="section-sub">Every AI response creates an automatic checkpoint. Disagree with what the AI did? Revert to any point in the conversation — files restored instantly.</p>
+        <div style="margin-top:2rem;display:flex;flex-direction:column;gap:.75rem">
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.9rem">
+            <span style="color:var(--green);font-size:1rem">✓</span>
+            <span style="color:var(--text2)">Automatic checkpoint at every response</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.9rem">
+            <span style="color:var(--green);font-size:1rem">✓</span>
+            <span style="color:var(--text2)">Diff view of every file change</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.9rem">
+            <span style="color:var(--green);font-size:1rem">✓</span>
+            <span style="color:var(--text2)">One-click restore, no manual git needed</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;font-size:.9rem">
+            <span style="color:var(--green);font-size:1rem">✓</span>
+            <span style="color:var(--text2)">Re-send original prompt after revert</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="revert-demo">
+          <div class="checkpoint-bar">
+            <span class="checkpoint-icon">📍</span>
+            <span class="checkpoint-label">CHECKPOINT #3</span>
+            <span style="color:var(--text3);font-size:.75rem;margin-left:.5rem">2 files modified</span>
+            <div class="cp-action">
+              <button class="cp-btn">⊞ Diff</button>
+              <button class="cp-btn" id="revertBtn">↩ Revert</button>
+            </div>
+          </div>
+          <div class="diff-view">
+            <div class="diff-line context"><span class="diff-sign"> </span>import { JwtService } from '@nestjs/jwt';</div>
+            <div class="diff-line removed"><span class="diff-sign">-</span>import { AuthService } from './auth.service';</div>
+            <div class="diff-line added"><span class="diff-sign">+</span>import { AuthService, RefreshService } from './auth';</div>
+            <div class="diff-line context"><span class="diff-sign"> </span></div>
+            <div class="diff-line removed"><span class="diff-sign">-</span>  async login(user: User) {</div>
+            <div class="diff-line added"><span class="diff-sign">+</span>  async login(user: User): Promise&lt;TokenPair&gt; {</div>
+            <div class="diff-line added"><span class="diff-sign">+</span>    const refresh = await this.refreshService.create(user);</div>
+            <div class="diff-line added"><span class="diff-sign">+</span>    return { access: this.jwt.sign(payload), refresh };</div>
+            <div class="diff-line context"><span class="diff-sign"> </span>  }</div>
+          </div>
+        </div>
+        <div id="revertMsg" style="display:none;margin-top:.75rem;padding:.75rem 1rem;border-radius:8px;background:rgba(61,232,154,.08);border:1px solid rgba(61,232,154,.2);color:var(--green);font-size:.82rem;font-family:'DM Mono',monospace">
+          ✓ Reverted to checkpoint #3 — files restored
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install">
+  <div class="container" style="max-width:760px">
+    <div class="reveal" style="text-align:center">
+      <div class="section-label">Get Started</div>
+      <h2 class="section-title">Up and running<br>in 3 steps.</h2>
+    </div>
+    <div class="install-steps reveal">
+      <div class="install-step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          Set up <strong>Elara</strong> — the self-hosted AI proxy server that manages your API keys and routes requests to any LLM provider.
+          <br><a href="https://elara-home.vercel.app/" style="color:var(--accent2);font-size:.82rem;text-decoration:none" target="_blank">→ elara-home.vercel.app</a>
+        </div>
+      </div>
+      <div class="install-step">
+        <div class="step-num">2</div>
+        <div class="step-text">Install the <strong>Zen extension</strong> in VSCode from the marketplace or build from source.</div>
+      </div>
+      <div class="install-step">
+        <div class="step-num">3</div>
+        <div class="step-text">Open Zen from the VSCode sidebar, configure your <strong>backend URL</strong>, and start chatting with any model.</div>
+      </div>
+    </div>
+
+    <div class="install-box reveal" style="margin-top:2rem">
+      <div class="install-tab-bar">
+        <div class="install-tab active" onclick="switchTab('vsix',this)">From VSIX</div>
+        <div class="install-tab" onclick="switchTab('source',this)">From Source</div>
+        <div class="install-tab" onclick="switchTab('prereq',this)">Prerequisites</div>
+      </div>
+      <div class="install-content" id="tab-vsix">
+        <div class="code-block">
+          <button class="copy-btn" onclick="copyCode('code-vsix')">Copy</button>
+          <code id="code-vsix"><span class="cmd">code</span> <span class="arg">--install-extension</span> zen-1.1.2.vsix</code>
+        </div>
+      </div>
+      <div class="install-content" id="tab-source" style="display:none">
+        <div class="code-block">
+          <button class="copy-btn" onclick="copyCode('code-source')">Copy</button>
+          <code id="code-source">
+<span class="cmd">git</span> <span class="arg">clone</span> https://github.com/KhanhRomVN/Zen.git
+<span class="cmd">cd</span> Zen
+<span class="cmd">npm</span> <span class="arg">install</span>
+<span class="cmd">npm</span> <span class="arg">run</span> compile
+          </code>
+        </div>
+      </div>
+      <div class="install-content" id="tab-prereq" style="display:none">
+        <div style="display:flex;flex-direction:column;gap:.5rem;font-size:.875rem">
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--green)">✓</span>
+            <span>VSCode ≥ 1.84.0</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--green)">✓</span>
+            <span>Elara running at <code style="font-family:'DM Mono',monospace;font-size:.8rem;color:var(--accent2)">http://localhost:8888</code></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0">
+            <span style="color:var(--green)">✓</span>
+            <span>At least one AI provider configured in Elara with an API key</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container" style="position:relative;z-index:1">
+    <div class="section-label" style="text-align:center">Open Source · Free Forever</div>
+    <h2 class="section-title">Start building<br>with Zen today.</h2>
+    <p class="section-sub" style="margin:0 auto 2.5rem">No credit card. No subscription. No vendor lock-in. Just you, your editor, and the AI of your choice.</p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <a href="https://github.com/KhanhRomVN/Zen" class="btn btn-primary btn-large" target="_blank">⬇ Get Zen Free on GitHub</a>
+      <a href="https://elara-home.vercel.app/" class="btn btn-ghost btn-large" target="_blank">Set up Elara →</a>
+    </div>
+    <div class="cta-badges">
+      <div class="cta-badge"><span class="icon">⚡</span> VSCode Extension</div>
+      <div class="cta-badge"><span class="icon">🔓</span> MIT License</div>
+      <div class="cta-badge"><span class="icon">🌐</span> Any LLM Provider</div>
+      <div class="cta-badge"><span class="icon">🔒</span> Self-hosted</div>
+      <div class="cta-badge"><span class="icon">🇻🇳</span> Vietnamese Support</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner-wide">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="footer-brand-logo">
+          <div class="logo-icon-sm">ZN</div>
+          <span class="footer-brand-name">Zen</span>
+        </div>
+        <p class="footer-brand-desc">Free AI Chat For ALL LLM.<br>Open-source VSCode extension by KhanhRomVN.</p>
+        <div class="footer-socials">
+          <a href="https://github.com/KhanhRomVN" target="_blank" class="social-link" title="GitHub">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+            GitHub
+          </a>
+          <a href="mailto:khanhromvn@gmail.com" class="social-link" title="Email">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Email
+          </a>
+        </div>
+      </div>
+      <div class="footer-cols">
+        <div class="footer-col">
+          <div class="footer-col-title">Product</div>
+          <a href="#features">Features</a>
+          <a href="#tools">Agent Tools</a>
+          <a href="#modes">Permission Modes</a>
+          <a href="#install">Installation</a>
+          <a href="https://github.com/KhanhRomVN/Zen/releases" target="_blank">Changelog</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Resources</div>
+          <a href="https://github.com/KhanhRomVN/Zen" target="_blank">GitHub Repository</a>
+          <a href="https://elara-home.vercel.app/" target="_blank">Elara Backend</a>
+          <a href="https://github.com/KhanhRomVN/Zen/issues" target="_blank">Report a Bug</a>
+          <a href="https://github.com/KhanhRomVN/Zen/blob/main/LICENSE" target="_blank">MIT License</a>
+          <a href="https://github.com/KhanhRomVN?tab=repositories" target="_blank">More Projects</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title">Legal</div>
+          <a href="privacy-policy.html">Privacy Policy</a>
+          <a href="terms-of-service.html">Terms of Service</a>
+          <a href="mailto:khanhromvn@gmail.com">Contact Us</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2025 KhanhRomVN · Zen v1.1.2 · Released under the MIT License</div>
+      <div class="footer-bottom-links">
+        <a href="privacy-policy.html">Privacy</a>
+        <span class="footer-sep">·</span>
+        <a href="terms-of-service.html">Terms</a>
+        <span class="footer-sep">·</span>
+        <a href="mailto:khanhromvn@gmail.com">khanhromvn@gmail.com</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// THEME TOGGLE
+const themeBtn=document.getElementById('themeBtn');
+const html=document.documentElement;
+let dark=true;
+function setTheme(d){
+  dark=d;
+  html.setAttribute('data-theme',d?'dark':'light');
+  themeBtn.textContent=d?'🌙':'☀️';
+  localStorage.setItem('zen-theme',d?'dark':'light');
+}
+const saved=localStorage.getItem('zen-theme');
+if(saved)setTheme(saved==='dark');
+themeBtn.addEventListener('click',()=>setTheme(!dark));
+
+// HAMBURGER
+const ham=document.getElementById('hamburger');
+const mob=document.getElementById('mobileMenu');
+ham.addEventListener('click',()=>{
+  mob.classList.toggle('open');
+});
+function closeMobile(){mob.classList.remove('open')}
+
+// TABS
+function switchTab(id,el){
+  ['vsix','source','prereq'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===id?'block':'none';
+  });
+  document.querySelectorAll('.install-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// COPY CODE
+function copyCode(id){
+  const code=document.getElementById(id).innerText.trim();
+  navigator.clipboard.writeText(code).then(()=>{
+    const btn=event.target;
+    btn.textContent='Copied!';
+    setTimeout(()=>btn.textContent='Copy',2000);
+  });
+}
+
+// REVERT DEMO
+document.getElementById('revertBtn').addEventListener('click',function(){
+  this.textContent='Reverting...';
+  this.style.color='var(--amber)';
+  setTimeout(()=>{
+    this.textContent='✓ Reverted';
+    this.style.color='var(--green)';
+    document.getElementById('revertMsg').style.display='block';
+  },800);
+});
+
+// SCROLL REVEAL
+const revealEls=document.querySelectorAll('.reveal');
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+},{threshold:0.1,rootMargin:'0px 0px -50px 0px'});
+revealEls.forEach(el=>observer.observe(el));
+
+// SMOOTH NAV
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+    const id=a.getAttribute('href');
+    const target=document.querySelector(id);
+    if(target){e.preventDefault();target.scrollIntoView({behavior:'smooth'})}
+  });
+});
+
+// ANALYTICS BAR ANIMATION
+setTimeout(()=>{
+  document.querySelectorAll('.model-bar-fill').forEach(bar=>{
+    const w=bar.style.width;
+    bar.style.width='0';
+    setTimeout(()=>bar.style.width=w,100);
+  });
+},300);
+</script>
+</body>
+</html>

@@ -1,28 +1,17 @@
 import React, { useState, useEffect } from "react";
 import {
-  Zap,
-  Search,
-  History,
-  Loader2,
-  FolderOpen,
-  MessageSquare,
-  Terminal,
-  DollarSign,
-  Activity,
-  BarChart2,
-  ChevronRight,
-  Trash2,
+  Loader2, FolderOpen, MessageSquare, Zap,
+  Users, Brain,
 } from "lucide-react";
 import { ConversationItem } from "../HistoryPanel/types";
+import HistoryCard from "../HistoryPanel/HistoryCard";
+import { useI18n } from "../../hooks/useI18n";
+import { useSettings } from "../../context/SettingsContext";
 
-const SLOGANS = [
-  "Feel Free Chat Free",
-  "Chat Free With All Model In the World",
-  "Limitless Intelligence, Zero Cost",
-  "Powering Your Code with Global AI",
-  "High-Performance Chat, Powered by Zen",
-  "Your Gateway to All AI Models",
-];
+const SLOGANS_KEYS = [
+  "home.slogan0", "home.slogan1", "home.slogan2",
+  "home.slogan3", "home.slogan4", "home.slogan5",
+] as const;
 
 interface WelcomeUIProps {
   onLoadConversation?: (
@@ -34,15 +23,66 @@ interface WelcomeUIProps {
 
 const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
   const imagesUri = (window as any).__zenImagesUri;
+  const { t } = useI18n();
+  const { apiUrl } = useSettings();
   const [sloganIndex, setSloganIndex] = useState(0);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"stats" | "history">("stats");
+
+  // Real stats from Elara
+  const [todayTokens, setTodayTokens] = useState<number>(0);
+  const [todayRequests, setTodayRequests] = useState<number>(0);
+  const [favoriteModel, setFavoriteModel] = useState<string>("—");
+  const [totalAccounts, setTotalAccounts] = useState<number>(0);
+  const [modelDistribution, setModelDistribution] = useState<{ model_id: string; provider_id: string; total_requests: number; total_tokens: number }[]>([]);
+  const [providerFavicons, setProviderFavicons] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const [statsRes, accountsRes, providersRes] = await Promise.all([
+          fetch(`${apiUrl}/v1/stats?period=day`),
+          fetch(`${apiUrl}/v1/accounts?page=1&limit=1000`),
+          fetch(`${apiUrl}/v1/providers`),
+        ]);
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          if (stats.success && stats.data) {
+            const usage: { requests: number; tokens: number }[] = stats.data.usage || [];
+            setTodayTokens(usage.reduce((s: number, u: any) => s + (u.tokens || 0), 0));
+            setTodayRequests(usage.reduce((s: number, u: any) => s + (u.requests || 0), 0));
+            const models: any[] = (stats.data.models || []).filter((m: any) => m.total_requests > 0);
+            setModelDistribution(models.slice(0, 5));
+            if (models.length > 0) setFavoriteModel(models[0].model_id);
+          }
+        }
+        if (accountsRes.ok) {
+          const accs = await accountsRes.json();
+          if (accs.success && accs.data) {
+            setTotalAccounts(accs.data.total ?? accs.data.accounts?.length ?? 0);
+          }
+        }
+        if (providersRes.ok) {
+          const prov = await providersRes.json();
+          if (prov.success && prov.data) {
+            const favicons: Record<string, string> = {};
+            prov.data.forEach((p: any) => {
+              if (p.provider_id && p.website) {
+                try { favicons[p.provider_id] = `${new URL(p.website).origin}/favicon.ico`; } catch {}
+              }
+            });
+            setProviderFavicons(favicons);
+          }
+        }
+      } catch {}
+    };
+    fetchStats();
+  }, [apiUrl]);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setSloganIndex((prev) => (prev + 1) % SLOGANS.length);
+      setSloganIndex((prev) => (prev + 1) % SLOGANS_KEYS.length);
     }, 3000);
     return () => clearInterval(timer);
   }, []);
@@ -94,10 +134,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
     e.stopPropagation();
     const vscodeApi = (window as any).vscodeApi;
     if (vscodeApi) {
-      vscodeApi.postMessage({
-        command: "confirmDelete",
-        conversationId: id,
-      });
+      vscodeApi.postMessage({ command: "confirmDelete", conversationId: id });
     }
   };
 
@@ -127,11 +164,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
       return timeB - timeA;
     });
 
-  // Calculate dynamic mock statistics based on actual history size to look realistic
-  const totalChats = conversations.length;
-  const toolsExecuted = totalChats * 9 + (totalChats > 0 ? 14 : 0);
-  const estimatedSavings = (totalChats * 0.45).toFixed(2);
-  const successRate = totalChats > 0 ? "99.4%" : "100%";
+  // no mock stats needed — real data from API
 
   return (
     <div
@@ -219,7 +252,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
               whiteSpace: "nowrap",
             }}
           >
-            {SLOGANS[sloganIndex]}
+            {t(SLOGANS_KEYS[sloganIndex])}
           </div>
         </div>
 
@@ -247,102 +280,18 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
               lineHeight: "1.4",
             }}
           >
-            <strong style={{ color: "#eab308" }}>Prerequisite:</strong> This
-            extension requires{" "}
-            <a
-              href="https://elara-home.vercel.app/"
-              target="_blank"
-              style={{
-                color: "var(--vscode-link-activeForeground, #3b82f6)",
-                textDecoration: "none",
-                fontWeight: 600,
-              }}
-            >
+            <strong style={{ color: "#eab308" }}>{t("home.prerequisiteLabel")}</strong>{" "}
+            {t("home.prerequisiteText")}{" "}
+            <a href="https://elara-home.vercel.app/" target="_blank" style={{ color: "var(--vscode-link-activeForeground, #3b82f6)", textDecoration: "none", fontWeight: 600 }}>
               Elara
             </a>{" "}
-            to function. Ensure it is running.
+            {t("home.prerequisiteEnsure")}
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          width: "100%",
-          borderBottom: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.2))",
-          marginBottom: "16px",
-          paddingBottom: "8px",
-        }}
-      >
-        <button
-          onClick={() => setActiveTab("stats")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            border: "none",
-            background: "transparent",
-            color: activeTab === "stats" ? "var(--vscode-foreground)" : "var(--vscode-disabledForeground)",
-            fontSize: "12px",
-            fontWeight: 600,
-            cursor: "pointer",
-            padding: "4px 8px",
-            position: "relative",
-          }}
-        >
-          <BarChart2 size={13} />
-          <span>Analytics</span>
-          {activeTab === "stats" && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-9px",
-                left: 0,
-                right: 0,
-                height: "2px",
-                backgroundColor: "var(--vscode-button-background)",
-              }}
-            />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab("history")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            border: "none",
-            background: "transparent",
-            color: activeTab === "history" ? "var(--vscode-foreground)" : "var(--vscode-disabledForeground)",
-            fontSize: "12px",
-            fontWeight: 600,
-            cursor: "pointer",
-            padding: "4px 8px",
-            position: "relative",
-          }}
-        >
-          <History size={13} />
-          <span>History ({conversations.length})</span>
-          {activeTab === "history" && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: "-9px",
-                left: 0,
-                right: 0,
-                height: "2px",
-                backgroundColor: "var(--vscode-button-background)",
-              }}
-            />
-          )}
-        </button>
-      </div>
-
-      {activeTab === "stats" ? (
-        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
+      {/* Stats content */}
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
           {/* Stats Grid */}
           <div
             style={{
@@ -381,9 +330,9 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                 <MessageSquare size={16} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                <span style={{ fontSize: "16px", fontWeight: 700 }}>{totalChats}</span>
+                <span style={{ fontSize: "16px", fontWeight: 700 }}>{todayTokens.toLocaleString()}</span>
                 <span style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", fontWeight: 500 }}>
-                  Total Chats
+                  {t("home.statTotalChats")}
                 </span>
               </div>
             </div>
@@ -414,12 +363,12 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                   justifyContent: "center",
                 }}
               >
-                <Terminal size={16} />
+                <Zap size={16} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                <span style={{ fontSize: "16px", fontWeight: 700 }}>{toolsExecuted}</span>
+                <span style={{ fontSize: "16px", fontWeight: 700 }}>{todayRequests}</span>
                 <span style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", fontWeight: 500 }}>
-                  Tools Executed
+                  {t("home.statToolsExecuted")}
                 </span>
               </div>
             </div>
@@ -450,12 +399,12 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                   justifyContent: "center",
                 }}
               >
-                <DollarSign size={16} />
+                <Brain size={16} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                <span style={{ fontSize: "16px", fontWeight: 700 }}>${estimatedSavings}</span>
+                <span style={{ fontSize: "13px", fontWeight: 700, lineHeight: 1.2, wordBreak: "break-all" }}>{favoriteModel}</span>
                 <span style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", fontWeight: 500 }}>
-                  Estimated Savings
+                  {t("home.statEstimatedSavings")}
                 </span>
               </div>
             </div>
@@ -486,12 +435,12 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                   justifyContent: "center",
                 }}
               >
-                <Activity size={16} />
+                <Users size={16} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                <span style={{ fontSize: "16px", fontWeight: 700 }}>{successRate}</span>
+                <span style={{ fontSize: "16px", fontWeight: 700 }}>{totalAccounts}</span>
                 <span style={{ fontSize: "10px", color: "var(--vscode-descriptionForeground)", fontWeight: 500 }}>
-                  API Success Rate
+                  {t("home.statSuccessRate")}
                 </span>
               </div>
             </div>
@@ -508,42 +457,37 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
             }}
           >
             <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--vscode-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "12px", opacity: 0.8 }}>
-              AI Model Distribution
+              {t("home.aiModelDistribution")}
             </div>
             
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {/* DeepSeek */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 500 }}>
-                  <span>DeepSeek Models</span>
-                  <span style={{ opacity: 0.8 }}>50%</span>
-                </div>
-                <div style={{ height: "6px", backgroundColor: "var(--vscode-widget-border, rgba(0,0,0,0.2))", borderRadius: "3px", overflow: "hidden" }}>
-                  <div style={{ width: "50%", height: "100%", backgroundColor: "#3b82f6", borderRadius: "3px" }} />
-                </div>
-              </div>
-
-              {/* Claude */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 500 }}>
-                  <span>Claude Models</span>
-                  <span style={{ opacity: 0.8 }}>30%</span>
-                </div>
-                <div style={{ height: "6px", backgroundColor: "var(--vscode-widget-border, rgba(0,0,0,0.2))", borderRadius: "3px", overflow: "hidden" }}>
-                  <div style={{ width: "30%", height: "100%", backgroundColor: "#d97706", borderRadius: "3px" }} />
-                </div>
-              </div>
-
-              {/* Gemini / Others */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 500 }}>
-                  <span>Gemini / OpenAI / Others</span>
-                  <span style={{ opacity: 0.8 }}>20%</span>
-                </div>
-                <div style={{ height: "6px", backgroundColor: "var(--vscode-widget-border, rgba(0,0,0,0.2))", borderRadius: "3px", overflow: "hidden" }}>
-                  <div style={{ width: "20%", height: "100%", backgroundColor: "#8b5cf6", borderRadius: "3px" }} />
-                </div>
-              </div>
+              {modelDistribution.length === 0 ? (
+                <span style={{ fontSize: "11px", opacity: 0.5, fontStyle: "italic" }}>{t("home.loadingHistory")}</span>
+              ) : (() => {
+                const maxReq = Math.max(...modelDistribution.map((m) => m.total_requests || 0), 1);
+                const colors = ["#3b82f6", "#d97706", "#8b5cf6", "#10b981", "#f43f5e"];
+                return modelDistribution.map((m, i) => {
+                  const pct = Math.round((m.total_requests / maxReq) * 100);
+                  const favicon = providerFavicons[m.provider_id];
+                  return (
+                    <div key={m.model_id} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 500 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "5px", overflow: "hidden" }}>
+                          {favicon && (
+                            <img src={favicon} alt="" width={12} height={12} style={{ borderRadius: "2px", flexShrink: 0 }}
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                          )}
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.model_id}</span>
+                        </div>
+                        <span style={{ opacity: 0.8, flexShrink: 0, marginLeft: "4px" }}>{m.total_requests} req</span>
+                      </div>
+                      <div style={{ height: "6px", backgroundColor: "var(--vscode-widget-border, rgba(0,0,0,0.2))", borderRadius: "3px", overflow: "hidden" }}>
+                        <div style={{ width: `${pct}%`, height: "100%", backgroundColor: colors[i % colors.length], borderRadius: "3px" }} />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
 
@@ -559,285 +503,41 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
               <span style={{ fontSize: "11px", fontWeight: 600, color: "var(--vscode-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.8 }}>
-                Recent Activities
+                {t("home.recentActivities")}
               </span>
-              <button
-                onClick={() => setActiveTab("history")}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  color: "var(--vscode-button-background)",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "2px",
-                  padding: 0,
-                }}
-              >
-                <span>View All</span>
-                <ChevronRight size={12} />
-              </button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               {isLoading ? (
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 0", color: "var(--vscode-disabledForeground)" }}>
                   <Loader2 size={12} className="spin-animation" />
-                  <span style={{ fontSize: "11px" }}>Loading...</span>
+                  <span style={{ fontSize: "11px" }}>{t("home.loadingHistory")}</span>
                 </div>
               ) : conversations.length > 0 ? (
                 conversations.slice(0, 3).map((item) => (
-                  <div
+                  <HistoryCard
                     key={item.id}
-                    onClick={() => {
-                      if (onLoadConversation) onLoadConversation(item.id, item.tabId, item.folderPath);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "8px 10px",
-                      borderRadius: "6px",
-                      backgroundColor: "rgba(0,0,0,0.06)",
-                      cursor: "pointer",
-                      transition: "background-color 0.15s ease",
-                      border: "1px solid transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
-                      e.currentTarget.style.borderColor = "var(--vscode-widget-border)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.06)";
-                      e.currentTarget.style.borderColor = "transparent";
-                    }}
-                  >
-                    <div style={{ display: "flex", flexDirection: "column", gap: "2px", flex: 1, overflow: "hidden", paddingRight: "10px" }}>
-                      <span
-                        style={{
-                          fontSize: "11.5px",
-                          fontWeight: 600,
-                          color: "var(--vscode-foreground)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {item.title || "Untitled Chat"}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: "10px",
-                          color: "var(--vscode-descriptionForeground)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          opacity: 0.8,
-                        }}
-                      >
-                        {item.preview || "No messages yet"}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: "9px", color: "var(--vscode-descriptionForeground)", opacity: 0.6, flexShrink: 0 }}>
-                      {formatDate(new Date(item.lastModified || item.timestamp || item.createdAt || 0).getTime()).split(" ")[0]}
-                    </span>
-                  </div>
+                    item={item}
+                    onClick={() => onLoadConversation?.(item.id, item.tabId, item.folderPath)}
+                    onDelete={(id, e) => { e.stopPropagation(); const vscodeApi = (window as any).vscodeApi; if (vscodeApi) vscodeApi.postMessage({ command: "confirmDelete", conversationId: id }); }}
+                    formatDate={(ts) => { const d = new Date(ts); return `${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()}`; }}
+                  />
                 ))
               ) : (
                 <div style={{ padding: "10px 0", fontSize: "11px", color: "var(--vscode-disabledForeground)", fontStyle: "italic" }}>
-                  No recent chats available.
+                  {t("home.noRecentChats")}
                 </div>
               )}
             </div>
           </div>
         </div>
-      ) : (
-        /* History Panel Mode */
-        <div
-          className="welcome-history-section"
-          style={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}
-        >
-          <div style={{ position: "relative", width: "100%", marginBottom: "4px" }}>
-            <input
-              type="text"
-              placeholder="Search history..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "6px 8px 6px 28px",
-                fontSize: "11px",
-                backgroundColor: "var(--vscode-input-background, var(--input-bg))",
-                border: "1px solid var(--vscode-widget-border, var(--border-color))",
-                borderRadius: "6px",
-                color: "var(--vscode-input-foreground, var(--primary-text))",
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
-            <Search
-              size={12}
-              style={{
-                position: "absolute",
-                left: "8px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--vscode-disabledForeground)",
-              }}
-            />
-          </div>
-
-          <div
-            className="welcome-history-section-list"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              maxHeight: "380px",
-              overflowY: "auto",
-              paddingRight: "0",
-            }}
-          >
-            {isLoading ? (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "40px",
-                  color: "var(--vscode-disabledForeground)",
-                  gap: "8px",
-                }}
-              >
-                <Loader2 size={16} className="spin-animation" />
-                <span style={{ fontSize: "12px" }}>Loading history...</span>
-              </div>
-            ) : filteredConversations.length > 0 ? (
-              filteredConversations.map((item) => (
-                <div
-                  key={item.id}
-                  onClick={() => {
-                    if (onLoadConversation) {
-                      onLoadConversation(item.id, item.tabId, item.folderPath);
-                    }
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 12px",
-                    borderRadius: "8px",
-                    backgroundColor: "var(--vscode-sideBar-background, rgba(0,0,0,0.15))",
-                    border: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = "translateY(-1px)";
-                    e.currentTarget.style.borderColor = "var(--vscode-focusBorder)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = "translateY(0)";
-                    e.currentTarget.style.borderColor = "var(--vscode-widget-border, rgba(128,128,128,0.15))";
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: "3px", flex: 1, overflow: "hidden", paddingRight: "12px" }}>
-                    <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--vscode-foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {item.title || "Untitled Chat"}
-                    </span>
-                    <span style={{ fontSize: "10.5px", color: "var(--vscode-descriptionForeground)", opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {item.preview || "No message preview"}
-                    </span>
-                    <span style={{ fontSize: "9px", color: "var(--vscode-descriptionForeground)", opacity: 0.5 }}>
-                      {formatDate(new Date(item.lastModified || item.timestamp || item.createdAt || 0).getTime())}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={(e) => handleDeleteConversation(item.id, e)}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      color: "var(--vscode-errorForeground, #ff4d4f)",
-                      cursor: "pointer",
-                      padding: "4px",
-                      borderRadius: "4px",
-                      opacity: 0.6,
-                      transition: "opacity 0.2s",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-                    onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.6")}
-                    title="Delete Conversation"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              ))
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "30px",
-                  color: "var(--vscode-disabledForeground)",
-                  backgroundColor: "rgba(0,0,0,0.02)",
-                  borderRadius: "12px",
-                  border: "1px dashed var(--vscode-widget-border)",
-                }}
-              >
-                <FolderOpen
-                  size={22}
-                  style={{ opacity: 0.2, marginBottom: "8px" }}
-                />
-                <span style={{ fontSize: "11px" }}>
-                  {searchQuery ? "No matches found" : "No recent conversations"}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .spin-animation {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .welcome-history-section-list::-webkit-scrollbar {
-          display: none;
-        }
-        .welcome-history-section-list {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .dashboard-card:hover {
-          transform: translateY(-2px);
-          border-color: var(--vscode-focusBorder) !important;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .spin-animation { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .dashboard-card:hover { transform: translateY(-2px); border-color: var(--vscode-focusBorder) !important; box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
       `}</style>
     </div>
   );

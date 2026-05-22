@@ -9,6 +9,7 @@ import { getFilename, getToolColor } from "../../utils";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
+import { useI18n } from "../../../../../hooks/useI18n";
 
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -46,6 +47,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   isLastMessage, isLastItemInList, toolOutputs, allMessages, fileStatsMap, onToolClick,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
+  const { t } = useI18n();
   const toolType = action.type;
   const toolColor = getToolColor(toolType);
   const actionId = `${messageId}-action-${actionIndex}`;
@@ -108,11 +110,11 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   const displayPath = truncatePath(rawPath);
 
   const prefix =
-    toolType === "replace_in_file" ? "UPDATE"
-    : toolType === "write_to_file" ? (fileStatsMap[rawPath] ? "REWRITE" : "CREATE")
-    : toolType === "list_files" ? "LIST"
-    : toolType === "search_files" ? "SEARCH"
-    : "READ";
+    toolType === "replace_in_file" ? t("tools.update")
+    : toolType === "write_to_file" ? (fileStatsMap[rawPath] ? t("tools.rewrite") : t("tools.create"))
+    : toolType === "list_files" ? t("tools.list")
+    : toolType === "search_files" ? t("tools.search")
+    : t("tools.read");
 
   return (
     <div
@@ -138,7 +140,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
             {isPartial && (
               <span style={{ fontSize: "10px", opacity: 0.6, fontStyle: "italic", marginLeft: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
                 <span className="codicon codicon-loading codicon-modifier-spin" style={{ fontSize: "10px" }} />
-                Streaming...
+                {t("tools.streaming")}
               </span>
             )}
             {diffStats && (
@@ -173,7 +175,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
             isLoading={false}
             toolColor={toolColor}
             title="Approve action"
-            labelText="Approve"
+            labelText={t("tools.approve")}
             onExecute={(e, type) => onToolClick(action, messageId, actionIndex, type)}
           />
         </div>

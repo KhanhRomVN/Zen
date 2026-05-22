@@ -1,25 +1,22 @@
-import { en } from "./en";
+import { en, I18nDict } from "./en";
 import { vi } from "./vi";
 
 export type LanguageCode = "en" | "vi";
 
-export const dictionaries: Record<LanguageCode, typeof en> = {
-  en,
-  vi,
-};
+export const dictionaries: Record<LanguageCode, I18nDict> = { en, vi };
 
-export type I18nKey =
-  | "settings.title"
-  | "settings.backendApiUrl"
-  | "settings.backendApiUrlHelp"
-  | "settings.language"
-  | "settings.languageHelp"
-  | "chat.connectionErrorPlaceholder";
+// Dot-notation paths for I18nDict
+type DotPaths<T, Prefix extends string = ""> = {
+  [K in keyof T]: T[K] extends string
+    ? `${Prefix}${K & string}`
+    : DotPaths<T[K], `${Prefix}${K & string}.`>;
+}[keyof T];
+
+export type I18nKey = DotPaths<I18nDict>;
 
 export function t(lang: LanguageCode, key: I18nKey): string {
-  const dict = dictionaries[lang] || dictionaries.en;
+  const dict: any = dictionaries[lang] ?? dictionaries.en;
   const parts = key.split(".");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let node: any = dict;
   for (const p of parts) node = node?.[p];
   return typeof node === "string" ? node : key;

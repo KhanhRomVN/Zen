@@ -13,6 +13,8 @@ export type PermissionMode =
 interface SettingsContextType {
   language: LanguageCode;
   setLanguage: (lang: LanguageCode) => void;
+  aiLanguage: string;
+  setAiLanguage: (lang: string) => void;
   apiUrl: string;
   setApiUrl: (url: string) => void;
   toolPermissions: Record<string, "full_access" | "review">;
@@ -39,6 +41,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [language, setLanguageState] = useState<LanguageCode>("en");
+  const [aiLanguage, setAiLanguageState] = useState<string>("English");
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
   const [permissionModeState, setPermissionModeState] = useState<PermissionMode>("bypassPermissions");
   const [toolPermissionsState, setToolPermissionsState] = useState<
@@ -49,13 +52,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     const storage = extensionService.getStorage();
 
     storage.get("zen_preferred_language").then((res: any) => {
-      if (
-        res?.value &&
-        typeof res.value === "string" &&
-        res.value.length < 10
-      ) {
+      if (res?.value && typeof res.value === "string" && res.value.length < 10) {
         setLanguageState(res.value === "vi" ? "vi" : "en");
       }
+    });
+
+    storage.get("zen_ai_language").then((res: any) => {
+      if (res?.value) setAiLanguageState(res.value);
     });
 
     storage.get("backend-api-url").then((res: any) => {
@@ -86,6 +89,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     setLanguageState(lang === "vi" ? "vi" : "en");
     const storage = extensionService.getStorage();
     storage.set("zen_preferred_language", lang);
+  };
+
+  const setAiLanguage = (lang: string) => {
+    setAiLanguageState(lang);
+    const storage = extensionService.getStorage();
+    storage.set("zen_ai_language", lang);
   };
 
   const setApiUrl = (url: string) => {
@@ -121,6 +130,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         language,
         setLanguage,
+        aiLanguage,
+        setAiLanguage,
         apiUrl,
         setApiUrl,
         toolPermissions: toolPermissionsState,
