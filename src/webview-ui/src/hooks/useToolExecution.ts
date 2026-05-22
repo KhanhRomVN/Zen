@@ -292,6 +292,7 @@ export const useToolExecution = ({
             requestId: requestId,
             skipDiagnostics,
             bypassIgnore,
+            conversationId: conversationIdRef?.current,
           });
 
           const handleResponse = (event: MessageEvent) => {
@@ -331,6 +332,7 @@ export const useToolExecution = ({
             requestId: requestId,
             skipDiagnostics,
             bypassIgnore,
+            conversationId: conversationIdRef?.current,
           });
 
           const handleReplaceResponse = (event: MessageEvent) => {

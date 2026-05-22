@@ -259,7 +259,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       const language = match[1] || "text";
       const codeContent = match[2].trimEnd();
       // If AI wraps content in ```markdown ... ```, treat it as markdown, not a code block
-      if (language === "markdown") {
+      // Also treat bare ``` or ```text with no-newline content as markdown
+      if (language === "markdown" || (language === "text" && !codeContent.includes("\n"))) {
         segments.push({ type: baseType, content: codeContent });
       } else {
         segments.push({

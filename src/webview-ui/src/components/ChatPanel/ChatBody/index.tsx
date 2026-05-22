@@ -51,6 +51,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   isSimpleMode = true,
   isRestored = false,
   onContinue,
+  onRevertConversation,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -229,6 +230,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               onSendMessage={onSendMessage}
               onSelectOption={onSelectOption}
               isSimpleMode={isSimpleMode}
+              onRevertConversation={onRevertConversation}
             />
           );
         })}

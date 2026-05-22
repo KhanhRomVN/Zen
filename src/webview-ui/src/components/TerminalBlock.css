@@ -243,3 +243,45 @@
 .timeline-content {
   padding-left: 29px; /* Offset for timeline area */
 }
+
+/* User message container for hover trigger */
+.user-message-container {
+  position: relative;
+}
+
+/* Undo button for user message box */
+.user-message-undo-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--input-bg) 60%, black);
+  border: 1px solid color-mix(in srgb, var(--input-bg) 40%, black);
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, var(--primary-text) 90%, white);
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.user-message-container:hover .user-message-undo-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.user-message-undo-btn:hover {
+  background: color-mix(in srgb, var(--input-bg) 40%, black);
+  color: #ffffff;
+}
+
+.user-message-undo-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2px;
+}

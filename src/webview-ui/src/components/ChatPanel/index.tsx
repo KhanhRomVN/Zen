@@ -72,6 +72,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   });
 
   const [isRestored, setIsRestored] = useState(false);
+  const [revertInput, setRevertInput] = useState<{ value: string; nonce: number } | null>(null);
 
   const toggleSimpleMode = React.useCallback(() => {
     setIsSimpleMode((prev) => {
@@ -400,6 +401,35 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         data.conversationId === currentConversationId
       ) {
         handleClearConfirmed();
+      } else if (
+        data.command === "conversationReverted" &&
+        data.conversationId === currentConversationId
+      ) {
+        const targetId = revertMessageIdRef.current;
+        revertMessageIdRef.current = null;
+
+        if (targetId === "__first__") {
+          // First message reverted → delete conv and go back to HomePanel
+          deleteConversation(currentConversationId);
+          const firstUserMsg = messagesRef.current.find((m) => !m.uiHidden && !m.isCancelled && m.role === "user");
+          let content = firstUserMsg?.content || "";
+          const match = content.match(/## User Message\n```\n([\s\S]*?)\n```/);
+          if (match) content = match[1];
+          setMessages([]);
+          setIsLoadingConversation(false);
+          onBack(content);
+        } else {
+          setMessages((prev) => {
+            const idx = targetId ? prev.findIndex((m) => m.id === targetId) : -1;
+            if (idx === -1) return prev;
+            const msg = prev[idx];
+            const match = msg.content.match(/## User Message\n```\n([\s\S]*?)\n```/);
+            const content = match ? match[1] : msg.content;
+            setRevertInput({ value: content, nonce: Date.now() });
+            return prev.slice(0, idx);
+          });
+          setIsLoadingConversation(false);
+        }
       }
     };
     window.addEventListener("message", handler);
@@ -414,6 +444,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     });
   }, [currentConversationId]);
 
+  const revertMessageIdRef = useRef<string | null>(null);
+
+  const handleRevertConversation = useCallback((messageId: string, timestamp: number) => {
+    if (!currentConversationId) return;
+    // Check if this is the first user message
+    const visibleUserMessages = messagesRef.current.filter((m) => !m.uiHidden && !m.isCancelled && m.role === "user");
+    const isFirstMessage = visibleUserMessages.length > 0 && visibleUserMessages[0].id === messageId;
+    revertMessageIdRef.current = isFirstMessage ? "__first__" : messageId;
+    setIsLoadingConversation(true);
+    extensionService.postMessage({
+      command: "revertConversation",
+      conversationId: currentConversationId,
+      messageId,
+      timestamp,
+    });
+  }, [currentConversationId, messagesRef]);
   const handleClearConfirmed = async () => {
     if (selectedTab) {
       await deleteConversation(currentConversationId);
@@ -513,6 +559,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onSelectOption={handleSelectOption}
         isRestored={isRestored}
         onContinue={() => setIsRestored(false)}
+        onRevertConversation={handleRevertConversation}
       />
       <ChatFooter
         apiUrl={apiUrl}
@@ -532,6 +579,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onStopGeneration={handleStopGeneration}
         isSimpleMode={isSimpleMode}
         onToggleSimpleMode={toggleSimpleMode}
+        initialValue={revertInput?.value}
+        initialValueNonce={revertInput?.nonce}
       />
     </div>
   );

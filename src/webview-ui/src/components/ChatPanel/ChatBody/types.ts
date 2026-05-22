@@ -62,4 +62,5 @@ export interface ChatBodyProps {
     tabId: number,
     folderPath: string | null,
   ) => void;
+  onRevertConversation?: (messageId: string, timestamp: number) => void;
 }

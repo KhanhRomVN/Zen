@@ -3,6 +3,7 @@ import ChatHeader from "../ChatPanel/ChatHeader";
 import ChatFooter from "../ChatPanel/ChatFooter";
 import WelcomeUI from "./WelcomeUI";
 import { TabInfo } from "../../types";
+import { extensionService } from "../../services/ExtensionService";
 
 interface HomePanelProps {
   onSendMessage: (
@@ -30,9 +31,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
 
   useEffect(() => {
     startWatching();
+    // Trigger history limit enforcement on mount
+    extensionService.postMessage({ command: "getHistory", requestId: `home-enforce-${Date.now()}` });
     return () => {
-      // stopWatching(); // The user said into ChatPanel then stop.
-      // HomePanel unmounts when going to ChatPanel.
       stopWatching();
     };
   }, [startWatching, stopWatching]);

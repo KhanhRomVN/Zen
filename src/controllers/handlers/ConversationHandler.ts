@@ -4,6 +4,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as crypto from "crypto";
 import { FileLockManager } from "../../managers/FileLockManager";
+import { CheckpointManager } from "../../utils/CheckpointManager";
 
 export class ConversationHandler {
   constructor(
@@ -30,6 +31,7 @@ export class ConversationHandler {
         workspaceFolder.uri.fsPath,
       );
       await fs.promises.mkdir(projectContextDir, { recursive: true });
+      await this.enforceHistoryLimit(projectContextDir);
       const entries = await fs.promises.readdir(projectContextDir, {
         withFileTypes: true,
       });
@@ -51,13 +53,24 @@ export class ConversationHandler {
                 messageCount: data.messages?.length || 0,
               });
             } else if (Array.isArray(data) && data.length > 0) {
+              // Get last user message as title
+              const userMessages = data.filter((m: any) => m.role === "user");
+              const lastUserMsg = userMessages[userMessages.length - 1] || data[0];
+              let rawTitle = lastUserMsg.content || "";
+              // Strip ## User Message wrapper
+              const titleMatch = rawTitle.match(/## User Message\n```\n([\s\S]*?)\n```/);
+              if (titleMatch) rawTitle = titleMatch[1];
+              const title = rawTitle.replace(/\n/g, " ").trim().substring(0, 100);
+
               history.push({
                 id: conversationId,
-                title: data[0].content.substring(0, 100),
+                title,
                 timestamp: data[data.length - 1].timestamp || Date.now(),
                 lastModified: data[data.length - 1].timestamp || Date.now(),
-                preview: data[0].content.substring(0, 150),
+                preview: title,
                 messageCount: data.length,
+                totalRequests: userMessages.length,
+                totalTokenUsage: data.reduce((sum: number, m: any) => sum + (m.token_usage || 0), 0),
               });
             }
           } catch {}
@@ -184,6 +197,7 @@ export class ConversationHandler {
       } finally {
         release();
       }
+      await this.enforceHistoryLimit(projectContextDir);
     } catch (e) {
       console.error("Log conversation failed", e);
     }
@@ -209,6 +223,7 @@ export class ConversationHandler {
       } finally {
         release();
       }
+      await this.enforceHistoryLimit(projectContextDir);
     } catch (e) {
       console.error("Create empty chat log failed", e);
     }
@@ -242,6 +257,7 @@ export class ConversationHandler {
       } finally {
         release();
       }
+      await this.enforceHistoryLimit(projectContextDir);
     } catch (e) {
       console.error("Log chat failed", e);
     }
@@ -468,5 +484,126 @@ export class ConversationHandler {
     webviewView: vscode.WebviewView,
   ) {
     // Basic messaging logic if needed
+  }
+
+  public async handleRevertConversation(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+      const { conversationId, messageId, timestamp } = message;
+      if (!conversationId || !messageId) return;
+
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      const logPath = path.join(projectContextDir, `${conversationId}.json`);
+
+      if (!fs.existsSync(logPath)) {
+        throw new Error(`Log file not found: ${logPath}`);
+      }
+
+      const release = await this.fileLockManager.acquire(logPath);
+      try {
+        const fileData = await fs.promises.readFile(logPath, "utf-8");
+        let content = JSON.parse(fileData);
+        if (!Array.isArray(content)) {
+          throw new Error("Invalid conversation log format");
+        }
+
+        const index = content.findIndex((m: any) => m.id === messageId);
+        if (index === -1) {
+          throw new Error(`Message with ID ${messageId} not found in history`);
+        }
+
+        const targetMsg = content[index];
+        const revertTimestamp = typeof targetMsg.timestamp === "string"
+          ? new Date(targetMsg.timestamp).getTime()
+          : (targetMsg.timestamp || timestamp);
+
+        console.log(`[ConversationHandler] 🔄 Reverting conv=${conversationId} to messageId=${messageId} (index=${index}/${content.length - 1}) timestamp=${revertTimestamp}`);
+
+        // Truncate message log to keep messages up to and including the target message
+        content = content.slice(0, index + 1);
+        await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2), "utf-8");
+        console.log(`[ConversationHandler] ✅ Log truncated to ${content.length} messages`);
+
+        // Revert files to the state they were in at/before the revertTimestamp
+        await CheckpointManager.getInstance().revertToCheckpoint(conversationId, revertTimestamp);
+
+      } finally {
+        release();
+      }
+
+      webviewView.webview.postMessage({
+        command: "conversationReverted",
+        conversationId,
+      });
+
+    } catch (e: any) {
+      console.error("Revert conversation failed", e);
+      webviewView.webview.postMessage({
+        command: "conversationRevertedError",
+        error: e.message,
+      });
+    }
+  }
+
+  public async handleOpenConversationFolder(message: any) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+      const { conversationId } = message;
+      if (!conversationId) return;
+      const folderPath = path.join(
+        this.getProjectContextDir(workspaceFolder.uri.fsPath),
+        conversationId,
+      );
+      await fs.promises.mkdir(folderPath, { recursive: true });
+      await vscode.commands.executeCommand(
+        "revealFileInOS",
+        vscode.Uri.file(folderPath),
+      );
+    } catch (e) {
+      console.error("[ConversationHandler] openConversationFolder failed", e);
+    }
+  }
+
+  private async enforceHistoryLimit(projectContextDir: string) {
+    try {
+      const files = await fs.promises.readdir(projectContextDir);
+      const jsonFiles: { name: string; mtime: number }[] = [];
+
+      for (const file of files) {
+        if (file.endsWith(".json")) {
+          const filePath = path.join(projectContextDir, file);
+          try {
+            const stats = await fs.promises.stat(filePath);
+            jsonFiles.push({ name: file, mtime: stats.mtimeMs });
+          } catch {}
+        }
+      }
+
+      if (jsonFiles.length <= 30) return;
+
+      // Sort descending (newest first)
+      jsonFiles.sort((a, b) => b.mtime - a.mtime);
+
+      // Keep first 30, delete the rest
+      const toDelete = jsonFiles.slice(30);
+      for (const item of toDelete) {
+        const logPath = path.join(projectContextDir, item.name);
+        const conversationId = item.name.replace(".json", "");
+        const folderPath = path.join(projectContextDir, conversationId);
+
+        await fs.promises.unlink(logPath).catch(() => {});
+        await fs.promises.rm(folderPath, { recursive: true, force: true }).catch(() => {});
+        console.log(`[ConversationHandler] Pruned old conversation history: ${conversationId}`);
+      }
+    } catch (err) {
+      console.error("[ConversationHandler] Failed to enforce history limit:", err);
+    }
   }
 }

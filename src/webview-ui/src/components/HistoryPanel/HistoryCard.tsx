@@ -1,20 +1,9 @@
 import React from "react";
 import { ConversationItem } from "./types";
-import { getProviderIconPath } from "../../utils/fileIconMapper";
-import {
-  Clock,
-  FolderOpen,
-  MessageSquare,
-  Trash2,
-  Database,
-  CheckCircle,
-  Activity,
-  Zap,
-  Copy,
-} from "lucide-react";
+import { Clock, Trash2, Copy, FolderOpen, Zap } from "lucide-react";
 import { extensionService } from "../../services/ExtensionService";
-
 import { getProviderStyle } from "../../utils/providerStyles";
+import { getProviderIconPath } from "../../utils/fileIconMapper";
 
 interface HistoryCardProps {
   item: ConversationItem;
@@ -23,76 +12,53 @@ interface HistoryCardProps {
   formatDate: (timestamp: number) => string;
 }
 
-const HistoryCard: React.FC<HistoryCardProps> = ({
-  item,
-  onClick,
-  onDelete,
-  formatDate,
-}) => {
+const HistoryCard: React.FC<HistoryCardProps> = ({ item, onClick, onDelete, formatDate }) => {
   const [menuVisible, setMenuVisible] = React.useState(false);
   const [menuPosition, setMenuPosition] = React.useState({ x: 0, y: 0 });
 
   React.useEffect(() => {
-    const handleClickOutside = () => setMenuVisible(false);
-    if (menuVisible) {
-      document.addEventListener("click", handleClickOutside);
-    }
-    return () => document.removeEventListener("click", handleClickOutside);
+    const close = () => setMenuVisible(false);
+    if (menuVisible) document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
   }, [menuVisible]);
-
-  const formatSize = (bytes?: number) => {
-    if (!bytes) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  };
 
   const providerInfo = getProviderStyle(item.provider);
 
   const handleCopyContent = () => {
     const requestId = `copy-${Date.now()}`;
-    extensionService.postMessage({
-      command: "getConversation",
-      conversationId: item.id,
-      requestId,
-    });
-
+    extensionService.postMessage({ command: "getConversation", conversationId: item.id, requestId });
     const handler = (event: MessageEvent) => {
       const data = event.data;
-      if (
-        data.command === "conversationResult" &&
-        data.requestId === requestId
-      ) {
+      if (data.command === "conversationResult" && data.requestId === requestId) {
         window.removeEventListener("message", handler);
         if (data.data?.messages) {
-          const messages = data.data.messages;
-          let fullText = "";
-
-          messages.forEach((msg: any, index: number) => {
+          const text = data.data.messages.map((msg: any) => {
             let content = msg.content;
-
-            // Transformation for req1 (first message)
-            if (index === 0 && msg.role === "user") {
-              const userMsgRegex = /## User Message\n```\n([\s\S]*?)\n```/;
-              const match = content.match(userMsgRegex);
-              if (match) {
-                content = match[1];
-              }
-            }
-
-            const roleName = msg.role === "user" ? "USER" : "ASSISTANT";
-            fullText += `[${roleName}]\n${content}\n\n`;
-          });
-
-          navigator.clipboard.writeText(fullText.trim());
+            const m = content.match(/## User Message\n```\n([\s\S]*?)\n```/);
+            if (m) content = m[1];
+            return `[${msg.role.toUpperCase()}]\n${content}`;
+          }).join("\n\n");
+          navigator.clipboard.writeText(text.trim());
         }
       }
     };
-
     window.addEventListener("message", handler);
-    // Timeout cleanup
     setTimeout(() => window.removeEventListener("message", handler), 5000);
+  };
+
+  const handleOpenFolder = () => {
+    extensionService.postMessage({ command: "openConversationFolder", conversationId: item.id });
+  };
+
+  // Truncate title
+  const title = item.title
+    ? (item.title.length > 60 ? item.title.substring(0, 57) + "..." : item.title)
+    : "Untitled";
+
+  const formatTokens = (n: number) => {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+    if (n >= 1000) return (n / 1000).toFixed(1) + "k";
+    return String(n);
   };
 
   return (
@@ -105,341 +71,106 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
           setMenuPosition({ x: e.clientX, y: e.clientY });
           setMenuVisible(true);
         }}
-        style={{
-          width: "100%",
-          padding: "10px 14px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-        }}
+        style={{ width: "100%", padding: "10px 14px", display: "flex", flexDirection: "column", gap: "6px" }}
       >
-        {/* Header row with Title */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-          }}
-        >
-          <h4
-            style={{
-              fontSize: "13px",
-              fontWeight: 600,
-              flex: 1,
-              color: "var(--primary-text)",
-              margin: 0,
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-              textOverflow: "ellipsis",
-              transition: "color 0.2s ease",
-            }}
-          >
-            {item.title}
-          </h4>
+        {/* Title */}
+        <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--primary-text)", lineHeight: 1.4 }}>
+          {title}
         </div>
 
-        {/* Badges Container */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            flexWrap: "wrap",
-          }}
-        >
-          {/* Date Badge */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              fontSize: "10px",
-              color: "var(--secondary-text)",
-              opacity: 0.7,
-              fontWeight: 500,
-            }}
-          >
+        {/* Badges row */}
+        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+          {/* Date */}
+          <div style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "10px", color: "var(--secondary-text)" }}>
             <Clock size={10} />
             <span>{formatDate(item.lastModified)}</span>
           </div>
 
-          {/* Provider Badge */}
+          {/* Provider */}
           {item.provider && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "2px 6px",
-                borderRadius: "6px",
-                border: `1px solid ${providerInfo.border}`,
-                backgroundColor: providerInfo.bg,
-                color: providerInfo.fg,
-                fontSize: "9px",
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.02em",
-              }}
-            >
-              <img
-                src={getProviderIconPath(item.provider)}
-                alt={item.provider}
-                style={{
-                  width: "10px",
-                  height: "10px",
-                  objectFit: "contain",
-                }}
-              />
+            <div style={{
+              display: "flex", alignItems: "center", gap: "3px",
+              padding: "1px 5px", borderRadius: "4px",
+              border: `1px solid ${providerInfo.border}`,
+              backgroundColor: providerInfo.bg, color: providerInfo.fg,
+              fontSize: "9px", fontWeight: 700, textTransform: "uppercase",
+            }}>
+              <img src={getProviderIconPath(item.provider)} alt={item.provider} style={{ width: "9px", height: "9px", objectFit: "contain" }} />
               {providerInfo.name}
             </div>
           )}
 
-          {/* Requests Badge */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              padding: "2px 6px",
-              borderRadius: "6px",
-              backgroundColor: "rgba(0,0,0,0.03)",
-              border: "1px solid var(--border-color)",
-              color: "var(--secondary-text)",
-              fontSize: "10px",
-            }}
-          >
-            <MessageSquare size={10} style={{ color: "var(--accent-color)" }} />
-            <span style={{ fontWeight: 500 }}>
-              {item.totalRequests || item.messageCount}req
-            </span>
-          </div>
-
-          {/* Tokens Badge */}
+          {/* Token badge */}
           {(item.totalTokenUsage ?? 0) > 0 && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "2px 6px",
-                borderRadius: "6px",
-                backgroundColor: "rgba(0,0,0,0.03)",
-                border: "1px solid var(--border-color)",
-                color: "var(--secondary-text)",
-                fontSize: "10px",
-              }}
-            >
-              <Zap size={10} style={{ color: "#eab308" }} />
-              <span style={{ fontWeight: 500 }}>
-                {(item.totalTokenUsage ?? 0).toLocaleString()} tkn
-              </span>
-            </div>
-          )}
-
-          {/* Task Progress Badge */}
-          {(item.totalTasks ?? 0) > 0 && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "2px 6px",
-                borderRadius: "6px",
-                backgroundColor:
-                  item.completedTasks === item.totalTasks
-                    ? "rgba(34, 197, 94, 0.1)"
-                    : "rgba(30, 64, 175, 0.05)",
-                border: `1px solid ${item.completedTasks === item.totalTasks ? "rgba(34, 197, 94, 0.2)" : "rgba(30, 64, 175, 0.1)"}`,
-                color:
-                  item.completedTasks === item.totalTasks
-                    ? "#16a34a"
-                    : "var(--accent-color)",
-                fontSize: "10px",
-              }}
-            >
-              <CheckCircle size={10} />
-              <span style={{ fontWeight: 600 }}>
-                {item.completedTasks}/{item.totalTasks}
-              </span>
-            </div>
-          )}
-
-          {/* Unique Task Names Badge */}
-          {(item.uniqueTaskCount ?? 0) > 0 && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "2px 6px",
-                borderRadius: "6px",
-                backgroundColor: "rgba(168, 85, 247, 0.05)",
-                border: "1px solid rgba(168, 85, 247, 0.15)",
-                color: "#a855f7",
-                fontSize: "10px",
-              }}
-              title="Unique Task Names"
-            >
-              <Activity size={10} />
-              <span style={{ fontWeight: 600 }}>{item.uniqueTaskCount}</span>
-            </div>
-          )}
-
-          {/* Size Badge */}
-          {item.size !== undefined && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "10px",
-                color: "var(--secondary-text)",
-                opacity: 0.6,
-              }}
-            >
-              <Database size={10} />
-              <span>{formatSize(item.size)}</span>
-            </div>
-          )}
-
-          {/* Folder Path - Right Aligned */}
-          {item.folderPath && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                fontSize: "10px",
-                color: "var(--secondary-text)",
-                marginLeft: "auto",
-                maxWidth: "120px",
-                overflow: "hidden",
-                opacity: 0.7,
-              }}
-              title={item.folderPath}
-            >
-              <FolderOpen size={10} style={{ flexShrink: 0 }} />
-              <span
-                style={{
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {item.folderPath.split("/").pop()}
-              </span>
+            <div style={{
+              display: "flex", alignItems: "center", gap: "3px",
+              padding: "1px 6px", borderRadius: "4px",
+              backgroundColor: "rgba(234,179,8,0.12)",
+              border: "1px solid rgba(234,179,8,0.3)",
+              color: "#ca8a04", fontSize: "10px", fontWeight: 600,
+            }}>
+              <Zap size={9} />
+              <span>{formatTokens(item.totalTokenUsage ?? 0)}</span>
             </div>
           )}
         </div>
       </div>
 
+      {/* Context menu */}
       {menuVisible && (
         <div
-          className="history-context-menu"
           style={{
-            position: "fixed",
-            top: menuPosition.y,
-            left: menuPosition.x,
-            backgroundColor: "var(--tertiary-bg)",
-            border: "1px solid var(--border-color)",
-            borderRadius: "8px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-            zIndex: 1000,
-            minWidth: "160px",
-            padding: "4px",
-            animation: "menuAppear 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
+            position: "fixed", top: menuPosition.y, left: menuPosition.x,
+            backgroundColor: "var(--tertiary-bg)", border: "1px solid var(--border-color)",
+            borderRadius: "8px", boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+            zIndex: 1000, minWidth: "180px", padding: "4px",
           }}
         >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuVisible(false);
-              onDelete(item.id, e);
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "none",
-              backgroundColor: "transparent",
-              color: "var(--error-color)",
-              fontSize: "12px",
-              cursor: "pointer",
-              textAlign: "left",
-              transition: "background-color 0.2s",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "rgba(244, 67, 54, 0.1)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "transparent")
-            }
-          >
-            <Trash2 size={14} />
-            <span>Xóa (Delete)</span>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuVisible(false);
-              handleCopyContent();
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "none",
-              backgroundColor: "transparent",
-              color: "var(--primary-text)",
-              fontSize: "12px",
-              cursor: "pointer",
-              textAlign: "left",
-              transition: "background-color 0.2s",
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = "transparent")
-            }
-          >
-            <Copy size={14} />
-            <span>Copy Toàn Bộ Nội Dung</span>
-          </button>
+          {[
+            {
+              icon: <Trash2 size={13} />, label: "Xóa", color: "var(--error-color)",
+              hoverBg: "rgba(244,67,54,0.1)",
+              action: (e: React.MouseEvent) => { setMenuVisible(false); onDelete(item.id, e); },
+            },
+            {
+              icon: <Copy size={13} />, label: "Copy nội dung", color: "var(--primary-text)",
+              hoverBg: "var(--hover-bg)",
+              action: () => { setMenuVisible(false); handleCopyContent(); },
+            },
+            {
+              icon: <FolderOpen size={13} />, label: "Mở thư mục conv", color: "var(--primary-text)",
+              hoverBg: "var(--hover-bg)",
+              action: () => { setMenuVisible(false); handleOpenFolder(); },
+            },
+          ].map((item, i) => (
+            <button
+              key={i}
+              onClick={(e) => { e.stopPropagation(); item.action(e); }}
+              style={{
+                display: "flex", alignItems: "center", gap: "8px",
+                width: "100%", padding: "7px 12px", borderRadius: "6px",
+                border: "none", backgroundColor: "transparent",
+                color: item.color, fontSize: "12px", cursor: "pointer", textAlign: "left",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = item.hoverBg)}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
         </div>
       )}
 
-      <style>
-        {`
-          .history-card-container {
-            width: 100%;
-            text-align: left;
-            border-radius: 10px;
-            border: 1px solid var(--border-color);
-            background-color: var(--input-bg);
-            cursor: pointer;
-            position: relative;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-          }
-          .history-card-container:hover {
-            background-color: var(--hover-bg);
-          }
-          @keyframes menuAppear {
-            from { opacity: 0; transform: scale(0.95) translateY(-5px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-          }
-        `}
-      </style>
+      <style>{`
+        .history-card-container {
+          width: 100%; border-radius: 8px;
+          border: 1px solid var(--border-color);
+          background-color: var(--input-bg);
+          cursor: pointer; position: relative; overflow: hidden;
+        }
+        .history-card-container:hover { background-color: var(--hover-bg); }
+      `}</style>
     </div>
   );
 };

@@ -1,8 +1,11 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import { ContextManager } from "./context/ContextManager";
 import { GlobalStorageManager } from "./storage-manager";
 import { ShikiService } from "./services/ShikiService";
 import { ZenChatViewProvider } from "./providers/ZenChatViewProvider";
+import { CheckpointManager } from "./utils/CheckpointManager";
 
 let activeProvider: ZenChatViewProvider | null = null;
 
@@ -115,6 +118,40 @@ export async function activate(extContext: vscode.ExtensionContext) {
     },
   );
 
+  // Register file change listeners for checkpointing
+  const checkpointManager = CheckpointManager.getInstance();
+
+  const onDidCreateFilesDisposable = vscode.workspace.onDidCreateFiles((event) => {
+    for (const file of event.files) {
+      checkpointManager.createCheckpoint(file.fsPath, "create");
+    }
+  });
+
+  const onWillDeleteFilesDisposable = vscode.workspace.onWillDeleteFiles((event) => {
+    const collectFiles = (dirPath: string, filesList: string[]) => {
+      try {
+        const stats = fs.statSync(dirPath);
+        if (stats.isFile()) {
+          filesList.push(dirPath);
+        } else if (stats.isDirectory()) {
+          const entries = fs.readdirSync(dirPath);
+          for (const entry of entries) {
+            collectFiles(path.join(dirPath, entry), filesList);
+          }
+        }
+      } catch {}
+    };
+
+    for (const file of event.files) {
+      const filesList: string[] = [];
+      collectFiles(file.fsPath, filesList);
+      for (const f of filesList) {
+        // Create checkpoint synchronously before the delete is finalized
+        checkpointManager.createCheckpoint(f, "delete");
+      }
+    }
+  });
+
   // Add all commands to subscriptions
   extContext.subscriptions.push(
     openChatCommand,
@@ -124,6 +161,8 @@ export async function activate(extContext: vscode.ExtensionContext) {
     refreshProjectStructureCommand,
     clearOldStorageCommand,
     addToContextCommand,
+    onDidCreateFilesDisposable,
+    onWillDeleteFilesDisposable,
   );
 }
 

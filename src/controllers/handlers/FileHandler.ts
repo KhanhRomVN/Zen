@@ -7,6 +7,7 @@ import { ContextManager } from "../../context/ContextManager";
 import { FileLockManager } from "../../managers/FileLockManager";
 import { RecentItemsManager } from "../../context/RecentItemsManager";
 import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
+import { CheckpointManager } from "../../utils/CheckpointManager";
 
 export class FileHandler {
   private _workspaceFilesCache: any[] | null = null;
@@ -160,6 +161,15 @@ export class FileHandler {
       } else {
         absolutePath = this.resolveWorkspacePath(workspaceFolder, pathValue);
       }
+      if (message.conversationId) {
+        CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
+      }
+      const fileExists = fs.existsSync(absolutePath.fsPath);
+      await CheckpointManager.getInstance().createCheckpoint(
+        absolutePath.fsPath,
+        fileExists ? "modify" : "create"
+      );
+
       await vscode.workspace.fs.createDirectory(
         vscode.Uri.joinPath(absolutePath, ".."),
       );
@@ -229,6 +239,11 @@ export class FileHandler {
         absPath = this.resolveWorkspacePath(workspaceFolder, pathValue);
       }
     }
+    if (message.conversationId) {
+      CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
+    }
+    await CheckpointManager.getInstance().createCheckpoint(absPath.fsPath, "modify");
+
     const release = await this.fileLockManager.acquire(absPath.fsPath);
     let newContent: string | undefined;
 

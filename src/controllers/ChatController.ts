@@ -14,6 +14,7 @@ import { ProjectContextHandler } from "./handlers/ProjectContextHandler";
 import { DiagnosticHandler } from "./handlers/DiagnosticHandler";
 import { AgentHandler } from "./handlers/AgentHandler";
 import { StorageHandler } from "./handlers/StorageHandler";
+import { CheckpointManager } from "../utils/CheckpointManager";
 
 export class ChatController {
   private conversationHandler: ConversationHandler;
@@ -57,6 +58,12 @@ export class ChatController {
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
     const command = message.command;
+
+    if (message.conversationId) {
+      CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
+    } else if (message.chatUuid) {
+      CheckpointManager.getInstance().setActiveConversationId(message.chatUuid);
+    }
 
     try {
       switch (command) {
@@ -123,6 +130,12 @@ export class ChatController {
           break;
         case "rollbackConversationLog":
           await this.conversationHandler.handleRollbackConversationLog(message);
+          break;
+        case "revertConversation":
+          await this.conversationHandler.handleRevertConversation(message, webviewView);
+          break;
+        case "openConversationFolder":
+          await this.conversationHandler.handleOpenConversationFolder(message);
           break;
         case "renameConversationLog":
           await this.conversationHandler.handleRenameConversationLog(
