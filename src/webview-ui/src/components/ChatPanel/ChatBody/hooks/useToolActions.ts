@@ -3,6 +3,7 @@ import { ToolAction } from "../../../../services/ResponseParser";
 import { Message } from "../types";
 import { CLICKABLE_TOOLS } from "../constants";
 import { useSettings } from "../../../../context/SettingsContext";
+import { getPermissionDecision } from "../../../../hooks/useToolExecution";
 
 interface UseToolActionsProps {
   onSendToolRequest?: (
@@ -28,7 +29,7 @@ export const useToolActions = ({
   isProcessing = false,
   isRestored = false,
 }: UseToolActionsProps) => {
-  const { toolPermissions } = useSettings();
+  const { permissionMode } = useSettings();
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
   const [failedActions, setFailedActions] = useState<Set<string>>(new Set());
   const triggeredIdsRef = useRef<Set<string>>(new Set());
@@ -194,9 +195,9 @@ export const useToolActions = ({
 
         if (isBlocked) return;
 
-        // Check if settings specify this tool runs auto
-        const allowed = toolPermissions[action.type];
-        if (allowed === "full_access") {
+        // Check if settings specify this tool runs auto or deny
+        const decision = getPermissionDecision(permissionMode, action.type);
+        if (decision === "allow" || decision === "deny") {
           // Optimistic Synchronous Update
           triggeredIdsRef.current.add(actionId);
           setClickedActions((prev: Set<string>) => new Set(prev).add(actionId));
@@ -213,7 +214,7 @@ export const useToolActions = ({
     onSendToolRequest,
     clickedActions,
     failedActions,
-    toolPermissions,
+    permissionMode,
     isProcessing,
     isRestored,
   ]);

@@ -2,6 +2,14 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
 import type { LanguageCode } from "../i18n";
 
+export type PermissionMode =
+  | "bypassPermissions"
+  | "acceptEdits"
+  | "auto"
+  | "default"
+  | "dontAsk"
+  | "plan";
+
 interface SettingsContextType {
   language: LanguageCode;
   setLanguage: (lang: LanguageCode) => void;
@@ -10,6 +18,8 @@ interface SettingsContextType {
   toolPermissions: Record<string, "full_access" | "review">;
   setToolPermission: (toolId: string, value: "full_access" | "review") => void;
   setAllToolPermissions: (value: "full_access" | "review") => void;
+  permissionMode: PermissionMode;
+  setPermissionMode: (mode: PermissionMode) => void;
 }
 
 export const defaultToolPermissions: Record<string, "full_access" | "review"> = {
@@ -30,6 +40,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [language, setLanguageState] = useState<LanguageCode>("en");
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
+  const [permissionModeState, setPermissionModeState] = useState<PermissionMode>("bypassPermissions");
   const [toolPermissionsState, setToolPermissionsState] = useState<
     Record<string, "full_access" | "review">
   >(defaultToolPermissions);
@@ -50,6 +61,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.get("backend-api-url").then((res: any) => {
       if (res?.value) {
         setApiUrlState(res.value);
+      }
+    });
+
+    storage.get("zen_permission_mode").then((res: any) => {
+      if (res?.value) {
+        setPermissionModeState(res.value as PermissionMode);
       }
     });
 
@@ -75,6 +92,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     setApiUrlState(url);
     const storage = extensionService.getStorage();
     storage.set("backend-api-url", url);
+  };
+
+  const setPermissionMode = (mode: PermissionMode) => {
+    setPermissionModeState(mode);
+    const storage = extensionService.getStorage();
+    storage.set("zen_permission_mode", mode);
   };
 
   const setToolPermission = (toolId: string, value: "full_access" | "review") => {
@@ -103,6 +126,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         toolPermissions: toolPermissionsState,
         setToolPermission,
         setAllToolPermissions,
+        permissionMode: permissionModeState,
+        setPermissionMode,
       }}
     >
       {children}

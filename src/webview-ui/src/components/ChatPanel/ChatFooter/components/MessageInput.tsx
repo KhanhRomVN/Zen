@@ -2,27 +2,22 @@ import React from "react";
 import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
 import { PlusIcon, SendIcon } from "./Icons";
-import { X } from "lucide-react";
+import {
+  X,
+  Zap,
+  FileCode,
+  Brain,
+  ShieldCheck,
+  Ban,
+  Eye,
+} from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
 import { useSettings } from "../../../../context/SettingsContext";
-import { useI18n } from "../../../../hooks/useI18n";
 import QuickSwitchDrawer from "./QuickSwitchDrawer";
+import { useI18n } from "@/hooks/useI18n";
 
-const ShieldCheckIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
-    <path d="m9 12 2 2 4-4"/>
-  </svg>
-);
 
-const TriangleAlertIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
-    <path d="M12 9v4"/>
-    <path d="M12 17h.01"/>
-  </svg>
-);
 
 const BrainCogIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain-cog-icon lucide-brain-cog">
@@ -220,13 +215,11 @@ const SearchButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) => 
 };
 
 const GlobalPermissionButton: React.FC = () => {
-  const { toolPermissions, setAllToolPermissions } = useSettings();
+  const { permissionMode, setPermissionMode, language } = useSettings();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = React.useState(false);
-
-  const allFull = Object.values(toolPermissions).every((v) => v === "full_access");
-  const current = allFull ? "full_access" : "review";
+  const isVi = language === "vi";
 
   React.useEffect(() => {
     if (!open) return;
@@ -237,7 +230,40 @@ const GlobalPermissionButton: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const isOn = current === "full_access";
+  const MODE_METADATA: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+    bypassPermissions: {
+      label: isVi ? "Cho phép toàn bộ" : "Full Access",
+      icon: <Zap size={11} />,
+      color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)",
+    },
+    acceptEdits: {
+      label: isVi ? "Tự động sửa File" : "Auto Edits",
+      icon: <FileCode size={11} />,
+      color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
+    },
+    auto: {
+      label: isVi ? "Tự động Đọc" : "Auto Reads",
+      icon: <Brain size={11} />,
+      color: "var(--vscode-symbolIcon-constructorForeground, #10b981)",
+    },
+    default: {
+      label: isVi ? "Hỏi mọi lúc" : "Ask Every Time",
+      icon: <ShieldCheck size={11} />,
+      color: "var(--vscode-disabledForeground, #a3a3a3)",
+    },
+    dontAsk: {
+      label: isVi ? "Chặn toàn bộ" : "Deny All",
+      icon: <Ban size={11} />,
+      color: "var(--vscode-errorForeground, #ef4444)",
+    },
+    plan: {
+      label: isVi ? "Chỉ đọc" : "Read Only",
+      icon: <Eye size={11} />,
+      color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
+    },
+  };
+
+  const metadata = MODE_METADATA[permissionMode] || MODE_METADATA.default;
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -258,28 +284,20 @@ const GlobalPermissionButton: React.FC = () => {
           fontWeight: 600,
           letterSpacing: "0.3px",
           transition: "all 0.2s ease-in-out",
-          border: isOn
-            ? "1px solid var(--vscode-editorBracketHighlight-foreground3, rgba(245, 158, 11, 0.4))"
-            : "1px solid rgba(128, 128, 128, 0.2)",
-          background: isOn
-            ? (isHovered
-                ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #f59e0b) 20%, transparent)"
-                : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #f59e0b) 12%, transparent)")
-            : (isHovered
-                ? "rgba(128, 128, 128, 0.2)"
-                : "rgba(128, 128, 128, 0.12)"),
-          color: isOn
-            ? "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)"
-            : "var(--vscode-foreground)",
-          opacity: isOn ? 1 : (isHovered ? 0.9 : 0.7),
+          border: `1px solid ${metadata.color}40`,
+          background: isHovered
+            ? `color-mix(in srgb, ${metadata.color} 20%, transparent)`
+            : `color-mix(in srgb, ${metadata.color} 12%, transparent)`,
+          color: metadata.color,
+          opacity: 1,
           lineHeight: 1,
           verticalAlign: "middle",
         }}
         title="Tool permission mode"
       >
-        {current === "full_access" ? <TriangleAlertIcon /> : <ShieldCheckIcon />}
+        {metadata.icon}
         <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>
-          {current === "full_access" ? "Full access" : "Review"}
+          {metadata.label}
         </span>
       </button>
       {open && (
@@ -293,36 +311,38 @@ const GlobalPermissionButton: React.FC = () => {
           borderRadius: "6px",
           overflow: "hidden",
           boxShadow: "0 -4px 12px rgba(0,0,0,0.2)",
-          minWidth: "130px",
+          minWidth: "180px",
         }}>
-          <button
-            onClick={() => { setAllToolPermissions("full_access"); setOpen(false); }}
-            style={{
-              display: "flex", alignItems: "center", gap: "6px",
-              width: "100%", padding: "7px 12px",
-              fontSize: "12px", fontWeight: 500, textAlign: "left",
-              border: "none", cursor: "pointer",
-              background: current === "full_access" ? "var(--vscode-button-background)" : "transparent",
-              color: current === "full_access" ? "var(--vscode-button-foreground)" : "var(--vscode-foreground)",
-            }}
-            onMouseEnter={(e) => { if (current !== "full_access") e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)"; }}
-            onMouseLeave={(e) => { if (current !== "full_access") e.currentTarget.style.backgroundColor = "transparent"; }}
-          >
-            <TriangleAlertIcon /> Full access
-          </button>
-          <button
-            disabled
-            title="Review mode coming soon"
-            style={{
-              display: "flex", alignItems: "center", gap: "6px",
-              width: "100%", padding: "7px 12px",
-              fontSize: "12px", fontWeight: 500, textAlign: "left",
-              border: "none", cursor: "not-allowed",
-              background: "transparent", color: "var(--vscode-foreground)", opacity: 0.35,
-            }}
-          >
-            <ShieldCheckIcon /> Review
-          </button>
+          {Object.entries(MODE_METADATA).map(([modeId, meta]) => {
+            const isSelected = permissionMode === modeId;
+            return (
+              <button
+                key={modeId}
+                onClick={() => { setPermissionMode(modeId as any); setOpen(false); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  width: "100%",
+                  padding: "7px 12px",
+                  fontSize: "11.5px",
+                  fontWeight: 500,
+                  textAlign: "left",
+                  border: "none",
+                  cursor: "pointer",
+                  background: isSelected ? "var(--vscode-button-background)" : "transparent",
+                  color: isSelected ? "var(--vscode-button-foreground)" : "var(--vscode-foreground)",
+                }}
+                onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)"; }}
+                onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = "transparent"; }}
+              >
+                <span style={{ color: isSelected ? "inherit" : meta.color, display: "flex", alignItems: "center" }}>
+                  {meta.icon}
+                </span>
+                {meta.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

@@ -218,7 +218,7 @@
   border-radius: 50%;
   z-index: 10;
   background-color: var(--vscode-descriptionForeground);
-  box-shadow: 0 0 0 2px var(--vscode-editor-background);
+  box-shadow: 0 0 0 2px var(--vscode-editor-background), 0 0 0 3px var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
   transition: all 0.2s ease;
 }
 

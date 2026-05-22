@@ -3,7 +3,37 @@ import { Message } from "../components/ChatPanel/ChatBody/types";
 import { extensionService } from "../services/ExtensionService";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 import { stripAnsi, stripMarkers } from "../utils/terminalUtils";
-import { useSettings } from "../context/SettingsContext";
+import { useSettings, PermissionMode } from "../context/SettingsContext";
+
+export const getPermissionDecision = (
+  mode: PermissionMode,
+  toolType: string
+): "allow" | "prompt" | "deny" => {
+  switch (mode) {
+    case "bypassPermissions":
+      return "allow";
+    case "acceptEdits":
+      if (["read_file", "list_files", "search_files", "write_to_file", "replace_in_file"].includes(toolType)) {
+        return "allow";
+      }
+      return "prompt";
+    case "auto":
+      if (["read_file", "list_files", "search_files"].includes(toolType)) {
+        return "allow";
+      }
+      return "prompt";
+    case "dontAsk":
+      return "deny";
+    case "plan":
+      if (["read_file", "list_files", "search_files"].includes(toolType)) {
+        return "allow";
+      }
+      return "deny";
+    case "default":
+    default:
+      return "prompt";
+  }
+};
 
 interface UseToolExecutionProps {
   sendMessage: (
@@ -24,7 +54,7 @@ export const useToolExecution = ({
   conversationIdRef,
   messagesRef,
 }: UseToolExecutionProps) => {
-  const { toolPermissions } = useSettings();
+  const { permissionMode } = useSettings();
   const [executionState, setExecutionState] = useState<{
     total: number;
     completed: number;
@@ -544,12 +574,12 @@ export const useToolExecution = ({
         }
 
         // Check if we should auto-execute this tool
-        const globalPermission = toolPermissions[action.type] || "full_access";
+        const decision = getPermissionDecision(permissionMode, action.type);
         const isConversationAuto =
           conversationToolOverrides[action.type] === "auto";
 
         const shouldPauseForManual =
-          globalPermission === "review" && !isConversationAuto;
+          decision === "prompt" && !isConversationAuto;
 
         if (isAutoTrigger && shouldPauseForManual) {
           wasInterruptedByManual = true;
@@ -566,12 +596,15 @@ export const useToolExecution = ({
         if (actionType === "reject") {
           console.log(`[Zen Flow Log] [handleToolRequest] Action ${action.type} rejected by user.`);
           result = `Output: [${action.type}] Tool execution rejected by user.`;
+        } else if (decision === "deny") {
+          console.log(`[Zen Flow Log] [handleToolRequest] Action ${action.type} blocked by permission mode: ${permissionMode}`);
+          result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionMode}).`;
         } else {
           console.log(`[Zen Flow Log] [handleToolRequest] Calling executeSingleAction for: ${action.type}`);
           result = await executeSingleAction(
             { ...action, actionId },
             skipDiagnostics,
-            globalPermission === "full_access",
+            decision === "allow" || isConversationAuto,
           );
         }
 
@@ -594,7 +627,10 @@ export const useToolExecution = ({
           else if (cleanOutput.startsWith("```") && cleanOutput.endsWith("```"))
             cleanOutput = cleanOutput.substring(3, cleanOutput.length - 3);
 
-          const isError = result.includes("Result: Error");
+          const isError =
+            result.includes("Result: Error") ||
+            result.includes("Tool execution blocked") ||
+            result.includes("Tool execution rejected");
 
           // CRITICAL: For run_command, we do NOT overwrite toolOutputs with the formatted 'result'
           // because the Raw Terminal Logs are already being updated in real-time by terminalOutput/commandExecuted events.

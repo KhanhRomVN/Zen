@@ -41,6 +41,7 @@ const PromptSection: React.FC<PromptSectionProps> = ({
           className="timeline-dot"
           style={{
             backgroundColor: "var(--vscode-descriptionForeground)",
+            boxShadow: "0 0 0 2px var(--vscode-editor-background), 0 0 0 3px var(--vscode-descriptionForeground)",
             opacity: 0.8,
           }}
         />

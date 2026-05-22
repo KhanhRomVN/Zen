@@ -49,16 +49,20 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
     : isActionClicked;
   const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
   const isCompleted = hasOutput && !isTerminalBusy;
+  const dotColor = isCompleted ? "#3fb950"
+    : isTerminalBusy || (isActionClicked && !outputData) ? "#e3b341"
+    : isActiveGroup ? "var(--vscode-button-background)"
+    : "var(--vscode-descriptionForeground)";
 
   return (
     <div className="timeline-item" style={{ marginTop: "4px", paddingLeft: "29px" }}>
       <div
         className="timeline-dot"
         style={{
-          backgroundColor: isCompleted ? "#3fb950"
-            : isTerminalBusy || (isActionClicked && !outputData) ? "#e3b341"
-            : isActiveGroup ? "var(--vscode-button-background)"
-            : "var(--vscode-descriptionForeground)",
+          backgroundColor: dotColor,
+          boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${
+            dotColor.startsWith("var") ? dotColor : `${dotColor}80`
+          }`,
           top: "10px",
         }}
       />

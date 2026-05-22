@@ -43,7 +43,9 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
               style={{
                 backgroundColor: statusColor,
                 top: "8px",
-                boxShadow: isPartial ? `0 0 0 0 ${statusColor}40` : "none",
+                boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${
+                  statusColor.startsWith("var") ? statusColor : `${statusColor}80`
+                }`,
               }}
             />
           )}

@@ -681,12 +681,14 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 </div>
               );
             } else if (group.type === "markdown") {
+              const dotColor = message.isError ? "#ff4d4f" : "#3fb950";
               content = (
                 <div>
                   <div
                     className="timeline-dot"
                     style={{
-                      backgroundColor: message.isError ? "#ff4d4f" : "#3fb950",
+                      backgroundColor: dotColor,
+                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${dotColor}80`,
                       top: "10px",
                     }}
                   />
@@ -703,12 +705,14 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 </div>
               );
             } else if (group.type === "mixed_content") {
+              const dotColor = message.isError ? "#ff4d4f" : "#3fb950";
               content = (
                 <div>
                   <div
                     className="timeline-dot"
                     style={{
-                      backgroundColor: message.isError ? "#ff4d4f" : "#3fb950",
+                      backgroundColor: dotColor,
+                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${dotColor}80`,
                       top: "10px",
                     }}
                   />
@@ -766,6 +770,9 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     className="timeline-dot"
                     style={{
                       backgroundColor: dotColor,
+                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${
+                        dotColor.startsWith("var") ? dotColor : `${dotColor}80`
+                      }`,
                       top: "28px",
                     }}
                   />
@@ -804,12 +811,14 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               if (!isAnswered) isInteractionBlocked = true;
             } else if (group.type === "error") {
               const errorText = group.content.replace(/^Error:\s*/i, "");
+              const dotColor = "var(--vscode-testing-iconFailedColor, #f14c4c)";
               content = (
                 <div>
                   <div
                     className="timeline-dot"
                     style={{
-                      backgroundColor: "var(--vscode-testing-iconFailedColor, #f14c4c)",
+                      backgroundColor: dotColor,
+                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${dotColor}`,
                       top: "10px",
                       border: "none",
                     }}
