@@ -24,10 +24,206 @@ const TriangleAlertIcon = () => (
   </svg>
 );
 
+const BrainCogIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain-cog-icon lucide-brain-cog">
+    <path d="m10.852 14.772-.383.923"/>
+    <path d="m10.852 9.228-.383-.923"/>
+    <path d="m13.148 14.772.382.924"/>
+    <path d="m13.531 8.305-.383.923"/>
+    <path d="m14.772 10.852.923-.383"/>
+    <path d="m14.772 13.148.923.383"/>
+    <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 0 0-5.63-1.446 3 3 0 0 0-.368 1.571 4 4 0 0 0-2.525 5.771"/>
+    <path d="M17.998 5.125a4 4 0 0 1 2.525 5.771"/>
+    <path d="M19.505 10.294a4 4 0 0 1-1.5 7.706"/>
+    <path d="M4.032 17.483A4 4 0 0 0 11.464 20c.18-.311.892-.311 1.072 0a4 4 0 0 0 7.432-2.516"/>
+    <path d="M4.5 10.291A4 4 0 0 0 6 18"/>
+    <path d="M6.002 5.125a3 3 0 0 0 .4 1.375"/>
+    <path d="m9.228 10.852-.923-.383"/>
+    <path d="m9.228 13.148-.923.383"/>
+    <circle cx="12" cy="12" r="3"/>
+  </svg>
+);
+
+const GlobeIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-globe-icon lucide-globe">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+    <path d="M2 12h20"/>
+  </svg>
+);
+
+interface ToggleButtonProps {
+  isOn: boolean;
+  onClick: () => void;
+  title: string;
+}
+
+const SimpleModeIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <circle cx="12" cy="12" r="1"/>
+  </svg>
+);
+
+const FullModeIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="8" height="8" x="3" y="3" rx="2"/>
+    <path d="M7 11v4a2 2 0 0 0 2 2h4"/>
+    <rect width="8" height="8" x="13" y="13" rx="2"/>
+  </svg>
+);
+
+interface ModeButtonProps {
+  isSimpleMode: boolean;
+  onClick?: () => void;
+}
+
+const ModeButton: React.FC<ModeButtonProps> = ({ isSimpleMode, onClick }) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+  const isOn = !isSimpleMode; // Full mode is "on"
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: isOn
+          ? "1px solid var(--vscode-editorBracketHighlight-foreground4, rgba(16, 185, 129, 0.4))"
+          : "1px solid rgba(128, 128, 128, 0.2)",
+        background: isOn
+          ? (isHovered
+              ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #10b981) 20%, transparent)"
+              : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #10b981) 12%, transparent)")
+          : (isHovered
+              ? "rgba(128, 128, 128, 0.2)"
+              : "rgba(128, 128, 128, 0.12)"),
+        color: isOn
+          ? "var(--vscode-editorBracketHighlight-foreground4, #10b981)"
+          : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : (isHovered ? 0.9 : 0.7),
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={isSimpleMode ? "Simple mode: showing WRITE & RUN only. Click for Full mode" : "Full mode: showing all tools. Click for Simple mode"}
+    >
+      {isSimpleMode ? <SimpleModeIcon /> : <FullModeIcon />}
+      <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>
+        {isSimpleMode ? "Simple" : "Full"}
+      </span>
+    </button>
+  );
+};
+
+const ThinkingButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: isOn
+          ? "1px solid var(--vscode-editorBracketHighlight-foreground2, rgba(168, 85, 247, 0.4))"
+          : "1px solid rgba(128, 128, 128, 0.2)",
+        background: isOn
+          ? (isHovered
+              ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, transparent)"
+              : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 12%, transparent)")
+          : (isHovered
+              ? "rgba(128, 128, 128, 0.2)"
+              : "rgba(128, 128, 128, 0.12)"),
+        color: isOn
+          ? "var(--vscode-editorBracketHighlight-foreground2, #a855f7)"
+          : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : (isHovered ? 0.9 : 0.7),
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={title}
+    >
+      <BrainCogIcon />
+      <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>Thinking</span>
+    </button>
+  );
+};
+
+const SearchButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: isOn
+          ? "1px solid var(--vscode-editorBracketHighlight-foreground1, rgba(14, 165, 233, 0.4))"
+          : "1px solid rgba(128, 128, 128, 0.2)",
+        background: isOn
+          ? (isHovered
+              ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 20%, transparent)"
+              : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 12%, transparent)")
+          : (isHovered
+              ? "rgba(128, 128, 128, 0.2)"
+              : "rgba(128, 128, 128, 0.12)"),
+        color: isOn
+          ? "var(--vscode-editorBracketHighlight-foreground1, #0ea5e9)"
+          : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : (isHovered ? 0.9 : 0.7),
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={title}
+    >
+      <GlobeIcon />
+      <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>Search</span>
+    </button>
+  );
+};
+
 const GlobalPermissionButton: React.FC = () => {
   const { toolPermissions, setAllToolPermissions } = useSettings();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = React.useState(false);
 
   const allFull = Object.values(toolPermissions).every((v) => v === "full_access");
   const current = allFull ? "full_access" : "review";
@@ -41,28 +237,44 @@ const GlobalPermissionButton: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const isOn = current === "full_access";
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{
           display: "flex",
           alignItems: "center",
           gap: "4px",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          padding: "0 4px",
+          padding: "0 8px",
           height: "22px",
           boxSizing: "border-box",
           borderRadius: "4px",
-          color: "var(--vscode-foreground)",
-          opacity: 0.7,
+          cursor: "pointer",
+          fontSize: "11px",
+          fontWeight: 600,
+          letterSpacing: "0.3px",
+          transition: "all 0.2s ease-in-out",
+          border: isOn
+            ? "1px solid var(--vscode-editorBracketHighlight-foreground3, rgba(245, 158, 11, 0.4))"
+            : "1px solid rgba(128, 128, 128, 0.2)",
+          background: isOn
+            ? (isHovered
+                ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #f59e0b) 20%, transparent)"
+                : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #f59e0b) 12%, transparent)")
+            : (isHovered
+                ? "rgba(128, 128, 128, 0.2)"
+                : "rgba(128, 128, 128, 0.12)"),
+          color: isOn
+            ? "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)"
+            : "var(--vscode-foreground)",
+          opacity: isOn ? 1 : (isHovered ? 0.9 : 0.7),
           lineHeight: 1,
           verticalAlign: "middle",
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--hover-bg)"; e.currentTarget.style.opacity = "1"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.opacity = "0.7"; }}
         title="Tool permission mode"
       >
         {current === "full_access" ? <TriangleAlertIcon /> : <ShieldCheckIcon />}
@@ -148,6 +360,8 @@ interface MessageInputProps {
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
+  isSimpleMode?: boolean;
+  onToggleSimpleMode?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -179,6 +393,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isProcessing,
   isStreaming,
   onStopGeneration,
+  isSimpleMode = true,
+  onToggleSimpleMode,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -193,6 +409,44 @@ const MessageInput: React.FC<MessageInputProps> = ({
     return currentModel || null;
   }, [currentModel]);
 
+  const [isThinking, setIsThinking] = React.useState(() => {
+    try {
+      return localStorage.getItem("zen-thinking-enabled") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const [isSearch, setIsSearch] = React.useState(() => {
+    try {
+      return localStorage.getItem("zen-search-enabled") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const [isPlusHovered, setIsPlusHovered] = React.useState(false);
+
+  const toggleThinking = () => {
+    setIsThinking((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("zen-thinking-enabled", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const toggleSearch = () => {
+    setIsSearch((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("zen-search-enabled", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const displayAccount = React.useMemo(() => {
     return currentAccount || null;
   }, [currentAccount]);
@@ -205,6 +459,38 @@ const MessageInput: React.FC<MessageInputProps> = ({
         p.provider_id?.toLowerCase() === currentModel.providerId?.toLowerCase(),
     );
   }, [currentModel, providers]);
+
+  const currentModelConfig = React.useMemo(() => {
+    if (!currentProviderConfig || !currentModel?.id) return null;
+    return currentProviderConfig.models?.find(
+      (m: any) => m.id?.toLowerCase() === currentModel.id?.toLowerCase(),
+    );
+  }, [currentProviderConfig, currentModel]);
+
+  const showThinkingButton = React.useMemo(() => {
+    return !!currentModelConfig?.is_thinking;
+  }, [currentModelConfig]);
+
+  const showSearchButton = React.useMemo(() => {
+    return !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search;
+  }, [currentModelConfig, currentProviderConfig]);
+
+  // Sync thinking and search toggles when model changes
+  React.useEffect(() => {
+    if (providers.length === 0 || !currentModel) return;
+
+    const hasThinking = !!currentModelConfig?.is_thinking;
+    const hasSearch = !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search;
+
+    if (!hasThinking && isThinking) {
+      setIsThinking(false);
+      try { localStorage.setItem("zen-thinking-enabled", "false"); } catch {}
+    }
+    if (!hasSearch && isSearch) {
+      setIsSearch(false);
+      try { localStorage.setItem("zen-search-enabled", "false"); } catch {}
+    }
+  }, [currentModel, currentModelConfig, currentProviderConfig, providers, isThinking, isSearch]);
 
   const supportsUpload = React.useMemo(() => {
     if (!currentProviderConfig) return false;
@@ -512,7 +798,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
               }
             }}
             onPaste={(e) => {
+              console.log("[Zen Log] MessageInput onPaste triggered. supportsUpload:", supportsUpload, "files length:", e.clipboardData.files?.length, "items length:", e.clipboardData.items?.length);
               if (!supportsUpload && e.clipboardData.files.length > 0) {
+                console.warn("[Zen Log] MessageInput onPaste: Upload is not supported, preventing paste.");
                 e.preventDefault();
                 // Optional: Show toast "Upload not supported by this provider"
                 return;
@@ -583,36 +871,61 @@ const MessageInput: React.FC<MessageInputProps> = ({
           }}
         >
           {/* Left Icons */}
-          <div style={{ display: "flex", gap: "var(--spacing-xs)" }}>
+          <div style={{ display: "flex", gap: "var(--spacing-xs)", alignItems: "center" }}>
             {supportsUpload && (
               <div
+                onClick={handleFileSelect}
+                onMouseEnter={() => setIsPlusHovered(true)}
+                onMouseLeave={() => setIsPlusHovered(false)}
                 style={{
-                  cursor: "pointer",
-                  padding: "var(--spacing-xs)",
-                  borderRadius: "var(--border-radius)",
-                  transition: "background-color 0.2s",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "var(--secondary-text)",
+                  height: "22px",
+                  width: "22px",
+                  boxSizing: "border-box",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease-in-out",
+                  border: "1px solid rgba(128, 128, 128, 0.2)",
+                  background: isPlusHovered ? "rgba(128, 128, 128, 0.2)" : "rgba(128, 128, 128, 0.12)",
+                  color: "var(--vscode-foreground)",
+                  opacity: isPlusHovered ? 0.9 : 0.7,
                 }}
-                onClick={handleFileSelect}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = "transparent")
-                }
                 title="Attach files"
               >
                 <PlusIcon />
               </div>
             )}
 
-            {/* Blacklist feature removed */}
-
             {/* Global Tool Permission */}
             <GlobalPermissionButton />
+
+            {/* Thinking Toggle */}
+            {showThinkingButton && (
+              <ThinkingButton
+                isOn={isThinking}
+                onClick={toggleThinking}
+                title="Toggle AI Thinking Process"
+              />
+            )}
+
+            {/* Search Toggle */}
+            {showSearchButton && (
+              <SearchButton
+                isOn={isSearch}
+                onClick={toggleSearch}
+                title="Toggle Web Search Grounding"
+              />
+            )}
+
+            {/* Simple / Full mode toggle */}
+            {isConversationStarted && (
+              <ModeButton
+                isSimpleMode={isSimpleMode}
+                onClick={onToggleSimpleMode}
+              />
+            )}
           </div>
 
           {/* Right Icons */}

@@ -67,6 +67,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   );
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
+  const [isSimpleMode, setIsSimpleMode] = useState<boolean>(() => {
+    try { return localStorage.getItem("zen-simple-mode") === "true"; } catch { return true; }
+  });
+
+  const [isRestored, setIsRestored] = useState(false);
+
+  const toggleSimpleMode = React.useCallback(() => {
+    setIsSimpleMode((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("zen-simple-mode", String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   // --- Hooks ---
   const {
@@ -99,6 +112,30 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       ),
   });
 
+  const wrappedSendMessage = useCallback(
+    async (
+      content: string,
+      files?: any[],
+      model?: any,
+      account?: any,
+      skipFirstRequestLogic?: boolean,
+      actionIds?: string[],
+      uiHidden?: boolean,
+    ) => {
+      setIsRestored(false);
+      return sendMessage(
+        content,
+        files,
+        model,
+        account,
+        skipFirstRequestLogic,
+        actionIds,
+        uiHidden,
+      );
+    },
+    [sendMessage],
+  );
+
   const { executionState, toolOutputs, terminalStatus, handleToolRequest } =
     useToolExecution({
       conversationIdRef: currentConversationIdRef,
@@ -112,7 +149,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionIds,
         uiHidden,
       ) =>
-        sendMessage(
+        wrappedSendMessage(
           content,
           files,
           model,
@@ -247,21 +284,31 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Load conversation from extension
   useEffect(() => {
     const load = async () => {
+      console.log("[ChatPanel] load conversation effect triggered", {
+        selectedTab,
+        tabId: selectedTab?.tabId,
+        conversationId: (selectedTab as any)?.conversationId,
+      });
       if (!selectedTab) {
         setMessages([]);
         setIsLoadingConversation(false);
         setIsProcessing(false);
+        setIsRestored(false);
         return;
       }
       setIsLoadingConversation(true);
+      setIsRestored(false);
       const convId = (selectedTab as any).conversationId;
       if (convId) {
+        const requestId = `conv-${Date.now()}`;
+        console.log("[ChatPanel] Sending getConversation", { convId, requestId });
         extensionService.postMessage({
           command: "getConversation",
           conversationId: convId,
-          requestId: `conv-${Date.now()}`,
+          requestId,
         });
       } else {
+        console.log("[ChatPanel] No conversationId, clearing messages");
         setMessages([]);
         setIsLoadingConversation(false);
       }
@@ -274,6 +321,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
+        console.log("[ChatPanel] conversationResult received", {
+          requestId: data.requestId,
+          hasData: !!data.data,
+          hasError: !!data.error,
+          error: data.error,
+          messageCount: data.data?.messages?.length,
+          conversationId: data.data?.conversationId,
+        });
         if (data.data?.messages) {
           setMessages(
             data.data.messages.map((msg: Message, i: number) => ({
@@ -281,6 +336,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               id: msg.id || `restored-${Date.now()}-${i}`,
             })),
           );
+          if (data.data.messages.length > 0) {
+            setIsRestored(true);
+          }
           if (data.data.conversationId) {
             setCurrentConversationId(data.data.conversationId);
 
@@ -430,6 +488,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       <ChatBody
         messages={messages}
         isProcessing={isProcessing}
+        isSimpleMode={isSimpleMode}
         onSendToolRequest={(actions, msg, isAuto, type) =>
           handleToolRequest(
             actions,
@@ -440,7 +499,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           )
         }
         onSendMessage={(c, f, m, a, skip, ids, hidden) =>
-          sendMessage(c, f, m, a, skip, ids, hidden)
+          wrappedSendMessage(c, f, m, a, skip, ids, hidden)
         }
         executionState={executionState}
         toolOutputs={toolOutputs}
@@ -452,11 +511,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         conversationId={currentConversationId}
         onToolAction={handleToolAction}
         onSelectOption={handleSelectOption}
+        isRestored={isRestored}
+        onContinue={() => setIsRestored(false)}
       />
       <ChatFooter
+        apiUrl={apiUrl}
         folderPath={selectedTab?.folderPath || null}
         onSendMessage={(c, f, m, a, skip, ids, hidden) =>
-          sendMessage(c, f, m, a, skip, ids, hidden)
+          wrappedSendMessage(c, f, m, a, skip, ids, hidden)
         }
         isHistoryMode={isHistoryMode}
         messages={messages}
@@ -468,6 +530,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isProcessing={isProcessing}
         isStreaming={isStreaming}
         onStopGeneration={handleStopGeneration}
+        isSimpleMode={isSimpleMode}
+        onToggleSimpleMode={toggleSimpleMode}
       />
     </div>
   );

@@ -137,6 +137,8 @@ export const useChatLLM = ({
     ) => {
       console.log(`[Zen Flow Log] [sendMessage] Triggered.`, {
         contentLength: content?.length,
+        filesCount: files?.length,
+        files: files?.map(f => ({ id: f.id, name: f.name, type: f.type })),
         skipFirstRequestLogic,
         actionIds,
         isProcessing,
@@ -416,6 +418,75 @@ export const useChatLLM = ({
       if (finalAccount) lastUsedAccountRef.current = finalAccount;
 
       try {
+        // Upload any local files first
+        const ref_file_ids: string[] = [];
+        const localFiles = files
+          ? files.filter(
+              (f: any) =>
+                !f.id?.startsWith("attached-") &&
+                !f.id?.startsWith("rule-") &&
+                !f.id?.startsWith("terminal-")
+            )
+          : [];
+
+        console.log("[Zen Log] sendMessage try block started. localFiles to upload count:", localFiles.length, "files:", localFiles.map(f => ({ id: f.id, name: f.name })), "finalAccount:", finalAccount);
+
+        if (localFiles.length > 0) {
+          console.log("[Zen Flow Log] [sendMessage] Processing", localFiles.length, "local files.");
+          for (const file of localFiles) {
+            if (file.file_id) {
+              console.log(`[Zen Flow Log] [sendMessage] File ${file.name} already pre-uploaded. Using existing ID: ${file.file_id}`);
+              ref_file_ids.push(file.file_id);
+              continue;
+            }
+
+            if (!finalAccount?.id) {
+              throw new Error("No active account selected for file upload. Please select/add an account first.");
+            }
+
+            console.log(`[Zen Flow Log] [sendMessage] File ${file.name} not pre-uploaded. Uploading now...`);
+            try {
+              let blob: Blob;
+              if (file.content.startsWith("data:")) {
+                const arr = file.content.split(",");
+                const mime = arr[0].match(/:(.*?);/)?.[1] || file.type || "application/octet-stream";
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while (n--) {
+                  u8arr[n] = bstr.charCodeAt(n);
+                }
+                blob = new Blob([u8arr], { type: mime });
+              } else {
+                blob = new Blob([file.content], { type: file.type || "text/plain" });
+              }
+
+              const formData = new FormData();
+              formData.append("file", blob, file.name);
+
+              const uploadRes = await fetch(`${apiUrl}/v1/chat/accounts/${finalAccount.id}/uploads`, {
+                method: "POST",
+                body: formData,
+              });
+
+              if (!uploadRes.ok) {
+                throw new Error(`Upload API returned status ${uploadRes.status}`);
+              }
+
+              const uploadData = await uploadRes.json();
+              if (uploadData.success && uploadData.data?.file_id) {
+                ref_file_ids.push(uploadData.data.file_id);
+                console.log(`[Zen Flow Log] [sendMessage] Fallback upload success for ${file.name}. ID: ${uploadData.data.file_id}`);
+              } else {
+                throw new Error(uploadData.error || "Unknown upload error");
+              }
+            } catch (err) {
+              console.error(`[Zen Flow Log] [sendMessage] Fallback upload failed for ${file.name}:`, err);
+              throw new Error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
+            }
+          }
+        }
+
         const effPromptPayload = isReq1
           ? `${systemPrompt}${projectContextStr}\n\n${fullContent}`
           : fullContent;
@@ -436,6 +507,9 @@ export const useChatLLM = ({
           stream: true,
           conversationId:
             backendConversationIdRef.current || (isNewSession ? "" : ""),
+          is_thinking: localStorage.getItem("zen-thinking-enabled") === "true",
+          is_search: localStorage.getItem("zen-search-enabled") === "true",
+          ...(ref_file_ids.length > 0 ? { ref_file_ids } : {}),
         };
 
         const abortController = new AbortController();

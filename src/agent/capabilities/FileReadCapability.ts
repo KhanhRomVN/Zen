@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as vscode from "vscode";
 import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
 
 export class FileReadCapability {
@@ -9,13 +10,30 @@ export class FileReadCapability {
         throw new Error("Missing file path");
       }
 
-      const content = await fs.promises.readFile(action.path, "utf-8");
+      const workspaceRoot =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+      const candidates = path.isAbsolute(action.path)
+        ? [action.path, path.join(workspaceRoot, action.path)]
+        : [path.join(workspaceRoot, action.path), action.path];
+
+      let content: string | undefined;
+      let lastError: unknown;
+      for (const candidate of candidates) {
+        try {
+          content = await fs.promises.readFile(candidate, "utf-8");
+          break;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+
+      if (content === undefined) throw lastError;
 
       return {
         success: true,
         data: {
           path: action.path,
-          content: content,
+          content,
           size: Buffer.byteLength(content, "utf-8"),
         },
         timestamp: Date.now(),

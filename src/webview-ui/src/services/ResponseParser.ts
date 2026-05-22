@@ -126,6 +126,7 @@ const parseToolAction = (
 
     case "list_files":
       params.folder_path = extractParamValue(innerContent, "folder_path");
+      params.depth = extractParamValue(innerContent, "depth");
       params.recursive = extractParamValue(innerContent, "recursive"); // Keep as string, handle in extension (e.g. "true", "false", "1", "2")
       params.type = extractParamValue(innerContent, "type");
       break;
@@ -179,11 +180,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "question",
   ];
 
-  // Fix missing opening bracket for the first tool call due to prefix/prefill stripping
+  // Fix missing opening bracket for the first tool call due to prefix/prefill stripping.
+  // Use only horizontal whitespace (\t, space) — NOT \n — and no 'i' flag to avoid
+  // accidentally eating the first character of normal text (e.g. "Dựa trên...").
   const toolNamesPattern = toolPatterns.join("|");
   const missingBracketRegex = new RegExp(
-    `^(\\s*(?:•\\s*)?)(${toolNamesPattern})>`,
-    "i",
+    `^([ \t]*(?:•[ \t]*)?)(${toolNamesPattern})>`,
   );
   if (missingBracketRegex.test(remainingContent)) {
     remainingContent = remainingContent.replace(
@@ -256,11 +258,16 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
       const language = match[1] || "text";
       const codeContent = match[2].trimEnd();
-      segments.push({
-        type: "code",
-        content: codeContent,
-        language: language,
-      });
+      // If AI wraps content in ```markdown ... ```, treat it as markdown, not a code block
+      if (language === "markdown") {
+        segments.push({ type: baseType, content: codeContent });
+      } else {
+        segments.push({
+          type: "code",
+          content: codeContent,
+          language: language,
+        });
+      }
 
       lastIndex = regex.lastIndex;
     }

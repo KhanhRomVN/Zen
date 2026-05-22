@@ -4,6 +4,9 @@ export interface UploadedFile {
   size: number;
   type: string;
   content: string; // Base64 or text content
+  file_id?: string;
+  isUploading?: boolean;
+  error?: string;
 }
 
 export interface WorkspaceItem {

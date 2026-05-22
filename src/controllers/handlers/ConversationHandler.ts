@@ -88,23 +88,67 @@ export class ConversationHandler {
   ) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) return;
+      console.log("[ConversationHandler] handleGetConversation called", {
+        conversationId: message.conversationId,
+        requestId: message.requestId,
+        hasWorkspace: !!workspaceFolder,
+        workspacePath: workspaceFolder?.uri.fsPath,
+      });
+
+      if (!workspaceFolder) {
+        console.error("[ConversationHandler] No workspace folder found");
+        return;
+      }
       const { conversationId } = message;
-      const logPath = path.join(
-        this.getProjectContextDir(workspaceFolder.uri.fsPath),
-        `${conversationId}.json`,
-      );
+      const projectContextDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
+      const logPath = path.join(projectContextDir, `${conversationId}.json`);
+
+      console.log("[ConversationHandler] Reading file at:", logPath);
+
+      const exists = fs.existsSync(logPath);
+      console.log("[ConversationHandler] File exists:", exists);
+
+      if (!exists) {
+        // Try searching across all project dirs
+        const contextRoot = this.getContextRoot();
+        const projectsDir = path.join(contextRoot, "projects");
+        console.log("[ConversationHandler] Searching in contextRoot:", projectsDir);
+        try {
+          const projectDirs = await fs.promises.readdir(projectsDir);
+          console.log("[ConversationHandler] Project dirs found:", projectDirs);
+          for (const dir of projectDirs) {
+            const candidate = path.join(projectsDir, dir, `${conversationId}.json`);
+            if (fs.existsSync(candidate)) {
+              console.log("[ConversationHandler] Found in alternate dir:", candidate);
+              const content = await fs.promises.readFile(candidate, "utf-8");
+              webviewView.webview.postMessage({
+                command: "conversationResult",
+                requestId: message.requestId,
+                data: { messages: JSON.parse(content), conversationId },
+              });
+              return;
+            }
+          }
+        } catch (searchErr) {
+          console.error("[ConversationHandler] Error searching project dirs:", searchErr);
+        }
+        throw new Error(`File not found: ${logPath}`);
+      }
+
       const content = await fs.promises.readFile(logPath, "utf-8");
+      const parsed = JSON.parse(content);
+      console.log("[ConversationHandler] File read success, type:", Array.isArray(parsed) ? "array" : "object", "keys:", Object.keys(parsed));
 
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,
         data: {
-          messages: JSON.parse(content),
+          messages: Array.isArray(parsed) ? parsed : parsed.messages || [],
           conversationId,
         },
       });
     } catch (error: any) {
+      console.error("[ConversationHandler] handleGetConversation error:", error);
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,

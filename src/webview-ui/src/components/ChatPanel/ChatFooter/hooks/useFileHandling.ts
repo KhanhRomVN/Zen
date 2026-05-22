@@ -1,43 +1,115 @@
 import { useState, useRef } from "react";
 import { UploadedFile, ExternalFile, AttachedItem } from "../types";
 import { isFileAllowed, readFileAsText } from "../utils";
+import { useSettings } from "../../../../context/SettingsContext";
 
 interface UseFileHandlingProps {
+  accountId?: string;
   onAddAttachedItem: (item: AttachedItem) => void;
 }
 
 export const useFileHandling = ({
+  accountId,
   onAddAttachedItem,
 }: UseFileHandlingProps) => {
+  const { apiUrl } = useSettings();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [externalFiles, setExternalFiles] = useState<ExternalFile[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const externalFileInputRef = useRef<HTMLInputElement>(null);
 
+  const uploadFileToServer = async (file: UploadedFile) => {
+    if (!apiUrl || !accountId) {
+      console.warn("[Zen Log] uploadFileToServer: apiUrl or accountId is missing, skipping immediate upload.", { apiUrl, accountId });
+      return;
+    }
+
+    // Set status to uploading
+    setUploadedFiles((prev) =>
+      prev.map((f) => (f.id === file.id ? { ...f, isUploading: true } : f))
+    );
+
+    try {
+      console.log(`[Zen Log] uploadFileToServer: Uploading ${file.name} to ${apiUrl} with account ${accountId}`);
+      let blob: Blob;
+      if (file.content.startsWith("data:")) {
+        const arr = file.content.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || file.type || "application/octet-stream";
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        blob = new Blob([u8arr], { type: mime });
+      } else {
+        blob = new Blob([file.content], { type: file.type || "text/plain" });
+      }
+
+      const formData = new FormData();
+      formData.append("file", blob, file.name);
+
+      const uploadRes = await fetch(`${apiUrl}/v1/chat/accounts/${accountId}/uploads`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Upload API returned status ${uploadRes.status}`);
+      }
+
+      const uploadData = await uploadRes.json();
+      if (uploadData.success && uploadData.data?.file_id) {
+        console.log(`[Zen Log] uploadFileToServer: Success! file_id=${uploadData.data.file_id}`);
+        setUploadedFiles((prev) =>
+          prev.map((f) =>
+            f.id === file.id
+              ? { ...f, file_id: uploadData.data.file_id, isUploading: false }
+              : f
+          )
+        );
+      } else {
+        throw new Error(uploadData.error || "Unknown upload error");
+      }
+    } catch (err: any) {
+      console.error(`[Zen Log] uploadFileToServer: Failed to upload ${file.name}:`, err);
+      setUploadedFiles((prev) =>
+        prev.map((f) =>
+          f.id === file.id
+            ? { ...f, isUploading: false, error: err.message || String(err) }
+            : f
+        )
+      );
+    }
+  };
+
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData.items;
+    console.log("[Zen Log] handlePaste: Clipboard items count:", items?.length);
     let hasImage = false;
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
+      console.log(`[Zen Log] handlePaste item #${i}: kind=${item.kind}, type=${item.type}`);
       if (item.kind === "file" && item.type.startsWith("image/")) {
         const file = item.getAsFile();
+        console.log(`[Zen Log] handlePaste: Found image file. name=${file?.name}, size=${file?.size}`);
         if (file) {
           hasImage = true;
           const reader = new FileReader();
           reader.onload = (event) => {
             const content = event.target?.result as string;
-            setUploadedFiles((prev) => [
-              ...prev,
-              {
-                id: `file-${Date.now()}-${Math.random()}`,
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                content: content,
-              },
-            ]);
+            console.log(`[Zen Log] handlePaste: FileReader loaded file ${file.name}. Content size: ${content?.length}`);
+            const newFile: UploadedFile = {
+              id: `file-${Date.now()}-${Math.random()}`,
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              content: content,
+            };
+            setUploadedFiles((prev) => [...prev, newFile]);
+            uploadFileToServer(newFile);
           };
           reader.readAsDataURL(file);
         }
@@ -45,6 +117,7 @@ export const useFileHandling = ({
     }
 
     if (hasImage) {
+      console.log("[Zen Log] handlePaste: Image detected, calling preventDefault.");
       e.preventDefault();
     }
   };
@@ -69,13 +142,14 @@ export const useFileHandling = ({
       await new Promise<void>((resolve) => {
         reader.onload = () => {
           const content = reader.result as string;
-          newFiles.push({
+          const newFile: UploadedFile = {
             id: `file-${Date.now()}-${i}`,
             name: file.name,
             size: file.size,
             type: file.type,
             content: content,
-          });
+          };
+          newFiles.push(newFile);
           resolve();
         };
 
@@ -88,6 +162,7 @@ export const useFileHandling = ({
     }
 
     setUploadedFiles((prev) => [...prev, ...newFiles]);
+    newFiles.forEach((file) => uploadFileToServer(file));
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";

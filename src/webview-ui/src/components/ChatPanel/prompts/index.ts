@@ -4,6 +4,7 @@ import { TOOLS_REFERENCE } from "./tools-reference";
 import { buildSystemContext } from "./system-context";
 import type { SystemInfo } from "./system-context";
 import { EXAMPLES } from "./examples";
+import { CONSTRAINTS } from "./constraints";
 
 export { buildIdentityPrompt } from "./identity";
 export { WORKFLOW } from "./workflow";
@@ -11,6 +12,8 @@ export { TOOLS_REFERENCE } from "./tools-reference";
 export { buildSystemContext } from "./system-context";
 export type { SystemInfo } from "./system-context";
 export { EXAMPLES } from "./examples";
+export { CONSTRAINTS } from "./constraints";
+export { buildRetryPrompt } from "./retry";
 
 interface PromptConfig {
   language: string;
@@ -22,10 +25,11 @@ export const combinePrompts = (config: PromptConfig): string => {
 
   const sections = [
     buildIdentityPrompt(language), // 1. Who I am + top-level rules
-    WORKFLOW, // 2. How I work + all critical constraints
-    TOOLS_REFERENCE, // 3. What tools exist + tag usage
-    buildSystemContext(systemInfo), // 4. Environment context
-    EXAMPLES, // 5. Reference patterns
+    WORKFLOW, // 2. How I work
+    CONSTRAINTS, // 3. Critical constraints
+    TOOLS_REFERENCE, // 4. What tools exist + tag usage
+    buildSystemContext(systemInfo), // 5. Environment context
+    EXAMPLES, // 6. Reference patterns
   ];
 
   return sections.join("\n\n---\n\n");

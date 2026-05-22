@@ -196,6 +196,7 @@ export const useToolExecution = ({
   const executeSingleAction = (
     action: any,
     skipDiagnostics: boolean = false,
+    bypassIgnore: boolean = false,
   ): Promise<string | null> => {
     return new Promise((resolve) => {
       const vscodeApi = (window as any).vscodeApi;
@@ -217,6 +218,7 @@ export const useToolExecution = ({
               ? parseInt(action.params.end_line)
               : undefined,
             requestId: requestId,
+            bypassIgnore,
           });
 
           const handleFileResponse = (event: MessageEvent) => {
@@ -259,6 +261,7 @@ export const useToolExecution = ({
             content: action.params.content,
             requestId: requestId,
             skipDiagnostics,
+            bypassIgnore,
           });
 
           const handleResponse = (event: MessageEvent) => {
@@ -297,6 +300,7 @@ export const useToolExecution = ({
             diff: action.params.diff,
             requestId: requestId,
             skipDiagnostics,
+            bypassIgnore,
           });
 
           const handleReplaceResponse = (event: MessageEvent) => {
@@ -336,8 +340,10 @@ export const useToolExecution = ({
             command: "listFiles",
             path: folderPath,
             recursive: action.params.recursive,
+            depth: action.params.depth,
             type: action.params.type,
             requestId: requestId,
+            bypassIgnore,
           });
           const handleListResponse = (event: MessageEvent) => {
             const msg = event.data;
@@ -379,6 +385,7 @@ export const useToolExecution = ({
             regex: action.params.regex,
             filePattern: action.params.filePattern,
             requestId: requestId,
+            bypassIgnore,
           });
           const handleSearchResponse = (event: MessageEvent) => {
             const msg = event.data;
@@ -564,6 +571,7 @@ export const useToolExecution = ({
           result = await executeSingleAction(
             { ...action, actionId },
             skipDiagnostics,
+            globalPermission === "full_access",
           );
         }
 

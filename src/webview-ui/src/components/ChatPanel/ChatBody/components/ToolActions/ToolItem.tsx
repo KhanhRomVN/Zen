@@ -8,7 +8,6 @@ import { Message } from "../../types";
 import { useProject } from "../../../../../context/ProjectContext";
 import FileToolItem from "./FileToolItem";
 import TerminalToolItem from "./TerminalToolItem";
-import GroupedToolItem from "./GroupedToolItem";
 
 interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
@@ -163,26 +162,30 @@ const ToolItem: React.FC<ToolItemProps> = ({
   const toolColor = getToolColor(toolType);
   const clickableTools = CLICKABLE_TOOLS;
 
-  const isSingleFileTool =
-    group.length === 1 &&
-    (toolType === "replace_in_file" || toolType === "write_to_file" ||
-      toolType === "read_file" || toolType === "list_files" || toolType === "search_files");
+  const isFileTool =
+    toolType === "replace_in_file" || toolType === "write_to_file" ||
+    toolType === "read_file" || toolType === "list_files" || toolType === "search_files";
 
-  if (isSingleFileTool) {
+  if (isFileTool) {
     return (
-      <FileToolItem
-        action={firstAction}
-        actionIndex={group[0].index}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(`${messageId}-action-${group[0].index}`)}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-      />
+      <>
+        {group.map((item, idx) => (
+          <FileToolItem
+            key={item.index}
+            action={item.action}
+            actionIndex={item.index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(`${messageId}-action-${item.index}`)}
+            isActiveGroup={isActiveGroup}
+            isLastMessage={isLastMessage}
+            isLastItemInList={idx === group.length - 1 && isLastItemInList}
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+          />
+        ))}
+      </>
     );
   }
 
@@ -200,34 +203,6 @@ const ToolItem: React.FC<ToolItemProps> = ({
         nextUserMessage={nextUserMessage}
         rootPath={rootPath}
         onToolClick={onToolClick}
-      />
-    );
-  }
-
-  const isStyledTool =
-    toolType === "replace_in_file" || toolType === "write_to_file" ||
-    toolType === "list_files" || toolType === "search_files" || toolType === "read_file";
-
-  if (isStyledTool) {
-    return (
-      <GroupedToolItem
-        group={group}
-        messageId={messageId}
-        clickedActions={clickedActions}
-        failedActions={failedActions}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        executionState={executionState}
-        toolOutputs={toolOutputs}
-        terminalStatus={terminalStatus}
-        fileStatsMap={fileStatsMap}
-        isPreviewing={isPreviewing}
-        fuzzyStatus={fuzzyStatus}
-        rootPath={rootPath}
-        onToolClick={onToolClick}
-        onSetIsPreviewing={setIsPreviewing}
-        collapsedActions={collapsedActions}
-        onToggleCollapse={toggleCollapse}
       />
     );
   }

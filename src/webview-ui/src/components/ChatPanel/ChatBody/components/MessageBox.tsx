@@ -1,6 +1,5 @@
 import React from "react";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
+
 import { CodeBlock } from "../../../CodeBlock";
 import { Message } from "../types";
 import {
@@ -15,8 +14,10 @@ import { isDiff, parseDiff } from "../../../../utils/diffUtils";
 import { extensionService } from "../../../../services/ExtensionService";
 import { ToolHeader } from "../../../ToolHeader";
 import { RichtextBlock } from "../../../RichtextBlock";
+import MarkdownWithPaths from "../../../MarkdownWithPaths";
 import "../../../TerminalBlock.css";
 import "./MarkdownContent.css";
+import { buildRetryPrompt } from "../../prompts";
 
 interface MessageBoxProps {
   message: Message;
@@ -47,6 +48,7 @@ interface MessageBoxProps {
   conversationId?: string;
   previousAssistantMessage?: Message;
   isGenerating?: boolean;
+  isSimpleMode?: boolean;
   onSendMessage?: (
     content: string,
     files?: any[],
@@ -158,8 +160,84 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   isGenerating,
   onSendMessage,
   onSelectOption,
+  isSimpleMode = true,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
+
+  /**
+   * Build a map of basename → fullPath from prior tool calls in allMessages.
+   * Scans <file_path> tags from read_file, write_to_file, replace_in_file, search_files, list_files.
+   * This lets us resolve plain filenames like "z_ai_auth.json" to their full paths.
+   */
+  const knownFilePaths = React.useMemo((): Map<string, string> => {
+    const map = new Map<string, string>();
+    if (!allMessages) return map;
+
+    const filePathRegex = /<file_path>([^<]+)<\/file_path>/gi;
+    const pathRegex = /<path>([^<]+)<\/path>/gi;
+
+    for (const msg of allMessages) {
+      if (!msg.content) continue;
+
+      // Extract all <file_path> occurrences
+      let m: RegExpExecArray | null;
+      filePathRegex.lastIndex = 0;
+      while ((m = filePathRegex.exec(msg.content)) !== null) {
+        const fullPath = m[1].trim();
+        if (!fullPath) continue;
+        const basename = fullPath.split(/[/\\]/).pop() || "";
+        if (basename && !map.has(basename)) {
+          map.set(basename, fullPath);
+        }
+      }
+
+      // Also try <path> tags (used by some search/list calls)
+      pathRegex.lastIndex = 0;
+      while ((m = pathRegex.exec(msg.content)) !== null) {
+        const fullPath = m[1].trim();
+        if (!fullPath) continue;
+        const basename = fullPath.split(/[/\\]/).pop() || "";
+        if (basename && !map.has(basename)) {
+          map.set(basename, fullPath);
+        }
+      }
+    }
+
+    return map;
+  }, [allMessages]);
+
+  const handleRetry = React.useCallback(() => {
+    if (!onSendMessage) return;
+
+    // Trích xuất các file đã thao tác trong lịch sử tin nhắn
+    const operatedFiles = new Set<string>();
+    if (allMessages) {
+      const filePathRegex = /<file_path>([^<]+)<\/file_path>/gi;
+      const pathRegex = /<path>([^<]+)<\/path>/gi;
+      allMessages.forEach((msg) => {
+        if (msg.content) {
+          let match;
+          filePathRegex.lastIndex = 0;
+          while ((match = filePathRegex.exec(msg.content)) !== null) {
+            operatedFiles.add(match[1].trim());
+          }
+          pathRegex.lastIndex = 0;
+          while ((match = pathRegex.exec(msg.content)) !== null) {
+            operatedFiles.add(match[1].trim());
+          }
+        }
+      });
+    }
+
+    const filesList = Array.from(operatedFiles);
+    const errorText = message.content.replace(/^Error:\s*/i, "");
+    
+    // Tạo prompt tiếng Anh thông qua hàm buildRetryPrompt từ file retry.ts riêng biệt
+    const promptText = buildRetryPrompt(errorText, filesList);
+
+    // Gửi message retry ẩn dưới nền (uiHidden = true) tương tự các auto-req khác
+    onSendMessage(promptText, undefined, undefined, undefined, undefined, undefined, true);
+  }, [message.content, allMessages, onSendMessage]);
 
   // If User Message
   if (message.role === "user") {
@@ -276,12 +354,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
         filter: message.isCancelled ? "grayscale(1) blur(0.5px)" : "none",
         pointerEvents: message.isCancelled ? "none" : "auto",
         transition: "all 0.3s ease",
-        backgroundColor: message.isError
-          ? "rgba(255, 0, 0, 0.05)"
-          : "transparent",
+        backgroundColor: "transparent",
         borderRadius: "var(--border-radius)",
-        border: message.isError ? "1px solid rgba(255, 0, 0, 0.1)" : "none",
-        padding: message.isError ? "var(--spacing-sm)" : "0px",
+        border: "none",
+        padding: "0px",
       }}
     >
       {/* 3. Interleaved Content (Text + Tools) */}
@@ -313,6 +389,11 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 options: string[];
                 title?: string;
                 optional?: boolean;
+                key: string;
+              }
+            | {
+                type: "error";
+                content: string;
                 key: string;
               }
           > = [];
@@ -376,7 +457,13 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             }
           };
 
-          if (blocks.length > 0) {
+          if (message.isError) {
+            groups.push({
+              type: "error",
+              content: message.content,
+              key: "error-block",
+            });
+          } else if (blocks.length > 0) {
             blocks.forEach((block, idx) => {
               if (block.type === "tool") {
                 const actionIndex = parsedContent.actions.indexOf(block.action);
@@ -459,7 +546,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           let isInteractionBlocked = false;
 
           return groups.map((group, index) => {
-            const isLast = index === groups.length - 1;
+            const isLast = index === groups.length - 1 && isLastMessage;
             const timelineClass = `timeline-item ${isLast ? "last" : ""}`;
 
             let content = null;
@@ -594,10 +681,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 </div>
               );
             } else if (group.type === "markdown") {
-              const htmlContent = DOMPurify.sanitize(
-                marked.parse(group.content) as string,
-              );
-
               content = (
                 <div>
                   <div
@@ -614,8 +697,9 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                       fontSize: "var(--font-size-sm)",
                       color: "var(--primary-text)",
                     }}
-                    dangerouslySetInnerHTML={{ __html: htmlContent }}
-                  />
+                  >
+                    <MarkdownWithPaths content={group.content} knownFilePaths={knownFilePaths} />
+                  </div>
                 </div>
               );
             } else if (group.type === "mixed_content") {
@@ -645,26 +729,21 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                           </div>
                         );
                       } else if (seg.type === "markdown") {
-                        const htmlContent = DOMPurify.sanitize(
-                          marked.parse(seg.content) as string,
-                        );
                         return (
-                          <div
+                          <MarkdownWithPaths
                             key={i}
+                            content={seg.content}
                             className="markdown-content-inline"
-                            dangerouslySetInnerHTML={{ __html: htmlContent }}
+                            knownFilePaths={knownFilePaths}
                           />
                         );
                       } else {
-                        // Fallback for any other segment type, render as markdown
-                        const htmlContent = DOMPurify.sanitize(
-                          marked.parse(seg.content) as string,
-                        );
                         return (
-                          <div
+                          <MarkdownWithPaths
                             key={i}
+                            content={seg.content}
                             className="markdown-content-inline"
-                            dangerouslySetInnerHTML={{ __html: htmlContent }}
+                            knownFilePaths={knownFilePaths}
                           />
                         );
                       }
@@ -723,6 +802,106 @@ const MessageBox: React.FC<MessageBoxProps> = ({
 
               // Update blocking state
               if (!isAnswered) isInteractionBlocked = true;
+            } else if (group.type === "error") {
+              const errorText = group.content.replace(/^Error:\s*/i, "");
+              content = (
+                <div>
+                  <div
+                    className="timeline-dot"
+                    style={{
+                      backgroundColor: "var(--vscode-testing-iconFailedColor, #f14c4c)",
+                      top: "10px",
+                      border: "none",
+                    }}
+                  />
+                  <div
+                    style={{
+                      paddingLeft: "29px",
+                      paddingTop: "4px",
+                      fontSize: "var(--font-size-sm)",
+                      color: "var(--primary-text)",
+                      maxWidth: "100%",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        fontSize: "12px",
+                        color: "var(--vscode-editor-foreground)",
+                        lineHeight: "20px",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: "var(--vscode-testing-iconFailedColor, #f14c4c)" }}>
+                        ERROR
+                      </span>
+                      <span
+                        style={{
+                          fontWeight: 500,
+                          opacity: 0.9,
+                          fontFamily: "var(--vscode-editor-font-family, monospace)",
+                          fontSize: "11px",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-all",
+                        }}
+                      >
+                        {errorText}
+                      </span>
+                    </div>
+                    {onSendMessage && (
+                      <button
+                        onClick={handleRetry}
+                        style={{
+                          backgroundColor: "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 12%, transparent)",
+                          color: "var(--vscode-testing-iconFailedColor, #f14c4c)",
+                          border: "1px solid color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 30%, transparent)",
+                          padding: "6px 12px",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "6px",
+                          marginTop: "8px",
+                          height: "26px",
+                          boxSizing: "border-box",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor =
+                            "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 22%, transparent)";
+                          e.currentTarget.style.borderColor =
+                            "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 45%, transparent)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor =
+                            "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 12%, transparent)";
+                          e.currentTarget.style.borderColor =
+                            "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 30%, transparent)";
+                        }}
+                      >
+                        <span
+                          className="codicon codicon-refresh"
+                          style={{
+                            fontSize: "12px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        />
+                        <span>Retry</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
             } else {
               content = (
                 <ToolActionsList
@@ -742,6 +921,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   conversationId={conversationId}
                   allActions={parsedContent.actions}
                   isBlockedByPrecedingInteraction={isInteractionBlocked}
+                  isVisibleTool={isSimpleMode
+                    ? (type) => type === "write_to_file" || type === "replace_in_file" || type === "run_command" || type === "execute_agent_action"
+                    : undefined
+                  }
                 />
               );
 

@@ -101,21 +101,22 @@ Searched src/ and root with 2 patterns — no results.
 
 ---
 
-## Ex 7: Self-Healing on Error ✅
+## Ex 8: write_to_file — Multi-line Content ✅
 
-If \`run_command\` fails → fix and retry once:
+**❌ WRONG — never produce one-liner content:**
 \`\`\`xml
-<run_command><command>export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which java)))) && ./gradlew desktop:run</command></run_command>
+<write_to_file><file_path>src/utils.ts</file_path><content>export function add(a: number, b: number) {\n  return a + b;\n}\n</content></write_to_file>
 \`\`\`
 
-After 2 failed attempts → report clearly and ask:
+**✅ CORRECT — real newlines inside <content>:**
 \`\`\`xml
-<markdown>
-Tried 2 approaches, still failing:
-\`\`\`
-[actual error output]
-\`\`\`
-Need: 1. Linux distro? 2. Output of \`java -version\`?
-</markdown>
+<write_to_file>
+<file_path>src/utils.ts</file_path>
+<content>
+export function add(a: number, b: number) {
+  return a + b;
+}
+</content>
+</write_to_file>
 \`\`\`
 `;

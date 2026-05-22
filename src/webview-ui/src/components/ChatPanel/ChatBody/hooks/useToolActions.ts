@@ -18,6 +18,7 @@ interface UseToolActionsProps {
   ) => void;
   parsedMessages: any[];
   isProcessing?: boolean; // Prevents auto-triggering mid-stream
+  isRestored?: boolean;
 }
 
 export const useToolActions = ({
@@ -25,6 +26,7 @@ export const useToolActions = ({
   onToolAction,
   parsedMessages,
   isProcessing = false,
+  isRestored = false,
 }: UseToolActionsProps) => {
   const { toolPermissions } = useSettings();
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
@@ -138,6 +140,7 @@ export const useToolActions = ({
 
   // Auto-execute tools logic
   useEffect(() => {
+    if (isRestored) return;
     if (!onSendToolRequest || parsedMessages.length === 0) return;
 
     // CRITICAL: Do NOT auto-trigger while the LLM is still streaming.
@@ -212,6 +215,7 @@ export const useToolActions = ({
     failedActions,
     toolPermissions,
     isProcessing,
+    isRestored,
   ]);
 
   return {

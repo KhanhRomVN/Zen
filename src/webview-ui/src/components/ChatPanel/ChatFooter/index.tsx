@@ -6,6 +6,7 @@ import ProjectContextModal from "./ProjectContextModal";
 import { ChatFooterProps } from "./types";
 
 interface ExtendedChatFooterProps extends ChatFooterProps {
+  apiUrl?: string;
   folderPath?: string | null;
   isConversationStarted?: boolean;
   currentModel: any;
@@ -13,11 +14,13 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   currentAccount: any;
   setCurrentAccount: (account: any) => void;
   isProcessing?: boolean;
-  // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
   initialValue?: string;
-  initialValueNonce?: number;}
+  initialValueNonce?: number;
+  isSimpleMode?: boolean;
+  onToggleSimpleMode?: () => void;
+}
 
 // Hooks
 import { useWorkspaceData } from "./hooks/useWorkspaceData";
@@ -44,7 +47,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   onStopGeneration,
   initialValue,
   initialValueNonce,
-}: ExtendedChatFooterProps) => {
+  isSimpleMode = true,
+  onToggleSimpleMode,
+}) => {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -161,6 +166,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
     handleDrop,
     clearFiles,
   } = useFileHandling({
+    accountId: currentAccount?.id,
     onAddAttachedItem: (item) => {
       addAttachedItem(item);
       // If adding external file from menu, we should close the menu
@@ -172,11 +178,13 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
 
   // Handle Send Message
   const handleSend = (model: any, account: any) => {
+    console.log("[Zen Log] ChatFooter handleSend called. Message length:", message?.trim()?.length, "uploadedFiles:", uploadedFiles?.length, "attachedItems:", attachedItems?.length);
     if (
       message.trim() ||
       uploadedFiles.length > 0 ||
       attachedItems.length > 0
     ) {
+      console.log("[Zen Log] ChatFooter: Calling onSendMessage with files count:", uploadedFiles.length + attachedItems.length);
       onSendMessage(
         message,
         [...uploadedFiles, ...attachedItems],
@@ -192,6 +200,8 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
+    } else {
+      console.log("[Zen Log] ChatFooter handleSend: send criteria not met.");
     }
   };
 
@@ -335,10 +345,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           uploadedFiles={uploadedFiles}
           textareaRef={textareaRef}
           handleTextareaChange={handleTextareaChange}
-          handleKeyDown={(e: React.KeyboardEvent) => {
-            // MessageInput handles Enter key for sending
-            // This prop is now only for other global key handlers if any
-          }}
+          handleKeyDown={(e: React.KeyboardEvent) => {}}
           handlePaste={handlePaste}
           handleDragOver={handleDragOver}
           handleDrop={handleDrop}
@@ -360,10 +367,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           showChangesDropdown={showChangesDropdown}
           setShowChangesDropdown={setShowChangesDropdown}
           messages={messages}
-          // setShowOptionsDrawer={setShowOptionsDrawer} // Removed
-          handleSend={(model: any, account: any) =>
-            handleSend(model, account)
-          }
+          handleSend={(model: any, account: any) => handleSend(model, account)}
           hasProjectContext={!!projectContext}
           onOpenProjectContext={() => setShowProjectContextModal(true)}
           folderPath={folderPath}
@@ -375,6 +379,8 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           isProcessing={isProcessing}
           isStreaming={!!isStreaming}
           onStopGeneration={onStopGeneration}
+          isSimpleMode={isSimpleMode}
+          onToggleSimpleMode={onToggleSimpleMode}
         />
 
         <MentionDropdowns

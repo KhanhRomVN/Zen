@@ -187,6 +187,24 @@ export class SystemHandler {
     if (message.url) vscode.env.openExternal(vscode.Uri.parse(message.url));
   }
 
+  public async handleOpenFolder(message: any) {
+    const folderPath = message.path;
+    if (!folderPath) return;
+
+    try {
+      // Reveal the folder in the OS file manager
+      await vscode.commands.executeCommand(
+        "revealFileInOS",
+        vscode.Uri.file(folderPath),
+      );
+    } catch (error) {
+      // Fallback: open via openExternal for OS file manager
+      try {
+        await vscode.env.openExternal(vscode.Uri.file(folderPath));
+      } catch (e) {}
+    }
+  }
+
   public async handleConfirmation(
     message: any,
     webviewView: vscode.WebviewView,

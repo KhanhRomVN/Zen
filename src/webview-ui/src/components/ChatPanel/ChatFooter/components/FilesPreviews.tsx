@@ -1,5 +1,5 @@
 import React from "react";
-import { FileIcon, ImageIcon, FolderIcon, Terminal } from "lucide-react";
+import { FileIcon, ImageIcon, FolderIcon, Terminal, Loader2 } from "lucide-react";
 import { UploadedFile, AttachedItem } from "../types";
 import { formatFileSize } from "../utils";
 import FileIconCommon from "../../../common/FileIcon";
@@ -54,16 +54,64 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                     src={file.content}
                     alt={file.name}
                     title={file.name}
-                    onClick={() => onOpenImage(file)}
+                    onClick={() => !file.isUploading && onOpenImage(file)}
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
                       borderRadius: "var(--border-radius)",
-                      cursor: "pointer",
-                      border: "1px solid var(--border-color)",
+                      cursor: file.isUploading ? "default" : "pointer",
+                      border: file.error ? "1px solid #f44336" : "1px solid var(--border-color)",
+                      opacity: file.isUploading ? 0.5 : 1,
+                      filter: file.isUploading ? "blur(0.5px)" : "none",
                     }}
                   />
+                  {file.isUploading && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "rgba(0, 0, 0, 0.4)",
+                        borderRadius: "var(--border-radius)",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      <Loader2
+                        size={16}
+                        color="#ffffff"
+                        className="spin-animation"
+                      />
+                    </div>
+                  )}
+                  {file.error && (
+                    <div
+                      title={file.error}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "rgba(244, 67, 54, 0.6)",
+                        borderRadius: "var(--border-radius)",
+                        color: "#fff",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        cursor: "help",
+                      }}
+                    >
+                      ⚠️
+                    </div>
+                  )}
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
@@ -111,10 +159,11 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                   gap: "var(--spacing-xs)",
                   padding: "var(--spacing-xs) var(--spacing-sm)",
                   backgroundColor: "transparent",
-                  border: "none",
+                  border: file.error ? "1px solid #f44336" : "none",
                   borderRadius: "var(--border-radius)",
                   fontSize: "var(--font-size-xs)",
-                  color: "var(--primary-text)",
+                  color: file.error ? "#f44336" : "var(--primary-text)",
+                  opacity: file.isUploading ? 0.6 : 1,
                 }}
               >
                 <span>📎</span>
@@ -125,13 +174,23 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                   }}
-                  title={file.name}
+                  title={file.error || file.name}
                 >
                   {file.name}
                 </span>
                 <span style={{ color: "var(--secondary-text)" }}>
                   ({formatFileSize(file.size)})
                 </span>
+                {file.isUploading && (
+                  <span style={{ fontSize: "10px", color: "var(--secondary-text)" }}>
+                    (uploading...)
+                  </span>
+                )}
+                {file.error && (
+                  <span style={{ fontSize: "10px", color: "#f44336" }} title={file.error}>
+                    ⚠️
+                  </span>
+                )}
                 <div
                   style={{
                     cursor: "pointer",

@@ -17,6 +17,9 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
   previousAssistantMessage?: Message;
+  isSimpleMode?: boolean;
+  isRestored?: boolean;
+  onContinue?: () => void;
 }
 
 // Hooks
@@ -28,13 +31,12 @@ import WelcomeUI from "../../HomePanel/WelcomeUI";
 import ProcessingIndicator from "./components/ProcessingIndicator";
 import ScrollToBottomButton from "./components/ScrollToBottomButton";
 import MessageBox from "./components/MessageBox";
-import ProcessGroup from "./components/ProcessGroup";
 
 const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   messages,
   isProcessing,
   onSendToolRequest,
-  onSendMessage, // eslint-disable-line @typescript-eslint/no-unused-vars
+  onSendMessage,
 
   executionState,
   toolOutputs,
@@ -46,6 +48,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   conversationId,
   onToolAction,
   onSelectOption,
+  isSimpleMode = true,
+  isRestored = false,
+  onContinue,
 }: ExtendedChatBodyProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -75,20 +80,38 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     onToolAction,
     parsedMessages,
     isProcessing,
+    isRestored,
   });
   const { isAtBottom, scrollToBottom } = useScrollBehavior(messagesEndRef, [
     messages,
     isProcessing,
   ]);
 
+  const hasUnexecutedAutoActions = useMemo(() => {
+    if (!isRestored || messages.length === 0) return false;
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.role !== "assistant") return false;
+    const parsed = parseAIResponse(lastMessage.content);
+    if (!parsed.actions || parsed.actions.length === 0) return false;
+
+    return parsed.actions.some((action: any, idx: number) => {
+      if (action.isPartial) return false;
+      const actionId = `${lastMessage.id}-action-${idx}`;
+      const hasOutput = toolOutputs && toolOutputs[actionId];
+      return !hasOutput;
+    });
+  }, [messages, isRestored, toolOutputs]);
+
   // 🆕 Debug logging and filtering logic
   const visibleMessages = useMemo(() => {
-    return messages.filter((message) => {
+    const filtered = messages.filter((message) => {
       if (message.uiHidden || message.isCancelled) {
         return false;
       }
       return true;
     });
+    console.log("[ChatBody] visibleMessages", filtered.length, "/", messages.length, messages.map(m => ({ id: m.id, role: m.role, uiHidden: m.uiHidden, isCancelled: m.isCancelled })));
+    return filtered;
   }, [messages, firstRequestMessageId]);
 
   // Find the index of the last assistant message (it might not be the literal last if followed by user input)
@@ -134,90 +157,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     return !!(hasText || hasActions || hasOtherBlocks);
   }, [isProcessing, visibleMessages, parsedMessages]);
 
-  // Group consecutive auto-process messages (assistant-with-tools + hidden-user pairs)
-  // into ProcessGroups. A group ends when an assistant message has NO tool actions.
-  // NOTE: Run on full `messages` (not visibleMessages) so uiHidden user messages are visible to the algorithm.
-  const renderItems = useMemo(() => {
-    if (isProcessing) return null; // Don't group while still processing
-
-    type RenderItem =
-      | { kind: "single"; message: Message; index: number }
-      | { kind: "group"; messages: Message[] };
-
-    const items: RenderItem[] = [];
-    // Use non-cancelled messages (but include uiHidden for grouping logic)
-    const allNonCancelled = messages.filter(m => !m.isCancelled);
-    console.log(`[ProcessGroup] Running grouping on ${allNonCancelled.length} messages (isProcessing=${isProcessing})`);
-    let i = 0;
-
-    while (i < allNonCancelled.length) {
-      const msg = allNonCancelled[i];
-
-      if (msg.role === "assistant") {
-        const parsed = parsedMessages.find(pm => pm.id === msg.id)?.parsed;
-        const hasTools = (parsed?.actions?.length || 0) > 0;
-
-        if (hasTools) {
-          const groupMsgs: Message[] = [msg];
-          let j = i + 1;
-
-          while (j < allNonCancelled.length) {
-            const next = allNonCancelled[j];
-            if (next.role === "user" && next.uiHidden) {
-              groupMsgs.push(next);
-              j++;
-              continue;
-            }
-            if (next.role === "assistant") {
-              const nextParsed = parsedMessages.find(pm => pm.id === next.id)?.parsed;
-              const nextHasTools = (nextParsed?.actions?.length || 0) > 0;
-              groupMsgs.push(next);
-              j++;
-              if (!nextHasTools) break;
-              continue;
-            }
-            break;
-          }
-
-          const assistantCount = groupMsgs.filter(m => m.role === "assistant").length;
-          console.log(`[ProcessGroup] candidate group: ${groupMsgs.length} msgs, ${assistantCount} assistants`, groupMsgs.map(m => `${m.role}(hidden=${m.uiHidden})`));
-          if (assistantCount > 1) {
-            // Separate the final markdown-only assistant from the group so it renders outside
-            const lastMsg = groupMsgs[groupMsgs.length - 1];
-            const lastParsed = parsedMessages.find(pm => pm.id === lastMsg.id)?.parsed;
-            const lastHasTools = (lastParsed?.actions?.length || 0) > 0;
-
-            let processGroupMsgs = groupMsgs;
-            let finalMsg: Message | null = null;
-            if (!lastHasTools && lastMsg.role === "assistant") {
-              processGroupMsgs = groupMsgs.slice(0, -1);
-              finalMsg = lastMsg;
-            }
-
-            console.log(`[ProcessGroup] ✅ Formed group with ${processGroupMsgs.filter(m=>m.role==="assistant").length} assistants${finalMsg ? " + 1 final markdown" : ""}`);
-            items.push({ kind: "group", messages: processGroupMsgs });
-            if (finalMsg) {
-              items.push({ kind: "single", message: finalMsg, index: visibleMessages.indexOf(finalMsg) });
-            }
-            i = j;
-            continue;
-          } else {
-            console.log(`[ProcessGroup] ❌ Not enough assistants, treating as single`);
-          }
-        }
-      }
-
-      // Only add as single if not uiHidden
-      if (!msg.uiHidden) {
-        items.push({ kind: "single", message: msg, index: visibleMessages.indexOf(msg) });
-      }
-      i++;
-    }
-
-    console.log(`[ProcessGroup] Result: ${items.filter(r => r.kind === "group").length} groups, ${items.filter(r => r.kind === "single").length} singles`);
-    return items;
-  }, [messages, parsedMessages, isProcessing]);
-
   const parsedMap = useMemo(() => {
     const map = new Map<string, any>();
     parsedMessages.forEach(pm => map.set(pm.id, pm.parsed));
@@ -244,34 +183,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       )}
 
       <div className="chat-timeline-wrapper">
-        {(renderItems || visibleMessages.map((message, index) => ({ kind: "single" as const, message, index }))).map((item) => {
-          if (item.kind === "group") {
-            return (
-              <ProcessGroup
-                key={item.messages[0].id}
-                messages={item.messages}
-                parsedMap={parsedMap}
-                clickedActions={clickedActions}
-                failedActions={failedActions}
-                onToolClick={handleToolClick}
-                toolOutputs={toolOutputs}
-                terminalStatus={terminalStatus}
-                allMessages={messages}
-                activeTerminalIds={activeTerminalIds}
-                attachedTerminalIds={attachedTerminalIds}
-                conversationId={conversationId}
-                onSendMessage={onSendMessage}
-                onSelectOption={onSelectOption}
-                executionState={executionState}
-                previousAssistantMessage={messages
-                  .slice(0, messages.findIndex(m => m.id === item.messages[0].id))
-                  .reverse()
-                  .find(m => m.role === "assistant")}
-              />
-            );
-          }
-
-          const { message, index } = item;
+        {visibleMessages.length > 0 && console.log("[ChatBody] rendering", visibleMessages.length, "messages") as any}
+        {visibleMessages.map((message, index) => {
           const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
           if (!parsedMessage) return null;
           const parsedContent = parsedMessage.parsed;
@@ -315,10 +228,68 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               previousAssistantMessage={previousAssistantMessage}
               onSendMessage={onSendMessage}
               onSelectOption={onSelectOption}
+              isSimpleMode={isSimpleMode}
             />
           );
         })}
       </div>
+
+      {hasUnexecutedAutoActions && onContinue && (
+        <div
+          style={{
+            paddingLeft: "29px",
+            marginTop: "12px",
+            marginBottom: "12px",
+            display: "flex",
+          }}
+        >
+          <button
+            onClick={onContinue}
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--vscode-button-background, #007acc) 15%, transparent)",
+              color: "var(--vscode-button-background, #007acc)",
+              border: "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 30%, transparent)",
+              padding: "6px 16px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              height: "28px",
+              boxSizing: "border-box",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor =
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 25%, transparent)";
+              e.currentTarget.style.borderColor =
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 50%, transparent)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor =
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 15%, transparent)";
+              e.currentTarget.style.borderColor =
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 30%, transparent)";
+            }}
+          >
+            <span
+              className="codicon codicon-play"
+              style={{
+                fontSize: "12px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            />
+            <span>Continue Task</span>
+          </button>
+        </div>
+      )}
 
       {isProcessing && <ProcessingIndicator isResponding={isResponding} />}
 

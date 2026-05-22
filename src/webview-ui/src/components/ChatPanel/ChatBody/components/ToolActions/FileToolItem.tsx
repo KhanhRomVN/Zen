@@ -102,7 +102,8 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
 
   const linesCount = action.type === "write_to_file" ? action.params.content?.split("\n").length || 0 : 0;
   const isPartial = action.isPartial;
-  const isCompleted = !isPartial && (isActionClicked || (codeContent && codeContent.trim().length > 0));
+  const isError = !!toolOutputs?.[actionId]?.isError;
+  const isCompleted = !isPartial && (isActionClicked || isError || (codeContent && codeContent.trim().length > 0));
   const isLoading = !isCompleted && isPartial;
   const displayPath = truncatePath(rawPath);
 
@@ -151,11 +152,11 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
             )}
           </div>
         }
-        statusColor={isCompleted ? "#3fb950" : isActiveGroup ? "var(--vscode-button-background)" : "var(--vscode-descriptionForeground)"}
+        statusColor={isError ? "var(--vscode-errorForeground)" : isCompleted ? "#3fb950" : isActiveGroup ? "var(--vscode-button-background)" : "var(--vscode-descriptionForeground)"}
         diffStats={undefined}
         isPartial={isPartial}
         onClick={() => {
-          if (toolType === "list_files" || toolType === "search_files") {
+          if (toolType === "list_files" || toolType === "search_files" || toolType === "replace_in_file" || toolType === "write_to_file") {
             setIsCollapsed((v) => !v);
           } else {
             extensionService.postMessage({ command: "openFile", path: rawPath });
@@ -163,16 +164,16 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         }}
       />
 
-      {!isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
+      {!isCompleted && !isPartial && (isActiveGroup || !isLastMessage) && (
         <div style={{ marginTop: "8px", marginBottom: "8px" }}>
           <ExecuteButton
             isActive={!!isActiveGroup}
             isCompleted={!!isCompleted}
             isLastMessage={!!isLastMessage}
-            isLoading={isLoading}
+            isLoading={false}
             toolColor={toolColor}
-            title={isPartial ? "Streaming content..." : "Approve action"}
-            labelText={isPartial ? "Streaming" : "Approve"}
+            title="Approve action"
+            labelText="Approve"
             onExecute={(e, type) => onToolClick(action, messageId, actionIndex, type)}
           />
         </div>
@@ -194,7 +195,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
               />
             )
           ) : (
-            !(isPartial && (toolType === "replace_in_file" || toolType === "write_to_file")) && (
+            !isCollapsed && !(isPartial && (toolType === "replace_in_file" || toolType === "write_to_file")) && (
               <CodeBlock
                 code={codeContent}
                 language={codeLanguage}

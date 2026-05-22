@@ -16,6 +16,7 @@ replacement
 </diff></replace_in_file>
 
 <list_files><folder_path>path/to/folder</folder_path></list_files>
+<list_files><folder_path>path/to/folder</folder_path><depth>2</depth></list_files>
 
 <search_files><folder_path>path/to/folder</folder_path><regex>pattern</regex></search_files>
 
