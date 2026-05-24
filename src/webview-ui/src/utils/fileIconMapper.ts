@@ -1,14 +1,8 @@
-/**
- * File Extension to Icon Mapper
- * Maps file extensions and filenames to vscode-icons SVG files
- * using vscode-icons-js package
- */
 import {
-  getIconForFile,
-  DEFAULT_FILE,
-  DEFAULT_FOLDER,
-  DEFAULT_FOLDER_OPENED,
-} from "vscode-icons-js";
+  fileNamesMap,
+  extensionsMap,
+  folderNamesMap,
+} from "./materialIconMaps";
 
 /**
  * Get icon filename for a given file
@@ -16,16 +10,27 @@ import {
  * @returns SVG icon filename
  */
 export function getFileIcon(filename: string): string {
-  // Extract just the filename without path
-  const name = filename.split("/").pop() || filename;
-  const icon = getIconForFile(name);
-  return icon || DEFAULT_FILE;
-}
-
-declare global {
-  interface Window {
-    __zenImagesUri?: string;
+  if (!filename) return "file.svg";
+  
+  // Clean filename to lowercase and get base name
+  const name = filename.split("/").pop()?.toLowerCase() || filename.toLowerCase();
+  
+  // 1. Check exact filename matches
+  if (fileNamesMap[name]) {
+    return `${fileNamesMap[name]}.svg`;
   }
+  
+  // 2. Check extension matches (longest suffix first, e.g. for .spec.ts, .d.ts)
+  const parts = name.split(".");
+  for (let i = 1; i < parts.length; i++) {
+    const ext = parts.slice(i).join(".");
+    if (extensionsMap[ext]) {
+      return `${extensionsMap[ext]}.svg`;
+    }
+  }
+  
+  // 3. Fallback default file icon
+  return "file.svg";
 }
 
 /**
@@ -37,26 +42,44 @@ export function getFileIconPath(filename: string): string {
   const iconName = getFileIcon(filename);
   const baseUri = window.__zenImagesUri || "/images/icons";
   const path = `${baseUri}/icons/${iconName}`;
-  const finalPath = path.replace(/([^:]\/)\/+/g, "$1");
-  return finalPath;
+  return path.replace(/([^:]\/)\/+/g, "$1");
 }
 
 /**
- * Get folder icon
- * @param isOpen - Whether folder is open
- * @returns SVG icon filename
+ * Get folder icon name
+ * Supports two signatures for backward compatibility:
+ * 1. getFolderIcon(folderName: string, isOpen: boolean)
+ * 2. getFolderIcon(isOpen: boolean)
  */
-export function getFolderIcon(isOpen: boolean = false): string {
-  return isOpen ? DEFAULT_FOLDER_OPENED : DEFAULT_FOLDER;
+export function getFolderIcon(folderNameOrIsOpen: string | boolean = false, isOpenParam: boolean = false): string {
+  let name = "";
+  let isOpen = false;
+
+  if (typeof folderNameOrIsOpen === "string") {
+    name = folderNameOrIsOpen.split("/").pop()?.toLowerCase() || folderNameOrIsOpen.toLowerCase();
+    isOpen = isOpenParam;
+  } else {
+    isOpen = folderNameOrIsOpen;
+  }
+
+  // 1. Check specific folder icon mapping
+  if (name && folderNamesMap[name]) {
+    const iconName = folderNamesMap[name];
+    return isOpen ? `${iconName}-open.svg` : `${iconName}.svg`;
+  }
+
+  // 2. Default fallback folder icons
+  return isOpen ? "folder-base-open.svg" : "folder-base.svg";
 }
 
 /**
  * Get full folder icon path
- * @param isOpen - Whether folder is open
- * @returns Full path to folder icon SVG
+ * Supports two signatures for backward compatibility:
+ * 1. getFolderIconPath(folderName: string, isOpen: boolean)
+ * 2. getFolderIconPath(isOpen: boolean)
  */
-export function getFolderIconPath(isOpen: boolean = false): string {
-  const iconName = getFolderIcon(isOpen);
+export function getFolderIconPath(folderNameOrIsOpen: string | boolean = false, isOpenParam: boolean = false): string {
+  const iconName = getFolderIcon(folderNameOrIsOpen, isOpenParam);
   const baseUri = window.__zenImagesUri || "/images/icons";
   const path = `${baseUri}/icons/${iconName}`;
   return path.replace(/([^:]\/)\/+/g, "$1");
@@ -87,4 +110,10 @@ export function getProviderIconPath(provider: string): string {
   const baseUri = window.__zenImagesUri || "/images/icons";
   const path = `${baseUri}/provider_icons/${iconName}`;
   return path.replace(/([^:]\/)\/+/g, "$1");
+}
+
+declare global {
+  interface Window {
+    __zenImagesUri?: string;
+  }
 }

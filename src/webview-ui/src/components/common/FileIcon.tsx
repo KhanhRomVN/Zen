@@ -25,14 +25,14 @@ const FileIcon: React.FC<FileIconProps> = ({
 
   const getTargetSrc = () => {
     if (isFolder) {
-      return getFolderIconPath(isOpen);
+      return getFolderIconPath(path, isOpen);
     }
     return getFileIconPath(path);
   };
 
   const getFallbackSrc = () => {
     if (isFolder) {
-      return getFolderIconPath(false);
+      return getFolderIconPath("", false);
     }
     return getFileIconPath("default_file");
   };

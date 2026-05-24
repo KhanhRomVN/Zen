@@ -63,27 +63,29 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   }
 
   return (
-    <div style={{ display: "flex", gap: "6px", marginTop: "8px", marginBottom: "8px" }}>
+    <div style={{ display: "flex", gap: "6px", marginTop: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
       {[
-        { type: "accept_once" as const, color: toolColor, icon: <Check size={14} strokeWidth={2.5} />, title: "Accept Once" },
-        { type: "accept_all" as const, color: "#3fb950", icon: <CheckCheck size={14} strokeWidth={2.5} />, title: "Always (Auto-confirm exact same calls)" },
-        { type: "reject" as const, color: "#ff4d4d", icon: <X size={14} strokeWidth={2.5} />, title: "Reject this tool call" },
-      ].map(({ type, color, icon, title: btnTitle }) => (
+        { type: "accept_once" as const, color: toolColor, icon: <Check size={14} strokeWidth={2.5} />, label: t("toolActions.accept"), title: "Accept Once" },
+        { type: "accept_all" as const, color: "#3fb950", icon: <CheckCheck size={14} strokeWidth={2.5} />, label: t("toolActions.acceptAll"), title: "Always (Auto-confirm exact same calls)" },
+        { type: "reject" as const, color: "#ff4d4d", icon: <X size={14} strokeWidth={2.5} />, label: t("toolActions.reject"), title: "Reject this tool call" },
+      ].map(({ type, color, icon, label, title: btnTitle }) => (
         <button
           key={type}
           onClick={(e) => { e.stopPropagation(); if (isClickable) onExecute(e, type); }}
           disabled={isLoading}
           style={{
             background: `${color}1A`, color, border: `1px solid ${color}33`,
-            cursor: isLoading ? "wait" : "pointer", padding: "4px", width: "24px",
-            borderRadius: "5px", display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "12px", fontWeight: 600, height: "24px", transition: "all 0.2s ease",
+            cursor: isLoading ? "wait" : "pointer", padding: "4px 10px",
+            borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: "11px", fontWeight: 600, height: "24px", transition: "all 0.2s ease",
+            gap: "6px",
           }}
           onMouseEnter={(e) => { e.currentTarget.style.background = `${color}26`; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = `${color}1A`; }}
           title={btnTitle}
         >
           {icon}
+          <span>{label}</span>
         </button>
       ))}
     </div>

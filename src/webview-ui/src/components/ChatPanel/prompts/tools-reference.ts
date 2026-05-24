@@ -22,11 +22,18 @@ replacement
 
 <run_command><command>your command here</command></run_command>
 
+<get_outline><file_path>path/to/file</file_path></get_outline>
+
+<get_definition><symbol>symbol_name</symbol><file_path>path/to/file</file_path></get_definition>
+
+<get_references><symbol>symbol_name</symbol><file_path>path/to/file</file_path></get_references>
+
 # RESPONSE TAGS
 
+<thinking>your private two-pass reasoning and planning</thinking>
 <markdown>prose, tables, explanations</markdown>
 <code language="ts">read-only display</code>
 <question><option>A</option><option>B</option></question>
 
-Skip <markdown> when a tool call is self-explanatory.
+Never output a <markdown> block in the same message with tool calls. Wait for tool results in the next turn before writing any markdown.
 After each read_file, STOP and wait for the file content before proceeding.`;

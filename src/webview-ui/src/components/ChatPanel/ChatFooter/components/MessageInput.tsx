@@ -7,8 +7,6 @@ import {
   Zap,
   FileCode,
   Brain,
-  ShieldCheck,
-  Ban,
   Eye,
 } from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
@@ -53,74 +51,6 @@ interface ToggleButtonProps {
   title: string;
 }
 
-const SimpleModeIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/>
-    <circle cx="12" cy="12" r="1"/>
-  </svg>
-);
-
-const FullModeIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="8" height="8" x="3" y="3" rx="2"/>
-    <path d="M7 11v4a2 2 0 0 0 2 2h4"/>
-    <rect width="8" height="8" x="13" y="13" rx="2"/>
-  </svg>
-);
-
-interface ModeButtonProps {
-  isSimpleMode: boolean;
-  onClick?: () => void;
-}
-
-const ModeButton: React.FC<ModeButtonProps> = ({ isSimpleMode, onClick }) => {
-  const [isHovered, setIsHovered] = React.useState(false);
-  const isOn = !isSimpleMode; // Full mode is "on"
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "4px",
-        padding: "0 8px",
-        height: "22px",
-        boxSizing: "border-box",
-        borderRadius: "4px",
-        cursor: "pointer",
-        fontSize: "11px",
-        fontWeight: 600,
-        letterSpacing: "0.3px",
-        transition: "all 0.2s ease-in-out",
-        border: isOn
-          ? "1px solid var(--vscode-editorBracketHighlight-foreground4, rgba(16, 185, 129, 0.4))"
-          : "1px solid rgba(128, 128, 128, 0.2)",
-        background: isOn
-          ? (isHovered
-              ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #10b981) 20%, transparent)"
-              : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #10b981) 12%, transparent)")
-          : (isHovered
-              ? "rgba(128, 128, 128, 0.2)"
-              : "rgba(128, 128, 128, 0.12)"),
-        color: isOn
-          ? "var(--vscode-editorBracketHighlight-foreground4, #10b981)"
-          : "var(--vscode-foreground)",
-        opacity: isOn ? 1 : (isHovered ? 0.9 : 0.7),
-        lineHeight: 1,
-        verticalAlign: "middle",
-      }}
-      title={isSimpleMode ? "Simple mode: showing WRITE & RUN only. Click for Full mode" : "Full mode: showing all tools. Click for Simple mode"}
-    >
-      {isSimpleMode ? <SimpleModeIcon /> : <FullModeIcon />}
-      <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>
-        {isSimpleMode ? "Simple" : "Full"}
-      </span>
-    </button>
-  );
-};
 
 const ThinkingButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) => {
   const [isHovered, setIsHovered] = React.useState(false);
@@ -232,12 +162,17 @@ const GlobalPermissionButton: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  React.useEffect(() => {
+    if (!open) {
+      setTooltip(null);
+      if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    }
+  }, [open]);
+
   const MODE_METADATA: Record<string, { label: string; desc: string; icon: React.ReactNode; color: string }> = {
     bypassPermissions: { label: t("permission.bypassPermissions"), desc: t("settings.bypassPermissionsDesc"), icon: <Zap size={11} />, color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)" },
     acceptEdits:       { label: t("permission.acceptEdits"),       desc: t("settings.acceptEditsDesc"),       icon: <FileCode size={11} />, color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)" },
     auto:              { label: t("permission.auto"),              desc: t("settings.autoDesc"),              icon: <Brain size={11} />, color: "var(--vscode-symbolIcon-constructorForeground, #10b981)" },
-    default:           { label: t("permission.default"),           desc: t("settings.defaultDesc"),           icon: <ShieldCheck size={11} />, color: "var(--vscode-disabledForeground, #a3a3a3)" },
-    dontAsk:           { label: t("permission.dontAsk"),           desc: t("settings.dontAskDesc"),           icon: <Ban size={11} />, color: "var(--vscode-errorForeground, #ef4444)" },
     plan:              { label: t("permission.plan"),              desc: t("settings.planDesc"),              icon: <Eye size={11} />, color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)" },
   };
 
@@ -258,7 +193,7 @@ const GlobalPermissionButton: React.FC = () => {
     setTooltip(null);
   };
 
-  const metadata = MODE_METADATA[permissionMode] || MODE_METADATA.default;
+  const metadata = MODE_METADATA[permissionMode] || MODE_METADATA.auto;
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -313,7 +248,12 @@ const GlobalPermissionButton: React.FC = () => {
             return (
               <button
                 key={modeId}
-                onClick={() => { setPermissionMode(modeId as any); setOpen(false); }}
+                onClick={() => {
+                  setPermissionMode(modeId as any);
+                  setOpen(false);
+                  setTooltip(null);
+                  if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+                }}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -398,8 +338,6 @@ interface MessageInputProps {
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
-  isSimpleMode?: boolean;
-  onToggleSimpleMode?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -431,8 +369,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isProcessing,
   isStreaming,
   onStopGeneration,
-  isSimpleMode = true,
-  onToggleSimpleMode,
 }) => {
   const { isConnected, isElaraMismatch } = useBackendConnection();
   const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
@@ -581,49 +517,61 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   // Load saved selection and language
   React.useEffect(() => {
-    const loadSelection = async () => {
-      const storage = (window as any).storage;
-      if (!storage) {
-        setIsLoadingCache(false);
-        return;
-      }
-
-      setIsLoadingCache(true);
-      const key = `zen-model-selection:${folderPath || "global"}`;
-      try {
-        const [selectionRes] = await Promise.all([storage.get(key)]);
-
-        if (selectionRes?.value) {
-          const saved = JSON.parse(selectionRes.value);
-          if (saved.model) setCurrentModel(saved.model);
-          if (saved.accountId) {
-            pendingAccountIdRef.current = saved.accountId;
-            if (saved.email) {
-              setCurrentAccount({ id: saved.accountId, email: saved.email });
-            }
+    setIsLoadingCache(true);
+    const key = `zen-model-selection:${folderPath || "global"}`;
+    try {
+      const savedStr = localStorage.getItem(key);
+      if (savedStr) {
+        const saved = JSON.parse(savedStr);
+        if (saved.model) setCurrentModel(saved.model);
+        if (saved.accountId) {
+          pendingAccountIdRef.current = saved.accountId;
+          if (saved.email) {
+            setCurrentAccount({ id: saved.accountId, email: saved.email });
           }
         }
-      } catch (e) {
-        // console.error("Failed to load selection", e);
-      } finally {
-        setIsLoadingCache(false);
+      } else {
+        const storage = (window as any).storage;
+        if (storage) {
+          storage.get(key).then((res: any) => {
+            if (res?.value) {
+              const saved = JSON.parse(res.value);
+              if (saved.model) setCurrentModel(saved.model);
+              if (saved.accountId) {
+                pendingAccountIdRef.current = saved.accountId;
+                if (saved.email) {
+                  setCurrentAccount({ id: saved.accountId, email: saved.email });
+                }
+              }
+              try { localStorage.setItem(key, res.value); } catch {}
+            }
+          });
+        }
       }
-    };
-    loadSelection();
+    } catch (e) {
+      // console.error("Failed to load selection", e);
+    } finally {
+      setIsLoadingCache(false);
+    }
   }, [folderPath]);
 
   // Save selection
   React.useEffect(() => {
     if (currentModel) {
+      const key = `zen-model-selection:${folderPath || "global"}`;
+      const data = {
+        model: currentModel,
+        accountId: currentAccount?.id,
+        email: currentAccount?.email,
+      };
+      const dataStr = JSON.stringify(data);
+      try {
+        localStorage.setItem(key, dataStr);
+      } catch (e) {}
+
       const storage = (window as any).storage;
       if (storage) {
-        const key = `zen-model-selection:${folderPath || "global"}`;
-        const data = {
-          model: currentModel,
-          accountId: currentAccount?.id,
-          email: currentAccount?.email,
-        };
-        storage.set(key, JSON.stringify(data));
+        storage.set(key, dataStr);
       }
     }
   }, [
@@ -688,7 +636,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           borderRadius: "var(--border-radius)",
           border: !isConnected ? "1px solid #f44336" : "1px solid transparent",
           transition: "border 0.3s ease",
-          marginTop: "24px", // Space for badges sticking up
+          marginTop: (!isConversationStarted || (isConnected && isElaraMismatch)) ? "24px" : "0px", // Space for badges sticking up
         }}
       >
         {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
@@ -957,13 +905,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               />
             )}
 
-            {/* Simple / Full mode toggle */}
-            {isConversationStarted && (
-              <ModeButton
-                isSimpleMode={isSimpleMode}
-                onClick={onToggleSimpleMode}
-              />
-            )}
+
           </div>
 
           {/* Right Icons */}
@@ -975,7 +917,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   cursor:
                     isHistoryMode || isLoadingCache
                       ? "not-allowed"
-                      : isStreaming
+                      : isStreaming || isProcessing
                         ? "pointer"
                         : message.trim() || uploadedFiles.length > 0
                           ? "pointer"
@@ -989,7 +931,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   color:
                     isHistoryMode || isLoadingCache
                       ? "var(--secondary-text)"
-                      : isStreaming
+                      : isStreaming || isProcessing
                         ? "#f44336" // Red color for stop
                         : message.trim() || uploadedFiles.length > 0
                           ? "var(--accent-text)"
@@ -998,7 +940,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     isHistoryMode || isLoadingCache ? "none" : "auto",
                 }}
                 onClick={() => {
-                  if (isStreaming && onStopGeneration) {
+                  if ((isStreaming || isProcessing) && onStopGeneration) {
                     // Stop generation
                     onStopGeneration();
                     return;
@@ -1011,7 +953,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   if (
-                    isStreaming ||
+                    isStreaming || isProcessing ||
                     message.trim() ||
                     uploadedFiles.length > 0
                   ) {
@@ -1021,9 +963,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={isStreaming ? "Stop Generation" : "Send Message"}
+                title={isStreaming || isProcessing ? "Stop Generation" : "Send Message"}
               >
-                {isStreaming ? <X size={16} strokeWidth={2.5} /> : <SendIcon />}
+                {isStreaming || isProcessing ? <X size={16} strokeWidth={2.5} /> : <SendIcon />}
               </div>
             )}
           </div>

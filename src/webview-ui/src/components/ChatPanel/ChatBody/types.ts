@@ -22,6 +22,8 @@ export interface Message {
   email?: string;
   isError?: boolean;
   selectedOption?: string;
+  thinking?: string;
+  clickedActions?: string[];
 }
 
 export interface ChatBodyProps {

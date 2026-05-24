@@ -98,6 +98,50 @@ export const useChatLLM = ({
     onConversationIdChange?.(currentConversationId);
   }, [currentConversationId, onConversationIdChange]);
 
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const { command, actionId } = event.data;
+      if ((command === "markActionClicked" || command === "markActionFailed") && actionId) {
+        const messageId = actionId.split("-action-")[0];
+        if (messageId) {
+          setMessages((prev) => {
+            const updated = prev.map((m) => {
+              if (m.id === messageId) {
+                const currentClicked = m.clickedActions || [];
+                if (!currentClicked.includes(actionId)) {
+                  return {
+                    ...m,
+                    clickedActions: [...currentClicked, actionId],
+                  };
+                }
+              }
+              return m;
+            });
+
+            // Persist the changes
+            const tabId = selectedTab?.tabId || -1;
+            const folderPath = selectedTab?.folderPath || null;
+            saveConversation(
+              tabId,
+              folderPath,
+              updated,
+              currentConversationIdRef.current,
+              selectedTab || undefined,
+              true, // skipTimestampUpdate
+              undefined,
+              backendConversationIdRef.current,
+            );
+
+            return updated;
+          });
+        }
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [selectedTab]);
+
   const stopGeneration = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -510,6 +554,8 @@ export const useChatLLM = ({
             backendConversationIdRef.current || (isNewSession ? "" : ""),
           is_thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           is_search: localStorage.getItem("zen-search-enabled") === "true",
+          thinking: localStorage.getItem("zen-thinking-enabled") === "true",
+          search: localStorage.getItem("zen-search-enabled") === "true",
           ...(ref_file_ids.length > 0 ? { ref_file_ids } : {}),
         };
 
@@ -623,8 +669,14 @@ export const useChatLLM = ({
                       content: assistantMessage.content + data.content,
                     };
                   }
+                  if (data.thinking) {
+                    assistantMessage = {
+                      ...assistantMessage,
+                      thinking: (assistantMessage.thinking || "") + data.thinking,
+                    };
+                  }
 
-                  if (data.usage || data.content) {
+                  if (data.usage || data.content || data.thinking) {
                     setMessages((prev) =>
                       prev.map((m) =>
                         m.id === assistantMessage.id ? assistantMessage : m,
@@ -682,6 +734,12 @@ export const useChatLLM = ({
               assistantMessage = {
                 ...assistantMessage,
                 content: assistantMessage.content + data.content,
+              };
+            }
+            if (data.thinking) {
+              assistantMessage = {
+                ...assistantMessage,
+                thinking: (assistantMessage.thinking || "") + data.thinking,
               };
             }
           } catch (e) {}

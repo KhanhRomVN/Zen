@@ -4,6 +4,7 @@ import {
   AgentAction,
   ValidationResult,
 } from "../types/AgentTypes";
+import { SecurityValidator } from "./SecurityValidator";
 
 export class PermissionValidator {
   private permissions: AgentPermissions;
@@ -15,6 +16,21 @@ export class PermissionValidator {
   }
 
   public validate(action: AgentAction): ValidationResult {
+    // Perform strict security validation before checking user permission settings
+    if (action.path) {
+      const securityCheck = SecurityValidator.validatePath(action.path, action.type !== "read");
+      if (!securityCheck.safe) {
+        return { allowed: false, reason: securityCheck.reason };
+      }
+    }
+
+    if (action.command) {
+      const securityCheck = SecurityValidator.validateCommand(action.command);
+      if (!securityCheck.safe) {
+        return { allowed: false, reason: securityCheck.reason };
+      }
+    }
+
     switch (action.type) {
       case "read":
         return this.validateRead(action);

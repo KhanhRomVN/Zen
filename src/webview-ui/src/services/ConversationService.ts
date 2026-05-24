@@ -2,6 +2,7 @@ import { extensionService } from "./ExtensionService";
 import { encode } from "gpt-tokenizer";
 import { Message } from "../components/ChatPanel/ChatBody/types";
 import { TabInfo } from "../types";
+import { ConversationCache } from "./ConversationCache";
 
 const STORAGE_PREFIX = "zen-chat";
 
@@ -32,8 +33,7 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
     }
 
     const logEntry = { ...message };
-    delete logEntry.actionIds;
-
+    // Retain actionIds for tool execution tracking on session restore
     logEntry.timestamp = new Date().toISOString();
     logEntry.conversationId = message.conversationId;
 
@@ -129,7 +129,7 @@ export const saveConversation = async (
 
     const messagesToSave = messages.map((m) => {
       const cloned = { ...m };
-      delete cloned.actionIds;
+      // Retain actionIds for tool execution tracking on session restore
       return cloned;
     });
 
@@ -161,6 +161,14 @@ export const saveConversation = async (
     };
 
     await storage.set(key, JSON.stringify(data), false);
+
+    // Sync to in-memory cache
+    ConversationCache.set(convId, {
+      messages: messagesToSave,
+      conversationId: convId,
+      backendConversationId: backendConversationId || existingBackendConversationId,
+    });
+
     return convId;
   } catch (error) {
     return "";
@@ -171,6 +179,9 @@ export const deleteConversation = async (
   conversationId?: string,
 ): Promise<boolean> => {
   if (!conversationId) return false;
+
+  // Sync delete to in-memory cache
+  ConversationCache.delete(conversationId);
 
   return new Promise((resolve) => {
     extensionService.postMessage({

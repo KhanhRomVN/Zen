@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { ContextManager } from "../../context/ContextManager";
 import { ShikiService } from "../../services/ShikiService";
+import { SecurityValidator } from "../../agent/validators/SecurityValidator";
 
 export class DiagnosticHandler {
   constructor(private contextManager: ContextManager) {}
@@ -24,6 +25,12 @@ export class DiagnosticHandler {
           const uri = path.isAbsolute(filePath)
             ? vscode.Uri.file(filePath)
             : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
+
+          const securityCheck = SecurityValidator.validatePath(uri.fsPath, false);
+          if (!securityCheck.safe) {
+            throw new Error(securityCheck.reason || "Security validation failed");
+          }
+
           const documentSymbols: vscode.DocumentSymbol[] | undefined =
             await vscode.commands.executeCommand(
               "vscode.executeDocumentSymbolProvider",
@@ -77,6 +84,8 @@ export class DiagnosticHandler {
           const relevant: vscode.SymbolInformation[] = [];
           for (const s of workspaceSymbols) {
             if (s.location.uri.fsPath.includes("node_modules")) continue;
+            const secCheck = SecurityValidator.validatePath(s.location.uri.fsPath, false);
+            if (!secCheck.safe) continue;
             const check = await fsAnalyzer.isIgnored(s.location.uri.fsPath);
             if (!check.ignored && s.name === symbol) {
               relevant.push(s);
@@ -175,6 +184,12 @@ export class DiagnosticHandler {
           const uri = path.isAbsolute(filePath)
             ? vscode.Uri.file(filePath)
             : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
+
+          const securityCheck = SecurityValidator.validatePath(uri.fsPath, false);
+          if (!securityCheck.safe) {
+            throw new Error(securityCheck.reason || "Security validation failed");
+          }
+
           const documentSymbols: vscode.DocumentSymbol[] | undefined =
             await vscode.commands.executeCommand(
               "vscode.executeDocumentSymbolProvider",
@@ -262,6 +277,8 @@ export class DiagnosticHandler {
       const filteredRefs: vscode.Location[] = [];
       for (const ref of references) {
         if (ref.uri.fsPath.includes("node_modules")) continue;
+        const secCheck = SecurityValidator.validatePath(ref.uri.fsPath, false);
+        if (!secCheck.safe) continue;
         const check = await fsAnalyzer.isIgnored(ref.uri.fsPath);
         if (!check.ignored) {
           filteredRefs.push(ref);
@@ -356,6 +373,11 @@ export class DiagnosticHandler {
         ? vscode.Uri.file(filePath)
         : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
       const absolutePath = uri.fsPath;
+
+      const securityCheck = SecurityValidator.validatePath(absolutePath, false);
+      if (!securityCheck.safe) {
+        throw new Error(securityCheck.reason || "Security validation failed");
+      }
 
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
       const ignoreCheck = await fsAnalyzer.isIgnored(absolutePath);

@@ -164,7 +164,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
   const isFileTool =
     toolType === "replace_in_file" || toolType === "write_to_file" ||
-    toolType === "read_file" || toolType === "list_files" || toolType === "search_files";
+    toolType === "read_file" || toolType === "list_files" || toolType === "search_files" ||
+    toolType === "get_outline" || toolType === "get_definition" || toolType === "get_references";
 
   if (isFileTool) {
     return (
@@ -203,6 +204,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
         nextUserMessage={nextUserMessage}
         rootPath={rootPath}
         onToolClick={onToolClick}
+        storedOutput={storedOutput}
       />
     );
   }

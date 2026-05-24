@@ -8,6 +8,7 @@ import { FileLockManager } from "../../managers/FileLockManager";
 import { RecentItemsManager } from "../../context/RecentItemsManager";
 import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
 import { CheckpointManager } from "../../utils/CheckpointManager";
+import { SecurityValidator } from "../../agent/validators/SecurityValidator";
 
 export class FileHandler {
   private _workspaceFilesCache: any[] | null = null;
@@ -99,6 +100,12 @@ export class FileHandler {
         );
       }
 
+      // Security Check
+      const securityCheck = SecurityValidator.validatePath(absPath.fsPath, false);
+      if (!securityCheck.safe) {
+        throw new Error(securityCheck.reason || "Security validation failed");
+      }
+
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
       const ignoreCheck = await fsAnalyzer.isIgnored(absPath.fsPath);
       if (ignoreCheck.ignored && !pathValue.endsWith("workspace.md") && !message.bypassIgnore) {
@@ -161,6 +168,13 @@ export class FileHandler {
       } else {
         absolutePath = this.resolveWorkspacePath(workspaceFolder, pathValue);
       }
+
+      // Security Check
+      const securityCheck = SecurityValidator.validatePath(absolutePath.fsPath, true);
+      if (!securityCheck.safe) {
+        throw new Error(securityCheck.reason || "Security validation failed");
+      }
+
       if (message.conversationId) {
         CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
       }
@@ -239,6 +253,18 @@ export class FileHandler {
         absPath = this.resolveWorkspacePath(workspaceFolder, pathValue);
       }
     }
+
+    // Security Check
+    const securityCheck = SecurityValidator.validatePath(absPath.fsPath, true);
+    if (!securityCheck.safe) {
+      webviewView.webview.postMessage({
+        command: "replaceInFileResult",
+        requestId: message.requestId,
+        error: securityCheck.reason || "Security validation failed",
+      });
+      return;
+    }
+
     if (message.conversationId) {
       CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
     }

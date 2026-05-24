@@ -165,6 +165,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   onRevertConversation,
 }) => {
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
+  const [isThinkingCollapsed, setIsThinkingCollapsed] = React.useState(false);
 
   /**
    * Build a map of basename → fullPath from prior tool calls in allMessages.
@@ -458,6 +459,11 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 content: string;
                 key: string;
               }
+            | {
+                type: "thinking";
+                content: string;
+                key: string;
+              }
           > = [];
 
           // --- 🆕 METADATA DOT CHECK ---
@@ -500,6 +506,13 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           }
 
           // ------------------------------
+          if (!isSimpleMode && message.thinking && message.thinking.trim()) {
+            groups.push({
+              type: "thinking",
+              content: message.thinking,
+              key: "thinking-block",
+            });
+          }
 
           let currentToolGroup: { action: any; index: number }[] = [];
 
@@ -671,6 +684,47 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                       display: "flex",
                       alignItems: "center",
                       gap: "6px",
+                    }}
+                  >
+                    {group.content}
+                  </div>
+                </div>
+              );
+            } else if (group.type === "thinking") {
+              content = (
+                <div style={{ paddingBottom: "8px" }}>
+                  <div
+                    className="timeline-dot"
+                    style={{
+                      backgroundColor: "transparent",
+                      top: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "none",
+                    }}
+                  >
+                    <span
+                      className="codicon codicon-lightbulb"
+                      style={{
+                        color: "var(--vscode-descriptionForeground)",
+                        fontSize: "14px",
+                        opacity: 0.8,
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      paddingLeft: "29px",
+                      paddingTop: "4px",
+                      fontSize: "0.9em",
+                      color: "var(--vscode-descriptionForeground)",
+                      opacity: 0.8,
+                      lineHeight: 1.5,
+                      maxHeight: "22.5em",
+                      overflowY: "auto",
+                      whiteSpace: "pre-wrap",
+                      fontStyle: "italic",
                     }}
                   >
                     {group.content}
@@ -1002,10 +1056,23 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               // Check if THIS group has any pending or busy action that should block subsequent ones
               const hasUnclickedOrBusyAction = group.items.some((item) => {
                 const actionId = `${message.id}-action-${item.index}`;
-                if (!clickedActions.has(actionId)) return true;
+                const hasOutput = toolOutputs && toolOutputs[actionId];
+                const isClicked = clickedActions.has(actionId);
+
+                // Check if there is a subsequent message in history containing the output
+                const hasHistoryOutput = !!nextUserMessage || !!allMessages?.some((m) => m.actionIds?.includes(actionId));
+
+                if (!isClicked && !hasOutput && !hasHistoryOutput) {
+                  // If it is a write/edit tool, on restore it shouldn't block subsequent tools
+                  const isWriteTool = item.action.type === "write_to_file" || item.action.type === "replace_in_file";
+                  if (isWriteTool) {
+                    return false;
+                  }
+                  return true;
+                }
 
                 // Also block if a run_command is still busy
-                if (item.action.type === "run_command") {
+                if (item.action.type === "run_command" && !hasHistoryOutput) {
                   const outputData = toolOutputs?.[actionId];
                   const terminalId =
                     (outputData as any)?.terminalId ||

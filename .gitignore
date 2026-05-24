@@ -75,3 +75,5 @@ src/webview-ui/public/vs/
 
 bypass_test.log
 temp
+.vercel
+.env*

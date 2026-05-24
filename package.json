@@ -17,7 +17,25 @@
     "vscode": "^1.84.0"
   },
   "categories": [
+    "AI",
+    "Chat",
     "Other"
+  ],
+  "keywords": [
+    "ai",
+    "llm",
+    "free",
+    "chat",
+    "agent",
+    "openai",
+    "claude",
+    "gemini",
+    "ollama",
+    "copilot",
+    "assistant",
+    "multi-llm",
+    "free-ai",
+    "code-assistant"
   ],
   "activationEvents": [
     "onStartupFinished"

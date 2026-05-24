@@ -53,7 +53,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   const actionId = `${messageId}-action-${actionIndex}`;
   const fileExt = getFilename(action).split(".").pop() || "txt";
 
-  const rawPath = action.params.file_path || action.params.folder_path || action.params.path || getFilename(action);
+  const rawPath = action.params.file_path || action.params.symbol || action.params.folder_path || action.params.path || getFilename(action);
 
   let codeContent = "";
   let lineHighlights: { startLine: number; endLine: number; type: "added" | "removed" }[] = [];
@@ -67,7 +67,8 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
     lineHighlights = result.lineHighlights;
   } else if (toolType === "write_to_file") {
     codeContent = action.params.content || "";
-  } else if (toolType === "list_files" || toolType === "search_files" || toolType === "read_file") {
+  } else if (toolType === "list_files" || toolType === "search_files" || toolType === "read_file" ||
+             toolType === "get_outline" || toolType === "get_definition" || toolType === "get_references") {
     codeContent = toolOutputs?.[actionId]?.output || "";
 
     if (!codeContent) {
@@ -91,10 +92,15 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
           codeContent = match[1];
         } else if (resultMessage && !outputMessage.content.includes("Result:")) {
           codeContent = outputMessage.content.replace(/^```[\w]*\n/, "").replace(/\n```$/, "");
+        } else {
+          const rawMatch = new RegExp(`\\[${toolType}\\s+for\\s+['"]?${escapedPath}['"]?\\s*\\]\\s*Result:?\\s*[\\r\\n]+\\s*([\\s\\S]*?)(?=\\s*\\[\\w+\\s+for|$)`).exec(outputMessage.content);
+          if (rawMatch?.[1]) {
+            codeContent = rawMatch[1];
+          }
         }
       }
     }
-    codeLanguage = "text";
+    codeLanguage = toolType === "get_outline" ? "typescript" : "markdown";
   }
 
   let diffStats = null;
@@ -105,7 +111,22 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   const linesCount = action.type === "write_to_file" ? action.params.content?.split("\n").length || 0 : 0;
   const isPartial = action.isPartial;
   const isError = !!toolOutputs?.[actionId]?.isError;
-  const isCompleted = !isPartial && (isActionClicked || isError || (codeContent && codeContent.trim().length > 0));
+
+  const nextUserMessage = allMessages
+    ? allMessages
+        .slice(allMessages.findIndex((m) => m.id === messageId) + 1)
+        .find((m) => m.role === "user")
+    : undefined;
+
+  const isWriteOrEditTool = toolType === "write_to_file" || toolType === "replace_in_file";
+  const isCompleted =
+    !isPartial &&
+    (isActionClicked ||
+      isError ||
+      (isWriteOrEditTool
+        ? !!toolOutputs?.[actionId] || !!nextUserMessage
+        : (codeContent && codeContent.trim().length > 0) || !!nextUserMessage));
+
   const isLoading = !isCompleted && isPartial;
   const displayPath = truncatePath(rawPath);
 
@@ -114,6 +135,9 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
     : toolType === "write_to_file" ? (fileStatsMap[rawPath] ? t("tools.rewrite") : t("tools.create"))
     : toolType === "list_files" ? t("tools.list")
     : toolType === "search_files" ? t("tools.search")
+    : toolType === "get_outline" ? "Outline"
+    : toolType === "get_definition" ? "Definition"
+    : toolType === "get_references" ? "References"
     : t("tools.read");
 
   return (
@@ -158,7 +182,8 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         diffStats={undefined}
         isPartial={isPartial}
         onClick={() => {
-          if (toolType === "list_files" || toolType === "search_files" || toolType === "replace_in_file" || toolType === "write_to_file") {
+          if (toolType === "list_files" || toolType === "search_files" || toolType === "replace_in_file" || toolType === "write_to_file" ||
+              toolType === "get_outline" || toolType === "get_definition" || toolType === "get_references") {
             setIsCollapsed((v) => !v);
           } else {
             extensionService.postMessage({ command: "openFile", path: rawPath });
@@ -182,6 +207,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
       )}
 
       {(toolType === "replace_in_file" || toolType === "write_to_file" ||
+        toolType === "get_outline" || toolType === "get_definition" || toolType === "get_references" ||
         ((toolType === "list_files" || toolType === "search_files") && codeContent)) && (
         <>
           {toolType === "list_files" || toolType === "search_files" ? (

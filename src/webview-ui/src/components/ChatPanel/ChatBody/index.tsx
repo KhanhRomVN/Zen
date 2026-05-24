@@ -26,6 +26,8 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
 import { useCollapseSections } from "./hooks/useCollapseSections";
 import { useToolActions } from "./hooks/useToolActions";
 import { useScrollBehavior } from "./hooks/useScrollBehavior";
+import { useSettings } from "../../../context/SettingsContext";
+import { getPermissionDecision } from "../../../hooks/useToolExecution";
 
 import WelcomeUI from "../../HomePanel/WelcomeUI";
 import ProcessingIndicator from "./components/ProcessingIndicator";
@@ -53,6 +55,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   onContinue,
   onRevertConversation,
 }: ExtendedChatBodyProps) => {
+  const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Memoize parsed messages
@@ -95,13 +98,33 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     const parsed = parseAIResponse(lastMessage.content);
     if (!parsed.actions || parsed.actions.length === 0) return false;
 
-    return parsed.actions.some((action: any, idx: number) => {
+    // Find the very first pending action in the list
+    const firstPendingAction = parsed.actions.find((action: any, idx: number) => {
       if (action.isPartial) return false;
       const actionId = `${lastMessage.id}-action-${idx}`;
       const hasOutput = toolOutputs && toolOutputs[actionId];
-      return !hasOutput;
+      const isClicked = clickedActions.has(actionId);
+      return !hasOutput && !isClicked;
     });
-  }, [messages, isRestored, toolOutputs]);
+
+    if (!firstPendingAction) return false;
+
+    // Determine if this first pending action is visible to the user
+    const isVisible = !isSimpleMode || [
+      "write_to_file",
+      "replace_in_file",
+      "run_command",
+      "execute_agent_action"
+    ].includes(firstPendingAction.type);
+
+    // If it's visible, the user can interact with it directly via its 3 buttons,
+    // so we don't need to show the "Continue Task" button.
+    if (isVisible) return false;
+
+    // If it's invisible, we show the "Continue Task" button ONLY if it is auto-runnable
+    const decision = getPermissionDecision(permissionMode, firstPendingAction.type);
+    return decision === "allow";
+  }, [messages, isRestored, toolOutputs, permissionMode, clickedActions, isSimpleMode]);
 
   // 🆕 Debug logging and filtering logic
   const visibleMessages = useMemo(() => {

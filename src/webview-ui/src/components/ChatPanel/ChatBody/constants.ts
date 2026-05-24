@@ -11,6 +11,9 @@ export const TOOL_LABELS: Record<string, string> = {
   list_files: "Listing",
   search_files: "Searching",
   run_command: "Executing",
+  get_outline: "Outline",
+  get_definition: "Definition",
+  get_references: "References",
   default: "Zen",
 };
 
@@ -19,6 +22,9 @@ export const TOOL_COLORS: Record<string, string> = {
   write_to_file: "#10b981",
   replace_in_file: "#10b981",
   run_command: "#f59e0b",
+  get_outline: "#a855f7",
+  get_definition: "#ec4899",
+  get_references: "#14b8a6",
   default: "#6b7280",
 };
 
@@ -29,6 +35,9 @@ export const CLICKABLE_TOOLS = [
   "list_files",
   "search_files",
   "run_command",
+  "get_outline",
+  "get_definition",
+  "get_references",
 ];
 
 export const MANUAL_CONFIRMATION_TOOLS = [

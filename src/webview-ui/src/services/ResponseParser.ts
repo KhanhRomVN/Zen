@@ -16,7 +16,10 @@ export interface ToolAction {
     | "list_files"
     | "search_files"
     | "run_command"
-    | "execute_agent_action";
+    | "execute_agent_action"
+    | "get_outline"
+    | "get_definition"
+    | "get_references";
   params: Record<string, any>;
   rawXml: string;
   isPartial?: boolean;
@@ -35,7 +38,8 @@ export type ContentBlock =
         | { type: "code"; content: string; language?: string }
       )[];
     }
-  | { type: "tool"; action: ToolAction; actionIndex?: number };
+  | { type: "tool"; action: ToolAction; actionIndex?: number }
+  | { type: "thinking"; content: string };
 
 /**
  * Decode common HTML entities back to their original characters
@@ -136,6 +140,20 @@ const parseToolAction = (
       params.regex = extractParamValue(innerContent, "regex");
       params.file_pattern = extractParamValue(innerContent, "file_pattern");
       break;
+
+    case "get_outline":
+      params.file_path = extractParamValue(innerContent, "file_path");
+      break;
+
+    case "get_definition":
+      params.symbol = extractParamValue(innerContent, "symbol");
+      params.file_path = extractParamValue(innerContent, "file_path");
+      break;
+
+    case "get_references":
+      params.symbol = extractParamValue(innerContent, "symbol");
+      params.file_path = extractParamValue(innerContent, "file_path");
+      break;
   }
 
   return {
@@ -174,10 +192,14 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "list_files",
     "search_files",
     "execute_agent_action",
+    "get_outline",
+    "get_definition",
+    "get_references",
     "code",
     "file",
     "markdown",
     "question",
+    "thinking",
   ];
 
   // Fix missing opening bracket for the first tool call due to prefix/prefill stripping.
@@ -324,6 +346,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               content: innerContent.trim(),
             });
           }
+        } else if (toolName === "thinking") {
+          result.contentBlocks.push({
+            type: "thinking",
+            content: innerContent || "",
+          });
         } else if (toolName === "markdown") {
           // Explicit <markdown> tag
           if (innerContent && innerContent.trim()) {
@@ -389,7 +416,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         } else if (
           toolName !== "code" &&
           toolName !== "file" &&
-          toolName !== "conversation_name"
+          toolName !== "conversation_name" &&
+          toolName !== "thinking"
         ) {
           // It's a tool, let it stream!
           const actionIndex = result.actions.length;
@@ -397,6 +425,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           action.isPartial = true;
           result.contentBlocks.push({ type: "tool", action, actionIndex });
           result.actions.push(action);
+        } else if (toolName === "thinking") {
+          result.contentBlocks.push({
+            type: "thinking",
+            content: innerContent || "",
+          });
         } else {
           // For tools, hide entire content including XML until closed
         }
@@ -457,6 +490,15 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "search_files":
       return `search_files: ${action.params.regex || "unknown"}`;
+
+    case "get_outline":
+      return `get_outline: ${action.params.file_path || "unknown"}`;
+
+    case "get_definition":
+      return `get_definition: ${action.params.symbol || "unknown"}`;
+
+    case "get_references":
+      return `get_references: ${action.params.symbol || "unknown"}`;
 
     default:
       return ``;

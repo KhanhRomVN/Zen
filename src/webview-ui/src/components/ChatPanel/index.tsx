@@ -9,6 +9,7 @@ import ChatHeader from "./ChatHeader";
 import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
 import { useProject } from "../../context/ProjectContext";
+import { useSettings } from "../../context/SettingsContext";
 
 import { extensionService } from "../../services/ExtensionService";
 import {
@@ -17,10 +18,12 @@ import {
   getConversationKey,
 } from "../../services/ConversationService";
 import { parseAIResponse } from "../../services/ResponseParser";
+import { HISTORY_CONTEXT_REMINDER, AFTER_PAUSE_REMINDER } from "./prompts";
 import { useChatLLM } from "../../hooks/useChatLLM";
 import { useToolExecution } from "../../hooks/useToolExecution";
 import { TabInfo } from "../../types";
 import { Message } from "./ChatBody/types";
+import { ConversationCache } from "../../services/ConversationCache";
 
 interface ChatPanelProps {
   selectedTab: TabInfo | null;
@@ -58,6 +61,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // --- States ---
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
+  const [providers, setProviders] = useState<any[]>([]);
   const [isLoadingConversation, setIsLoadingConversation] = useState(true);
   const [activeTerminalIds, setActiveTerminalIds] = useState<Set<string>>(
     new Set(),
@@ -67,20 +71,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   );
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
-  const [isSimpleMode, setIsSimpleMode] = useState<boolean>(() => {
-    try { return localStorage.getItem("zen-simple-mode") === "true"; } catch { return true; }
-  });
+  const { isSimpleMode } = useSettings();
 
   const [isRestored, setIsRestored] = useState(false);
   const [revertInput, setRevertInput] = useState<{ value: string; nonce: number } | null>(null);
-
-  const toggleSimpleMode = React.useCallback(() => {
-    setIsSimpleMode((prev) => {
-      const next = !prev;
-      try { localStorage.setItem("zen-simple-mode", String(next)); } catch {}
-      return next;
-    });
-  }, []);
 
   // --- Hooks ---
   const {
@@ -124,8 +118,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       uiHidden?: boolean,
     ) => {
       setIsRestored(false);
+      let finalContent = content;
+      const isFromHistory = !!(selectedTab as any)?.conversationId && !selectedTab?.canAccept;
+      if (isFromHistory && !hasAppendedHistoryContext.current) {
+        hasAppendedHistoryContext.current = true;
+        finalContent = content + HISTORY_CONTEXT_REMINDER;
+      } else if (wasPaused.current) {
+        wasPaused.current = false;
+        finalContent = content + AFTER_PAUSE_REMINDER;
+      }
       return sendMessage(
-        content,
+        finalContent,
         files,
         model,
         account,
@@ -134,7 +137,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         uiHidden,
       );
     },
-    [sendMessage],
+    [sendMessage, selectedTab],
   );
 
   const { executionState, toolOutputs, terminalStatus, handleToolRequest } =
@@ -163,6 +166,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // --- Refs ---
   const hasProcessedInitial = useRef(false);
+  const hasAppendedHistoryContext = useRef(false);
+  const wasPaused = useRef(false);
 
   // --- Memoized Values ---
   const isHistoryMode = useMemo(() => {
@@ -267,6 +272,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, []);
 
   useEffect(() => {
+    if (!apiUrl) return;
+    fetch(`${apiUrl}/v1/providers`)
+      .then((r) => r.json())
+      .then((data: any[]) => setProviders(data))
+      .catch(() => {});
+  }, [apiUrl]);
+
+  useEffect(() => {
     if (initialMessageData && !hasProcessedInitial.current) {
       hasProcessedInitial.current = true;
       sendMessage(
@@ -281,6 +294,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       onClearInitialData?.();
     }
   }, [initialMessageData, sendMessage, onClearInitialData]);
+
+  // Update ConversationCache when local messages or selection changes
+  useEffect(() => {
+    if (currentConversationId && messages.length > 0) {
+      const existing = ConversationCache.get(currentConversationId);
+      ConversationCache.set(currentConversationId, {
+        messages,
+        conversationId: currentConversationId,
+        backendConversationId: existing?.backendConversationId,
+        currentModel: currentModel || existing?.currentModel,
+        currentAccount: currentAccount || existing?.currentAccount,
+      });
+    }
+  }, [messages, currentConversationId, currentModel, currentAccount]);
 
   // Load conversation from extension
   useEffect(() => {
@@ -299,8 +326,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
       setIsLoadingConversation(true);
       setIsRestored(false);
+      hasAppendedHistoryContext.current = false;
       const convId = (selectedTab as any).conversationId;
       if (convId) {
+        // Try reading from in-memory cache first
+        const cached = ConversationCache.get(convId);
+        if (cached) {
+          console.log("[ChatPanel] Loading conversation from cache:", convId);
+          setMessages(cached.messages);
+          setIsRestored(cached.messages.length > 0);
+          setCurrentConversationId(cached.conversationId);
+          if (cached.backendConversationId) {
+            setBackendConversationId(cached.backendConversationId);
+          }
+          if (cached.currentModel) {
+            setCurrentModel(cached.currentModel);
+          }
+          if (cached.currentAccount) {
+            setCurrentAccount(cached.currentAccount);
+          }
+          setIsLoadingConversation(false);
+          return;
+        }
+
         const requestId = `conv-${Date.now()}`;
         console.log("[ChatPanel] Sending getConversation", { convId, requestId });
         extensionService.postMessage({
@@ -331,12 +379,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           conversationId: data.data?.conversationId,
         });
         if (data.data?.messages) {
-          setMessages(
-            data.data.messages.map((msg: Message, i: number) => ({
-              ...msg,
-              id: msg.id || `restored-${Date.now()}-${i}`,
-            })),
-          );
+          const restoredMessages = data.data.messages.map((msg: Message, i: number) => ({
+            ...msg,
+            id: msg.id || `restored-${Date.now()}-${i}`,
+          }));
+          setMessages(restoredMessages);
+
           if (data.data.messages.length > 0) {
             setIsRestored(true);
           }
@@ -344,14 +392,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             setCurrentConversationId(data.data.conversationId);
 
             // 🆕 Restore Backend Conversation ID from messages if available
-            const lastMsgWithBackendId = [...data.data.messages]
+            const lastMsgWithBackendId = [...restoredMessages]
               .reverse()
               .find((m: Message) => m.conversationId);
 
             const backendIdFromMsg = lastMsgWithBackendId?.conversationId;
 
             // Restore metadata from the last assistant message to prime the LLM hooks
-            const lastAssistantWithMeta = [...data.data.messages]
+            const lastAssistantWithMeta = [...restoredMessages]
               .reverse()
               .find(
                 (m: Message) =>
@@ -372,25 +420,39 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               data.data.backendConversationId ||
               data.data.conversationId;
             setBackendConversationId(backendIdToUse, restoredMeta);
-          }
 
-          // Restore Main Model and Account from the last assistant message
-          const lastAssistantMsgForMeta = [...data.data.messages]
-            .reverse()
-            .find(
-              (m: Message) =>
-                m.role === "assistant" && m.providerId && m.modelId,
-            );
+            // Restore Main Model and Account from the last assistant message
+            const lastAssistantMsgForMeta = [...restoredMessages]
+              .reverse()
+              .find(
+                (m: Message) =>
+                  m.role === "assistant" && m.providerId && m.modelId,
+              );
 
-          if (lastAssistantMsgForMeta) {
-            setCurrentModel({
-              providerId: lastAssistantMsgForMeta.providerId!,
-              id: lastAssistantMsgForMeta.modelId!,
-              name: lastAssistantMsgForMeta.modelId!, // Fallback name
-            });
-            setCurrentAccount({
-              id: lastAssistantMsgForMeta.accountId!,
-              email: lastAssistantMsgForMeta.email!,
+            let modelToCache: any = undefined;
+            let accountToCache: any = undefined;
+
+            if (lastAssistantMsgForMeta) {
+              modelToCache = {
+                providerId: lastAssistantMsgForMeta.providerId!,
+                id: lastAssistantMsgForMeta.modelId!,
+                name: lastAssistantMsgForMeta.modelId!, // Fallback name
+              };
+              accountToCache = {
+                id: lastAssistantMsgForMeta.accountId!,
+                email: lastAssistantMsgForMeta.email!,
+              };
+              setCurrentModel(modelToCache);
+              setCurrentAccount(accountToCache);
+            }
+
+            // Sync to in-memory cache
+            ConversationCache.set(data.data.conversationId, {
+              messages: restoredMessages,
+              conversationId: data.data.conversationId,
+              backendConversationId: backendIdToUse,
+              currentModel: modelToCache,
+              currentAccount: accountToCache,
             });
           }
         }
@@ -473,6 +535,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     // 🆕 REDIRECTION LOGIC: If stopping AND it was the first request (req1), go back to Home
     const isFirstRequest = messages.filter((m) => !m.isCancelled).length <= 2; // User + Assistant (partial)
 
+    // 🆕 PAUSE API: Call pause endpoint if provider is_pausable
+    if (currentAccount?.id && currentModel?.providerId) {
+      const provider = providers.find((p: any) => p.provider_id === currentModel.providerId);
+      if (provider?.is_pausable) {
+        fetch(`${apiUrl}/v1/chat/pause`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ account_id: currentAccount.id }),
+        }).catch(() => {});
+      }
+    }
+
+    wasPaused.current = true;
     stopGeneration();
 
     if (isFirstRequest) {
@@ -493,7 +568,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onBack();
       }
     }
-  }, [messages, stopGeneration, onBack]);
+  }, [messages, stopGeneration, onBack, currentAccount, currentModel, providers, apiUrl]);
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
 
@@ -574,11 +649,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setCurrentModel={setCurrentModel}
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
-        isProcessing={isProcessing}
+        isProcessing={isProcessing || executionState.status === "running"}
         isStreaming={isStreaming}
         onStopGeneration={handleStopGeneration}
-        isSimpleMode={isSimpleMode}
-        onToggleSimpleMode={toggleSimpleMode}
         initialValue={revertInput?.value}
         initialValueNonce={revertInput?.nonce}
       />

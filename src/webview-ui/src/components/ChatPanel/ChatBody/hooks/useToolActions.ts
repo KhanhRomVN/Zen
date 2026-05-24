@@ -39,6 +39,29 @@ export const useToolActions = ({
     triggeredIdsRef.current = new Set([...clickedActions, ...failedActions]);
   }, [clickedActions, failedActions]);
 
+  // Load initially clicked actions from message history
+  useEffect(() => {
+    const historicalClicked = new Set<string>();
+    parsedMessages.forEach((msg) => {
+      if (msg.clickedActions && Array.isArray(msg.clickedActions)) {
+        msg.clickedActions.forEach((actionId: string) => {
+          historicalClicked.add(actionId);
+        });
+      }
+    });
+    if (historicalClicked.size > 0) {
+      setClickedActions((prev) => {
+        const hasNew = Array.from(historicalClicked).some((id) => !prev.has(id));
+        if (hasNew) {
+          const next = new Set(prev);
+          historicalClicked.forEach((id) => next.add(id));
+          return next;
+        }
+        return prev;
+      });
+    }
+  }, [parsedMessages]);
+
   // Listen for message to remove clicked action state
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {

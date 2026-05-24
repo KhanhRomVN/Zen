@@ -9,6 +9,7 @@ export interface Message {
   actionIds?: string[];
   uiHidden?: boolean;
   isCancelled?: boolean;
+  thinking?: string;
 }
 
 export interface ChatMetadata {

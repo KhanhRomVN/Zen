@@ -12,8 +12,6 @@ const PERMISSION_MODES = [
   { id: "bypassPermissions", icon: <Zap size={14} />, color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)", labelKey: "settings.bypassPermissionsLabel" as const, descKey: "settings.bypassPermissionsDesc" as const },
   { id: "acceptEdits",       icon: <FileCode size={14} />, color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)", labelKey: "settings.acceptEditsLabel" as const, descKey: "settings.acceptEditsDesc" as const },
   { id: "auto",              icon: <Brain size={14} />, color: "var(--vscode-symbolIcon-constructorForeground, #10b981)", labelKey: "settings.autoLabel" as const, descKey: "settings.autoDesc" as const },
-  { id: "default",           icon: <ShieldCheck size={14} />, color: "var(--vscode-disabledForeground, #a3a3a3)", labelKey: "settings.defaultLabel" as const, descKey: "settings.defaultDesc" as const },
-  { id: "dontAsk",           icon: <Ban size={14} />, color: "var(--vscode-errorForeground, #ef4444)", labelKey: "settings.dontAskLabel" as const, descKey: "settings.dontAskDesc" as const },
   { id: "plan",              icon: <Eye size={14} />, color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)", labelKey: "settings.planLabel" as const, descKey: "settings.planDesc" as const },
 ] as const;
 

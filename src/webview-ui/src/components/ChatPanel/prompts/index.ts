@@ -14,6 +14,8 @@ export type { SystemInfo } from "./system-context";
 export { EXAMPLES } from "./examples";
 export { CONSTRAINTS } from "./constraints";
 export { buildRetryPrompt } from "./retry";
+export { HISTORY_CONTEXT_REMINDER } from "./history-context";
+export { AFTER_PAUSE_REMINDER } from "./after-pause";
 
 interface PromptConfig {
   language: string;

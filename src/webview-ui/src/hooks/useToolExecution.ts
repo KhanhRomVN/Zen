@@ -13,23 +13,20 @@ export const getPermissionDecision = (
     case "bypassPermissions":
       return "allow";
     case "acceptEdits":
-      if (["read_file", "list_files", "search_files", "write_to_file", "replace_in_file"].includes(toolType)) {
+      if (["read_file", "list_files", "search_files", "write_to_file", "replace_in_file", "get_outline", "get_definition", "get_references"].includes(toolType)) {
         return "allow";
       }
       return "prompt";
     case "auto":
-      if (["read_file", "list_files", "search_files"].includes(toolType)) {
+      if (["read_file", "list_files", "search_files", "get_outline", "get_definition", "get_references"].includes(toolType)) {
         return "allow";
       }
       return "prompt";
-    case "dontAsk":
-      return "deny";
     case "plan":
-      if (["read_file", "list_files", "search_files"].includes(toolType)) {
+      if (["read_file", "list_files", "search_files", "get_outline", "get_definition", "get_references"].includes(toolType)) {
         return "allow";
       }
       return "deny";
-    case "default":
     default:
       return "prompt";
   }
@@ -172,8 +169,8 @@ export const useToolExecution = ({
               }
 
               const resultMsg = message.error
-                ? `[run_command for '${cmdText}'] Result: Error - ${message.error}\n\`\`\`\n${outputContent}\n\`\`\``
-                : `[run_command for '${cmdText}'] Result:\n\`\`\`\n${outputContent}\n\`\`\``;
+                ? `Output: [run_command for '${cmdText}'] Error - ${message.error} with "terminal_output-${outputUuid}"\n\`\`\`\n${outputContent}\n\`\`\``
+                : `Output: [run_command for '${cmdText}'] with "terminal_output-${outputUuid}"\n\`\`\`\n${outputContent}\n\`\`\``;
 
               resolver(resultMsg);
               pendingToolResolvers.current.delete(message.actionId);
@@ -457,6 +454,115 @@ export const useToolExecution = ({
           });
           pendingToolResolvers.current.set(actionId, resolve);
 
+          break;
+        }
+
+        case "get_outline": {
+          const requestId = `outline-${Date.now()}-${Math.random()}`;
+          const filePath = action.params.file_path || action.params.path;
+          extensionService.postMessage({
+            command: "getFileOutline",
+            path: filePath,
+            requestId: requestId,
+          });
+
+          const handleOutlineResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "getFileOutlineResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener("message", handleOutlineResponse);
+              if (msg.error) {
+                resolve(
+                  `[get_outline for '${filePath}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                resolve(
+                  `[get_outline for '${filePath}'] Result:\n\`\`\`\n${msg.result}\n\`\`\``,
+                );
+              }
+            }
+          };
+          window.addEventListener("message", handleOutlineResponse);
+          setTimeout(() => {
+            window.removeEventListener("message", handleOutlineResponse);
+            resolve(null);
+          }, 15000);
+          break;
+        }
+
+        case "get_definition": {
+          const requestId = `definition-${Date.now()}-${Math.random()}`;
+          const symbol = action.params.symbol;
+          const filePath = action.params.file_path || action.params.path;
+          extensionService.postMessage({
+            command: "getSymbolDefinition",
+            symbol: symbol,
+            path: filePath,
+            requestId: requestId,
+          });
+
+          const handleDefResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "getSymbolDefinitionResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener("message", handleDefResponse);
+              if (msg.error) {
+                resolve(
+                  `[get_definition for '${symbol}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                resolve(
+                  `[get_definition for '${symbol}'] Result:\n${msg.result}`,
+                );
+              }
+            }
+          };
+          window.addEventListener("message", handleDefResponse);
+          setTimeout(() => {
+            window.removeEventListener("message", handleDefResponse);
+            resolve(null);
+          }, 15000);
+          break;
+        }
+
+        case "get_references": {
+          const requestId = `references-${Date.now()}-${Math.random()}`;
+          const symbol = action.params.symbol;
+          const filePath = action.params.file_path || action.params.path;
+          extensionService.postMessage({
+            command: "getReferences",
+            symbol: symbol,
+            path: filePath,
+            requestId: requestId,
+          });
+
+          const handleRefResponse = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "getReferencesResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener("message", handleRefResponse);
+              if (msg.error) {
+                resolve(
+                  `[get_references for '${symbol}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                resolve(
+                  `[get_references for '${symbol}'] Result:\n${msg.result}`,
+                );
+              }
+            }
+          };
+          window.addEventListener("message", handleRefResponse);
+          setTimeout(() => {
+            window.removeEventListener("message", handleRefResponse);
+            resolve(null);
+          }, 15000);
           break;
         }
 

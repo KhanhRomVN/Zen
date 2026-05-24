@@ -159,7 +159,20 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
       let isPreviousAllDone = true;
       for (let i = 0; i < firstItem.index; i++) {
         const actionId = `${message.id}-action-${i}`;
-        if (!clickedActions.has(actionId)) {
+        const hasOutput = toolOutputs && toolOutputs[actionId];
+        const isClicked = clickedActions.has(actionId);
+
+        // If there's a user message after this assistant message,
+        // or a message in history containing the output of this action, it is completed.
+        const hasHistoryOutput = !!nextUserMessage || !!allMessages?.some((m) => m.actionIds?.includes(actionId));
+
+        if (!isClicked && !hasOutput && !hasHistoryOutput) {
+          // If it is a write/edit tool, on restore it shouldn't block subsequent tools
+          const action = allActions ? allActions[i] : null;
+          const isWriteTool = action && (action.type === "write_to_file" || action.type === "replace_in_file");
+          if (isWriteTool) {
+            continue;
+          }
           isPreviousAllDone = false;
           break;
         }
@@ -168,13 +181,9 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
         const action = allActions ? allActions[i] : null;
         if (action && action.type === "run_command") {
           const output = toolOutputs?.[actionId];
-          if (!output) {
-            isPreviousAllDone = false;
-            break;
-          }
           const terminalId =
             (output as any)?.terminalId || action.params.terminal_id;
-          if (terminalId && terminalStatus?.[terminalId] === "busy") {
+          if (terminalId && terminalStatus?.[terminalId] === "busy" && !hasHistoryOutput) {
             isPreviousAllDone = false;
             break;
           }

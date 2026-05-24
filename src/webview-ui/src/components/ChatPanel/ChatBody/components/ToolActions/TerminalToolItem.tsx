@@ -5,7 +5,6 @@ import { getToolColor } from "../../utils";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
-import { truncatePath } from "./FileToolItem";
 import { useI18n } from "../../../../../hooks/useI18n";
 
 interface TerminalToolItemProps {
@@ -20,20 +19,24 @@ interface TerminalToolItemProps {
   nextUserMessage?: Message;
   rootPath?: string;
   onToolClick: (action: ToolAction, messageId: string, index: number, type: "accept_all" | "accept_once" | "reject") => void;
+  storedOutput?: string | null;
 }
 
 const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
   action, actionIndex, messageId, isActionClicked, isActiveGroup,
   isLastMessage, toolOutputs, terminalStatus, nextUserMessage, rootPath, onToolClick,
+  storedOutput,
 }) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(true);
   const toolColor = getToolColor("run_command");
   const { t } = useI18n();
   const actionId = `${messageId}-action-${actionIndex}`;
   const outputData = toolOutputs?.[actionId];
+  const commandText = action.params.command || "";
+  const displayCommand = commandText.length > 50 ? `${commandText.substring(0, 48)}...` : commandText;
 
   let extractedOutput: string | undefined;
   if (!outputData?.output && nextUserMessage?.content) {
-    const commandText = action.params.command;
     if (commandText) {
       const escaped = commandText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const match = new RegExp(
@@ -44,7 +47,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
   }
 
   const terminalId = (outputData as any)?.terminalId || action.params.terminal_id;
-  const hasOutput = !!outputData || !!extractedOutput;
+  const hasOutput = !!outputData || !!extractedOutput || !!storedOutput;
   const isTerminalBusy = terminalId
     ? terminalStatus?.[terminalId] === "busy" || (isActionClicked && terminalStatus?.[terminalId] === undefined)
     : isActionClicked;
@@ -69,24 +72,40 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
       />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0 6px 0" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--vscode-editor-foreground)", textTransform: "uppercase", letterSpacing: "0.5px", opacity: 0.8 }}>
-              {t("tools.execute")}
-            </span>
-          {(action.params.cwd || rootPath) && (
+        <div 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "6px", 
+            cursor: "pointer",
+            userSelect: "none",
+            opacity: 0.8,
+            transition: "opacity 0.2s ease",
+            minWidth: 0,
+            flex: 1,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.8"; }}
+        >
+          <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--vscode-editor-foreground)", textTransform: "uppercase", letterSpacing: "0.5px", flexShrink: 0 }}>
+            {t("tools.execute")}
+          </span>
+          {isCollapsed && commandText && (
             <span style={{
-              fontSize: "11px", color: "var(--vscode-descriptionForeground)", opacity: 0.6,
+              fontSize: "11px", color: "var(--vscode-descriptionForeground)", opacity: 0.7,
               fontFamily: "var(--vscode-editor-font-family, monospace)",
               backgroundColor: "var(--vscode-editor-background)", padding: "1px 6px",
               borderRadius: "4px", border: "1px solid var(--vscode-widget-border)",
+              textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap",
             }}>
-              {truncatePath(action.params.cwd || rootPath)}
+              {displayCommand}
             </span>
           )}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          {!isTerminalBusy && (isActiveGroup || isCompleted || isLoading || !isLastMessage) && (
+        <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+          {!isCollapsed && !isTerminalBusy && !isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
             <ExecuteButton
               isActive={isActiveGroup || false}
               isCompleted={isCompleted}
@@ -127,15 +146,36 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
         </div>
       </div>
 
-      <TerminalBlock
-        logs={outputData?.output || extractedOutput || ""}
-        initialCommand={action.params.command}
-        cwd={action.params.cwd || rootPath}
-        status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
-        onInput={(data) => {
-          if (terminalId) extensionService.postMessage({ command: "terminalInput", terminalId, data });
-        }}
-      />
+      {isCollapsed && !isTerminalBusy && !isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
+        <div style={{ marginTop: "2px", marginBottom: "6px" }}>
+          <ExecuteButton
+            isActive={isActiveGroup || false}
+            isCompleted={isCompleted}
+            isLastMessage={isLastMessage}
+            isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
+            isLoading={isLoading}
+            toolColor={toolColor}
+            title={isCompleted ? "Completed" : isLoading ? "Executing..." : "Execute action"}
+            onExecute={(e, type) => {
+              if (!isCompleted && !isLoading) {
+                onToolClick({ ...action, params: { ...action.params, terminal_id: terminalId } }, messageId, actionIndex, type);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {!isCollapsed && (
+        <TerminalBlock
+          logs={outputData?.output || extractedOutput || storedOutput || ""}
+          initialCommand={action.params.command}
+          cwd={action.params.cwd || rootPath}
+          status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
+          onInput={(data) => {
+            if (terminalId) extensionService.postMessage({ command: "terminalInput", terminalId, data });
+          }}
+        />
+      )}
     </div>
   );
 };

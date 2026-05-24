@@ -21,19 +21,12 @@ const inputStyle: React.CSSProperties = {
 };
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
-  const { apiUrl, setApiUrl, language, setLanguage, aiLanguage, setAiLanguage } = useSettings();
+  const { apiUrl, setApiUrl, language, setLanguage, aiLanguage, setAiLanguage, isSimpleMode, setIsSimpleMode } = useSettings();
   const { t } = useI18n();
   const [closeHover, setCloseHover] = useState(false);
-  const [isSimpleMode, setIsSimpleMode] = useState(() => {
-    try { return localStorage.getItem("zen-simple-mode") !== "false"; } catch { return true; }
-  });
 
   const toggleSimpleMode = () => {
-    setIsSimpleMode((prev) => {
-      const next = !prev;
-      try { localStorage.setItem("zen-simple-mode", String(next)); } catch {}
-      return next;
-    });
+    setIsSimpleMode(!isSimpleMode);
   };
 
   if (!isOpen) return null;

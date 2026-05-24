@@ -18,8 +18,6 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   onStopGeneration?: () => void;
   initialValue?: string;
   initialValueNonce?: number;
-  isSimpleMode?: boolean;
-  onToggleSimpleMode?: () => void;
 }
 
 // Hooks
@@ -47,8 +45,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   onStopGeneration,
   initialValue,
   initialValueNonce,
-  isSimpleMode = true,
-  onToggleSimpleMode,
 }) => {
   const [message, setMessage] = useState("");
 
@@ -379,8 +375,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           isProcessing={isProcessing}
           isStreaming={!!isStreaming}
           onStopGeneration={onStopGeneration}
-          isSimpleMode={isSimpleMode}
-          onToggleSimpleMode={onToggleSimpleMode}
         />
 
         <MentionDropdowns

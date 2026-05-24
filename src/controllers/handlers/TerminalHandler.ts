@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import * as os from "os";
 import { ProcessManager } from "../../managers/ProcessManager";
+import { SecurityValidator } from "../../agent/validators/SecurityValidator";
 
 export class TerminalHandler {
   constructor(private processManager: ProcessManager) {}
@@ -9,6 +10,12 @@ export class TerminalHandler {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       const cwd = workspaceFolder?.uri.fsPath || os.homedir();
+
+      // Security Check
+      const securityCheck = SecurityValidator.validateCommand(message.commandText);
+      if (!securityCheck.safe) {
+        throw new Error(securityCheck.reason || "Command validation failed");
+      }
 
       const result = await this.processManager.startInteractive(cwd);
       const terminalId = result.id;

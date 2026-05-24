@@ -6,8 +6,6 @@ export type PermissionMode =
   | "bypassPermissions"
   | "acceptEdits"
   | "auto"
-  | "default"
-  | "dontAsk"
   | "plan";
 
 interface SettingsContextType {
@@ -22,6 +20,8 @@ interface SettingsContextType {
   setAllToolPermissions: (value: "full_access" | "review") => void;
   permissionMode: PermissionMode;
   setPermissionMode: (mode: PermissionMode) => void;
+  isSimpleMode: boolean;
+  setIsSimpleMode: (value: boolean) => void;
 }
 
 export const defaultToolPermissions: Record<string, "full_access" | "review"> = {
@@ -40,26 +40,35 @@ const SettingsContext = createContext<SettingsContextType | undefined>(
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [language, setLanguageState] = useState<LanguageCode>("en");
-  const [aiLanguage, setAiLanguageState] = useState<string>("English");
+  const [language, setLanguageState] = useState<LanguageCode>(() => {
+    try {
+      const saved = localStorage.getItem("zen_preferred_language");
+      if (saved === "vi" || saved === "en") return saved;
+    } catch (e) {}
+    return "en";
+  });
+  const [aiLanguage, setAiLanguageState] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("zen_ai_language");
+      if (saved) return saved;
+    } catch (e) {}
+    return "English";
+  });
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
   const [permissionModeState, setPermissionModeState] = useState<PermissionMode>("bypassPermissions");
   const [toolPermissionsState, setToolPermissionsState] = useState<
     Record<string, "full_access" | "review">
   >(defaultToolPermissions);
+  const [isSimpleMode, setIsSimpleModeState] = useState<boolean>(true);
 
   useEffect(() => {
-    const storage = extensionService.getStorage();
-
-    storage.get("zen_preferred_language").then((res: any) => {
-      if (res?.value && typeof res.value === "string" && res.value.length < 10) {
-        setLanguageState(res.value === "vi" ? "vi" : "en");
+    try {
+      const saved = localStorage.getItem("zen-simple-mode");
+      if (saved !== null) {
+        setIsSimpleModeState(saved !== "false");
       }
-    });
-
-    storage.get("zen_ai_language").then((res: any) => {
-      if (res?.value) setAiLanguageState(res.value);
-    });
+    } catch (e) {}
+    const storage = extensionService.getStorage();
 
     storage.get("backend-api-url").then((res: any) => {
       if (res?.value) {
@@ -69,7 +78,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 
     storage.get("zen_permission_mode").then((res: any) => {
       if (res?.value) {
-        setPermissionModeState(res.value as PermissionMode);
+        const val = res.value;
+        if (["bypassPermissions", "acceptEdits", "auto", "plan"].includes(val)) {
+          setPermissionModeState(val as PermissionMode);
+        } else {
+          setPermissionModeState("auto"); // Fallback an toàn nếu là chế độ cũ
+        }
       }
     });
 
@@ -87,12 +101,18 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setLanguage = (lang: LanguageCode) => {
     setLanguageState(lang === "vi" ? "vi" : "en");
+    try {
+      localStorage.setItem("zen_preferred_language", lang);
+    } catch (e) {}
     const storage = extensionService.getStorage();
     storage.set("zen_preferred_language", lang);
   };
 
   const setAiLanguage = (lang: string) => {
     setAiLanguageState(lang);
+    try {
+      localStorage.setItem("zen_ai_language", lang);
+    } catch (e) {}
     const storage = extensionService.getStorage();
     storage.set("zen_ai_language", lang);
   };
@@ -125,6 +145,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_tool_permissions", JSON.stringify(next));
   };
 
+  const setIsSimpleMode = (value: boolean) => {
+    setIsSimpleModeState(value);
+    try {
+      localStorage.setItem("zen-simple-mode", String(value));
+    } catch (e) {}
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -139,6 +166,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setAllToolPermissions,
         permissionMode: permissionModeState,
         setPermissionMode,
+        isSimpleMode,
+        setIsSimpleMode,
       }}
     >
       {children}

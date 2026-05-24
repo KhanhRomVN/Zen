@@ -1,14 +1,22 @@
 export const EXAMPLES = `# REFERENCE EXAMPLES
 
-## Ex 1: Simple Edit (2-turn)
+## Ex 1: Simple Edit (3-turn)
 
 **Turn 1** — Read then STOP:
 \`\`\`xml
+<thinking>
+Pass 1 (Plan): The user wants to add a subtract function. I need to examine calculator.py first to see the existing structure.
+Pass 2 (Verify): I must not assume the content of calculator.py or do any editing yet. I will only call read_file and STOP. No markdown in tool turns.
+</thinking>
 <read_file><file_path>calculator.py</file_path></read_file>
 \`\`\`
 
-**Turn 2** — Edit:
+**Turn 2** — Edit and STOP:
 \`\`\`xml
+<thinking>
+Pass 1 (Plan): The file calculator.py is read. It has an add function. I will append the subtract function.
+Pass 2 (Verify): I will write the search-replace block exactly. Since this is a tool turn, I MUST NOT output any <markdown> block. I will wait for the tool output to confirm success.
+</thinking>
 <replace_in_file>
 <file_path>calculator.py</file_path>
 <diff>
@@ -26,29 +34,73 @@ def subtract(a, b):
 </replace_in_file>
 \`\`\`
 
+**Turn 3** — Final Summary (Tool results returned successfully):
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): The replace_in_file tool succeeded. The task is fully completed.
+Pass 2 (Verify): Since no more tools are being called, I can now output the final markdown summary.
+</thinking>
+<markdown>
+Đã thêm hàm \`subtract\` vào file \`calculator.py\`. Hàm này thực hiện trừ hai số \`a\` và \`b\`.
+</markdown>
+\`\`\`
+
 ---
 
-## Ex 2: Multi-file Edit (batched)
+## Ex 2: Multi-file Edit (3-turn batched)
 
 **Turn 1** — Read all at once then STOP:
 \`\`\`xml
+<thinking>
+Pass 1 (Plan): Need to update configuration structure in math.py and utils.py. I must read both files first.
+Pass 2 (Verify): No faking output, no editing yet. Batching read_file calls and STOP. No markdown.
+</thinking>
 <read_file><file_path>math.py</file_path></read_file>
 <read_file><file_path>utils.py</file_path></read_file>
 \`\`\`
 
 **Turn 2** — Edit all at once:
 \`\`\`xml
+<thinking>
+Pass 1 (Plan): Both files have been read. I will write replacements for both files.
+Pass 2 (Verify): Batching replacements. Since this message contains tool calls, I must not output any <markdown> block yet.
+</thinking>
 <replace_in_file><file_path>math.py</file_path><diff>...</diff></replace_in_file>
 <replace_in_file><file_path>utils.py</file_path><diff>...</diff></replace_in_file>
 \`\`\`
 
+**Turn 3** — Final Summary:
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): Both replacements were successfully applied. The task is complete.
+Pass 2 (Verify): No tools needed. Output the final summary.
+</thinking>
+<markdown>
+Đã cập nhật cấu trúc cấu hình ở cả \`math.py\` và \`utils.py\`.
+</markdown>
+\`\`\`
+
 ---
 
-## Ex 3: Ambiguous Task — ASK First ✅
+## Ex 3: Ambiguous Task — Explore then Ask ✅
 
 **User**: "Refactor the auth logic"
 
+**Turn 1** — Explore files:
 \`\`\`xml
+<thinking>
+Pass 1 (Plan): The request is too vague. I need to see what auth-related files exist in the project first to ask a precise question.
+Pass 2 (Verify): I will run list_files for the auth folder and STOP. Do not output markdown.
+</thinking>
+<list_files><folder_path>auth</folder_path></list_files>
+\`\`\`
+
+**Turn 2** — Ask clarifying question using the results:
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): The file listing returned: auth/login.ts, auth/session.ts, auth/middleware.ts. I can now ask a focused clarifying question.
+Pass 2 (Verify): I am not running any tools in this turn, so I can output a <markdown> block to communicate with the user.
+</thinking>
 <markdown>
 Found auth-related files: auth/login.ts, auth/session.ts, auth/middleware.ts
 
@@ -56,17 +108,36 @@ To refactor accurately:
 1. What's the specific goal? (e.g., extract duplication, restructure, performance)
 2. Which parts need changes?
 </markdown>
-<list_files><folder_path>auth</folder_path></list_files>
 \`\`\`
 
 ---
 
-## Ex 4: File Not Found — ASK After 2 Searches ✅
+## Ex 4: File Not Found — Search then Ask ✅
 
+**Turn 1** — Search 1:
 \`\`\`xml
-<!-- Turn 1 --> <search_files><folder_path>src</folder_path><regex>api.*service</regex></search_files>
-<!-- Turn 2 --> <search_files><folder_path>.</folder_path><regex>ApiService|api_service</regex></search_files>
-<!-- Turn 3 — STOP, ask: -->
+<thinking>
+Pass 1 (Plan): User wants to check ApiService. I will search for it first.
+Pass 2 (Verify): Do not fake results. Just run search_files and STOP. No markdown.
+</thinking>
+<search_files><folder_path>src</folder_path><regex>api.*service</regex></search_files>
+\`\`\`
+
+**Turn 2** — Search 2:
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): First search failed. I will try a second search at root with a broader pattern.
+Pass 2 (Verify): Run search_files and STOP. No markdown.
+</thinking>
+<search_files><folder_path>.</folder_path><regex>ApiService|api_service</regex></search_files>
+\`\`\`
+
+**Turn 3** — Ask:
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): Two searches failed. I must ask the user for clarification.
+Pass 2 (Verify): No tools running. Output markdown asking the user.
+</thinking>
 <markdown>
 Searched src/ and root with 2 patterns — no results.
 
@@ -79,8 +150,12 @@ Searched src/ and root with 2 patterns — no results.
 
 ## Ex 5: Command Execution ✅
 
-**Offer (command known, user hasn't asked):**
+**Turn 1** — Offer (No tool run yet, just offer):
 \`\`\`xml
+<thinking>
+Pass 1 (Plan): I know the run command. I will offer it to the user via a question.
+Pass 2 (Verify): No tool is executed in this turn. I will output markdown and the question block.
+</thinking>
 <markdown>The run command is \`./gradlew desktop:run\`. Would you like me to run it now?</markdown>
 <question>
   <question_title>Start game?</question_title>
@@ -89,27 +164,35 @@ Searched src/ and root with 2 patterns — no results.
 </question>
 \`\`\`
 
-**Execute (user said "run it for me"):**
+**Turn 2** — Execute (user said "run it for me"):
 \`\`\`xml
+<thinking>
+Pass 1 (Plan): User approved command execution. I will run the command.
+Pass 2 (Verify): Run the command and STOP. Do not output markdown yet.
+</thinking>
 <run_command><command>cd /path/to/project && chmod +x gradlew && ./gradlew desktop:run</command></run_command>
 \`\`\`
 
-**❌ WRONG — never do this:**
+**Turn 3** — Complete:
 \`\`\`xml
-<markdown>I cannot run commands on your machine. Please open terminal and type: ./gradlew desktop:run</markdown>
+<thinking>
+Pass 1 (Plan): The run command finished executing successfully.
+Pass 2 (Verify): Output markdown to confirm completion.
+</thinking>
+<markdown>
+Lệnh \`./gradlew desktop:run\` đã được chạy thành công.
+</markdown>
 \`\`\`
 
 ---
 
-## Ex 8: write_to_file — Multi-line Content ✅
+## Ex 6: write_to_file — Multi-line Content ✅
 
-**❌ WRONG — never produce one-liner content:**
 \`\`\`xml
-<write_to_file><file_path>src/utils.ts</file_path><content>export function add(a: number, b: number) {\n  return a + b;\n}\n</content></write_to_file>
-\`\`\`
-
-**✅ CORRECT — real newlines inside <content>:**
-\`\`\`xml
+<thinking>
+Pass 1 (Plan): Creating utility file with helper function.
+Pass 2 (Verify): Write with proper indentation and real newlines. No markdown in this tool turn.
+</thinking>
 <write_to_file>
 <file_path>src/utils.ts</file_path>
 <content>
@@ -118,5 +201,36 @@ export function add(a: number, b: number) {
 }
 </content>
 </write_to_file>
+\`\`\`
+
+---
+
+## Ex 7: Code Navigation using LSP Tools (Definition, References, Outline) ✅
+
+**Turn 1** — Get outline to understand a file structure:
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): The user wants to understand the functions available in src/services/auth.ts. I will query its outline.
+Pass 2 (Verify): I will run get_outline and STOP. No markdown.
+</thinking>
+<get_outline><file_path>src/services/auth.ts</file_path></get_outline>
+\`\`\`
+
+**Turn 2** — Find definition of a class or function:
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): The outline shows a class named SessionManager is used. I want to see its definition.
+Pass 2 (Verify): I will run get_definition and STOP. No markdown.
+</thinking>
+<get_definition><symbol>SessionManager</symbol><file_path>src/services/auth.ts</file_path></get_definition>
+\`\`\`
+
+**Turn 3** — Find all references of a function:
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): I found the method validateSession definition. I need to see where it is called across the codebase to ensure refactoring is safe.
+Pass 2 (Verify): I will run get_references and STOP. No markdown.
+</thinking>
+<get_references><symbol>validateSession</symbol><file_path>src/services/auth.ts</file_path></get_references>
 \`\`\`
 `;
