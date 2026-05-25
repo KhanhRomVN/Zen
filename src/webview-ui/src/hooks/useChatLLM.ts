@@ -179,18 +179,7 @@ export const useChatLLM = ({
       actionIds?: string[],
       uiHidden?: boolean,
     ) => {
-      console.log(`[Zen Flow Log] [sendMessage] Triggered.`, {
-        contentLength: content?.length,
-        filesCount: files?.length,
-        files: files?.map(f => ({ id: f.id, name: f.name, type: f.type })),
-        skipFirstRequestLogic,
-        actionIds,
-        isProcessing,
-        isStreaming,
-      });
-
       if (isProcessing && !skipFirstRequestLogic) {
-        console.warn("[useChatLLM] Already processing a request, ignoring.");
         return;
       }
 
@@ -243,7 +232,6 @@ export const useChatLLM = ({
             };
           }
         } catch (e) {
-          console.error("Failed to fetch system info", e);
         }
 
         const effectiveLang = aiLanguage || preferredLanguage;
@@ -288,10 +276,6 @@ export const useChatLLM = ({
             projectContextStr += `\n\n## WORKSPACE EXPERIENCE (workspace.md)\n\`\`\`\n${effectiveWorkspace}\n\`\`\``;
           }
         } catch (e) {
-          console.error(
-            "[useChatLLM] Failed to use pre-fetched project context",
-            e,
-          );
         }
       }
 
@@ -361,7 +345,7 @@ export const useChatLLM = ({
 
       const fullContent = skipFirstRequestLogic
         ? content
-        : `## User Message\n\`\`\`\n${content}\n\`\`\``;
+        : `## User Message\n<zen-user-content>\n${content}\n</zen-user-content>`;
 
       if (skipFirstRequestLogic) {
         // Detailed trace for tool results to catch duplicates
@@ -370,9 +354,6 @@ export const useChatLLM = ({
           .find((m) => m.role === "user" && m.actionIds);
 
         if (lastToolMsg && lastToolMsg.content === fullContent) {
-          console.warn(
-            "[useChatLLM] Duplicate tool result detected. Cancelling previous response and prioritizing new request.",
-          );
           stopGeneration();
 
           // Mark the assistant message that was responding to the previous identical request as cancelled
@@ -417,7 +398,6 @@ export const useChatLLM = ({
 
       const updatedMessages = [...filteredMessages, userMessage];
       setMessages(updatedMessages);
-      console.log("[Zen Flow Log] [sendMessage] setMessages and setIsProcessing(true) set.");
       setIsProcessing(true);
 
       // Save & Log
@@ -474,13 +454,9 @@ export const useChatLLM = ({
             )
           : [];
 
-        console.log("[Zen Log] sendMessage try block started. localFiles to upload count:", localFiles.length, "files:", localFiles.map(f => ({ id: f.id, name: f.name })), "finalAccount:", finalAccount);
-
         if (localFiles.length > 0) {
-          console.log("[Zen Flow Log] [sendMessage] Processing", localFiles.length, "local files.");
           for (const file of localFiles) {
             if (file.file_id) {
-              console.log(`[Zen Flow Log] [sendMessage] File ${file.name} already pre-uploaded. Using existing ID: ${file.file_id}`);
               ref_file_ids.push(file.file_id);
               continue;
             }
@@ -489,7 +465,6 @@ export const useChatLLM = ({
               throw new Error("No active account selected for file upload. Please select/add an account first.");
             }
 
-            console.log(`[Zen Flow Log] [sendMessage] File ${file.name} not pre-uploaded. Uploading now...`);
             try {
               let blob: Blob;
               if (file.content.startsWith("data:")) {
@@ -521,12 +496,10 @@ export const useChatLLM = ({
               const uploadData = await uploadRes.json();
               if (uploadData.success && uploadData.data?.file_id) {
                 ref_file_ids.push(uploadData.data.file_id);
-                console.log(`[Zen Flow Log] [sendMessage] Fallback upload success for ${file.name}. ID: ${uploadData.data.file_id}`);
               } else {
                 throw new Error(uploadData.error || "Unknown upload error");
               }
             } catch (err) {
-              console.error(`[Zen Flow Log] [sendMessage] Fallback upload failed for ${file.name}:`, err);
               throw new Error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
             }
           }
@@ -565,7 +538,6 @@ export const useChatLLM = ({
 
         const headers = { "Content-Type": "application/json" };
 
-        console.log("[Zen Flow Log] [sendMessage] Initiating API request fetch to:", `${apiUrl}/v1/chat/accounts/messages`, { body });
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
           headers,
@@ -574,18 +546,13 @@ export const useChatLLM = ({
         });
 
         if (!response.ok) {
-          console.error(
-            `[useChatLLM] API Error ${response.status}:`,
-            response.statusText,
-          );
+          let errorDetail = `API Error: ${response.status}`;
           try {
-            const errorData = await response.clone().json();
-            console.error("[useChatLLM] Error Response Details:", errorData);
-          } catch (e) {
-            const text = await response.clone().text();
-            console.error("[useChatLLM] Error Response Text:", text);
-          }
-          throw new Error(`API Error: ${response.status}`);
+            const errBody = await response.json();
+            errorDetail = errBody.error || errBody.message || errorDetail;
+            if (errBody.error_code) errorDetail = `[${errBody.error_code}] ${errorDetail}`;
+          } catch {}
+          throw new Error(errorDetail);
         }
         if (!response.body) throw new Error("No response body");
 
@@ -620,6 +587,12 @@ export const useChatLLM = ({
                 if (dataStr === "[DONE]") continue;
                 try {
                   const data = JSON.parse(dataStr);
+
+                  // Handle stream error from server
+                  if (data.error) {
+                    const code = data.error_code ? `[${data.error_code}] ` : '';
+                    throw new Error(`${code}${data.error}`);
+                  }
 
                   // Capture the real backend conversation_id for subsequent requests
                   const recvConvId =
@@ -759,8 +732,6 @@ export const useChatLLM = ({
           ),
         );
 
-        console.log("[Zen Flow Log] [sendMessage] Stream reading done. Total assistant content length:", assistantMessage.content.length);
-        console.log("[Zen Flow Log] [sendMessage] Setting setIsProcessing(false) and setIsStreaming(false).");
         setIsProcessing(false);
         setIsStreaming(false);
         abortControllerRef.current = null;
@@ -797,7 +768,6 @@ export const useChatLLM = ({
             conversationId: finalConversationId,
           });
         } catch (logErr) {
-          console.error(`[useChatLLM] Critical error during log call:`, logErr);
         }
 
         // Parse for metadata logging only.
@@ -805,9 +775,7 @@ export const useChatLLM = ({
         // by useToolActions.ts via parsedMessages useEffect to avoid duplicate triggers.
         // (RES1 may still be streaming when useToolActions triggers tools mid-stream;
         //  calling onToolRequest here after stream-done would cause a double-trigger.)
-        console.log("[Zen Flow Log] [sendMessage] Parsing final response content for tool calls...");
         const parsed = parseAIResponse(assistantMessage.content);
-        console.log("[Zen Flow Log] [sendMessage] Parsed actions (handled by useToolActions):", parsed.actions.map(a => a.type));
 
         // Save final conversation state
         saveConversation(

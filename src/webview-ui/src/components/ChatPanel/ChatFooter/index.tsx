@@ -18,6 +18,9 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
   onStopGeneration?: () => void;
   initialValue?: string;
   initialValueNonce?: number;
+  conversationId?: string;
+  autoScrollPaused?: boolean;
+  onResumeScroll?: () => void;
 }
 
 // Hooks
@@ -29,6 +32,7 @@ import { useMentionSystem } from "./hooks/useMentionSystem";
 import FilesPreviews from "./components/FilesPreviews";
 import MentionDropdowns from "./components/MentionDropdowns";
 import MessageInput from "./components/MessageInput";
+import { extensionService } from "../../../services/ExtensionService";
 
 const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   onSendMessage,
@@ -45,8 +49,40 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   onStopGeneration,
   initialValue,
   initialValueNonce,
+  conversationId,
+  autoScrollPaused,
+  onResumeScroll,
 }) => {
   const [message, setMessage] = useState("");
+  const storage = extensionService.getStorage();
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDraftRestoredRef = useRef(false);
+
+  // Restore draft when conversationId changes
+  useEffect(() => {
+    if (!conversationId) return;
+    isDraftRestoredRef.current = false;
+    storage.get(`draft:${conversationId}`).then((res: any) => {
+      if (res?.value && !isDraftRestoredRef.current) {
+        setMessage(res.value);
+      }
+      isDraftRestoredRef.current = true;
+    }).catch(() => { isDraftRestoredRef.current = true; });
+  }, [conversationId]);
+
+  // Debounce-save draft on message change
+  useEffect(() => {
+    if (!conversationId || !isDraftRestoredRef.current) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      if (message.trim()) {
+        storage.set(`draft:${conversationId}`, message).catch(() => {});
+      } else {
+        storage.delete(`draft:${conversationId}`).catch(() => {});
+      }
+    }, 500);
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+  }, [message, conversationId]);
 
   useEffect(() => {
     if (initialValue !== undefined) {
@@ -191,6 +227,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         undefined, // uiHidden
       );
       setMessage("");
+      if (conversationId) storage.delete(`draft:${conversationId}`).catch(() => {});
       clearFiles();
       clearAttachedItems();
       if (textareaRef.current) {
@@ -334,6 +371,40 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       />
 
       <div style={{ position: "relative" }}>
+        {autoScrollPaused && (
+          <button
+            onClick={onResumeScroll}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--hover-bg)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "var(--input-bg)"; }}
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              right: "8px",
+              marginBottom: "-1px",
+              zIndex: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "5px 10px",
+              fontSize: "11px",
+              fontWeight: 600,
+              cursor: "pointer",
+              backgroundColor: "var(--input-bg)",
+              color: "var(--primary-text)",
+              borderTopLeftRadius: "8px",
+              borderTopRightRadius: "8px",
+              borderBottomLeftRadius: "0",
+              borderBottomRightRadius: "0",
+              border: "1px solid var(--border-color)",
+              borderBottom: "none",
+              boxShadow: "0 -2px 6px rgba(0,0,0,0.1)",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <span className="codicon codicon-arrow-down" style={{ fontSize: "12px" }} />
+            Resume scroll
+          </button>
+        )}
         <MessageInput
           message={message}
           setMessage={setMessage}

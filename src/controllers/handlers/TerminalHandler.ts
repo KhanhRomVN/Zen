@@ -45,7 +45,6 @@ export class TerminalHandler {
     try {
       this.processManager.focus(message.terminalId);
     } catch (e: any) {
-      console.error("Failed to focus terminal:", e);
     }
   }
 

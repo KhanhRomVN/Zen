@@ -108,7 +108,6 @@ export const useToolActions = ({
       type: "accept_all" | "accept_once" | "reject" = "accept_once",
     ) => {
       if (!onSendToolRequest) {
-        console.warn("[useToolActions] onSendToolRequest is missing!");
         return;
       }
 

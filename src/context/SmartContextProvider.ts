@@ -195,11 +195,7 @@ export class SmartContextProvider {
         timeoutPromise,
       ]);
     } catch (error) {
-      console.warn(
-        "SmartContext analysis timed out or failed, using partial/empty results"
-      );
       // In case of timeout or error, we continue with whatever empty results we have
-      // or potentially whatever finished if we restructured to settleAll (but race is simpler for now)
     }
 
     // Combine results with scoring

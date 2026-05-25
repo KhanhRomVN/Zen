@@ -65,4 +65,6 @@ export interface ChatBodyProps {
     folderPath: string | null,
   ) => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
+  onAutoScrollPausedChange?: (paused: boolean) => void;
+  scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
 }

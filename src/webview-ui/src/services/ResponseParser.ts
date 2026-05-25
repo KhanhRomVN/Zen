@@ -15,6 +15,7 @@ export interface ToolAction {
     | "replace_in_file"
     | "list_files"
     | "search_files"
+    | "search_content"
     | "run_command"
     | "execute_agent_action"
     | "get_outline"
@@ -113,11 +114,13 @@ const parseToolAction = (
     case "write_to_file":
       params.file_path = extractParamValue(innerContent, "file_path");
       params.content = extractParamValue(innerContent, "content");
+      console.log(`[ResponseParser] write_to_file parsed`, { file_path: params.file_path, contentLength: params.content?.length });
       break;
 
     case "replace_in_file":
       params.file_path = extractParamValue(innerContent, "file_path");
       params.diff = extractParamValue(innerContent, "diff");
+      console.log(`[ResponseParser] replace_in_file parsed`, { file_path: params.file_path, diffLength: params.diff?.length });
       break;
     case "run_command":
       params.command = extractParamValue(innerContent, "command");
@@ -138,6 +141,12 @@ const parseToolAction = (
     case "search_files":
       params.folder_path = extractParamValue(innerContent, "folder_path");
       params.regex = extractParamValue(innerContent, "regex");
+      params.file_pattern = extractParamValue(innerContent, "file_pattern");
+      break;
+
+    case "search_content":
+      params.folder_path = extractParamValue(innerContent, "folder_path");
+      params.pattern = extractParamValue(innerContent, "pattern");
       params.file_pattern = extractParamValue(innerContent, "file_pattern");
       break;
 
@@ -183,6 +192,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Hide </no_response> markers
   remainingContent = remainingContent.replace(/<\/no_response\s*>/gi, "");
 
+  // Normalize singular/variant tool tag names to canonical forms
+  remainingContent = remainingContent
+    .replace(/<(\/?)search_file>/gi, "<$1search_files>")
+    .replace(/<(\/?)list_file>/gi, "<$1list_files>");
+
   // Scan for tools and text blocks
   const toolPatterns = [
     "read_file",
@@ -191,6 +205,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "run_command",
     "list_files",
     "search_files",
+    "search_content",
     "execute_agent_action",
     "get_outline",
     "get_definition",

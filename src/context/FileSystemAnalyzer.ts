@@ -144,9 +144,6 @@ export class FileSystemAnalyzer {
     // Check if bypass should apply to disable gitignore in rg
     let extraFlags = "";
     const normalizedRoot = path.normalize(rootPath);
-    console.log(
-      `[FileSystemAnalyzer] Building tree for: ${normalizedRoot} (maxDepth: ${maxDepth})`,
-    );
     for (const bypassed of this.bypassedPaths) {
       if (
         normalizedRoot === bypassed ||
@@ -167,12 +164,8 @@ export class FileSystemAnalyzer {
     // 1. Quét folder trực tiếp trước (Đảm bảo folder như src luôn có mặt)
     try {
       const entries = fs.readdirSync(rootPath, { withFileTypes: true });
-      console.log(
-        `[FileSystemAnalyzer] Local entries found: ${entries.length} in ${rootPath}`,
-      );
       for (const entry of entries) {
         if (this.shouldIgnore(entry.name)) {
-          console.log(`[FileSystemAnalyzer] Pattern ignore: ${entry.name}`);
           continue;
         }
         const entryPath = path.join(rootPath, entry.name);
@@ -189,15 +182,10 @@ export class FileSystemAnalyzer {
         }
       }
     } catch (e) {
-      console.error(
-        `[FileSystemAnalyzer] readdirSync failed for ${rootPath}:`,
-        e,
-      );
     }
 
     // 2. Chạy Ripgrep để quét sâu hơn
     const cmd = `"${rgPath}" ${extraFlags}--files --max-depth ${maxDepth}`;
-    console.log(`[FileSystemAnalyzer] Executing rg: ${cmd}`);
     const { stdout } = await execAsync(cmd, {
       cwd: rootPath,
       maxBuffer: 1024 * 1024 * 10,
@@ -385,11 +373,6 @@ export class FileSystemAnalyzer {
     reason?: "pattern" | "gitignore";
   }> {
     const result = await this.performIgnoreCheck(filePath);
-    if (result.ignored) {
-      console.log(
-        `[FileSystemAnalyzer] Ignored: ${filePath} (${result.reason})`,
-      );
-    }
     return result;
   }
 
@@ -603,10 +586,6 @@ export class FileSystemAnalyzer {
       const content = await fs.promises.readFile(fullPath, "utf-8");
       return content.split("\n").length;
     } catch (e) {
-      console.error(
-        `[FileSystemAnalyzer] Failed to get line count for ${filePath}`,
-        e,
-      );
       return 0;
     }
   }

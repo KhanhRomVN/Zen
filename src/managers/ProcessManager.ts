@@ -65,14 +65,12 @@ class ZenPTY implements vscode.Pseudoterminal {
         // Load initial content for VS Code to show upon re-attach
         this.accumulatedOutput = fs.readFileSync(this.logFilePath, "utf8");
       } catch (e) {
-        console.error("Failed to read existing terminal log", e);
       }
     } else {
       try {
         fs.mkdirSync(path.dirname(this.logFilePath), { recursive: true });
         fs.writeFileSync(this.logFilePath, "");
       } catch (e) {
-        console.error("Failed to create terminal log directory", e);
       }
     }
   }
@@ -272,7 +270,6 @@ class BridgeClient {
         this.bridgeProcess.unref();
         resolve(true);
       } catch (e) {
-        console.error("Failed to spawn bridge", e);
         resolve(false);
       }
     });
@@ -535,7 +532,6 @@ export class ProcessManager {
         }
       }
     } catch (e) {
-      console.error("Failed to migrate legacy terminal logs", e);
     }
   }
 
@@ -615,7 +611,6 @@ export class ProcessManager {
         stateToSave,
       );
     } catch (e) {
-      console.error("Failed to save terminal state", e);
     }
   }
 
@@ -649,7 +644,6 @@ export class ProcessManager {
         }
       }
     } catch (e) {
-      console.error("Failed to restore terminal state", e);
     }
   }
 
@@ -867,12 +861,10 @@ export class ProcessManager {
           fs.unlinkSync(entry.pty.logFilePath);
         }
       } catch (e) {
-        console.error("[ProcessManager] Error deleting log file:", e);
       }
 
       this.onTerminalsChangedEmitter.fire();
     } else {
-      console.warn("[ProcessManager] Terminal entry NOT found for id:", id);
     }
   }
 

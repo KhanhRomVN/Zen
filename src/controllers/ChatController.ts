@@ -169,6 +169,9 @@ export class ChatController {
         case "searchFiles":
           await this.fileHandler.handleSearchFiles(message, webviewView);
           break;
+        case "searchContent":
+          await this.fileHandler.handleSearchContent(message, webviewView);
+          break;
         case "askBypassGitignore":
           await this.fileHandler.handleAskBypassGitignore(message, webviewView);
           break;
@@ -331,7 +334,6 @@ export class ChatController {
           break;
       }
     } catch (error) {
-      console.error(`Error handling command ${command}:`, error);
     }
   }
 

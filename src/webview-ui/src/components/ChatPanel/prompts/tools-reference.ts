@@ -20,6 +20,8 @@ replacement
 
 <search_files><folder_path>path/to/folder</folder_path><regex>pattern</regex></search_files>
 
+<search_content><folder_path>path/to/folder</folder_path><pattern>text or regex to search</pattern></search_content>
+
 <run_command><command>your command here</command></run_command>
 
 <get_outline><file_path>path/to/file</file_path></get_outline>

@@ -20,6 +20,8 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   isSimpleMode?: boolean;
   isRestored?: boolean;
   onContinue?: () => void;
+  onAutoScrollPausedChange?: (paused: boolean) => void;
+  scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 // Hooks
@@ -54,6 +56,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   isRestored = false,
   onContinue,
   onRevertConversation,
+  onAutoScrollPausedChange,
+  scrollToBottomRef,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -86,10 +90,24 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     isProcessing,
     isRestored,
   });
-  const { isAtBottom, scrollToBottom } = useScrollBehavior(messagesEndRef, [
+  const { isAtBottom, autoScrollPaused, scrollToBottom } = useScrollBehavior(messagesEndRef, [
     messages,
     isProcessing,
   ]);
+
+  // Notify parent of pause state changes
+  const prevPausedRef = useRef(false);
+  useEffect(() => {
+    if (autoScrollPaused !== prevPausedRef.current) {
+      prevPausedRef.current = autoScrollPaused;
+      onAutoScrollPausedChange?.(autoScrollPaused);
+    }
+  }, [autoScrollPaused, onAutoScrollPausedChange]);
+
+  // Expose scrollToBottom to parent
+  useEffect(() => {
+    if (scrollToBottomRef) scrollToBottomRef.current = scrollToBottom;
+  }, [scrollToBottom, scrollToBottomRef]);
 
   const hasUnexecutedAutoActions = useMemo(() => {
     if (!isRestored || messages.length === 0) return false;

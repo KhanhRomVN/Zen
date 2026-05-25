@@ -58,18 +58,6 @@ export class LoggerService {
 
     // Also log to console for development debugging
     if (process.env.NODE_ENV === "development") {
-      switch (level) {
-        case LogLevel.DEBUG:
-        case LogLevel.INFO:
-          console.log(formattedMessage, ...args);
-          break;
-        case LogLevel.WARN:
-          console.warn(formattedMessage, ...args);
-          break;
-        case LogLevel.ERROR:
-          console.error(formattedMessage, ...args);
-          break;
-      }
     }
 
     this.outputChannel.appendLine(formattedMessage);

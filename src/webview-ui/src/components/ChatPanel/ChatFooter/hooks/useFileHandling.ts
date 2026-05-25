@@ -21,7 +21,6 @@ export const useFileHandling = ({
 
   const uploadFileToServer = async (file: UploadedFile) => {
     if (!apiUrl || !accountId) {
-      console.warn("[Zen Log] uploadFileToServer: apiUrl or accountId is missing, skipping immediate upload.", { apiUrl, accountId });
       return;
     }
 
@@ -31,7 +30,6 @@ export const useFileHandling = ({
     );
 
     try {
-      console.log(`[Zen Log] uploadFileToServer: Uploading ${file.name} to ${apiUrl} with account ${accountId}`);
       let blob: Blob;
       if (file.content.startsWith("data:")) {
         const arr = file.content.split(",");
@@ -61,7 +59,6 @@ export const useFileHandling = ({
 
       const uploadData = await uploadRes.json();
       if (uploadData.success && uploadData.data?.file_id) {
-        console.log(`[Zen Log] uploadFileToServer: Success! file_id=${uploadData.data.file_id}`);
         setUploadedFiles((prev) =>
           prev.map((f) =>
             f.id === file.id
@@ -73,7 +70,6 @@ export const useFileHandling = ({
         throw new Error(uploadData.error || "Unknown upload error");
       }
     } catch (err: any) {
-      console.error(`[Zen Log] uploadFileToServer: Failed to upload ${file.name}:`, err);
       setUploadedFiles((prev) =>
         prev.map((f) =>
           f.id === file.id
@@ -86,21 +82,17 @@ export const useFileHandling = ({
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData.items;
-    console.log("[Zen Log] handlePaste: Clipboard items count:", items?.length);
     let hasImage = false;
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      console.log(`[Zen Log] handlePaste item #${i}: kind=${item.kind}, type=${item.type}`);
       if (item.kind === "file" && item.type.startsWith("image/")) {
         const file = item.getAsFile();
-        console.log(`[Zen Log] handlePaste: Found image file. name=${file?.name}, size=${file?.size}`);
         if (file) {
           hasImage = true;
           const reader = new FileReader();
           reader.onload = (event) => {
             const content = event.target?.result as string;
-            console.log(`[Zen Log] handlePaste: FileReader loaded file ${file.name}. Content size: ${content?.length}`);
             const newFile: UploadedFile = {
               id: `file-${Date.now()}-${Math.random()}`,
               name: file.name,
@@ -117,7 +109,6 @@ export const useFileHandling = ({
     }
 
     if (hasImage) {
-      console.log("[Zen Log] handlePaste: Image detected, calling preventDefault.");
       e.preventDefault();
     }
   };
@@ -190,7 +181,6 @@ export const useFileHandling = ({
 
       // Validate file extension
       if (!isFileAllowed(file.name)) {
-        console.warn(`File ${file.name} not allowed (not in whitelist)`);
         continue;
       }
 
@@ -220,7 +210,6 @@ export const useFileHandling = ({
         };
         onAddAttachedItem(attachedItem);
       } catch (error) {
-        console.error(`Error reading file ${file.name}:`, error);
       }
     }
 
@@ -246,7 +235,6 @@ export const useFileHandling = ({
       const file = files[i];
 
       if (!isFileAllowed(file.name)) {
-        console.warn(`File ${file.name} not allowed (not in whitelist)`);
         continue;
       }
 
@@ -272,7 +260,6 @@ export const useFileHandling = ({
         };
         onAddAttachedItem(attachedItem);
       } catch (error) {
-        console.error(`Error reading dropped file ${file.name}:`, error);
       }
     }
   };

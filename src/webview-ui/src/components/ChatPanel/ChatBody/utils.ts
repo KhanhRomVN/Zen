@@ -1,4 +1,5 @@
 import { ACTION_NAMES, TOOL_LABELS, TOOL_COLORS } from "./constants";
+import { Message } from "./types";
 
 export const getActionName = (type: string): string => {
   return ACTION_NAMES[type] || type;
@@ -21,6 +22,47 @@ export const getFilename = (action: any): string => {
   return path.split("/").pop() || path || "";
 };
 
+/**
+ * Given a full path and all paths in the conversation, return the shortest
+ * disambiguating display label (filename, or parent/filename if duplicates exist).
+ */
+export const getDisplayPath = (
+  fullPath: string,
+  allPaths: string[],
+): string => {
+  const sep = /[/\\]/;
+  const parts = fullPath.split(sep).filter(Boolean);
+  if (parts.length === 0) return fullPath;
+
+  // Try increasing suffix lengths until unique among allPaths
+  for (let depth = 1; depth <= parts.length; depth++) {
+    const candidate = parts.slice(-depth).join("/");
+    const conflicts = allPaths.filter((p) => {
+      const ps = p.split(sep).filter(Boolean);
+      return ps.slice(-depth).join("/") === candidate && p !== fullPath;
+    });
+    if (conflicts.length === 0) return candidate;
+  }
+  return parts.join("/");
+};
+
+/**
+ * Collect all file paths referenced by file-type tool actions across all messages.
+ */
+export const collectConvFilePaths = (allMessages: Message[]): string[] => {
+  const paths: string[] = [];
+  const filePathRegex = /<file_path>([\s\S]*?)<\/file_path>/g;
+  for (const msg of allMessages) {
+    if (msg.role !== "assistant") continue;
+    let m: RegExpExecArray | null;
+    while ((m = filePathRegex.exec(msg.content)) !== null) {
+      if (m[1].trim()) paths.push(m[1].trim());
+    }
+    filePathRegex.lastIndex = 0;
+  }
+  return paths;
+};
+
 export const getToolLabel = (type: string): string => {
   return TOOL_LABELS[type] || TOOL_LABELS.default;
 };
@@ -31,36 +73,27 @@ export const getToolColor = (type: string): string => {
 
 export const parseNewCodeFromDiff = (diff: string): string => {
   if (!diff) return "";
-
-  // Match REPLACE block: =======\n<content>\n>>>>>>> REPLACE
   const replaceMatch = diff.match(
     /=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
   );
-  if (replaceMatch) {
-    return replaceMatch[1].trim();
-  }
-
-  // Fallback: return entire diff if no REPLACE block found
+  if (replaceMatch) return replaceMatch[1].trim();
   return diff;
 };
 
-// Stateless handler for diff click
 export const handleDiffClick = (e: React.MouseEvent, action: any) => {
   e.stopPropagation();
   const vscodeApi = (window as any).vscodeApi;
   if (vscodeApi) {
-    // Extract new code from diff or use content directly
     let newCode = "";
     if (action.type === "replace_in_file" && action.params.diff) {
       newCode = parseNewCodeFromDiff(action.params.diff);
     } else if (action.type === "write_to_file" && action.params.content) {
       newCode = action.params.content;
     }
-
     vscodeApi.postMessage({
       command: "openDiffView",
       filePath: action.params.path,
-      newCode: newCode,
+      newCode,
     });
   }
 };

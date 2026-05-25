@@ -195,7 +195,6 @@ export class WorkspaceAnalyzer {
 
       return validFiles;
     } catch (error) {
-      console.error("Failed to get git history:", error);
       return [];
     }
   }

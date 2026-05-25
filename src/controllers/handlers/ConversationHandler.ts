@@ -101,38 +101,25 @@ export class ConversationHandler {
   ) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      console.log("[ConversationHandler] handleGetConversation called", {
-        conversationId: message.conversationId,
-        requestId: message.requestId,
-        hasWorkspace: !!workspaceFolder,
-        workspacePath: workspaceFolder?.uri.fsPath,
-      });
 
       if (!workspaceFolder) {
-        console.error("[ConversationHandler] No workspace folder found");
         return;
       }
       const { conversationId } = message;
       const projectContextDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
       const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
-      console.log("[ConversationHandler] Reading file at:", logPath);
-
       const exists = fs.existsSync(logPath);
-      console.log("[ConversationHandler] File exists:", exists);
 
       if (!exists) {
         // Try searching across all project dirs
         const contextRoot = this.getContextRoot();
         const projectsDir = path.join(contextRoot, "projects");
-        console.log("[ConversationHandler] Searching in contextRoot:", projectsDir);
         try {
           const projectDirs = await fs.promises.readdir(projectsDir);
-          console.log("[ConversationHandler] Project dirs found:", projectDirs);
           for (const dir of projectDirs) {
             const candidate = path.join(projectsDir, dir, `${conversationId}.json`);
             if (fs.existsSync(candidate)) {
-              console.log("[ConversationHandler] Found in alternate dir:", candidate);
               const content = await fs.promises.readFile(candidate, "utf-8");
               webviewView.webview.postMessage({
                 command: "conversationResult",
@@ -143,14 +130,12 @@ export class ConversationHandler {
             }
           }
         } catch (searchErr) {
-          console.error("[ConversationHandler] Error searching project dirs:", searchErr);
         }
         throw new Error(`File not found: ${logPath}`);
       }
 
       const content = await fs.promises.readFile(logPath, "utf-8");
       const parsed = JSON.parse(content);
-      console.log("[ConversationHandler] File read success, type:", Array.isArray(parsed) ? "array" : "object", "keys:", Object.keys(parsed));
 
       webviewView.webview.postMessage({
         command: "conversationResult",
@@ -161,7 +146,6 @@ export class ConversationHandler {
         },
       });
     } catch (error: any) {
-      console.error("[ConversationHandler] handleGetConversation error:", error);
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,
@@ -199,7 +183,6 @@ export class ConversationHandler {
       }
       await this.enforceHistoryLimit(projectContextDir);
     } catch (e) {
-      console.error("Log conversation failed", e);
     }
   }
 
@@ -225,7 +208,6 @@ export class ConversationHandler {
       }
       await this.enforceHistoryLimit(projectContextDir);
     } catch (e) {
-      console.error("Create empty chat log failed", e);
     }
   }
 
@@ -259,7 +241,6 @@ export class ConversationHandler {
       }
       await this.enforceHistoryLimit(projectContextDir);
     } catch (e) {
-      console.error("Log chat failed", e);
     }
   }
 
@@ -427,7 +408,6 @@ export class ConversationHandler {
         JSON.stringify({ content }, null, 2),
       );
     } catch (e) {
-      console.error("[ConversationHandler] Save terminal output failed", e);
     }
   }
 
@@ -523,12 +503,8 @@ export class ConversationHandler {
           ? new Date(targetMsg.timestamp).getTime()
           : (targetMsg.timestamp || timestamp);
 
-        console.log(`[ConversationHandler] 🔄 Reverting conv=${conversationId} to messageId=${messageId} (index=${index}/${content.length - 1}) timestamp=${revertTimestamp}`);
-
-        // Truncate message log to keep messages up to and including the target message
         content = content.slice(0, index + 1);
         await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2), "utf-8");
-        console.log(`[ConversationHandler] ✅ Log truncated to ${content.length} messages`);
 
         // Revert files to the state they were in at/before the revertTimestamp
         await CheckpointManager.getInstance().revertToCheckpoint(conversationId, revertTimestamp);
@@ -543,7 +519,6 @@ export class ConversationHandler {
       });
 
     } catch (e: any) {
-      console.error("Revert conversation failed", e);
       webviewView.webview.postMessage({
         command: "conversationRevertedError",
         error: e.message,
@@ -567,7 +542,6 @@ export class ConversationHandler {
         vscode.Uri.file(folderPath),
       );
     } catch (e) {
-      console.error("[ConversationHandler] openConversationFolder failed", e);
     }
   }
 
@@ -600,10 +574,8 @@ export class ConversationHandler {
 
         await fs.promises.unlink(logPath).catch(() => {});
         await fs.promises.rm(folderPath, { recursive: true, force: true }).catch(() => {});
-        console.log(`[ConversationHandler] Pruned old conversation history: ${conversationId}`);
       }
     } catch (err) {
-      console.error("[ConversationHandler] Failed to enforce history limit:", err);
     }
   }
 }

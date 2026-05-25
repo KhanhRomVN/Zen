@@ -26,9 +26,6 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
   try {
     const vscodeApi = (window as any).vscodeApi;
     if (!vscodeApi) {
-      console.warn(
-        "[ConversationService] vscodeApi NOT found, cannot log to workspace.",
-      );
       return;
     }
 
@@ -43,7 +40,6 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
       logEntry,
     });
   } catch (err) {
-    console.error(`[ConversationService] Error in logChatToWorkspace:`, err);
   }
 };
 

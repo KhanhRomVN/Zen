@@ -247,7 +247,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   // If User Message
   if (message.role === "user") {
     // 🆕 FLEXIBLE FILTER: Regex to find the user message block even if not at the start
-    const userMsgRegex = /## User Message\n```\n([\s\S]*?)\n```/;
+    const userMsgRegex = /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
     const match = message.content.match(userMsgRegex);
 
     if (!match && !message.content.includes("## User Message")) {
@@ -260,12 +260,17 @@ const MessageBox: React.FC<MessageBoxProps> = ({
 
     // Fallback cleanup if it didn't match the full block regex but has the header
     if (!match) {
+      // Legacy: strip old ``` wrapper if present
       if (
         displayContent.startsWith("```") &&
         displayContent.includes("```", 3)
       ) {
         displayContent = displayContent.split("```")[1].trim();
       }
+      // Strip new zen-user-content wrapper if partially matched
+      displayContent = displayContent
+        .replace(/^<zen-user-content>\n?/, "")
+        .replace(/\n?<\/zen-user-content>[\s\S]*$/, "");
     }
 
     // 🆕 Collapsible long messages
@@ -927,6 +932,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               if (!isAnswered) isInteractionBlocked = true;
             } else if (group.type === "error") {
               const errorText = group.content.replace(/^Error:\s*/i, "");
+              // Parse error code from "[CODE] message" format
+              const codeMatch = errorText.match(/^\[([^\]]+)\]\s*(.*)/s);
+              const errorCode = codeMatch ? codeMatch[1] : null;
+              const errorMessage = codeMatch ? codeMatch[2] : errorText;
               const dotColor = "var(--vscode-testing-iconFailedColor, #f14c4c)";
               content = (
                 <div>
@@ -939,43 +948,16 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                       border: "none",
                     }}
                   />
-                  <div
-                    style={{
-                      paddingLeft: "29px",
-                      paddingTop: "4px",
-                      fontSize: "var(--font-size-sm)",
-                      color: "var(--primary-text)",
-                      maxWidth: "100%",
-                      boxSizing: "border-box",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        fontSize: "12px",
-                        color: "var(--vscode-editor-foreground)",
-                        lineHeight: "20px",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      <span style={{ fontWeight: 600, color: "var(--vscode-testing-iconFailedColor, #f14c4c)" }}>
-                        ERROR
-                      </span>
-                      <span
-                        style={{
-                          fontWeight: 500,
-                          opacity: 0.9,
-                          fontFamily: "var(--vscode-editor-font-family, monospace)",
-                          fontSize: "11px",
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-all",
-                        }}
-                      >
-                        {errorText}
-                      </span>
-                    </div>
+                  <div style={{ paddingLeft: "29px", paddingTop: "4px", maxWidth: "100%", boxSizing: "border-box" }}>
+                    <ToolHeader
+                      title={
+                        <span style={{ color: dotColor, fontWeight: 700, fontSize: "12px", letterSpacing: "0.5px" }}>
+                          ERROR{errorCode ? `: ${errorCode}` : ""}
+                        </span>
+                      }
+                      subTitle={errorMessage}
+                      statusColor={dotColor}
+                    />
                     {onSendMessage && (
                       <button
                         onClick={handleRetry}
@@ -1012,15 +994,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                             "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 30%, transparent)";
                         }}
                       >
-                        <span
-                          className="codicon codicon-refresh"
-                          style={{
-                            fontSize: "12px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        />
+                        <span className="codicon codicon-refresh" style={{ fontSize: "12px", display: "inline-flex", alignItems: "center" }} />
                         <span>Retry</span>
                       </button>
                     )}

@@ -43,10 +43,6 @@ export class ShikiService {
       this.currentDynamicThemeId = originalThemeId || null;
       this.currentDynamicThemeKind = themeJson.type || "dark";
     } catch (error) {
-      console.error("[ShikiService] Failed to load custom theme:", error);
-      // Even if loading fails, update the ID to the one being requested
-      // to avoid continuous "stale theme" warnings if the reason was JSON corruption.
-      // But clearing name will force fallback to defaults.
       this.currentDynamicThemeName = null;
       this.currentDynamicThemeId = originalThemeId || null;
     }
@@ -73,10 +69,6 @@ export class ShikiService {
             const wasmBytes = await vscode.workspace.fs.readFile(onigWasmUri);
             await loadWasm(wasmBytes);
           } catch (error) {
-            console.error(
-              "[ShikiService] Failed to load WASM manually:",
-              error,
-            );
           }
         }
 
@@ -109,7 +101,6 @@ export class ShikiService {
           ],
         });
       } catch (error) {
-        console.error("[ShikiService] Initialization failed:", error);
         this.initializationPromise = null;
       }
     })();
@@ -248,20 +239,13 @@ export class ShikiService {
       });
       return html;
     } catch (error) {
-      console.warn(
-        `[ShikiService] Highlighting failed for ${language}, falling back to plaintext with transformers:`,
-        error,
-      );
       try {
-        // [Fix] Attempt highlighting with 'plaintext' but STILL include transformers
-        // This ensures line numbers and diff highlights work even for unsupported languages.
         return await this.highlighter.codeToHtml(code, {
           lang: "plaintext",
           theme: theme,
           transformers,
         });
       } catch (e) {
-        console.error("[ShikiService] Absolute fallback triggered:", e);
         return `<pre class="shiki-fallback"><code>${code}</code></pre>`;
       }
     }

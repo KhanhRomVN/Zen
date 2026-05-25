@@ -100,7 +100,6 @@ class SyntaxHighlighterService {
       const highlighted = this.highlightByLanguage(code, validLang);
       return this.createStyledPre(highlighted);
     } catch (error) {
-      console.error("[SyntaxHighlighter] Failed to highlight code:", error);
       return this.createStyledPre(this.escapeHtml(code));
     }
   }

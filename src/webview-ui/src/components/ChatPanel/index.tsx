@@ -75,6 +75,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const [isRestored, setIsRestored] = useState(false);
   const [revertInput, setRevertInput] = useState<{ value: string; nonce: number } | null>(null);
+  const [autoScrollPaused, setAutoScrollPaused] = useState(false);
+  const scrollToBottomRef = useRef<(() => void) | null>(null);
 
   // --- Hooks ---
   const {
@@ -635,6 +637,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isRestored={isRestored}
         onContinue={() => setIsRestored(false)}
         onRevertConversation={handleRevertConversation}
+        onAutoScrollPausedChange={setAutoScrollPaused}
+        scrollToBottomRef={scrollToBottomRef}
       />
       <ChatFooter
         apiUrl={apiUrl}
@@ -654,6 +658,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onStopGeneration={handleStopGeneration}
         initialValue={revertInput?.value}
         initialValueNonce={revertInput?.nonce}
+        conversationId={currentConversationId}
+        autoScrollPaused={autoScrollPaused}
+        onResumeScroll={() => scrollToBottomRef.current?.()}
       />
     </div>
   );

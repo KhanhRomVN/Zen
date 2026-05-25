@@ -47,9 +47,6 @@ export class ThemeService {
     }
 
     if (!themeEntry || !extensionPath) {
-      console.warn(
-        `[ThemeService] Could not find theme entry for: ${colorTheme}. Searched in ${vscode.extensions.all.length} extensions.`,
-      );
       return null;
     }
 
@@ -160,7 +157,6 @@ export class ThemeService {
 
       return theme;
     } catch (e) {
-      console.error(`[ThemeService] Error loading theme file ${filePath}:`, e);
       return null;
     }
   }

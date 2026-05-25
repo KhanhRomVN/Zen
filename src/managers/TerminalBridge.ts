@@ -40,7 +40,6 @@ function appendToLog(id: string, data: string) {
       fs.writeFileSync(logPath, newContent, "utf8");
     }
   } catch (e) {
-    console.error(`Failed to log for ${id}`, e);
   }
 }
 
@@ -68,7 +67,6 @@ const server = net.createServer((socket) => {
         handleMessage(msg, socket);
       }
     } catch (e) {
-      console.error("Failed to parse message", e);
     }
   });
 

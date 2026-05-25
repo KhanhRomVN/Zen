@@ -141,7 +141,6 @@ export class GitHistoryAnalyzer {
         .filter((item) => item.frequency >= minOccurrences)
         .map((item) => item.filePath);
     } catch (error) {
-      console.error("Error analyzing git history:", error);
       return [];
     }
   }

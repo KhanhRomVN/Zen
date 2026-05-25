@@ -88,9 +88,7 @@ export class CheckpointManager {
 
       const ckptFilePath = path.join(ckptDir, `${id}.json`);
       await fs.promises.writeFile(ckptFilePath, JSON.stringify(checkpoint, null, 2), "utf-8");
-      console.log(`[CheckpointManager] ✅ Created checkpoint: ${id} | type=${type} | file=${filePath} | conv=${this.activeConversationId}`);
     } catch (error) {
-      console.error("[CheckpointManager] Failed to create checkpoint:", error);
     }
   }
 
@@ -98,7 +96,6 @@ export class CheckpointManager {
     try {
       const ckptDir = this.getCheckpointsDir(conversationId);
       if (!fs.existsSync(ckptDir)) {
-        console.log(`[CheckpointManager] No checkpoints folder for conversation ${conversationId}`);
         return;
       }
 
@@ -115,34 +112,28 @@ export class CheckpointManager {
               checkpoints.push({ ...ckpt, id: file });
             }
           } catch (e) {
-            console.error(`[CheckpointManager] Error reading checkpoint file ${file}:`, e);
           }
         }
       }
 
       if (checkpoints.length === 0) {
-        console.log(`[CheckpointManager] ⚠️ No checkpoints found after timestamp=${revertTimestamp} for conv=${conversationId}`);
         return;
       }
 
       // Sort by timestamp descending to revert in reverse chronological order (newest first)
       checkpoints.sort((a, b) => b.timestamp - a.timestamp);
 
-      console.log(`[CheckpointManager] 🔄 Reverting ${checkpoints.length} checkpoints for conv=${conversationId}...`);
-
       for (const ckpt of checkpoints) {
         try {
           if (ckpt.type === "create") {
             if (fs.existsSync(ckpt.filePath)) {
               await fs.promises.unlink(ckpt.filePath);
-              console.log(`[CheckpointManager] ✅ Reverted CREATE → deleted ${ckpt.filePath}`);
             }
           } else if (ckpt.type === "modify" || ckpt.type === "delete") {
             if (ckpt.content !== null) {
               const dir = path.dirname(ckpt.filePath);
               await fs.promises.mkdir(dir, { recursive: true });
               await fs.promises.writeFile(ckpt.filePath, ckpt.content, "utf-8");
-              console.log(`[CheckpointManager] ✅ Reverted ${ckpt.type.toUpperCase()} → restored ${ckpt.filePath}`);
             }
           }
 
@@ -150,11 +141,9 @@ export class CheckpointManager {
           const ckptJsonPath = path.join(ckptDir, ckpt.id);
           await fs.promises.unlink(ckptJsonPath).catch(() => {});
         } catch (err: any) {
-          console.error(`[CheckpointManager] Error applying checkpoint ${ckpt.id}:`, err);
         }
       }
     } catch (error) {
-      console.error("[CheckpointManager] Failed to revert checkpoints:", error);
     }
   }
 }

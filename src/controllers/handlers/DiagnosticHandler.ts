@@ -68,7 +68,6 @@ export class DiagnosticHandler {
             }
           }
         } catch (e) {
-          console.error("Error finding symbol in specific file:", e);
         }
       }
 

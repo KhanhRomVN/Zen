@@ -5,11 +5,13 @@ import { CodeBlock } from "../../../../CodeBlock";
 import { RichtextBlock } from "../../../../RichtextBlock";
 import { ToolHeader } from "../../../../ToolHeader";
 import { parseDiff } from "../../../../../utils/diffUtils";
-import { getFilename, getToolColor } from "../../utils";
+import { getFilename, getToolColor, getDisplayPath, collectConvFilePaths } from "../../utils";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../../hooks/useI18n";
+import { useSettings } from "../../../../../context/SettingsContext";
+import { getPermissionDecision } from "../../../../../hooks/useToolExecution";
 
 
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
@@ -35,12 +37,6 @@ interface FileToolItemProps {
   onToolClick: (action: ToolAction, messageId: string, index: number, type: "accept_all" | "accept_once" | "reject") => void;
 }
 
-function truncatePath(path?: string): string {
-  if (!path) return "";
-  const segments = path.split(/[/\\]/);
-  if (segments.length <= 3) return path;
-  return `${segments[0]}/../${segments.slice(-2).join("/")}`;
-}
 
 const FileToolItem: React.FC<FileToolItemProps> = ({
   action, actionIndex, messageId, isActionClicked, isActiveGroup,
@@ -48,12 +44,15 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const { t } = useI18n();
+  const { permissionMode } = useSettings();
   const toolType = action.type;
   const toolColor = getToolColor(toolType);
   const actionId = `${messageId}-action-${actionIndex}`;
   const fileExt = getFilename(action).split(".").pop() || "txt";
 
   const rawPath = action.params.file_path || action.params.symbol || action.params.folder_path || action.params.path || getFilename(action);
+  const allPaths = React.useMemo(() => collectConvFilePaths(allMessages || []), [allMessages]);
+  const displayName = rawPath ? getDisplayPath(rawPath, allPaths) : "";
 
   let codeContent = "";
   let lineHighlights: { startLine: number; endLine: number; type: "added" | "removed" }[] = [];
@@ -128,7 +127,6 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         : (codeContent && codeContent.trim().length > 0) || !!nextUserMessage));
 
   const isLoading = !isCompleted && isPartial;
-  const displayPath = truncatePath(rawPath);
 
   const prefix =
     toolType === "replace_in_file" ? t("tools.update")
@@ -159,7 +157,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
               style={{ width: "16px", height: "16px" }}
             />
             <span style={{ fontWeight: 500, opacity: 0.9, fontFamily: "var(--vscode-editor-font-family, monospace)", fontSize: "11px" }}>
-              {displayPath}
+              {displayName}
             </span>
             {isPartial && (
               <span style={{ fontSize: "10px", opacity: 0.6, fontStyle: "italic", marginLeft: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
@@ -182,16 +180,14 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         diffStats={undefined}
         isPartial={isPartial}
         onClick={() => {
-          if (toolType === "list_files" || toolType === "search_files" || toolType === "replace_in_file" || toolType === "write_to_file" ||
-              toolType === "get_outline" || toolType === "get_definition" || toolType === "get_references") {
-            setIsCollapsed((v) => !v);
-          } else {
+          setIsCollapsed((v) => !v);
+          if (rawPath && toolType !== "list_files" && toolType !== "search_files") {
             extensionService.postMessage({ command: "openFile", path: rawPath });
           }
         }}
       />
 
-      {!isCompleted && !isPartial && (isActiveGroup || !isLastMessage) && (
+      {!isCompleted && !isPartial && (isActiveGroup || !isLastMessage) && getPermissionDecision(permissionMode, toolType) === "prompt" && (
         <div style={{ marginTop: "8px", marginBottom: "8px" }}>
           <ExecuteButton
             isActive={!!isActiveGroup}
@@ -240,5 +236,4 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   );
 };
 
-export { truncatePath };
 export default FileToolItem;

@@ -15,19 +15,11 @@ export const useWorkspaceData = () => {
         if (data.files && !data.error) {
           setAvailableFiles(data.files);
         } else if (data.error) {
-          console.error(
-            "[ChatFooter] Error getting workspace files:",
-            data.error,
-          );
-        }
+          }
       } else if (data.command === "workspaceFoldersResponse") {
         if (data.folders && !data.error) {
           setAvailableFolders(data.folders);
         } else if (data.error) {
-          console.error(
-            "[ChatFooter] Error getting workspace folders:",
-            data.error,
-          );
         }
       }
     };
@@ -52,7 +44,6 @@ export const useWorkspaceData = () => {
       try {
         setAvailableRules(JSON.parse(stored));
       } catch (error) {
-        console.error("[ChatFooter] Error loading rules:", error);
       }
     }
   }, []);

@@ -294,10 +294,6 @@ export class ImportGraphAnalyzer {
       }
 
       // Fallback to slower method if real error (e.g. grep not found)
-      console.warn(
-        "[ImportGraphAnalyzer] Grep failed, falling back to slow search:",
-        error.message
-      );
     }
 
     // Fallback: Use workspace.findFiles to get all source files
@@ -346,7 +342,6 @@ export class ImportGraphAnalyzer {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     } catch (error) {
-      console.error("Error finding importers:", error);
     }
 
     return Array.from(importers);

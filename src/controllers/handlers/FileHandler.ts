@@ -9,6 +9,7 @@ import { RecentItemsManager } from "../../context/RecentItemsManager";
 import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
 import { CheckpointManager } from "../../utils/CheckpointManager";
 import { SecurityValidator } from "../../agent/validators/SecurityValidator";
+import { LoggerService } from "../../services/LoggerService";
 
 export class FileHandler {
   private _workspaceFilesCache: any[] | null = null;
@@ -151,12 +152,15 @@ export class FileHandler {
   }
 
   public async handleWriteFile(message: any, webviewView: vscode.WebviewView) {
+    const logger = LoggerService.getInstance();
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
       const pathValue = message.path || message.filePath || message.file_path;
       if (!pathValue)
         throw new Error("The 'path' argument must be of type string.");
+
+      logger.info(`[write_to_file] Start`, { path: pathValue, contentLength: message.content?.length, requestId: message.requestId });
 
       let absolutePath: vscode.Uri;
       if (pathValue.endsWith("workspace.md")) {
@@ -191,6 +195,7 @@ export class FileHandler {
         absolutePath,
         Buffer.from(message.content, "utf8"),
       );
+      logger.info(`[write_to_file] File written successfully`, { path: pathValue });
 
       if (!message.skipDiagnostics) {
         try {
@@ -198,6 +203,9 @@ export class FileHandler {
         } catch {}
         await new Promise((r) => setTimeout(r, 1500));
         const diagnostics = this.getDiagnosticsForFile(absolutePath);
+        if (diagnostics.length) {
+          logger.warn(`[write_to_file] Diagnostics found`, { path: pathValue, count: diagnostics.length });
+        }
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,
@@ -214,6 +222,7 @@ export class FileHandler {
         });
       }
     } catch (e: any) {
+      logger.error(`[write_to_file] Error`, { path: message.path || message.filePath || message.file_path, error: e.message });
       webviewView.webview.postMessage({
         command: "writeFileResult",
         requestId: message.requestId,
@@ -227,6 +236,7 @@ export class FileHandler {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
+    const logger = LoggerService.getInstance();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
     const pathValue = message.path || message.filePath || message.file_path;
@@ -238,6 +248,9 @@ export class FileHandler {
       });
       return;
     }
+
+    logger.info(`[replace_in_file] Start`, { path: pathValue, diffLength: message.diff?.length, requestId: message.requestId });
+
     let absPath: vscode.Uri;
     if (pathValue.endsWith("workspace.md")) {
       const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
@@ -288,27 +301,41 @@ export class FileHandler {
       const match = message.diff.match(
         /<<<<<<< SEARCH\s*\n([\s\S]*?)\n\s*=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
       );
-      if (!match) throw new Error("Invalid diff format");
+      if (!match) {
+        logger.error(`[replace_in_file] Invalid diff format`, { path: pathValue, diff: message.diff?.substring(0, 200) });
+        throw new Error("Invalid diff format");
+      }
 
       const clean = (text: string) =>
         text.replace(/^```[a-zA-Z]*$/gm, "").trim();
       const searchArgs = clean(match[1]);
       const replaceArgs = clean(match[2]);
 
+      logger.debug(`[replace_in_file] Parsed diff`, { path: pathValue, searchLength: searchArgs.length, replaceLength: replaceArgs.length });
+
       let target = searchArgs;
       if (content.indexOf(searchArgs) === -1) {
+        logger.warn(`[replace_in_file] Exact match not found, trying fuzzy`, { path: pathValue });
         const fuzzy = FuzzyMatcher.findMatch(content, searchArgs);
-        if (!fuzzy || fuzzy.score <= 1e-9)
+        if (!fuzzy || fuzzy.score <= 1e-9) {
+          logger.error(`[replace_in_file] Search text not found`, { path: pathValue });
           throw new Error("Search text not found");
+        }
+        logger.info(`[replace_in_file] Fuzzy match found`, { path: pathValue, score: fuzzy.score });
         target = fuzzy.originalText;
+      } else {
+        logger.debug(`[replace_in_file] Exact match found`, { path: pathValue });
       }
+
       newContent = content.replace(target, replaceArgs);
       if (newContent === content) throw new Error("No change made");
       await vscode.workspace.fs.writeFile(
         absPath,
         Buffer.from(newContent, "utf8"),
       );
+      logger.info(`[replace_in_file] File updated successfully`, { path: pathValue });
     } catch (e: any) {
+      logger.error(`[replace_in_file] Error during replace`, { path: pathValue, error: e.message });
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
         requestId: message.requestId,
@@ -325,6 +352,9 @@ export class FileHandler {
       } catch {}
       await new Promise((r) => setTimeout(r, 1500));
       const diagnostics = this.getDiagnosticsForFile(absPath);
+      if (diagnostics.length) {
+        logger.warn(`[replace_in_file] Diagnostics found`, { path: pathValue, count: diagnostics.length });
+      }
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
         requestId: message.requestId,
@@ -700,5 +730,57 @@ export class FileHandler {
     webviewView: vscode.WebviewView,
   ) {
     // Git changes logic via git extension or simple shell
+  }
+
+  public async handleSearchContent(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) throw new Error("No workspace");
+      const pattern = message.pattern;
+      if (!pattern) throw new Error("'pattern' is required");
+
+      const folderPath = message.folder_path || message.path || ".";
+      const filePattern = message.file_pattern || "";
+      const searchDir = path.isAbsolute(folderPath)
+        ? folderPath
+        : path.join(workspaceFolder.uri.fsPath, folderPath);
+
+      const { exec } = require("child_process");
+      const filePatternArg = filePattern ? `--include="${filePattern}"` : "";
+      const cmd = `grep -rIn ${filePatternArg} -E "${pattern.replace(/"/g, '\\"')}" "${searchDir}"`;
+
+      exec(
+        cmd,
+        { cwd: workspaceFolder.uri.fsPath, maxBuffer: 1024 * 1024 * 10 },
+        (err: any, stdout: string) => {
+          if (err && err.code !== 1) {
+            webviewView.webview.postMessage({
+              command: "searchContentResult",
+              requestId: message.requestId,
+              error: err.message,
+            });
+          } else {
+            const results = stdout
+              .trim()
+              .split("\n")
+              .filter((l) => l.length > 0);
+            webviewView.webview.postMessage({
+              command: "searchContentResult",
+              requestId: message.requestId,
+              results,
+            });
+          }
+        },
+      );
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "searchContentResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
   }
 }

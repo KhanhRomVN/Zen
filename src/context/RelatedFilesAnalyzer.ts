@@ -70,7 +70,6 @@ export class RelatedFilesAnalyzer {
       // Also scan through the entire document for more symbols
       await this.scanDocument(document, relatedFiles, currentFile);
     } catch (error) {
-      console.error("❌ Error in LSP analysis:", error);
     }
 
     const result = Array.from(relatedFiles);

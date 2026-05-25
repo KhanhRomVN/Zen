@@ -115,9 +115,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     if (this.chatController) {
       this.chatController.startPingService(webviewView.webview);
     } else {
-      console.error(
-        "[ZenChatViewProvider] chatController is undefined, cannot start ping service",
-      );
     }
 
     // Listen for Command Finished
