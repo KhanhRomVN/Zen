@@ -1,11 +1,7 @@
 import * as vscode from "vscode";
-import * as fs from "fs";
-import * as path from "path";
 import { ContextManager } from "./context/ContextManager";
 import { GlobalStorageManager } from "./storage-manager";
-import { ShikiService } from "./services/ShikiService";
 import { ZenChatViewProvider } from "./providers/ZenChatViewProvider";
-import { CheckpointManager } from "./utils/CheckpointManager";
 
 let activeProvider: ZenChatViewProvider | null = null;
 
@@ -17,10 +13,7 @@ export async function activate(extContext: vscode.ExtensionContext) {
 
   const contextManager = new ContextManager();
 
-  // Initialize ShikiService with extension URI for asset resolution
-  ShikiService.getInstance().setExtensionUri(extContext.extensionUri);
 
-  // Create provider with dependencies
   const provider = new ZenChatViewProvider(
     extContext.extensionUri,
     contextManager,
@@ -30,16 +23,9 @@ export async function activate(extContext: vscode.ExtensionContext) {
 
   // Also pass context to ProcessManager and restore persistent terminals
   provider.getProcessManager().setExtensionContext(extContext);
-  provider.getProcessManager().restoreState();
 
   provider.initializeAgentManager();
   activeProvider = provider;
-
-  // Pre-warm Shiki trong background (không block activate)
-  // Khi user mở panel lần đầu, Shiki sẽ đã được khởi tạo xong
-  ShikiService.getInstance().initialize().catch(() => {
-    // Silent fail — Shiki sẽ tự khởi tạo lại khi cần
-  });
 
   extContext.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -118,40 +104,6 @@ export async function activate(extContext: vscode.ExtensionContext) {
     },
   );
 
-  // Register file change listeners for checkpointing
-  const checkpointManager = CheckpointManager.getInstance();
-
-  const onDidCreateFilesDisposable = vscode.workspace.onDidCreateFiles((event) => {
-    for (const file of event.files) {
-      checkpointManager.createCheckpoint(file.fsPath, "create");
-    }
-  });
-
-  const onWillDeleteFilesDisposable = vscode.workspace.onWillDeleteFiles((event) => {
-    const collectFiles = (dirPath: string, filesList: string[]) => {
-      try {
-        const stats = fs.statSync(dirPath);
-        if (stats.isFile()) {
-          filesList.push(dirPath);
-        } else if (stats.isDirectory()) {
-          const entries = fs.readdirSync(dirPath);
-          for (const entry of entries) {
-            collectFiles(path.join(dirPath, entry), filesList);
-          }
-        }
-      } catch {}
-    };
-
-    for (const file of event.files) {
-      const filesList: string[] = [];
-      collectFiles(file.fsPath, filesList);
-      for (const f of filesList) {
-        // Create checkpoint synchronously before the delete is finalized
-        checkpointManager.createCheckpoint(f, "delete");
-      }
-    }
-  });
-
   // Add all commands to subscriptions
   extContext.subscriptions.push(
     openChatCommand,
@@ -161,11 +113,10 @@ export async function activate(extContext: vscode.ExtensionContext) {
     refreshProjectStructureCommand,
     clearOldStorageCommand,
     addToContextCommand,
-    onDidCreateFilesDisposable,
-    onWillDeleteFilesDisposable,
   );
 }
 
 export function deactivate() {
+  activeProvider?.getProcessManager().stopAll();
   activeProvider = null;
 }

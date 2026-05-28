@@ -1,5 +1,4 @@
 import * as vscode from "vscode";
-import * as https from "https";
 import { ContextManager } from "../context/ContextManager";
 import { GlobalStorageManager } from "../storage-manager";
 import { AgentCapabilityManager } from "../agent/AgentCapabilityManager";
@@ -11,7 +10,6 @@ import { FileHandler } from "./handlers/FileHandler";
 import { TerminalHandler } from "./handlers/TerminalHandler";
 import { SystemHandler } from "./handlers/SystemHandler";
 import { ProjectContextHandler } from "./handlers/ProjectContextHandler";
-import { DiagnosticHandler } from "./handlers/DiagnosticHandler";
 import { AgentHandler } from "./handlers/AgentHandler";
 import { StorageHandler } from "./handlers/StorageHandler";
 import { CheckpointManager } from "../utils/CheckpointManager";
@@ -22,11 +20,8 @@ export class ChatController {
   private terminalHandler: TerminalHandler;
   private systemHandler: SystemHandler;
   private projectContextHandler: ProjectContextHandler;
-  private diagnosticHandler: DiagnosticHandler;
   private agentHandler: AgentHandler;
   private storageHandler: StorageHandler;
-
-  private _pingInterval?: NodeJS.Timeout;
 
   constructor(
     private contextManager: ContextManager,
@@ -37,9 +32,7 @@ export class ChatController {
     private recentItemsManager: RecentItemsManager | undefined,
     private extensionUri: vscode.Uri,
   ) {
-    this.conversationHandler = new ConversationHandler(
-      this.fileLockManager,
-    );
+    this.conversationHandler = new ConversationHandler(this.fileLockManager);
     this.fileHandler = new FileHandler(
       this.contextManager,
       this.fileLockManager,
@@ -51,7 +44,6 @@ export class ChatController {
       this.contextManager,
       this.storageManager,
     );
-    this.diagnosticHandler = new DiagnosticHandler(this.contextManager);
     this.agentHandler = new AgentHandler(this.agentManager);
     this.storageHandler = new StorageHandler(this.storageManager);
   }
@@ -60,7 +52,9 @@ export class ChatController {
     const command = message.command;
 
     if (message.conversationId) {
-      CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
+      CheckpointManager.getInstance().setActiveConversationId(
+        message.conversationId,
+      );
     } else if (message.chatUuid) {
       CheckpointManager.getInstance().setActiveConversationId(message.chatUuid);
     }
@@ -132,7 +126,10 @@ export class ChatController {
           await this.conversationHandler.handleRollbackConversationLog(message);
           break;
         case "revertConversation":
-          await this.conversationHandler.handleRevertConversation(message, webviewView);
+          await this.conversationHandler.handleRevertConversation(
+            message,
+            webviewView,
+          );
           break;
         case "openConversationFolder":
           await this.conversationHandler.handleOpenConversationFolder(message);
@@ -170,7 +167,7 @@ export class ChatController {
           await this.fileHandler.handleSearchFiles(message, webviewView);
           break;
         case "searchContent":
-          await this.fileHandler.handleSearchContent(message, webviewView);
+          // removed
           break;
         case "askBypassGitignore":
           await this.fileHandler.handleAskBypassGitignore(message, webviewView);
@@ -192,6 +189,12 @@ export class ChatController {
           break;
         case "getFileStats":
           await this.fileHandler.handleGetFileStats(message, webviewView);
+          break;
+        case "deleteFile":
+          await this.fileHandler.handleDeleteFile(message, webviewView);
+          break;
+        case "deleteFolder":
+          await this.fileHandler.handleDeleteFolder(message, webviewView);
           break;
 
         // Backup
@@ -251,45 +254,6 @@ export class ChatController {
             webviewView,
           );
           break;
-        case "startProjectContextWatch":
-          await this.projectContextHandler.handleStartProjectContextWatch(
-            message,
-            webviewView,
-          );
-          break;
-        case "stopProjectContextWatch":
-          await this.projectContextHandler.handleStopProjectContextWatch(
-            message,
-            webviewView,
-          );
-          break;
-
-        // Diagnostics
-        case "getSymbolDefinition":
-          await this.diagnosticHandler.handleGetSymbolDefinition(
-            message,
-            webviewView,
-          );
-          break;
-        case "getReferences":
-          await this.diagnosticHandler.handleGetReferences(
-            message,
-            webviewView,
-          );
-          break;
-        case "getFileOutline":
-          await this.diagnosticHandler.handleGetFileOutline(
-            message,
-            webviewView,
-          );
-          break;
-        case "highlightCode":
-          await this.diagnosticHandler.handleHighlightCode(
-            message,
-            webviewView,
-          );
-          break;
-
         // Misc & Core (kept in Controller for now if simple)
         case "confirmDelete":
         case "confirmClearAll":
@@ -333,59 +297,10 @@ export class ChatController {
           );
           break;
       }
-    } catch (error) {
-    }
-  }
-
-  public startPingService(webview: vscode.Webview) {
-    if (this._pingInterval) {
-      clearInterval(this._pingInterval);
-    }
-
-    const checkPing = () => {
-      const start = Date.now();
-      try {
-        const req = https.get(
-          "https://www.google.com/generate_204",
-          { timeout: 3000 },
-          (res) => {
-            const end = Date.now();
-            const latency = end - start;
-            webview.postMessage({
-              command: "networkPingUpdate",
-              ping: latency,
-            });
-            res.resume();
-          },
-        );
-        req.on("error", () => {
-          webview.postMessage({ command: "networkPingUpdate", ping: null });
-        });
-        req.on("timeout", () => {
-          req.destroy();
-          webview.postMessage({ command: "networkPingUpdate", ping: null });
-        });
-        req.end();
-      } catch (e) {
-        webview.postMessage({ command: "networkPingUpdate", ping: null });
-      }
-    };
-    checkPing();
-    this._pingInterval = setInterval(checkPing, 10000);
-  }
-
-  public stopPingService() {
-    if (this._pingInterval) {
-      clearInterval(this._pingInterval);
-      this._pingInterval = undefined;
-    }
+    } catch (error) {}
   }
 
   public async updateTheme(webview: vscode.Webview) {
     await this.systemHandler.updateTheme(webview);
-  }
-
-  public stopProjectContextWatch() {
-    this.projectContextHandler.stopProjectContextWatch();
   }
 }

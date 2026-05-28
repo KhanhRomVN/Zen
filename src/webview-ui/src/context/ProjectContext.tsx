@@ -1,101 +1,40 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-} from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
 
 interface ProjectContextType {
-  workspace: string;
-  rules: string;
-  treeView: string;
   rootPath: string;
   homedir: string;
-  isLoading: boolean;
-  error: string | null;
-  refreshContext: () => void;
-  startWatching: () => void;
-  stopWatching: () => void;
+  workspace: string;
+  treeView: string;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
-export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
-  const [workspace, setWorkspace] = useState("");
-  const [rules, setRules] = useState("");
-  const [treeView, setTreeView] = useState("");
+export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [rootPath, setRootPath] = useState("");
   const [homedir, setHomedir] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const refreshContext = useCallback(() => {
-    setIsLoading(true);
-    const requestId = `manual-refresh-${Date.now()}`;
-    extensionService.postMessage({
-      command: "getProjectContext",
-      requestId,
-    });
-  }, []);
-
-  const startWatching = useCallback(() => {
-    extensionService.postMessage({
-      command: "startProjectContextWatch",
-    });
-  }, []);
-
-  const stopWatching = useCallback(() => {
-    extensionService.postMessage({
-      command: "stopProjectContextWatch",
-    });
-  }, []);
+  const [workspace, setWorkspace] = useState("");
+  const [treeView, setTreeView] = useState("");
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
-      if (message.command === "projectContextResult") {
-        if (message.data) {
-          setWorkspace(message.data.workspace || "");
-          setTreeView(message.data.treeView || "");
-          setRootPath(message.data.rootPath || "");
-          setHomedir(message.data.homedir || "");
-        }
-        setRules(message.data.rules || "");
+      if (message.command === "projectContextResult" && message.data) {
+        setRootPath(message.data.rootPath || "");
+        setHomedir(message.data.homedir || "");
+        setWorkspace(message.data.workspace || "");
         setTreeView(message.data.treeView || "");
-        setError(null);
-        setIsLoading(false);
       }
     };
 
     window.addEventListener("message", handleMessage);
+    extensionService.postMessage({ command: "getProjectContext", requestId: "init" });
 
-    // Initial fetch
-    refreshContext();
-
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, [refreshContext]);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
 
   return (
-    <ProjectContext.Provider
-      value={{
-        workspace,
-        rules,
-        treeView,
-        rootPath,
-        homedir,
-        isLoading,
-        error,
-        refreshContext,
-        startWatching,
-        stopWatching,
-      }}
-    >
+    <ProjectContext.Provider value={{ rootPath, homedir, workspace, treeView }}>
       {children}
     </ProjectContext.Provider>
   );

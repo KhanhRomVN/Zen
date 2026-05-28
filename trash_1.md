@@ -1,10 +1,1 @@
-src/renderer/src/features/Tool/index.tsx:9-10:
-
-```
-import { RequestComposer } from '../../core/components/common/RequestComposer';
-
-
-1. Cannot find module '../../core/components/common/RequestComposer' or its corresponding type declarations. | 9 | import { RequestComposer } from '../../core/components/common/RequestComposer';
-```
-
-<-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=->
+lỗi khi gửi input từ revert message thì ko có lỗi cũng ko có response. thêm log ở deepseek xem nguyên nhân tại sao. thêm log để theo dõi cho ở toàn bộ conv như message c ủa req, id conv... để debug ở elara-server

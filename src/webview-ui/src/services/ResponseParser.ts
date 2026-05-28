@@ -15,12 +15,10 @@ export interface ToolAction {
     | "replace_in_file"
     | "list_files"
     | "search_files"
-    | "search_content"
     | "run_command"
     | "execute_agent_action"
-    | "get_outline"
-    | "get_definition"
-    | "get_references";
+    | "delete_file"
+    | "delete_folder";
   params: Record<string, any>;
   rawXml: string;
   isPartial?: boolean;
@@ -92,7 +90,6 @@ const extractParamValue = (
   return null;
 };
 
-
 /**
  * Extract tool actions from inner content
  */
@@ -114,13 +111,11 @@ const parseToolAction = (
     case "write_to_file":
       params.file_path = extractParamValue(innerContent, "file_path");
       params.content = extractParamValue(innerContent, "content");
-      console.log(`[ResponseParser] write_to_file parsed`, { file_path: params.file_path, contentLength: params.content?.length });
       break;
 
     case "replace_in_file":
       params.file_path = extractParamValue(innerContent, "file_path");
       params.diff = extractParamValue(innerContent, "diff");
-      console.log(`[ResponseParser] replace_in_file parsed`, { file_path: params.file_path, diffLength: params.diff?.length });
       break;
     case "run_command":
       params.command = extractParamValue(innerContent, "command");
@@ -145,23 +140,18 @@ const parseToolAction = (
       break;
 
     case "search_content":
-      params.folder_path = extractParamValue(innerContent, "folder_path");
-      params.pattern = extractParamValue(innerContent, "pattern");
-      params.file_pattern = extractParamValue(innerContent, "file_pattern");
-      break;
-
     case "get_outline":
-      params.file_path = extractParamValue(innerContent, "file_path");
-      break;
-
     case "get_definition":
-      params.symbol = extractParamValue(innerContent, "symbol");
+    case "get_references":
+      // removed tools — ignore
+      break;
+
+    case "delete_file":
       params.file_path = extractParamValue(innerContent, "file_path");
       break;
 
-    case "get_references":
-      params.symbol = extractParamValue(innerContent, "symbol");
-      params.file_path = extractParamValue(innerContent, "file_path");
+    case "delete_folder":
+      params.folder_path = extractParamValue(innerContent, "folder_path");
       break;
   }
 
@@ -205,11 +195,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "run_command",
     "list_files",
     "search_files",
-    "search_content",
+    "delete_file",
+    "delete_folder",
     "execute_agent_action",
-    "get_outline",
-    "get_definition",
-    "get_references",
     "code",
     "file",
     "markdown",
@@ -225,10 +213,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     `^([ \t]*(?:•[ \t]*)?)(${toolNamesPattern})>`,
   );
   if (missingBracketRegex.test(remainingContent)) {
-    remainingContent = remainingContent.replace(
-      missingBracketRegex,
-      "$1<$2>",
-    );
+    remainingContent = remainingContent.replace(missingBracketRegex, "$1<$2>");
   }
 
   // We need to parse linearly to maintain order
@@ -297,7 +282,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       const codeContent = match[2].trimEnd();
       // If AI wraps content in ```markdown ... ```, treat it as markdown, not a code block
       // Also treat bare ``` or ```text with no-newline content as markdown
-      if (language === "markdown" || (language === "text" && !codeContent.includes("\n"))) {
+      if (
+        language === "markdown" ||
+        (language === "text" && !codeContent.includes("\n"))
+      ) {
         segments.push({ type: baseType, content: codeContent });
       } else {
         segments.push({
@@ -505,15 +493,6 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "search_files":
       return `search_files: ${action.params.regex || "unknown"}`;
-
-    case "get_outline":
-      return `get_outline: ${action.params.file_path || "unknown"}`;
-
-    case "get_definition":
-      return `get_definition: ${action.params.symbol || "unknown"}`;
-
-    case "get_references":
-      return `get_references: ${action.params.symbol || "unknown"}`;
 
     default:
       return ``;

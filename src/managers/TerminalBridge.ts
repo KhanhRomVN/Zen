@@ -23,24 +23,47 @@ const terminals = new Map<
   { pty: pty.IPty; sockets: Set<net.Socket>; cwd: string; logPath: string }
 >();
 
+// --- Async log writer with write-queue per terminal ---
+const logQueues = new Map<string, { buf: string; writing: boolean; size: number }>();
+const MAX_LOG_SIZE = 5 * 1024 * 1024;
+
 function appendToLog(id: string, data: string) {
   const terminal = terminals.get(id);
   if (!terminal || !terminal.logPath) return;
 
-  const logPath = terminal.logPath;
-  try {
-    fs.appendFileSync(logPath, data);
-    // Simple rotation: check size every 1MB
-    const stats = fs.statSync(logPath);
-    const MAX_SIZE = 5 * 1024 * 1024;
-    if (stats.size > MAX_SIZE) {
-      const content = fs.readFileSync(logPath, "utf8");
-      const halfSize = Math.floor(MAX_SIZE / 2);
-      const newContent = content.substring(content.length - halfSize);
-      fs.writeFileSync(logPath, newContent, "utf8");
-    }
-  } catch (e) {
+  let q = logQueues.get(id);
+  if (!q) {
+    q = { buf: "", writing: false, size: 0 };
+    logQueues.set(id, q);
   }
+  q.buf += data;
+  q.size += Buffer.byteLength(data);
+
+  if (!q.writing) flushLog(id);
+}
+
+function flushLog(id: string) {
+  const terminal = terminals.get(id);
+  const q = logQueues.get(id);
+  if (!q || !q.buf || !terminal?.logPath) return;
+
+  const chunk = q.buf;
+  q.buf = "";
+  q.writing = true;
+
+  fs.appendFile(terminal.logPath, chunk, (err) => {
+    if (!err && q!.size > MAX_LOG_SIZE) {
+      // Rotate: read → trim → rewrite (async, rare)
+      q!.size = 0;
+      fs.readFile(terminal.logPath, "utf8", (_, content) => {
+        if (!content) return;
+        const half = Math.floor(MAX_LOG_SIZE / 2);
+        fs.writeFile(terminal.logPath, content.substring(content.length - half), () => {});
+      });
+    }
+    q!.writing = false;
+    if (q!.buf) flushLog(id); // drain remaining
+  });
 }
 
 function broadcast(id: string, msg: any) {
@@ -122,6 +145,7 @@ const server = net.createServer((socket) => {
           logPath: logPath || "",
         };
         terminals.set(id, term);
+        startStatusInterval();
 
         ptyProcess.onData((data) => {
           appendToLog(id, data);
@@ -131,6 +155,8 @@ const server = net.createServer((socket) => {
         ptyProcess.onExit(({ exitCode }) => {
           broadcast(id, { type: "exit", id, exitCode });
           terminals.delete(id);
+          logQueues.delete(id);
+          stopStatusIntervalIfEmpty();
         });
 
         send({ type: "created", id });
@@ -152,6 +178,8 @@ const server = net.createServer((socket) => {
       if (term) {
         term.pty.kill();
         terminals.delete(id);
+        logQueues.delete(id);
+        stopStatusIntervalIfEmpty();
       }
     } else if (type === "list") {
       const list = Array.from(terminals.entries()).map(([id, term]) => {
@@ -211,15 +239,59 @@ function checkBusy(pid: number): boolean {
   return false;
 }
 
-// Proactive status broadcasting every 500ms
-setInterval(() => {
-  for (const [id, term] of terminals.entries()) {
-    const isBusy = checkBusy(term.pty.pid);
-    const cwd = getCwd(term.pty.pid) || term.cwd;
-    broadcast(id, { type: "status", id, isBusy, cwd });
+// --- Status interval: only runs when terminals exist, only broadcasts on change ---
+const lastStatus = new Map<string, { isBusy: boolean; cwd: string }>();
+let statusInterval: NodeJS.Timeout | null = null;
+
+function startStatusInterval() {
+  if (!statusInterval) {
+    statusInterval = setInterval(() => {
+      for (const [id, term] of terminals.entries()) {
+        const isBusy = checkBusy(term.pty.pid);
+        const cwd = getCwd(term.pty.pid) || term.cwd;
+        const prev = lastStatus.get(id);
+        if (!prev || prev.isBusy !== isBusy || prev.cwd !== cwd) {
+          lastStatus.set(id, { isBusy, cwd });
+          broadcast(id, { type: "status", id, isBusy, cwd });
+        }
+      }
+    }, 2000);
   }
-}, 500);
+}
+
+function stopStatusIntervalIfEmpty() {
+  if (statusInterval && terminals.size === 0) {
+    clearInterval(statusInterval);
+    statusInterval = null;
+    lastStatus.clear();
+  }
+}
 
 server.listen(SOCKET_PATH, () => {});
+
+// Auto-shutdown: if no clients connect within 30s of start, or all clients disconnect
+// and no terminals remain, exit cleanly.
+let clientCount = 0;
+const idleShutdownTimer = setTimeout(() => {
+  if (clientCount === 0) process.exit(0);
+}, 30_000);
+
+const _origCreateServer = server;
+server.on("connection", () => {
+  clientCount++;
+  clearTimeout(idleShutdownTimer);
+});
+
+// Track disconnects — reuse the existing socket.on("close") in handleMessage scope
+// by hooking into the server-level connection event
+server.on("connection", (sock: net.Socket) => {
+  sock.on("close", () => {
+    clientCount--;
+    if (clientCount <= 0 && terminals.size === 0) {
+      // All clients gone and no terminals — safe to exit
+      setTimeout(() => process.exit(0), 5000);
+    }
+  });
+});
 
 process.stdin.resume();

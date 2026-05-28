@@ -152,7 +152,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       }
       return true;
     });
-    console.log("[ChatBody] visibleMessages", filtered.length, "/", messages.length, messages.map(m => ({ id: m.id, role: m.role, uiHidden: m.uiHidden, isCancelled: m.isCancelled })));
     return filtered;
   }, [messages, firstRequestMessageId]);
 
@@ -225,7 +224,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       )}
 
       <div className="chat-timeline-wrapper">
-        {visibleMessages.length > 0 && console.log("[ChatBody] rendering", visibleMessages.length, "messages") as any}
         {visibleMessages.map((message, index) => {
           const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
           if (!parsedMessage) return null;

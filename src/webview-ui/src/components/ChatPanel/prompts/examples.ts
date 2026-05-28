@@ -202,35 +202,4 @@ export function add(a: number, b: number) {
 </content>
 </write_to_file>
 \`\`\`
-
----
-
-## Ex 7: Code Navigation using LSP Tools (Definition, References, Outline) ✅
-
-**Turn 1** — Get outline to understand a file structure:
-\`\`\`xml
-<thinking>
-Pass 1 (Plan): The user wants to understand the functions available in src/services/auth.ts. I will query its outline.
-Pass 2 (Verify): I will run get_outline and STOP. No markdown.
-</thinking>
-<get_outline><file_path>src/services/auth.ts</file_path></get_outline>
-\`\`\`
-
-**Turn 2** — Find definition of a class or function:
-\`\`\`xml
-<thinking>
-Pass 1 (Plan): The outline shows a class named SessionManager is used. I want to see its definition.
-Pass 2 (Verify): I will run get_definition and STOP. No markdown.
-</thinking>
-<get_definition><symbol>SessionManager</symbol><file_path>src/services/auth.ts</file_path></get_definition>
-\`\`\`
-
-**Turn 3** — Find all references of a function:
-\`\`\`xml
-<thinking>
-Pass 1 (Plan): I found the method validateSession definition. I need to see where it is called across the codebase to ensure refactoring is safe.
-Pass 2 (Verify): I will run get_references and STOP. No markdown.
-</thinking>
-<get_references><symbol>validateSession</symbol><file_path>src/services/auth.ts</file_path></get_references>
-\`\`\`
 `;

@@ -6,11 +6,18 @@ import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
+// Cache git extension API to avoid repeated registry lookups
+let _gitApi: any = null;
+function getGitApi(): any {
+  if (_gitApi) return _gitApi;
+  const ext = vscode.extensions.getExtension("vscode.git")?.exports;
+  if (ext) _gitApi = ext.getAPI(1);
+  return _gitApi;
+}
+
 export interface WorkspaceInfo {
   name: string;
   path: string;
-  openTabs: string[];
-  visibleFiles: string[];
   activeFile: string | null;
   gitBranch: string | null;
   gitRemote: string | null;
@@ -34,41 +41,10 @@ export class WorkspaceAnalyzer {
     return {
       name: workspaceName,
       path: workspacePath,
-      openTabs: this.getOpenTabs(),
-      visibleFiles: this.getVisibleFiles(),
       activeFile: this.getActiveFile(),
       gitBranch: await this.getGitBranch(),
       gitRemote: await this.getGitRemote(),
     };
-  }
-
-  /**
-   * Lấy danh sách tabs đang mở
-   */
-  private getOpenTabs(): string[] {
-    const tabs: string[] = [];
-    const tabGroups = vscode.window.tabGroups.all;
-
-    for (const group of tabGroups) {
-      for (const tab of group.tabs) {
-        if (tab.input instanceof vscode.TabInputText) {
-          const relativePath = this.getRelativePath(tab.input.uri.fsPath);
-          tabs.push(relativePath);
-        }
-      }
-    }
-
-    return tabs;
-  }
-
-  /**
-   * Lấy danh sách files đang visible (hiển thị trong editor)
-   */
-  private getVisibleFiles(): string[] {
-    const visibleEditors = vscode.window.visibleTextEditors;
-    return visibleEditors.map((editor) =>
-      this.getRelativePath(editor.document.uri.fsPath)
-    );
   }
 
   /**
@@ -87,70 +63,25 @@ export class WorkspaceAnalyzer {
    */
   private async getGitBranch(): Promise<string | null> {
     try {
-      const gitExtension =
-        vscode.extensions.getExtension("vscode.git")?.exports;
-      if (!gitExtension) {
-        return null;
-      }
-
-      const api = gitExtension.getAPI(1);
-      const repo = api.repositories[0];
-      if (!repo) {
-        return null;
-      }
-
-      return repo.state.HEAD?.name || null;
-    } catch (error) {
-      return null;
-    }
+      const api = getGitApi();
+      const repo = api?.repositories[0];
+      return repo?.state.HEAD?.name || null;
+    } catch { return null; }
   }
 
-  /**
-   * Lấy Git remote URL
-   */
   private async getGitRemote(): Promise<string | null> {
     try {
-      const gitExtension =
-        vscode.extensions.getExtension("vscode.git")?.exports;
-      if (!gitExtension) {
-        return null;
-      }
-
-      const api = gitExtension.getAPI(1);
-      const repo = api.repositories[0];
-      if (!repo) {
-        return null;
-      }
-
-      const remotes = repo.state.remotes;
-      if (remotes.length === 0) {
-        return null;
-      }
-
-      return remotes[0].fetchUrl || null;
-    } catch (error) {
-      return null;
-    }
+      const api = getGitApi();
+      const repo = api?.repositories[0];
+      return repo?.state.remotes[0]?.fetchUrl || null;
+    } catch { return null; }
   }
 
-  /**
-   * Get recently modified files from Git history
-   * Sorted by modification frequency (most frequent first) and checking for existence
-   */
   public async getRecentGitChanges(limit: number = 10): Promise<string[]> {
     try {
-      const gitExtension =
-        vscode.extensions.getExtension("vscode.git")?.exports;
-      if (!gitExtension) {
-        return [];
-      }
-
-      const api = gitExtension.getAPI(1);
-      const repo = api.repositories[0];
-      if (!repo) {
-        return [];
-      }
-
+      const api = getGitApi();
+      const repo = api?.repositories[0];
+      if (!repo) return [];
       const rootPath = repo.rootUri.fsPath;
 
       // Execute git log command to get file changes from last 500 commits

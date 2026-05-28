@@ -333,7 +333,6 @@ interface MessageInputProps {
   setCurrentModel: (model: any) => void;
   currentAccount: any;
   setCurrentAccount: (account: any) => void;
-  onToggleTaskDrawer?: () => void;
   isProcessing?: boolean;
   // 🆕 Stop Generation Props
   isStreaming?: boolean;

@@ -210,13 +210,11 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
 
   // Handle Send Message
   const handleSend = (model: any, account: any) => {
-    console.log("[Zen Log] ChatFooter handleSend called. Message length:", message?.trim()?.length, "uploadedFiles:", uploadedFiles?.length, "attachedItems:", attachedItems?.length);
     if (
       message.trim() ||
       uploadedFiles.length > 0 ||
       attachedItems.length > 0
     ) {
-      console.log("[Zen Log] ChatFooter: Calling onSendMessage with files count:", uploadedFiles.length + attachedItems.length);
       onSendMessage(
         message,
         [...uploadedFiles, ...attachedItems],
@@ -234,7 +232,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         textareaRef.current.style.height = "auto";
       }
     } else {
-      console.log("[Zen Log] ChatFooter handleSend: send criteria not met.");
     }
   };
 

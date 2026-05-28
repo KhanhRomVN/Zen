@@ -1,5 +1,4 @@
 import { extensionService } from "./ExtensionService";
-import { encode } from "gpt-tokenizer";
 import { Message } from "../components/ChatPanel/ChatBody/types";
 import { TabInfo } from "../types";
 import { ConversationCache } from "./ConversationCache";
@@ -45,12 +44,8 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
 
 export const calculateTokens = (text: string): number => {
   if (!text) return 0;
-  try {
-    const count = encode(text).length;
-    return count;
-  } catch (e) {
-    return Math.ceil(text.length / 4);
-  }
+  // Fast approximation: ~4 chars per token (avoids heavy gpt-tokenizer encode)
+  return Math.ceil(text.length / 4);
 };
 
 export const getConversationKey = (
@@ -87,26 +82,11 @@ export const saveConversation = async (
 
     // Calculate stats
     const activeMessages = messages.filter((m) => !m.isCancelled);
-    const totalRequests = activeMessages.filter(
-      (m: Message) => m.role === "user",
-    ).length;
+    const totalRequests = activeMessages.filter((m: Message) => m.role === "user").length;
     const totalTokenUsage = activeMessages.reduce(
       (sum: number, m: Message) => sum + (m.token_usage || 0),
       0,
     );
-
-    const { parseAIResponse } = require("./ResponseParser");
-
-    const uniqueTaskNames = new Set<string>();
-    for (const msg of activeMessages) {
-      if (msg.role === "assistant") {
-        const parsed = parseAIResponse(msg.content);
-        if (parsed.taskName) {
-          uniqueTaskNames.add(parsed.taskName);
-        }
-      }
-    }
-    const uniqueTaskCount = uniqueTaskNames.size;
 
     let existingCreatedAt: number | undefined;
     let existingLastModified: number | undefined;
@@ -152,7 +132,6 @@ export const saveConversation = async (
         createdAt: existingCreatedAt || Date.now(),
         totalRequests,
         totalTokenUsage,
-        uniqueTaskCount,
       } as ChatMetadata,
     };
 

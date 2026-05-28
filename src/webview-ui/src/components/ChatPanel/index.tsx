@@ -8,7 +8,6 @@ import React, {
 import ChatHeader from "./ChatHeader";
 import ChatBody from "./ChatBody";
 import ChatFooter from "./ChatFooter";
-import { useProject } from "../../context/ProjectContext";
 import { useSettings } from "../../context/SettingsContext";
 
 import { extensionService } from "../../services/ExtensionService";
@@ -53,11 +52,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   initialMessageData,
   onClearInitialData,
 }) => {
-  const { stopWatching } = useProject();
-
-  useEffect(() => {
-    stopWatching();
-  }, [stopWatching]);
 
   // --- States ---
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
@@ -75,6 +69,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const [isRestored, setIsRestored] = useState(false);
   const [revertInput, setRevertInput] = useState<{ value: string; nonce: number } | null>(null);
+  const revertParentMessageIdRef = useRef<string | null>(null);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
@@ -125,10 +120,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       if (isFromHistory && !hasAppendedHistoryContext.current) {
         hasAppendedHistoryContext.current = true;
         finalContent = content + HISTORY_CONTEXT_REMINDER;
-      } else if (wasPaused.current) {
-        wasPaused.current = false;
-        finalContent = content + AFTER_PAUSE_REMINDER;
+      } else if (false) {
+        // wasPaused logic removed — stop now triggers revert instead of continue
       }
+      const parentMsgId = revertParentMessageIdRef.current || undefined;
+      revertParentMessageIdRef.current = null;
       return sendMessage(
         finalContent,
         files,
@@ -137,6 +133,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         skipFirstRequestLogic,
         actionIds,
         uiHidden,
+        parentMsgId,
       );
     },
     [sendMessage, selectedTab],
@@ -314,11 +311,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Load conversation from extension
   useEffect(() => {
     const load = async () => {
-      console.log("[ChatPanel] load conversation effect triggered", {
-        selectedTab,
-        tabId: selectedTab?.tabId,
-        conversationId: (selectedTab as any)?.conversationId,
-      });
       if (!selectedTab) {
         setMessages([]);
         setIsLoadingConversation(false);
@@ -334,7 +326,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         // Try reading from in-memory cache first
         const cached = ConversationCache.get(convId);
         if (cached) {
-          console.log("[ChatPanel] Loading conversation from cache:", convId);
           setMessages(cached.messages);
           setIsRestored(cached.messages.length > 0);
           setCurrentConversationId(cached.conversationId);
@@ -352,14 +343,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
 
         const requestId = `conv-${Date.now()}`;
-        console.log("[ChatPanel] Sending getConversation", { convId, requestId });
         extensionService.postMessage({
           command: "getConversation",
           conversationId: convId,
           requestId,
         });
       } else {
-        console.log("[ChatPanel] No conversationId, clearing messages");
         setMessages([]);
         setIsLoadingConversation(false);
       }
@@ -477,8 +466,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           deleteConversation(currentConversationId);
           const firstUserMsg = messagesRef.current.find((m) => !m.uiHidden && !m.isCancelled && m.role === "user");
           let content = firstUserMsg?.content || "";
-          const match = content.match(/## User Message\n```\n([\s\S]*?)\n```/);
+          const match = content.match(/<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/);
           if (match) content = match[1];
+          console.log(`[Revert] first message reverted, going back to HomePanel`);
           setMessages([]);
           setIsLoadingConversation(false);
           onBack(content);
@@ -487,11 +477,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             const idx = targetId ? prev.findIndex((m) => m.id === targetId) : -1;
             if (idx === -1) return prev;
             const msg = prev[idx];
-            const match = msg.content.match(/## User Message\n```\n([\s\S]*?)\n```/);
+            const match = msg.content.match(/<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/);
             const content = match ? match[1] : msg.content;
+            // Find the assistant message just before this user message for parent_message_id
+            const prevAssistant = [...prev.slice(0, idx)].reverse().find((m) => m.role === "assistant");
+            revertParentMessageIdRef.current = prevAssistant?.response_message_id || null;
+            console.log(`[Revert] reverted to msg id=${targetId}, remaining messages=${idx}, restoredInput="${content.slice(0, 80)}", parent_message_id="${revertParentMessageIdRef.current}"`);
             setRevertInput({ value: content, nonce: Date.now() });
             return prev.slice(0, idx);
           });
+          // Keep backendConversationId so server reuses the same DeepSeek session
           setIsLoadingConversation(false);
         }
       }
@@ -534,43 +529,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const handleStopGeneration = useCallback(() => {
-    // 🆕 REDIRECTION LOGIC: If stopping AND it was the first request (req1), go back to Home
-    const isFirstRequest = messages.filter((m) => !m.isCancelled).length <= 2; // User + Assistant (partial)
-
-    // 🆕 PAUSE API: Call pause endpoint if provider is_pausable
-    if (currentAccount?.id && currentModel?.providerId) {
-      const provider = providers.find((p: any) => p.provider_id === currentModel.providerId);
-      if (provider?.is_pausable) {
-        fetch(`${apiUrl}/v1/chat/pause`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ account_id: currentAccount.id }),
-        }).catch(() => {});
-      }
-    }
-
-    wasPaused.current = true;
+    // Abort the in-flight request immediately
     stopGeneration();
 
-    if (isFirstRequest) {
-      // Find the user message content to return
-      // We check messagesRef for the raw content if possible, or just messages state
-      const userMsg = messages.find((m) => m.role === "user");
-      if (userMsg) {
-        let content = userMsg.content;
-        // Strip ## User Message\n```\n...\n``` if present
-        if (content.startsWith("## User Message")) {
-          const match = content.match(
-            /^## User Message\n```\n([\s\S]*?)\n```$/,
-          );
-          if (match) content = match[1];
-        }
-        onBack(content);
-      } else {
-        onBack();
-      }
+    // Find the last user message that triggered the current generation and revert to it
+    const lastUserMsg = [...messagesRef.current].reverse().find((m) => !m.uiHidden && !m.isCancelled && m.role === "user");
+    if (lastUserMsg) {
+      handleRevertConversation(lastUserMsg.id, lastUserMsg.timestamp);
     }
-  }, [messages, stopGeneration, onBack, currentAccount, currentModel, providers, apiUrl]);
+  }, [stopGeneration, messagesRef, handleRevertConversation]);
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
 

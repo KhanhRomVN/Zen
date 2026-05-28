@@ -111,12 +111,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       }
     });
 
-    // Start Ping Service
-    if (this.chatController) {
-      this.chatController.startPingService(webviewView.webview);
-    } else {
-    }
-
     // Listen for Command Finished
     this._processManager.onCommandFinished((event) => {
       webviewView.webview.postMessage({
@@ -167,10 +161,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.onDidDispose(() => {
       themeDisposable.dispose();
-      if (this.chatController) {
-        this.chatController.stopPingService();
-        this.chatController.stopProjectContextWatch();
-      }
     });
   }
 

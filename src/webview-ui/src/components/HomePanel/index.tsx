@@ -20,23 +20,16 @@ interface HomePanelProps {
   initialValue?: string;
 }
 
-import { useProject } from "../../context/ProjectContext";
 
 const HomePanel: React.FC<HomePanelProps> = ({
   onSendMessage,
   onLoadConversation,
   initialValue,
 }) => {
-  const { startWatching, stopWatching } = useProject();
-
   useEffect(() => {
-    startWatching();
     // Trigger history limit enforcement on mount
     extensionService.postMessage({ command: "getHistory", requestId: `home-enforce-${Date.now()}` });
-    return () => {
-      stopWatching();
-    };
-  }, [startWatching, stopWatching]);
+  }, []);
 
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);

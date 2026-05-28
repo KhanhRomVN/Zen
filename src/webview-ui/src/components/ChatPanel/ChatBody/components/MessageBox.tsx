@@ -1,6 +1,5 @@
 import React from "react";
 
-import { CodeBlock } from "../../../CodeBlock";
 import { Message } from "../types";
 import {
   ParsedResponse,
@@ -65,76 +64,38 @@ interface MessageBoxProps {
 const MessageBoxCodeBlock: React.FC<{
   code: string;
   language?: string;
-  maxLines?: number;
-  lineHighlights?: any;
   diffStats?: { added: number; removed: number };
   isDiffBlock: boolean;
   prefix?: string;
   statusColor?: string;
-}> = ({
-  code,
-  language,
-  maxLines,
-  lineHighlights,
-  diffStats,
-  isDiffBlock,
-  prefix,
-  statusColor,
-}) => {
+}> = ({ code, language, diffStats, isDiffBlock, prefix, statusColor }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(isDiffBlock);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        marginBottom: "8px",
-      }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginBottom: "8px" }}>
       <ToolHeader
         title={prefix || language || "code"}
         statusColor={statusColor}
         diffStats={diffStats}
         isCollapsed={isCollapsed}
-        onToggleCollapse={
-          isDiffBlock ? () => setIsCollapsed(!isCollapsed) : undefined
-        }
+        onToggleCollapse={isDiffBlock ? () => setIsCollapsed(!isCollapsed) : undefined}
         headerActions={
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigator.clipboard.writeText(code);
-            }}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--vscode-foreground)",
-              cursor: "pointer",
-              opacity: 0.7,
-              display: "flex",
-              alignItems: "center",
-              padding: "2px",
-            }}
+            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(code); }}
+            style={{ background: "transparent", border: "none", color: "var(--vscode-foreground)", cursor: "pointer", opacity: 0.7, display: "flex", alignItems: "center", padding: "2px" }}
             title="Copy Code"
           >
-            <div
-              className="codicon codicon-copy"
-              style={{ fontSize: "14px" }}
-            />
+            <div className="codicon codicon-copy" style={{ fontSize: "14px" }} />
           </button>
         }
       />
-      <div style={{ paddingLeft: "29px" }}>
-        <CodeBlock
-          code={code}
-          language={language}
-          maxLines={maxLines}
-          isCollapsed={isCollapsed}
-          showLineNumbers={isDiffBlock}
-          lineHighlights={lineHighlights}
-        />
-      </div>
+      {!isCollapsed && (
+        <div style={{ paddingLeft: "29px" }}>
+          <pre style={{ margin: 0, padding: "8px", overflow: "auto", fontFamily: "var(--vscode-editor-font-family, monospace)", fontSize: "12px", background: "var(--vscode-editor-background)", borderRadius: "4px" }}>
+            <code>{code}</code>
+          </pre>
+        </div>
+      )}
     </div>
   );
 };
@@ -625,8 +586,16 @@ const MessageBox: React.FC<MessageBoxProps> = ({
 
           let isInteractionBlocked = false;
 
-          return groups.map((group, index) => {
-            const isLast = index === groups.length - 1 && isLastMessage;
+          // In simple mode, filter out tool groups where all items are invisible
+          const SIMPLE_MODE_VISIBLE = new Set(["write_to_file", "replace_in_file", "run_command", "execute_agent_action"]);
+          const renderGroups = isSimpleMode
+            ? groups.filter((g) =>
+                g.type !== "tools" || (g as any).items.some((item: any) => SIMPLE_MODE_VISIBLE.has(item.action.type))
+              )
+            : groups;
+
+          return renderGroups.map((group, index) => {
+            const isLast = index === renderGroups.length - 1 && isLastMessage;
             const timelineClass = `timeline-item ${isLast ? "last" : ""}`;
 
             let content = null;
@@ -739,17 +708,13 @@ const MessageBox: React.FC<MessageBoxProps> = ({
             } else if (group.type === "code") {
               const isDiffBlock = isDiff(group.content, group.language);
               let displayCode = group.content;
-              let lineHighlights: any = undefined;
-              let diffStats: { added: number; removed: number } | undefined =
-                undefined;
-
+              let diffStats: { added: number; removed: number } | undefined = undefined;
               let prefix: string | undefined = undefined;
-              let statusColor: string | undefined = "#6a737d"; // Default dot color
+              let statusColor: string | undefined = "#6a737d";
 
               if (isDiffBlock) {
                 const diffResult = parseDiff(group.content);
                 displayCode = diffResult.code;
-                lineHighlights = diffResult.lineHighlights;
                 diffStats = diffResult.stats;
                 prefix = "Edit";
                 statusColor = "#3fb950";
@@ -759,8 +724,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 <MessageBoxCodeBlock
                   code={displayCode}
                   language={isDiffBlock ? "python" : group.language}
-                  maxLines={25}
-                  lineHighlights={lineHighlights}
                   diffStats={diffStats}
                   isDiffBlock={isDiffBlock}
                   prefix={prefix}
@@ -841,16 +804,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     {group.segments.map((seg: any, i: number) => {
                       if (seg.type === "code") {
                         return (
-                          <div
-                            key={i}
-                            style={{ marginBottom: "8px", marginTop: "4px" }}
-                          >
-                            <CodeBlock
-                              code={seg.content}
-                              language={seg.language}
-                              isCollapsed={false}
-                              showLineNumbers={false}
-                            />
+                          <div key={i} style={{ marginBottom: "8px", marginTop: "4px" }}>
+                            <pre style={{ margin: 0, padding: "8px", overflow: "auto", fontFamily: "var(--vscode-editor-font-family, monospace)", fontSize: "12px", background: "var(--vscode-editor-background)", borderRadius: "4px" }}>
+                              <code>{seg.content}</code>
+                            </pre>
                           </div>
                         );
                       } else if (seg.type === "markdown") {

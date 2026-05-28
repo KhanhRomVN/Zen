@@ -1,7 +1,6 @@
 import React from "react";
 import { ToolAction } from "../../../../../services/ResponseParser";
 import FileIcon from "../../../../common/FileIcon";
-import { CodeBlock } from "../../../../CodeBlock";
 import { RichtextBlock } from "../../../../RichtextBlock";
 import { ToolHeader } from "../../../../ToolHeader";
 import { parseDiff } from "../../../../../utils/diffUtils";
@@ -12,16 +11,6 @@ import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../../hooks/useI18n";
 import { useSettings } from "../../../../../context/SettingsContext";
 import { getPermissionDecision } from "../../../../../hooks/useToolExecution";
-
-
-const EXTENSION_TO_LANGUAGE: Record<string, string> = {
-  py: "python", js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
-  java: "java", c: "c", cpp: "cpp", cs: "csharp", go: "go", rs: "rust", php: "php",
-  rb: "ruby", swift: "swift", kt: "kotlin", html: "html", css: "css", scss: "scss",
-  json: "json", xml: "xml", yaml: "yaml", yml: "yaml", md: "markdown",
-  sh: "shell", bash: "shell", sql: "sql", properties: "properties",
-  ini: "ini", toml: "toml", makefile: "makefile",
-};
 
 interface FileToolItemProps {
   action: ToolAction;
@@ -35,12 +24,13 @@ interface FileToolItemProps {
   allMessages?: Message[];
   fileStatsMap: Record<string, { lines: number; loading: boolean }>;
   onToolClick: (action: ToolAction, messageId: string, index: number, type: "accept_all" | "accept_once" | "reject") => void;
+  mergedItems?: { action: ToolAction; index: number }[];
 }
-
 
 const FileToolItem: React.FC<FileToolItemProps> = ({
   action, actionIndex, messageId, isActionClicked, isActiveGroup,
   isLastMessage, isLastItemInList, toolOutputs, allMessages, fileStatsMap, onToolClick,
+  mergedItems,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const { t } = useI18n();
@@ -48,66 +38,38 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   const toolType = action.type;
   const toolColor = getToolColor(toolType);
   const actionId = `${messageId}-action-${actionIndex}`;
-  const fileExt = getFilename(action).split(".").pop() || "txt";
 
   const rawPath = action.params.file_path || action.params.symbol || action.params.folder_path || action.params.path || getFilename(action);
   const allPaths = React.useMemo(() => collectConvFilePaths(allMessages || []), [allMessages]);
   const displayName = rawPath ? getDisplayPath(rawPath, allPaths) : "";
 
   let codeContent = "";
-  let lineHighlights: { startLine: number; endLine: number; type: "added" | "removed" }[] = [];
-  let codeLanguage = toolType === "replace_in_file"
-    ? EXTENSION_TO_LANGUAGE[fileExt.toLowerCase()] || fileExt
-    : "typescript";
-
-  if (action.type === "replace_in_file" && action.params.diff) {
-    const result = parseDiff(action.params.diff);
-    codeContent = result.code;
-    lineHighlights = result.lineHighlights;
-  } else if (toolType === "write_to_file") {
-    codeContent = action.params.content || "";
-  } else if (toolType === "list_files" || toolType === "search_files" || toolType === "read_file" ||
-             toolType === "get_outline" || toolType === "get_definition" || toolType === "get_references") {
+  if (toolType === "list_files" || toolType === "search_files") {
     codeContent = toolOutputs?.[actionId]?.output || "";
-
-    if (!codeContent) {
-      const currentMsgIndex = allMessages ? allMessages.findIndex((m) => m.id === messageId) : -1;
-      const resultMessage = allMessages?.find((m) => m.actionIds?.includes(actionId));
-      const nextNonEmptyUser = allMessages
-        ?.slice(currentMsgIndex + 1)
-        .find((m) => m.role === "user" && m.content?.trim().length > 0);
-
-      const escapedPath = rawPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const pattern = new RegExp(`\\[${toolType}\\s+for\\s+['"]?${escapedPath}['"]?\\s*\\]`, "i");
-      const patternMatch = allMessages
-        ?.slice(currentMsgIndex + 1)
-        .find((m) => m.content?.trim().length > 0 && pattern.test(m.content));
-
-      const outputMessage = resultMessage || patternMatch || nextNonEmptyUser;
-      if (outputMessage?.content) {
-        const regexStr = `\\[${toolType}\\s+for\\s+['"]?${escapedPath}['"]?\\s*\\]\\s*Result:?\\s*[\\r\\n]+\\s*\`\`\`[\\w]*[\\r\\n]+([\\s\\S]*?)[\\r\\n]+\\s*\`\`\``;
-        const match = new RegExp(regexStr).exec(outputMessage.content);
-        if (match?.[1]) {
-          codeContent = match[1];
-        } else if (resultMessage && !outputMessage.content.includes("Result:")) {
-          codeContent = outputMessage.content.replace(/^```[\w]*\n/, "").replace(/\n```$/, "");
-        } else {
-          const rawMatch = new RegExp(`\\[${toolType}\\s+for\\s+['"]?${escapedPath}['"]?\\s*\\]\\s*Result:?\\s*[\\r\\n]+\\s*([\\s\\S]*?)(?=\\s*\\[\\w+\\s+for|$)`).exec(outputMessage.content);
-          if (rawMatch?.[1]) {
-            codeContent = rawMatch[1];
-          }
-        }
-      }
-    }
-    codeLanguage = toolType === "get_outline" ? "typescript" : "markdown";
   }
 
-  let diffStats = null;
+  let diffStats: { added: number; removed: number } | null = null;
   if (action.type === "replace_in_file" && action.params.diff) {
     diffStats = parseDiff(action.params.diff).stats;
   }
 
-  const linesCount = action.type === "write_to_file" ? action.params.content?.split("\n").length || 0 : 0;
+  let linesCount = action.type === "write_to_file" ? action.params.content?.split("\n").length || 0 : 0;
+
+  // Merge stats from all items if this is a merged group
+  if (mergedItems && mergedItems.length > 1) {
+    let totalAdded = 0, totalRemoved = 0, totalLines = 0;
+    mergedItems.forEach(({ action: a }) => {
+      if (a.type === "replace_in_file" && a.params.diff) {
+        const s = parseDiff(a.params.diff).stats;
+        totalAdded += s.added;
+        totalRemoved += s.removed;
+      } else if (a.type === "write_to_file") {
+        totalLines += a.params.content?.split("\n").length || 0;
+      }
+    });
+    if (totalAdded > 0 || totalRemoved > 0) diffStats = { added: totalAdded, removed: totalRemoved };
+    if (totalLines > 0) linesCount = totalLines;
+  }
   const isPartial = action.isPartial;
   const isError = !!toolOutputs?.[actionId]?.isError;
 
@@ -117,7 +79,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         .find((m) => m.role === "user")
     : undefined;
 
-  const isWriteOrEditTool = toolType === "write_to_file" || toolType === "replace_in_file";
+  const isWriteOrEditTool = toolType === "write_to_file" || toolType === "replace_in_file" || toolType === "delete_file" || toolType === "delete_folder";
   const isCompleted =
     !isPartial &&
     (isActionClicked ||
@@ -133,9 +95,8 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
     : toolType === "write_to_file" ? (fileStatsMap[rawPath] ? t("tools.rewrite") : t("tools.create"))
     : toolType === "list_files" ? t("tools.list")
     : toolType === "search_files" ? t("tools.search")
-    : toolType === "get_outline" ? "Outline"
-    : toolType === "get_definition" ? "Definition"
-    : toolType === "get_references" ? "References"
+    : toolType === "delete_file" ? t("tools.delete")
+    : toolType === "delete_folder" ? t("tools.delete")
     : t("tools.read");
 
   return (
@@ -202,33 +163,18 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         </div>
       )}
 
-      {(toolType === "replace_in_file" || toolType === "write_to_file" ||
-        toolType === "get_outline" || toolType === "get_definition" || toolType === "get_references" ||
-        ((toolType === "list_files" || toolType === "search_files") && codeContent)) && (
+      {(toolType === "list_files" || toolType === "search_files") && codeContent && (
         <>
-          {toolType === "list_files" || toolType === "search_files" ? (
-            !isCollapsed && (
-              <RichtextBlock
-                content={codeContent}
-                showHeader={false}
-                maxHeight={300}
-                defaultCollapsed={false}
-                isFilePathList={true}
-                basePath={action.params.path || action.params.folder_path || ""}
-                onFileClick={(fullPath) => extensionService.postMessage({ command: "openFile", path: fullPath })}
-              />
-            )
-          ) : (
-            !isCollapsed && !(isPartial && (toolType === "replace_in_file" || toolType === "write_to_file")) && (
-              <CodeBlock
-                code={codeContent}
-                language={codeLanguage}
-                maxLines={25}
-                isCollapsed={false}
-                showLineNumbers={true}
-                lineHighlights={lineHighlights}
-              />
-            )
+          {!isCollapsed && (
+            <RichtextBlock
+              content={codeContent}
+              showHeader={false}
+              maxHeight={300}
+              defaultCollapsed={false}
+              isFilePathList={true}
+              basePath={action.params.path || action.params.folder_path || ""}
+              onFileClick={(fullPath) => extensionService.postMessage({ command: "openFile", path: fullPath })}
+            />
           )}
         </>
       )}

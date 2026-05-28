@@ -12,6 +12,41 @@ declare global {
   }
 }
 
+// Singleton message dispatcher — one window listener for all request/response pairs
+type MessageHandler = (data: any) => void;
+class MessageDispatcher {
+  private handlers = new Map<string, MessageHandler>();
+  private started = false;
+
+  private start() {
+    if (this.started) return;
+    this.started = true;
+    window.addEventListener("message", (event: MessageEvent) => {
+      const msg = event.data;
+      if (!msg?.requestId) return;
+      const handler = this.handlers.get(msg.requestId);
+      if (handler) {
+        this.handlers.delete(msg.requestId);
+        handler(msg);
+      }
+    });
+  }
+
+  public register(requestId: string, handler: MessageHandler, timeoutMs: number, onTimeout: () => void) {
+    this.start();
+    const timer = setTimeout(() => {
+      this.handlers.delete(requestId);
+      onTimeout();
+    }, timeoutMs);
+    this.handlers.set(requestId, (msg) => {
+      clearTimeout(timer);
+      handler(msg);
+    });
+  }
+}
+
+export const messageDispatcher = new MessageDispatcher();
+
 class ExtensionService {
   private static instance: ExtensionService;
   private api: VSCodeAPI;

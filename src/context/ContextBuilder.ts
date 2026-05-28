@@ -1,19 +1,12 @@
-import * as vscode from "vscode";
 import { WorkspaceInfo } from "./WorkspaceAnalyzer";
 
 export class ContextBuilder {
-  /**
-   * Build context string theo format mới (2 phần: folders + files)
-   */
   public buildContextString(
     task: string,
     workspaceInfo: WorkspaceInfo,
     folderPaths: { path: string; count: number }[],
-    relatedFilePaths: string[],
-    relatedFilesLineCounts: Map<string, number>,
     gitHistory: string[],
     gitHistoryLineCounts: Map<string, number>,
-    openTabsLineCounts: Map<string, number>,
     fileCount: number,
     isFirstRequest: boolean,
     projectContext: any = null,
@@ -35,29 +28,19 @@ ${projectContext.keyFiles}
 
     const context = `</task>${projectContextString}
 
-<environment_details>
-# Visual Studio Code Open Tabs
-${this.formatOpenTabs(workspaceInfo.openTabs, openTabsLineCounts)}${
+<environment_details>${
       isFirstRequest
         ? `
 
 # Current Working Directory (${workspaceInfo.path})
 
 ## Folder Structure
-## Folder Structure
 ${this.formatFolderPaths(folderPaths)}
-
-## Related Files
-${this.formatFilePaths(relatedFilePaths, relatedFilesLineCounts)}
 
 ## Git History (Recently Modified)
 ${this.formatGitHistory(gitHistory, gitHistoryLineCounts)}
 
-(Total files in workspace: ${fileCount})`
-        : ""
-    }${
-      isFirstRequest
-        ? `
+(Total files in workspace: ${fileCount})
 
 # Workspace Configuration
 {
@@ -82,85 +65,21 @@ ${this.formatGitHistory(gitHistory, gitHistoryLineCounts)}
     return context;
   }
 
-  /**
-   * Format folder paths section (Tree View)
-   */
-  private formatFolderPaths(
-    folderPaths: { path: string; count: number }[],
-  ): string {
-    if (folderPaths.length === 0) {
-      return "No folders";
-    }
-
-    // Sort alphabetically to ensure tree order (DFS-like)
-    const sortedPaths = [...folderPaths].sort((a, b) =>
-      a.path.localeCompare(b.path),
-    );
-
-    return sortedPaths
+  private formatFolderPaths(folderPaths: { path: string; count: number }[]): string {
+    if (folderPaths.length === 0) return "No folders";
+    return [...folderPaths]
+      .sort((a, b) => a.path.localeCompare(b.path))
       .map((item) => {
         const parts = item.path.split("/");
         const depth = parts.length - 1;
         const name = parts[parts.length - 1];
-        const indent = "  ".repeat(depth);
-        return `${indent}${name}/(${item.count})`;
+        return `${"  ".repeat(depth)}${name}/(${item.count})`;
       })
       .join("\n");
   }
 
-  /**
-   * Format file paths section (Horizontal)
-   */
-  private formatFilePaths(
-    filePaths: string[],
-    lineCounts: Map<string, number>,
-  ): string {
-    if (filePaths.length === 0) {
-      return "No related files found";
-    }
-    // Horizontal format: file(lines) | file2(lines)
-    return filePaths
-      .map((file) => {
-        const lines = lineCounts.get(file) || 0;
-        return `${file}(${lines})`;
-      })
-      .join(" | ");
-  }
-
-  /**
-   * Format git history (Horizontal)
-   */
-  private formatGitHistory(
-    files: string[],
-    lineCounts: Map<string, number>,
-  ): string {
-    if (files.length === 0) {
-      return "No git history available";
-    }
-    // Horizontal format: file(lines) | file2(lines)
-    return files
-      .map((file) => {
-        const lines = lineCounts.get(file) || 0;
-        return `${file}(${lines})`;
-      })
-      .join(" | ");
-  }
-
-  /**
-   * Format open tabs section
-   */
-  private formatOpenTabs(
-    openTabs: string[],
-    lineCounts: Map<string, number>,
-  ): string {
-    if (openTabs.length === 0) {
-      return "No open tabs";
-    }
-    return openTabs
-      .map((file) => {
-        const lines = lineCounts.get(file) || 0;
-        return `${file}(${lines})`;
-      })
-      .join(" | ");
+  private formatGitHistory(files: string[], lineCounts: Map<string, number>): string {
+    if (files.length === 0) return "No git history available";
+    return files.map((file) => `${file}(${lineCounts.get(file) || 0})`).join(" | ");
   }
 }

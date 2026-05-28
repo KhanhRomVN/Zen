@@ -732,52 +732,71 @@ export class FileHandler {
     // Git changes logic via git extension or simple shell
   }
 
-  public async handleSearchContent(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
+  public async handleDeleteFile(message: any, webviewView: vscode.WebviewView) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
-      const pattern = message.pattern;
-      if (!pattern) throw new Error("'pattern' is required");
+      const filePath = message.file_path;
+      if (!filePath) throw new Error("'file_path' is required");
 
-      const folderPath = message.folder_path || message.path || ".";
-      const filePattern = message.file_pattern || "";
-      const searchDir = path.isAbsolute(folderPath)
+      const absPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(workspaceFolder.uri.fsPath, filePath);
+
+      const checkpointManager = CheckpointManager.getInstance();
+      await checkpointManager.createCheckpoint(absPath, "delete");
+
+      await fs.promises.unlink(absPath);
+
+      webviewView.webview.postMessage({
+        command: "deleteFileResult",
+        requestId: message.requestId,
+        success: true,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "deleteFileResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  public async handleDeleteFolder(message: any, webviewView: vscode.WebviewView) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) throw new Error("No workspace");
+      const folderPath = message.folder_path;
+      if (!folderPath) throw new Error("'folder_path' is required");
+
+      const absPath = path.isAbsolute(folderPath)
         ? folderPath
         : path.join(workspaceFolder.uri.fsPath, folderPath);
 
-      const { exec } = require("child_process");
-      const filePatternArg = filePattern ? `--include="${filePattern}"` : "";
-      const cmd = `grep -rIn ${filePatternArg} -E "${pattern.replace(/"/g, '\\"')}" "${searchDir}"`;
-
-      exec(
-        cmd,
-        { cwd: workspaceFolder.uri.fsPath, maxBuffer: 1024 * 1024 * 10 },
-        (err: any, stdout: string) => {
-          if (err && err.code !== 1) {
-            webviewView.webview.postMessage({
-              command: "searchContentResult",
-              requestId: message.requestId,
-              error: err.message,
-            });
+      const checkpointManager = CheckpointManager.getInstance();
+      const collectFiles = async (dir: string) => {
+        const entries = await fs.promises.readdir(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            await collectFiles(full);
           } else {
-            const results = stdout
-              .trim()
-              .split("\n")
-              .filter((l) => l.length > 0);
-            webviewView.webview.postMessage({
-              command: "searchContentResult",
-              requestId: message.requestId,
-              results,
-            });
+            await checkpointManager.createCheckpoint(full, "delete");
           }
-        },
-      );
+        }
+      };
+      await collectFiles(absPath);
+
+      await fs.promises.rm(absPath, { recursive: true, force: true });
+
+      webviewView.webview.postMessage({
+        command: "deleteFolderResult",
+        requestId: message.requestId,
+        success: true,
+      });
     } catch (e: any) {
       webviewView.webview.postMessage({
-        command: "searchContentResult",
+        command: "deleteFolderResult",
         requestId: message.requestId,
         error: e.message,
       });

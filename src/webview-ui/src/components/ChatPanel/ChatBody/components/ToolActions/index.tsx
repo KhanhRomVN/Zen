@@ -58,9 +58,24 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
 
   // Memoize action handlers to prevent unnecessary re-renders
   const memoizedActions = useMemo(() => {
+    // Merge consecutive write_to_file/replace_in_file actions targeting the same path into one group
+    const MERGE_TYPES = new Set(["write_to_file", "replace_in_file"]);
+    const getPath = (action: ToolAction) =>
+      action.params.file_path || action.params.path || "";
+
     const groups: { action: ToolAction; index: number }[][] = [];
     visibleItems.forEach((item) => {
-      groups.push([item]);
+      const last = groups[groups.length - 1];
+      if (
+        last &&
+        MERGE_TYPES.has(item.action.type) &&
+        MERGE_TYPES.has(last[0].action.type) &&
+        getPath(item.action) === getPath(last[0].action)
+      ) {
+        last.push(item);
+      } else {
+        groups.push([item]);
+      }
     });
 
     // Calculate the first unclicked index to enforce sequential execution

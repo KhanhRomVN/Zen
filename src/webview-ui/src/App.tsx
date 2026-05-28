@@ -208,7 +208,6 @@ const App: React.FC = () => {
         <BackendConnectionProvider>
           <ProjectProvider>
             <div className="app-container">
-              {console.log("[App] render state", { showHistory, showSettings, selectedTab: selectedTab?.tabId, conversationId: (selectedTab as any)?.conversationId }) as any}
               {selectedTab ? (
                 <ChatPanel
                   selectedTab={selectedTab}

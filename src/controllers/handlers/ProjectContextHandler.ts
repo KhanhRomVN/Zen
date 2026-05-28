@@ -7,8 +7,6 @@ import { ContextManager } from "../../context/ContextManager";
 import { GlobalStorageManager } from "../../storage-manager";
 
 export class ProjectContextHandler {
-  private _projectContextWatcher?: vscode.FileSystemWatcher;
-  private _projectContextDisposables: vscode.Disposable[] = [];
 
   constructor(
     private contextManager: ContextManager,
@@ -125,59 +123,6 @@ export class ProjectContextHandler {
         error: error.message,
       });
     }
-  }
-
-  public async handleStartProjectContextWatch(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    if (this._projectContextWatcher) {
-      return;
-    }
-
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-
-    this._projectContextWatcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(workspaceFolder, "**/*"),
-    );
-
-    const debouncedRefresh = this.debounce(async () => {
-      await this.handleGetProjectContext(
-        { requestId: "auto-watch" },
-        webviewView,
-      );
-    }, 2000);
-
-    this._projectContextDisposables.push(
-      this._projectContextWatcher.onDidChange(debouncedRefresh),
-      this._projectContextWatcher.onDidCreate(debouncedRefresh),
-      this._projectContextWatcher.onDidDelete(debouncedRefresh),
-    );
-  }
-
-  public stopProjectContextWatch() {
-    if (this._projectContextWatcher) {
-      this._projectContextWatcher.dispose();
-      this._projectContextWatcher = undefined;
-    }
-    this._projectContextDisposables.forEach((d) => d.dispose());
-    this._projectContextDisposables = [];
-  }
-
-  public async handleStopProjectContextWatch(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    this.stopProjectContextWatch();
-  }
-
-  private debounce(fn: Function, delay: number) {
-    let timeout: NodeJS.Timeout;
-    return (...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => fn(...args), delay);
-    };
   }
 
   public async handleRequestContext(

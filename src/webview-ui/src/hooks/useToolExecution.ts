@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Message } from "../components/ChatPanel/ChatBody/types";
-import { extensionService } from "../services/ExtensionService";
+import { extensionService, messageDispatcher } from "../services/ExtensionService";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 import { stripAnsi, stripMarkers } from "../utils/terminalUtils";
 import { useSettings, PermissionMode } from "../context/SettingsContext";
@@ -13,17 +13,17 @@ export const getPermissionDecision = (
     case "bypassPermissions":
       return "allow";
     case "acceptEdits":
-      if (["read_file", "list_files", "search_files", "search_content", "write_to_file", "replace_in_file", "get_outline", "get_definition", "get_references"].includes(toolType)) {
+      if (["read_file", "list_files", "search_files", "write_to_file", "replace_in_file"].includes(toolType)) {
         return "allow";
       }
       return "prompt";
     case "auto":
-      if (["read_file", "list_files", "search_files", "search_content", "get_outline", "get_definition", "get_references"].includes(toolType)) {
+      if (["read_file", "list_files", "search_files"].includes(toolType)) {
         return "allow";
       }
       return "prompt";
     case "plan":
-      if (["read_file", "list_files", "search_files", "search_content", "get_outline", "get_definition", "get_references"].includes(toolType)) {
+      if (["read_file", "list_files", "search_files"].includes(toolType)) {
         return "allow";
       }
       return "deny";
@@ -234,45 +234,22 @@ export const useToolExecution = ({
           extensionService.postMessage({
             command: "readFile",
             path: filePath,
-            startLine: action.params.start_line
-              ? parseInt(action.params.start_line)
-              : undefined,
-            endLine: action.params.end_line
-              ? parseInt(action.params.end_line)
-              : undefined,
-            requestId: requestId,
+            startLine: action.params.start_line ? parseInt(action.params.start_line) : undefined,
+            endLine: action.params.end_line ? parseInt(action.params.end_line) : undefined,
+            requestId,
             bypassIgnore,
           });
-
-          const handleFileResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (msg.command === "fileContent" && msg.requestId === requestId) {
-              window.removeEventListener("message", handleFileResponse);
-              if (msg.error) {
-                let readableError = msg.error;
-                if (
-                  readableError.includes("tồn tại") ||
-                  readableError.includes("no such file")
-                ) {
-                  readableError = "File not found in project";
-                }
-                resolve(
-                  `[read_file for '${filePath}'] Result: Error - ${readableError}`,
-                );
-              } else {
-                let result = `[read_file for '${filePath}'] Result:\n\`\`\`\n${msg.content}\n\`\`\``;
-                if (msg.diagnostics && msg.diagnostics.length > 0) {
-                  result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
-                }
-                resolve(result);
-              }
+          messageDispatcher.register(requestId, (msg) => {
+            if (msg.error) {
+              let readableError = msg.error;
+              if (readableError.includes("tồn tại") || readableError.includes("no such file")) readableError = "File not found in project";
+              resolve(`[read_file for '${filePath}'] Result: Error - ${readableError}`);
+            } else {
+              let result = `[read_file for '${filePath}'] Result:\n\`\`\`\n${msg.content}\n\`\`\``;
+              if (msg.diagnostics?.length > 0) result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
+              resolve(result);
             }
-          };
-          window.addEventListener("message", handleFileResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleFileResponse);
-            resolve(null);
-          }, 10000);
+          }, 10000, () => resolve(null));
           break;
         }
         case "write_to_file": {
@@ -283,40 +260,21 @@ export const useToolExecution = ({
             command: "writeFile",
             path: filePath,
             content: action.params.content,
-            requestId: requestId,
+            requestId,
             skipDiagnostics,
             bypassIgnore,
             conversationId: conversationIdRef?.current,
           });
-
-          const handleResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "writeFileResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleResponse);
-              if (msg.error) {
-                console.error(`[write_to_file] Error response`, { requestId, filePath, error: msg.error });
-                resolve(
-                  `[write_to_file for '${filePath}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                console.log(`[write_to_file] Success response`, { requestId, filePath, hasDiagnostics: !!(msg.diagnostics?.length) });
-                let result = `[write_to_file for '${filePath}'] Result: File written successfully`;
-                if (msg.diagnostics && msg.diagnostics.length > 0) {
-                  result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
-                }
-                resolve(result);
-              }
+          messageDispatcher.register(requestId, (msg) => {
+            if (msg.error) {
+              console.error(`[write_to_file] Error response`, { requestId, filePath, error: msg.error });
+              resolve(`[write_to_file for '${filePath}'] Result: Error - ${msg.error}`);
+            } else {
+              let result = `[write_to_file for '${filePath}'] Result: File written successfully`;
+              if (msg.diagnostics?.length > 0) result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
+              resolve(result);
             }
-          };
-          window.addEventListener("message", handleResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleResponse);
-            console.warn(`[write_to_file] Timeout waiting for response`, { requestId, filePath });
-            resolve(null);
-          }, 10000);
+          }, 10000, () => { console.warn(`[write_to_file] Timeout`, { requestId, filePath }); resolve(null); });
           break;
         }
         case "replace_in_file": {
@@ -327,156 +285,50 @@ export const useToolExecution = ({
             command: "replaceInFile",
             path: filePath,
             diff: action.params.diff,
-            requestId: requestId,
+            requestId,
             skipDiagnostics,
             bypassIgnore,
             conversationId: conversationIdRef?.current,
           });
-
-          const handleReplaceResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "replaceInFileResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleReplaceResponse);
-              if (msg.error) {
-                console.error(`[replace_in_file] Error response`, { requestId, filePath, error: msg.error });
-                resolve(
-                  `[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                console.log(`[replace_in_file] Success response`, { requestId, filePath, hasDiagnostics: !!(msg.diagnostics?.length) });
-                let result = `[replace_in_file for '${filePath}'] Result: Diff applied successfully`;
-                if (msg.diagnostics && msg.diagnostics.length > 0) {
-                  result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
-                  if (msg.content) {
-                    result += `\n\n<current_file_content_post_edit>\n(The following is the full content of '${filePath}' AFTER the edit. Please review it to fix the diagnostics.)\n\`\`\`\n${msg.content}\n\`\`\`\n</current_file_content_post_edit>`;
-                  }
-                }
-                resolve(result);
+          messageDispatcher.register(requestId, (msg) => {
+            if (msg.error) {
+              console.error(`[replace_in_file] Error response`, { requestId, filePath, error: msg.error });
+              resolve(`[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`);
+            } else {
+              let result = `[replace_in_file for '${filePath}'] Result: Diff applied successfully`;
+              if (msg.diagnostics?.length > 0) {
+                result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
+                if (msg.content) result += `\n\n<current_file_content_post_edit>\n(The following is the full content of '${filePath}' AFTER the edit. Please review it to fix the diagnostics.)\n\`\`\`\n${msg.content}\n\`\`\`\n</current_file_content_post_edit>`;
               }
+              resolve(result);
             }
-          };
-          window.addEventListener("message", handleReplaceResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleReplaceResponse);
-            console.warn(`[replace_in_file] Timeout waiting for response`, { requestId, filePath });
-            resolve(null);
-          }, 10000);
+          }, 10000, () => { console.warn(`[replace_in_file] Timeout`, { requestId, filePath }); resolve(null); });
           break;
         }
         case "list_files": {
           const requestId = `list-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.path || action.params.folder_path;
-          extensionService.postMessage({
-            command: "listFiles",
-            path: folderPath,
-            recursive: action.params.recursive,
-            depth: action.params.depth,
-            type: action.params.type,
-            requestId: requestId,
-            bypassIgnore,
-          });
-          const handleListResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "listFilesResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleListResponse);
-              if (msg.error) {
-                resolve(
-                  `[list_files for '${folderPath}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                const listResults = msg.files || msg.results;
-                const formattedOutput = Array.isArray(listResults)
-                  ? JSON.stringify(listResults, null, 2)
-                  : String(listResults);
-
-                resolve(
-                  `[list_files for '${folderPath}'] Result:\n\`\`\`\n${formattedOutput}\n\`\`\``,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleListResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleListResponse);
-            resolve(null);
-          }, 10000);
+          extensionService.postMessage({ command: "listFiles", path: folderPath, recursive: action.params.recursive, depth: action.params.depth, type: action.params.type, requestId, bypassIgnore });
+          messageDispatcher.register(requestId, (msg) => {
+            if (msg.error) { resolve(`[list_files for '${folderPath}'] Result: Error - ${msg.error}`); return; }
+            const listResults = msg.files || msg.results;
+            resolve(`[list_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(listResults) ? JSON.stringify(listResults, null, 2) : String(listResults)}\n\`\`\``);
+          }, 10000, () => resolve(null));
           break;
         }
         case "search_files": {
           const requestId = `search-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.path || action.params.folder_path;
-          extensionService.postMessage({
-            command: "searchFiles",
-            path: folderPath,
-            regex: action.params.regex,
-            filePattern: action.params.filePattern,
-            requestId: requestId,
-            bypassIgnore,
-          });
-          const handleSearchResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "searchFilesResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleSearchResponse);
-              if (msg.error) {
-                resolve(
-                  `[search_files for '${folderPath}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                const formattedResults = Array.isArray(msg.results)
-                  ? msg.results.join("\n")
-                  : String(msg.results);
-                resolve(
-                  `[search_files for '${folderPath}'] Result:\n\`\`\`\n${formattedResults}\n\`\`\``,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleSearchResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleSearchResponse);
-            resolve(null);
-          }, 10000);
+          extensionService.postMessage({ command: "searchFiles", path: folderPath, regex: action.params.regex, filePattern: action.params.filePattern, requestId, bypassIgnore });
+          messageDispatcher.register(requestId, (msg) => {
+            if (msg.error) { resolve(`[search_files for '${folderPath}'] Result: Error - ${msg.error}`); return; }
+            resolve(`[search_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(msg.results) ? msg.results.join("\n") : String(msg.results)}\n\`\`\``);
+          }, 10000, () => resolve(null));
           break;
         }
         case "search_content": {
-          const requestId = `search-content-${Date.now()}-${Math.random()}`;
-          const folderPath = action.params.folder_path || action.params.path;
-          extensionService.postMessage({
-            command: "searchContent",
-            folder_path: folderPath,
-            pattern: action.params.pattern,
-            file_pattern: action.params.file_pattern,
-            requestId,
-            bypassIgnore,
-          });
-          const handleSearchContentResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (msg.command === "searchContentResult" && msg.requestId === requestId) {
-              window.removeEventListener("message", handleSearchContentResponse);
-              if (msg.error) {
-                resolve(`[search_content for '${folderPath}'] Result: Error - ${msg.error}`);
-              } else {
-                const formatted = Array.isArray(msg.results)
-                  ? msg.results.join("\n")
-                  : String(msg.results);
-                resolve(`[search_content for '${folderPath}'] Result:\n\`\`\`\n${formatted}\n\`\`\``);
-              }
-            }
-          };
-          window.addEventListener("message", handleSearchContentResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleSearchContentResponse);
-            resolve(null);
-          }, 10000);
+          // removed
+          resolve(null);
           break;
         }
         case "run_command": {
@@ -492,148 +344,46 @@ export const useToolExecution = ({
           break;
         }
 
-        case "get_outline": {
-          const requestId = `outline-${Date.now()}-${Math.random()}`;
-          const filePath = action.params.file_path || action.params.path;
-          extensionService.postMessage({
-            command: "getFileOutline",
-            path: filePath,
-            requestId: requestId,
-          });
-
-          const handleOutlineResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "getFileOutlineResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleOutlineResponse);
-              if (msg.error) {
-                resolve(
-                  `[get_outline for '${filePath}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                resolve(
-                  `[get_outline for '${filePath}'] Result:\n\`\`\`\n${msg.result}\n\`\`\``,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleOutlineResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleOutlineResponse);
-            resolve(null);
-          }, 15000);
-          break;
-        }
-
-        case "get_definition": {
-          const requestId = `definition-${Date.now()}-${Math.random()}`;
-          const symbol = action.params.symbol;
-          const filePath = action.params.file_path || action.params.path;
-          extensionService.postMessage({
-            command: "getSymbolDefinition",
-            symbol: symbol,
-            path: filePath,
-            requestId: requestId,
-          });
-
-          const handleDefResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "getSymbolDefinitionResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleDefResponse);
-              if (msg.error) {
-                resolve(
-                  `[get_definition for '${symbol}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                resolve(
-                  `[get_definition for '${symbol}'] Result:\n${msg.result}`,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleDefResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleDefResponse);
-            resolve(null);
-          }, 15000);
-          break;
-        }
-
+        case "get_outline":
+        case "get_definition":
         case "get_references": {
-          const requestId = `references-${Date.now()}-${Math.random()}`;
-          const symbol = action.params.symbol;
-          const filePath = action.params.file_path || action.params.path;
-          extensionService.postMessage({
-            command: "getReferences",
-            symbol: symbol,
-            path: filePath,
-            requestId: requestId,
-          });
+          // removed
+          resolve(null);
+          break;
+        }
 
-          const handleRefResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "getReferencesResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleRefResponse);
-              if (msg.error) {
-                resolve(
-                  `[get_references for '${symbol}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                resolve(
-                  `[get_references for '${symbol}'] Result:\n${msg.result}`,
-                );
-              }
-            }
-          };
-          window.addEventListener("message", handleRefResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleRefResponse);
-            resolve(null);
-          }, 15000);
+        case "delete_file": {
+          const requestId = `delete-file-${Date.now()}-${Math.random()}`;
+          const filePath = action.params.file_path;
+          extensionService.postMessage({ command: "deleteFile", file_path: filePath, requestId });
+          messageDispatcher.register(requestId, (msg) => {
+            if (msg.error) { resolve(`[delete_file for '${filePath}'] Result: Error - ${msg.error}`); return; }
+            resolve(`[delete_file for '${filePath}'] Result: File deleted successfully`);
+          }, 10000, () => resolve(null));
+          break;
+        }
+
+        case "delete_folder": {
+          const requestId = `delete-folder-${Date.now()}-${Math.random()}`;
+          const folderPath = action.params.folder_path;
+          extensionService.postMessage({ command: "deleteFolder", folder_path: folderPath, requestId });
+          messageDispatcher.register(requestId, (msg) => {
+            if (msg.error) { resolve(`[delete_folder for '${folderPath}'] Result: Error - ${msg.error}`); return; }
+            resolve(`[delete_folder for '${folderPath}'] Result: Folder deleted successfully`);
+          }, 10000, () => resolve(null));
           break;
         }
 
         case "execute_agent_action": {
           const requestId = `agent-${Date.now()}-${Math.random()}`;
-          extensionService.postMessage({
-            command: "executeAgentAction",
-            action: {
-              ...action.params,
-              requestId,
-            },
-          });
-
-          const handleAgentResponse = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "agentActionResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handleAgentResponse);
-              if (msg.result.success) {
-                resolve(
-                  `[execute_agent_action] Success:\n\`\`\`\n${JSON.stringify(msg.result.data, null, 2)}\n\`\`\``,
-                );
-              } else {
-                resolve(
-                  `[execute_agent_action] Result: Error - ${msg.result.error}`,
-                );
-              }
+          extensionService.postMessage({ command: "executeAgentAction", action: { ...action.params, requestId } });
+          messageDispatcher.register(requestId, (msg) => {
+            if (msg.result.success) {
+              resolve(`[execute_agent_action] Success:\n\`\`\`\n${JSON.stringify(msg.result.data, null, 2)}\n\`\`\``);
+            } else {
+              resolve(`[execute_agent_action] Result: Error - ${msg.result.error}`);
             }
-          };
-          window.addEventListener("message", handleAgentResponse);
-          setTimeout(() => {
-            window.removeEventListener("message", handleAgentResponse);
-            resolve(null);
-          }, 30000); // Longer timeout for agent actions
+          }, 30000, () => resolve(null));
           break;
         }
         default:

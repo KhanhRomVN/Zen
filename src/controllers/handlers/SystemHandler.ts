@@ -3,8 +3,6 @@ import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import * as os from "os";
-import { ThemeService } from "../../services/ThemeService";
-import { ShikiService } from "../../services/ShikiService";
 
 export class SystemHandler {
   constructor() {}
@@ -45,13 +43,6 @@ export class SystemHandler {
       vscode.workspace
         .getConfiguration("workbench")
         .get<string>("colorTheme") || "Default Dark Modern";
-
-    try {
-      const themeJson = await ThemeService.getActiveThemeJson();
-      if (themeJson) {
-        await ShikiService.getInstance().setCustomTheme(themeJson, colorTheme);
-      }
-    } catch (e) {}
 
     webview.postMessage({
       command: "updateTheme",

@@ -10,10 +10,9 @@ export const TOOL_LABELS: Record<string, string> = {
   replace_in_file: "Edit",
   list_files: "Listing",
   search_files: "Searching",
+  delete_file: "Delete",
+  delete_folder: "Delete",
   run_command: "Executing",
-  get_outline: "Outline",
-  get_definition: "Definition",
-  get_references: "References",
   default: "Zen",
 };
 
@@ -21,10 +20,9 @@ export const TOOL_COLORS: Record<string, string> = {
   read_file: "#3b82f6",
   write_to_file: "#10b981",
   replace_in_file: "#10b981",
+  delete_file: "#ef4444",
+  delete_folder: "#ef4444",
   run_command: "#f59e0b",
-  get_outline: "#a855f7",
-  get_definition: "#ec4899",
-  get_references: "#14b8a6",
   default: "#6b7280",
 };
 
@@ -34,10 +32,9 @@ export const CLICKABLE_TOOLS = [
   "replace_in_file",
   "list_files",
   "search_files",
+  "delete_file",
+  "delete_folder",
   "run_command",
-  "get_outline",
-  "get_definition",
-  "get_references",
 ];
 
 export const MANUAL_CONFIRMATION_TOOLS = [

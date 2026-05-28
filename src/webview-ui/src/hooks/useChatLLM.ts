@@ -7,6 +7,7 @@ import {
   getDefaultPrompt,
   combinePrompts,
 } from "../components/ChatPanel/prompts";
+import { PERSISTENT_RULES } from "../components/ChatPanel/prompts/persistent-rules";
 import {
   logChatToWorkspace,
   saveConversation,
@@ -178,6 +179,7 @@ export const useChatLLM = ({
       skipFirstRequestLogic?: boolean,
       actionIds?: string[],
       uiHidden?: boolean,
+      parentMessageId?: string,
     ) => {
       if (isProcessing && !skipFirstRequestLogic) {
         return;
@@ -379,8 +381,8 @@ export const useChatLLM = ({
       }
 
       const promptPayload = isReq1
-        ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${fullContent}`
-        : `${attachedContextStr}\n\n${fullContent}`;
+        ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${PERSISTENT_RULES}\n\n${fullContent}`
+        : `${attachedContextStr}\n\n${PERSISTENT_RULES}\n\n${fullContent}`;
 
       // In the new schema, req1 content includes system prompt
       const finalContent = promptPayload;
@@ -517,14 +519,17 @@ export const useChatLLM = ({
           payloadMessages[0].content = promptPayload;
         }
 
+
+        let finalPayloadMessages = payloadMessages;
+
         const body = {
           modelId: finalModel?.id,
           providerId: finalModel?.providerId,
           accountId: finalAccount?.id,
-          messages: payloadMessages,
+          messages: finalPayloadMessages,
           stream: true,
-          conversationId:
-            backendConversationIdRef.current || (isNewSession ? "" : ""),
+          conversationId: backendConversationIdRef.current || undefined,
+          ...(parentMessageId ? { parent_message_id: parentMessageId } : {}),
           is_thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           is_search: localStorage.getItem("zen-search-enabled") === "true",
           thinking: localStorage.getItem("zen-thinking-enabled") === "true",
@@ -549,7 +554,10 @@ export const useChatLLM = ({
           let errorDetail = `API Error: ${response.status}`;
           try {
             const errBody = await response.json();
-            errorDetail = errBody.error || errBody.message || errorDetail;
+            console.error("[sendMessage] API error body:", JSON.stringify(errBody));
+            const raw = errBody.error || errBody.message;
+            const msg = typeof raw === "string" ? raw : JSON.stringify(raw);
+            errorDetail = msg || errorDetail;
             if (errBody.error_code) errorDetail = `[${errBody.error_code}] ${errorDetail}`;
           } catch {}
           throw new Error(errorDetail);
@@ -591,7 +599,9 @@ export const useChatLLM = ({
                   // Handle stream error from server
                   if (data.error) {
                     const code = data.error_code ? `[${data.error_code}] ` : '';
-                    throw new Error(`${code}${data.error}`);
+                    const err = new Error(`${code}${data.error}`);
+                    (err as any).isServerError = true;
+                    throw err;
                   }
 
                   // Capture the real backend conversation_id for subsequent requests
@@ -614,6 +624,8 @@ export const useChatLLM = ({
                     if (metaObj.websiteUrl)
                       assistantMessage.websiteUrl = metaObj.websiteUrl;
                     if (metaObj.email) assistantMessage.email = metaObj.email;
+                    if (metaObj.response_message_id)
+                      assistantMessage.response_message_id = metaObj.response_message_id;
 
                     // 🆕 Sync metadata to lastUsed refs for subsequent tool execution requests
                     if (metaObj.providerId || metaObj.modelId) {
@@ -656,7 +668,9 @@ export const useChatLLM = ({
                       ),
                     );
                   }
-                } catch (e) {}
+                } catch (e) {
+                  if (e instanceof Error && (e as any).isServerError) throw e;
+                }
               }
             }
           }
@@ -799,15 +813,16 @@ export const useChatLLM = ({
         const errorMessage: Message = {
           id: `msg-${Date.now()}-error`,
           role: "assistant",
-          content: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+          content: `Error: ${error instanceof Error ? error.message : JSON.stringify(error)}`,
           timestamp: Date.now(),
           isError: true,
         };
+        console.error("[sendMessage] error:", error);
         setMessages((prev) => [...prev, errorMessage]);
         setIsProcessing(false);
       }
     },
-    [apiUrl, selectedTab, isProcessing, onToolRequest, currentConversationId],
+    [apiUrl, selectedTab, isProcessing, onToolRequest],
   );
 
   return {

@@ -73,6 +73,7 @@ export const en = {
     list: "LIST",
     search: "SEARCH",
     read: "READ",
+    delete: "DELETE",
     execute: "EXECUTE",
     finalize: "FINALIZE",
     streaming: "Streaming...",

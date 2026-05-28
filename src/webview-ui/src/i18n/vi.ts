@@ -75,6 +75,7 @@ export const vi: I18nDict = {
     list: "LIỆT KÊ",
     search: "TÌM KIẾM",
     read: "ĐỌC",
+    delete: "XÓA",
     execute: "THỰC THI",
     finalize: "KẾT THÚC",
     streaming: "Đang nhận...",

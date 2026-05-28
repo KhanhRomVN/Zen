@@ -40,11 +40,10 @@ class ZenPTY implements vscode.Pseudoterminal {
   public attachedToVSCode: boolean = false;
   public currentInputBuffer: string = "";
   public logFilePath: string = "";
-  private logCurrentSizeBytes: number = 0;
   public echoSuppressor: EchoSuppressor = new EchoSuppressor();
   public isInsideOutputZone: boolean = false;
   public lineBuffer: string = "";
-  private readonly MAX_LOG_SIZE = 5 * 1024 * 1024; // 5 MB
+  private readonly MAX_ACCUMULATED = 2.5 * 1024 * 1024; // 2.5 MB cap in RAM
 
   public commandStartEmitter = new vscode.EventEmitter<void>();
   onCommandStart: vscode.Event<void> = this.commandStartEmitter.event;
@@ -56,22 +55,20 @@ class ZenPTY implements vscode.Pseudoterminal {
     this.currentCwd = cwd;
     this.logFilePath = logFilePath;
     this.terminalId = terminalId;
-    // Initialize file size if it exists
     if (fs.existsSync(this.logFilePath)) {
       try {
-        const stats = fs.statSync(this.logFilePath);
-        this.logCurrentSizeBytes = stats.size;
-
         // Load initial content for VS Code to show upon re-attach
         this.accumulatedOutput = fs.readFileSync(this.logFilePath, "utf8");
-      } catch (e) {
-      }
+        // Cap on load
+        if (this.accumulatedOutput.length > this.MAX_ACCUMULATED) {
+          this.accumulatedOutput = this.accumulatedOutput.substring(this.accumulatedOutput.length - this.MAX_ACCUMULATED);
+        }
+      } catch (e) {}
     } else {
       try {
         fs.mkdirSync(path.dirname(this.logFilePath), { recursive: true });
         fs.writeFileSync(this.logFilePath, "");
-      } catch (e) {
-      }
+      } catch (e) {}
     }
   }
 
@@ -142,41 +139,12 @@ class ZenPTY implements vscode.Pseudoterminal {
   }
 
   public appendLog(data: string) {
-    if (!this.logFilePath) return;
-
-    try {
-      const dataBuffer = Buffer.from(data, "utf8");
-      this.logCurrentSizeBytes += dataBuffer.length;
-
-      // Rotate if it exceeds MAX_LOG_SIZE
-      if (this.logCurrentSizeBytes > this.MAX_LOG_SIZE) {
-        let content = fs.readFileSync(this.logFilePath, "utf8");
-        content += data;
-
-        // Keep only second half (approx 2.5MB)
-        const halfSize = Math.floor(this.MAX_LOG_SIZE / 2);
-        const newContent = content.substring(content.length - halfSize);
-
-        fs.writeFileSync(this.logFilePath, newContent, "utf8");
-        this.logCurrentSizeBytes = Buffer.byteLength(newContent, "utf8");
-
-        // Reset accumulatedOutput for UI so it doesn't grow huge in memory either
-        // Only keep the same tail
-        if (this.accumulatedOutput.length > halfSize) {
-          this.accumulatedOutput = this.accumulatedOutput.substring(
-            this.accumulatedOutput.length - halfSize,
-          );
-          this.lastOutputIndex = Math.min(
-            this.lastOutputIndex,
-            this.accumulatedOutput.length,
-          );
-        }
-      } else {
-        fs.appendFileSync(this.logFilePath, data, "utf8");
-      }
-    } catch (e) {
-      // SILENT FAIL: If file is missing or locked, just stop appending
-      // This prevents ENOENT spam when terminal is closing
+    // Disk logging is handled by TerminalBridge. Here we only manage the in-RAM buffer.
+    this.accumulatedOutput += data;
+    if (this.accumulatedOutput.length > this.MAX_ACCUMULATED) {
+      const trim = Math.floor(this.MAX_ACCUMULATED / 2);
+      this.accumulatedOutput = this.accumulatedOutput.substring(this.accumulatedOutput.length - trim);
+      this.lastOutputIndex = Math.min(this.lastOutputIndex, this.accumulatedOutput.length);
     }
   }
 
@@ -284,6 +252,14 @@ class BridgeClient {
         this.connect();
       }
     }
+  }
+
+  public disconnect() {
+    if (this.socket) {
+      this.socket.destroy();
+      this.socket = null;
+    }
+    this.messageQueue = [];
   }
 
   private processOutputLine(id: string, pty: ZenPTY, line: string) {
@@ -486,11 +462,7 @@ export class ProcessManager {
   }>();
   public onTerminalStatusChanged = this.onTerminalStatusChangedEmitter.event;
 
-  private _extensionContext: vscode.ExtensionContext | null = null;
-  private readonly STORAGE_KEY = "zen.persistentTerminals";
   private projectDir: string | null = null;
-  // Interval chỉ chạy khi có ít nhất 1 terminal, nhằm tránh poll mỗi giây khi idle
-  private _stateInterval: NodeJS.Timeout | null = null;
 
   public setProjectDir(dir: string) {
     this.projectDir = dir;
@@ -555,7 +527,6 @@ export class ProcessManager {
         }
       }
       if (foundId) {
-        this.saveState();
         this.onTerminalsChangedEmitter.fire();
       }
     });
@@ -564,87 +535,9 @@ export class ProcessManager {
     // Interval sẽ được start khi terminal đầu tiên được tạo (xem startInteractive)
   }
 
-  /** Bắt đầu polling nếu chưa chạy */
-  private startStateInterval() {
-    if (!this._stateInterval) {
-      this._stateInterval = setInterval(() => {
-        this.updateTerminalStates();
-      }, 1000);
-    }
-  }
-
-  /** Dừng polling khi không còn terminal nào */
-  private stopStateIntervalIfEmpty() {
-    if (this._stateInterval && this.terminalMap.size === 0) {
-      clearInterval(this._stateInterval);
-      this._stateInterval = null;
-    }
-  }
-
-  private updateTerminalStates() {
-    this.bridgeClient.send({ type: "list" });
-  }
-
-  public setExtensionContext(context: vscode.ExtensionContext) {
-    this._extensionContext = context;
-  }
-
-  private saveState() {
-    if (!this._extensionContext) return;
-
-    try {
-      const stateToSave = Array.from(this.terminalMap.entries()).map(
-        ([id, entry]) => {
-          return {
-            id,
-            name: entry.name,
-            cwd: entry.pty.currentCwd,
-            shellPath: entry.pty.shellPath,
-            lastCommandText: entry.pty.lastCommandText,
-            isAttached: entry.pty.attachedToVSCode,
-          };
-        },
-      );
-
-      this._extensionContext.workspaceState.update(
-        this.STORAGE_KEY,
-        stateToSave,
-      );
-    } catch (e) {
-    }
-  }
-
-  public restoreState() {
-    if (!this._extensionContext) return;
-
-    try {
-      const savedTerminals = this._extensionContext.workspaceState.get<
-        {
-          id: string;
-          name: string;
-          cwd: string;
-          shellPath: string;
-        }[]
-      >(this.STORAGE_KEY, []);
-
-      for (const t of savedTerminals) {
-        // Prevent restoring duplicates
-        if (!this.terminalMap.has(t.id)) {
-          this.startInteractive(t.cwd, t.id, t.shellPath, t.name);
-          const entry = this.terminalMap.get(t.id);
-          if (entry) {
-            if ((t as any).lastCommandText) {
-              entry.pty.lastCommandText = (t as any).lastCommandText;
-            }
-            // Auto re-attach if it was previously attached
-            if ((t as any).isAttached) {
-              this.attachToVSCode(t.id);
-            }
-          }
-        }
-      }
-    } catch (e) {
-    }
+  public setExtensionContext(_context: vscode.ExtensionContext) {
+    // Clear any previously persisted terminal state
+    _context.workspaceState.update("zen.persistentTerminals", undefined);
   }
 
   async startInteractive(
@@ -694,11 +587,7 @@ export class ProcessManager {
       const newEntry = { terminal: null, pty: ptyInternal, name: name };
       this.terminalMap.set(id, newEntry);
       entry = newEntry;
-      this.saveState();
       this.onTerminalsChangedEmitter.fire();
-
-      // Bắt đầu interval khi có terminal đầu tiên
-      this.startStateInterval();
 
       this.bridgeClient.send({
         type: "create",
@@ -743,7 +632,6 @@ export class ProcessManager {
       entry.pty.attachedToVSCode = true;
       entry.terminal.show(true);
 
-      this.saveState();
       this.onTerminalsChangedEmitter.fire();
     } else if (entry && entry.pty.attachedToVSCode && entry.terminal) {
       entry.terminal.show(true);
@@ -850,10 +738,6 @@ export class ProcessManager {
 
       // 3. Remove from map
       this.terminalMap.delete(id);
-      this.saveState();
-
-      // Dừng interval nếu không còn terminal nào
-      this.stopStateIntervalIfEmpty();
 
       // 4. Finally delete the log file
       try {
@@ -971,6 +855,7 @@ export class ProcessManager {
       entry.pty.stop();
     }
     this.terminalMap.clear();
-    this.saveState();
+    // Disconnect socket so TerminalBridge detects no clients and self-exits
+    this.bridgeClient.disconnect();
   }
 }

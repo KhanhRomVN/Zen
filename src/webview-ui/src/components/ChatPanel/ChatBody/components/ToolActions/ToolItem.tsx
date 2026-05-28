@@ -165,9 +165,36 @@ const ToolItem: React.FC<ToolItemProps> = ({
   const isFileTool =
     toolType === "replace_in_file" || toolType === "write_to_file" ||
     toolType === "read_file" || toolType === "list_files" || toolType === "search_files" ||
-    toolType === "get_outline" || toolType === "get_definition" || toolType === "get_references";
+    toolType === "delete_file" || toolType === "delete_folder";
 
   if (isFileTool) {
+    const MERGE_TYPES = new Set(["write_to_file", "replace_in_file"]);
+    const getPath = (a: ToolAction) => a.params.file_path || a.params.path || "";
+    const isMergedGroup =
+      group.length > 1 &&
+      group.every((item) => MERGE_TYPES.has(item.action.type)) &&
+      group.every((item) => getPath(item.action) === getPath(group[0].action));
+
+    if (isMergedGroup) {
+      return (
+        <FileToolItem
+          key={group[0].index}
+          action={group[0].action}
+          actionIndex={group[0].index}
+          messageId={messageId}
+          isActionClicked={group.every((item) => clickedActions.has(`${messageId}-action-${item.index}`))}
+          isActiveGroup={isActiveGroup}
+          isLastMessage={isLastMessage}
+          isLastItemInList={isLastItemInList}
+          toolOutputs={toolOutputs}
+          allMessages={allMessages}
+          fileStatsMap={fileStatsMap}
+          onToolClick={onToolClick}
+          mergedItems={group}
+        />
+      );
+    }
+
     return (
       <>
         {group.map((item, idx) => (
