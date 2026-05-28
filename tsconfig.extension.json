@@ -11,6 +11,6 @@
  "resolveJsonModule": true,
  "outDir": "dist"
  },
- "include": ["src/extension.ts", "src/managers/TerminalBridge.ts"],
+ "include": ["src/extension.ts"],
  "exclude": ["src/webview-ui", "node_modules"]
 }

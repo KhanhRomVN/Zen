@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { Message } from "../components/ChatPanel/ChatBody/types";
 import { extensionService, messageDispatcher } from "../services/ExtensionService";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
-import { stripAnsi, stripMarkers } from "../utils/terminalUtils";
+
 import { useSettings, PermissionMode } from "../context/SettingsContext";
 
 export const getPermissionDecision = (
@@ -122,51 +122,24 @@ export const useToolExecution = ({
             };
           });
 
-          // [New] Persistent Terminal Color Storage
-          // Create UUID once for this execution
-          const outputUuid = crypto.randomUUID();
-
-          // Save raw ANSI output immediately (even for manual runs)
-          const effectiveChatUuid = conversationIdRef?.current;
-
-          if (effectiveChatUuid) {
-            extensionService.postMessage({
-              command: "saveTerminalOutput",
-              chatUuid: effectiveChatUuid,
-              outputUuid,
-              content: message.output, // Keep original ANSI color output
-            });
-          }
-
           if (pendingToolResolvers.current.has(message.actionId)) {
             const resolver = pendingToolResolvers.current.get(message.actionId);
             if (resolver) {
-              // Clear mapping so future terminal output (like 'clear') doesn't update this block
               if (message.terminalId) {
                 terminalToActionMap.current.delete(message.terminalId);
               }
 
-              const cmdText =
-                message.commandText || message.commandTextRaw || "command";
-              const outputRaw = message.output ? message.output : "";
-
-              // Use the smarter stripMarkers utility instead of aggressive substring
-              // This preserves prompt and command echo while removing technical markers.
-              let outputContent = stripMarkers(outputRaw, message.actionId);
-              outputContent = outputContent.trim();
+              const cmdText = message.commandText || message.commandTextRaw || "command";
+              const outputContent = (message.output || "").trim();
 
               const startTime = commandStartTimes.current.get(message.actionId);
-              const duration = startTime
-                ? ((Date.now() - startTime) / 1000).toFixed(1)
-                : null;
-
               if (startTime) {
                 commandStartTimes.current.delete(message.actionId);
               }
 
               const resultMsg = message.error
-                ? `Output: [run_command for '${cmdText}'] Error - ${message.error} with "terminal_output-${outputUuid}"\n\`\`\`\n${outputContent}\n\`\`\``
-                : `Output: [run_command for '${cmdText}'] with "terminal_output-${outputUuid}"\n\`\`\`\n${outputContent}\n\`\`\``;
+                ? `Output: [run_command for '${cmdText}'] Error - ${message.error}\n\`\`\`\n${outputContent}\n\`\`\``
+                : `Output: [run_command for '${cmdText}']\n\`\`\`\n${outputContent}\n\`\`\``;
 
               resolver(resultMsg);
               pendingToolResolvers.current.delete(message.actionId);

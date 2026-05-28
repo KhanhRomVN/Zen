@@ -140,16 +140,6 @@ export class ChatController {
             webviewView,
           );
           break;
-        case "saveTerminalOutput":
-          await this.conversationHandler.handleSaveTerminalOutput(message);
-          break;
-        case "readTerminalOutput":
-          await this.conversationHandler.handleReadTerminalOutput(
-            message,
-            webviewView,
-          );
-          break;
-
         // File Operations
         case "readFile":
           await this.fileHandler.handleReadFile(message, webviewView);

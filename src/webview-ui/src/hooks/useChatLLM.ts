@@ -102,7 +102,10 @@ export const useChatLLM = ({
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const { command, actionId } = event.data;
-      if ((command === "markActionClicked" || command === "markActionFailed") && actionId) {
+      if (
+        (command === "markActionClicked" || command === "markActionFailed") &&
+        actionId
+      ) {
         const messageId = actionId.split("-action-")[0];
         if (messageId) {
           setMessages((prev) => {
@@ -233,8 +236,7 @@ export const useChatLLM = ({
               language: aiLanguage || preferredLanguage,
             };
           }
-        } catch (e) {
-        }
+        } catch (e) {}
 
         const effectiveLang = aiLanguage || preferredLanguage;
         systemPrompt = getDefaultPrompt(effectiveLang);
@@ -253,19 +255,34 @@ export const useChatLLM = ({
 
           if (!effectiveTreeView.trim()) {
             // treeView not ready yet (race condition on first request) — fetch directly
-            const freshContext = await new Promise<{ treeView: string; workspace: string }>((resolve) => {
+            const freshContext = await new Promise<{
+              treeView: string;
+              workspace: string;
+            }>((resolve) => {
               const requestId = `req1-tree-${Date.now()}`;
-              const timeout = setTimeout(() => resolve({ treeView: "", workspace: effectiveWorkspace }), 5000);
+              const timeout = setTimeout(
+                () => resolve({ treeView: "", workspace: effectiveWorkspace }),
+                5000,
+              );
               const handler = (event: MessageEvent) => {
                 const msg = event.data;
-                if (msg.command === "projectContextResult" && msg.requestId === requestId) {
+                if (
+                  msg.command === "projectContextResult" &&
+                  msg.requestId === requestId
+                ) {
                   clearTimeout(timeout);
                   window.removeEventListener("message", handler);
-                  resolve({ treeView: msg.data?.treeView || "", workspace: msg.data?.workspace || effectiveWorkspace });
+                  resolve({
+                    treeView: msg.data?.treeView || "",
+                    workspace: msg.data?.workspace || effectiveWorkspace,
+                  });
                 }
               };
               window.addEventListener("message", handler);
-              (window as any).vscodeApi?.postMessage({ command: "getProjectContext", requestId });
+              (window as any).vscodeApi?.postMessage({
+                command: "getProjectContext",
+                requestId,
+              });
             });
             effectiveTreeView = freshContext.treeView;
             effectiveWorkspace = freshContext.workspace || effectiveWorkspace;
@@ -277,8 +294,7 @@ export const useChatLLM = ({
           if (effectiveWorkspace && effectiveWorkspace.trim()) {
             projectContextStr += `\n\n## WORKSPACE EXPERIENCE (workspace.md)\n\`\`\`\n${effectiveWorkspace}\n\`\`\``;
           }
-        } catch (e) {
-        }
+        } catch (e) {}
       }
 
       // Resolve attached items into formatted context
@@ -452,7 +468,7 @@ export const useChatLLM = ({
               (f: any) =>
                 !f.id?.startsWith("attached-") &&
                 !f.id?.startsWith("rule-") &&
-                !f.id?.startsWith("terminal-")
+                !f.id?.startsWith("terminal-"),
             )
           : [];
 
@@ -464,14 +480,19 @@ export const useChatLLM = ({
             }
 
             if (!finalAccount?.id) {
-              throw new Error("No active account selected for file upload. Please select/add an account first.");
+              throw new Error(
+                "No active account selected for file upload. Please select/add an account first.",
+              );
             }
 
             try {
               let blob: Blob;
               if (file.content.startsWith("data:")) {
                 const arr = file.content.split(",");
-                const mime = arr[0].match(/:(.*?);/)?.[1] || file.type || "application/octet-stream";
+                const mime =
+                  arr[0].match(/:(.*?);/)?.[1] ||
+                  file.type ||
+                  "application/octet-stream";
                 const bstr = atob(arr[1]);
                 let n = bstr.length;
                 const u8arr = new Uint8Array(n);
@@ -480,19 +501,26 @@ export const useChatLLM = ({
                 }
                 blob = new Blob([u8arr], { type: mime });
               } else {
-                blob = new Blob([file.content], { type: file.type || "text/plain" });
+                blob = new Blob([file.content], {
+                  type: file.type || "text/plain",
+                });
               }
 
               const formData = new FormData();
               formData.append("file", blob, file.name);
 
-              const uploadRes = await fetch(`${apiUrl}/v1/chat/accounts/${finalAccount.id}/uploads`, {
-                method: "POST",
-                body: formData,
-              });
+              const uploadRes = await fetch(
+                `${apiUrl}/v1/chat/accounts/${finalAccount.id}/uploads`,
+                {
+                  method: "POST",
+                  body: formData,
+                },
+              );
 
               if (!uploadRes.ok) {
-                throw new Error(`Upload API returned status ${uploadRes.status}`);
+                throw new Error(
+                  `Upload API returned status ${uploadRes.status}`,
+                );
               }
 
               const uploadData = await uploadRes.json();
@@ -502,7 +530,9 @@ export const useChatLLM = ({
                 throw new Error(uploadData.error || "Unknown upload error");
               }
             } catch (err) {
-              throw new Error(`Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
+              throw new Error(
+                `Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`,
+              );
             }
           }
         }
@@ -518,7 +548,6 @@ export const useChatLLM = ({
         if (isReq1) {
           payloadMessages[0].content = promptPayload;
         }
-
 
         let finalPayloadMessages = payloadMessages;
 
@@ -554,11 +583,11 @@ export const useChatLLM = ({
           let errorDetail = `API Error: ${response.status}`;
           try {
             const errBody = await response.json();
-            console.error("[sendMessage] API error body:", JSON.stringify(errBody));
             const raw = errBody.error || errBody.message;
             const msg = typeof raw === "string" ? raw : JSON.stringify(raw);
             errorDetail = msg || errorDetail;
-            if (errBody.error_code) errorDetail = `[${errBody.error_code}] ${errorDetail}`;
+            if (errBody.error_code)
+              errorDetail = `[${errBody.error_code}] ${errorDetail}`;
           } catch {}
           throw new Error(errorDetail);
         }
@@ -598,7 +627,7 @@ export const useChatLLM = ({
 
                   // Handle stream error from server
                   if (data.error) {
-                    const code = data.error_code ? `[${data.error_code}] ` : '';
+                    const code = data.error_code ? `[${data.error_code}] ` : "";
                     const err = new Error(`${code}${data.error}`);
                     (err as any).isServerError = true;
                     throw err;
@@ -625,7 +654,8 @@ export const useChatLLM = ({
                       assistantMessage.websiteUrl = metaObj.websiteUrl;
                     if (metaObj.email) assistantMessage.email = metaObj.email;
                     if (metaObj.response_message_id)
-                      assistantMessage.response_message_id = metaObj.response_message_id;
+                      assistantMessage.response_message_id =
+                        metaObj.response_message_id;
 
                     // 🆕 Sync metadata to lastUsed refs for subsequent tool execution requests
                     if (metaObj.providerId || metaObj.modelId) {
@@ -657,7 +687,8 @@ export const useChatLLM = ({
                   if (data.thinking) {
                     assistantMessage = {
                       ...assistantMessage,
-                      thinking: (assistantMessage.thinking || "") + data.thinking,
+                      thinking:
+                        (assistantMessage.thinking || "") + data.thinking,
                     };
                   }
 
@@ -781,8 +812,7 @@ export const useChatLLM = ({
             ...assistantMessage,
             conversationId: finalConversationId,
           });
-        } catch (logErr) {
-        }
+        } catch (logErr) {}
 
         // Parse for metadata logging only.
         // NOTE: Do NOT call onToolRequest here. Auto-triggering is handled exclusively
@@ -817,7 +847,6 @@ export const useChatLLM = ({
           timestamp: Date.now(),
           isError: true,
         };
-        console.error("[sendMessage] error:", error);
         setMessages((prev) => [...prev, errorMessage]);
         setIsProcessing(false);
       }

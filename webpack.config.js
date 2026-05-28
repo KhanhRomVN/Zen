@@ -9,7 +9,6 @@ const config = {
   target: "node",
   entry: {
     extension: "./src/extension.ts",
-    TerminalBridge: "./src/managers/TerminalBridge.ts",
   },
   output: {
     path: path.resolve(__dirname, "dist"),
@@ -20,7 +19,6 @@ const config = {
   devtool: "source-map",
   externals: {
     vscode: "commonjs vscode",
-    "node-pty": "commonjs node-pty",
   },
   resolve: {
     extensions: [".ts", ".js"],

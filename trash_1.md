@@ -1,1 +1,0 @@
-lỗi khi gửi input từ revert message thì ko có lỗi cũng ko có response. thêm log ở deepseek xem nguyên nhân tại sao. thêm log để theo dõi cho ở toàn bộ conv như message c ủa req, id conv... để debug ở elara-server

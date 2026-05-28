@@ -298,6 +298,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     if (currentConversationId && messages.length > 0) {
       const existing = ConversationCache.get(currentConversationId);
+      console.log("[Zen Cache] updating cache for", currentConversationId, "messages.length:", messages.length);
       ConversationCache.set(currentConversationId, {
         messages,
         conversationId: currentConversationId,
@@ -325,7 +326,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       if (convId) {
         // Try reading from in-memory cache first
         const cached = ConversationCache.get(convId);
+        console.log("[Zen Load] loading convId:", convId, "cache hit:", !!cached, "cache.messages.length:", cached?.messages.length);
         if (cached) {
+          console.log("[Zen Load] restoring from cache, messages:", cached.messages.map(m => ({ id: m.id, role: m.role })));
           setMessages(cached.messages);
           setIsRestored(cached.messages.length > 0);
           setCurrentConversationId(cached.conversationId);
@@ -361,14 +364,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
-        console.log("[ChatPanel] conversationResult received", {
-          requestId: data.requestId,
-          hasData: !!data.data,
-          hasError: !!data.error,
-          error: data.error,
-          messageCount: data.data?.messages?.length,
-          conversationId: data.data?.conversationId,
-        });
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map((msg: Message, i: number) => ({
             ...msg,
@@ -460,34 +455,43 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       ) {
         const targetId = revertMessageIdRef.current;
         revertMessageIdRef.current = null;
+        console.log("[Zen Revert] conversationReverted received. targetId:", targetId, "convId:", currentConversationId);
 
         if (targetId === "__first__") {
-          // First message reverted → delete conv and go back to HomePanel
           deleteConversation(currentConversationId);
           const firstUserMsg = messagesRef.current.find((m) => !m.uiHidden && !m.isCancelled && m.role === "user");
           let content = firstUserMsg?.content || "";
           const match = content.match(/<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/);
           if (match) content = match[1];
-          console.log(`[Revert] first message reverted, going back to HomePanel`);
           setMessages([]);
           setIsLoadingConversation(false);
           onBack(content);
         } else {
           setMessages((prev) => {
             const idx = targetId ? prev.findIndex((m) => m.id === targetId) : -1;
+            console.log("[Zen Revert] prev.length:", prev.length, "targetId:", targetId, "idx:", idx);
             if (idx === -1) return prev;
             const msg = prev[idx];
             const match = msg.content.match(/<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/);
             const content = match ? match[1] : msg.content;
-            // Find the assistant message just before this user message for parent_message_id
             const prevAssistant = [...prev.slice(0, idx)].reverse().find((m) => m.role === "assistant");
             revertParentMessageIdRef.current = prevAssistant?.response_message_id || null;
-            console.log(`[Revert] reverted to msg id=${targetId}, remaining messages=${idx}, restoredInput="${content.slice(0, 80)}", parent_message_id="${revertParentMessageIdRef.current}"`);
             setRevertInput({ value: content, nonce: Date.now() });
-            return prev.slice(0, idx);
+            const reverted = prev.slice(0, idx);
+            console.log("[Zen Revert] reverted.length:", reverted.length, "updating cache for convId:", currentConversationId);
+            const existing = ConversationCache.get(currentConversationId);
+            ConversationCache.set(currentConversationId, {
+              messages: reverted,
+              conversationId: currentConversationId,
+              backendConversationId: existing?.backendConversationId,
+              currentModel: existing?.currentModel,
+              currentAccount: existing?.currentAccount,
+            });
+            console.log("[Zen Revert] cache updated. cache.messages.length:", ConversationCache.get(currentConversationId)?.messages.length);
+            return reverted;
           });
-          // Keep backendConversationId so server reuses the same DeepSeek session
           setIsLoadingConversation(false);
+          setIsProcessing(false);
         }
       }
     };
@@ -529,15 +533,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const handleStopGeneration = useCallback(() => {
-    // Abort the in-flight request immediately
-    stopGeneration();
+    stopGeneration(); // already sets isProcessing=false, isStreaming=false
+    setIsProcessing(false); // ensure immediate UI reset before revert async
 
-    // Find the last user message that triggered the current generation and revert to it
     const lastUserMsg = [...messagesRef.current].reverse().find((m) => !m.uiHidden && !m.isCancelled && m.role === "user");
     if (lastUserMsg) {
       handleRevertConversation(lastUserMsg.id, lastUserMsg.timestamp);
     }
-  }, [stopGeneration, messagesRef, handleRevertConversation]);
+  }, [stopGeneration, messagesRef, handleRevertConversation, setIsProcessing]);
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
 
