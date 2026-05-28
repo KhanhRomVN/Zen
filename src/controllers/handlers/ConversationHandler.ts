@@ -430,7 +430,8 @@ export class ConversationHandler {
           ? new Date(targetMsg.timestamp).getTime()
           : (targetMsg.timestamp || timestamp);
 
-        content = content.slice(0, index + 1);
+        // slice(0, index) — exclude the reverted message and everything after
+        content = content.slice(0, index);
         await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2), "utf-8");
 
         // Revert files to the state they were in at/before the revertTimestamp

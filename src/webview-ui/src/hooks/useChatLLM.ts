@@ -558,13 +558,14 @@ export const useChatLLM = ({
           messages: finalPayloadMessages,
           stream: true,
           conversationId: backendConversationIdRef.current || undefined,
-          ...(parentMessageId ? { parent_message_id: parentMessageId } : {}),
+          ...(parentMessageId ? { parent_message_id: Number(parentMessageId) } : {}),
           is_thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           is_search: localStorage.getItem("zen-search-enabled") === "true",
           thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           search: localStorage.getItem("zen-search-enabled") === "true",
           ...(ref_file_ids.length > 0 ? { ref_file_ids } : {}),
         };
+        console.log("[Zen API] sending request. conversationId:", body.conversationId, "parent_message_id:", (body as any).parent_message_id, "messages.length:", finalPayloadMessages.length);
 
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
@@ -588,6 +589,8 @@ export const useChatLLM = ({
             errorDetail = msg || errorDetail;
             if (errBody.error_code)
               errorDetail = `[${errBody.error_code}] ${errorDetail}`;
+            console.error("[Zen API 422] full error body:", JSON.stringify(errBody));
+            console.error("[Zen API 422] request body sent:", JSON.stringify({ ...body, messages: body.messages.map((m: any) => ({ role: m.role, contentLen: m.content?.length })) }));
           } catch {}
           throw new Error(errorDetail);
         }
@@ -622,6 +625,12 @@ export const useChatLLM = ({
               if (line.startsWith("data: ")) {
                 const dataStr = line.slice(6).trim();
                 if (dataStr === "[DONE]") continue;
+                // Backend may stream a raw UUID line as conversation_id
+                if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dataStr)) {
+                  backendConversationId = dataStr;
+                  backendConversationIdRef.current = dataStr;
+                  continue;
+                }
                 try {
                   const data = JSON.parse(dataStr);
 
@@ -629,6 +638,7 @@ export const useChatLLM = ({
                   if (data.error) {
                     const code = data.error_code ? `[${data.error_code}] ` : "";
                     const err = new Error(`${code}${data.error}`);
+                    console.error("[Zen Stream] server error in SSE:", data);
                     (err as any).isServerError = true;
                     throw err;
                   }
@@ -701,6 +711,7 @@ export const useChatLLM = ({
                   }
                 } catch (e) {
                   if (e instanceof Error && (e as any).isServerError) throw e;
+                  // Some backends stream raw non-JSON lines (e.g. plain UUID) — ignore silently
                 }
               }
             }
@@ -839,7 +850,7 @@ export const useChatLLM = ({
           setIsProcessing(false);
           return;
         }
-
+        console.error("[Zen sendMessage] caught error:", error);
         const errorMessage: Message = {
           id: `msg-${Date.now()}-error`,
           role: "assistant",
@@ -870,6 +881,7 @@ export const useChatLLM = ({
       id: string,
       meta?: { providerId?: string; modelId?: string; accountId?: string },
     ) => {
+      console.log("[Zen BackendConvId] setBackendConversationId:", id);
       backendConversationIdRef.current = id;
       if (meta) {
         if (meta.providerId && meta.modelId) {

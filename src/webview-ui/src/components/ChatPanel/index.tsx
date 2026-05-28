@@ -125,6 +125,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
       const parentMsgId = revertParentMessageIdRef.current || undefined;
       revertParentMessageIdRef.current = null;
+      if (parentMsgId && currentConversationId) {
+        sessionStorage.removeItem(`zen-revert-parent:${currentConversationId}`);
+      }
+      console.log("[Zen Send] parentMsgId:", parentMsgId, "backendConvId will be sent by useChatLLM");
       return sendMessage(
         finalContent,
         files,
@@ -328,8 +332,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const cached = ConversationCache.get(convId);
         console.log("[Zen Load] loading convId:", convId, "cache hit:", !!cached, "cache.messages.length:", cached?.messages.length);
         if (cached) {
-          console.log("[Zen Load] restoring from cache, messages:", cached.messages.map(m => ({ id: m.id, role: m.role })));
+          console.log("[Zen Load] restoring from cache, messages:", cached.messages.map(m => ({ id: m.id, role: m.role })), "backendConversationId:", cached.backendConversationId);
           setMessages(cached.messages);
+          // Restore pending revert parent if any
+          const pendingParent = sessionStorage.getItem(`zen-revert-parent:${convId}`);
+          if (pendingParent) revertParentMessageIdRef.current = pendingParent;
           setIsRestored(cached.messages.length > 0);
           setCurrentConversationId(cached.conversationId);
           if (cached.backendConversationId) {
@@ -370,6 +377,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             id: msg.id || `restored-${Date.now()}-${i}`,
           }));
           setMessages(restoredMessages);
+
+          // Restore pending revert parent if any
+          const pendingParent = sessionStorage.getItem(`zen-revert-parent:${data.data?.conversationId}`);
+          if (pendingParent) revertParentMessageIdRef.current = pendingParent;
 
           if (data.data.messages.length > 0) {
             setIsRestored(true);
@@ -476,6 +487,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             const content = match ? match[1] : msg.content;
             const prevAssistant = [...prev.slice(0, idx)].reverse().find((m) => m.role === "assistant");
             revertParentMessageIdRef.current = prevAssistant?.response_message_id || null;
+            console.log("[Zen Revert] revertParentMessageIdRef set to:", revertParentMessageIdRef.current);
+            // Persist across webview reloads
+            if (revertParentMessageIdRef.current) {
+              sessionStorage.setItem(`zen-revert-parent:${currentConversationId}`, revertParentMessageIdRef.current);
+            } else {
+              sessionStorage.removeItem(`zen-revert-parent:${currentConversationId}`);
+            }
             setRevertInput({ value: content, nonce: Date.now() });
             const reverted = prev.slice(0, idx);
             console.log("[Zen Revert] reverted.length:", reverted.length, "updating cache for convId:", currentConversationId);
