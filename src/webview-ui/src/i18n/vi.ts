@@ -58,6 +58,7 @@ export const vi: I18nDict = {
     statEstimatedSavings: "Model yêu thích",
     statSuccessRate: "Tổng tài khoản",
     aiModelDistribution: "Phân bổ AI Model",
+    dailyUsage: "Hoạt động hôm nay",
     aiModelDeepseek: "DeepSeek Models",
     aiModelClaude: "Claude Models",
     aiModelOthers: "Gemini / OpenAI / Khác",

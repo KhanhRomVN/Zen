@@ -53,12 +53,15 @@ export class ConversationHandler {
                 messageCount: data.messages?.length || 0,
               });
             } else if (Array.isArray(data) && data.length > 0) {
-              // Get last user message as title
+              // Get most recent user message that has zen-user-content as title
               const userMessages = data.filter((m: any) => m.role === "user");
-              const lastUserMsg = userMessages[userMessages.length - 1] || data[0];
+              const lastUserMsg = [...userMessages].reverse().find((m: any) =>
+                m.content?.includes("<zen-user-content>")
+              ) || userMessages[userMessages.length - 1] || data[0];
               let rawTitle = lastUserMsg.content || "";
-              // Strip ## User Message wrapper
-              const titleMatch = rawTitle.match(/## User Message\n```\n([\s\S]*?)\n```/);
+              // Strip ## User Message wrapper (new format: zen-user-content, old format: ```)
+              const titleMatch = rawTitle.match(/## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/)
+                || rawTitle.match(/## User Message\n```\n([\s\S]*?)\n```/);
               if (titleMatch) rawTitle = titleMatch[1];
               const title = rawTitle.replace(/\n/g, " ").trim().substring(0, 100);
 

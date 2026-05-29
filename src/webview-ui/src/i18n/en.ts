@@ -56,6 +56,7 @@ export const en = {
     statEstimatedSavings: "Favorite Model",
     statSuccessRate: "Total Accounts",
     aiModelDistribution: "AI Model Distribution",
+    dailyUsage: "Today's Usage",
     aiModelDeepseek: "DeepSeek Models",
     aiModelClaude: "Claude Models",
     aiModelOthers: "Gemini / OpenAI / Others",

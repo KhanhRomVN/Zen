@@ -7,6 +7,8 @@ import { ConversationItem } from "../HistoryPanel/types";
 import HistoryCard from "../HistoryPanel/HistoryCard";
 import { useI18n } from "../../hooks/useI18n";
 import { useSettings } from "../../context/SettingsContext";
+import ModelDistributionCard from "./ModelDistributionCard";
+import DailyUsageChart from "./DailyUsageChart";
 
 const SLOGANS_KEYS = [
   "home.slogan0", "home.slogan1", "home.slogan2",
@@ -36,6 +38,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
   const [favoriteModel, setFavoriteModel] = useState<string>("—");
   const [totalAccounts, setTotalAccounts] = useState<number>(0);
   const [modelDistribution, setModelDistribution] = useState<{ model_id: string; provider_id: string; total_requests: number; total_tokens: number }[]>([]);
+  const [dailyUsage, setDailyUsage] = useState<{ date: string; requests: number; tokens: number }[]>([]);
   const [providerFavicons, setProviderFavicons] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -54,6 +57,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
             setTodayRequests(usage.reduce((s: number, u: any) => s + (u.requests || 0), 0));
             const models: any[] = (stats.data.models || []).filter((m: any) => m.total_requests > 0);
             setModelDistribution(models.slice(0, 5));
+            setDailyUsage(stats.data.usage || []);
             if (models.length > 0) setFavoriteModel(models[0].model_id);
           }
         }
@@ -181,6 +185,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
         margin: "0 auto",
         width: "100%",
         boxSizing: "border-box",
+        overflowY: "auto",
       }}
     >
       {/* Header Info */}
@@ -446,50 +451,18 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
             </div>
           </div>
 
-          {/* AI Providers Usage Visualized */}
-          <div
-            style={{
-              backgroundColor: "var(--vscode-sideBar-background, rgba(0,0,0,0.15))",
-              border: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
-              borderRadius: "8px",
-              padding: "14px",
-              boxSizing: "border-box",
-            }}
-          >
-            <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--vscode-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "12px", opacity: 0.8 }}>
-              {t("home.aiModelDistribution")}
-            </div>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {modelDistribution.length === 0 ? (
-                <span style={{ fontSize: "11px", opacity: 0.5, fontStyle: "italic" }}>{t("home.loadingHistory")}</span>
-              ) : (() => {
-                const maxReq = Math.max(...modelDistribution.map((m) => m.total_requests || 0), 1);
-                const colors = ["#3b82f6", "#d97706", "#8b5cf6", "#10b981", "#f43f5e"];
-                return modelDistribution.map((m, i) => {
-                  const pct = Math.round((m.total_requests / maxReq) * 100);
-                  const favicon = providerFavicons[m.provider_id];
-                  return (
-                    <div key={m.model_id} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", fontWeight: 500 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "5px", overflow: "hidden" }}>
-                          {favicon && (
-                            <img src={favicon} alt="" width={12} height={12} style={{ borderRadius: "2px", flexShrink: 0 }}
-                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                          )}
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.model_id}</span>
-                        </div>
-                        <span style={{ opacity: 0.8, flexShrink: 0, marginLeft: "4px" }}>{m.total_requests} req</span>
-                      </div>
-                      <div style={{ height: "6px", backgroundColor: "var(--vscode-widget-border, rgba(0,0,0,0.2))", borderRadius: "3px", overflow: "hidden" }}>
-                        <div style={{ width: `${pct}%`, height: "100%", backgroundColor: colors[i % colors.length], borderRadius: "3px" }} />
-                      </div>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-          </div>
+          {/* AI Model Distribution */}
+          <ModelDistributionCard
+            modelDistribution={modelDistribution}
+            providerFavicons={providerFavicons}
+            title={t("home.aiModelDistribution")}
+            emptyText={t("home.loadingHistory")}
+          />
+
+          <DailyUsageChart
+            usage={dailyUsage}
+            title={t("home.dailyUsage")}
+          />
 
           {/* Quick Recent Chats Card */}
           <div
@@ -514,7 +487,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                   <span style={{ fontSize: "11px" }}>{t("home.loadingHistory")}</span>
                 </div>
               ) : conversations.length > 0 ? (
-                conversations.slice(0, 3).map((item) => (
+                conversations.slice(0, 10).map((item) => (
                   <HistoryCard
                     key={item.id}
                     item={item}
