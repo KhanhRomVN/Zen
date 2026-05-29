@@ -304,14 +304,14 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
           initialCommand={action.params.command}
           cwd={action.params.cwd || rootPath}
           status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
-          onInput={(data) => {
+          onInput={isTerminalBusy ? (data) => {
             if (terminalId)
               extensionService.postMessage({
                 command: "terminalInput",
                 terminalId,
                 data,
               });
-          }}
+          } : undefined}
         />
         </>
       )}

@@ -6,7 +6,6 @@ import { spawn, ChildProcess } from "child_process";
 const LONG_RUNNING_PATTERNS = /\b(dev|start|serve|watch|preview|run dev|run start|run serve|run watch|run preview)\b/i;
 
 interface TerminalEntry {
-  terminal: vscode.Terminal | null;
   writeEmitter: vscode.EventEmitter<string>;
   process: ChildProcess | null;
   cwd: string;
@@ -57,24 +56,11 @@ export class ProcessManager {
     const name = "Zen Terminal";
     const writeEmitter = new vscode.EventEmitter<string>();
     const entry: TerminalEntry = {
-      terminal: null, writeEmitter, process: null,
+      writeEmitter, process: null,
       cwd, name, isBusy: false, output: "",
       activeActionId: null, isLongRunning: false,
     };
     this.terminalMap.set(id, entry);
-
-    const pty: vscode.Pseudoterminal = {
-      onDidWrite: writeEmitter.event,
-      open: () => {},
-      close: () => { const e = this.terminalMap.get(id); if (e) e.terminal = null; },
-      handleInput: () => {},
-    };
-    entry.terminal = vscode.window.createTerminal({ name, pty });
-
-    vscode.window.onDidCloseTerminal((t) => {
-      if (t === entry.terminal) entry.terminal = null;
-    });
-
     this.onTerminalsChangedEmitter.fire();
     return { id, name };
   }
@@ -85,7 +71,10 @@ export class ProcessManager {
 
     // If a process is running and no actionId, pipe input into its stdin
     if (!actionId && entry.process && entry.isBusy) {
-      entry.process.stdin?.write(commandText);
+      const input = commandText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      entry.writeEmitter.fire(input.replace(/\n/g, "\r\n")); // echo to UI
+      entry.output += input; // include user input in output sent to AI
+      entry.process.stdin?.write(input);
       return;
     }
 
@@ -101,7 +90,7 @@ export class ProcessManager {
     entry.isBusy = true;
     entry.activeActionId = actionId || null;
     entry.isLongRunning = isLongRunning;
-    entry.output = ""; // reset per-command output
+    entry.output = "";
 
     this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "busy" });
     this.onTerminalsChangedEmitter.fire();
@@ -142,6 +131,9 @@ export class ProcessManager {
 
       this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "free" });
       this.onTerminalsChangedEmitter.fire();
+
+      // Auto-cleanup after command finishes to free resources
+      this._cleanup(id);
     });
 
     child.on("error", (err) => {
@@ -154,26 +146,20 @@ export class ProcessManager {
       }
       this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "free" });
       this.onTerminalsChangedEmitter.fire();
+      this._cleanup(id);
     });
   }
 
-  /** Internal cleanup: dispose terminal UI + remove from map */
   private _cleanup(id: string) {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
-    entry.terminal?.dispose();
     entry.writeEmitter.dispose();
     this.terminalMap.delete(id);
     this.onTerminalsChangedEmitter.fire();
   }
 
-  attachToVSCode(id: string) {
-    this.terminalMap.get(id)?.terminal?.show(true);
-  }
-
-  focus(id: string) {
-    this.terminalMap.get(id)?.terminal?.show();
-  }
+  attachToVSCode(_id: string) {}
+  focus(_id: string) {}
 
   getOutput(id: string): string {
     return this.terminalMap.get(id)?.output ?? "";
@@ -188,7 +174,7 @@ export class ProcessManager {
       cwd: e.cwd,
       lastLog: e.output.slice(-500),
       currentCommand: "",
-      isAttached: e.terminal !== null,
+      isAttached: false,
       promptPrefix: "",
       activeActionId: e.activeActionId,
       isLongRunning: e.isLongRunning,
@@ -219,7 +205,6 @@ export class ProcessManager {
     if (entry.process) {
       try { entry.process.kill("SIGTERM"); } catch (_) {}
     }
-    entry.terminal?.dispose();
     entry.writeEmitter.dispose();
     this.terminalMap.delete(id);
     this.onTerminalsChangedEmitter.fire();

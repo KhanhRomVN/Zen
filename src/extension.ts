@@ -23,6 +23,7 @@ export async function activate(extContext: vscode.ExtensionContext) {
 
   // Also pass context to ProcessManager and restore persistent terminals
   provider.getProcessManager().setExtensionContext(extContext);
+  provider.getProcessManager().stopAll(); // clean up any leftover processes from previous session
 
   provider.initializeAgentManager();
   activeProvider = provider;

@@ -130,8 +130,11 @@ export const useToolExecution = ({
             const resolver = pendingToolResolvers.current.get(
               message.actionId,
             )!;
-            if (message.terminalId)
+            if (message.terminalId) {
               terminalToActionMap.current.delete(message.terminalId);
+              // cleanup terminal after command finishes
+              extensionService.postMessage({ command: "removeTerminal", terminalId: message.terminalId });
+            }
             commandStartTimes.current.delete(message.actionId);
             const cmdText =
               message.commandText || message.commandTextRaw || "command";
