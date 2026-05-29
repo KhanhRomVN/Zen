@@ -1,19 +1,30 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Message } from "../components/ChatPanel/ChatBody/types";
-import { extensionService, messageDispatcher } from "../services/ExtensionService";
+import {
+  extensionService,
+  messageDispatcher,
+} from "../services/ExtensionService";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 
 import { useSettings, PermissionMode } from "../context/SettingsContext";
 
 export const getPermissionDecision = (
   mode: PermissionMode,
-  toolType: string
+  toolType: string,
 ): "allow" | "prompt" | "deny" => {
   switch (mode) {
     case "bypassPermissions":
       return "allow";
     case "acceptEdits":
-      if (["read_file", "list_files", "search_files", "write_to_file", "replace_in_file"].includes(toolType)) {
+      if (
+        [
+          "read_file",
+          "list_files",
+          "search_files",
+          "write_to_file",
+          "replace_in_file",
+        ].includes(toolType)
+      ) {
         return "allow";
       }
       return "prompt";
@@ -98,7 +109,6 @@ export const useToolExecution = ({
       const message = event.data;
 
       if (message.command === "commandExecuted") {
-        console.log("[RC] commandExecuted", { actionId: message.actionId, outLen: (message.output||"").length, error: message.error, hasResolver: pendingToolResolvers.current.has(message.actionId) });
         if (message.actionId) {
           setToolOutputs((prev) => {
             const existing = prev[message.actionId];
@@ -125,10 +135,14 @@ export const useToolExecution = ({
           });
 
           if (pendingToolResolvers.current.has(message.actionId)) {
-            const resolver = pendingToolResolvers.current.get(message.actionId)!;
-            if (message.terminalId) terminalToActionMap.current.delete(message.terminalId);
+            const resolver = pendingToolResolvers.current.get(
+              message.actionId,
+            )!;
+            if (message.terminalId)
+              terminalToActionMap.current.delete(message.terminalId);
             commandStartTimes.current.delete(message.actionId);
-            const cmdText = message.commandText || message.commandTextRaw || "command";
+            const cmdText =
+              message.commandText || message.commandTextRaw || "command";
             const outputContent = (message.output || "").trim();
             const resultMsg = message.error
               ? `Output: [run_command for '${cmdText}'] Error - ${message.error}\n\`\`\`\n${outputContent}\n\`\`\``
@@ -136,14 +150,11 @@ export const useToolExecution = ({
             resolver(resultMsg);
             pendingToolResolvers.current.delete(message.actionId);
           } else {
-            // Race condition: commandExecuted arrived before resolver was registered — cache it
-            console.log("[RC] commandExecuted EARLY (no resolver yet), caching", message.actionId);
             earlyCommandResults.current.set(message.actionId, message);
           }
         }
       } else if (message.command === "terminalOutput") {
         const actionId = terminalToActionMap.current.get(message.terminalId);
-        console.log("[RC] terminalOutput", { terminalId: message.terminalId, mappedActionId: actionId, dataLen: (message.data||"").length });
         if (actionId) {
           setToolOutputs((prev) => {
             const existing = prev[actionId] || { output: "", isError: false };
@@ -163,7 +174,6 @@ export const useToolExecution = ({
           [message.terminalId]: message.status,
         }));
       } else if (message.command === "runCommandResult") {
-        console.log("[RC] runCommandResult", { terminalId: message.terminalId, actionId: message.actionId, error: message.error });
         if (message.terminalId && message.actionId) {
           terminalToActionMap.current.set(message.terminalId, message.actionId);
           setToolOutputs((prev) => ({
@@ -204,28 +214,48 @@ export const useToolExecution = ({
           extensionService.postMessage({
             command: "readFile",
             path: filePath,
-            startLine: action.params.start_line ? parseInt(action.params.start_line) : undefined,
-            endLine: action.params.end_line ? parseInt(action.params.end_line) : undefined,
+            startLine: action.params.start_line
+              ? parseInt(action.params.start_line)
+              : undefined,
+            endLine: action.params.end_line
+              ? parseInt(action.params.end_line)
+              : undefined,
             requestId,
             bypassIgnore,
           });
-          messageDispatcher.register(requestId, (msg) => {
-            if (msg.error) {
-              let readableError = msg.error;
-              if (readableError.includes("tồn tại") || readableError.includes("no such file")) readableError = "File not found in project";
-              resolve(`[read_file for '${filePath}'] Result: Error - ${readableError}`);
-            } else {
-              let result = `[read_file for '${filePath}'] Result:\n\`\`\`\n${msg.content}\n\`\`\``;
-              if (msg.diagnostics?.length > 0) result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
-              resolve(result);
-            }
-          }, 10000, () => resolve(null));
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                let readableError = msg.error;
+                if (
+                  readableError.includes("tồn tại") ||
+                  readableError.includes("no such file")
+                )
+                  readableError = "File not found in project";
+                resolve(
+                  `[read_file for '${filePath}'] Result: Error - ${readableError}`,
+                );
+              } else {
+                let result = `[read_file for '${filePath}'] Result:\n\`\`\`\n${msg.content}\n\`\`\``;
+                if (msg.diagnostics?.length > 0)
+                  result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
+                resolve(result);
+              }
+            },
+            10000,
+            () => resolve(null),
+          );
           break;
         }
         case "write_to_file": {
           const requestId = `write-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
-          console.log(`[write_to_file] Sending request`, { requestId, filePath, contentLength: action.params.content?.length });
+          console.log(`[write_to_file] Sending request`, {
+            requestId,
+            filePath,
+            contentLength: action.params.content?.length,
+          });
           extensionService.postMessage({
             command: "writeFile",
             path: filePath,
@@ -235,22 +265,41 @@ export const useToolExecution = ({
             bypassIgnore,
             conversationId: conversationIdRef?.current,
           });
-          messageDispatcher.register(requestId, (msg) => {
-            if (msg.error) {
-              console.error(`[write_to_file] Error response`, { requestId, filePath, error: msg.error });
-              resolve(`[write_to_file for '${filePath}'] Result: Error - ${msg.error}`);
-            } else {
-              let result = `[write_to_file for '${filePath}'] Result: File written successfully`;
-              if (msg.diagnostics?.length > 0) result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
-              resolve(result);
-            }
-          }, 10000, () => { console.warn(`[write_to_file] Timeout`, { requestId, filePath }); resolve(null); });
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                console.error(`[write_to_file] Error response`, {
+                  requestId,
+                  filePath,
+                  error: msg.error,
+                });
+                resolve(
+                  `[write_to_file for '${filePath}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                let result = `[write_to_file for '${filePath}'] Result: File written successfully`;
+                if (msg.diagnostics?.length > 0)
+                  result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
+                resolve(result);
+              }
+            },
+            10000,
+            () => {
+              console.warn(`[write_to_file] Timeout`, { requestId, filePath });
+              resolve(null);
+            },
+          );
           break;
         }
         case "replace_in_file": {
           const requestId = `replace-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
-          console.log(`[replace_in_file] Sending request`, { requestId, filePath, diffLength: action.params.diff?.length });
+          console.log(`[replace_in_file] Sending request`, {
+            requestId,
+            filePath,
+            diffLength: action.params.diff?.length,
+          });
           extensionService.postMessage({
             command: "replaceInFile",
             path: filePath,
@@ -260,40 +309,97 @@ export const useToolExecution = ({
             bypassIgnore,
             conversationId: conversationIdRef?.current,
           });
-          messageDispatcher.register(requestId, (msg) => {
-            if (msg.error) {
-              console.error(`[replace_in_file] Error response`, { requestId, filePath, error: msg.error });
-              resolve(`[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`);
-            } else {
-              let result = `[replace_in_file for '${filePath}'] Result: Diff applied successfully`;
-              if (msg.diagnostics?.length > 0) {
-                result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
-                if (msg.content) result += `\n\n<current_file_content_post_edit>\n(The following is the full content of '${filePath}' AFTER the edit. Please review it to fix the diagnostics.)\n\`\`\`\n${msg.content}\n\`\`\`\n</current_file_content_post_edit>`;
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                console.error(`[replace_in_file] Error response`, {
+                  requestId,
+                  filePath,
+                  error: msg.error,
+                });
+                resolve(
+                  `[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                let result = `[replace_in_file for '${filePath}'] Result: Diff applied successfully`;
+                if (msg.diagnostics?.length > 0) {
+                  result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
+                  if (msg.content)
+                    result += `\n\n<current_file_content_post_edit>\n(The following is the full content of '${filePath}' AFTER the edit. Please review it to fix the diagnostics.)\n\`\`\`\n${msg.content}\n\`\`\`\n</current_file_content_post_edit>`;
+                }
+                resolve(result);
               }
-              resolve(result);
-            }
-          }, 10000, () => { console.warn(`[replace_in_file] Timeout`, { requestId, filePath }); resolve(null); });
+            },
+            10000,
+            () => {
+              console.warn(`[replace_in_file] Timeout`, {
+                requestId,
+                filePath,
+              });
+              resolve(null);
+            },
+          );
           break;
         }
         case "list_files": {
           const requestId = `list-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.path || action.params.folder_path;
-          extensionService.postMessage({ command: "listFiles", path: folderPath, recursive: action.params.recursive, depth: action.params.depth, type: action.params.type, requestId, bypassIgnore });
-          messageDispatcher.register(requestId, (msg) => {
-            if (msg.error) { resolve(`[list_files for '${folderPath}'] Result: Error - ${msg.error}`); return; }
-            const listResults = msg.files || msg.results;
-            resolve(`[list_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(listResults) ? JSON.stringify(listResults, null, 2) : String(listResults)}\n\`\`\``);
-          }, 10000, () => resolve(null));
+          extensionService.postMessage({
+            command: "listFiles",
+            path: folderPath,
+            recursive: action.params.recursive,
+            depth: action.params.depth,
+            type: action.params.type,
+            requestId,
+            bypassIgnore,
+          });
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                resolve(
+                  `[list_files for '${folderPath}'] Result: Error - ${msg.error}`,
+                );
+                return;
+              }
+              const listResults = msg.files || msg.results;
+              resolve(
+                `[list_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(listResults) ? JSON.stringify(listResults, null, 2) : String(listResults)}\n\`\`\``,
+              );
+            },
+            10000,
+            () => resolve(null),
+          );
           break;
         }
         case "search_files": {
           const requestId = `search-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.path || action.params.folder_path;
-          extensionService.postMessage({ command: "searchFiles", path: folderPath, regex: action.params.regex, filePattern: action.params.filePattern, requestId, bypassIgnore });
-          messageDispatcher.register(requestId, (msg) => {
-            if (msg.error) { resolve(`[search_files for '${folderPath}'] Result: Error - ${msg.error}`); return; }
-            resolve(`[search_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(msg.results) ? msg.results.join("\n") : String(msg.results)}\n\`\`\``);
-          }, 10000, () => resolve(null));
+          extensionService.postMessage({
+            command: "searchFiles",
+            path: folderPath,
+            regex: action.params.regex,
+            filePattern: action.params.filePattern,
+            requestId,
+            bypassIgnore,
+          });
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                resolve(
+                  `[search_files for '${folderPath}'] Result: Error - ${msg.error}`,
+                );
+                return;
+              }
+              resolve(
+                `[search_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(msg.results) ? msg.results.join("\n") : String(msg.results)}\n\`\`\``,
+              );
+            },
+            10000,
+            () => resolve(null),
+          );
           break;
         }
         case "search_content": {
@@ -309,18 +415,19 @@ export const useToolExecution = ({
             commandText: action.params.command,
             actionId: actionId,
           });
-          console.log("[RC] dispatched runCommand", { actionId, cmd: action.params.command });
 
           // Check if commandExecuted already arrived (race condition)
           if (earlyCommandResults.current.has(actionId)) {
-            console.log("[RC] early result found, resolving immediately", actionId);
             const msg = earlyCommandResults.current.get(actionId)!;
             earlyCommandResults.current.delete(actionId);
-            const cmdText = msg.commandText || action.params.command || "command";
+            const cmdText =
+              msg.commandText || action.params.command || "command";
             const outputContent = (msg.output || "").trim();
-            resolve(msg.error
-              ? `Output: [run_command for '${cmdText}'] Error - ${msg.error}\n\`\`\`\n${outputContent}\n\`\`\``
-              : `Output: [run_command for '${cmdText}']\n\`\`\`\n${outputContent}\n\`\`\``);
+            resolve(
+              msg.error
+                ? `Output: [run_command for '${cmdText}'] Error - ${msg.error}\n\`\`\`\n${outputContent}\n\`\`\``
+                : `Output: [run_command for '${cmdText}']\n\`\`\`\n${outputContent}\n\`\`\``,
+            );
             break;
           }
 
@@ -341,35 +448,79 @@ export const useToolExecution = ({
         case "delete_file": {
           const requestId = `delete-file-${Date.now()}-${Math.random()}`;
           const filePath = action.params.file_path;
-          extensionService.postMessage({ command: "deleteFile", file_path: filePath, requestId });
-          messageDispatcher.register(requestId, (msg) => {
-            if (msg.error) { resolve(`[delete_file for '${filePath}'] Result: Error - ${msg.error}`); return; }
-            resolve(`[delete_file for '${filePath}'] Result: File deleted successfully`);
-          }, 10000, () => resolve(null));
+          extensionService.postMessage({
+            command: "deleteFile",
+            file_path: filePath,
+            requestId,
+          });
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                resolve(
+                  `[delete_file for '${filePath}'] Result: Error - ${msg.error}`,
+                );
+                return;
+              }
+              resolve(
+                `[delete_file for '${filePath}'] Result: File deleted successfully`,
+              );
+            },
+            10000,
+            () => resolve(null),
+          );
           break;
         }
 
         case "delete_folder": {
           const requestId = `delete-folder-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.folder_path;
-          extensionService.postMessage({ command: "deleteFolder", folder_path: folderPath, requestId });
-          messageDispatcher.register(requestId, (msg) => {
-            if (msg.error) { resolve(`[delete_folder for '${folderPath}'] Result: Error - ${msg.error}`); return; }
-            resolve(`[delete_folder for '${folderPath}'] Result: Folder deleted successfully`);
-          }, 10000, () => resolve(null));
+          extensionService.postMessage({
+            command: "deleteFolder",
+            folder_path: folderPath,
+            requestId,
+          });
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                resolve(
+                  `[delete_folder for '${folderPath}'] Result: Error - ${msg.error}`,
+                );
+                return;
+              }
+              resolve(
+                `[delete_folder for '${folderPath}'] Result: Folder deleted successfully`,
+              );
+            },
+            10000,
+            () => resolve(null),
+          );
           break;
         }
 
         case "execute_agent_action": {
           const requestId = `agent-${Date.now()}-${Math.random()}`;
-          extensionService.postMessage({ command: "executeAgentAction", action: { ...action.params, requestId } });
-          messageDispatcher.register(requestId, (msg) => {
-            if (msg.result.success) {
-              resolve(`[execute_agent_action] Success:\n\`\`\`\n${JSON.stringify(msg.result.data, null, 2)}\n\`\`\``);
-            } else {
-              resolve(`[execute_agent_action] Result: Error - ${msg.result.error}`);
-            }
-          }, 30000, () => resolve(null));
+          extensionService.postMessage({
+            command: "executeAgentAction",
+            action: { ...action.params, requestId },
+          });
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.result.success) {
+                resolve(
+                  `[execute_agent_action] Success:\n\`\`\`\n${JSON.stringify(msg.result.data, null, 2)}\n\`\`\``,
+                );
+              } else {
+                resolve(
+                  `[execute_agent_action] Result: Error - ${msg.result.error}`,
+                );
+              }
+            },
+            30000,
+            () => resolve(null),
+          );
           break;
         }
         default:
@@ -529,7 +680,9 @@ export const useToolExecution = ({
 
       const allActionsPreSkipped = skippedCount === actions.length;
       if (allActionsPreSkipped) {
-        setExecutionState((prev) => prev.status === "error" ? prev : { ...prev, status: "done" });
+        setExecutionState((prev) =>
+          prev.status === "error" ? prev : { ...prev, status: "done" },
+        );
         return;
       }
 
@@ -578,8 +731,8 @@ export const useToolExecution = ({
         );
 
         const isAllComplete =
-          allActionIds.every(
-            (id: string) => clickedActionsRef.current.has(id),
+          allActionIds.every((id: string) =>
+            clickedActionsRef.current.has(id),
           ) && isQuestionAnswered;
 
         if (isAllComplete && !flushedMessageIdsRef.current.has(message.id)) {
