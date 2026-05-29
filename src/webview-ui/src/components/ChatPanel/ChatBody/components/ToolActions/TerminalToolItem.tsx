@@ -283,14 +283,17 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
             backgroundColor: "var(--vscode-editor-background)",
             border: "1px solid var(--vscode-panel-border)",
             borderRadius: "4px",
-            whiteSpace: "nowrap",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
             overflow: "hidden",
-            textOverflow: "ellipsis",
+            display: "-webkit-box",
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: "vertical",
             opacity: 0.8,
             cursor: "pointer",
           }}
         >
-          {displayCommand || action.params.command}
+          {commandText}
         </div>
       ) : (
         <TerminalBlock
