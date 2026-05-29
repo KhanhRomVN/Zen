@@ -145,7 +145,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     [sendMessage, selectedTab],
   );
 
-  const { executionState, toolOutputs, terminalStatus, handleToolRequest } =
+  const { executionState, toolOutputs, setToolOutputs, terminalStatus, handleToolRequest } =
     useToolExecution({
       conversationIdRef: currentConversationIdRef,
       messagesRef: messagesRef,
@@ -310,14 +310,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         backendConversationId: existing?.backendConversationId,
         currentModel: currentModel || existing?.currentModel,
         currentAccount: currentAccount || existing?.currentAccount,
+        toolOutputs: Object.keys(toolOutputs).length > 0 ? toolOutputs : existing?.toolOutputs,
       });
     }
-  }, [messages, currentConversationId, currentModel, currentAccount]);
+  }, [messages, currentConversationId, currentModel, currentAccount, toolOutputs]);
 
   // Load conversation from extension
   useEffect(() => {
     const load = async () => {
       if (!selectedTab) {
+        if (currentConversationIdRef.current) {
+          return;
+        }
         setMessages([]);
         setIsLoadingConversation(false);
         setIsProcessing(false);
@@ -333,6 +337,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const cached = ConversationCache.get(convId);
         if (cached) {
           setMessages(cached.messages);
+          if (cached.toolOutputs && Object.keys(cached.toolOutputs).length > 0) {
+            setToolOutputs(cached.toolOutputs);
+          }
           // Restore pending revert parent if any
           const pendingParent = sessionStorage.getItem(
             `zen-revert-parent:${convId}`,

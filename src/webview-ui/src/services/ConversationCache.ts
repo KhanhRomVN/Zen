@@ -6,6 +6,7 @@ export interface CachedConversation {
   backendConversationId?: string;
   currentModel?: any;
   currentAccount?: any;
+  toolOutputs?: Record<string, { output: string; isError: boolean; terminalId?: string }>;
 }
 
 const MAX_CACHE = 20;

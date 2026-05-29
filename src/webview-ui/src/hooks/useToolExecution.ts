@@ -112,18 +112,10 @@ export const useToolExecution = ({
         if (message.actionId) {
           setToolOutputs((prev) => {
             const existing = prev[message.actionId];
-
-            // 🛡️ SMART MERGE: Terminal output is additive.
-            // In case of race conditions or incomplete extension logs,
-            // always prioritize the LONGEST version to avoid content disappearance.
             let finalOutput = message.output || "";
-            if (
-              existing?.output &&
-              existing.output.length > finalOutput.length
-            ) {
+            if (existing?.output && existing.output.length > finalOutput.length) {
               finalOutput = existing.output;
             }
-
             return {
               ...prev,
               [message.actionId]: {
@@ -839,6 +831,7 @@ export const useToolExecution = ({
   return {
     executionState,
     toolOutputs,
+    setToolOutputs,
     clickedActions,
     terminalStatus,
     handleToolRequest,

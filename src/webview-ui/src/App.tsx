@@ -202,23 +202,29 @@ const App: React.FC = () => {
     }
   }, []);
 
+  const lastSelectedTabRef = React.useRef<TabInfo | null>(null);
+  if (selectedTab) lastSelectedTabRef.current = selectedTab;
+
   return (
     <ThemeProvider>
       <SettingsProvider>
         <BackendConnectionProvider>
           <ProjectProvider>
             <div className="app-container">
-              {selectedTab ? (
-                <ChatPanel
-                  selectedTab={selectedTab}
-                  onBack={handleBack}
-                  tabs={tabs}
-                  onTabSelect={handleTabSelect}
-                  onLoadConversation={handleLoadConversation}
-                  initialMessageData={initialMessageData}
-                  onClearInitialData={() => setInitialMessageData(null)}
-                />
-              ) : (
+              {lastSelectedTabRef.current && (
+                <div style={{ display: selectedTab ? "contents" : "none" }}>
+                  <ChatPanel
+                    selectedTab={lastSelectedTabRef.current}
+                    onBack={handleBack}
+                    tabs={tabs}
+                    onTabSelect={handleTabSelect}
+                    onLoadConversation={handleLoadConversation}
+                    initialMessageData={initialMessageData}
+                    onClearInitialData={() => setInitialMessageData(null)}
+                  />
+                </div>
+              )}
+              {!selectedTab && (
                 <HomePanel
                   onSendMessage={handleHomeSendMessage}
                   onLoadConversation={handleLoadConversation}

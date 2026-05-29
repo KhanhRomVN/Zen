@@ -105,7 +105,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
       });
       return () => window.removeEventListener("message", handleMessage);
     }
-  }, [nextUserMessage, runCommandAction, messageId, storedOutput]);
+  }, [nextUserMessage?.id, runCommandAction?.action.params.command, messageId, storedOutput]);
 
   // Validate fuzzy match & fetch file stats
   React.useEffect(() => {
