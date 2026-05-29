@@ -13,6 +13,7 @@ interface TerminalBlockProps {
   rows?: number;
   initialCommand?: string;
   cwd?: string;
+  isCollapsed?: boolean;
   onInput?: (data: string) => void;
 }
 
@@ -23,6 +24,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   initialCommand,
   cwd,
   rows = 22,
+  isCollapsed = false,
   onInput,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -191,7 +193,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   }, [logs, status, isXtermVisible, rows]);
 
   return (
-    <div className="terminal-block-container">
+    <div className="terminal-block-container" style={{ display: isCollapsed ? "none" : undefined }}>
       {/* 🆕 FIXED HEADER: Environment info & Command (Only show when running) */}
       {isXtermVisible && (
         <div
@@ -232,9 +234,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
               width: "100%",
             }}
           >
-            <span style={{ color: "var(--vscode-descriptionForeground)" }}>
-              {cwd ? `${formatCwd(cwd)}$` : ""}
-            </span>
             <span style={{ color: "var(--vscode-terminal-foreground)" }}>
               {initialCommand ? formatCommand(initialCommand) : "Terminal"}
             </span>
@@ -308,9 +307,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
                 fontSize: "12px",
               }}
             >
-              <span style={{ color: "var(--vscode-descriptionForeground)" }}>
-                {cwd ? `${formatCwd(cwd)}$` : ""}
-              </span>
               <span style={{ color: "var(--vscode-terminal-foreground)" }}>
                 {initialCommand
                   ? formatCommand(initialCommand)

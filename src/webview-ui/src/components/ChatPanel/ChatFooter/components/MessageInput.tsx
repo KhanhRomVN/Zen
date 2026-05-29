@@ -2,46 +2,60 @@ import React from "react";
 import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
 import { PlusIcon, SendIcon } from "./Icons";
-import {
-  X,
-  Zap,
-  FileCode,
-  Brain,
-  Eye,
-} from "lucide-react";
+import { X, Zap, FileCode, Brain, Eye } from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
 import { useSettings } from "../../../../context/SettingsContext";
 import QuickSwitchDrawer from "./QuickSwitchDrawer";
 import { useI18n } from "@/hooks/useI18n";
 
-
-
 const BrainCogIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-brain-cog-icon lucide-brain-cog">
-    <path d="m10.852 14.772-.383.923"/>
-    <path d="m10.852 9.228-.383-.923"/>
-    <path d="m13.148 14.772.382.924"/>
-    <path d="m13.531 8.305-.383.923"/>
-    <path d="m14.772 10.852.923-.383"/>
-    <path d="m14.772 13.148.923.383"/>
-    <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 0 0-5.63-1.446 3 3 0 0 0-.368 1.571 4 4 0 0 0-2.525 5.771"/>
-    <path d="M17.998 5.125a4 4 0 0 1 2.525 5.771"/>
-    <path d="M19.505 10.294a4 4 0 0 1-1.5 7.706"/>
-    <path d="M4.032 17.483A4 4 0 0 0 11.464 20c.18-.311.892-.311 1.072 0a4 4 0 0 0 7.432-2.516"/>
-    <path d="M4.5 10.291A4 4 0 0 0 6 18"/>
-    <path d="M6.002 5.125a3 3 0 0 0 .4 1.375"/>
-    <path d="m9.228 10.852-.923-.383"/>
-    <path d="m9.228 13.148-.923.383"/>
-    <circle cx="12" cy="12" r="3"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="lucide lucide-brain-cog-icon lucide-brain-cog"
+  >
+    <path d="m10.852 14.772-.383.923" />
+    <path d="m10.852 9.228-.383-.923" />
+    <path d="m13.148 14.772.382.924" />
+    <path d="m13.531 8.305-.383.923" />
+    <path d="m14.772 10.852.923-.383" />
+    <path d="m14.772 13.148.923.383" />
+    <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 0 0-5.63-1.446 3 3 0 0 0-.368 1.571 4 4 0 0 0-2.525 5.771" />
+    <path d="M17.998 5.125a4 4 0 0 1 2.525 5.771" />
+    <path d="M19.505 10.294a4 4 0 0 1-1.5 7.706" />
+    <path d="M4.032 17.483A4 4 0 0 0 11.464 20c.18-.311.892-.311 1.072 0a4 4 0 0 0 7.432-2.516" />
+    <path d="M4.5 10.291A4 4 0 0 0 6 18" />
+    <path d="M6.002 5.125a3 3 0 0 0 .4 1.375" />
+    <path d="m9.228 10.852-.923-.383" />
+    <path d="m9.228 13.148-.923.383" />
+    <circle cx="12" cy="12" r="3" />
   </svg>
 );
 
 const GlobeIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-globe-icon lucide-globe">
-    <circle cx="12" cy="12" r="10"/>
-    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
-    <path d="M2 12h20"/>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="lucide lucide-globe-icon lucide-globe"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+    <path d="M2 12h20" />
   </svg>
 );
 
@@ -51,8 +65,11 @@ interface ToggleButtonProps {
   title: string;
 }
 
-
-const ThinkingButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) => {
+const ThinkingButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => {
   const [isHovered, setIsHovered] = React.useState(false);
 
   return (
@@ -77,28 +94,36 @@ const ThinkingButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) =
           ? "1px solid var(--vscode-editorBracketHighlight-foreground2, rgba(168, 85, 247, 0.4))"
           : "1px solid rgba(128, 128, 128, 0.2)",
         background: isOn
-          ? (isHovered
-              ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, transparent)"
-              : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 12%, transparent)")
-          : (isHovered
-              ? "rgba(128, 128, 128, 0.2)"
-              : "rgba(128, 128, 128, 0.12)"),
+          ? isHovered
+            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, transparent)"
+            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 12%, transparent)"
+          : isHovered
+            ? "rgba(128, 128, 128, 0.2)"
+            : "rgba(128, 128, 128, 0.12)",
         color: isOn
           ? "var(--vscode-editorBracketHighlight-foreground2, #a855f7)"
           : "var(--vscode-foreground)",
-        opacity: isOn ? 1 : (isHovered ? 0.9 : 0.7),
+        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
         lineHeight: 1,
         verticalAlign: "middle",
       }}
       title={title}
     >
       <BrainCogIcon />
-      <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>Thinking</span>
+      <span
+        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+      >
+        Thinking
+      </span>
     </button>
   );
 };
 
-const SearchButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) => {
+const SearchButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => {
   const [isHovered, setIsHovered] = React.useState(false);
 
   return (
@@ -123,23 +148,27 @@ const SearchButton: React.FC<ToggleButtonProps> = ({ isOn, onClick, title }) => 
           ? "1px solid var(--vscode-editorBracketHighlight-foreground1, rgba(14, 165, 233, 0.4))"
           : "1px solid rgba(128, 128, 128, 0.2)",
         background: isOn
-          ? (isHovered
-              ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 20%, transparent)"
-              : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 12%, transparent)")
-          : (isHovered
-              ? "rgba(128, 128, 128, 0.2)"
-              : "rgba(128, 128, 128, 0.12)"),
+          ? isHovered
+            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 20%, transparent)"
+            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 12%, transparent)"
+          : isHovered
+            ? "rgba(128, 128, 128, 0.2)"
+            : "rgba(128, 128, 128, 0.12)",
         color: isOn
           ? "var(--vscode-editorBracketHighlight-foreground1, #0ea5e9)"
           : "var(--vscode-foreground)",
-        opacity: isOn ? 1 : (isHovered ? 0.9 : 0.7),
+        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
         lineHeight: 1,
         verticalAlign: "middle",
       }}
       title={title}
     >
       <GlobeIcon />
-      <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>Search</span>
+      <span
+        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+      >
+        Search
+      </span>
     </button>
   );
 };
@@ -150,13 +179,18 @@ const GlobalPermissionButton: React.FC = () => {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = React.useState(false);
-  const [tooltip, setTooltip] = React.useState<{ id: string; x: number; y: number } | null>(null);
+  const [tooltip, setTooltip] = React.useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const tooltipTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -169,17 +203,47 @@ const GlobalPermissionButton: React.FC = () => {
     }
   }, [open]);
 
-  const MODE_METADATA: Record<string, { label: string; desc: string; icon: React.ReactNode; color: string }> = {
-    bypassPermissions: { label: t("permission.bypassPermissions"), desc: t("settings.bypassPermissionsDesc"), icon: <Zap size={11} />, color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)" },
-    acceptEdits:       { label: t("permission.acceptEdits"),       desc: t("settings.acceptEditsDesc"),       icon: <FileCode size={11} />, color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)" },
-    auto:              { label: t("permission.auto"),              desc: t("settings.autoDesc"),              icon: <Brain size={11} />, color: "var(--vscode-symbolIcon-constructorForeground, #10b981)" },
-    plan:              { label: t("permission.plan"),              desc: t("settings.planDesc"),              icon: <Eye size={11} />, color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)" },
+  const MODE_METADATA: Record<
+    string,
+    { label: string; desc: string; icon: React.ReactNode; color: string }
+  > = {
+    bypassPermissions: {
+      label: t("permission.bypassPermissions"),
+      desc: t("settings.bypassPermissionsDesc"),
+      icon: <Zap size={11} />,
+      color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)",
+    },
+    acceptEdits: {
+      label: t("permission.acceptEdits"),
+      desc: t("settings.acceptEditsDesc"),
+      icon: <FileCode size={11} />,
+      color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
+    },
+    auto: {
+      label: t("permission.auto"),
+      desc: t("settings.autoDesc"),
+      icon: <Brain size={11} />,
+      color: "var(--vscode-symbolIcon-constructorForeground, #10b981)",
+    },
+    plan: {
+      label: t("permission.plan"),
+      desc: t("settings.planDesc"),
+      icon: <Eye size={11} />,
+      color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
+    },
   };
 
-  const handleItemMouseEnter = (id: string, e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleItemMouseEnter = (
+    id: string,
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
     if (!e.currentTarget.parentElement) return;
-    if (!e.currentTarget.style.backgroundColor || e.currentTarget.style.backgroundColor === "transparent") {
-      e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
+    if (
+      !e.currentTarget.style.backgroundColor ||
+      e.currentTarget.style.backgroundColor === "transparent"
+    ) {
+      e.currentTarget.style.backgroundColor =
+        "var(--vscode-list-hoverBackground)";
     }
     const rect = e.currentTarget.getBoundingClientRect();
     tooltipTimer.current = setTimeout(() => {
@@ -187,7 +251,10 @@ const GlobalPermissionButton: React.FC = () => {
     }, 500);
   };
 
-  const handleItemMouseLeave = (isSelected: boolean, e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleItemMouseLeave = (
+    isSelected: boolean,
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
     if (!isSelected) e.currentTarget.style.backgroundColor = "transparent";
     if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
     setTooltip(null);
@@ -226,23 +293,28 @@ const GlobalPermissionButton: React.FC = () => {
         title="Tool permission mode"
       >
         {metadata.icon}
-        <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>
+        <span
+          style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+        >
           {metadata.label}
         </span>
       </button>
       {open && (
-        <div style={{
-          position: "absolute",
-          bottom: "calc(100% + 4px)",
-          left: 0,
-          zIndex: 1000,
-          backgroundColor: "color-mix(in srgb, var(--input-bg) 100%, black 15%)",
-          border: "1px solid var(--vscode-widget-border)",
-          borderRadius: "6px",
-          overflow: "hidden",
-          boxShadow: "0 -4px 12px rgba(0,0,0,0.2)",
-          minWidth: "180px",
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 4px)",
+            left: 0,
+            zIndex: 1000,
+            backgroundColor:
+              "color-mix(in srgb, var(--input-bg) 100%, black 15%)",
+            border: "1px solid var(--vscode-widget-border)",
+            borderRadius: "6px",
+            overflow: "hidden",
+            boxShadow: "0 -4px 12px rgba(0,0,0,0.2)",
+            minWidth: "180px",
+          }}
+        >
           {Object.entries(MODE_METADATA).map(([modeId, meta]) => {
             const isSelected = permissionMode === modeId;
             return (
@@ -265,13 +337,23 @@ const GlobalPermissionButton: React.FC = () => {
                   textAlign: "left",
                   border: "none",
                   cursor: "pointer",
-                  background: isSelected ? "var(--vscode-button-background)" : "transparent",
-                  color: isSelected ? "var(--vscode-button-foreground)" : "var(--vscode-foreground)",
+                  background: isSelected
+                    ? "var(--vscode-button-background)"
+                    : "transparent",
+                  color: isSelected
+                    ? "var(--vscode-button-foreground)"
+                    : "var(--vscode-foreground)",
                 }}
                 onMouseEnter={(e) => handleItemMouseEnter(modeId, e)}
                 onMouseLeave={(e) => handleItemMouseLeave(isSelected, e)}
               >
-                <span style={{ color: isSelected ? "inherit" : meta.color, display: "flex", alignItems: "center" }}>
+                <span
+                  style={{
+                    color: isSelected ? "inherit" : meta.color,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
                   {meta.icon}
                 </span>
                 {meta.label}
@@ -281,23 +363,32 @@ const GlobalPermissionButton: React.FC = () => {
         </div>
       )}
       {tooltip && MODE_METADATA[tooltip.id] && (
-        <div style={{
-          position: "fixed",
-          left: tooltip.x,
-          top: tooltip.y,
-          zIndex: 9999,
-          backgroundColor: "var(--vscode-editorHoverWidget-background, #1e1e1e)",
-          border: "1px solid var(--vscode-editorHoverWidget-border, #454545)",
-          borderRadius: "6px",
-          padding: "8px 10px",
-          maxWidth: "220px",
-          fontSize: "11px",
-          color: "var(--vscode-foreground)",
-          lineHeight: 1.5,
-          pointerEvents: "none",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-        }}>
-          <div style={{ fontWeight: 600, marginBottom: "3px", color: MODE_METADATA[tooltip.id].color }}>
+        <div
+          style={{
+            position: "fixed",
+            left: tooltip.x,
+            top: tooltip.y,
+            zIndex: 9999,
+            backgroundColor:
+              "var(--vscode-editorHoverWidget-background, #1e1e1e)",
+            border: "1px solid var(--vscode-editorHoverWidget-border, #454545)",
+            borderRadius: "6px",
+            padding: "8px 10px",
+            maxWidth: "220px",
+            fontSize: "11px",
+            color: "var(--vscode-foreground)",
+            lineHeight: 1.5,
+            pointerEvents: "none",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 600,
+              marginBottom: "3px",
+              color: MODE_METADATA[tooltip.id].color,
+            }}
+          >
             {MODE_METADATA[tooltip.id].label}
           </div>
           {MODE_METADATA[tooltip.id].desc}
@@ -445,7 +536,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   }, [currentModelConfig]);
 
   const showSearchButton = React.useMemo(() => {
-    return !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search;
+    return (
+      !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search
+    );
   }, [currentModelConfig, currentProviderConfig]);
 
   // Sync thinking and search toggles when model changes
@@ -453,17 +546,29 @@ const MessageInput: React.FC<MessageInputProps> = ({
     if (providers.length === 0 || !currentModel) return;
 
     const hasThinking = !!currentModelConfig?.is_thinking;
-    const hasSearch = !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search;
+    const hasSearch =
+      !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search;
 
     if (!hasThinking && isThinking) {
       setIsThinking(false);
-      try { localStorage.setItem("zen-thinking-enabled", "false"); } catch {}
+      try {
+        localStorage.setItem("zen-thinking-enabled", "false");
+      } catch {}
     }
     if (!hasSearch && isSearch) {
       setIsSearch(false);
-      try { localStorage.setItem("zen-search-enabled", "false"); } catch {}
+      try {
+        localStorage.setItem("zen-search-enabled", "false");
+      } catch {}
     }
-  }, [currentModel, currentModelConfig, currentProviderConfig, providers, isThinking, isSearch]);
+  }, [
+    currentModel,
+    currentModelConfig,
+    currentProviderConfig,
+    providers,
+    isThinking,
+    isSearch,
+  ]);
 
   const supportsUpload = React.useMemo(() => {
     if (!currentProviderConfig) return false;
@@ -539,10 +644,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
               if (saved.accountId) {
                 pendingAccountIdRef.current = saved.accountId;
                 if (saved.email) {
-                  setCurrentAccount({ id: saved.accountId, email: saved.email });
+                  setCurrentAccount({
+                    id: saved.accountId,
+                    email: saved.email,
+                  });
                 }
               }
-              try { localStorage.setItem(key, res.value); } catch {}
+              try {
+                localStorage.setItem(key, res.value);
+              } catch {}
             }
           });
         }
@@ -635,13 +745,19 @@ const MessageInput: React.FC<MessageInputProps> = ({
           borderRadius: "var(--border-radius)",
           border: !isConnected ? "1px solid #f44336" : "1px solid transparent",
           transition: "border 0.3s ease",
-          marginTop: (!isConversationStarted || (isConnected && isElaraMismatch)) ? "24px" : "0px", // Space for badges sticking up
+          marginTop:
+            !isConversationStarted || (isConnected && isElaraMismatch)
+              ? "24px"
+              : "0px", // Space for badges sticking up
         }}
       >
         {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
         {!isConversationStarted && (
           <div
-            onClick={() => { if (providers.length === 0) fetchProviders(); setShowModelDrawer((v) => !v); }}
+            onClick={() => {
+              if (providers.length === 0) fetchProviders();
+              setShowModelDrawer((v) => !v);
+            }}
             style={{
               position: "absolute",
               bottom: !isConnected ? "calc(100% + 2px)" : "100%",
@@ -728,11 +844,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
             providers={providers}
             apiUrl={apiUrl}
             onSelect={(selected) => {
-              const prov = providers.find((p: any) => p.provider_id === selected.providerId);
-              const modelObj = prov?.models?.find((m: any) => m.id === selected.modelId);
+              const prov = providers.find(
+                (p: any) => p.provider_id === selected.providerId,
+              );
+              const modelObj = prov?.models?.find(
+                (m: any) => m.id === selected.modelId,
+              );
               let faviconUrl = "";
               if (prov?.website) {
-                try { faviconUrl = `${new URL(prov.website).origin}/favicon.ico`; } catch {}
+                try {
+                  faviconUrl = `${new URL(prov.website).origin}/favicon.ico`;
+                } catch {}
               }
               setCurrentModel({
                 ...selected,
@@ -740,7 +862,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 name: modelObj?.name || selected.modelId,
                 favicon: faviconUrl,
               });
-              setCurrentAccount({ id: selected.accountId, email: selected.email });
+              setCurrentAccount({
+                id: selected.accountId,
+                email: selected.email,
+              });
               setShowModelDrawer(false);
             }}
           />
@@ -783,9 +908,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
               }
             }}
             onPaste={(e) => {
-              console.log("[Zen Log] MessageInput onPaste triggered. supportsUpload:", supportsUpload, "files length:", e.clipboardData.files?.length, "items length:", e.clipboardData.items?.length);
               if (!supportsUpload && e.clipboardData.files.length > 0) {
-                console.warn("[Zen Log] MessageInput onPaste: Upload is not supported, preventing paste.");
+                console.warn(
+                  "[Zen Log] MessageInput onPaste: Upload is not supported, preventing paste.",
+                );
                 e.preventDefault();
                 // Optional: Show toast "Upload not supported by this provider"
                 return;
@@ -856,7 +982,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
           }}
         >
           {/* Left Icons */}
-          <div style={{ display: "flex", gap: "var(--spacing-xs)", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "var(--spacing-xs)",
+              alignItems: "center",
+            }}
+          >
             {supportsUpload && (
               <div
                 onClick={handleFileSelect}
@@ -873,7 +1005,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   cursor: "pointer",
                   transition: "all 0.2s ease-in-out",
                   border: "1px solid rgba(128, 128, 128, 0.2)",
-                  background: isPlusHovered ? "rgba(128, 128, 128, 0.2)" : "rgba(128, 128, 128, 0.12)",
+                  background: isPlusHovered
+                    ? "rgba(128, 128, 128, 0.2)"
+                    : "rgba(128, 128, 128, 0.12)",
                   color: "var(--vscode-foreground)",
                   opacity: isPlusHovered ? 0.9 : 0.7,
                 }}
@@ -903,8 +1037,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 title="Toggle Web Search Grounding"
               />
             )}
-
-
           </div>
 
           {/* Right Icons */}
@@ -952,7 +1084,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   if (
-                    isStreaming || isProcessing ||
+                    isStreaming ||
+                    isProcessing ||
                     message.trim() ||
                     uploadedFiles.length > 0
                   ) {
@@ -962,9 +1095,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = "transparent";
                 }}
-                title={isStreaming || isProcessing ? "Stop Generation" : "Send Message"}
+                title={
+                  isStreaming || isProcessing
+                    ? "Stop Generation"
+                    : "Send Message"
+                }
               >
-                {isStreaming || isProcessing ? <X size={16} strokeWidth={2.5} /> : <SendIcon />}
+                {isStreaming || isProcessing ? (
+                  <X size={16} strokeWidth={2.5} />
+                ) : (
+                  <SendIcon />
+                )}
               </div>
             )}
           </div>

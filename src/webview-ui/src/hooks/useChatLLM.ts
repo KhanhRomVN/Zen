@@ -147,6 +147,7 @@ export const useChatLLM = ({
   }, [selectedTab]);
 
   const stopGeneration = useCallback(() => {
+    console.log("[stopGeneration] called", new Error().stack?.split('\n')[2]);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -166,6 +167,7 @@ export const useChatLLM = ({
     setIsProcessing(false);
 
     // Stop all processes in the extension
+    console.log("[stopGeneration] sending stopCommand all");
     extensionService.postMessage({
       command: "stopCommand",
       actionId: "all",
@@ -558,14 +560,15 @@ export const useChatLLM = ({
           messages: finalPayloadMessages,
           stream: true,
           conversationId: backendConversationIdRef.current || undefined,
-          ...(parentMessageId ? { parent_message_id: Number(parentMessageId) } : {}),
+          ...(parentMessageId
+            ? { parent_message_id: Number(parentMessageId) }
+            : {}),
           is_thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           is_search: localStorage.getItem("zen-search-enabled") === "true",
           thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           search: localStorage.getItem("zen-search-enabled") === "true",
           ...(ref_file_ids.length > 0 ? { ref_file_ids } : {}),
         };
-        console.log("[Zen API] sending request. conversationId:", body.conversationId, "parent_message_id:", (body as any).parent_message_id, "messages.length:", finalPayloadMessages.length);
 
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
@@ -589,8 +592,6 @@ export const useChatLLM = ({
             errorDetail = msg || errorDetail;
             if (errBody.error_code)
               errorDetail = `[${errBody.error_code}] ${errorDetail}`;
-            console.error("[Zen API 422] full error body:", JSON.stringify(errBody));
-            console.error("[Zen API 422] request body sent:", JSON.stringify({ ...body, messages: body.messages.map((m: any) => ({ role: m.role, contentLen: m.content?.length })) }));
           } catch {}
           throw new Error(errorDetail);
         }
@@ -626,7 +627,11 @@ export const useChatLLM = ({
                 const dataStr = line.slice(6).trim();
                 if (dataStr === "[DONE]") continue;
                 // Backend may stream a raw UUID line as conversation_id
-                if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(dataStr)) {
+                if (
+                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                    dataStr,
+                  )
+                ) {
                   backendConversationId = dataStr;
                   backendConversationIdRef.current = dataStr;
                   continue;

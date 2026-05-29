@@ -73,6 +73,7 @@ export const useToolExecution = ({
     Map<string, (result: string | null) => void>
   >(new Map());
   const commandStartTimes = useRef<Map<string, number>>(new Map());
+  const earlyCommandResults = useRef<Map<string, any>>(new Map()); // cache commandExecuted that arrived before resolver was set
   const handleSendMessageRef = useRef(sendMessage);
 
   // 🆕 Buffer for tool results (to support multi-step tool calls)
@@ -97,6 +98,7 @@ export const useToolExecution = ({
       const message = event.data;
 
       if (message.command === "commandExecuted") {
+        console.log("[RC] commandExecuted", { actionId: message.actionId, outLen: (message.output||"").length, error: message.error, hasResolver: pendingToolResolvers.current.has(message.actionId) });
         if (message.actionId) {
           setToolOutputs((prev) => {
             const existing = prev[message.actionId];
@@ -123,31 +125,25 @@ export const useToolExecution = ({
           });
 
           if (pendingToolResolvers.current.has(message.actionId)) {
-            const resolver = pendingToolResolvers.current.get(message.actionId);
-            if (resolver) {
-              if (message.terminalId) {
-                terminalToActionMap.current.delete(message.terminalId);
-              }
-
-              const cmdText = message.commandText || message.commandTextRaw || "command";
-              const outputContent = (message.output || "").trim();
-
-              const startTime = commandStartTimes.current.get(message.actionId);
-              if (startTime) {
-                commandStartTimes.current.delete(message.actionId);
-              }
-
-              const resultMsg = message.error
-                ? `Output: [run_command for '${cmdText}'] Error - ${message.error}\n\`\`\`\n${outputContent}\n\`\`\``
-                : `Output: [run_command for '${cmdText}']\n\`\`\`\n${outputContent}\n\`\`\``;
-
-              resolver(resultMsg);
-              pendingToolResolvers.current.delete(message.actionId);
-            }
+            const resolver = pendingToolResolvers.current.get(message.actionId)!;
+            if (message.terminalId) terminalToActionMap.current.delete(message.terminalId);
+            commandStartTimes.current.delete(message.actionId);
+            const cmdText = message.commandText || message.commandTextRaw || "command";
+            const outputContent = (message.output || "").trim();
+            const resultMsg = message.error
+              ? `Output: [run_command for '${cmdText}'] Error - ${message.error}\n\`\`\`\n${outputContent}\n\`\`\``
+              : `Output: [run_command for '${cmdText}']\n\`\`\`\n${outputContent}\n\`\`\``;
+            resolver(resultMsg);
+            pendingToolResolvers.current.delete(message.actionId);
+          } else {
+            // Race condition: commandExecuted arrived before resolver was registered — cache it
+            console.log("[RC] commandExecuted EARLY (no resolver yet), caching", message.actionId);
+            earlyCommandResults.current.set(message.actionId, message);
           }
         }
       } else if (message.command === "terminalOutput") {
         const actionId = terminalToActionMap.current.get(message.terminalId);
+        console.log("[RC] terminalOutput", { terminalId: message.terminalId, mappedActionId: actionId, dataLen: (message.data||"").length });
         if (actionId) {
           setToolOutputs((prev) => {
             const existing = prev[actionId] || { output: "", isError: false };
@@ -167,6 +163,7 @@ export const useToolExecution = ({
           [message.terminalId]: message.status,
         }));
       } else if (message.command === "runCommandResult") {
+        console.log("[RC] runCommandResult", { terminalId: message.terminalId, actionId: message.actionId, error: message.error });
         if (message.terminalId && message.actionId) {
           terminalToActionMap.current.set(message.terminalId, message.actionId);
           setToolOutputs((prev) => ({
@@ -312,6 +309,22 @@ export const useToolExecution = ({
             commandText: action.params.command,
             actionId: actionId,
           });
+          console.log("[RC] dispatched runCommand", { actionId, cmd: action.params.command });
+
+          // Check if commandExecuted already arrived (race condition)
+          if (earlyCommandResults.current.has(actionId)) {
+            console.log("[RC] early result found, resolving immediately", actionId);
+            const msg = earlyCommandResults.current.get(actionId)!;
+            earlyCommandResults.current.delete(actionId);
+            const cmdText = msg.commandText || action.params.command || "command";
+            const outputContent = (msg.output || "").trim();
+            resolve(msg.error
+              ? `Output: [run_command for '${cmdText}'] Error - ${msg.error}\n\`\`\`\n${outputContent}\n\`\`\``
+              : `Output: [run_command for '${cmdText}']\n\`\`\`\n${outputContent}\n\`\`\``);
+            break;
+          }
+
+          // Only resolve when process finishes naturally or user clicks "Kết thúc"
           pendingToolResolvers.current.set(actionId, resolve);
 
           break;

@@ -6,6 +6,8 @@ import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../../hooks/useI18n";
+import { useSettings } from "../../../../../context/SettingsContext";
+import { getPermissionDecision } from "../../../../../hooks/useToolExecution";
 
 interface TerminalToolItemProps {
   action: ToolAction;
@@ -27,9 +29,10 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
   isLastMessage, toolOutputs, terminalStatus, nextUserMessage, rootPath, onToolClick,
   storedOutput,
 }) => {
-  const [isCollapsed, setIsCollapsed] = React.useState(true);
-  const toolColor = getToolColor("run_command");
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
   const { t } = useI18n();
+  const { permissionMode } = useSettings();
+  const needsPrompt = getPermissionDecision(permissionMode, "run_command") === "prompt";
   const actionId = `${messageId}-action-${actionIndex}`;
   const outputData = toolOutputs?.[actionId];
   const commandText = action.params.command || "";
@@ -53,6 +56,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
     : isActionClicked;
   const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
   const isCompleted = hasOutput && !isTerminalBusy;
+  const toolColor = getToolColor("run_command");
   const dotColor = isCompleted ? "#3fb950"
     : isTerminalBusy || (isActionClicked && !outputData) ? "#e3b341"
     : isActiveGroup ? "var(--vscode-button-background)"
@@ -73,39 +77,29 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0 6px 0" }}>
         <div 
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={() => { if (isCompleted || hasOutput) setIsCollapsed((v) => !v); }}
           style={{ 
             display: "flex", 
             alignItems: "center", 
             gap: "6px", 
-            cursor: "pointer",
-            userSelect: "none",
-            opacity: 0.8,
-            transition: "opacity 0.2s ease",
             minWidth: 0,
             flex: 1,
+            cursor: isCompleted || hasOutput ? "pointer" : "default",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.8"; }}
         >
+          {(isCompleted || hasOutput) && (
+            <span
+              className={`codicon codicon-chevron-${isCollapsed ? "right" : "down"}`}
+              style={{ fontSize: "12px", opacity: 0.8, flexShrink: 0 }}
+            />
+          )}
           <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--vscode-editor-foreground)", textTransform: "uppercase", letterSpacing: "0.5px", flexShrink: 0 }}>
             {t("tools.execute")}
           </span>
-          {isCollapsed && commandText && (
-            <span style={{
-              fontSize: "11px", color: "var(--vscode-descriptionForeground)", opacity: 0.7,
-              fontFamily: "var(--vscode-editor-font-family, monospace)",
-              backgroundColor: "var(--vscode-editor-background)", padding: "1px 6px",
-              borderRadius: "4px", border: "1px solid var(--vscode-widget-border)",
-              textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap",
-            }}>
-              {displayCommand}
-            </span>
-          )}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-          {!isCollapsed && !isTerminalBusy && !isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
+          {needsPrompt && !isTerminalBusy && !isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
             <ExecuteButton
               isActive={isActiveGroup || false}
               isCompleted={isCompleted}
@@ -146,7 +140,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
         </div>
       </div>
 
-      {isCollapsed && !isTerminalBusy && !isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
+      {needsPrompt && !isCollapsed && !isTerminalBusy && !isCompleted && (isActiveGroup || isLoading || !isLastMessage) && (
         <div style={{ marginTop: "2px", marginBottom: "6px" }}>
           <ExecuteButton
             isActive={isActiveGroup || false}
@@ -165,17 +159,16 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
         </div>
       )}
 
-      {!isCollapsed && (
-        <TerminalBlock
-          logs={outputData?.output || extractedOutput || storedOutput || ""}
-          initialCommand={action.params.command}
-          cwd={action.params.cwd || rootPath}
-          status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
-          onInput={(data) => {
-            if (terminalId) extensionService.postMessage({ command: "terminalInput", terminalId, data });
-          }}
-        />
-      )}
+      <TerminalBlock
+        logs={outputData?.output || extractedOutput || storedOutput || ""}
+        initialCommand={action.params.command}
+        cwd={action.params.cwd || rootPath}
+        status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
+        isCollapsed={isCollapsed}
+        onInput={(data) => {
+          if (terminalId) extensionService.postMessage({ command: "terminalInput", terminalId, data });
+        }}
+      />
     </div>
   );
 };
