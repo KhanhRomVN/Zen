@@ -13,7 +13,6 @@ interface TerminalBlockProps {
   rows?: number;
   initialCommand?: string;
   cwd?: string;
-  isCollapsed?: boolean;
   onInput?: (data: string) => void;
 }
 
@@ -24,7 +23,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   initialCommand,
   cwd,
   rows = 22,
-  isCollapsed = false,
   onInput,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -193,7 +191,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   }, [logs, status, isXtermVisible, rows]);
 
   return (
-    <div className="terminal-block-container" style={{ display: isCollapsed ? "none" : undefined }}>
+    <div className="terminal-block-container">
       {/* 🆕 FIXED HEADER: Environment info & Command (Only show when running) */}
       {isXtermVisible && (
         <div

@@ -159,16 +159,37 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
         </div>
       )}
 
-      <TerminalBlock
-        logs={outputData?.output || extractedOutput || storedOutput || ""}
-        initialCommand={action.params.command}
-        cwd={action.params.cwd || rootPath}
-        status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
-        isCollapsed={isCollapsed}
-        onInput={(data) => {
-          if (terminalId) extensionService.postMessage({ command: "terminalInput", terminalId, data });
-        }}
-      />
+      {isCollapsed ? (
+        <div
+          onClick={() => setIsCollapsed(false)}
+          style={{
+            fontFamily: "var(--vscode-editor-font-family, monospace)",
+            fontSize: "11px",
+            color: "var(--vscode-descriptionForeground)",
+            padding: "4px 8px",
+            backgroundColor: "var(--vscode-editor-background)",
+            border: "1px solid var(--vscode-panel-border)",
+            borderRadius: "4px",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            opacity: 0.8,
+            cursor: "pointer",
+          }}
+        >
+          {displayCommand || action.params.command}
+        </div>
+      ) : (
+        <TerminalBlock
+          logs={outputData?.output || extractedOutput || storedOutput || ""}
+          initialCommand={action.params.command}
+          cwd={action.params.cwd || rootPath}
+          status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
+          onInput={(data) => {
+            if (terminalId) extensionService.postMessage({ command: "terminalInput", terminalId, data });
+          }}
+        />
+      )}
     </div>
   );
 };
