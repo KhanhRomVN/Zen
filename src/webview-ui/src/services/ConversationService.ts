@@ -67,11 +67,12 @@ export const saveConversation = async (
   tabId: number,
   folderPath: string | null,
   messages: Message[],
-  conversationId?: string, // This is the chatUuid for filename
+  conversationId?: string,
   selectedTab?: TabInfo,
   skipTimestampUpdate?: boolean,
   title?: string,
   backendConversationId?: string,
+  toolOutputs?: Record<string, { output: string; isError: boolean; terminalId?: string }>,
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
@@ -114,6 +115,7 @@ export const saveConversation = async (
       conversationId: convId,
       backendConversationId:
         backendConversationId || existingBackendConversationId,
+      toolOutputs: toolOutputs && Object.keys(toolOutputs).length > 0 ? toolOutputs : undefined,
       metadata: {
         id: key,
         tabId,

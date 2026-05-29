@@ -315,6 +315,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, [messages, currentConversationId, currentModel, currentAccount, toolOutputs]);
 
+  // Persist toolOutputs to disk when they change
+  useEffect(() => {
+    if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
+    const tabId = selectedTab?.tabId || -1;
+    const folderPath = selectedTab?.folderPath || null;
+    saveConversation(tabId, folderPath, messages, currentConversationId, selectedTab || undefined, true, undefined, undefined, toolOutputs);
+  }, [toolOutputs, currentConversationId]);
+
   // Load conversation from extension
   useEffect(() => {
     const load = async () => {
@@ -387,6 +395,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             }),
           );
           setMessages(restoredMessages);
+
+          if (data.data.toolOutputs && Object.keys(data.data.toolOutputs).length > 0) {
+            setToolOutputs(data.data.toolOutputs);
+          }
 
           // Restore pending revert parent if any
           const pendingParent = sessionStorage.getItem(
@@ -656,6 +668,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onSelectOption={handleSelectOption}
         isRestored={isRestored}
         onContinue={() => setIsRestored(false)}
+        hasInitialMessage={!!initialMessageData}
         onRevertConversation={handleRevertConversation}
         onAutoScrollPausedChange={setAutoScrollPaused}
         scrollToBottomRef={scrollToBottomRef}
@@ -668,7 +681,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
         isHistoryMode={isHistoryMode}
         messages={messages}
-        isConversationStarted={messages.length > 0}
+        isConversationStarted={messages.length > 0 || !!initialMessageData}
         currentModel={currentModel}
         setCurrentModel={setCurrentModel}
         currentAccount={currentAccount}

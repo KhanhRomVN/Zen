@@ -105,8 +105,14 @@
 
 .terminal-content-wrapper {
   padding: 8px 8px 8px 12px;
-  overflow: hidden;
+  overflow-y: auto;
   background-color: var(--vscode-terminal-background, #1e1e1e);
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.terminal-content-wrapper:hover {
+  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4)) transparent;
 }
 
 .terminal-richtext-fallback {
@@ -134,7 +140,7 @@
 }
 
 .terminal-content-wrapper::-webkit-scrollbar {
-  width: 10px;
+  width: 3px;
 }
 
 .terminal-content-wrapper::-webkit-scrollbar-track {
@@ -142,6 +148,11 @@
 }
 
 .terminal-content-wrapper::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 2px;
+}
+
+.terminal-content-wrapper:hover::-webkit-scrollbar-thumb {
   background: var(
     --vscode-scrollbarSlider-background,
     rgba(121, 121, 121, 0.4)

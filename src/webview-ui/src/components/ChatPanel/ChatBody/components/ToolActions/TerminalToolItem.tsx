@@ -73,10 +73,12 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
   const terminalId =
     (outputData as any)?.terminalId || action.params.terminal_id;
   const hasOutput = !!outputData || !!extractedOutput || !!storedOutput;
-  const isTerminalBusy = terminalId
-    ? terminalStatus?.[terminalId] === "busy" ||
-      (isActionClicked && terminalStatus?.[terminalId] === undefined)
-    : isActionClicked;
+  const isTerminalBusy = hasOutput
+    ? terminalStatus?.[terminalId] === "busy"
+    : terminalId
+      ? terminalStatus?.[terminalId] === "busy" ||
+        (isActionClicked && terminalStatus?.[terminalId] === undefined)
+      : isActionClicked;
   const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
   const isCompleted = hasOutput && !isTerminalBusy;
   const toolColor = getToolColor("run_command");
@@ -296,6 +298,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
           {commandText}
         </div>
       ) : (
+        <>
         <TerminalBlock
           logs={outputData?.output || extractedOutput || storedOutput || ""}
           initialCommand={action.params.command}
@@ -310,6 +313,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
               });
           }}
         />
+        </>
       )}
     </div>
   );

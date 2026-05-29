@@ -20,6 +20,7 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   isSimpleMode?: boolean;
   isRestored?: boolean;
   onContinue?: () => void;
+  hasInitialMessage?: boolean;
   onAutoScrollPausedChange?: (paused: boolean) => void;
   scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
 }
@@ -55,6 +56,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   isSimpleMode = true,
   isRestored = false,
   onContinue,
+  hasInitialMessage = false,
   onRevertConversation,
   onAutoScrollPausedChange,
   scrollToBottomRef,
@@ -219,7 +221,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         fontSize: "14px",
       }}
     >
-      {visibleMessages.length === 0 && !isProcessing && (
+      {visibleMessages.length === 0 && !isProcessing && !hasInitialMessage && (
         <WelcomeUI onLoadConversation={onLoadConversation} />
       )}
 
@@ -332,7 +334,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         </div>
       )}
 
-      {isProcessing && <ProcessingIndicator isResponding={isResponding} />}
+      {(isProcessing || hasInitialMessage) && <ProcessingIndicator isResponding={isResponding} />}
 
       <div ref={messagesEndRef} />
 

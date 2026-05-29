@@ -83,6 +83,12 @@ export class ProcessManager {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
 
+    // If a process is running and no actionId, pipe input into its stdin
+    if (!actionId && entry.process && entry.isBusy) {
+      entry.process.stdin?.write(commandText);
+      return;
+    }
+
     if (entry.process) {
       try { entry.process.kill("SIGTERM"); } catch (_) {}
       entry.process = null;
@@ -105,7 +111,7 @@ export class ProcessManager {
     const child = spawn(shell, ["-c", cleanCmd], {
       cwd: entry.cwd,
       env: { ...process.env, TERM: "dumb", NO_COLOR: "1" },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
     entry.process = child;
 
@@ -204,7 +210,6 @@ export class ProcessManager {
     }
     this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "free" });
     this.onTerminalsChangedEmitter.fire();
-    // After user stops, cleanup regardless of long-running
     this._cleanup(id);
   }
 

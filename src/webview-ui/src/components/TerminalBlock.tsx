@@ -4,7 +4,7 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import "./TerminalBlock.css";
 import { useProject } from "../context/ProjectContext";
-import { Copy, Check } from "lucide-react";
+
 
 interface TerminalBlockProps {
   logs: string;
@@ -15,6 +15,63 @@ interface TerminalBlockProps {
   cwd?: string;
   onInput?: (data: string) => void;
 }
+
+const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({ onInput }) => {
+  const [value, setValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      onInput(value + "\n");
+      setValue("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setValue(e.target.value);
+    // Auto-resize up to 3 lines
+    const ta = e.target;
+    ta.style.height = "auto";
+    const lineHeight = 18;
+    ta.style.height = Math.min(ta.scrollHeight, lineHeight * 3) + "px";
+  };
+
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "flex-end",
+      padding: "4px 10px",
+      borderTop: "1px solid var(--vscode-panel-border)",
+      backgroundColor: "var(--vscode-terminal-background, #1e1e1e)",
+    }}>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        placeholder="type and press Enter…"
+        rows={1}
+        style={{
+          flex: 1,
+          background: "none",
+          border: "none",
+          outline: "none",
+          resize: "none",
+          overflow: "hidden",
+          color: "var(--vscode-terminal-foreground, #cccccc)",
+          fontFamily: "var(--vscode-editor-font-family, monospace)",
+          fontSize: "12px",
+          lineHeight: "18px",
+          padding: 0,
+          minHeight: "18px",
+          maxHeight: "54px", // 3 lines × 18px
+        }}
+      />
+    </div>
+  );
+};
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   logs,
@@ -48,8 +105,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   const [isXtermVisible, setIsXtermVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [physicalLineCount, setPhysicalLineCount] = useState(0);
-  const [copied, setCopied] = useState(false);
-
   const canExpand = physicalLineCount > 15;
 
   const toggleExpand = () => {
@@ -62,15 +117,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     str
       .replace(/\x1B\[[0-9;?]*[A-Za-z~]/g, "")
       .replace(/\x1b\].*?(\x07|\x1b\\)/g, "");
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const cleanLogs = stripAnsi(logs);
-    const textToCopy = `${cwd ? `${cwd}$ ` : ""}${initialCommand || ""}\n\n${cleanLogs}`;
-    navigator.clipboard.writeText(textToCopy);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   useEffect(() => {
     // Show xterm only if we have logs or if it's busy
@@ -86,7 +132,9 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
 
     if (!xtermRef.current) {
       const term = new Terminal({
-        cursorBlink: status === "busy",
+        cursorBlink: false,
+        cursorStyle: "underline",
+        cursorInactiveStyle: "none",
         disableStdin: true,
         fontSize: 12,
         fontFamily:
@@ -245,34 +293,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
               marginLeft: "auto",
             }}
           >
-            <button
-              className="terminal-copy-button"
-              onClick={handleCopy}
-              title="Copy terminal content"
-              style={{
-                background: "none",
-                border: "none",
-                padding: "2px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "inherit",
-                opacity: 0.7,
-                transition: "opacity 0.2s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-            >
-              {copied ? (
-                <Check
-                  size={14}
-                  style={{ color: "var(--vscode-charts-green)" }}
-                />
-              ) : (
-                <Copy size={14} />
-              )}
-            </button>
             {canExpand && (
               <div
                 className={`codicon codicon-chevron-${isExpanded ? "up" : "down"}`}
@@ -284,7 +304,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       )}
       <div
         className="terminal-content-wrapper"
-        style={{ maxHeight: `${maxHeight}px` }}
+        style={{ maxHeight: `${maxHeight}px`, pointerEvents: "none", userSelect: "none" }}
       >
         {!isXtermVisible ? (
           <div
@@ -320,6 +340,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
           />
         )}
       </div>
+      {onInput && <TerminalInputBar onInput={onInput} />}
     </div>
   );
 };

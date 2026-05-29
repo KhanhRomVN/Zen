@@ -26,6 +26,10 @@ replacement
 
 <run_command><command>your command here</command></run_command>
 
+**run_command stdin/prompt rules**: stdin is a pipe (not a TTY). "read -p" suppresses its prompt when stdin is not a TTY. To show a prompt to the user, use "printf ... >&2" before "read":
+  - broken: read -p "Enter value: " x
+  - correct: printf "Enter value: " >&2; read x
+
 # RESPONSE TAGS
 
 <thinking>your private two-pass reasoning and planning</thinking>
