@@ -1,3 +1,0 @@
-1/ ko cần khoảng cách giữa các bar. cứ dính liền
-2/ giảm size circleProgress thêm 1 chút nữa
-3/ ở dưới section Phân bố model sẽ thêm 1 phần là biểu đồ đường cột cho việc sử dụng extension trong ngày với cột dọc là cường độ sử dụng trong khoảng x tới x + 1 hour t rong ngày. và cột ngang là 23 cột  tương ứng 23 khoảng time trong ngày. data đuề phải dùng từ data từ elara-server (/home/khanhromvn/Documents/Coding/FocusRank - Pomodoro & Habit Ranking/server/worker). phần khoảng mà từ current_time tới 24h của ngày sẽ bị có layer đen trong suôts

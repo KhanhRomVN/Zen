@@ -156,27 +156,18 @@ const App: React.FC = () => {
       model: any,
       account: any,
     ) => {
+      console.log("[Zen] App handleHomeSendMessage called", {
+        contentLength: content.trim().length,
+        model: model?.id,
+        account: account?.email,
+        files: files?.length,
+      });
       setInitialMessageData({
         content,
         files,
         model,
         account,
       });
-      // Switch to ChatPanel by setting a dummy selectedTab or relying on logic?
-      // Actually ChatPanel works in standalone mode (selectedTab=null) if we want.
-      // But we probably want to create a "New Chat" tab representation if using tabs.
-      // For now, let's keep selectedTab=null (standalone) but just ensure ChatPanel is rendered.
-      // But wait, if selectedTab is null, we show HomePanel now (by default).
-      // So we MUST set selectedTab to something to trigger ChatPanel.
-      // OR we add a flag `isChatActive`?
-      // Standard flow:
-      // 1. HomePanel (New Chat)
-      // 2. User types -> Create "New Chat" tab.
-      //
-      // If we look at handleLoadConversation:
-      // It creates a virtualTab.
-      //
-      // So we should create a virtualTab for new chat too.
       const newTab: TabInfo = {
         tabId: Date.now(),
         containerName: "New Chat",
@@ -187,6 +178,7 @@ const App: React.FC = () => {
         canAccept: true,
         requestCount: 0,
       };
+      console.log("[Zen] App switching to ChatPanel with newTab", { tabId: newTab.tabId });
       setSelectedTab(newTab);
       setHomeInitialValue(""); // Clear when starting fresh from Home
     },

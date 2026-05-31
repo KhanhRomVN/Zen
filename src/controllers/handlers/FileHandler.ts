@@ -669,7 +669,7 @@ export class FileHandler {
           `Path '${dirPath}' is out of scope (ignored by .gitignore or project settings).`,
         );
       }
-      const tree = await fsAnalyzer.getFileTree(maxDepth, absolutePath.fsPath);
+      const tree = await fsAnalyzer.getFileTree(maxDepth, absolutePath.fsPath, true);
 
       webviewView.webview.postMessage({
         command: "listFilesResult",

@@ -19,6 +19,7 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   previousAssistantMessage?: Message;
   isSimpleMode?: boolean;
   isRestored?: boolean;
+  isContinuing?: boolean;
   onContinue?: () => void;
   hasInitialMessage?: boolean;
   onAutoScrollPausedChange?: (paused: boolean) => void;
@@ -55,6 +56,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   onSelectOption,
   isSimpleMode = true,
   isRestored = false,
+  isContinuing = false,
   onContinue,
   hasInitialMessage = false,
   onRevertConversation,
@@ -334,6 +336,38 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         </div>
       )}
 
+      {isContinuing && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "4px 12px",
+            marginBottom: "4px",
+            color: "var(--secondary-text)",
+            fontSize: "12px",
+            opacity: 0.8,
+          }}
+        >
+          <span
+            style={{
+              display: "inline-block",
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: "var(--vscode-progressBar-background, #0e70c0)",
+              animation: "zen-pulse 1.2s ease-in-out infinite",
+            }}
+          />
+          <span>Continuing long response…</span>
+          <style>{`
+            @keyframes zen-pulse {
+              0%, 100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.4; transform: scale(0.75); }
+            }
+          `}</style>
+        </div>
+      )}
       {(isProcessing || hasInitialMessage) && <ProcessingIndicator isResponding={isResponding} />}
 
       <div ref={messagesEndRef} />

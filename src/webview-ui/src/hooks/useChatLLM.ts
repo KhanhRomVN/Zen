@@ -77,6 +77,8 @@ export const useChatLLM = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  // DeepSeek: true khi server đang tự động gọi /chat/continue để lấy phần còn lại của response dài
+  const [isContinuing, setIsContinuing] = useState(false);
   const [currentConversationId, setCurrentConversationId] =
     useState<string>("");
   const [conversationToolOverrides, setConversationToolOverrides] = useState<
@@ -146,8 +148,25 @@ export const useChatLLM = ({
     return () => window.removeEventListener("message", handleMessage);
   }, [selectedTab]);
 
+  /**
+   * Synchronously reset all session state and refs.
+   * Call this when starting a brand-new chat so sendMessage sees isNewSession=true.
+   */
+  const resetSession = useCallback(() => {
+    currentConversationIdRef.current = "";
+    backendConversationIdRef.current = "";
+    messagesRef.current = [];
+    lastUsedModelRef.current = null;
+    lastUsedAccountRef.current = null;
+    setCurrentConversationId("");
+    setMessages([]);
+    setIsProcessing(false);
+    setIsStreaming(false);
+    setIsContinuing(false);
+    setConversationToolOverrides({});
+  }, []);
+
   const stopGeneration = useCallback(() => {
-    console.log("[stopGeneration] called", new Error().stack?.split('\n')[2]);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -164,6 +183,7 @@ export const useChatLLM = ({
     }
 
     setIsStreaming(false);
+    setIsContinuing(false);
     setIsProcessing(false);
 
     // Stop all processes in the extension
@@ -576,12 +596,17 @@ export const useChatLLM = ({
 
         const headers = { "Content-Type": "application/json" };
 
+        const bodyStr = JSON.stringify(body);
+        console.log(`[Zen Request] ✈ SENDING HTTP | letters: ${bodyStr.length} | messages: ${body.messages.length} | conversationId: ${body.conversationId || "none"} | url: ${apiUrl}/v1/chat/accounts/messages`);
+
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
           headers,
-          body: JSON.stringify(body),
+          body: bodyStr,
           signal: abortController.signal,
         });
+
+        console.log(`[Zen Request] ✅ HTTP response received | status: ${response.status} | ok: ${response.ok}`);
 
         if (!response.ok) {
           let errorDetail = `API Error: ${response.status}`;
@@ -671,6 +696,17 @@ export const useChatLLM = ({
                     if (metaObj.response_message_id)
                       assistantMessage.response_message_id =
                         metaObj.response_message_id;
+
+                    // DeepSeek: server đang auto-continue response bị ngắt giữa chừng
+                    if (metaObj.continuing === true) {
+                      setIsContinuing(true);
+                      console.log(
+                        `[Zen] DeepSeek continuing response (part ${metaObj.continuation_count ?? "?"})`,
+                      );
+                    } else if (isContinuing && metaObj.continuing === false) {
+                      // Server báo hiệu đã hoàn thành continue
+                      setIsContinuing(false);
+                    }
 
                     // 🆕 Sync metadata to lastUsed refs for subsequent tool execution requests
                     if (metaObj.providerId || metaObj.modelId) {
@@ -786,6 +822,8 @@ export const useChatLLM = ({
           );
         }
 
+        console.log(`[Zen Response] Letter count: ${assistantMessage.content.length} | backendConversationId: ${backendConversationId || "none"} | providerId: ${assistantMessage.providerId || "none"} | modelId: ${assistantMessage.modelId || "none"}`);
+
         // Final state update to ensure UI and subsequent logic see the latest usage info
         setMessages((prev) =>
           prev.map((m) =>
@@ -795,6 +833,7 @@ export const useChatLLM = ({
 
         setIsProcessing(false);
         setIsStreaming(false);
+        setIsContinuing(false);
         abortControllerRef.current = null;
 
         // Log user message first, then assistant message, both with the real conversationId
@@ -850,6 +889,7 @@ export const useChatLLM = ({
         );
       } catch (error) {
         setIsStreaming(false);
+        setIsContinuing(false);
         abortControllerRef.current = null;
         if (error instanceof Error && error.name === "AbortError") {
           setIsProcessing(false);
@@ -877,11 +917,13 @@ export const useChatLLM = ({
     isProcessing,
     setIsProcessing,
     isStreaming,
+    isContinuing,
     currentConversationId,
     setCurrentConversationId,
     currentConversationIdRef,
     sendMessage,
     stopGeneration,
+    resetSession,
     setBackendConversationId: (
       id: string,
       meta?: { providerId?: string; modelId?: string; accountId?: string },

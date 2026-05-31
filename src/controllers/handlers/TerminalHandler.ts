@@ -7,6 +7,7 @@ export class TerminalHandler {
   constructor(private processManager: ProcessManager) {}
 
   public async handleRunCommand(message: any, webviewView: vscode.WebviewView) {
+    console.log(`[TerminalHandler] handleRunCommand START`, { actionId: message.actionId, commandText: message.commandText });
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       const cwd = workspaceFolder?.uri.fsPath || os.homedir();
@@ -19,6 +20,7 @@ export class TerminalHandler {
 
       const result = await this.processManager.startInteractive(cwd);
       const terminalId = result.id;
+      console.log(`[TerminalHandler] startInteractive OK`, { terminalId, actionId: message.actionId });
 
       webviewView.webview.postMessage({
         command: "runCommandResult",
@@ -26,13 +28,16 @@ export class TerminalHandler {
         terminalId: terminalId,
         actionId: message.actionId,
       });
+      console.log(`[TerminalHandler] sent runCommandResult`, { terminalId, actionId: message.actionId });
 
       this.processManager.sendInput(
         terminalId,
         `${message.commandText}\n`,
         message.actionId,
       );
+      console.log(`[TerminalHandler] sendInput called`, { terminalId, actionId: message.actionId });
     } catch (e: any) {
+      console.error(`[TerminalHandler] handleRunCommand ERROR`, { actionId: message.actionId, error: e.message });
       webviewView.webview.postMessage({
         command: "runCommandResult",
         requestId: message.requestId,

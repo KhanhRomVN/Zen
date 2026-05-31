@@ -4,6 +4,7 @@ import "./TerminalBlock.css";
 interface ToolHeaderProps {
   title: React.ReactNode;
   subTitle?: string;
+  subTitleClassName?: string;
   statusColor?: string;
   diffStats?: {
     added: number;
@@ -20,6 +21,7 @@ interface ToolHeaderProps {
 export const ToolHeader: React.FC<ToolHeaderProps> = ({
   title,
   subTitle,
+  subTitleClassName,
   statusColor,
   diffStats,
   isCollapsed,
@@ -91,7 +93,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
           </div>
         </div>
         {(subTitle || diffStats) && (
-          <div className="terminal-sub-info">
+          <div className={`terminal-sub-info${subTitleClassName ? ` ${subTitleClassName}` : ""}`}>
             {diffStats ? (
               <span
                 style={{

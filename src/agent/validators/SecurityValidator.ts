@@ -38,7 +38,6 @@ export class SecurityValidator {
     { pattern: /\|\s*sh\b/, label: "pipe to sh" },
     { pattern: /\|\s*bash\b/, label: "pipe to bash" },
     { pattern: /`[^`]+`/, label: "backtick execution" },
-    { pattern: /\$\((?!\()([^)]+)\)/, label: "command substitution" },
     { pattern: />\s*\/etc\//, label: "write to /etc" },
     { pattern: />\s*\/usr\//, label: "write to /usr" },
     { pattern: /curl\s.*\|\s*(bash|sh)/, label: "curl pipe to shell" },

@@ -69,6 +69,20 @@
   margin-top: -2px;
 }
 
+/* Error sub-info: normal text color and size, no dimming */
+.terminal-sub-info.error-sub-info {
+  font-size: var(--vscode-font-size, 13px);
+  opacity: 1;
+  color: var(--vscode-foreground);
+  height: auto;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  line-height: 1.5;
+  padding-top: 2px;
+  padding-bottom: 4px;
+}
+
 .terminal-sub-info::before {
   content: "";
   position: absolute;

@@ -112,14 +112,20 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     });
 
     // Listen for Command Finished
-    this._processManager.onCommandFinished((event) => {
-      webviewView.webview.postMessage({
+    const cmdFinishedDisposable = this._processManager.onCommandFinished((event) => {
+      console.log(`[ZenChatViewProvider] onCommandFinished → postMessage commandExecuted`, { actionId: event.actionId, terminalId: event.terminalId, outputLength: event.output?.length });
+      const result = webviewView.webview.postMessage({
         command: "commandExecuted",
         actionId: event.actionId,
         output: event.output,
         terminalId: event.terminalId,
         commandText: event.commandText,
       });
+      if (result && typeof (result as any).then === "function") {
+        (result as any).then((sent: boolean) => {
+          if (!sent) console.warn(`[ZenChatViewProvider] commandExecuted NOT delivered (webview hidden/disposed?)`, { actionId: event.actionId });
+        });
+      }
     });
 
     // Listen for Terminal Changes
@@ -161,6 +167,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.onDidDispose(() => {
       themeDisposable.dispose();
+      cmdFinishedDisposable.dispose();
     });
   }
 

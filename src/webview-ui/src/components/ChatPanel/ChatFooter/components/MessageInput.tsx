@@ -902,6 +902,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
+                console.log("[Zen] MessageInput Enter key pressed", {
+                  messageLength: message.trim().length,
+                  model: currentModel?.id,
+                  account: currentAccount?.email,
+                  isProcessing,
+                  isStreaming,
+                });
                 handleSend(currentModel, currentAccount);
               } else {
                 handleKeyDown(e);
@@ -1078,8 +1085,16 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   }
 
                   if (!currentModel) {
+                    console.warn("[Zen] MessageInput send: no model selected, aborting");
                     return;
                   }
+                  console.log("[Zen] MessageInput send button clicked", {
+                    messageLength: message.trim().length,
+                    model: currentModel?.id,
+                    account: currentAccount?.email,
+                    isProcessing,
+                    isStreaming,
+                  });
                   handleSend(currentModel, currentAccount);
                 }}
                 onMouseEnter={(e) => {

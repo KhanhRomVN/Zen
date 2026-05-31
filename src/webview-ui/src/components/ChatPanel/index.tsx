@@ -54,6 +54,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 }) => {
   // --- States ---
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
+  const [isApiUrlReady, setIsApiUrlReady] = useState(false);
   const [providers, setProviders] = useState<any[]>([]);
   const [isLoadingConversation, setIsLoadingConversation] = useState(true);
   const [activeTerminalIds, setActiveTerminalIds] = useState<Set<string>>(
@@ -83,11 +84,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     isProcessing,
     setIsProcessing,
     isStreaming,
+    isContinuing,
     currentConversationId,
     setCurrentConversationId,
     currentConversationIdRef,
     sendMessage,
     stopGeneration,
+    resetSession,
     setBackendConversationId,
     conversationToolOverrides,
     setConversationToolOverrides,
@@ -173,6 +176,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const hasProcessedInitial = useRef(false);
   const hasAppendedHistoryContext = useRef(false);
   const wasPaused = useRef(false);
+
+  // Reset hasProcessedInitial whenever a new tab/chat session starts
+  // so that initialMessageData from a subsequent HomePanel send is not skipped.
+  // resetSession() resets all refs synchronously so sendMessage sees isNewSession=true.
+  useEffect(() => {
+    hasProcessedInitial.current = false;
+    resetSession();
+    console.log("[Zen] ChatPanel tab changed, resetSession", { tabId: selectedTab?.tabId });
+  }, [selectedTab?.tabId]);
 
   // --- Memoized Values ---
   const isHistoryMode = useMemo(() => {
@@ -271,8 +283,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const storage = extensionService.getStorage();
     storage.get("backend-api-url").then((res: any) => {
       if (res?.value?.startsWith("http")) {
-        setApiUrl(res.value.endsWith("/") ? res.value.slice(0, -1) : res.value);
+        const url = res.value.endsWith("/") ? res.value.slice(0, -1) : res.value;
+        console.log("[Zen] ChatPanel apiUrl loaded from storage:", url);
+        setApiUrl(url);
+      } else {
+        console.log("[Zen] ChatPanel no saved apiUrl, using default:", apiUrl);
       }
+      // Mark ready regardless — if no saved URL, default is used
+      setIsApiUrlReady(true);
+    }).catch((err: any) => {
+      console.warn("[Zen] ChatPanel failed to load apiUrl from storage:", err);
+      setIsApiUrlReady(true);
     });
   }, []);
 
@@ -285,8 +306,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [apiUrl]);
 
   useEffect(() => {
-    if (initialMessageData && !hasProcessedInitial.current) {
+    if (initialMessageData && !hasProcessedInitial.current && isApiUrlReady) {
       hasProcessedInitial.current = true;
+      console.log("[Zen] ChatPanel firing sendMessage from initialMessageData", {
+        contentLength: initialMessageData.content.trim().length,
+        model: initialMessageData.model?.id,
+        account: initialMessageData.account?.email,
+        apiUrl,
+        isApiUrlReady,
+      });
       sendMessage(
         initialMessageData.content,
         initialMessageData.files,
@@ -297,8 +325,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         undefined,
       );
       onClearInitialData?.();
+    } else if (initialMessageData && !isApiUrlReady) {
+      console.log("[Zen] ChatPanel waiting for apiUrl before sending initialMessageData...");
     }
-  }, [initialMessageData, sendMessage, onClearInitialData]);
+  }, [initialMessageData, sendMessage, onClearInitialData, isApiUrlReady]);
 
   // Update ConversationCache when local messages or selection changes
   useEffect(() => {
@@ -375,7 +405,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           requestId,
         });
       } else {
+        // New chat tab with no existing conversationId — reset everything
         setMessages([]);
+        setCurrentConversationId("");
         setIsLoadingConversation(false);
       }
     };
@@ -643,6 +675,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       <ChatBody
         messages={messages}
         isProcessing={isProcessing}
+        isContinuing={isContinuing}
         isSimpleMode={isSimpleMode}
         onSendToolRequest={(actions, msg, isAuto, type) =>
           handleToolRequest(

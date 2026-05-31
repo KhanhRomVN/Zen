@@ -18,6 +18,8 @@ import MarkdownWithPaths from "../../../MarkdownWithPaths";
 import "../../../TerminalBlock.css";
 import "./MarkdownContent.css";
 import { buildRetryPrompt } from "../../prompts";
+import { useI18n } from "../../../../hooks/useI18n";
+import type { I18nKey } from "../../../../i18n";
 
 interface MessageBoxProps {
   message: Message;
@@ -126,6 +128,38 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   isSimpleMode = true,
   onRevertConversation,
 }) => {
+  const { t } = useI18n();
+
+  /**
+   * Map known hardcoded error strings to i18n keys.
+   * Falls back to the original message if no mapping found.
+   */
+  const translateError = (raw: string): string => {
+    const normalized = raw.trim().toLowerCase();
+    const errorMap: Array<[RegExp, I18nKey]> = [
+      [/provider returned empty response/i, "errors.providerEmptyResponse"],
+      [/no response body/i, "errors.noResponseBody"],
+      [/no workspace/i, "errors.noWorkspace"],
+      [/path.*argument.*string|path.*required/i, "errors.pathRequired"],
+      [/file.*path.*required|missing file path/i, "errors.filePathRequired"],
+      [/folder.*path.*required/i, "errors.folderPathRequired"],
+      [/security validation failed/i, "errors.securityValidationFailed"],
+      [/out of scope.*ignored/i, "errors.pathOutOfScope"],
+      [/invalid diff format/i, "errors.invalidDiffFormat"],
+      [/search text not found/i, "errors.searchTextNotFound"],
+      [/no change made/i, "errors.noChangesMade"],
+      [/command validation failed/i, "errors.commandValidationFailed"],
+      [/unknown upload error|upload.*failed|upload api returned/i, "errors.uploadFailed"],
+      [/no active account|no.*account.*selected/i, "errors.noAccountSelected"],
+      [/file not found/i, "errors.fileNotFound"],
+      [/invalid conversation log format/i, "errors.invalidConversationFormat"],
+    ];
+    for (const [pattern, key] of errorMap) {
+      if (pattern.test(raw)) return t(key);
+    }
+    return raw;
+  };
+
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
   const [isThinkingCollapsed, setIsThinkingCollapsed] = React.useState(false);
 
@@ -893,7 +927,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               // Parse error code from "[CODE] message" format
               const codeMatch = errorText.match(/^\[([^\]]+)\]\s*(.*)/s);
               const errorCode = codeMatch ? codeMatch[1] : null;
-              const errorMessage = codeMatch ? codeMatch[2] : errorText;
+              const rawMessage = codeMatch ? codeMatch[2] : errorText;
+              const translatedMessage = translateError(rawMessage);
               const dotColor = "var(--vscode-testing-iconFailedColor, #f14c4c)";
               content = (
                 <div>
@@ -913,7 +948,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                           ERROR{errorCode ? `: ${errorCode}` : ""}
                         </span>
                       }
-                      subTitle={errorMessage}
+                      subTitle={translatedMessage}
+                      subTitleClassName="error-sub-info"
                       statusColor={dotColor}
                     />
                     {onSendMessage && (
@@ -953,7 +989,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                         }}
                       >
                         <span className="codicon codicon-refresh" style={{ fontSize: "12px", display: "inline-flex", alignItems: "center" }} />
-                        <span>Retry</span>
+                        <span>{t("chat.retry")}</span>
                       </button>
                     )}
                   </div>

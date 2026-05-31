@@ -15,7 +15,11 @@ export interface FileNode {
 }
 
 export class FileSystemAnalyzer {
-  private ignoredPatterns = [
+  /**
+   * Patterns ignored when LISTING files (directory traversal).
+   * Only system/build folders that are never useful to show.
+   */
+  private listingIgnoredPatterns = [
     "node_modules",
     ".git",
     "dist",
@@ -24,9 +28,16 @@ export class FileSystemAnalyzer {
     "coverage",
     ".vscode",
     ".idea",
-    "*.log",
     ".DS_Store",
     "*.vsix",
+  ];
+
+  /**
+   * Additional patterns ignored when building CONTENT context (on top of listingIgnoredPatterns).
+   * Media, binary, and lock files that are not useful as text context for the AI.
+   */
+  private contentOnlyIgnoredPatterns = [
+    "*.log",
     "*.map",
     // Media
     "*.png",
@@ -62,6 +73,11 @@ export class FileSystemAnalyzer {
     "yarn.lock",
     "pnpm-lock.yaml",
   ];
+
+  /** Combined patterns (listing + content) — used for context building */
+  private get ignoredPatterns(): string[] {
+    return [...this.listingIgnoredPatterns, ...this.contentOnlyIgnoredPatterns];
+  }
 
   private bypassedPaths: Set<string> = new Set();
 
@@ -112,6 +128,7 @@ export class FileSystemAnalyzer {
   public async getFileTree(
     maxDepth: number = 20,
     customRootPath?: string,
+    forListing: boolean = false,
   ): Promise<string> {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (
@@ -124,11 +141,10 @@ export class FileSystemAnalyzer {
     const rootPath = customRootPath || workspaceFolders![0].uri.fsPath;
 
     try {
-      // Pass true for useBlacklist
-      const tree = await this.buildFileTreeWithRg(rootPath, maxDepth, true);
+      const tree = await this.buildFileTreeWithRg(rootPath, maxDepth, true, forListing);
       return this.formatFileTree(tree);
     } catch (error) {
-      const tree = await this.buildFileTree(rootPath, 0, maxDepth, true);
+      const tree = await this.buildFileTree(rootPath, 0, maxDepth, true, forListing);
       return this.formatFileTree(tree);
     }
   }
@@ -140,6 +156,7 @@ export class FileSystemAnalyzer {
     rootPath: string,
     maxDepth: number,
     useBlacklist: boolean = false,
+    forListing: boolean = false,
   ): Promise<FileNode> {
     // Check if bypass should apply to disable gitignore in rg
     let extraFlags = "";
@@ -161,15 +178,18 @@ export class FileSystemAnalyzer {
       children: [],
     };
 
+    const shouldIgnoreFn = forListing
+      ? (name: string) => this.shouldIgnoreForListing(name)
+      : (name: string) => this.shouldIgnore(name);
+
     // 1. Quét folder trực tiếp trước (Đảm bảo folder như src luôn có mặt)
     try {
       const entries = fs.readdirSync(rootPath, { withFileTypes: true });
       for (const entry of entries) {
-        if (this.shouldIgnore(entry.name)) {
+        if (shouldIgnoreFn(entry.name)) {
           continue;
         }
         const entryPath = path.join(rootPath, entry.name);
-        // Blacklist feature removed (no-op).
 
         if (!root.children) root.children = [];
         if (!root.children.find((c) => c.name === entry.name)) {
@@ -185,7 +205,10 @@ export class FileSystemAnalyzer {
     }
 
     // 2. Chạy Ripgrep để quét sâu hơn
-    const cmd = `"${rgPath}" ${extraFlags}--files --max-depth ${maxDepth}`;
+    // When listing, use --no-ignore-vcs to include files rg would normally skip,
+    // but still respect our listing ignore patterns applied manually above.
+    const rgExtraFlags = forListing ? `${extraFlags}--no-ignore ` : extraFlags;
+    const cmd = `"${rgPath}" ${rgExtraFlags}--files --max-depth ${maxDepth}`;
     const { stdout } = await execAsync(cmd, {
       cwd: rootPath,
       maxBuffer: 1024 * 1024 * 10,
@@ -193,17 +216,19 @@ export class FileSystemAnalyzer {
     const files = stdout.split("\n").filter((line) => line.trim() !== "");
 
     for (const fileRelativePath of files) {
-      // Blacklist feature removed (no-op).
-
       const parts = fileRelativePath.split(path.sep);
+
+      // Skip if any path component matches the ignore filter
+      if (parts.some((part) => shouldIgnoreFn(part))) {
+        continue;
+      }
+
       let currentNode = root;
 
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
         const isFile = i === parts.length - 1;
         const currentPath = path.join(rootPath, ...parts.slice(0, i + 1));
-
-        // Blacklist feature removed (no-op).
 
         if (!currentNode.children) {
           currentNode.children = [];
@@ -254,6 +279,7 @@ export class FileSystemAnalyzer {
     currentDepth: number,
     maxDepth: number,
     useBlacklist: boolean = true,
+    forListing: boolean = false,
   ): Promise<FileNode> {
     const stats = fs.statSync(dirPath);
     const name = path.basename(dirPath);
@@ -279,16 +305,16 @@ export class FileSystemAnalyzer {
       return node;
     }
 
+    const shouldIgnoreFn = forListing
+      ? (n: string) => this.shouldIgnoreForListing(n)
+      : (n: string) => this.shouldIgnore(n);
+
     try {
       const entries = fs.readdirSync(dirPath);
-      const filteredEntries = entries.filter(
-        (entry) => !this.shouldIgnore(entry),
-      );
+      const filteredEntries = entries.filter((entry) => !shouldIgnoreFn(entry));
 
       for (const entry of filteredEntries) {
         const entryPath = path.join(dirPath, entry);
-
-        // Blacklist feature removed (no-op).
 
         try {
           const childNode = await this.buildFileTree(
@@ -296,6 +322,7 @@ export class FileSystemAnalyzer {
             currentDepth + 1,
             maxDepth,
             useBlacklist,
+            forListing,
           );
           node.children?.push(childNode);
         } catch (error) {
@@ -349,13 +376,24 @@ export class FileSystemAnalyzer {
   }
 
   /**
-   * Check if file/folder should be ignored
+   * Check if file/folder should be ignored for LISTING purposes.
+   * Only filters system/build folders — media and binary files are still shown.
+   */
+  public shouldIgnoreForListing(name: string): boolean {
+    return this.matchesPatterns(name, this.listingIgnoredPatterns);
+  }
+
+  /**
+   * Check if file/folder should be ignored for CONTENT context purposes.
+   * Filters system folders AND media/binary/lock files.
    */
   public shouldIgnore(name: string): boolean {
-    return this.ignoredPatterns.some((pattern) => {
+    return this.matchesPatterns(name, this.ignoredPatterns);
+  }
+
+  private matchesPatterns(name: string, patterns: string[]): boolean {
+    return patterns.some((pattern) => {
       if (pattern.includes("*")) {
-        // Escape regex special characters except '*'
-        // Reference: https://stackoverflow.com/questions/3561493/is-there-a-regexp-escape-function-in-javascript
         const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
         const regexStr = "^" + escaped.replace(/\*/g, ".*") + "$";
         const regex = new RegExp(regexStr);

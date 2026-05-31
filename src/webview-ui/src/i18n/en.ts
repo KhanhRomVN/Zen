@@ -132,6 +132,25 @@ export const en = {
     error: "Error",
     success: "Success",
   },
+  errors: {
+    noWorkspace: "No workspace folder is open.",
+    pathRequired: "The 'path' argument is required.",
+    filePathRequired: "File path is required.",
+    folderPathRequired: "Folder path is required.",
+    securityValidationFailed: "Security validation failed.",
+    pathOutOfScope: "Path is out of scope (ignored by .gitignore or project settings).",
+    invalidDiffFormat: "Invalid diff format.",
+    searchTextNotFound: "Search text not found in file.",
+    noChangesMade: "No changes were made.",
+    commandValidationFailed: "Command validation failed.",
+    providerEmptyResponse: "Provider returned empty response.",
+    noResponseBody: "No response body received from provider.",
+    uploadFailed: "File upload failed.",
+    noAccountSelected: "No active account selected. Please select or add an account first.",
+    fileNotFound: "File not found.",
+    invalidConversationFormat: "Invalid conversation log format.",
+    unknownError: "An unknown error occurred.",
+  },
 };
 
 export type I18nDict = typeof en;

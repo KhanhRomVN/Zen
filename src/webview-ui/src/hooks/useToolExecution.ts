@@ -109,6 +109,7 @@ export const useToolExecution = ({
       const message = event.data;
 
       if (message.command === "commandExecuted") {
+        console.log(`[useToolExecution] received commandExecuted`, { actionId: message.actionId, outputLength: message.output?.length, hasPendingResolver: pendingToolResolvers.current.has(message.actionId) });
         if (message.actionId) {
           setToolOutputs((prev) => {
             const existing = prev[message.actionId];
@@ -169,6 +170,7 @@ export const useToolExecution = ({
           [message.terminalId]: message.status,
         }));
       } else if (message.command === "runCommandResult") {
+        console.log(`[useToolExecution] received runCommandResult`, { terminalId: message.terminalId, actionId: message.actionId, error: message.error });
         if (message.terminalId && message.actionId) {
           terminalToActionMap.current.set(message.terminalId, message.actionId);
           setToolOutputs((prev) => ({
@@ -404,6 +406,7 @@ export const useToolExecution = ({
         }
         case "run_command": {
           const actionId = (action as any).actionId;
+          console.log(`[useToolExecution] run_command: posting runCommand`, { actionId, commandText: action.params.command });
           commandStartTimes.current.set(actionId, Date.now());
           extensionService.postMessage({
             command: "runCommand",
@@ -415,6 +418,7 @@ export const useToolExecution = ({
           if (earlyCommandResults.current.has(actionId)) {
             const msg = earlyCommandResults.current.get(actionId)!;
             earlyCommandResults.current.delete(actionId);
+            console.log(`[useToolExecution] run_command: using earlyCommandResult`, { actionId });
             const cmdText =
               msg.commandText || action.params.command || "command";
             const outputContent = (msg.output || "").trim();
@@ -426,6 +430,7 @@ export const useToolExecution = ({
             break;
           }
 
+          console.log(`[useToolExecution] run_command: registered pendingResolver`, { actionId });
           // Only resolve when process finishes naturally or user clicks "Kết thúc"
           pendingToolResolvers.current.set(actionId, resolve);
 

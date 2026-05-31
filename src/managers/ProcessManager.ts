@@ -126,6 +126,7 @@ export class ProcessManager {
 
       if (actionId) {
         entry.activeActionId = null;
+        console.log(`[ProcessManager] process close → firing onCommandFinished`, { actionId, terminalId: id, outputLength: entry.output.length });
         this.onCommandFinishedEmitter.fire({ actionId, output: entry.output, terminalId: id, commandText: cleanCmd });
       }
 
@@ -142,6 +143,7 @@ export class ProcessManager {
       entry.isBusy = false;
       if (actionId) {
         entry.activeActionId = null;
+        console.error(`[ProcessManager] process error → firing onCommandFinished`, { actionId, terminalId: id, error: err.message });
         this.onCommandFinishedEmitter.fire({ actionId, output: err.message, terminalId: id, commandText: cleanCmd });
       }
       this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "free" });
