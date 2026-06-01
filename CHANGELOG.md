@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.8] - 2026-06-01
+
+### ✨ Added
+- **Ctrl+Z / Ctrl+Y undo-redo in MessageInput**: Both HomePanel and ChatPanel now support full undo/redo in the message textarea. Ctrl+Z steps back through typing history, Ctrl+Y and Ctrl+Shift+Z step forward. The undo stack is managed manually to work around React's controlled-input model which normally blocks native browser undo. Stack is reset on send and when an external `initialValue` is injected
+- **Draft auto-save for HomePanel**: The HomePanel message input now persists its content across extension reloads, matching the existing draft behaviour in ChatPanel. Draft is saved under the key `draft:home` with a 500 ms debounce and is cleared on send. If a suggestion `initialValue` is provided it takes priority over the saved draft
+- **Daily usage chart on HomePanel**: New `DailyUsageChart` component renders an SVG line chart of today's request activity broken down by hour (00h–23h). Future hours are dimmed with an overlay. Hovering shows a tooltip with request count and token count for that hour slot. Chart is responsive via `ResizeObserver` and adapts x-axis label density to the available width
+- **Redesigned AI model distribution card**: Replaced the flat progress-bar list with a new `ModelDistributionCard` component featuring a donut chart (SVG arc segments), a two-column model legend with provider favicons, and an expand/collapse toggle when more than 4 models are present. Hovering an arc segment shows a tooltip with request count, token count, and percentage
+- **Recent chats list expanded**: HomePanel now shows up to 10 recent conversations (previously 3)
+- **Terminal input bar**: When a `run_command` tool block has an active `onInput` handler, a `TerminalInputBar` is now rendered below the xterm output. Users can type multi-line input (auto-resizes up to 3 lines) and submit with Enter, sending the text directly to the running process
+- **Terminal cleanup on command finish**: After a `run_command` completes, the extension now automatically posts a `removeTerminal` message to clean up the terminal process, preventing resource leaks
+- **`toolOutputs` persisted to disk**: Tool outputs are now included in the conversation save payload so they survive extension reloads and tab switches
+
+### 🔧 Improved
+- **File tree listing vs. content context split**: `FileSystemAnalyzer` now distinguishes between *listing* patterns (only system/build folders: `node_modules`, `.git`, `dist`, etc.) and *content* patterns (listing + media, binary, lock files). The workspace file picker shown to users uses listing-only filtering so image and log files are visible; AI context building uses the full filter. `getFileTree` accepts a `forListing` flag and passes `--no-ignore` to ripgrep when listing so `.gitignore`d files still appear in the picker
+- **`isConversationStarted` includes pending initial message**: The ChatFooter model badge now hides correctly while a HomePanel message is in-flight (before the first assistant reply arrives), preventing a flash of the "Select Model" badge
+- **`hasInitialMessage` guard on WelcomeUI**: The WelcomeUI splash screen is suppressed while an initial message from HomePanel is being processed, avoiding a brief flicker of the empty-state UI
+- **Draft restore respects `initialValue`**: When `ChatFooter` restores a saved draft on mount, it skips the restore if an `initialValue` was explicitly provided (e.g. a clicked suggestion), so the suggestion always wins
+
+### 🐛 Fixed
+- **`toolOutputs` restored on conversation load**: When loading a saved conversation, `toolOutputs` from the persisted payload are now applied to state so tool result blocks render correctly after a reload
+- **New chat tab resets conversation state**: `setCurrentConversationId("")` is now called synchronously when loading a tab with no existing `conversationId`, preventing stale IDs from leaking into the next session
+
+---
+
 ## [1.3.7] - 2026-05-31
 
 ### ✨ Added

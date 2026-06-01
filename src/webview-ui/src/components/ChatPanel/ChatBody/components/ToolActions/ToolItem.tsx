@@ -191,6 +191,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
           fileStatsMap={fileStatsMap}
           onToolClick={onToolClick}
           mergedItems={group}
+          conversationId={conversationId}
         />
       );
     }
@@ -211,6 +212,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
             allMessages={allMessages}
             fileStatsMap={fileStatsMap}
             onToolClick={onToolClick}
+            conversationId={conversationId}
           />
         ))}
       </>

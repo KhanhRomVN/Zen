@@ -85,6 +85,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setIsProcessing,
     isStreaming,
     isContinuing,
+    incompleteHasPartialTool,
+    incompletePartialToolType,
     currentConversationId,
     setCurrentConversationId,
     currentConversationIdRef,
@@ -676,6 +678,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         messages={messages}
         isProcessing={isProcessing}
         isContinuing={isContinuing}
+        incompleteHasPartialTool={incompleteHasPartialTool}
+        incompletePartialToolType={incompletePartialToolType}
         isSimpleMode={isSimpleMode}
         onSendToolRequest={(actions, msg, isAuto, type) =>
           handleToolRequest(

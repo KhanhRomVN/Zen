@@ -5,7 +5,7 @@ import {
 } from "../../../services/ResponseParser";
 import { Message, ChatBodyProps } from "./types";
 
-interface ExtendedChatBodyProps extends ChatBodyProps {
+export interface ExtendedChatBodyProps extends ChatBodyProps {
   executionState?: {
     total: number;
     completed: number;
@@ -19,11 +19,8 @@ interface ExtendedChatBodyProps extends ChatBodyProps {
   previousAssistantMessage?: Message;
   isSimpleMode?: boolean;
   isRestored?: boolean;
-  isContinuing?: boolean;
   onContinue?: () => void;
   hasInitialMessage?: boolean;
-  onAutoScrollPausedChange?: (paused: boolean) => void;
-  scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 // Hooks
@@ -57,6 +54,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   isSimpleMode = true,
   isRestored = false,
   isContinuing = false,
+  incompleteHasPartialTool = false,
+  incompletePartialToolType = null,
   onContinue,
   hasInitialMessage = false,
   onRevertConversation,
@@ -112,6 +111,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   useEffect(() => {
     if (scrollToBottomRef) scrollToBottomRef.current = scrollToBottom;
   }, [scrollToBottom, scrollToBottomRef]);
+
+  useEffect(() => {
+    console.log(`[ChatBody] isContinuing prop changed: ${isContinuing}`);
+  }, [isContinuing]);
 
   const hasUnexecutedAutoActions = useMemo(() => {
     if (!isRestored || messages.length === 0) return false;
@@ -340,26 +343,41 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "4px 12px",
+            alignItems: "flex-start",
+            gap: "10px",
+            padding: "8px 14px",
             marginBottom: "4px",
-            color: "var(--secondary-text)",
+            marginTop: "4px",
+            background: "color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 8%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 25%, transparent)",
+            borderRadius: "8px",
+            color: "var(--vscode-editor-foreground)",
             fontSize: "12px",
-            opacity: 0.8,
           }}
         >
+          {/* Dot indicator */}
           <span
             style={{
+              flexShrink: 0,
+              marginTop: "2px",
               display: "inline-block",
               width: "8px",
               height: "8px",
               borderRadius: "50%",
-              background: "var(--vscode-progressBar-background, #0e70c0)",
+              background: "var(--vscode-editorWarning-foreground, #cca700)",
               animation: "zen-pulse 1.2s ease-in-out infinite",
             }}
           />
-          <span>Continuing long response…</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <span style={{ fontWeight: 600, opacity: 0.9 }}>
+              Response bị ngắt — đang tiếp tục…
+            </span>
+            <span style={{ opacity: 0.7, lineHeight: "1.4" }}>
+              {incompleteHasPartialTool
+                ? `AI tự động ngắt response dài. Đang ghép phần còn lại của \`${incompletePartialToolType ?? "tool"}\` trước khi thực thi.`
+                : "AI tự động ngắt response dài. Đang lấy phần còn lại…"}
+            </span>
+          </div>
           <style>{`
             @keyframes zen-pulse {
               0%, 100% { opacity: 1; transform: scale(1); }

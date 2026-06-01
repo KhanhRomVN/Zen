@@ -186,6 +186,9 @@ export class ChatController {
         case "deleteFolder":
           await this.fileHandler.handleDeleteFolder(message, webviewView);
           break;
+        case "getSnapshot":
+          await this.fileHandler.handleGetSnapshot(message, webviewView);
+          break;
 
         // Backup
         case "startBackupWatch":
@@ -203,6 +206,9 @@ export class ChatController {
           break;
         case "openDiff":
           await this.systemHandler.handleOpenDiff(message);
+          break;
+        case "openSnapshotDiff":
+          await this.systemHandler.handleOpenSnapshotDiff(message);
           break;
 
         // Terminal

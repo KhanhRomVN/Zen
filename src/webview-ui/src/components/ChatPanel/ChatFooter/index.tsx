@@ -58,13 +58,22 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraftRestoredRef = useRef(false);
 
+  // Undo stack for Ctrl+Z support
+  const undoStackRef = useRef<string[]>([]);
+  const undoIndexRef = useRef<number>(-1);
+  const isUndoingRef = useRef(false);
+
   // Restore draft when conversationId changes
   useEffect(() => {
     if (!conversationId) return;
     isDraftRestoredRef.current = false;
     storage.get(`draft:${conversationId}`).then((res: any) => {
-      if (res?.value && !isDraftRestoredRef.current) {
+      // Don't restore draft if an initialValue was explicitly provided
+      if (res?.value && !isDraftRestoredRef.current && !initialValue) {
         setMessage(res.value);
+        // Seed undo stack with restored draft
+        undoStackRef.current = [res.value];
+        undoIndexRef.current = 0;
       }
       isDraftRestoredRef.current = true;
     }).catch(() => { isDraftRestoredRef.current = true; });
@@ -87,6 +96,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   useEffect(() => {
     if (initialValue !== undefined) {
       setMessage(initialValue || "");
+      // Reset undo stack when initial value is injected externally
+      undoStackRef.current = initialValue ? [initialValue] : [];
+      undoIndexRef.current = initialValue ? 0 : -1;
     }
   }, [initialValue, initialValueNonce]);
   // const [showOptionsDrawer, setShowOptionsDrawer] = useState(false); // Removed
@@ -235,6 +247,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       if (conversationId) storage.delete(`draft:${conversationId}`).catch(() => {});
       clearFiles();
       clearAttachedItems();
+      // Reset undo stack after send
+      undoStackRef.current = [];
+      undoIndexRef.current = -1;
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
@@ -248,8 +263,59 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   // Handle Textarea Change
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
+
+    // Push to undo stack (only when not triggered by undo/redo)
+    if (!isUndoingRef.current) {
+      // Truncate any redo history when user types new content
+      const newStack = undoStackRef.current.slice(0, undoIndexRef.current + 1);
+      newStack.push(value);
+      undoStackRef.current = newStack;
+      undoIndexRef.current = newStack.length - 1;
+    }
+
     setMessage(value);
     checkMentions(value);
+  };
+
+  // Handle Ctrl+Z (undo) and Ctrl+Y / Ctrl+Shift+Z (redo)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const isUndo = (e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey;
+    const isRedo =
+      ((e.ctrlKey || e.metaKey) && e.key === "y") ||
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z");
+
+    if (isUndo) {
+      e.preventDefault();
+      if (undoIndexRef.current > 0) {
+        isUndoingRef.current = true;
+        undoIndexRef.current -= 1;
+        const prev = undoStackRef.current[undoIndexRef.current];
+        setMessage(prev);
+        checkMentions(prev);
+        isUndoingRef.current = false;
+      } else if (undoIndexRef.current === 0) {
+        // Undo back to empty
+        isUndoingRef.current = true;
+        undoIndexRef.current = -1;
+        setMessage("");
+        checkMentions("");
+        isUndoingRef.current = false;
+      }
+      return;
+    }
+
+    if (isRedo) {
+      e.preventDefault();
+      if (undoIndexRef.current < undoStackRef.current.length - 1) {
+        isUndoingRef.current = true;
+        undoIndexRef.current += 1;
+        const next = undoStackRef.current[undoIndexRef.current];
+        setMessage(next);
+        checkMentions(next);
+        isUndoingRef.current = false;
+      }
+      return;
+    }
   };
 
   // Auto-resize textarea when message changes
@@ -417,7 +483,7 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           uploadedFiles={uploadedFiles}
           textareaRef={textareaRef}
           handleTextareaChange={handleTextareaChange}
-          handleKeyDown={(e: React.KeyboardEvent) => {}}
+          handleKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => handleKeyDown(e)}
           handlePaste={handlePaste}
           handleDragOver={handleDragOver}
           handleDrop={handleDrop}

@@ -225,4 +225,60 @@ export class SystemHandler {
       message.title || "Diff",
     );
   }
+
+  public async handleOpenSnapshotDiff(message: any) {
+    const { filePath, operation, beforeContent, afterContent, actionId } = message;
+    const basename = path.basename(filePath || "file");
+
+    if (operation === "write" && beforeContent === null) {
+      // CREATE: just open the actual file in editor
+      try {
+        const uri = path.isAbsolute(filePath)
+          ? vscode.Uri.file(filePath)
+          : vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, filePath);
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(doc, { preview: false });
+      } catch {
+        // File might not exist yet, open virtual doc with content
+        const doc = await vscode.workspace.openTextDocument({
+          content: afterContent || "",
+          language: this._getLanguageId(filePath),
+        });
+        await vscode.window.showTextDocument(doc, { preview: false });
+      }
+      return;
+    }
+
+    // REWRITE or REPLACE: open diff view with before ↔ after
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+
+    const tmpDir = this._getTempDir(workspaceFolder.uri.fsPath);
+    const safeId = (actionId || Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, "_");
+
+    const beforeFile = vscode.Uri.file(path.join(tmpDir, `${safeId}_before_${basename}`));
+    const afterFile = vscode.Uri.file(path.join(tmpDir, `${safeId}_after_${basename}`));
+
+    await vscode.workspace.fs.writeFile(beforeFile, Buffer.from(beforeContent || "", "utf8"));
+    await vscode.workspace.fs.writeFile(afterFile, Buffer.from(afterContent || "", "utf8"));
+
+    const label = operation === "write"
+      ? `${basename} (Before ↔ After Rewrite)`
+      : `${basename} (Before ↔ After Edit)`;
+
+    await vscode.commands.executeCommand("vscode.diff", beforeFile, afterFile, label);
+  }
+
+  private _getLanguageId(filePath: string): string {
+    const ext = (filePath || "").split(".").pop()?.toLowerCase() || "";
+    const map: Record<string, string> = {
+      ts: "typescript", tsx: "typescriptreact", js: "javascript", jsx: "javascriptreact",
+      py: "python", rs: "rust", go: "go", java: "java",
+      css: "css", scss: "scss", html: "html", json: "json",
+      md: "markdown", sh: "shellscript", yaml: "yaml", yml: "yaml",
+      xml: "xml", sql: "sql", php: "php", rb: "ruby",
+      kt: "kotlin", swift: "swift", dart: "dart", c: "c", cpp: "cpp",
+    };
+    return map[ext] || "plaintext";
+  }
 }

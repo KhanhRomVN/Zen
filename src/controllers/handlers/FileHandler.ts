@@ -8,6 +8,7 @@ import { FileLockManager } from "../../managers/FileLockManager";
 import { RecentItemsManager } from "../../context/RecentItemsManager";
 import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
 import { CheckpointManager } from "../../utils/CheckpointManager";
+import { SnapshotManager } from "../../utils/SnapshotManager";
 import { SecurityValidator } from "../../agent/validators/SecurityValidator";
 import { LoggerService } from "../../services/LoggerService";
 
@@ -183,6 +184,14 @@ export class FileHandler {
         CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
       }
       const fileExists = fs.existsSync(absolutePath.fsPath);
+      let beforeContent: string | null = null;
+      if (fileExists) {
+        try {
+          beforeContent = await fs.promises.readFile(absolutePath.fsPath, "utf-8");
+        } catch {
+          beforeContent = null;
+        }
+      }
       await CheckpointManager.getInstance().createCheckpoint(
         absolutePath.fsPath,
         fileExists ? "modify" : "create"
@@ -196,6 +205,17 @@ export class FileHandler {
         Buffer.from(message.content, "utf8"),
       );
       logger.info(`[write_to_file] File written successfully`, { path: pathValue });
+
+      if (message.conversationId && message.actionId) {
+        await SnapshotManager.getInstance().saveSnapshot(
+          message.conversationId,
+          message.actionId,
+          absolutePath.fsPath,
+          "write",
+          beforeContent,
+          message.content,
+        );
+      }
 
       if (!message.skipDiagnostics) {
         try {
@@ -334,6 +354,17 @@ export class FileHandler {
         Buffer.from(newContent, "utf8"),
       );
       logger.info(`[replace_in_file] File updated successfully`, { path: pathValue });
+
+      if (message.conversationId && message.actionId && newContent) {
+        await SnapshotManager.getInstance().saveSnapshot(
+          message.conversationId,
+          message.actionId,
+          absPath.fsPath,
+          "replace",
+          content,
+          newContent,
+        );
+      }
     } catch (e: any) {
       logger.error(`[replace_in_file] Error during replace`, { path: pathValue, error: e.message });
       webviewView.webview.postMessage({
@@ -797,6 +828,40 @@ export class FileHandler {
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "deleteFolderResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  public async handleGetSnapshot(message: any, webviewView: vscode.WebviewView): Promise<void> {
+    try {
+      const { conversationId, actionId, requestId } = message;
+      if (!conversationId || !actionId) {
+        throw new Error("conversationId and actionId are required");
+      }
+      const snapshot = await SnapshotManager.getInstance().getSnapshot(conversationId, actionId);
+      if (!snapshot) {
+        webviewView.webview.postMessage({
+          command: "getSnapshotResult",
+          requestId,
+          error: "Snapshot not found",
+        });
+        return;
+      }
+      webviewView.webview.postMessage({
+        command: "getSnapshotResult",
+        requestId,
+        actionId,
+        filePath: snapshot.filePath,
+        operation: snapshot.operation,
+        beforeContent: snapshot.beforeContent,
+        afterContent: snapshot.afterContent,
+        timestamp: snapshot.timestamp,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "getSnapshotResult",
         requestId: message.requestId,
         error: e.message,
       });

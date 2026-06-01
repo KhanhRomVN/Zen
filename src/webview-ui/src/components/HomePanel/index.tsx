@@ -73,6 +73,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
       </div>
       <ChatFooter
         onSendMessage={(content, files, model, account) => {
+          // Clear the home draft when message is sent
           onSendMessage(content, files || [], model, account);
         }}
         isHistoryMode={false}
@@ -84,6 +85,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
         initialValue={initialValue}
+        conversationId="home"
       />
     </div>
   );

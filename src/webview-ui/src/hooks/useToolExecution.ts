@@ -261,6 +261,7 @@ export const useToolExecution = ({
             skipDiagnostics,
             bypassIgnore,
             conversationId: conversationIdRef?.current,
+            actionId: action.actionId,
           });
           messageDispatcher.register(
             requestId,
@@ -305,6 +306,7 @@ export const useToolExecution = ({
             skipDiagnostics,
             bypassIgnore,
             conversationId: conversationIdRef?.current,
+            actionId: action.actionId,
           });
           messageDispatcher.register(
             requestId,

@@ -68,4 +68,8 @@ export interface ChatBodyProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   onAutoScrollPausedChange?: (paused: boolean) => void;
   scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
+  // DeepSeek incomplete SSE continuation
+  isContinuing?: boolean;
+  incompleteHasPartialTool?: boolean;
+  incompletePartialToolType?: string | null;
 }

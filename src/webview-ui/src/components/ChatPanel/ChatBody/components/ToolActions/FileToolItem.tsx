@@ -5,7 +5,7 @@ import { RichtextBlock } from "../../../../RichtextBlock";
 import { ToolHeader } from "../../../../ToolHeader";
 import { parseDiff } from "../../../../../utils/diffUtils";
 import { getFilename, getToolColor, getDisplayPath, collectConvFilePaths } from "../../utils";
-import { extensionService } from "../../../../../services/ExtensionService";
+import { extensionService, messageDispatcher } from "../../../../../services/ExtensionService";
 import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../../hooks/useI18n";
@@ -25,14 +25,16 @@ interface FileToolItemProps {
   fileStatsMap: Record<string, { lines: number; loading: boolean }>;
   onToolClick: (action: ToolAction, messageId: string, index: number, type: "accept_all" | "accept_once" | "reject") => void;
   mergedItems?: { action: ToolAction; index: number }[];
+  conversationId?: string;
 }
 
 const FileToolItem: React.FC<FileToolItemProps> = ({
   action, actionIndex, messageId, isActionClicked, isActiveGroup,
   isLastMessage, isLastItemInList, toolOutputs, allMessages, fileStatsMap, onToolClick,
-  mergedItems,
+  mergedItems, conversationId,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
+  const [isSnapshotLoading, setIsSnapshotLoading] = React.useState(false);
   const { t } = useI18n();
   const { permissionMode } = useSettings();
   const toolType = action.type;
@@ -42,6 +44,45 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   const rawPath = action.params.file_path || action.params.symbol || action.params.folder_path || action.params.path || getFilename(action);
   const allPaths = React.useMemo(() => collectConvFilePaths(allMessages || []), [allMessages]);
   const displayName = rawPath ? getDisplayPath(rawPath, allPaths) : "";
+
+  const isSnapshotTool = toolType === "write_to_file" || toolType === "replace_in_file";
+
+  // Fetch snapshot then open diff tab in VSCode editor
+  const openSnapshotInEditor = React.useCallback(() => {
+    if (!conversationId || !actionId || isSnapshotLoading) return;
+    setIsSnapshotLoading(true);
+    const requestId = `snapshot-${Date.now()}-${Math.random()}`;
+    extensionService.postMessage({
+      command: "getSnapshot",
+      conversationId,
+      actionId,
+      requestId,
+    });
+    messageDispatcher.register(
+      requestId,
+      (msg) => {
+        setIsSnapshotLoading(false);
+        if (!msg.error) {
+          extensionService.postMessage({
+            command: "openSnapshotDiff",
+            filePath: msg.filePath,
+            operation: msg.operation,
+            beforeContent: msg.beforeContent,
+            afterContent: msg.afterContent,
+            actionId,
+          });
+        } else {
+          // Fallback: just open the file
+          if (rawPath) extensionService.postMessage({ command: "openFile", path: rawPath });
+        }
+      },
+      10000,
+      () => {
+        setIsSnapshotLoading(false);
+        if (rawPath) extensionService.postMessage({ command: "openFile", path: rawPath });
+      },
+    );
+  }, [conversationId, actionId, isSnapshotLoading, rawPath]);
 
   let codeContent = "";
   if (toolType === "list_files" || toolType === "search_files") {
@@ -55,7 +96,6 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
 
   let linesCount = action.type === "write_to_file" ? action.params.content?.split("\n").length || 0 : 0;
 
-  // Merge stats from all items if this is a merged group
   if (mergedItems && mergedItems.length > 1) {
     let totalAdded = 0, totalRemoved = 0, totalLines = 0;
     mergedItems.forEach(({ action: a }) => {
@@ -70,6 +110,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
     if (totalAdded > 0 || totalRemoved > 0) diffStats = { added: totalAdded, removed: totalRemoved };
     if (totalLines > 0) linesCount = totalLines;
   }
+
   const isPartial = action.isPartial;
   const isError = !!toolOutputs?.[actionId]?.isError;
 
@@ -87,8 +128,6 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
       (isWriteOrEditTool
         ? !!toolOutputs?.[actionId] || !!nextUserMessage
         : (codeContent && codeContent.trim().length > 0) || !!nextUserMessage));
-
-  const isLoading = !isCompleted && isPartial;
 
   const prefix =
     toolType === "replace_in_file" ? t("tools.update")
@@ -126,6 +165,11 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
                 {t("tools.streaming")}
               </span>
             )}
+            {isSnapshotLoading && !isPartial && (
+              <span style={{ fontSize: "10px", opacity: 0.5, marginLeft: "4px", display: "flex", alignItems: "center", gap: "3px" }}>
+                <span className="codicon codicon-loading codicon-modifier-spin" style={{ fontSize: "10px" }} />
+              </span>
+            )}
             {diffStats && (
               <span style={{ display: "flex", gap: "4px", opacity: 0.7, fontSize: "11px", marginLeft: "4px", fontWeight: 500 }}>
                 <span style={{ color: "var(--vscode-gitDecoration-addedResourceForeground)" }}>+{diffStats.added}</span>
@@ -141,9 +185,13 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         diffStats={undefined}
         isPartial={isPartial}
         onClick={() => {
-          setIsCollapsed((v) => !v);
-          if (rawPath && toolType !== "list_files" && toolType !== "search_files") {
-            extensionService.postMessage({ command: "openFile", path: rawPath });
+          if (isSnapshotTool && isCompleted && !isPartial) {
+            openSnapshotInEditor();
+          } else {
+            setIsCollapsed((v) => !v);
+            if (rawPath && toolType !== "list_files" && toolType !== "search_files") {
+              extensionService.postMessage({ command: "openFile", path: rawPath });
+            }
           }
         }}
       />
