@@ -83,7 +83,11 @@ export class ProcessManager {
       entry.process = null;
     }
 
-    const shell = process.env.SHELL || "/bin/bash";
+    const isWin32 = process.platform === "win32";
+    const shell = isWin32
+      ? process.env.COMSPEC || "cmd.exe"
+      : process.env.SHELL || "/bin/bash";
+    const shellArgs = isWin32 ? ["/c"] : ["-c"];
     const cleanCmd = commandText.replace(/\r?\n+$/, "");
     const isLongRunning = LONG_RUNNING_PATTERNS.test(cleanCmd);
 
@@ -97,7 +101,7 @@ export class ProcessManager {
 
     entry.writeEmitter.fire(`$ ${cleanCmd}\r\n`);
 
-    const child = spawn(shell, ["-c", cleanCmd], {
+    const child = spawn(shell, [...shellArgs, cleanCmd], {
       cwd: entry.cwd,
       env: { ...process.env, TERM: "dumb", NO_COLOR: "1" },
       stdio: ["pipe", "pipe", "pipe"],
