@@ -86,7 +86,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   // Hooks
   const { collapsedSections, toggleCollapse, setInitiallyCollapsed } =
     useCollapseSections();
-  const { clickedActions, handleToolClick, failedActions } = useToolActions({
+  const { clickedActions, handleToolClick, failedActions, rejectedActions } = useToolActions({
     onSendToolRequest,
     onToolAction,
     parsedMessages,
@@ -260,6 +260,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
               clickedActions={clickedActions}
               failedActions={failedActions}
+              rejectedActions={rejectedActions}
               onToolClick={handleToolClick}
               executionState={executionState}
               isLastMessage={

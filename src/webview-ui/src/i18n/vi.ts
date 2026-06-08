@@ -118,6 +118,7 @@ export const vi: I18nDict = {
     accept: "Chấp nhận",
     acceptAll: "Chấp nhận tất cả",
     reject: "Từ chối",
+    rejected: "Đã từ chối thực thi lệnh này",
     running: "Đang chạy...",
     done: "Hoàn thành",
     error: "Lỗi",

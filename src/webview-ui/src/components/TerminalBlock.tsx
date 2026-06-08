@@ -14,7 +14,102 @@ interface TerminalBlockProps {
   initialCommand?: string;
   cwd?: string;
   onInput?: (data: string) => void;
+  rejectedOutline?: boolean;
 }
+
+const CopyIcon: React.FC = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+const CheckIcon: React.FC = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+/** Copy button:
+ *  - hidden (opacity 0) by default, shown (opacity 1) via parent CSS class
+ *  - no background in resting state, subtle bg on hover
+ *  - shows checkmark for 1.5 s after copy
+ */
+const CopyButton: React.FC<{ getText: () => string; title?: string }> = ({ getText, title }) => {
+  const [copied, setCopied] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const text = getText();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {
+      const el = document.createElement("textarea");
+      el.value = text;
+      el.style.position = "fixed";
+      el.style.opacity = "0";
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title={title || "Copy"}
+      className="terminal-copy-btn"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "22px",
+        height: "22px",
+        padding: 0,
+        border: "none",
+        borderRadius: "4px",
+        background: copied
+          ? "color-mix(in srgb, #4ade80 15%, transparent)"
+          : hovered
+            ? "rgba(128, 128, 128, 0.22)"
+            : "transparent",
+        color: copied
+          ? "#4ade80"
+          : "var(--vscode-terminal-foreground, #cccccc)",
+        cursor: "pointer",
+        flexShrink: 0,
+        transition: "background 0.15s, color 0.15s, opacity 0.15s",
+      }}
+    >
+      {copied ? <CheckIcon /> : <CopyIcon />}
+    </button>
+  );
+};
 
 const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({ onInput }) => {
   const [value, setValue] = useState("");
@@ -31,7 +126,6 @@ const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({ onInp
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
-    // Auto-resize up to 3 lines
     const ta = e.target;
     ta.style.height = "auto";
     const lineHeight = 18;
@@ -66,7 +160,7 @@ const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({ onInp
           lineHeight: "18px",
           padding: 0,
           minHeight: "18px",
-          maxHeight: "54px", // 3 lines × 18px
+          maxHeight: "54px",
         }}
       />
     </div>
@@ -81,16 +175,10 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   cwd,
   rows = 22,
   onInput,
+  rejectedOutline,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const { homedir } = useProject();
-
-  const formatCwd = (path: string) => {
-    if (homedir && path.startsWith(homedir)) {
-      return path.replace(homedir, "~");
-    }
-    return path;
-  };
 
   const formatCommand = (cmd: string) => {
     if (!cmd) return "";
@@ -100,6 +188,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     }
     return cmd;
   };
+
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const [isXtermVisible, setIsXtermVisible] = useState(false);
@@ -108,9 +197,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   const canExpand = physicalLineCount > 15;
 
   const toggleExpand = () => {
-    if (canExpand) {
-      setIsExpanded(!isExpanded);
-    }
+    if (canExpand) setIsExpanded((v) => !v);
   };
 
   const stripAnsi = (str: string) =>
@@ -119,7 +206,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       .replace(/\x1b\].*?(\x07|\x1b\\)/g, "");
 
   useEffect(() => {
-    // Show xterm only if we have logs or if it's busy
     if (logs || status === "busy") {
       setIsXtermVisible(true);
     } else {
@@ -137,15 +223,11 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
         cursorInactiveStyle: "none",
         disableStdin: true,
         fontSize: 12,
-        fontFamily:
-          'var(--vscode-editor-font-family, "Courier New", Courier, monospace)',
+        fontFamily: 'var(--vscode-editor-font-family, "Courier New", Courier, monospace)',
         theme: {
           background: "transparent",
           foreground: "var(--vscode-terminal-foreground, #cccccc)",
-          cursor:
-            status === "busy"
-              ? "var(--vscode-terminal-foreground)"
-              : "transparent",
+          cursor: status === "busy" ? "var(--vscode-terminal-foreground)" : "transparent",
         },
         allowProposedApi: true,
         rows: rows,
@@ -161,100 +243,90 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       xtermRef.current = term;
       fitAddonRef.current = fitAddon;
 
-      // 🆕 PROHIBIT INPUT: Disable data listener and block all key events
-      // This ensures the terminal is view-only but still allows text selection.
       term.attachCustomKeyEventHandler(() => false);
 
-      const handleResize = () => {
-        fitAddon.fit();
-      };
+      const handleResize = () => { fitAddon.fit(); };
       window.addEventListener("resize", handleResize);
 
-      // Clean up on unmount or visibility change
       return () => {
         term.dispose();
         window.removeEventListener("resize", handleResize);
         xtermRef.current = null;
-        lastWrittenLogsRef.current = ""; // 🆕 RESET: Ensure next terminal gets full logs
+        lastWrittenLogsRef.current = "";
       };
     }
-  }, [isXtermVisible]); // 🛡️ FIX: Remove 'status' to prevent recreation on status change
+  }, [isXtermVisible]);
 
   const lastWrittenLogsRef = useRef("");
 
   useEffect(() => {
     if (xtermRef.current && isXtermVisible) {
-      // Trim trailing newline for clean display in timeline
       const trimmedLogs = logs.replace(/\r?\n$/, "");
 
       if (!trimmedLogs.startsWith(lastWrittenLogsRef.current)) {
-        // Logs were reset or changed significantly
         xtermRef.current.reset();
         xtermRef.current.write(trimmedLogs);
         lastWrittenLogsRef.current = trimmedLogs;
       } else if (trimmedLogs.length > lastWrittenLogsRef.current.length) {
-        // Append new data
-        const newData = trimmedLogs.substring(
-          lastWrittenLogsRef.current.length,
-        );
+        const newData = trimmedLogs.substring(lastWrittenLogsRef.current.length);
         xtermRef.current.write(newData);
         lastWrittenLogsRef.current = trimmedLogs;
       }
 
-      // 📏 AUTO-FIT HEIGHT: Calculate rows based on content + wrapping
       const logicalLines = logs.split(/\n/);
       const terminalCols = xtermRef.current.cols || 80;
       let count = 0;
       logicalLines.forEach((line) => {
         const cleanLine = stripAnsi(line);
-        // Each logical line takes at least 1 physical row, plus extra for wrapping
         count += Math.max(1, Math.ceil(cleanLine.length / terminalCols));
       });
 
-      if (physicalLineCount !== count) {
-        setPhysicalLineCount(count);
-      }
+      if (physicalLineCount !== count) setPhysicalLineCount(count);
 
-      // Calculate target rows based on expansion state
       const effectiveMaxRows = isExpanded ? rows : 15;
       const targetRows = Math.max(1, Math.min(effectiveMaxRows, count));
 
       if (xtermRef.current.rows !== targetRows) {
         xtermRef.current.resize(terminalCols, targetRows);
-        if (fitAddonRef.current) {
-          fitAddonRef.current.fit();
-        }
+        if (fitAddonRef.current) fitAddonRef.current.fit();
       }
 
-      // Update cursor and blink based on status
       xtermRef.current.options.cursorBlink = status === "busy";
       xtermRef.current.options.theme = {
         ...xtermRef.current.options.theme,
-        cursor:
-          status === "busy"
-            ? "var(--vscode-terminal-foreground)"
-            : "transparent",
+        cursor: status === "busy" ? "var(--vscode-terminal-foreground)" : "transparent",
       };
     }
   }, [logs, status, isXtermVisible, rows]);
 
+  const getCleanLogs = () => stripAnsi(logs || "");
+  const getCommand = () => initialCommand || "";
+
+  // Shared text style — same font/size/color for both command and output areas
+  const terminalTextStyle: React.CSSProperties = {
+    fontFamily: 'var(--vscode-editor-font-family, "Courier New", Courier, monospace)',
+    fontSize: "12px",
+    color: "var(--vscode-terminal-foreground, #cccccc)",
+    lineHeight: "1.5",
+  };
+
   return (
-    <div className="terminal-block-container">
-      {/* 🆕 FIXED HEADER: Environment info & Command (Only show when running) */}
+    <div
+      className="terminal-block-container"
+      style={rejectedOutline ? { outline: "1px solid rgba(244, 67, 54, 0.6)", borderRadius: "6px" } : undefined}
+    >
+      {/* ── COMMAND HEADER ── Copy button hidden by default, shown on hover via CSS */}
       {isXtermVisible && (
         <div
-          className="terminal-fixed-header"
+          className="terminal-fixed-header terminal-cmd-area"
           onClick={toggleExpand}
           style={{
-            padding: "6px 10px",
+            padding: "6px 8px 6px 10px",
             backgroundColor: "var(--vscode-editor-background)",
             borderBottom: "1px solid var(--vscode-panel-border)",
             display: "flex",
             alignItems: "center",
             gap: "8px",
-            fontSize: "11px",
-            fontWeight: 500,
-            color: "var(--vscode-descriptionForeground)",
             zIndex: 5,
             position: "sticky",
             top: 0,
@@ -267,79 +339,95 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
               e.currentTarget.style.backgroundColor = "var(--vscode-hover-bg)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor =
-              "var(--vscode-editor-background)";
+            e.currentTarget.style.backgroundColor = "var(--vscode-editor-background)";
           }}
         >
+          {/* Command text — same style as output */}
           <div
             style={{
-              fontFamily: "var(--vscode-editor-font-family, monospace)",
+              ...terminalTextStyle,
               whiteSpace: "pre-wrap",
               wordBreak: "break-all",
-              opacity: 0.9,
-              width: "100%",
+              flex: 1,
+              minWidth: 0,
             }}
           >
-            <span style={{ color: "var(--vscode-terminal-foreground)" }}>
-              {initialCommand ? formatCommand(initialCommand) : "Terminal"}
-            </span>
+            {initialCommand ? formatCommand(initialCommand) : "Terminal"}
           </div>
+
+          {/* Right actions: copy + chevron */}
           <div
-            className="terminal-header-actions"
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "8px",
+              gap: "4px",
               marginLeft: "auto",
+              flexShrink: 0,
             }}
+            onClick={(e) => e.stopPropagation()}
           >
+            {/* CSS class on parent (.terminal-cmd-area) controls opacity */}
+            <CopyButton getText={getCommand} title="Copy command" />
             {canExpand && (
               <div
                 className={`codicon codicon-chevron-${isExpanded ? "up" : "down"}`}
-                style={{ fontSize: "12px", opacity: 0.8 }}
+                style={{ fontSize: "12px", opacity: 0.7, cursor: "pointer", color: "var(--vscode-terminal-foreground, #cccccc)" }}
+                onClick={(e) => { e.stopPropagation(); toggleExpand(); }}
               />
             )}
           </div>
         </div>
       )}
-      <div
-        className="terminal-content-wrapper"
-        style={{ maxHeight: `${maxHeight}px`, pointerEvents: "none", userSelect: "none" }}
-      >
-        {!isXtermVisible ? (
+
+      {/* ── OUTPUT AREA ── Copy button hidden by default, shown on hover via CSS */}
+      <div className="terminal-output-area" style={{ position: "relative" }}>
+        {isXtermVisible && logs && (
           <div
-            className="terminal-richtext-fallback"
+            className="terminal-output-copy-btn"
             style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "8px",
-              alignItems: "center",
+              position: "absolute",
+              top: "6px",
+              right: "8px",
+              zIndex: 10,
             }}
           >
+            <CopyButton getText={getCleanLogs} title="Copy output" />
+          </div>
+        )}
+
+        <div
+          className="terminal-content-wrapper"
+          style={{
+            maxHeight: `${maxHeight}px`,
+            overflowY: "auto",
+            pointerEvents: "auto",
+            userSelect: "none",
+          }}
+        >
+          {!isXtermVisible ? (
             <div
+              className="terminal-richtext-fallback"
               style={{
-                fontFamily: "var(--vscode-editor-font-family, monospace)",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-all",
-                opacity: 0.8,
-                fontSize: "12px",
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "8px",
+                alignItems: "center",
               }}
             >
-              <span style={{ color: "var(--vscode-terminal-foreground)" }}>
-                {initialCommand
-                  ? formatCommand(initialCommand)
-                  : "No command executed yet."}
-              </span>
+              <div style={{ ...terminalTextStyle, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                {initialCommand ? formatCommand(initialCommand) : "No command executed yet."}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div
-            ref={terminalRef}
-            className="xterm-container"
-            onPaste={(e) => e.preventDefault()}
-          />
-        )}
+          ) : (
+            <div
+              ref={terminalRef}
+              className="xterm-container"
+              onPaste={(e) => e.preventDefault()}
+            />
+          )}
+        </div>
       </div>
+
       {onInput && <TerminalInputBar onInput={onInput} />}
     </div>
   );

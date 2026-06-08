@@ -116,6 +116,7 @@ export const en = {
     accept: "Accept",
     acceptAll: "Accept All",
     reject: "Reject",
+    rejected: "Command execution rejected",
     running: "Running...",
     done: "Done",
     error: "Error",

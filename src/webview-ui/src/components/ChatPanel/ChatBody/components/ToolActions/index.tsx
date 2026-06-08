@@ -7,6 +7,7 @@ interface ToolActionsListProps {
   message: Message;
   items: { action: ToolAction; index: number }[]; // Changed from actions: ToolAction[]
   clickedActions: Set<string>;
+  rejectedActions?: Set<string>;
   onToolClick: (
     action: ToolAction | ToolAction[],
     message: Message,
@@ -36,6 +37,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   message,
   items,
   clickedActions,
+  rejectedActions,
   onToolClick,
   executionState,
   failedActions,
@@ -221,6 +223,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             group={group}
             messageId={message.id}
             clickedActions={clickedActions}
+            rejectedActions={rejectedActions}
             onToolClick={(act, msgId, aIdx, type) =>
               onToolClick(act, message, aIdx, type)
             }

@@ -12,7 +12,6 @@ import {
   logChatToWorkspace,
   saveConversation,
   calculateTokens,
-  getConversationKey,
   deleteConversation,
 } from "../services/ConversationService";
 import { useSettings } from "../context/SettingsContext";
@@ -145,6 +144,41 @@ export const useChatLLM = ({
               currentConversationIdRef.current,
               selectedTab || undefined,
               true, // skipTimestampUpdate
+              undefined,
+              backendConversationIdRef.current,
+            );
+
+            return updated;
+          });
+        }
+      }
+
+      if (command === "markActionRejected" && actionId) {
+        const messageId = actionId.split("-action-")[0];
+        if (messageId) {
+          setMessages((prev) => {
+            const updated = prev.map((m) => {
+              if (m.id === messageId) {
+                const currentRejected = m.rejectedActions || [];
+                if (!currentRejected.includes(actionId)) {
+                  return {
+                    ...m,
+                    rejectedActions: [...currentRejected, actionId],
+                  };
+                }
+              }
+              return m;
+            });
+
+            const tabId = selectedTab?.tabId || -1;
+            const folderPath = selectedTab?.folderPath || null;
+            saveConversation(
+              tabId,
+              folderPath,
+              updated,
+              currentConversationIdRef.current,
+              selectedTab || undefined,
+              true,
               undefined,
               backendConversationIdRef.current,
             );
@@ -591,12 +625,19 @@ export const useChatLLM = ({
           ? `${systemPrompt}${projectContextStr}\n\n${fullContent}`
           : fullContent;
 
-        let payloadMessages = updatedMessages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
+        const errorMsgCount = updatedMessages.filter((m) => m.isError).length;
+        let payloadMessages = updatedMessages
+          .filter((m) => !m.isError)  // exclude error messages — they are UI-only, not part of conversation history
+          .map((m) => ({
+            role: m.role,
+            content: m.content,
+          }));
         if (isReq1) {
           payloadMessages[0].content = promptPayload;
+        }
+
+        if (errorMsgCount > 0) {
+          console.log(`[Zen Payload] Filtered ${errorMsgCount} error message(s) from payload | total=${updatedMessages.length} → payload=${payloadMessages.length}`);
         }
 
         let finalPayloadMessages = payloadMessages;
@@ -626,7 +667,7 @@ export const useChatLLM = ({
         const headers = { "Content-Type": "application/json" };
 
         const bodyStr = JSON.stringify(body);
-        console.log(`[Zen Request] ✈ SENDING HTTP | letters: ${bodyStr.length} | messages: ${body.messages.length} | conversationId: ${body.conversationId || "none"} | backendConvIdRef: ${backendConversationIdRef.current || "none"} | localConvId: ${effectiveChatUuid} | isReq1: ${isReq1} | skipFirstRequestLogic: ${skipFirstRequestLogic} | url: ${apiUrl}/v1/chat/accounts/messages`);
+        console.log(`[Zen Request] ✈ SENDING | msgs=${body.messages.length} | errFiltered=${errorMsgCount} | model=${body.modelId || "none"} | provider=${body.providerId || "none"} | account=${body.accountId || "none"} | convId=${body.conversationId || "none"} | isReq1=${isReq1} | skipTool=${skipFirstRequestLogic}`);
 
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
@@ -667,10 +708,27 @@ export const useChatLLM = ({
         let done = false;
         let buffer = "";
 
+        // First-chunk timeout: if no SSE data arrives within 5 minutes, abort the stream.
+        // The Elara server has its own 5-minute timeout and sends an error event — this is
+        // a client-side safety net for cases where the TCP connection stays open but
+        // the server is completely silent (e.g. hung upstream, network black hole).
+        let firstChunkReceived = false;
+        const FIRST_CHUNK_TIMEOUT_MS = 305_000; // 5 min + 5s buffer
+        const firstChunkTimer = setTimeout(() => {
+          if (!firstChunkReceived) {
+            console.warn(`[useChatLLM] First-chunk timeout (${FIRST_CHUNK_TIMEOUT_MS}ms) — aborting stream | convId=${effectiveChatUuid}`);
+            abortController.abort();
+          }
+        }, FIRST_CHUNK_TIMEOUT_MS);
+
         while (!done) {
           const { value, done: readerDone } = await reader.read();
           done = readerDone;
           if (value) {
+            if (!firstChunkReceived) {
+              firstChunkReceived = true;
+              clearTimeout(firstChunkTimer);
+            }
             const chunk = decoder.decode(value, { stream: true });
             buffer += chunk;
             const lines = buffer.split("\n");
@@ -814,6 +872,9 @@ export const useChatLLM = ({
         }
 
         // Process any remaining data in buffer after stream ends
+        // Stream ended — clear first-chunk timer if still pending
+        clearTimeout(firstChunkTimer);
+
         if (isContinuing) {
           console.warn(
             `[Zen] Stream ended but isContinuing is still true — server may not have sent continuing:false | conversationId=${backendConversationId || currentConversationIdRef.current || 'none'}`,

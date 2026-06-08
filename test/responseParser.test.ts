@@ -1,4 +1,5 @@
 import * as assert from "assert";
+import * as fc from "fast-check";
 import { parseAIResponse } from "../src/webview-ui/src/services/ResponseParser";
 
 const WRITE_TO_FILE_RESPONSE = `\`\`\`
@@ -202,5 +203,56 @@ describe("ResponseParser - Malformed XML Tool Calls", () => {
     // Fourth action: search_files (correct)
     assert.strictEqual(parsed.actions[3].type, "search_files");
     assert.strictEqual(parsed.actions[3].params.folder_path, "src");
+  });
+});
+
+// Validates: Bug Condition 1.1, 1.2, 1.3
+describe("ResponseParser - Bug Exploration: read_file missing closing container tag", () => {
+  /**
+   * isBugCondition: an XML string that:
+   *   1. Contains <read_file>   (open tag present)
+   *   2. Does NOT contain </read_file>  (close tag absent)
+   *   3. Contains a complete <file_path>NON_EMPTY_PATH</file_path>
+   */
+
+  // Generator for a non-empty path that avoids XML special chars to keep inputs clean
+  const filePathArb = fc
+    .string({ minLength: 1, maxLength: 80 })
+    .filter((s) => s.trim().length > 0)
+    .filter((s) => !s.includes("<") && !s.includes(">") && !s.includes("&"));
+
+  // Builds an XML string satisfying isBugCondition
+  const bugConditionArb = filePathArb.map(
+    (path) => `<read_file><file_path>${path}</file_path>`
+  );
+
+  it("property: for all isBugCondition inputs, parseAIResponse must return a complete (non-partial) read_file action", () => {
+    fc.assert(
+      fc.property(bugConditionArb, (xml) => {
+        // Verify the generated string actually satisfies isBugCondition
+        const hasOpenTag = xml.includes("<read_file>");
+        const hasMissingClose = !xml.includes("</read_file>");
+        const hasCompleteParam = /<file_path>([\s\S]*?)<\/file_path>/i.test(xml);
+        const pathMatch = xml.match(/<file_path>([\s\S]*?)<\/file_path>/i);
+        const pathNonEmpty = pathMatch !== null && pathMatch[1].trim().length > 0;
+
+        assert.ok(hasOpenTag, "Generated XML should have <read_file> open tag");
+        assert.ok(hasMissingClose, "Generated XML should be missing </read_file> close tag");
+        assert.ok(hasCompleteParam && pathNonEmpty, "Generated XML should have complete non-empty <file_path>");
+
+        // The fix-checking property — this will FAIL on unpatched code
+        const result = parseAIResponse(xml);
+        const action = result.actions[0];
+
+        assert.ok(action !== undefined, "Should have at least one parsed action");
+        assert.strictEqual(action.type, "read_file", "Action type should be read_file");
+        assert.strictEqual(action.isPartial, false, "Action should NOT be partial (isPartial must be false)");
+        assert.ok(
+          action.params.file_path && String(action.params.file_path).trim().length > 0,
+          "Extracted file_path should be non-empty"
+        );
+      }),
+      { numRuns: 100 }
+    );
   });
 });

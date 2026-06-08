@@ -117,16 +117,43 @@
   background-color: rgba(121, 121, 121, 0.1) !important;
 }
 
+/* ── Copy button visibility ──────────────────────────────────────────────── */
+/* Hidden by default on both command and output areas */
+.terminal-cmd-area .terminal-copy-btn,
+.terminal-output-copy-btn {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+/* Reveal command copy button when hovering the command header */
+.terminal-cmd-area:hover .terminal-copy-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Reveal output copy button when hovering the output area */
+.terminal-output-area:hover .terminal-output-copy-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Keep visible while the button itself is hovered (in case cursor moves slowly) */
+.terminal-copy-btn:hover {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
 .terminal-content-wrapper {
   padding: 8px 8px 8px 12px;
   overflow-y: auto;
   background-color: var(--vscode-terminal-background, #1e1e1e);
   scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4)) transparent;
 }
 
 .terminal-content-wrapper:hover {
-  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4)) transparent;
+  scrollbar-color: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7)) transparent;
 }
 
 .terminal-richtext-fallback {
@@ -154,7 +181,7 @@
 }
 
 .terminal-content-wrapper::-webkit-scrollbar {
-  width: 3px;
+  width: 6px;
 }
 
 .terminal-content-wrapper::-webkit-scrollbar-track {
@@ -162,15 +189,11 @@
 }
 
 .terminal-content-wrapper::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 2px;
-}
-
-.terminal-content-wrapper:hover::-webkit-scrollbar-thumb {
   background: var(
     --vscode-scrollbarSlider-background,
     rgba(121, 121, 121, 0.4)
   );
+  border-radius: 3px;
 }
 
 .terminal-content-wrapper::-webkit-scrollbar-thumb:hover {

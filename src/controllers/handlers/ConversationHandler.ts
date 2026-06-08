@@ -113,42 +113,60 @@ export class ConversationHandler {
       const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
       const exists = fs.existsSync(logPath);
+      console.log(`[ConversationHandler] handleGetConversation | conversationId=${conversationId} | logPath=${logPath} | exists=${exists}`);
 
       if (!exists) {
         // Try searching across all project dirs
         const contextRoot = this.getContextRoot();
         const projectsDir = path.join(contextRoot, "projects");
+        console.log(`[ConversationHandler] primary path not found, searching in projectsDir=${projectsDir}`);
         try {
           const projectDirs = await fs.promises.readdir(projectsDir);
           for (const dir of projectDirs) {
             const candidate = path.join(projectsDir, dir, `${conversationId}.json`);
             if (fs.existsSync(candidate)) {
               const content = await fs.promises.readFile(candidate, "utf-8");
+              const candidateParsed = JSON.parse(content);
+              const isArray = Array.isArray(candidateParsed);
+              const toolOutputKeys = !isArray && candidateParsed.toolOutputs ? Object.keys(candidateParsed.toolOutputs) : [];
+              console.log(`[ConversationHandler] found in fallback path=${candidate} | isArray=${isArray} | msgCount=${isArray ? candidateParsed.length : candidateParsed.messages?.length} | toolOutputKeys=${JSON.stringify(toolOutputKeys)}`);
               webviewView.webview.postMessage({
                 command: "conversationResult",
                 requestId: message.requestId,
-                data: { messages: JSON.parse(content), conversationId },
+                data: {
+                  messages: isArray ? candidateParsed : candidateParsed.messages || [],
+                  conversationId,
+                  backendConversationId: isArray ? undefined : candidateParsed.backendConversationId,
+                  toolOutputs: isArray ? undefined : candidateParsed.toolOutputs,
+                },
               });
               return;
             }
           }
         } catch (searchErr) {
+          console.error(`[ConversationHandler] fallback search error:`, searchErr);
         }
         throw new Error(`File not found: ${logPath}`);
       }
 
       const content = await fs.promises.readFile(logPath, "utf-8");
       const parsed = JSON.parse(content);
+      const isArray = Array.isArray(parsed);
+      const toolOutputKeys = !isArray && parsed.toolOutputs ? Object.keys(parsed.toolOutputs) : [];
+      console.log(`[ConversationHandler] read primary file | isArray=${isArray} | msgCount=${isArray ? parsed.length : parsed.messages?.length} | toolOutputKeys=${JSON.stringify(toolOutputKeys)} | hasBackendConvId=${!isArray && !!parsed.backendConversationId}`);
 
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,
         data: {
-          messages: Array.isArray(parsed) ? parsed : parsed.messages || [],
+          messages: isArray ? parsed : parsed.messages || [],
           conversationId,
+          backendConversationId: isArray ? undefined : parsed.backendConversationId,
+          toolOutputs: isArray ? undefined : parsed.toolOutputs,
         },
       });
     } catch (error: any) {
+      console.error(`[ConversationHandler] handleGetConversation ERROR:`, error);
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,

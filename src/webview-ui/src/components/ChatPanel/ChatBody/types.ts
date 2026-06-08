@@ -24,6 +24,7 @@ export interface Message {
   selectedOption?: string;
   thinking?: string;
   clickedActions?: string[];
+  rejectedActions?: string[];
   response_message_id?: string; // DeepSeek parent_message_id for revert support
 }
 

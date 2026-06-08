@@ -56,9 +56,7 @@ export class SystemHandler {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const platform = process.platform;
     const homeDir = process.env.HOME || process.env.USERPROFILE || "~";
-    const shell = process.platform === "win32"
-      ? process.env.COMSPEC || "cmd.exe"
-      : process.env.SHELL || "/bin/bash";
+    const shell = process.env.SHELL || "/bin/bash";
     let osName = "Unknown";
     if (platform === "linux") osName = "Linux";
     else if (platform === "darwin") osName = "macOS";

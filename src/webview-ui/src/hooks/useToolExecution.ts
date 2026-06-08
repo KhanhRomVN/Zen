@@ -78,6 +78,7 @@ export const useToolExecution = ({
   >({});
 
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
+  const [rejectedActions, setRejectedActions] = useState<Set<string>>(new Set());
 
   const clickedActionsRef = useRef<Set<string>>(new Set());
   const pendingToolResolvers = useRef<
@@ -548,7 +549,34 @@ export const useToolExecution = ({
         _index: a._index !== undefined ? a._index : idx,
       }));
 
-      // Validation check for duplicate actions or re-runs if needed (omitted for brevity)
+      // DEDUP: DeepSeek INCOMPLETE continuation causes multiple write_to_file / replace_in_file
+      // actions for the same file_path in one message (each continuation resumes with a new tool tag).
+      // Only the LAST occurrence contains the most complete content — skip all earlier ones.
+      // We mark the skipped actions as clicked so the flush logic still waits for all of them.
+      const FILE_WRITE_TOOLS = ['write_to_file', 'replace_in_file'];
+      const lastIndexForPath = new Map<string, number>();
+      actions.forEach((a, idx) => {
+        if (FILE_WRITE_TOOLS.includes(a.type)) {
+          const fp = a.params?.path || a.params?.file_path || '';
+          if (fp) lastIndexForPath.set(fp, idx);
+        }
+      });
+      // Pre-mark duplicate (non-last) write actions as clicked so they don't block flush
+      actions.forEach((a) => {
+        if (FILE_WRITE_TOOLS.includes(a.type)) {
+          const fp = a.params?.path || a.params?.file_path || '';
+          const lastIdx = lastIndexForPath.get(fp);
+          if (fp && lastIdx !== undefined && a._index !== lastIdx) {
+            const dupActionId = a.actionId || `${message.id}-action-${a._index}`;
+            if (!clickedActionsRef.current.has(dupActionId)) {
+              console.log(`[useToolExecution] DEDUP: skipping duplicate ${a.type} for '${fp}' at index ${a._index} (keeping index ${lastIdx})`);
+              clickedActionsRef.current.add(dupActionId);
+              setClickedActions(new Set(clickedActionsRef.current));
+              window.postMessage({ command: 'markActionClicked', actionId: dupActionId }, '*');
+            }
+          }
+        }
+      });
 
       // Track actions that were pre-skipped (already triggered) vs actually executed
       const validResults: string[] = [];
@@ -610,6 +638,8 @@ export const useToolExecution = ({
         let result: string | null = null;
         if (actionType === "reject") {
           result = `Output: [${action.type}] Tool execution rejected by user.`;
+          setRejectedActions((prev) => new Set(prev).add(actionId));
+          window.postMessage({ command: "markActionRejected", actionId }, "*");
         } else if (decision === "deny") {
           result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionMode}).`;
         } else {
@@ -843,6 +873,7 @@ export const useToolExecution = ({
     toolOutputs,
     setToolOutputs,
     clickedActions,
+    rejectedActions,
     terminalStatus,
     handleToolRequest,
   };

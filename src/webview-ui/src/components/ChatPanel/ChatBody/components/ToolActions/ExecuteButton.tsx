@@ -1,5 +1,5 @@
 import React from "react";
-import { Check, CheckCheck, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useI18n } from "../../../../../hooks/useI18n";
 
 export interface ExecuteButtonProps {
@@ -66,7 +66,6 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
     <div style={{ display: "flex", gap: "6px", marginTop: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
       {[
         { type: "accept_once" as const, color: toolColor, icon: <Check size={14} strokeWidth={2.5} />, label: t("toolActions.accept"), title: "Accept Once" },
-        { type: "accept_all" as const, color: "#3fb950", icon: <CheckCheck size={14} strokeWidth={2.5} />, label: t("toolActions.acceptAll"), title: "Always (Auto-confirm exact same calls)" },
         { type: "reject" as const, color: "#ff4d4d", icon: <X size={14} strokeWidth={2.5} />, label: t("toolActions.reject"), title: "Reject this tool call" },
       ].map(({ type, color, icon, label, title: btnTitle }) => (
         <button

@@ -1,9 +1,50 @@
 import * as vscode from "vscode";
 import * as crypto from "crypto";
-import { spawn, ChildProcess } from "child_process";
+import * as os from "os";
+import { spawn, ChildProcess, SpawnOptions } from "child_process";
 
 // Long-running command patterns — these terminals persist until user stops them
 const LONG_RUNNING_PATTERNS = /\b(dev|start|serve|watch|preview|run dev|run start|run serve|run watch|run preview)\b/i;
+
+/** Resolve the shell and spawn args for the current OS.
+ *
+ *  - Windows: use `cmd.exe /d /s /c` so all standard Windows commands work,
+ *    or PowerShell if `COMSPEC` is not set.
+ *  - macOS / Linux: use the user's login shell (`$SHELL`) falling back to `/bin/sh`.
+ *
+ *  Returns `{ shell, args, spawnOptions }` ready to pass to `spawn()`.
+ */
+function resolveShell(cwd: string): { shell: string; shellArgs: string[]; spawnOpts: SpawnOptions } {
+  const platform = os.platform();
+
+  if (platform === "win32") {
+    // Prefer PowerShell Core (pwsh) > Windows PowerShell (powershell) > cmd
+    const comspec = process.env.COMSPEC || "cmd.exe";
+    // cmd.exe: /d disables AutoRun, /s /c allows compound commands
+    return {
+      shell: comspec,
+      shellArgs: ["/d", "/s", "/c"],
+      spawnOpts: {
+        cwd,
+        env: { ...process.env, NO_COLOR: "1" },
+        stdio: ["pipe", "pipe", "pipe"],
+        // On Windows, shell: true breaks output capture; we wrap manually above
+      },
+    };
+  }
+
+  // macOS / Linux
+  const userShell = process.env.SHELL || "/bin/sh";
+  return {
+    shell: userShell,
+    shellArgs: ["-c"],
+    spawnOpts: {
+      cwd,
+      env: { ...process.env, TERM: "dumb", NO_COLOR: "1" },
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  };
+}
 
 interface TerminalEntry {
   writeEmitter: vscode.EventEmitter<string>;
@@ -79,15 +120,17 @@ export class ProcessManager {
     }
 
     if (entry.process) {
-      try { entry.process.kill("SIGTERM"); } catch (_) {}
+      try {
+        if (os.platform() === "win32") {
+          entry.process.kill();
+        } else {
+          entry.process.kill("SIGTERM");
+        }
+      } catch (_) {}
       entry.process = null;
     }
 
-    const isWin32 = process.platform === "win32";
-    const shell = isWin32
-      ? process.env.COMSPEC || "cmd.exe"
-      : process.env.SHELL || "/bin/bash";
-    const shellArgs = isWin32 ? ["/c"] : ["-c"];
+    const { shell, shellArgs, spawnOpts } = resolveShell(entry.cwd);
     const cleanCmd = commandText.replace(/\r?\n+$/, "");
     const isLongRunning = LONG_RUNNING_PATTERNS.test(cleanCmd);
 
@@ -101,11 +144,7 @@ export class ProcessManager {
 
     entry.writeEmitter.fire(`$ ${cleanCmd}\r\n`);
 
-    const child = spawn(shell, [...shellArgs, cleanCmd], {
-      cwd: entry.cwd,
-      env: { ...process.env, TERM: "dumb", NO_COLOR: "1" },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    const child = spawn(shell, [...shellArgs, cleanCmd], spawnOpts);
     entry.process = child;
 
     const onData = (chunk: Buffer) => {
@@ -123,14 +162,22 @@ export class ProcessManager {
     child.stdout!.on("data", onData);
     child.stderr!.on("data", onData);
 
-    child.on("close", () => {
+    // Track when each stream has fully flushed before firing onCommandFinished
+    let stdoutEnded = false;
+    let stderrEnded = false;
+    let processClosed = false;
+    let exitCode: number | null = null;
+
+    const tryFinish = () => {
+      if (!processClosed || !stdoutEnded || !stderrEnded) return;
+
       entry.process = null;
       entry.isBusy = false;
       entry.writeEmitter.fire("\r\n");
 
       if (actionId) {
         entry.activeActionId = null;
-        console.log(`[ProcessManager] process close → firing onCommandFinished`, { actionId, terminalId: id, outputLength: entry.output.length });
+        console.log(`[ProcessManager] process close → firing onCommandFinished`, { actionId, terminalId: id, outputLength: entry.output.length, exitCode });
         this.onCommandFinishedEmitter.fire({ actionId, output: entry.output, terminalId: id, commandText: cleanCmd });
       }
 
@@ -139,6 +186,15 @@ export class ProcessManager {
 
       // Auto-cleanup after command finishes to free resources
       this._cleanup(id);
+    };
+
+    child.stdout!.on("end", () => { stdoutEnded = true; tryFinish(); });
+    child.stderr!.on("end", () => { stderrEnded = true; tryFinish(); });
+
+    child.on("close", (code) => {
+      processClosed = true;
+      exitCode = code;
+      tryFinish();
     });
 
     child.on("error", (err) => {
@@ -191,7 +247,14 @@ export class ProcessManager {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
     if (entry.process) {
-      try { entry.process.kill("SIGTERM"); } catch (_) {}
+      try {
+        if (os.platform() === "win32") {
+          // SIGTERM is not supported on Windows; use SIGKILL or taskkill
+          entry.process.kill();
+        } else {
+          entry.process.kill("SIGTERM");
+        }
+      } catch (_) {}
       entry.process = null;
     }
     const actionId = entry.activeActionId;
@@ -209,7 +272,13 @@ export class ProcessManager {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
     if (entry.process) {
-      try { entry.process.kill("SIGTERM"); } catch (_) {}
+      try {
+        if (os.platform() === "win32") {
+          entry.process.kill();
+        } else {
+          entry.process.kill("SIGTERM");
+        }
+      } catch (_) {}
     }
     entry.writeEmitter.dispose();
     this.terminalMap.delete(id);

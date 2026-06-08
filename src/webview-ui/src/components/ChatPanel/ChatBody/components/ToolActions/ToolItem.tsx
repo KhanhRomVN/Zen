@@ -13,6 +13,7 @@ interface ToolItemProps {
   group: { action: ToolAction; index: number }[];
   messageId: string;
   clickedActions: Set<string>;
+  rejectedActions?: Set<string>;
   onToolClick: (
     action: ToolAction,
     messageId: string,
@@ -38,7 +39,7 @@ interface ToolItemProps {
 }
 
 const ToolItem: React.FC<ToolItemProps> = ({
-  group, messageId, clickedActions, onToolClick, executionState,
+  group, messageId, clickedActions, rejectedActions, onToolClick, executionState,
   isActiveGroup, failedActions, isLastMessage, isLastItemInList = true,
   toolOutputs, terminalStatus, nextUserMessage, allMessages,
   activeTerminalIds, attachedTerminalIds, conversationId,
@@ -226,6 +227,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
         actionIndex={group[0].index}
         messageId={messageId}
         isActionClicked={clickedActions.has(`${messageId}-action-${group[0].index}`)}
+        isRejected={rejectedActions?.has(`${messageId}-action-${group[0].index}`)}
         isActiveGroup={isActiveGroup}
         isLastMessage={isLastMessage}
         toolOutputs={toolOutputs}

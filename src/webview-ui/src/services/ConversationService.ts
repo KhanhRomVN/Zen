@@ -138,12 +138,14 @@ export const saveConversation = async (
     };
 
     await storage.set(key, JSON.stringify(data), false);
+    console.log(`[ConversationService] saveConversation | key=${key} | msgCount=${messagesToSave.length} | toolOutputKeys=${JSON.stringify(toolOutputs ? Object.keys(toolOutputs) : [])} | hasToolOutputs=${!!(toolOutputs && Object.keys(toolOutputs).length > 0)}`);
 
-    // Sync to in-memory cache
+    // Sync to in-memory cache — include toolOutputs so cache-hits also have output data
     ConversationCache.set(convId, {
       messages: messagesToSave,
       conversationId: convId,
       backendConversationId: backendConversationId || existingBackendConversationId,
+      toolOutputs: toolOutputs && Object.keys(toolOutputs).length > 0 ? toolOutputs : undefined,
     });
 
     return convId;

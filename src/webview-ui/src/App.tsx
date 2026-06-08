@@ -174,7 +174,7 @@ const App: React.FC = () => {
         title: "New Chat",
         status: "free",
         conversationId: "", // Empty for new chat
-        folderPath: null,
+        folderPath: (window as any).__zenWorkspaceFolderPath || null,
         canAccept: true,
         requestCount: 0,
       };

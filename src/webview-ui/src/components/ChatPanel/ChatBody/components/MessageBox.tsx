@@ -28,6 +28,7 @@ interface MessageBoxProps {
   onToggleCollapse: () => void;
   clickedActions: Set<string>;
   failedActions?: Set<string>;
+  rejectedActions?: Set<string>;
   onToolClick: (
     action: any,
     message: Message,
@@ -110,6 +111,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   onToggleCollapse,
   clickedActions,
   failedActions,
+  rejectedActions,
   onToolClick,
   requestNumber,
   executionState,
@@ -1002,6 +1004,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   items={group.items}
                   clickedActions={clickedActions}
                   failedActions={failedActions}
+                  rejectedActions={rejectedActions}
                   onToolClick={onToolClick}
                   executionState={executionState}
                   isLastMessage={isLastMessage}

@@ -63,8 +63,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [attachedTerminalIds, setAttachedTerminalIds] = useState<Set<string>>(
     new Set(),
   );
-  const [currentModel, setCurrentModel] = useState<any>(null);
-  const [currentAccount, setCurrentAccount] = useState<any>(null);
+  const [currentModel, setCurrentModel] = useState<any>(
+    // Seed from initialMessageData so ChatHeader shows correct model immediately,
+    // preventing the cache-load from MessageInput from overwriting it.
+    () => initialMessageData?.model ?? null
+  );
+  const [currentAccount, setCurrentAccount] = useState<any>(
+    () => initialMessageData?.account ?? null
+  );
+
+  // Debug: log whenever ChatPanel's model/account state changes
+  useEffect(() => {
+    console.log("[Zen][ChatPanel] currentModel changed →", currentModel?.id ?? null, "| provider:", currentModel?.providerId ?? null);
+  }, [currentModel]);
+
+  useEffect(() => {
+    console.log("[Zen][ChatPanel] currentAccount changed →", currentAccount?.email ?? null);
+  }, [currentAccount]);
   const { isSimpleMode } = useSettings();
 
   const [isRestored, setIsRestored] = useState(false);
@@ -303,7 +318,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     if (!apiUrl) return;
     fetch(`${apiUrl}/v1/providers`)
       .then((r) => r.json())
-      .then((data: any[]) => setProviders(data))
+      .then((res: any) => {
+        const data = Array.isArray(res) ? res : res?.data;
+        if (Array.isArray(data)) setProviders(data);
+      })
       .catch(() => {});
   }, [apiUrl]);
 
@@ -352,6 +370,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
     const tabId = selectedTab?.tabId || -1;
     const folderPath = selectedTab?.folderPath || null;
+    console.log(`[ChatPanel] persisting toolOutputs to disk | keys=${JSON.stringify(Object.keys(toolOutputs))} | convId=${currentConversationId}`);
     saveConversation(tabId, folderPath, messages, currentConversationId, selectedTab || undefined, true, undefined, undefined, toolOutputs);
   }, [toolOutputs, currentConversationId]);
 
@@ -421,6 +440,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
+        const toolOutputKeys = data.data?.toolOutputs ? Object.keys(data.data.toolOutputs) : [];
+        console.log(`[ChatPanel] conversationResult received | msgCount=${data.data?.messages?.length ?? 0} | toolOutputKeys=${JSON.stringify(toolOutputKeys)} | hasError=${!!data.error} | convId=${data.data?.conversationId}`);
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({
@@ -431,7 +452,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           setMessages(restoredMessages);
 
           if (data.data.toolOutputs && Object.keys(data.data.toolOutputs).length > 0) {
+            console.log(`[ChatPanel] restoring toolOutputs | keys=${JSON.stringify(Object.keys(data.data.toolOutputs))}`);
             setToolOutputs(data.data.toolOutputs);
+          } else {
+            console.warn(`[ChatPanel] NO toolOutputs in conversationResult — terminal blocks will show gray/empty`);
           }
 
           // Restore pending revert parent if any
@@ -628,17 +652,56 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const handleStopGeneration = useCallback(() => {
     stopGeneration(); // already sets isProcessing=false, isStreaming=false
-    setIsProcessing(false); // ensure immediate UI reset before revert async
+    setIsProcessing(false);
 
-    const lastUserMsg = [...messagesRef.current]
-      .reverse()
-      .find((m) => !m.uiHidden && !m.isCancelled && m.role === "user");
-    if (lastUserMsg) {
-      handleRevertConversation(lastUserMsg.id, lastUserMsg.timestamp);
-    }
-  }, [stopGeneration, messagesRef, handleRevertConversation, setIsProcessing]);
+    // Mark the in-progress assistant message (the one being streamed) as cancelled/truncated.
+    // We do NOT revert previous messages — all prior context (including 100+ tool-call turns) must be preserved.
+    setMessages((prev) => {
+      // Find the last assistant message that has no content yet or is clearly mid-stream
+      // (it will be the final item or very close to it)
+      const lastAssistantIdx = [...prev].reduceRight(
+        (found, m, i) => (found === -1 && m.role === "assistant" && !m.isCancelled ? i : found),
+        -1,
+      );
+      if (lastAssistantIdx === -1) return prev;
+
+      const updated = [...prev];
+      updated[lastAssistantIdx] = {
+        ...updated[lastAssistantIdx],
+        isCancelled: true,
+      };
+
+      // Persist so the truncated state survives a reload
+      const tabId = selectedTab?.tabId || -1;
+      const folderPath = selectedTab?.folderPath || null;
+      saveConversation(
+        tabId,
+        folderPath,
+        updated,
+        currentConversationId,
+        selectedTab || undefined,
+        true,
+      );
+
+      return updated;
+    });
+  }, [stopGeneration, setIsProcessing, setMessages, selectedTab, currentConversationId]);
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
+
+  // Enrich currentModel with provider-config data (avg_context_limit, etc.)
+  const enrichedModel = useMemo(() => {
+    if (!currentModel) return null;
+    if (!Array.isArray(providers)) return currentModel;
+    const providerData = providers.find(
+      (p: any) => p.provider_id === currentModel.providerId,
+    );
+    const modelData = providerData?.models?.find(
+      (m: any) => m.id === currentModel.id,
+    );
+    if (!modelData) return currentModel;
+    return { ...currentModel, ...modelData };
+  }, [currentModel, providers]);
 
   return (
     <div
@@ -671,7 +734,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         contextUsage={contextUsage}
         taskName={currentTaskName}
         conversationId={currentConversationId}
-        currentModel={currentModel}
+        currentModel={enrichedModel}
         currentAccount={currentAccount}
       />
       <ChatBody

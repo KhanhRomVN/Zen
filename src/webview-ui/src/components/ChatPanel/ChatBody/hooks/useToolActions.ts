@@ -32,6 +32,7 @@ export const useToolActions = ({
   const { permissionMode } = useSettings();
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
   const [failedActions, setFailedActions] = useState<Set<string>>(new Set());
+  const [rejectedActions, setRejectedActions] = useState<Set<string>>(new Set());
   const triggeredIdsRef = useRef<Set<string>>(new Set());
 
   // Sync ref with state to catch updates from anywhere
@@ -42,10 +43,16 @@ export const useToolActions = ({
   // Load initially clicked actions from message history
   useEffect(() => {
     const historicalClicked = new Set<string>();
+    const historicalRejected = new Set<string>();
     parsedMessages.forEach((msg) => {
       if (msg.clickedActions && Array.isArray(msg.clickedActions)) {
         msg.clickedActions.forEach((actionId: string) => {
           historicalClicked.add(actionId);
+        });
+      }
+      if (msg.rejectedActions && Array.isArray(msg.rejectedActions)) {
+        msg.rejectedActions.forEach((actionId: string) => {
+          historicalRejected.add(actionId);
         });
       }
     });
@@ -55,6 +62,17 @@ export const useToolActions = ({
         if (hasNew) {
           const next = new Set(prev);
           historicalClicked.forEach((id) => next.add(id));
+          return next;
+        }
+        return prev;
+      });
+    }
+    if (historicalRejected.size > 0) {
+      setRejectedActions((prev) => {
+        const hasNew = Array.from(historicalRejected).some((id) => !prev.has(id));
+        if (hasNew) {
+          const next = new Set(prev);
+          historicalRejected.forEach((id) => next.add(id));
           return next;
         }
         return prev;
@@ -93,6 +111,10 @@ export const useToolActions = ({
           return newSet;
         });
         setFailedActions((prev: Set<string>) => new Set(prev).add(actionId));
+      }
+
+      if (command === "markActionRejected" && actionId) {
+        setRejectedActions((prev: Set<string>) => new Set(prev).add(actionId));
       }
     };
 
@@ -245,5 +267,6 @@ export const useToolActions = ({
     clickedActions,
     handleToolClick,
     failedActions,
+    rejectedActions,
   };
 };

@@ -424,6 +424,22 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         ) {
           // It's a tool, let it stream!
           const actionIndex = result.actions.length;
+
+          // Auto-recovery for read_file: if file_path is complete, synthesize the closing tag
+          if (toolName === "read_file") {
+            const filePathRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
+            const filePathMatch = (innerContent || "").match(filePathRegex);
+            if (filePathMatch && filePathMatch[1].trim() !== "") {
+              // Recovery condition met: build a fully-closed XML and parse normally
+              const recoveredRawXml = rawXml + (innerContent || "") + "</read_file>";
+              const action = parseToolAction("read_file", innerContent || "", recoveredRawXml);
+              // action.isPartial is intentionally NOT set
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
           const action = parseToolAction(toolName, innerContent || "", rawXml);
           action.isPartial = true;
           result.contentBlocks.push({ type: "tool", action, actionIndex });

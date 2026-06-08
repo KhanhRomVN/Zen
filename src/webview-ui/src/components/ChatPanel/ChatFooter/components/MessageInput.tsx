@@ -621,47 +621,58 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   // Load saved selection and language
   React.useEffect(() => {
+    let cancelled = false;
     setIsLoadingCache(true);
     const key = `zen-model-selection:${folderPath || "global"}`;
+
+    const applyCache = (saved: any) => {
+      if (cancelled) return;
+      console.log("[Zen][MessageInput] applyCache → model:", saved.model?.id, "| account:", saved.email, "| key:", key);
+      if (saved.model) setCurrentModel(saved.model);
+      if (saved.accountId) {
+        pendingAccountIdRef.current = saved.accountId;
+        if (saved.email) {
+          setCurrentAccount({ id: saved.accountId, email: saved.email });
+        }
+      }
+    };
+
     try {
       const savedStr = localStorage.getItem(key);
       if (savedStr) {
         const saved = JSON.parse(savedStr);
-        if (saved.model) setCurrentModel(saved.model);
-        if (saved.accountId) {
-          pendingAccountIdRef.current = saved.accountId;
-          if (saved.email) {
-            setCurrentAccount({ id: saved.accountId, email: saved.email });
-          }
-        }
+        console.log("[Zen][MessageInput] load cache from localStorage → key:", key, "model:", saved.model?.id);
+        applyCache(saved);
+        setIsLoadingCache(false);
       } else {
         const storage = (window as any).storage;
         if (storage) {
+          console.log("[Zen][MessageInput] localStorage miss, fetching from extension storage → key:", key);
           storage.get(key).then((res: any) => {
+            if (cancelled) return;
             if (res?.value) {
               const saved = JSON.parse(res.value);
-              if (saved.model) setCurrentModel(saved.model);
-              if (saved.accountId) {
-                pendingAccountIdRef.current = saved.accountId;
-                if (saved.email) {
-                  setCurrentAccount({
-                    id: saved.accountId,
-                    email: saved.email,
-                  });
-                }
-              }
+              console.log("[Zen][MessageInput] extension storage resolved → key:", key, "model:", saved.model?.id);
+              applyCache(saved);
               try {
                 localStorage.setItem(key, res.value);
               } catch {}
             }
+            setIsLoadingCache(false);
+          }).catch(() => {
+            if (!cancelled) setIsLoadingCache(false);
           });
+        } else {
+          setIsLoadingCache(false);
         }
       }
     } catch (e) {
-      // console.error("Failed to load selection", e);
-    } finally {
       setIsLoadingCache(false);
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [folderPath]);
 
   // Save selection
@@ -674,6 +685,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
         email: currentAccount?.email,
       };
       const dataStr = JSON.stringify(data);
+      console.log("[Zen][MessageInput] save selection → key:", key, "model:", currentModel?.id, "account:", currentAccount?.email);
       try {
         localStorage.setItem(key, dataStr);
       } catch (e) {}

@@ -455,11 +455,16 @@ export class FileHandler {
       }
 
       const { exec } = require("child_process");
-      const cmd = `grep -rIlE "${regex.replace(/"/g, '\\"')}" "${searchPath}"`;
+      const { rgPath } = require("@vscode/ripgrep");
+      // Use ripgrep (cross-platform) instead of grep: -l = files with matches, -e = regex pattern
+      const safeRegex = regex.replace(/"/g, '\\"');
+      const safeSearchPath = path.isAbsolute(searchPath) ? searchPath : path.join(workspaceFolder.uri.fsPath, searchPath);
+      const cmd = `"${rgPath}" -l -e "${safeRegex}" "${safeSearchPath}"`;
       exec(
         cmd,
         { cwd: workspaceFolder.uri.fsPath, maxBuffer: 1024 * 1024 * 10 },
         (err: any, stdout: string) => {
+          // rg exits with code 1 when no matches found (not an error)
           if (err && err.code !== 1) {
             webviewView.webview.postMessage({
               command: "searchFilesResult",

@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.4] - 2026-06-08
+
+### ✨ Added
+- **Copy button on TerminalBlock command and output areas**: Each terminal tool block now shows a copy icon in the top-right corner of both the command header and the output area. The button is hidden by default and fades in on hover. Clicking copies the full text to the clipboard and briefly shows a green checkmark for 1.5 s
+- **Scrollable output area in TerminalBlock**: The output wrapper now has `overflow-y: auto` with a visible 6 px scrollbar, allowing users to scroll through long command output without the block growing unbounded
+
+### 🔧 Improved
+- **Consistent text style across TerminalBlock command and output**: The command header now uses the same `font-family`, `font-size: 12px`, and `color: var(--vscode-terminal-foreground)` as the xterm output — previously the header used a smaller, dimmer `descriptionForeground` style
+- **Collapsed TerminalBlock command text style fixed**: When a terminal tool block is in collapsed mode, the command preview text now matches the expanded style (`12px`, `terminal-foreground`) instead of the previous `11px` / `descriptionForeground` / `opacity: 0.8` which made it look faded and small
+- **Stop button no longer reverts conversation history**: Clicking the X (stop) button in the chat input now only aborts the in-flight stream and marks the partial assistant message as cancelled. Previously it triggered a full `revertConversation` that deleted the current user turn and all prior tool-call turns back to the nearest user message, wiping potentially hundreds of req/res pairs from the UI
+- **Cross-platform `run_command` execution**: `ProcessManager` now detects the host OS at runtime. On Windows it spawns `cmd.exe /d /s /c`, on macOS/Linux it uses `$SHELL -c` (falling back to `/bin/sh`). Kill signals also use OS-appropriate methods (`SIGTERM` on Unix, default `kill()` on Windows)
+- **Cross-platform `search_files` tool**: Replaced the hardcoded `grep -rIlE` shell command with `rgPath` from `@vscode/ripgrep` (already bundled). Works identically on Windows, macOS, and Linux
+
+### 🐛 Fixed
+- **`toolOutputs` not restored when reopening a past conversation**: Two bugs caused terminal output to always appear empty (gray dot, no output) after switching away and back to a conversation
+  1. `ConversationHandler.handleGetConversation` was returning only `{ messages, conversationId }` — it silently dropped `toolOutputs` and `backendConversationId` that were present in the stored JSON
+  2. `saveConversation` in `ConversationService` correctly wrote `toolOutputs` to disk but did not include it when syncing to the in-memory `ConversationCache`, so cache-hit loads also lost the data
+- **`ConversationService.saveConversation` syntax error**: A duplicate `metadata: {` key introduced by a previous edit caused a TypeScript parse error that broke the entire save path. Fixed by removing the extraneous nested key
+
+### ⚙️ Configuration
+- **First-chunk SSE timeout raised to 5 minutes**: Both the Elara server (`chat.controller.ts`) and the Zen client (`useChatLLM.ts`) now wait up to 5 minutes (300 s / 305 s with client buffer) before aborting a stream that has not produced its first chunk. The previous 30 s / 35 s limit was too aggressive for large prompts or slow upstream providers
+
+---
+
+## [1.4.2] - 2026-06-07
+
+### 🐛 Fixed
+- **Model/account selection now scoped per workspace**: Previously, selecting a model or account in HomePanel used a single global cache key (`zen-model-selection:global`), causing all open VSCode windows to share and overwrite each other's selection. HomePanel now reads `window.__zenWorkspaceFolderPath` (injected by `ZenChatViewProvider`) and passes it as `folderPath` to `ChatFooter`, so each workspace maintains its own independent model/account cache. Falls back to the global key when no workspace folder is open
+- **Race condition in model/account cache loading**: The `isLoadingCache` flag was set to `false` immediately in a `finally` block even when the actual data load was still pending inside an async `storage.get()` call. This caused the UI to briefly appear ready before the cached selection was applied. Additionally, if `folderPath` changed (e.g., fast workspace switch) while a `storage.get()` was in-flight, the stale callback could overwrite the new workspace's selection. Both issues are fixed with a `cancelled` cleanup flag in the `useEffect` — stale callbacks are ignored and `isLoadingCache` is now only cleared after the async load fully resolves or rejects
+
+---
+
+## [1.4.1] - 2026-06-06
+
+### ✨ Added
+- **Context usage progress circle in ChatHeader**: A small SVG ring indicator now appears next to the token counter in the chat header. It fills up as the conversation grows relative to the model's average context limit. Color transitions from green → yellow → orange → red as usage increases (thresholds: 50%, 70%, 85%). Hover shows the exact percentage. Only visible for models with a defined `avg_context_limit`
+- **`avg_context_limit` field in provider config**: New field added to all model definitions in `provider-config.ts`. Set to `100,000` for `deepseek-instant` and `deepseek-expert` (reflecting their practical context degradation point), `null` for all other models
+
+### 🔧 Improved
+- **Provider config data enriched into `currentModel`**: ChatPanel now fetches provider config from `/v1/providers` and merges the matching model entry (including `avg_context_limit`) into `currentModel` before passing it to ChatHeader. This allows the header to display model-specific metadata without changes to the message flow
+- **Graceful PoW challenge failure handling**: DeepSeek's `create_pow_challenge` endpoint occasionally returns a truncated or empty response body (typically under rate limiting). The server now wraps the JSON parse step in a `try/catch` — if the challenge fails, the completion request proceeds without a PoW token and a warning is logged instead of crashing the stream. Applies to both chat and file upload flows
+- **Improved PoW challenge diagnostic logging**: Added `DEBUG`-level logs for the raw challenge response status, body length, and preview. If the challenge body is missing or malformed, a descriptive `WARN` is emitted with context, making it easier to distinguish rate limiting from network drops
+
+### 🐛 Fixed
+- **`providers.find is not a function` crash on ChatPanel mount**: The `/v1/providers` response is wrapped in `{ success, data: [...] }`. The fetch in ChatPanel was passing the raw response object to `setProviders`, causing `.find()` to fail on the next render. Fixed by extracting `res.data` (with an `Array.isArray` guard as fallback)
+- **`title` prop type error on SVG element**: React's `SVGProps<SVGSVGElement>` does not accept a `title` attribute directly. Replaced with an inline `<title>` child element inside the SVG, which is the correct SVG/accessibility pattern
+
+---
+
 ## [1.3.8] - 2026-06-01
 
 ### ✨ Added
