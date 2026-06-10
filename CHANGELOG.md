@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.7] - 2026-06-10
+
+### ✨ Added
+- **3-mode permission system**: Replaced the previous 4-mode system (`bypassPermissions`, `acceptEdits`, `auto`, `plan`) with a simpler 3-mode model — **Full Access** (all tools auto), **Approval** (reads auto, everything else requires approval), **Read Only** (reads auto, writes and commands blocked). Old saved values auto-migrate on load
+- **Permission mode injected into every AI request**: Every user-initiated request now includes a `<permission-mode>` tag containing the active mode and a description of all 3 modes. Auto/tool-flush requests receive a compact version with only the active mode name and category, keeping token usage minimal
+- **Mode-switch detection in AI instructions**: The system prompt now instructs the AI to compare the current message's permission category (`action` vs `read-only`) with the previous message's category. If a switch from `action` → `read-only` is detected mid-task, the AI stops execution, notifies the user, and asks them to switch to a higher permission mode before continuing
+- **New AI constraints added**: `SCOPE-LOCK` (only edit files directly related to the task), `READ-INTENT` (declare `READ-FOR-EDIT` vs `READ-FOR-CONTEXT` in thinking block), `CONVENTION-CHECK` (search for a similar file before creating new ones), `EDIT-SAFETY` (re-read file after 2 failed `replace_in_file` attempts), `COMMAND-FAILURE` (structured stderr triage), `PARTIAL-BATCH` (report partial success, fix failed ops independently)
+- **3-pass thinking process**: Added **Pass 3 (Impact)** to the AI's thinking workflow — triggered only when a task affects more than 2 files. Checks for indirectly affected files, breaking changes, and whether tests or docs need updating
+
+### 🔧 Improved
+- **`GlobalPermissionButton` in chat footer updated**: Dropdown now shows the 3 new modes with updated icons (Zap / ShieldCheck / Eye) and correct i18n labels
+- **`ToolSettingsDrawer` updated**: Settings drawer rebuilt with the 3-mode model and typed `PermissionMode` entries — eliminates previous TypeScript type mismatch errors
+
+---
+
+## [1.4.6] - 2026-06-10
+
+### ✨ Added
+- **`read_file` tool now shows line range in UI**: The file tool item displays `(start-end)` after the filename when a line range is requested. If no range is specified, shows `(1-N)` where N is the total line count of the file
+- **Error message display for file tools**: When `replace_in_file`, `write_to_file`, `search_files`, `list_files`, `delete_file`, or `delete_folder` fail, the error message is now shown inline below the tool header in a red error box — previously only the dot color changed to red with no visible message
+- **Auto-format document after file writes**: `write_to_file` and `replace_in_file` now trigger VSCode's built-in `editor.action.formatDocument` command after writing, then save the file. This respects the project's existing Prettier/ESLint formatter config. Formatting failures are silently ignored if no formatter is installed
+
+### 🐛 Fixed
+- **`replace_in_file` dedup incorrectly skipping sequential edits on the same file**: The DEDUP logic (designed to skip duplicate writes from DeepSeek stream resumption) used file path alone as the dedup key. This caused the first `replace_in_file` to be silently skipped when a single response contained two or more `replace_in_file` calls targeting the same file with different diffs (e.g., renaming `FunA → FunC` and `FunB → FunD`). Fixed by using `path + diff content` as the composite key — only truly identical diffs on the same file are now treated as duplicates
+- **Race condition overwrite between concurrent `write_to_file` operations**: `handleReplaceInFile` already used `FileLockManager` to serialize writes, but `handleWriteFile` did not. Concurrent `write_to_file` calls on the same file could interleave their read-modify-write cycles. Fixed by wrapping the full write + checkpoint + snapshot block in `fileLockManager.acquire()` with `try/finally` release
+
+### 🔧 Improved
+- **Eliminated streaming UI jitter for long markdown responses**: Auto-scroll during streaming now uses `scrollIntoView({ behavior: "instant" })` instead of `"smooth"`. The previous smooth scroll conflicted with the continuously growing DOM height, causing the viewport to jump back and forth on every chunk. Manual scroll-to-bottom (via the button) retains smooth behavior. Auto-scroll is also throttled via `requestAnimationFrame` to one scroll per render frame
+- **Persistent markdown parse cache across re-renders**: `ChatBody` now uses a `useRef`-backed parse cache instead of a per-render `Map`. Old messages are no longer re-parsed on every streaming chunk, reducing CPU load for long conversations
+- **`MarkdownWithPaths` wrapped in `React.memo`**: Prevents markdown blocks from re-rendering when only unrelated props change during streaming. The expensive `marked.parse()` + DOM walk is skipped unless `content` or `knownFilePaths` size actually changes
+
+---
+
+## [1.4.5] - 2026-06-09
+
+### 🐛 Fixed
+- **Clicking "CREATE" file tool item no longer opens the file**: When a `write_to_file` tool creates a new file (no prior snapshot exists), clicking the file item in the timeline now opens the file directly instead of sending a `getSnapshot` request that would hang for 10 seconds before falling back. Fixed by detecting `!fileStatsMap[rawPath]` (file did not exist before the tool ran) and excluding these entries from `isSnapshotTool`
+- **Auto-send request fired after clicking Stop during `run_command`**: When the X (stop) button was clicked while a `run_command` tool was still streaming output, the pending command resolver would still resolve once the process was killed, triggering an automatic tool-result flush back to the AI. This caused an unexpected request to be sent containing a partial command output. Fixed by introducing an `isStoppedRef` flag that is set to `true` on stop and checked before every auto-flush in `useToolExecution`. The flag resets to `false` on the next real user message
+
+---
+
 ## [1.4.4] - 2026-06-08
 
 ### ✨ Added

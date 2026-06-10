@@ -184,7 +184,7 @@ export interface MarkdownWithPathsProps {
  * - Basename-only filenames in backticks → PathChip only if found in `knownFilePaths`
  * - Everything else → normal markdown rendering
  */
-const MarkdownWithPaths: React.FC<MarkdownWithPathsProps> = ({
+const MarkdownWithPaths: React.FC<MarkdownWithPathsProps> = React.memo(({
   content,
   className,
   style,
@@ -205,13 +205,23 @@ const MarkdownWithPaths: React.FC<MarkdownWithPathsProps> = ({
     return Array.from(wrapper.childNodes).map((child, i) =>
       domNodeToReact(child, i, resolvedMap),
     );
-  }, [content, resolvedMap]);
+  // Intentionally use content as the only dep for the expensive markdown→DOM parse.
+  // knownFilePaths (the Map) changes reference on every render during streaming,
+  // but its entries rarely change — we use a serialized size+keys snapshot as dep
+  // so we only re-parse when the map actually gains new entries.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, resolvedMap.size]);
 
   return (
     <div className={`markdown-content-inline ${className || ""}`} style={style}>
       {reactNodes}
     </div>
   );
-};
+}, (prev, next) => {
+  // Custom comparison: skip re-render if content unchanged and map size unchanged
+  return prev.content === next.content &&
+    prev.className === next.className &&
+    (prev.knownFilePaths?.size ?? 0) === (next.knownFilePaths?.size ?? 0);
+});
 
 export default MarkdownWithPaths;

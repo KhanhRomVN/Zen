@@ -150,18 +150,7 @@ const App: React.FC = () => {
   }, [selectedTab]);
 
   const handleHomeSendMessage = useCallback(
-    (
-      content: string,
-      files: any[],
-      model: any,
-      account: any,
-    ) => {
-      console.log("[Zen] App handleHomeSendMessage called", {
-        contentLength: content.trim().length,
-        model: model?.id,
-        account: account?.email,
-        files: files?.length,
-      });
+    (content: string, files: any[], model: any, account: any) => {
       setInitialMessageData({
         content,
         files,
@@ -178,7 +167,6 @@ const App: React.FC = () => {
         canAccept: true,
         requestCount: 0,
       };
-      console.log("[Zen] App switching to ChatPanel with newTab", { tabId: newTab.tabId });
       setSelectedTab(newTab);
       setHomeInitialValue(""); // Clear when starting fresh from Home
     },
@@ -225,12 +213,18 @@ const App: React.FC = () => {
               )}
               <HistoryPanel
                 isOpen={showHistory}
-                onClose={() => { setShowHistory(false); setPreviousPanel(null); }}
+                onClose={() => {
+                  setShowHistory(false);
+                  setPreviousPanel(null);
+                }}
                 onLoadConversation={handleLoadConversation}
               />
               <SettingsPanel
                 isOpen={showSettings}
-                onClose={() => { setShowSettings(false); setPreviousPanel(null); }}
+                onClose={() => {
+                  setShowSettings(false);
+                  setPreviousPanel(null);
+                }}
               />
             </div>
           </ProjectProvider>

@@ -134,4 +134,30 @@ export class GlobalStorageManager {
       return [];
     }
   }
+
+  /**
+   * Find toolOutputs for a conversation by scanning all zen-chat keys matching the conversationId.
+   * The key format is: zen-chat:<tabId>:<folderPath>:<conversationId>
+   */
+  async getToolOutputsForConversation(
+    conversationId: string,
+  ): Promise<Record<string, { output: string; isError: boolean; terminalId?: string }> | undefined> {
+    try {
+      const allKeys = await this.list("zen-chat:");
+      const matchingKeys = allKeys.filter((k) => k.endsWith(`:${conversationId}`));
+      for (const key of matchingKeys) {
+        const raw = await this.get(key);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.toolOutputs && Object.keys(parsed.toolOutputs).length > 0) {
+            return parsed.toolOutputs;
+          }
+        } catch {}
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, RefObject } from "react";
+import { useState, useEffect, useRef, RefObject, useCallback } from "react";
 
 export const useScrollBehavior = (
   messagesEndRef: RefObject<HTMLDivElement>,
@@ -7,13 +7,27 @@ export const useScrollBehavior = (
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const isProgrammaticScrollRef = useRef(false);
+  const autoScrollRafRef = useRef<number | null>(null);
 
-  // Auto-scroll to bottom when dependencies change (only if not paused)
+  // Auto-scroll to bottom when dependencies change (only if not paused).
+  // Use "instant" (not "smooth") during streaming to avoid the jitter/seizure
+  // effect caused by rapid successive smooth-scroll calls conflicting with
+  // continuously-growing DOM height.
   useEffect(() => {
     if (autoScrollPaused) return;
-    isProgrammaticScrollRef.current = true;
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    setTimeout(() => { isProgrammaticScrollRef.current = false; }, 600);
+
+    // Cancel any pending frame to throttle to one scroll per render cycle
+    if (autoScrollRafRef.current !== null) {
+      cancelAnimationFrame(autoScrollRafRef.current);
+    }
+
+    autoScrollRafRef.current = requestAnimationFrame(() => {
+      autoScrollRafRef.current = null;
+      isProgrammaticScrollRef.current = true;
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      // Reset flag after a short delay so user-scroll detection still works
+      setTimeout(() => { isProgrammaticScrollRef.current = false; }, 100);
+    });
   }, dependencies);
 
   // Detect scroll direction
@@ -41,16 +55,17 @@ export const useScrollBehavior = (
       lastScrollTop = scrollTop;
     };
 
-    container.addEventListener("scroll", handleScroll);
+    container.addEventListener("scroll", handleScroll, { passive: true });
     return () => container.removeEventListener("scroll", handleScroll);
   }, [messagesEndRef]);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     setAutoScrollPaused(false);
     isProgrammaticScrollRef.current = true;
+    // Manual scroll-to-bottom uses smooth for nice UX
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     setTimeout(() => { isProgrammaticScrollRef.current = false; }, 600);
-  };
+  }, [messagesEndRef]);
 
   return {
     isAtBottom,

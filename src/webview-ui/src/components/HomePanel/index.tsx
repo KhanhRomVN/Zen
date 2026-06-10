@@ -20,7 +20,6 @@ interface HomePanelProps {
   initialValue?: string;
 }
 
-
 const HomePanel: React.FC<HomePanelProps> = ({
   onSendMessage,
   onLoadConversation,
@@ -28,23 +27,20 @@ const HomePanel: React.FC<HomePanelProps> = ({
 }) => {
   useEffect(() => {
     // Trigger history limit enforcement on mount
-    extensionService.postMessage({ command: "getHistory", requestId: `home-enforce-${Date.now()}` });
+    extensionService.postMessage({
+      command: "getHistory",
+      requestId: `home-enforce-${Date.now()}`,
+    });
   }, []);
 
   // Read workspace folder path injected by ZenChatViewProvider
-  const folderPath = (window as any).__zenWorkspaceFolderPath as string | null | undefined;
+  const folderPath = (window as any).__zenWorkspaceFolderPath as
+    | string
+    | null
+    | undefined;
 
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
-
-  // Debug: log whenever HomePanel's model/account state changes
-  useEffect(() => {
-    console.log("[Zen][HomePanel] currentModel changed →", currentModel?.id ?? null, "| provider:", currentModel?.providerId ?? null);
-  }, [currentModel]);
-
-  useEffect(() => {
-    console.log("[Zen][HomePanel] currentAccount changed →", currentAccount?.email ?? null);
-  }, [currentAccount]);
 
   // Dummy tab for Header to verify visual consistency
   const dummyTab: TabInfo = {
@@ -85,8 +81,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
       </div>
       <ChatFooter
         onSendMessage={(content, files, model, account) => {
-          // Clear the home draft when message is sent
-          console.log("[Zen][HomePanel] onSendMessage fired → model:", model?.id, "| account:", account?.email);
           onSendMessage(content, files || [], model, account);
         }}
         isHistoryMode={false}

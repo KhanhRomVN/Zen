@@ -4,7 +4,8 @@ import * as os from "os";
 import { spawn, ChildProcess, SpawnOptions } from "child_process";
 
 // Long-running command patterns — these terminals persist until user stops them
-const LONG_RUNNING_PATTERNS = /\b(dev|start|serve|watch|preview|run dev|run start|run serve|run watch|run preview)\b/i;
+const LONG_RUNNING_PATTERNS =
+  /\b(dev|start|serve|watch|preview|run dev|run start|run serve|run watch|run preview)\b/i;
 
 /** Resolve the shell and spawn args for the current OS.
  *
@@ -14,7 +15,11 @@ const LONG_RUNNING_PATTERNS = /\b(dev|start|serve|watch|preview|run dev|run star
  *
  *  Returns `{ shell, args, spawnOptions }` ready to pass to `spawn()`.
  */
-function resolveShell(cwd: string): { shell: string; shellArgs: string[]; spawnOpts: SpawnOptions } {
+function resolveShell(cwd: string): {
+  shell: string;
+  shellArgs: string[];
+  spawnOpts: SpawnOptions;
+} {
   const platform = os.platform();
 
   if (platform === "win32") {
@@ -70,6 +75,7 @@ export class ProcessManager {
     output: string;
     terminalId: string;
     commandText?: string;
+    exitCode?: number | null;
   }>();
   public onCommandFinished = this.onCommandFinishedEmitter.event;
 
@@ -88,7 +94,10 @@ export class ProcessManager {
   public setProjectDir(_dir: string) {}
   public setExtensionContext(_ctx: vscode.ExtensionContext) {}
 
-  async startInteractive(cwd: string, terminalId?: string): Promise<{ id: string; name: string }> {
+  async startInteractive(
+    cwd: string,
+    terminalId?: string,
+  ): Promise<{ id: string; name: string }> {
     const id = terminalId || crypto.randomUUID();
     if (this.terminalMap.has(id)) {
       return { id, name: this.terminalMap.get(id)!.name };
@@ -97,9 +106,14 @@ export class ProcessManager {
     const name = "Zen Terminal";
     const writeEmitter = new vscode.EventEmitter<string>();
     const entry: TerminalEntry = {
-      writeEmitter, process: null,
-      cwd, name, isBusy: false, output: "",
-      activeActionId: null, isLongRunning: false,
+      writeEmitter,
+      process: null,
+      cwd,
+      name,
+      isBusy: false,
+      output: "",
+      activeActionId: null,
+      isLongRunning: false,
     };
     this.terminalMap.set(id, entry);
     this.onTerminalsChangedEmitter.fire();
@@ -139,7 +153,10 @@ export class ProcessManager {
     entry.isLongRunning = isLongRunning;
     entry.output = "";
 
-    this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "busy" });
+    this.onTerminalStatusChangedEmitter.fire({
+      terminalId: id,
+      status: "busy",
+    });
     this.onTerminalsChangedEmitter.fire();
 
     entry.writeEmitter.fire(`$ ${cleanCmd}\r\n`);
@@ -148,13 +165,16 @@ export class ProcessManager {
     entry.process = child;
 
     const onData = (chunk: Buffer) => {
-      const clean = chunk.toString("utf8")
+      const clean = chunk
+        .toString("utf8")
         .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "")
         .replace(/\x1b\][^\x07]*\x07/g, "");
       entry.writeEmitter.fire(clean.replace(/\r?\n/g, "\r\n"));
       entry.output += clean;
       if (entry.output.length > MAX_OUTPUT) {
-        entry.output = entry.output.substring(entry.output.length - MAX_OUTPUT / 2);
+        entry.output = entry.output.substring(
+          entry.output.length - MAX_OUTPUT / 2,
+        );
       }
       this.onDidWriteDataEmitter.fire({ terminalId: id, data: clean });
     };
@@ -177,19 +197,33 @@ export class ProcessManager {
 
       if (actionId) {
         entry.activeActionId = null;
-        console.log(`[ProcessManager] process close → firing onCommandFinished`, { actionId, terminalId: id, outputLength: entry.output.length, exitCode });
-        this.onCommandFinishedEmitter.fire({ actionId, output: entry.output, terminalId: id, commandText: cleanCmd });
+        this.onCommandFinishedEmitter.fire({
+          actionId,
+          output: entry.output,
+          terminalId: id,
+          commandText: cleanCmd,
+          exitCode,
+        });
       }
 
-      this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "free" });
+      this.onTerminalStatusChangedEmitter.fire({
+        terminalId: id,
+        status: "free",
+      });
       this.onTerminalsChangedEmitter.fire();
 
       // Auto-cleanup after command finishes to free resources
       this._cleanup(id);
     };
 
-    child.stdout!.on("end", () => { stdoutEnded = true; tryFinish(); });
-    child.stderr!.on("end", () => { stderrEnded = true; tryFinish(); });
+    child.stdout!.on("end", () => {
+      stdoutEnded = true;
+      tryFinish();
+    });
+    child.stderr!.on("end", () => {
+      stderrEnded = true;
+      tryFinish();
+    });
 
     child.on("close", (code) => {
       processClosed = true;
@@ -203,10 +237,21 @@ export class ProcessManager {
       entry.isBusy = false;
       if (actionId) {
         entry.activeActionId = null;
-        console.error(`[ProcessManager] process error → firing onCommandFinished`, { actionId, terminalId: id, error: err.message });
-        this.onCommandFinishedEmitter.fire({ actionId, output: err.message, terminalId: id, commandText: cleanCmd });
+        console.error(
+          `[ProcessManager] process error → firing onCommandFinished`,
+          { actionId, terminalId: id, error: err.message },
+        );
+        this.onCommandFinishedEmitter.fire({
+          actionId,
+          output: err.message,
+          terminalId: id,
+          commandText: cleanCmd,
+        });
       }
-      this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "free" });
+      this.onTerminalStatusChangedEmitter.fire({
+        terminalId: id,
+        status: "free",
+      });
       this.onTerminalsChangedEmitter.fire();
       this._cleanup(id);
     });
@@ -261,9 +306,16 @@ export class ProcessManager {
     entry.activeActionId = null;
     entry.isBusy = false;
     if (actionId) {
-      this.onCommandFinishedEmitter.fire({ actionId, output: entry.output, terminalId: id });
+      this.onCommandFinishedEmitter.fire({
+        actionId,
+        output: entry.output,
+        terminalId: id,
+      });
     }
-    this.onTerminalStatusChangedEmitter.fire({ terminalId: id, status: "free" });
+    this.onTerminalStatusChangedEmitter.fire({
+      terminalId: id,
+      status: "free",
+    });
     this.onTerminalsChangedEmitter.fire();
     this._cleanup(id);
   }

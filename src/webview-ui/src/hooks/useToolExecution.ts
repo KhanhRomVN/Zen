@@ -12,32 +12,14 @@ export const getPermissionDecision = (
   mode: PermissionMode,
   toolType: string,
 ): "allow" | "prompt" | "deny" => {
+  const readTools = ["read_file", "list_files", "search_files"];
   switch (mode) {
-    case "bypassPermissions":
+    case "fullAccess":
       return "allow";
-    case "acceptEdits":
-      if (
-        [
-          "read_file",
-          "list_files",
-          "search_files",
-          "write_to_file",
-          "replace_in_file",
-        ].includes(toolType)
-      ) {
-        return "allow";
-      }
-      return "prompt";
-    case "auto":
-      if (["read_file", "list_files", "search_files"].includes(toolType)) {
-        return "allow";
-      }
-      return "prompt";
-    case "plan":
-      if (["read_file", "list_files", "search_files"].includes(toolType)) {
-        return "allow";
-      }
-      return "deny";
+    case "approval":
+      return readTools.includes(toolType) ? "allow" : "prompt";
+    case "readOnly":
+      return readTools.includes(toolType) ? "allow" : "deny";
     default:
       return "prompt";
   }
@@ -55,12 +37,15 @@ interface UseToolExecutionProps {
   ) => Promise<void>;
   conversationIdRef?: React.MutableRefObject<string>;
   messagesRef?: React.MutableRefObject<Message[]>;
+  /** When true, all pending auto-flush sends are suppressed (set by stop button) */
+  isStoppedRef?: React.MutableRefObject<boolean>;
 }
 
 export const useToolExecution = ({
   sendMessage,
   conversationIdRef,
   messagesRef,
+  isStoppedRef,
 }: UseToolExecutionProps) => {
   const { permissionMode } = useSettings();
   const [executionState, setExecutionState] = useState<{
@@ -78,7 +63,9 @@ export const useToolExecution = ({
   >({});
 
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
-  const [rejectedActions, setRejectedActions] = useState<Set<string>>(new Set());
+  const [rejectedActions, setRejectedActions] = useState<Set<string>>(
+    new Set(),
+  );
 
   const clickedActionsRef = useRef<Set<string>>(new Set());
   const pendingToolResolvers = useRef<
@@ -110,12 +97,14 @@ export const useToolExecution = ({
       const message = event.data;
 
       if (message.command === "commandExecuted") {
-        console.log(`[useToolExecution] received commandExecuted`, { actionId: message.actionId, outputLength: message.output?.length, hasPendingResolver: pendingToolResolvers.current.has(message.actionId) });
         if (message.actionId) {
           setToolOutputs((prev) => {
             const existing = prev[message.actionId];
             let finalOutput = message.output || "";
-            if (existing?.output && existing.output.length > finalOutput.length) {
+            if (
+              existing?.output &&
+              existing.output.length > finalOutput.length
+            ) {
               finalOutput = existing.output;
             }
             return {
@@ -135,7 +124,10 @@ export const useToolExecution = ({
             if (message.terminalId) {
               terminalToActionMap.current.delete(message.terminalId);
               // cleanup terminal after command finishes
-              extensionService.postMessage({ command: "removeTerminal", terminalId: message.terminalId });
+              extensionService.postMessage({
+                command: "removeTerminal",
+                terminalId: message.terminalId,
+              });
             }
             commandStartTimes.current.delete(message.actionId);
             const cmdText =
@@ -171,7 +163,6 @@ export const useToolExecution = ({
           [message.terminalId]: message.status,
         }));
       } else if (message.command === "runCommandResult") {
-        console.log(`[useToolExecution] received runCommandResult`, { terminalId: message.terminalId, actionId: message.actionId, error: message.error });
         if (message.terminalId && message.actionId) {
           terminalToActionMap.current.set(message.terminalId, message.actionId);
           setToolOutputs((prev) => ({
@@ -249,11 +240,6 @@ export const useToolExecution = ({
         case "write_to_file": {
           const requestId = `write-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
-          console.log(`[write_to_file] Sending request`, {
-            requestId,
-            filePath,
-            contentLength: action.params.content?.length,
-          });
           extensionService.postMessage({
             command: "writeFile",
             path: filePath,
@@ -294,11 +280,6 @@ export const useToolExecution = ({
         case "replace_in_file": {
           const requestId = `replace-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
-          console.log(`[replace_in_file] Sending request`, {
-            requestId,
-            filePath,
-            diffLength: action.params.diff?.length,
-          });
           extensionService.postMessage({
             command: "replaceInFile",
             path: filePath,
@@ -409,7 +390,6 @@ export const useToolExecution = ({
         }
         case "run_command": {
           const actionId = (action as any).actionId;
-          console.log(`[useToolExecution] run_command: posting runCommand`, { actionId, commandText: action.params.command });
           commandStartTimes.current.set(actionId, Date.now());
           extensionService.postMessage({
             command: "runCommand",
@@ -421,7 +401,6 @@ export const useToolExecution = ({
           if (earlyCommandResults.current.has(actionId)) {
             const msg = earlyCommandResults.current.get(actionId)!;
             earlyCommandResults.current.delete(actionId);
-            console.log(`[useToolExecution] run_command: using earlyCommandResult`, { actionId });
             const cmdText =
               msg.commandText || action.params.command || "command";
             const outputContent = (msg.output || "").trim();
@@ -433,7 +412,6 @@ export const useToolExecution = ({
             break;
           }
 
-          console.log(`[useToolExecution] run_command: registered pendingResolver`, { actionId });
           // Only resolve when process finishes naturally or user clicks "Kết thúc"
           pendingToolResolvers.current.set(actionId, resolve);
 
@@ -549,35 +527,6 @@ export const useToolExecution = ({
         _index: a._index !== undefined ? a._index : idx,
       }));
 
-      // DEDUP: DeepSeek INCOMPLETE continuation causes multiple write_to_file / replace_in_file
-      // actions for the same file_path in one message (each continuation resumes with a new tool tag).
-      // Only the LAST occurrence contains the most complete content — skip all earlier ones.
-      // We mark the skipped actions as clicked so the flush logic still waits for all of them.
-      const FILE_WRITE_TOOLS = ['write_to_file', 'replace_in_file'];
-      const lastIndexForPath = new Map<string, number>();
-      actions.forEach((a, idx) => {
-        if (FILE_WRITE_TOOLS.includes(a.type)) {
-          const fp = a.params?.path || a.params?.file_path || '';
-          if (fp) lastIndexForPath.set(fp, idx);
-        }
-      });
-      // Pre-mark duplicate (non-last) write actions as clicked so they don't block flush
-      actions.forEach((a) => {
-        if (FILE_WRITE_TOOLS.includes(a.type)) {
-          const fp = a.params?.path || a.params?.file_path || '';
-          const lastIdx = lastIndexForPath.get(fp);
-          if (fp && lastIdx !== undefined && a._index !== lastIdx) {
-            const dupActionId = a.actionId || `${message.id}-action-${a._index}`;
-            if (!clickedActionsRef.current.has(dupActionId)) {
-              console.log(`[useToolExecution] DEDUP: skipping duplicate ${a.type} for '${fp}' at index ${a._index} (keeping index ${lastIdx})`);
-              clickedActionsRef.current.add(dupActionId);
-              setClickedActions(new Set(clickedActionsRef.current));
-              window.postMessage({ command: 'markActionClicked', actionId: dupActionId }, '*');
-            }
-          }
-        }
-      });
-
       // Track actions that were pre-skipped (already triggered) vs actually executed
       const validResults: string[] = [];
       let skippedCount = 0;
@@ -672,6 +621,7 @@ export const useToolExecution = ({
           // because the Raw Terminal Logs are already being updated in real-time by terminalOutput/commandExecuted events.
           // Overwriting here would inject the "Output: [run_command...]" header and backticks into the TerminalBlock UI.
           if (action.type !== "run_command") {
+            console.log(`[useToolExecution][SET-OUTPUT] actionId=${actionId} | type=${action.type} | isError=${isError} | outputLen=${cleanOutput.length}`);
             setToolOutputs((prev) => ({
               ...prev,
               [actionId]: {
@@ -734,7 +684,7 @@ export const useToolExecution = ({
           const textActionIds = actions.map(
             (a) => `${message.id}-action-${a._index}`,
           );
-          if (handleSendMessageRef.current) {
+          if (handleSendMessageRef.current && !isStoppedRef?.current) {
             handleSendMessageRef.current(
               newBuffer.join("\n\n"),
               undefined,
@@ -768,7 +718,7 @@ export const useToolExecution = ({
           ) && isQuestionAnswered;
 
         if (isAllComplete && !flushedMessageIdsRef.current.has(message.id)) {
-          if (handleSendMessageRef.current) {
+          if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(message.id);
             let finalContent = newBuffer.join("\n\n");
             if (selectedOption) {
@@ -835,7 +785,7 @@ export const useToolExecution = ({
           !flushedMessageIdsRef.current.has(messageId)
         ) {
           // Flush!
-          if (handleSendMessageRef.current) {
+          if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(messageId);
             let finalContent = buffer.join("\n\n");
             if (msg.selectedOption) {

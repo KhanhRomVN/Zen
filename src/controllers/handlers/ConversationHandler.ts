@@ -5,10 +5,12 @@ import * as os from "os";
 import * as crypto from "crypto";
 import { FileLockManager } from "../../managers/FileLockManager";
 import { CheckpointManager } from "../../utils/CheckpointManager";
+import { GlobalStorageManager } from "../../storage-manager";
 
 export class ConversationHandler {
   constructor(
     private fileLockManager: FileLockManager,
+    private storageManager?: GlobalStorageManager,
   ) {}
 
   private getContextRoot(): string {
@@ -55,15 +57,25 @@ export class ConversationHandler {
             } else if (Array.isArray(data) && data.length > 0) {
               // Get most recent user message that has zen-user-content as title
               const userMessages = data.filter((m: any) => m.role === "user");
-              const lastUserMsg = [...userMessages].reverse().find((m: any) =>
-                m.content?.includes("<zen-user-content>")
-              ) || userMessages[userMessages.length - 1] || data[0];
+              const lastUserMsg =
+                [...userMessages]
+                  .reverse()
+                  .find((m: any) =>
+                    m.content?.includes("<zen-user-content>"),
+                  ) ||
+                userMessages[userMessages.length - 1] ||
+                data[0];
               let rawTitle = lastUserMsg.content || "";
               // Strip ## User Message wrapper (new format: zen-user-content, old format: ```)
-              const titleMatch = rawTitle.match(/## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/)
-                || rawTitle.match(/## User Message\n```\n([\s\S]*?)\n```/);
+              const titleMatch =
+                rawTitle.match(
+                  /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/,
+                ) || rawTitle.match(/## User Message\n```\n([\s\S]*?)\n```/);
               if (titleMatch) rawTitle = titleMatch[1];
-              const title = rawTitle.replace(/\n/g, " ").trim().substring(0, 100);
+              const title = rawTitle
+                .replace(/\n/g, " ")
+                .trim()
+                .substring(0, 100);
 
               history.push({
                 id: conversationId,
@@ -73,7 +85,10 @@ export class ConversationHandler {
                 preview: title,
                 messageCount: data.length,
                 totalRequests: userMessages.length,
-                totalTokenUsage: data.reduce((sum: number, m: any) => sum + (m.token_usage || 0), 0),
+                totalTokenUsage: data.reduce(
+                  (sum: number, m: any) => sum + (m.token_usage || 0),
+                  0,
+                ),
               });
             }
           } catch {}
@@ -109,42 +124,57 @@ export class ConversationHandler {
         return;
       }
       const { conversationId } = message;
-      const projectContextDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
       const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
       const exists = fs.existsSync(logPath);
-      console.log(`[ConversationHandler] handleGetConversation | conversationId=${conversationId} | logPath=${logPath} | exists=${exists}`);
 
       if (!exists) {
         // Try searching across all project dirs
         const contextRoot = this.getContextRoot();
         const projectsDir = path.join(contextRoot, "projects");
-        console.log(`[ConversationHandler] primary path not found, searching in projectsDir=${projectsDir}`);
         try {
           const projectDirs = await fs.promises.readdir(projectsDir);
           for (const dir of projectDirs) {
-            const candidate = path.join(projectsDir, dir, `${conversationId}.json`);
+            const candidate = path.join(
+              projectsDir,
+              dir,
+              `${conversationId}.json`,
+            );
             if (fs.existsSync(candidate)) {
               const content = await fs.promises.readFile(candidate, "utf-8");
               const candidateParsed = JSON.parse(content);
               const isArray = Array.isArray(candidateParsed);
-              const toolOutputKeys = !isArray && candidateParsed.toolOutputs ? Object.keys(candidateParsed.toolOutputs) : [];
-              console.log(`[ConversationHandler] found in fallback path=${candidate} | isArray=${isArray} | msgCount=${isArray ? candidateParsed.length : candidateParsed.messages?.length} | toolOutputKeys=${JSON.stringify(toolOutputKeys)}`);
+              // Fetch toolOutputs from GlobalStorageManager
+              const toolOutputs = isArray
+                ? (await this.storageManager?.getToolOutputsForConversation(conversationId)) ?? undefined
+                : candidateParsed.toolOutputs ?? (await this.storageManager?.getToolOutputsForConversation(conversationId)) ?? undefined;
+              const toolOutputKeys = toolOutputs ? Object.keys(toolOutputs) : [];
+              console.log(`[ConversationHandler] fallback getConversation | convId=${conversationId} | toolOutputKeys=${JSON.stringify(toolOutputKeys)}`);
               webviewView.webview.postMessage({
                 command: "conversationResult",
                 requestId: message.requestId,
                 data: {
-                  messages: isArray ? candidateParsed : candidateParsed.messages || [],
+                  messages: isArray
+                    ? candidateParsed
+                    : candidateParsed.messages || [],
                   conversationId,
-                  backendConversationId: isArray ? undefined : candidateParsed.backendConversationId,
-                  toolOutputs: isArray ? undefined : candidateParsed.toolOutputs,
+                  backendConversationId: isArray
+                    ? undefined
+                    : candidateParsed.backendConversationId,
+                  toolOutputs,
                 },
               });
               return;
             }
           }
         } catch (searchErr) {
-          console.error(`[ConversationHandler] fallback search error:`, searchErr);
+          console.error(
+            `[ConversationHandler] fallback search error:`,
+            searchErr,
+          );
         }
         throw new Error(`File not found: ${logPath}`);
       }
@@ -152,8 +182,16 @@ export class ConversationHandler {
       const content = await fs.promises.readFile(logPath, "utf-8");
       const parsed = JSON.parse(content);
       const isArray = Array.isArray(parsed);
-      const toolOutputKeys = !isArray && parsed.toolOutputs ? Object.keys(parsed.toolOutputs) : [];
-      console.log(`[ConversationHandler] read primary file | isArray=${isArray} | msgCount=${isArray ? parsed.length : parsed.messages?.length} | toolOutputKeys=${JSON.stringify(toolOutputKeys)} | hasBackendConvId=${!isArray && !!parsed.backendConversationId}`);
+      // Fetch toolOutputs from GlobalStorageManager (source of truth for toolOutputs)
+      const toolOutputsFromStorage = await this.storageManager?.getToolOutputsForConversation(conversationId);
+      const toolOutputs = isArray
+        ? toolOutputsFromStorage ?? undefined
+        : parsed.toolOutputs ?? toolOutputsFromStorage ?? undefined;
+      const toolOutputKeys = toolOutputs ? Object.keys(toolOutputs) : [];
+      const errorOutputKeys = toolOutputs
+        ? Object.entries(toolOutputs).filter(([, v]: [string, any]) => v.isError).map(([k]) => k)
+        : [];
+      console.log(`[ConversationHandler] getConversation | convId=${conversationId} | isArray=${isArray} | toolOutputKeys=${JSON.stringify(toolOutputKeys)} | errorOutputKeys=${JSON.stringify(errorOutputKeys)}`);
 
       webviewView.webview.postMessage({
         command: "conversationResult",
@@ -161,12 +199,13 @@ export class ConversationHandler {
         data: {
           messages: isArray ? parsed : parsed.messages || [],
           conversationId,
-          backendConversationId: isArray ? undefined : parsed.backendConversationId,
-          toolOutputs: isArray ? undefined : parsed.toolOutputs,
+          backendConversationId: isArray
+            ? undefined
+            : parsed.backendConversationId,
+          toolOutputs,
         },
       });
     } catch (error: any) {
-      console.error(`[ConversationHandler] handleGetConversation ERROR:`, error);
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,
@@ -203,8 +242,7 @@ export class ConversationHandler {
         release();
       }
       await this.enforceHistoryLimit(projectContextDir);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   public async handleCreateEmptyChatLog(message: any) {
@@ -228,8 +266,7 @@ export class ConversationHandler {
         release();
       }
       await this.enforceHistoryLimit(projectContextDir);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   public async handleLogChat(message: any) {
@@ -261,8 +298,7 @@ export class ConversationHandler {
         release();
       }
       await this.enforceHistoryLimit(projectContextDir);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   public async handleDeleteConversation(
@@ -405,8 +441,6 @@ export class ConversationHandler {
     }
   }
 
-
-
   public async handleSendMessage(
     message: any,
     webviewView: vscode.WebviewView,
@@ -447,17 +481,24 @@ export class ConversationHandler {
         }
 
         const targetMsg = content[index];
-        const revertTimestamp = typeof targetMsg.timestamp === "string"
-          ? new Date(targetMsg.timestamp).getTime()
-          : (targetMsg.timestamp || timestamp);
+        const revertTimestamp =
+          typeof targetMsg.timestamp === "string"
+            ? new Date(targetMsg.timestamp).getTime()
+            : targetMsg.timestamp || timestamp;
 
         // slice(0, index) — exclude the reverted message and everything after
         content = content.slice(0, index);
-        await fs.promises.writeFile(logPath, JSON.stringify(content, null, 2), "utf-8");
+        await fs.promises.writeFile(
+          logPath,
+          JSON.stringify(content, null, 2),
+          "utf-8",
+        );
 
         // Revert files to the state they were in at/before the revertTimestamp
-        await CheckpointManager.getInstance().revertToCheckpoint(conversationId, revertTimestamp);
-
+        await CheckpointManager.getInstance().revertToCheckpoint(
+          conversationId,
+          revertTimestamp,
+        );
       } finally {
         release();
       }
@@ -466,7 +507,6 @@ export class ConversationHandler {
         command: "conversationReverted",
         conversationId,
       });
-
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "conversationRevertedError",
@@ -490,8 +530,7 @@ export class ConversationHandler {
         "revealFileInOS",
         vscode.Uri.file(folderPath),
       );
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   private async enforceHistoryLimit(projectContextDir: string) {
@@ -522,9 +561,10 @@ export class ConversationHandler {
         const folderPath = path.join(projectContextDir, conversationId);
 
         await fs.promises.unlink(logPath).catch(() => {});
-        await fs.promises.rm(folderPath, { recursive: true, force: true }).catch(() => {});
+        await fs.promises
+          .rm(folderPath, { recursive: true, force: true })
+          .catch(() => {});
       }
-    } catch (err) {
-    }
+    } catch (err) {}
   }
 }

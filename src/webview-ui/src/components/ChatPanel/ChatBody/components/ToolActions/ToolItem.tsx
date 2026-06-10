@@ -133,8 +133,8 @@ const ToolItem: React.FC<ToolItemProps> = ({
         (window as any).vscodeApi?.postMessage({ command: "validateFuzzyMatch", path: action.params.path, diff: action.params.diff, id: validationId });
       }
 
-      if ((action.type === "read_file" || action.type === "write_to_file") && action.params.path) {
-        const path = action.params.path;
+      if ((action.type === "read_file" || action.type === "write_to_file") && (action.params.path || action.params.file_path)) {
+        const path = action.params.path || action.params.file_path;
         if (fileStatsMap[path]) return;
         const statId = `${messageId}-${index}-stats`;
         if (processedActions.current.has(statId)) return;

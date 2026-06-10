@@ -65,11 +65,16 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Memoize parsed messages
-  const parsedMessages = useMemo(() => {
-    const cache = new Map<string, ParsedResponse>();
+  // Persistent parse cache across renders — keyed by message content.
+  // This avoids re-running marked.parse() on old messages every time a new
+  // streaming chunk arrives and changes the messages array reference.
+  const parseCacheRef = useRef<Map<string, ParsedResponse>>(new Map());
 
-    const result = messages.map((msg) => {
+  // Memoize parsed messages — only re-parses messages whose content changed
+  const parsedMessages = useMemo(() => {
+    const cache = parseCacheRef.current;
+
+    return messages.map((msg) => {
       if (!cache.has(msg.content)) {
         cache.set(msg.content, parseAIResponse(msg.content));
       }
@@ -79,24 +84,23 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         parsed: cache.get(msg.content)!,
       };
     });
-
-    return result;
   }, [messages]);
 
   // Hooks
   const { collapsedSections, toggleCollapse, setInitiallyCollapsed } =
     useCollapseSections();
-  const { clickedActions, handleToolClick, failedActions, rejectedActions } = useToolActions({
-    onSendToolRequest,
-    onToolAction,
-    parsedMessages,
-    isProcessing,
-    isRestored,
-  });
-  const { isAtBottom, autoScrollPaused, scrollToBottom } = useScrollBehavior(messagesEndRef, [
-    messages,
-    isProcessing,
-  ]);
+  const { clickedActions, handleToolClick, failedActions, rejectedActions } =
+    useToolActions({
+      onSendToolRequest,
+      onToolAction,
+      parsedMessages,
+      isProcessing,
+      isRestored,
+    });
+  const { isAtBottom, autoScrollPaused, scrollToBottom } = useScrollBehavior(
+    messagesEndRef,
+    [messages, isProcessing],
+  );
 
   // Notify parent of pause state changes
   const prevPausedRef = useRef(false);
@@ -112,10 +116,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     if (scrollToBottomRef) scrollToBottomRef.current = scrollToBottom;
   }, [scrollToBottom, scrollToBottomRef]);
 
-  useEffect(() => {
-    console.log(`[ChatBody] isContinuing prop changed: ${isContinuing}`);
-  }, [isContinuing]);
-
   const hasUnexecutedAutoActions = useMemo(() => {
     if (!isRestored || messages.length === 0) return false;
     const lastMessage = messages[messages.length - 1];
@@ -124,32 +124,46 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     if (!parsed.actions || parsed.actions.length === 0) return false;
 
     // Find the very first pending action in the list
-    const firstPendingAction = parsed.actions.find((action: any, idx: number) => {
-      if (action.isPartial) return false;
-      const actionId = `${lastMessage.id}-action-${idx}`;
-      const hasOutput = toolOutputs && toolOutputs[actionId];
-      const isClicked = clickedActions.has(actionId);
-      return !hasOutput && !isClicked;
-    });
+    const firstPendingAction = parsed.actions.find(
+      (action: any, idx: number) => {
+        if (action.isPartial) return false;
+        const actionId = `${lastMessage.id}-action-${idx}`;
+        const hasOutput = toolOutputs && toolOutputs[actionId];
+        const isClicked = clickedActions.has(actionId);
+        return !hasOutput && !isClicked;
+      },
+    );
 
     if (!firstPendingAction) return false;
 
     // Determine if this first pending action is visible to the user
-    const isVisible = !isSimpleMode || [
-      "write_to_file",
-      "replace_in_file",
-      "run_command",
-      "execute_agent_action"
-    ].includes(firstPendingAction.type);
+    const isVisible =
+      !isSimpleMode ||
+      [
+        "write_to_file",
+        "replace_in_file",
+        "run_command",
+        "execute_agent_action",
+      ].includes(firstPendingAction.type);
 
     // If it's visible, the user can interact with it directly via its 3 buttons,
     // so we don't need to show the "Continue Task" button.
     if (isVisible) return false;
 
     // If it's invisible, we show the "Continue Task" button ONLY if it is auto-runnable
-    const decision = getPermissionDecision(permissionMode, firstPendingAction.type);
+    const decision = getPermissionDecision(
+      permissionMode,
+      firstPendingAction.type,
+    );
     return decision === "allow";
-  }, [messages, isRestored, toolOutputs, permissionMode, clickedActions, isSimpleMode]);
+  }, [
+    messages,
+    isRestored,
+    toolOutputs,
+    permissionMode,
+    clickedActions,
+    isSimpleMode,
+  ]);
 
   // 🆕 Debug logging and filtering logic
   const visibleMessages = useMemo(() => {
@@ -207,7 +221,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
 
   const parsedMap = useMemo(() => {
     const map = new Map<string, any>();
-    parsedMessages.forEach(pm => map.set(pm.id, pm.parsed));
+    parsedMessages.forEach((pm) => map.set(pm.id, pm.parsed));
     return map;
   }, [parsedMessages]);
 
@@ -232,7 +246,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
 
       <div className="chat-timeline-wrapper">
         {visibleMessages.map((message, index) => {
-          const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
+          const parsedMessage = parsedMessages.find(
+            (pm) => pm.id === message.id,
+          );
           if (!parsedMessage) return null;
           const parsedContent = parsedMessage.parsed;
 
@@ -241,7 +257,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             .find((m) => m.role === "user");
 
           const previousAssistantMessage = messages
-            .slice(0, messages.findIndex((m) => m.id === message.id))
+            .slice(
+              0,
+              messages.findIndex((m) => m.id === message.id),
+            )
             .reverse()
             .find((m) => m.role === "assistant");
 
@@ -251,7 +270,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               message={message}
               parsedContent={parsedContent}
               nextUserMessage={nextUserMessage}
-              isGenerating={isProcessing && index === visibleMessages.length - 1}
+              isGenerating={
+                isProcessing && index === visibleMessages.length - 1
+              }
               isCollapsed={
                 message.role === "user"
                   ? collapsedSections.has(`prompt-${message.id}`)
@@ -295,9 +316,11 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           <button
             onClick={onContinue}
             style={{
-              backgroundColor: "color-mix(in srgb, var(--vscode-button-background, #007acc) 15%, transparent)",
+              backgroundColor:
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 15%, transparent)",
               color: "var(--vscode-button-background, #007acc)",
-              border: "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 30%, transparent)",
+              border:
+                "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 30%, transparent)",
               padding: "6px 16px",
               borderRadius: "6px",
               cursor: "pointer",
@@ -349,8 +372,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             padding: "8px 14px",
             marginBottom: "4px",
             marginTop: "4px",
-            background: "color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 8%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 25%, transparent)",
+            background:
+              "color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 8%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 25%, transparent)",
             borderRadius: "8px",
             color: "var(--vscode-editor-foreground)",
             fontSize: "12px",
@@ -387,7 +412,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           `}</style>
         </div>
       )}
-      {(isProcessing || hasInitialMessage) && <ProcessingIndicator isResponding={isResponding} />}
+      {(isProcessing || hasInitialMessage) && (
+        <ProcessingIndicator isResponding={isResponding} />
+      )}
 
       <div ref={messagesEndRef} />
 

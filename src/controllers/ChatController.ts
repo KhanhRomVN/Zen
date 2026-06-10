@@ -32,7 +32,7 @@ export class ChatController {
     private recentItemsManager: RecentItemsManager | undefined,
     private extensionUri: vscode.Uri,
   ) {
-    this.conversationHandler = new ConversationHandler(this.fileLockManager);
+    this.conversationHandler = new ConversationHandler(this.fileLockManager, this.storageManager);
     this.fileHandler = new FileHandler(
       this.contextManager,
       this.fileLockManager,

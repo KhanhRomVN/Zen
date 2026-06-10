@@ -66,20 +66,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [currentModel, setCurrentModel] = useState<any>(
     // Seed from initialMessageData so ChatHeader shows correct model immediately,
     // preventing the cache-load from MessageInput from overwriting it.
-    () => initialMessageData?.model ?? null
+    () => initialMessageData?.model ?? null,
   );
   const [currentAccount, setCurrentAccount] = useState<any>(
-    () => initialMessageData?.account ?? null
+    () => initialMessageData?.account ?? null,
   );
 
-  // Debug: log whenever ChatPanel's model/account state changes
-  useEffect(() => {
-    console.log("[Zen][ChatPanel] currentModel changed →", currentModel?.id ?? null, "| provider:", currentModel?.providerId ?? null);
-  }, [currentModel]);
-
-  useEffect(() => {
-    console.log("[Zen][ChatPanel] currentAccount changed →", currentAccount?.email ?? null);
-  }, [currentAccount]);
   const { isSimpleMode } = useSettings();
 
   const [isRestored, setIsRestored] = useState(false);
@@ -126,6 +118,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       ),
   });
 
+  // --- Refs ---
+  const hasProcessedInitial = useRef(false);
+  const hasAppendedHistoryContext = useRef(false);
+  const wasPaused = useRef(false);
+  const isStoppedRef = useRef(false);
+
   const wrappedSendMessage = useCallback(
     async (
       content: string,
@@ -136,6 +134,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       actionIds?: string[],
       uiHidden?: boolean,
     ) => {
+      // If this is a real user message (not a tool result), clear the stop flag
+      // so subsequent tool auto-flush is allowed again.
+      if (!skipFirstRequestLogic) {
+        isStoppedRef.current = false;
+      }
       setIsRestored(false);
       let finalContent = content;
       const isFromHistory =
@@ -165,11 +168,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     [sendMessage, selectedTab],
   );
 
-  const { executionState, toolOutputs, setToolOutputs, terminalStatus, handleToolRequest } =
-    useToolExecution({
-      conversationIdRef: currentConversationIdRef,
-      messagesRef: messagesRef,
-      sendMessage: (
+  const {
+    executionState,
+    toolOutputs,
+    setToolOutputs,
+    terminalStatus,
+    handleToolRequest,
+  } = useToolExecution({
+    conversationIdRef: currentConversationIdRef,
+    messagesRef: messagesRef,
+    isStoppedRef: isStoppedRef,
+    sendMessage: (
+      content,
+      files,
+      model,
+      account,
+      skipLogic,
+      actionIds,
+      uiHidden,
+    ) =>
+      wrappedSendMessage(
         content,
         files,
         model,
@@ -177,22 +195,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         skipLogic,
         actionIds,
         uiHidden,
-      ) =>
-        wrappedSendMessage(
-          content,
-          files,
-          model,
-          account,
-          skipLogic,
-          actionIds,
-          uiHidden,
-        ),
-    });
-
-  // --- Refs ---
-  const hasProcessedInitial = useRef(false);
-  const hasAppendedHistoryContext = useRef(false);
-  const wasPaused = useRef(false);
+      ),
+  });
 
   // Reset hasProcessedInitial whenever a new tab/chat session starts
   // so that initialMessageData from a subsequent HomePanel send is not skipped.
@@ -200,7 +204,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     hasProcessedInitial.current = false;
     resetSession();
-    console.log("[Zen] ChatPanel tab changed, resetSession", { tabId: selectedTab?.tabId });
   }, [selectedTab?.tabId]);
 
   // --- Memoized Values ---
@@ -298,20 +301,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // --- Effects ---
   useEffect(() => {
     const storage = extensionService.getStorage();
-    storage.get("backend-api-url").then((res: any) => {
-      if (res?.value?.startsWith("http")) {
-        const url = res.value.endsWith("/") ? res.value.slice(0, -1) : res.value;
-        console.log("[Zen] ChatPanel apiUrl loaded from storage:", url);
-        setApiUrl(url);
-      } else {
-        console.log("[Zen] ChatPanel no saved apiUrl, using default:", apiUrl);
-      }
-      // Mark ready regardless — if no saved URL, default is used
-      setIsApiUrlReady(true);
-    }).catch((err: any) => {
-      console.warn("[Zen] ChatPanel failed to load apiUrl from storage:", err);
-      setIsApiUrlReady(true);
-    });
+    storage
+      .get("backend-api-url")
+      .then((res: any) => {
+        if (res?.value?.startsWith("http")) {
+          const url = res.value.endsWith("/")
+            ? res.value.slice(0, -1)
+            : res.value;
+          setApiUrl(url);
+        }
+        // Mark ready regardless — if no saved URL, default is used
+        setIsApiUrlReady(true);
+      })
+      .catch((err: any) => {
+        console.warn(
+          "[Zen] ChatPanel failed to load apiUrl from storage:",
+          err,
+        );
+        setIsApiUrlReady(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -328,13 +336,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     if (initialMessageData && !hasProcessedInitial.current && isApiUrlReady) {
       hasProcessedInitial.current = true;
-      console.log("[Zen] ChatPanel firing sendMessage from initialMessageData", {
-        contentLength: initialMessageData.content.trim().length,
-        model: initialMessageData.model?.id,
-        account: initialMessageData.account?.email,
-        apiUrl,
-        isApiUrlReady,
-      });
       sendMessage(
         initialMessageData.content,
         initialMessageData.files,
@@ -345,8 +346,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         undefined,
       );
       onClearInitialData?.();
-    } else if (initialMessageData && !isApiUrlReady) {
-      console.log("[Zen] ChatPanel waiting for apiUrl before sending initialMessageData...");
     }
   }, [initialMessageData, sendMessage, onClearInitialData, isApiUrlReady]);
 
@@ -360,18 +359,38 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         backendConversationId: existing?.backendConversationId,
         currentModel: currentModel || existing?.currentModel,
         currentAccount: currentAccount || existing?.currentAccount,
-        toolOutputs: Object.keys(toolOutputs).length > 0 ? toolOutputs : existing?.toolOutputs,
+        toolOutputs:
+          Object.keys(toolOutputs).length > 0
+            ? toolOutputs
+            : existing?.toolOutputs,
       });
     }
-  }, [messages, currentConversationId, currentModel, currentAccount, toolOutputs]);
+  }, [
+    messages,
+    currentConversationId,
+    currentModel,
+    currentAccount,
+    toolOutputs,
+  ]);
 
   // Persist toolOutputs to disk when they change
   useEffect(() => {
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
     const tabId = selectedTab?.tabId || -1;
     const folderPath = selectedTab?.folderPath || null;
-    console.log(`[ChatPanel] persisting toolOutputs to disk | keys=${JSON.stringify(Object.keys(toolOutputs))} | convId=${currentConversationId}`);
-    saveConversation(tabId, folderPath, messages, currentConversationId, selectedTab || undefined, true, undefined, undefined, toolOutputs);
+    const errorKeys = Object.entries(toolOutputs).filter(([, v]) => v.isError).map(([k]) => k);
+    console.log(`[ChatPanel][PERSIST-TOOLOUTPUTS] convId=${currentConversationId} | total=${Object.keys(toolOutputs).length} | errorKeys=${JSON.stringify(errorKeys)}`);
+    saveConversation(
+      tabId,
+      folderPath,
+      messages,
+      currentConversationId,
+      selectedTab || undefined,
+      true,
+      undefined,
+      undefined,
+      toolOutputs,
+    );
   }, [toolOutputs, currentConversationId]);
 
   // Load conversation from extension
@@ -396,7 +415,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const cached = ConversationCache.get(convId);
         if (cached) {
           setMessages(cached.messages);
-          if (cached.toolOutputs && Object.keys(cached.toolOutputs).length > 0) {
+          if (
+            cached.toolOutputs &&
+            Object.keys(cached.toolOutputs).length > 0
+          ) {
             setToolOutputs(cached.toolOutputs);
           }
           // Restore pending revert parent if any
@@ -440,8 +462,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
-        const toolOutputKeys = data.data?.toolOutputs ? Object.keys(data.data.toolOutputs) : [];
-        console.log(`[ChatPanel] conversationResult received | msgCount=${data.data?.messages?.length ?? 0} | toolOutputKeys=${JSON.stringify(toolOutputKeys)} | hasError=${!!data.error} | convId=${data.data?.conversationId}`);
+        const toolOutputKeys = data.data?.toolOutputs
+          ? Object.keys(data.data.toolOutputs)
+          : [];
+        const errorToolKeys = data.data?.toolOutputs
+          ? Object.entries(data.data.toolOutputs).filter(([, v]: [string, any]) => v.isError).map(([k]) => k)
+          : [];
+        console.log(`[ChatPanel][RESTORE] conversationResult | msgCount=${data.data?.messages?.length ?? 0} | toolOutputKeys=${JSON.stringify(toolOutputKeys)} | errorToolKeys=${JSON.stringify(errorToolKeys)} | hasError=${!!data.error} | convId=${data.data?.conversationId}`);
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({
@@ -449,13 +476,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               id: msg.id || `restored-${Date.now()}-${i}`,
             }),
           );
+          const errorMsgs = restoredMessages.filter((m: Message) => m.isError);
+          console.log(`[ChatPanel][RESTORE] restoredMessages=${restoredMessages.length} | isError messages=${errorMsgs.length} | isError ids=${JSON.stringify(errorMsgs.map((m: Message) => m.id))}`);
           setMessages(restoredMessages);
 
-          if (data.data.toolOutputs && Object.keys(data.data.toolOutputs).length > 0) {
-            console.log(`[ChatPanel] restoring toolOutputs | keys=${JSON.stringify(Object.keys(data.data.toolOutputs))}`);
+          if (
+            data.data.toolOutputs &&
+            Object.keys(data.data.toolOutputs).length > 0
+          ) {
+            console.log(`[ChatPanel][RESTORE] restoring toolOutputs | keys=${JSON.stringify(Object.keys(data.data.toolOutputs))} | errorKeys=${JSON.stringify(errorToolKeys)}`);
             setToolOutputs(data.data.toolOutputs);
           } else {
-            console.warn(`[ChatPanel] NO toolOutputs in conversationResult — terminal blocks will show gray/empty`);
+            console.warn(
+              `[ChatPanel][RESTORE] NO toolOutputs in conversationResult — file tool errors will show blank`,
+            );
           }
 
           // Restore pending revert parent if any
@@ -651,6 +685,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const handleStopGeneration = useCallback(() => {
+    isStoppedRef.current = true; // block any pending tool auto-flush
     stopGeneration(); // already sets isProcessing=false, isStreaming=false
     setIsProcessing(false);
 
@@ -660,7 +695,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       // Find the last assistant message that has no content yet or is clearly mid-stream
       // (it will be the final item or very close to it)
       const lastAssistantIdx = [...prev].reduceRight(
-        (found, m, i) => (found === -1 && m.role === "assistant" && !m.isCancelled ? i : found),
+        (found, m, i) =>
+          found === -1 && m.role === "assistant" && !m.isCancelled ? i : found,
         -1,
       );
       if (lastAssistantIdx === -1) return prev;
@@ -685,7 +721,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
       return updated;
     });
-  }, [stopGeneration, setIsProcessing, setMessages, selectedTab, currentConversationId]);
+  }, [
+    stopGeneration,
+    setIsProcessing,
+    setMessages,
+    selectedTab,
+    currentConversationId,
+  ]);
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
 

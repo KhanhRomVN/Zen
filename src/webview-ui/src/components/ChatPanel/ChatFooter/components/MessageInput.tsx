@@ -2,7 +2,7 @@ import React from "react";
 import { UploadedFile } from "../types";
 import ChangesTree from "../../ChangesTree";
 import { PlusIcon, SendIcon } from "./Icons";
-import { X, Zap, FileCode, Brain, Eye } from "lucide-react";
+import { X, Zap, ShieldCheck, Eye } from "lucide-react";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../SettingsPanel/LanguageSelector";
 import { useSettings } from "../../../../context/SettingsContext";
@@ -207,27 +207,21 @@ const GlobalPermissionButton: React.FC = () => {
     string,
     { label: string; desc: string; icon: React.ReactNode; color: string }
   > = {
-    bypassPermissions: {
-      label: t("permission.bypassPermissions"),
-      desc: t("settings.bypassPermissionsDesc"),
+    fullAccess: {
+      label: t("permission.fullAccess"),
+      desc: t("settings.fullAccessDesc"),
       icon: <Zap size={11} />,
       color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)",
     },
-    acceptEdits: {
-      label: t("permission.acceptEdits"),
-      desc: t("settings.acceptEditsDesc"),
-      icon: <FileCode size={11} />,
+    approval: {
+      label: t("permission.approval"),
+      desc: t("settings.approvalDesc"),
+      icon: <ShieldCheck size={11} />,
       color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
     },
-    auto: {
-      label: t("permission.auto"),
-      desc: t("settings.autoDesc"),
-      icon: <Brain size={11} />,
-      color: "var(--vscode-symbolIcon-constructorForeground, #10b981)",
-    },
-    plan: {
-      label: t("permission.plan"),
-      desc: t("settings.planDesc"),
+    readOnly: {
+      label: t("permission.readOnly"),
+      desc: t("settings.readOnlyDesc"),
       icon: <Eye size={11} />,
       color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
     },
@@ -260,7 +254,7 @@ const GlobalPermissionButton: React.FC = () => {
     setTooltip(null);
   };
 
-  const metadata = MODE_METADATA[permissionMode] || MODE_METADATA.auto;
+  const metadata = MODE_METADATA[permissionMode] || MODE_METADATA.fullAccess;
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -627,7 +621,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
     const applyCache = (saved: any) => {
       if (cancelled) return;
-      console.log("[Zen][MessageInput] applyCache → model:", saved.model?.id, "| account:", saved.email, "| key:", key);
       if (saved.model) setCurrentModel(saved.model);
       if (saved.accountId) {
         pendingAccountIdRef.current = saved.accountId;
@@ -641,27 +634,27 @@ const MessageInput: React.FC<MessageInputProps> = ({
       const savedStr = localStorage.getItem(key);
       if (savedStr) {
         const saved = JSON.parse(savedStr);
-        console.log("[Zen][MessageInput] load cache from localStorage → key:", key, "model:", saved.model?.id);
         applyCache(saved);
         setIsLoadingCache(false);
       } else {
         const storage = (window as any).storage;
         if (storage) {
-          console.log("[Zen][MessageInput] localStorage miss, fetching from extension storage → key:", key);
-          storage.get(key).then((res: any) => {
-            if (cancelled) return;
-            if (res?.value) {
-              const saved = JSON.parse(res.value);
-              console.log("[Zen][MessageInput] extension storage resolved → key:", key, "model:", saved.model?.id);
-              applyCache(saved);
-              try {
-                localStorage.setItem(key, res.value);
-              } catch {}
-            }
-            setIsLoadingCache(false);
-          }).catch(() => {
-            if (!cancelled) setIsLoadingCache(false);
-          });
+          storage
+            .get(key)
+            .then((res: any) => {
+              if (cancelled) return;
+              if (res?.value) {
+                const saved = JSON.parse(res.value);
+                applyCache(saved);
+                try {
+                  localStorage.setItem(key, res.value);
+                } catch {}
+              }
+              setIsLoadingCache(false);
+            })
+            .catch(() => {
+              if (!cancelled) setIsLoadingCache(false);
+            });
         } else {
           setIsLoadingCache(false);
         }
@@ -685,7 +678,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
         email: currentAccount?.email,
       };
       const dataStr = JSON.stringify(data);
-      console.log("[Zen][MessageInput] save selection → key:", key, "model:", currentModel?.id, "account:", currentAccount?.email);
       try {
         localStorage.setItem(key, dataStr);
       } catch (e) {}
@@ -914,13 +906,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                console.log("[Zen] MessageInput Enter key pressed", {
-                  messageLength: message.trim().length,
-                  model: currentModel?.id,
-                  account: currentAccount?.email,
-                  isProcessing,
-                  isStreaming,
-                });
                 handleSend(currentModel, currentAccount);
               } else {
                 handleKeyDown(e);
@@ -1097,16 +1082,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   }
 
                   if (!currentModel) {
-                    console.warn("[Zen] MessageInput send: no model selected, aborting");
+                    console.warn(
+                      "[Zen] MessageInput send: no model selected, aborting",
+                    );
                     return;
                   }
-                  console.log("[Zen] MessageInput send button clicked", {
-                    messageLength: message.trim().length,
-                    model: currentModel?.id,
-                    account: currentAccount?.email,
-                    isProcessing,
-                    isStreaming,
-                  });
                   handleSend(currentModel, currentAccount);
                 }}
                 onMouseEnter={(e) => {

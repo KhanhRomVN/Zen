@@ -67,16 +67,21 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   useEffect(() => {
     if (!conversationId) return;
     isDraftRestoredRef.current = false;
-    storage.get(`draft:${conversationId}`).then((res: any) => {
-      // Don't restore draft if an initialValue was explicitly provided
-      if (res?.value && !isDraftRestoredRef.current && !initialValue) {
-        setMessage(res.value);
-        // Seed undo stack with restored draft
-        undoStackRef.current = [res.value];
-        undoIndexRef.current = 0;
-      }
-      isDraftRestoredRef.current = true;
-    }).catch(() => { isDraftRestoredRef.current = true; });
+    storage
+      .get(`draft:${conversationId}`)
+      .then((res: any) => {
+        // Don't restore draft if an initialValue was explicitly provided
+        if (res?.value && !isDraftRestoredRef.current && !initialValue) {
+          setMessage(res.value);
+          // Seed undo stack with restored draft
+          undoStackRef.current = [res.value];
+          undoIndexRef.current = 0;
+        }
+        isDraftRestoredRef.current = true;
+      })
+      .catch(() => {
+        isDraftRestoredRef.current = true;
+      });
   }, [conversationId]);
 
   // Debounce-save draft on message change
@@ -90,7 +95,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         storage.delete(`draft:${conversationId}`).catch(() => {});
       }
     }, 500);
-    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current); };
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
   }, [message, conversationId]);
 
   useEffect(() => {
@@ -152,11 +159,8 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   };
 
   // Workspace Data Hook
-  const {
-    availableFiles,
-    availableFolders,
-    availableRules,
-  } = useWorkspaceData();
+  const { availableFiles, availableFolders, availableRules } =
+    useWorkspaceData();
 
   // Mention System Hook
   const {
@@ -227,13 +231,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       uploadedFiles.length > 0 ||
       attachedItems.length > 0
     ) {
-      console.log("[Zen] ChatFooter handleSend called", {
-        messageLength: message.trim().length,
-        model: model?.id,
-        account: account?.email,
-        uploadedFiles: uploadedFiles.length,
-        attachedItems: attachedItems.length,
-      });
       onSendMessage(
         message,
         [...uploadedFiles, ...attachedItems],
@@ -244,7 +241,8 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         undefined, // uiHidden
       );
       setMessage("");
-      if (conversationId) storage.delete(`draft:${conversationId}`).catch(() => {});
+      if (conversationId)
+        storage.delete(`draft:${conversationId}`).catch(() => {});
       clearFiles();
       clearAttachedItems();
       // Reset undo stack after send
@@ -254,7 +252,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         textareaRef.current.style.height = "auto";
       }
     } else {
-      console.warn("[Zen] ChatFooter handleSend: nothing to send (empty message, no files)");
+      console.warn(
+        "[Zen] ChatFooter handleSend: nothing to send (empty message, no files)",
+      );
     }
   };
 
@@ -445,8 +445,12 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         {autoScrollPaused && (
           <button
             onClick={onResumeScroll}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--hover-bg)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "var(--input-bg)"; }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--input-bg)";
+            }}
             style={{
               position: "absolute",
               bottom: "100%",
@@ -472,7 +476,10 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
               transition: "all 0.2s ease",
             }}
           >
-            <span className="codicon codicon-arrow-down" style={{ fontSize: "12px" }} />
+            <span
+              className="codicon codicon-arrow-down"
+              style={{ fontSize: "12px" }}
+            />
             Resume scroll
           </button>
         )}
@@ -483,7 +490,9 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           uploadedFiles={uploadedFiles}
           textareaRef={textareaRef}
           handleTextareaChange={handleTextareaChange}
-          handleKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => handleKeyDown(e)}
+          handleKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) =>
+            handleKeyDown(e)
+          }
           handlePaste={handlePaste}
           handleDragOver={handleDragOver}
           handleDrop={handleDrop}

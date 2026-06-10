@@ -7,7 +7,7 @@ import {
   getDefaultPrompt,
   combinePrompts,
 } from "../components/ChatPanel/prompts";
-import { PERSISTENT_RULES } from "../components/ChatPanel/prompts/persistent-rules";
+import { PERSISTENT_RULES, buildPermissionModeTag, buildPermissionModeTagCompact } from "../components/ChatPanel/prompts/persistent-rules";
 import {
   logChatToWorkspace,
   saveConversation,
@@ -71,7 +71,7 @@ export const useChatLLM = ({
   onConversationIdChange,
   onToolRequest,
 }: UseChatLLMProps) => {
-  const { language: preferredLanguage, aiLanguage } = useSettings();
+  const { language: preferredLanguage, aiLanguage, permissionMode } = useSettings();
   const { workspace, treeView } = useProject();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -84,8 +84,11 @@ export const useChatLLM = ({
   // DeepSeek: true khi server đang tự động gọi /chat/continue để lấy phần còn lại của response dài
   const [isContinuing, setIsContinuing] = useState(false);
   // DeepSeek: true khi response bị INCOMPLETE có partial toolcall (tag chưa đóng)
-  const [incompleteHasPartialTool, setIncompleteHasPartialTool] = useState(false);
-  const [incompletePartialToolType, setIncompletePartialToolType] = useState<string | null>(null);
+  const [incompleteHasPartialTool, setIncompleteHasPartialTool] =
+    useState(false);
+  const [incompletePartialToolType, setIncompletePartialToolType] = useState<
+    string | null
+  >(null);
   const [currentConversationId, setCurrentConversationId] =
     useState<string>("");
   const [conversationToolOverrides, setConversationToolOverrides] = useState<
@@ -105,7 +108,10 @@ export const useChatLLM = ({
 
   useEffect(() => {
     // Only sync state → ref if ref is empty or matches (avoid overwriting a newer sync set)
-    if (!currentConversationIdRef.current || currentConversationIdRef.current === currentConversationId) {
+    if (
+      !currentConversationIdRef.current ||
+      currentConversationIdRef.current === currentConversationId
+    ) {
       currentConversationIdRef.current = currentConversationId;
     }
     onConversationIdChange?.(currentConversationId);
@@ -198,7 +204,6 @@ export const useChatLLM = ({
    * Call this when starting a brand-new chat so sendMessage sees isNewSession=true.
    */
   const resetSession = useCallback(() => {
-    console.log(`[useChatLLM] resetSession() called | localConvId=${currentConversationIdRef.current || "none"} | backendConvId=${backendConversationIdRef.current || "none"} | isProcessing=${isProcessingRef.current} | msgs=${messagesRef.current.length}`);
     currentConversationIdRef.current = "";
     backendConversationIdRef.current = "";
     messagesRef.current = [];
@@ -212,7 +217,6 @@ export const useChatLLM = ({
     setIncompleteHasPartialTool(false);
     setIncompletePartialToolType(null);
     setConversationToolOverrides({});
-    console.log(`[useChatLLM] resetSession() done | isProcessingRef=${isProcessingRef.current}`);
   }, []);
 
   const stopGeneration = useCallback(() => {
@@ -238,7 +242,6 @@ export const useChatLLM = ({
     setIsProcessingSync(false);
 
     // Stop all processes in the extension
-    console.log("[stopGeneration] sending stopCommand all");
     extensionService.postMessage({
       command: "stopCommand",
       actionId: "all",
@@ -258,7 +261,6 @@ export const useChatLLM = ({
       parentMessageId?: string,
     ) => {
       if (isProcessingRef.current && !skipFirstRequestLogic) {
-        console.warn(`[useChatLLM] sendMessage BLOCKED — isProcessingRef=true | skipFirstRequestLogic=${skipFirstRequestLogic} | localConvId=${currentConversationIdRef.current || "none"} | backendConvId=${backendConversationIdRef.current || "none"} | msgs=${messagesRef.current.length}`);
         return;
       }
 
@@ -272,11 +274,8 @@ export const useChatLLM = ({
       let effectiveChatUuid = currentConversationIdRef.current;
       const isNewSession = !effectiveChatUuid;
 
-      console.log(`[useChatLLM] sendMessage START | isNewSession=${isNewSession} | localConvId=${effectiveChatUuid || "none"} | backendConvId=${backendConversationIdRef.current || "none"} | isProcessingRef=${isProcessingRef.current} | skipFirstRequestLogic=${skipFirstRequestLogic} | filteredMsgs=${filteredMessages.length} | contentLen=${content.length}`);
-
       // GUARD: tool results must never create a new session — they belong to the current one
       if (skipFirstRequestLogic && isNewSession) {
-        console.warn(`[useChatLLM] sendMessage ABORTED — tool result arrived after resetSession(), no active session to attach to | backendConvId=${backendConversationIdRef.current || "none"}`);
         return;
       }
 
@@ -288,7 +287,6 @@ export const useChatLLM = ({
         lastUsedModelRef.current = null;
         lastUsedAccountRef.current = null;
         setConversationToolOverrides({});
-        console.log(`[useChatLLM] sendMessage NEW SESSION created | localConvId=${effectiveChatUuid}`);
 
         // Tell extension to create an empty log file
         extensionService.postMessage({
@@ -329,6 +327,7 @@ export const useChatLLM = ({
           systemPrompt = combinePrompts({
             language: effectiveLang,
             systemInfo,
+            permissionMode,
           });
         }
 
@@ -480,9 +479,14 @@ export const useChatLLM = ({
         }
       }
 
+      // Full mode tag (with all 4 mode descriptions) only for user-initiated requests.
+      // Auto/tool-flush requests get a compact tag with just the active mode name.
+      const permissionModeTag = skipFirstRequestLogic
+        ? buildPermissionModeTagCompact(permissionMode)
+        : buildPermissionModeTag(permissionMode);
       const promptPayload = isReq1
-        ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${PERSISTENT_RULES}\n\n${fullContent}`
-        : `${attachedContextStr}\n\n${PERSISTENT_RULES}\n\n${fullContent}`;
+        ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${PERSISTENT_RULES}\n\n${permissionModeTag}\n\n${fullContent}`
+        : `${attachedContextStr}\n\n${PERSISTENT_RULES}\n\n${permissionModeTag}\n\n${fullContent}`;
 
       // In the new schema, req1 content includes system prompt
       const finalContent = promptPayload;
@@ -627,17 +631,13 @@ export const useChatLLM = ({
 
         const errorMsgCount = updatedMessages.filter((m) => m.isError).length;
         let payloadMessages = updatedMessages
-          .filter((m) => !m.isError)  // exclude error messages — they are UI-only, not part of conversation history
+          .filter((m) => !m.isError) // exclude error messages — they are UI-only, not part of conversation history
           .map((m) => ({
             role: m.role,
             content: m.content,
           }));
         if (isReq1) {
           payloadMessages[0].content = promptPayload;
-        }
-
-        if (errorMsgCount > 0) {
-          console.log(`[Zen Payload] Filtered ${errorMsgCount} error message(s) from payload | total=${updatedMessages.length} → payload=${payloadMessages.length}`);
         }
 
         let finalPayloadMessages = payloadMessages;
@@ -648,8 +648,13 @@ export const useChatLLM = ({
           accountId: finalAccount?.id,
           messages: finalPayloadMessages,
           stream: true,
-          conversationId: backendConversationIdRef.current
-            || (effectiveChatUuid ? (sessionStorage.getItem(`zen-backend-conv:${effectiveChatUuid}`) || undefined) : undefined),
+          conversationId:
+            backendConversationIdRef.current ||
+            (effectiveChatUuid
+              ? sessionStorage.getItem(
+                  `zen-backend-conv:${effectiveChatUuid}`,
+                ) || undefined
+              : undefined),
           ...(parentMessageId
             ? { parent_message_id: Number(parentMessageId) }
             : {}),
@@ -665,18 +670,13 @@ export const useChatLLM = ({
         setIsStreaming(true);
 
         const headers = { "Content-Type": "application/json" };
-
         const bodyStr = JSON.stringify(body);
-        console.log(`[Zen Request] ✈ SENDING | msgs=${body.messages.length} | errFiltered=${errorMsgCount} | model=${body.modelId || "none"} | provider=${body.providerId || "none"} | account=${body.accountId || "none"} | convId=${body.conversationId || "none"} | isReq1=${isReq1} | skipTool=${skipFirstRequestLogic}`);
-
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
           headers,
           body: bodyStr,
           signal: abortController.signal,
         });
-
-        console.log(`[Zen Request] ✅ HTTP response received | status: ${response.status} | ok: ${response.ok}`);
 
         if (!response.ok) {
           let errorDetail = `API Error: ${response.status}`;
@@ -716,7 +716,6 @@ export const useChatLLM = ({
         const FIRST_CHUNK_TIMEOUT_MS = 305_000; // 5 min + 5s buffer
         const firstChunkTimer = setTimeout(() => {
           if (!firstChunkReceived) {
-            console.warn(`[useChatLLM] First-chunk timeout (${FIRST_CHUNK_TIMEOUT_MS}ms) — aborting stream | convId=${effectiveChatUuid}`);
             abortController.abort();
           }
         }, FIRST_CHUNK_TIMEOUT_MS);
@@ -764,12 +763,16 @@ export const useChatLLM = ({
                   const recvConvId =
                     data.meta?.conversation_id || data.conversation_id;
                   if (recvConvId) {
-                    console.log(`[useChatLLM] SSE received conversation_id: ${recvConvId} | localConvId: ${effectiveChatUuid}`);
                     backendConversationId = recvConvId;
                     backendConversationIdRef.current = recvConvId;
                     assistantMessage.conversationId = recvConvId;
                     // Persist so it survives resetSession() race conditions
-                    try { sessionStorage.setItem(`zen-backend-conv:${effectiveChatUuid}`, recvConvId); } catch {}
+                    try {
+                      sessionStorage.setItem(
+                        `zen-backend-conv:${effectiveChatUuid}`,
+                        recvConvId,
+                      );
+                    } catch {}
                   }
 
                   const metaObj = data.meta || data.metadata;
@@ -791,31 +794,23 @@ export const useChatLLM = ({
                     if (metaObj.continuing === true) {
                       const prevContinuing = isContinuing;
                       setIsContinuing(true);
-                      console.log(
-                        `[Zen] isContinuing: ${prevContinuing} → true | continuation_count=${metaObj.continuation_count ?? '?'} | conversationId=${backendConversationId || currentConversationIdRef.current || 'none'}`,
-                      );
                     } else if (isContinuing && metaObj.continuing === false) {
                       // Server báo hiệu đã hoàn thành continue
-                      console.log(
-                        `[Zen] isContinuing: true → false (server signaled completion) | conversationId=${backendConversationId || currentConversationIdRef.current || 'none'}`,
-                      );
                       setIsContinuing(false);
                     }
 
                     // DeepSeek: server phát hiện response INCOMPLETE có partial toolcall
                     if (metaObj.incomplete_has_partial_tool !== undefined) {
-                      setIncompleteHasPartialTool(metaObj.incomplete_has_partial_tool);
-                      setIncompletePartialToolType(metaObj.incomplete_partial_tool_type ?? null);
-                      console.log(
-                        `[Zen] incomplete_has_partial_tool=${metaObj.incomplete_has_partial_tool} | toolType=${metaObj.incomplete_partial_tool_type ?? 'none'} | conversationId=${backendConversationId || currentConversationIdRef.current || 'none'}`,
+                      setIncompleteHasPartialTool(
+                        metaObj.incomplete_has_partial_tool,
+                      );
+                      setIncompletePartialToolType(
+                        metaObj.incomplete_partial_tool_type ?? null,
                       );
                     }
 
                     // DeepSeek: tất cả continuations đã hoàn thành — reset partial tool state
                     if (metaObj.continuation_complete === true) {
-                      console.log(
-                        `[Zen] continuation_complete | total_continuations=${metaObj.total_continuations ?? '?'} | resetting incompleteHasPartialTool`,
-                      );
                       setIncompleteHasPartialTool(false);
                       setIncompletePartialToolType(null);
                     }
@@ -877,7 +872,7 @@ export const useChatLLM = ({
 
         if (isContinuing) {
           console.warn(
-            `[Zen] Stream ended but isContinuing is still true — server may not have sent continuing:false | conversationId=${backendConversationId || currentConversationIdRef.current || 'none'}`,
+            `[Zen] Stream ended but isContinuing is still true — server may not have sent continuing:false | conversationId=${backendConversationId || currentConversationIdRef.current || "none"}`,
           );
         }
         const remainingLines = buffer
@@ -942,8 +937,6 @@ export const useChatLLM = ({
           );
         }
 
-        console.log(`[Zen Response] Letter count: ${assistantMessage.content.length} | backendConversationId: ${backendConversationId || "none"} | providerId: ${assistantMessage.providerId || "none"} | modelId: ${assistantMessage.modelId || "none"}`);
-
         // Final state update to ensure UI and subsequent logic see the latest usage info
         setMessages((prev) =>
           prev.map((m) =>
@@ -957,7 +950,6 @@ export const useChatLLM = ({
         setIncompleteHasPartialTool(false);
         setIncompletePartialToolType(null);
         abortControllerRef.current = null;
-        console.log(`[useChatLLM] sendMessage DONE | localConvId: ${effectiveChatUuid} | backendConvId: ${backendConversationId || backendConversationIdRef.current || "none"} | isProcessingRef: ${isProcessingRef.current}`);
 
         // Log user message first, then assistant message, both with the real conversationId
         try {
@@ -1028,7 +1020,29 @@ export const useChatLLM = ({
           timestamp: Date.now(),
           isError: true,
         };
-        setMessages((prev) => [...prev, errorMessage]);
+        const messagesWithError = [
+          ...messagesRef.current.filter((m) => !m.isCancelled),
+          errorMessage,
+        ];
+        setMessages(messagesWithError);
+        messagesRef.current = messagesWithError;
+
+        // Persist error message so it shows up when loading conversation history
+        if (effectiveChatUuid) {
+          try {
+            saveConversation(
+              tabId,
+              folderPath,
+              messagesWithError,
+              effectiveChatUuid,
+              selectedTab || undefined,
+              false,
+              undefined,
+              backendConversationIdRef.current,
+            );
+          } catch (saveErr) {}
+        }
+
         setIsProcessingSync(false);
       }
     },
@@ -1055,7 +1069,6 @@ export const useChatLLM = ({
       id: string,
       meta?: { providerId?: string; modelId?: string; accountId?: string },
     ) => {
-      console.log("[Zen BackendConvId] setBackendConversationId:", id);
       backendConversationIdRef.current = id;
       if (meta) {
         if (meta.providerId && meta.modelId) {

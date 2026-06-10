@@ -3,10 +3,9 @@ import { extensionService } from "../services/ExtensionService";
 import type { LanguageCode } from "../i18n";
 
 export type PermissionMode =
-  | "bypassPermissions"
-  | "acceptEdits"
-  | "auto"
-  | "plan";
+  | "fullAccess"
+  | "approval"
+  | "readOnly";
 
 interface SettingsContextType {
   language: LanguageCode;
@@ -55,7 +54,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     return "English";
   });
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
-  const [permissionModeState, setPermissionModeState] = useState<PermissionMode>("bypassPermissions");
+  const [permissionModeState, setPermissionModeState] = useState<PermissionMode>("fullAccess");
   const [toolPermissionsState, setToolPermissionsState] = useState<
     Record<string, "full_access" | "review">
   >(defaultToolPermissions);
@@ -79,11 +78,17 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.get("zen_permission_mode").then((res: any) => {
       if (res?.value) {
         const val = res.value;
-        if (["bypassPermissions", "acceptEdits", "auto", "plan"].includes(val)) {
-          setPermissionModeState(val as PermissionMode);
-        } else {
-          setPermissionModeState("auto"); // Fallback an toàn nếu là chế độ cũ
-        }
+        // Migrate old 4-mode values to new 3-mode system
+        const migrationMap: Record<string, PermissionMode> = {
+          bypassPermissions: "fullAccess",
+          acceptEdits: "approval",
+          auto: "approval",
+          plan: "readOnly",
+          fullAccess: "fullAccess",
+          approval: "approval",
+          readOnly: "readOnly",
+        };
+        setPermissionModeState(migrationMap[val] ?? "fullAccess");
       }
     });
 

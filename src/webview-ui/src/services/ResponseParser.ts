@@ -38,7 +38,8 @@ export type ContentBlock =
       )[];
     }
   | { type: "tool"; action: ToolAction; actionIndex?: number }
-  | { type: "thinking"; content: string };
+  | { type: "thinking"; content: string }
+  | { type: "plan"; steps: { id: string; status: "done" | "pending" | "in_progress"; text: string }[] };
 
 /**
  * Decode common HTML entities back to their original characters
@@ -203,6 +204,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "markdown",
     "question",
     "thinking",
+    "plan",
   ];
 
   // Fix missing opening bracket for the first tool call due to prefix/prefill stripping.
@@ -354,6 +356,22 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             type: "thinking",
             content: innerContent || "",
           });
+        } else if (toolName === "plan") {
+          // Parse <step id="N" status="done|pending|in_progress">text</step>
+          const steps: { id: string; status: "done" | "pending" | "in_progress"; text: string }[] = [];
+          const stepRegex = /<step\s+id="([^"]+)"\s+status="([^"]+)">([\s\S]*?)<\/step>/gi;
+          let stepMatch;
+          while ((stepMatch = stepRegex.exec(innerContent || "")) !== null) {
+            const status = stepMatch[2] as "done" | "pending" | "in_progress";
+            steps.push({
+              id: stepMatch[1],
+              status: ["done", "pending", "in_progress"].includes(status) ? status : "pending",
+              text: stepMatch[3].trim(),
+            });
+          }
+          if (steps.length > 0) {
+            result.contentBlocks.push({ type: "plan", steps });
+          }
         } else if (toolName === "markdown") {
           // Explicit <markdown> tag
           if (innerContent && innerContent.trim()) {

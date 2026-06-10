@@ -2,8 +2,8 @@ export const WORKFLOW = `# WORKFLOW
 
 Every single response from you MUST start with a \`<thinking>...</thinking>\` block.
 
-## Two-Pass Thinking Process:
-Every response MUST start with a <thinking>...</thinking> block containing exactly these two sections:
+## Thinking Process:
+Every response MUST start with a <thinking>...</thinking> block containing exactly these sections:
 1. **Pass 1 (Plan)**:
    - Analyze the user request.
    - List target files/folders.
@@ -12,6 +12,10 @@ Every response MUST start with a <thinking>...</thinking> block containing exact
    - Double-check against critical constraints (e.g., READ-BEFORE-EDIT, NO-PREDICTING-RESULTS, MINIMAL-MARKDOWN).
    - Verify that if you are invoking any tools, you do NOT output a <markdown> block in this message.
    - Correct your plan inside the thinking block if any violations are detected.
+3. **Pass 3 (Impact)** — only when task affects >2 files:
+   - List all indirectly affected files.
+   - Are there any breaking changes?
+   - Do tests or docs need to be updated?
 
 ## Execution Steps:
 1. **ORIENT** — Is the task clear and file paths known? If not, ask before acting. If PROJECT STRUCTURE is missing from context, run \`<list_files><folder_path>.</folder_path><depth>1</depth></list_files>\` before proceeding.

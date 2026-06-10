@@ -5,6 +5,7 @@ import { buildSystemContext } from "./system-context";
 import type { SystemInfo } from "./system-context";
 import { EXAMPLES } from "./examples";
 import { CONSTRAINTS } from "./constraints";
+import { buildAccessModePrompt } from "./access-mode";
 
 export { buildIdentityPrompt } from "./identity";
 export { WORKFLOW } from "./workflow";
@@ -16,14 +17,17 @@ export { CONSTRAINTS } from "./constraints";
 export { buildRetryPrompt } from "./retry";
 export { HISTORY_CONTEXT_REMINDER } from "./history-context";
 export { AFTER_PAUSE_REMINDER } from "./after-pause";
+export { buildAccessModePrompt } from "./access-mode";
+export { PERSISTENT_RULES, buildPermissionModeTag, buildPermissionModeTagCompact } from "./persistent-rules";
 
 interface PromptConfig {
   language: string;
   systemInfo: SystemInfo;
+  permissionMode?: string;
 }
 
 export const combinePrompts = (config: PromptConfig): string => {
-  const { language, systemInfo } = config;
+  const { language, systemInfo, permissionMode } = config;
 
   const sections = [
     buildIdentityPrompt(language), // 1. Who I am + top-level rules
@@ -31,7 +35,8 @@ export const combinePrompts = (config: PromptConfig): string => {
     CONSTRAINTS, // 3. Critical constraints
     TOOLS_REFERENCE, // 4. What tools exist + tag usage
     buildSystemContext(systemInfo), // 5. Environment context
-    EXAMPLES, // 6. Reference patterns
+    ...(permissionMode ? [buildAccessModePrompt(permissionMode)] : []), // 6. Active permission mode
+    EXAMPLES, // 7. Reference patterns
   ];
 
   return sections.join("\n\n---\n\n");

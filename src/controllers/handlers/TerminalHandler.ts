@@ -7,20 +7,20 @@ export class TerminalHandler {
   constructor(private processManager: ProcessManager) {}
 
   public async handleRunCommand(message: any, webviewView: vscode.WebviewView) {
-    console.log(`[TerminalHandler] handleRunCommand START`, { actionId: message.actionId, commandText: message.commandText });
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       const cwd = workspaceFolder?.uri.fsPath || os.homedir();
 
       // Security Check
-      const securityCheck = SecurityValidator.validateCommand(message.commandText);
+      const securityCheck = SecurityValidator.validateCommand(
+        message.commandText,
+      );
       if (!securityCheck.safe) {
         throw new Error(securityCheck.reason || "Command validation failed");
       }
 
       const result = await this.processManager.startInteractive(cwd);
       const terminalId = result.id;
-      console.log(`[TerminalHandler] startInteractive OK`, { terminalId, actionId: message.actionId });
 
       webviewView.webview.postMessage({
         command: "runCommandResult",
@@ -28,16 +28,17 @@ export class TerminalHandler {
         terminalId: terminalId,
         actionId: message.actionId,
       });
-      console.log(`[TerminalHandler] sent runCommandResult`, { terminalId, actionId: message.actionId });
 
       this.processManager.sendInput(
         terminalId,
         `${message.commandText}\n`,
         message.actionId,
       );
-      console.log(`[TerminalHandler] sendInput called`, { terminalId, actionId: message.actionId });
     } catch (e: any) {
-      console.error(`[TerminalHandler] handleRunCommand ERROR`, { actionId: message.actionId, error: e.message });
+      console.error(`[TerminalHandler] handleRunCommand ERROR`, {
+        actionId: message.actionId,
+        error: e.message,
+      });
       webviewView.webview.postMessage({
         command: "runCommandResult",
         requestId: message.requestId,
@@ -49,8 +50,7 @@ export class TerminalHandler {
   public async handleFocusTerminal(message: any) {
     try {
       this.processManager.focus(message.terminalId);
-    } catch (e: any) {
-    }
+    } catch (e: any) {}
   }
 
   public async handleStopCommand(message: any) {

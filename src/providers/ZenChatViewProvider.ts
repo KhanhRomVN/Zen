@@ -112,21 +112,28 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     });
 
     // Listen for Command Finished
-    const cmdFinishedDisposable = this._processManager.onCommandFinished((event) => {
-      console.log(`[ZenChatViewProvider] onCommandFinished → postMessage commandExecuted`, { actionId: event.actionId, terminalId: event.terminalId, outputLength: event.output?.length });
-      const result = webviewView.webview.postMessage({
-        command: "commandExecuted",
-        actionId: event.actionId,
-        output: event.output,
-        terminalId: event.terminalId,
-        commandText: event.commandText,
-      });
-      if (result && typeof (result as any).then === "function") {
-        (result as any).then((sent: boolean) => {
-          if (!sent) console.warn(`[ZenChatViewProvider] commandExecuted NOT delivered (webview hidden/disposed?)`, { actionId: event.actionId });
+    const cmdFinishedDisposable = this._processManager.onCommandFinished(
+      (event) => {
+        const isError = event.exitCode !== null && event.exitCode !== undefined && event.exitCode !== 0;
+        const result = webviewView.webview.postMessage({
+          command: "commandExecuted",
+          actionId: event.actionId,
+          output: event.output,
+          terminalId: event.terminalId,
+          commandText: event.commandText,
+          error: isError ? `Exit code ${event.exitCode}` : undefined,
         });
-      }
-    });
+        if (result && typeof (result as any).then === "function") {
+          (result as any).then((sent: boolean) => {
+            if (!sent)
+              console.warn(
+                `[ZenChatViewProvider] commandExecuted NOT delivered (webview hidden/disposed?)`,
+                { actionId: event.actionId },
+              );
+          });
+        }
+      },
+    );
 
     // Listen for Terminal Changes
     this._processManager.onTerminalsChanged(() => {

@@ -17,6 +17,7 @@ import { RichtextBlock } from "../../../RichtextBlock";
 import MarkdownWithPaths from "../../../MarkdownWithPaths";
 import "../../../TerminalBlock.css";
 import "./MarkdownContent.css";
+import PlanBlock from "./PlanBlock";
 import { buildRetryPrompt } from "../../prompts";
 import { useI18n } from "../../../../hooks/useI18n";
 import type { I18nKey } from "../../../../i18n";
@@ -467,6 +468,11 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 content: string;
                 key: string;
               }
+            | {
+                type: "plan";
+                steps: { id: string; status: "done" | "pending" | "in_progress"; text: string }[];
+                key: string;
+              }
           > = [];
 
           // --- 🆕 METADATA DOT CHECK ---
@@ -578,6 +584,13 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   type: "mixed_content",
                   segments: block.segments,
                   key: `mixed_content-${idx}`,
+                });
+              } else if (block.type === "plan") {
+                flushTools();
+                groups.push({
+                  type: "plan",
+                  steps: block.steps,
+                  key: `plan-${idx}`,
                 });
               } else {
                 // Flush tools before adding non-tool block
@@ -742,6 +755,8 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   </div>
                 </div>
               );
+            } else if (group.type === "plan") {
+              content = <PlanBlock steps={group.steps} />;
             } else if (group.type === "code") {
               const isDiffBlock = isDiff(group.content, group.language);
               let displayCode = group.content;
@@ -1057,7 +1072,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               if (hasUnclickedOrBusyAction) isInteractionBlocked = true;
             }
 
-            if (group.type === "tools") {
+            if (group.type === "tools" || group.type === "plan") {
               return <React.Fragment key={group.key}>{content}</React.Fragment>;
             }
 

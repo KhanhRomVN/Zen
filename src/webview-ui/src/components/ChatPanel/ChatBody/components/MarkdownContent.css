@@ -31,10 +31,42 @@
 .markdown-content-inline ul,
 .markdown-content-inline ol {
   margin-bottom: 8px;
-  padding-left: 20px;
+  padding-left: 24px !important;
+}
+
+.markdown-content-inline ul {
+  list-style-type: disc !important;
+}
+
+.markdown-content-inline ul ul {
+  list-style-type: circle !important;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.markdown-content-inline ul ul ul {
+  list-style-type: square !important;
+}
+
+.markdown-content-inline ol {
+  list-style-type: decimal !important;
+}
+
+.markdown-content-inline ol ol {
+  list-style-type: lower-alpha !important;
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 .markdown-content-inline li {
+  margin-bottom: 4px;
+  display: list-item !important;
+}
+
+/* Nested list inside li shouldn't double-margin */
+.markdown-content-inline li > ul,
+.markdown-content-inline li > ol {
+  margin-top: 4px;
   margin-bottom: 4px;
 }
 

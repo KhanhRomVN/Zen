@@ -180,41 +180,46 @@ export class FileHandler {
         throw new Error(securityCheck.reason || "Security validation failed");
       }
 
-      if (message.conversationId) {
-        CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
-      }
-      const fileExists = fs.existsSync(absolutePath.fsPath);
-      let beforeContent: string | null = null;
-      if (fileExists) {
-        try {
-          beforeContent = await fs.promises.readFile(absolutePath.fsPath, "utf-8");
-        } catch {
-          beforeContent = null;
+      const release = await this.fileLockManager.acquire(absolutePath.fsPath);
+      try {
+        if (message.conversationId) {
+          CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
         }
-      }
-      await CheckpointManager.getInstance().createCheckpoint(
-        absolutePath.fsPath,
-        fileExists ? "modify" : "create"
-      );
-
-      await vscode.workspace.fs.createDirectory(
-        vscode.Uri.joinPath(absolutePath, ".."),
-      );
-      await vscode.workspace.fs.writeFile(
-        absolutePath,
-        Buffer.from(message.content, "utf8"),
-      );
-      logger.info(`[write_to_file] File written successfully`, { path: pathValue });
-
-      if (message.conversationId && message.actionId) {
-        await SnapshotManager.getInstance().saveSnapshot(
-          message.conversationId,
-          message.actionId,
+        const fileExists = fs.existsSync(absolutePath.fsPath);
+        let beforeContent: string | null = null;
+        if (fileExists) {
+          try {
+            beforeContent = await fs.promises.readFile(absolutePath.fsPath, "utf-8");
+          } catch {
+            beforeContent = null;
+          }
+        }
+        await CheckpointManager.getInstance().createCheckpoint(
           absolutePath.fsPath,
-          "write",
-          beforeContent,
-          message.content,
+          fileExists ? "modify" : "create"
         );
+
+        await vscode.workspace.fs.createDirectory(
+          vscode.Uri.joinPath(absolutePath, ".."),
+        );
+        await vscode.workspace.fs.writeFile(
+          absolutePath,
+          Buffer.from(message.content, "utf8"),
+        );
+        logger.info(`[write_to_file] File written successfully`, { path: pathValue });
+
+        if (message.conversationId && message.actionId) {
+          await SnapshotManager.getInstance().saveSnapshot(
+            message.conversationId,
+            message.actionId,
+            absolutePath.fsPath,
+            "write",
+            beforeContent,
+            message.content,
+          );
+        }
+      } finally {
+        release();
       }
 
       if (!message.skipDiagnostics) {

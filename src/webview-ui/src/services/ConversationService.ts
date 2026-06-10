@@ -38,8 +38,7 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
       chatUuid,
       logEntry,
     });
-  } catch (err) {
-  }
+  } catch (err) {}
 };
 
 export const calculateTokens = (text: string): number => {
@@ -72,7 +71,10 @@ export const saveConversation = async (
   skipTimestampUpdate?: boolean,
   title?: string,
   backendConversationId?: string,
-  toolOutputs?: Record<string, { output: string; isError: boolean; terminalId?: string }>,
+  toolOutputs?: Record<
+    string,
+    { output: string; isError: boolean; terminalId?: string }
+  >,
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
@@ -83,7 +85,9 @@ export const saveConversation = async (
 
     // Calculate stats
     const activeMessages = messages.filter((m) => !m.isCancelled);
-    const totalRequests = activeMessages.filter((m: Message) => m.role === "user").length;
+    const totalRequests = activeMessages.filter(
+      (m: Message) => m.role === "user",
+    ).length;
     const totalTokenUsage = activeMessages.reduce(
       (sum: number, m: Message) => sum + (m.token_usage || 0),
       0,
@@ -93,6 +97,22 @@ export const saveConversation = async (
     let existingLastModified: number | undefined;
     let existingTitle: string | undefined;
     let existingBackendConversationId: string | undefined;
+    let existingToolOutputs:
+      | Record<
+          string,
+          { output: string; isError: boolean; terminalId?: string }
+        >
+      | undefined;
+
+    // Always check in-memory cache first — it's sync and avoids race conditions
+    // when multiple saveConversation calls happen concurrently (e.g. toolOutputs persist
+    // fires at the same time as the post-stream final save).
+    const cached = ConversationCache.get(convId);
+    if (cached) {
+      existingToolOutputs = cached.toolOutputs;
+      existingBackendConversationId = cached.backendConversationId;
+    }
+
     try {
       const existingData = await storage.get(key, false);
       if (existingData && existingData.value) {
@@ -100,7 +120,13 @@ export const saveConversation = async (
         existingCreatedAt = parsed.metadata?.createdAt;
         existingLastModified = parsed.metadata?.lastModified;
         existingTitle = parsed.metadata?.title;
-        existingBackendConversationId = parsed.backendConversationId;
+        if (!existingBackendConversationId) {
+          existingBackendConversationId = parsed.backendConversationId;
+        }
+        // Only use disk toolOutputs if cache had nothing — cache is more up-to-date
+        if (!existingToolOutputs && parsed.toolOutputs && Object.keys(parsed.toolOutputs).length > 0) {
+          existingToolOutputs = parsed.toolOutputs;
+        }
       }
     } catch (error) {}
 
@@ -110,12 +136,19 @@ export const saveConversation = async (
       return cloned;
     });
 
+    // Merge incoming toolOutputs with existing ones so error outputs are never dropped.
+    // If caller passes no toolOutputs (undefined), preserve whatever is already on disk.
+    const mergedToolOutputs =
+      toolOutputs && Object.keys(toolOutputs).length > 0
+        ? { ...(existingToolOutputs || {}), ...toolOutputs }
+        : existingToolOutputs || undefined;
+
     const data = {
       messages: messagesToSave,
       conversationId: convId,
       backendConversationId:
         backendConversationId || existingBackendConversationId,
-      toolOutputs: toolOutputs && Object.keys(toolOutputs).length > 0 ? toolOutputs : undefined,
+      toolOutputs: mergedToolOutputs,
       metadata: {
         id: key,
         tabId,
@@ -138,14 +171,18 @@ export const saveConversation = async (
     };
 
     await storage.set(key, JSON.stringify(data), false);
-    console.log(`[ConversationService] saveConversation | key=${key} | msgCount=${messagesToSave.length} | toolOutputKeys=${JSON.stringify(toolOutputs ? Object.keys(toolOutputs) : [])} | hasToolOutputs=${!!(toolOutputs && Object.keys(toolOutputs).length > 0)}`);
+    const errorOutputKeys = mergedToolOutputs
+      ? Object.entries(mergedToolOutputs).filter(([, v]) => v.isError).map(([k]) => k)
+      : [];
+    console.log(`[ConversationService][SAVE] key=${key} | msgCount=${messagesToSave.length} | toolOutputKeys=${JSON.stringify(mergedToolOutputs ? Object.keys(mergedToolOutputs) : [])} | errorOutputKeys=${JSON.stringify(errorOutputKeys)} | incomingToolOutputsCount=${toolOutputs ? Object.keys(toolOutputs).length : 0}`);
 
     // Sync to in-memory cache — include toolOutputs so cache-hits also have output data
     ConversationCache.set(convId, {
       messages: messagesToSave,
       conversationId: convId,
-      backendConversationId: backendConversationId || existingBackendConversationId,
-      toolOutputs: toolOutputs && Object.keys(toolOutputs).length > 0 ? toolOutputs : undefined,
+      backendConversationId:
+        backendConversationId || existingBackendConversationId,
+      toolOutputs: mergedToolOutputs,
     });
 
     return convId;
