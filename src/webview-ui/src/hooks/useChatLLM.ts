@@ -91,7 +91,12 @@ export const useChatLLM = ({
   const [isStreaming, setIsStreaming] = useState(false);
   // DeepSeek: true khi server đang tự động gọi /chat/continue để lấy phần còn lại của response dài
   const [isContinuing, setIsContinuing] = useState(false);
-  // DeepSeek: true khi response bị INCOMPLETE có partial toolcall (tag chưa đóng)
+  // Ref để tránh stale closure bên trong sendMessage useCallback
+  const isContinuingRef = useRef(false);
+  const setIsContinuingSync = (val: boolean) => {
+    isContinuingRef.current = val;
+    setIsContinuing(val);
+  };
   const [incompleteHasPartialTool, setIncompleteHasPartialTool] =
     useState(false);
   const [incompletePartialToolType, setIncompletePartialToolType] = useState<
@@ -225,7 +230,7 @@ export const useChatLLM = ({
     setMessages([]);
     setIsProcessingSync(false);
     setIsStreaming(false);
-    setIsContinuing(false);
+    setIsContinuingSync(false);
     setIncompleteHasPartialTool(false);
     setIncompletePartialToolType(null);
     setConversationToolOverrides({});
@@ -248,7 +253,7 @@ export const useChatLLM = ({
     }
 
     setIsStreaming(false);
-    setIsContinuing(false);
+    setIsContinuingSync(false);
     setIncompleteHasPartialTool(false);
     setIncompletePartialToolType(null);
     setIsProcessingSync(false);
@@ -516,6 +521,14 @@ export const useChatLLM = ({
         uiHidden: uiHidden,
         conversationId: backendConversationIdRef.current || undefined,
       };
+
+      // Log token count for every request (user-initiated and auto/tool)
+      const reqTokens = calculateTokens(promptPayload);
+      const reqType = skipFirstRequestLogic
+        ? "autoReq (tool flush)"
+        : isReq1
+          ? "req1 (first turn)"
+          : "user req";
 
       const updatedMessages = [...filteredMessages, userMessage];
       setMessages(updatedMessages);
@@ -817,11 +830,12 @@ export const useChatLLM = ({
 
                     // DeepSeek: server đang auto-continue response bị ngắt giữa chừng
                     if (metaObj.continuing === true) {
-                      const prevContinuing = isContinuing;
-                      setIsContinuing(true);
-                    } else if (isContinuing && metaObj.continuing === false) {
-                      // Server báo hiệu đã hoàn thành continue
-                      setIsContinuing(false);
+                      setIsContinuingSync(true);
+                    } else if (metaObj.continuing === false) {
+                      // Dùng ref để tránh stale closure — isContinuing state có thể chưa update vào closure
+                      if (isContinuingRef.current) {
+                        setIsContinuingSync(false);
+                      }
                     }
 
                     // DeepSeek: server phát hiện response INCOMPLETE có partial toolcall
@@ -1011,7 +1025,7 @@ export const useChatLLM = ({
 
         setIsProcessingSync(false);
         setIsStreaming(false);
-        setIsContinuing(false);
+        setIsContinuingSync(false);
         setIncompleteHasPartialTool(false);
         setIncompletePartialToolType(null);
         abortControllerRef.current = null;
@@ -1069,7 +1083,7 @@ export const useChatLLM = ({
         );
       } catch (error) {
         setIsStreaming(false);
-        setIsContinuing(false);
+        setIsContinuingSync(false);
         setIncompleteHasPartialTool(false);
         setIncompletePartialToolType(null);
         abortControllerRef.current = null;

@@ -434,6 +434,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           );
           if (pendingParent) revertParentMessageIdRef.current = pendingParent;
           setIsRestored(cached.messages.length > 0);
+          // 🔧 FIX: Sync ref immediately (same race-condition fix as conversationResult handler)
+          currentConversationIdRef.current = cached.conversationId;
+          console.log(
+            `[ChatPanel][CACHE-RESTORE] conversationIdRef updated synchronously: ${cached.conversationId}`,
+          );
           setCurrentConversationId(cached.conversationId);
           if (cached.backendConversationId) {
             setBackendConversationId(cached.backendConversationId);
@@ -508,6 +513,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             setIsRestored(true);
           }
           if (data.data.conversationId) {
+            // 🔧 FIX: Update ref synchronously BEFORE setCurrentConversationId (async)
+            // to prevent race condition where sendMessage reads stale "" ref between
+            // resetSession() and the useEffect that syncs state→ref.
+            currentConversationIdRef.current = data.data.conversationId;
+            console.log(
+              `[ChatPanel][RESTORE] conversationIdRef updated synchronously: ${data.data.conversationId}`,
+            );
             setCurrentConversationId(data.data.conversationId);
 
             // 🆕 Restore Backend Conversation ID from messages if available
