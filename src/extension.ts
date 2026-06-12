@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { ContextManager } from "./context/ContextManager";
 import { GlobalStorageManager } from "./storage-manager";
 import { ZenChatViewProvider } from "./providers/ZenChatViewProvider";
+import { ZenDiffProvider } from "./providers/ZenDiffProvider";
 
 let activeProvider: ZenChatViewProvider | null = null;
 
@@ -33,6 +34,7 @@ export async function activate(extContext: vscode.ExtensionContext) {
       ZenChatViewProvider.viewType,
       provider,
     ),
+    ZenDiffProvider.register(extContext),
   );
 
   // Register Commands

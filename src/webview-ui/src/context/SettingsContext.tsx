@@ -21,6 +21,8 @@ interface SettingsContextType {
   setPermissionMode: (mode: PermissionMode) => void;
   isSimpleMode: boolean;
   setIsSimpleMode: (value: boolean) => void;
+  liveWritePreview: boolean;
+  setLiveWritePreview: (value: boolean) => void;
 }
 
 export const defaultToolPermissions: Record<string, "full_access" | "review"> = {
@@ -59,6 +61,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     Record<string, "full_access" | "review">
   >(defaultToolPermissions);
   const [isSimpleMode, setIsSimpleModeState] = useState<boolean>(true);
+  const [liveWritePreview, setLiveWritePreviewState] = useState<boolean>(true);
 
   useEffect(() => {
     try {
@@ -157,6 +160,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (e) {}
   };
 
+  const setLiveWritePreview = (value: boolean) => {
+    setLiveWritePreviewState(value);
+    try {
+      localStorage.setItem("zen-live-write-preview", String(value));
+    } catch (e) {}
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -173,6 +183,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setPermissionMode,
         isSimpleMode,
         setIsSimpleMode,
+        liveWritePreview,
+        setLiveWritePreview,
       }}
     >
       {children}

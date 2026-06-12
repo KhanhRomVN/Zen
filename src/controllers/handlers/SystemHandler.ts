@@ -3,6 +3,7 @@ import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import * as os from "os";
+import { ZenDiffProvider } from "../../providers/ZenDiffProvider";
 
 export class SystemHandler {
   constructor() {}
@@ -250,23 +251,22 @@ export class SystemHandler {
     }
 
     // REWRITE or REPLACE: open diff view with before ↔ after
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-
-    const tmpDir = this._getTempDir(workspaceFolder.uri.fsPath);
     const safeId = (actionId || Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, "_");
 
-    const beforeFile = vscode.Uri.file(path.join(tmpDir, `${safeId}_before_${basename}`));
-    const afterFile = vscode.Uri.file(path.join(tmpDir, `${safeId}_after_${basename}`));
+    const beforeKey = `${safeId}_before`;
+    const afterKey = `${safeId}_after`;
 
-    await vscode.workspace.fs.writeFile(beforeFile, Buffer.from(beforeContent || "", "utf8"));
-    await vscode.workspace.fs.writeFile(afterFile, Buffer.from(afterContent || "", "utf8"));
+    ZenDiffProvider.instance.store(beforeKey, beforeContent || "");
+    ZenDiffProvider.instance.store(afterKey, afterContent || "");
+
+    const beforeUri = ZenDiffProvider.toUri(beforeKey, basename);
+    const afterUri = ZenDiffProvider.toUri(afterKey, basename);
 
     const label = operation === "write"
       ? `${basename} (Before ↔ After Rewrite)`
       : `${basename} (Before ↔ After Edit)`;
 
-    await vscode.commands.executeCommand("vscode.diff", beforeFile, afterFile, label);
+    await vscode.commands.executeCommand("vscode.diff", beforeUri, afterUri, label);
   }
 
   private _getLanguageId(filePath: string): string {

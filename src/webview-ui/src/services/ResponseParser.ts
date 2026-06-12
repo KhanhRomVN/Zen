@@ -56,10 +56,20 @@ const decodeHtmlEntities = (text: string): string => {
 /**
  * Parse XML-like content to extract parameter value
  */
+/**
+ * Params that carry multi-line file content — must NOT be trimmed so that
+ * leading/trailing newlines (which are meaningful code lines) are preserved
+ * when an SSE stream is split across multiple chunks.
+ */
+const CONTENT_PARAMS = new Set(["content", "diff"]);
+
 const extractParamValue = (
   content: string,
   paramName: string,
 ): string | null => {
+  // Whether this param holds raw file content (no aggressive trimming allowed)
+  const isContentParam = CONTENT_PARAMS.has(paramName);
+
   // Try standard XML tag first
   const standardRegex = new RegExp(
     `<${paramName}>([\\s\\S]*?)<\\/${paramName}>`,
@@ -70,7 +80,11 @@ const extractParamValue = (
     let value = standardMatch[1];
     // Remove ```text wrappers if present
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-    return decodeHtmlEntities(value).trim();
+    const decoded = decodeHtmlEntities(value);
+    // For file content params: only strip a single leading/trailing newline added
+    // by the XML tag boundaries — do NOT trim() which would eat real blank lines.
+    // For other params (file_path, command, etc.): full trim is safe and expected.
+    return isContentParam ? decoded.replace(/^\n|\n$/g, "") : decoded.trim();
   }
 
   // Try self-closing tag with content
@@ -82,10 +96,15 @@ const extractParamValue = (
   if (selfClosingMatch) {
     let value = selfClosingMatch[1];
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-    let decoded = decodeHtmlEntities(value).trim();
-    // Strip malformed closing tag suffix like /paramName> or paramName>
-    const malformedCloseRegex = new RegExp(`/?${paramName}>?$`, "i");
-    decoded = decoded.replace(malformedCloseRegex, "").trim();
+    let decoded = decodeHtmlEntities(value);
+    if (!isContentParam) {
+      decoded = decoded.trim();
+      // Strip malformed closing tag suffix like /paramName> or paramName>
+      const malformedCloseRegex = new RegExp(`/?${paramName}>?$`, "i");
+      decoded = decoded.replace(malformedCloseRegex, "").trim();
+    } else {
+      decoded = decoded.replace(/^\n|\n$/g, "");
+    }
     return decoded;
   }
   return null;

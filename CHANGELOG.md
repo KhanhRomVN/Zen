@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.8] - 2026-06-11
+
+### 🐛 Fixed
+- **Diff view no longer shows false diagnostics**: Files opened via the "UPDATE" button (snapshot diff view) now use a virtual `zen-diff://` URI scheme instead of writing temp `.ts`/`.tsx` files to disk. VSCode language servers (TypeScript, ESLint, etc.) do not run on virtual scheme documents, eliminating spurious errors in the Problems panel for files outside any `tsconfig.json`. Syntax highlighting is fully preserved
+
+---
+
 ## [1.4.7] - 2026-06-10
 
 ### ✨ Added
