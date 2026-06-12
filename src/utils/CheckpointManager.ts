@@ -40,11 +40,19 @@ export class CheckpointManager {
       .createHash("md5")
       .update(workspaceFolder.uri.fsPath)
       .digest("hex");
-    const projectContextDir = path.join(os.homedir(), "khanhromvn-zen", "projects", hash);
+    const projectContextDir = path.join(
+      os.homedir(),
+      "khanhromvn-zen",
+      "projects",
+      hash,
+    );
     return path.join(projectContextDir, conversationId, "checkpoints");
   }
 
-  public async createCheckpoint(filePath: string, type: "create" | "modify" | "delete") {
+  public async createCheckpoint(
+    filePath: string,
+    type: "create" | "modify" | "delete",
+  ) {
     if (!this.activeConversationId) return;
 
     try {
@@ -87,12 +95,18 @@ export class CheckpointManager {
       };
 
       const ckptFilePath = path.join(ckptDir, `${id}.json`);
-      await fs.promises.writeFile(ckptFilePath, JSON.stringify(checkpoint, null, 2), "utf-8");
-    } catch (error) {
-    }
+      await fs.promises.writeFile(
+        ckptFilePath,
+        JSON.stringify(checkpoint, null, 2),
+        "utf-8",
+      );
+    } catch (error) {}
   }
 
-  public async revertToCheckpoint(conversationId: string, revertTimestamp: number) {
+  public async revertToCheckpoint(
+    conversationId: string,
+    revertTimestamp: number,
+  ) {
     try {
       const ckptDir = this.getCheckpointsDir(conversationId);
       if (!fs.existsSync(ckptDir)) {
@@ -111,8 +125,7 @@ export class CheckpointManager {
             if (ckpt.timestamp > revertTimestamp) {
               checkpoints.push({ ...ckpt, id: file });
             }
-          } catch (e) {
-          }
+          } catch (e) {}
         }
       }
 
@@ -140,10 +153,8 @@ export class CheckpointManager {
           // Clean up checkpoint file
           const ckptJsonPath = path.join(ckptDir, ckpt.id);
           await fs.promises.unlink(ckptJsonPath).catch(() => {});
-        } catch (err: any) {
-        }
+        } catch (err: any) {}
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 }

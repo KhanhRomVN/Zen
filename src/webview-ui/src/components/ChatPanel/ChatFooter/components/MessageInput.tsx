@@ -747,7 +747,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           flexDirection: "column",
           position: "relative",
           borderRadius: "var(--border-radius)",
-          border: !isConnected ? "1px solid #f44336" : "1px solid transparent",
+          border: !isConnected ? "1px solid var(--vscode-errorForeground, #f44336)" : "1px solid transparent",
           transition: "border 0.3s ease",
           marginTop:
             !isConversationStarted || (isConnected && isElaraMismatch)
@@ -1067,7 +1067,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     isHistoryMode || isLoadingCache
                       ? "var(--secondary-text)"
                       : isStreaming || isProcessing
-                        ? "#f44336" // Red color for stop
+                        ? "var(--vscode-errorForeground, #f44336)" // Red color for stop
                         : message.trim() || uploadedFiles.length > 0
                           ? "var(--accent-text)"
                           : "var(--secondary-text)",
@@ -1158,7 +1158,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               bottom: "100%",
               right: "8px",
               backgroundColor: "rgba(255, 152, 0, 0.1)",
-              color: "#ff9800",
+              color: "var(--vscode-editorWarning-foreground, #ff9800)",
               padding: "4px 12px",
               fontSize: "11px",
               fontWeight: 600,

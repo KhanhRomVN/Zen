@@ -27,9 +27,9 @@
     #3e3e42
   );
 
-  --success-color: #4caf50;
-  --warning-color: #ff9800;
-  --error-color: #f44336;
+  --success-color: var(--vscode-gitDecoration-addedResourceForeground, #4caf50);
+  --warning-color: var(--vscode-editorWarning-foreground, #ff9800);
+  --error-color: var(--vscode-errorForeground, #f44336);
 
   --spacing-xs: 4px;
   --spacing-sm: 8px;

@@ -1,7 +1,7 @@
 .terminal-block-container {
   display: flex;
   flex-direction: column;
-  background-color: var(--vscode-terminal-background, #1e1e1e);
+  background-color: var(--vscode-terminal-background);
   border-radius: 6px;
   overflow: hidden;
   font-family: var(
@@ -10,7 +10,7 @@
     Courier,
     monospace
   );
-  border: 1px solid var(--vscode-panel-border, #333);
+  border: 1px solid var(--vscode-panel-border);
 }
 
 .terminal-block-header {
@@ -18,13 +18,19 @@
   align-items: center;
   justify-content: space-between;
   padding: 2px 12px 0px 0;
+  background-color: transparent;
+  border-bottom: none;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* Terminal block context: needs distinct header to separate from dark terminal background */
+.terminal-block .terminal-block-header {
   background-color: var(
     --vscode-editorGroupHeader-tabsBackground,
     var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.1))
   );
-  border-bottom: none; /* Removed overflow: hidden to prevent clipping timeline dots */
-  user-select: none;
-  cursor: pointer;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.12));
 }
 
 .terminal-info {
@@ -46,7 +52,7 @@
 .terminal-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--vscode-terminal-foreground, #cccccc);
+  color: var(--vscode-terminal-foreground);
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
   overflow: hidden;
@@ -90,8 +96,8 @@
   top: -8px; /* Connect to vertical timeline line */
   width: 10px;
   height: 16px;
-  border-left: 2px solid var(--vscode-panel-border, #6a737d);
-  border-bottom: 2px solid var(--vscode-panel-border, #6a737d);
+  border-left: 2px solid var(--vscode-panel-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.3)));
+  border-bottom: 2px solid var(--vscode-panel-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.3)));
   border-bottom-left-radius: 4px;
   transform: translateX(-1px); /* Align with 2px line center */
 }
@@ -113,8 +119,8 @@
 }
 
 .execute-button-minimal:hover {
-  color: var(--vscode-button-hoverBackground, #1177bb) !important;
-  background-color: rgba(121, 121, 121, 0.1) !important;
+  color: var(--vscode-button-hoverBackground) !important;
+  background-color: color-mix(in srgb, var(--vscode-foreground) 10%, transparent) !important;
 }
 
 /* ── Copy button visibility ──────────────────────────────────────────────── */
@@ -147,7 +153,7 @@
 .terminal-content-wrapper {
   padding: 8px 8px 8px 12px;
   overflow-y: auto;
-  background-color: var(--vscode-terminal-background, #1e1e1e);
+  background-color: var(--vscode-terminal-background);
   scrollbar-width: thin;
   scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4)) transparent;
 }
@@ -160,7 +166,7 @@
   padding: 8px 4px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--vscode-terminal-foreground, #cccccc);
+  color: var(--vscode-terminal-foreground);
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: pre-wrap;
   word-break: break-all;
@@ -245,7 +251,7 @@
   top: 14px; /* Start exactly at dot center (dot is at top:10px, size 8px -> center is 14px) */
   bottom: -24px; /* Extend through 24px padding gap to connect to next item */
   width: 2px;
-  background-color: var(--vscode-panel-border, #6a737d);
+  background-color: var(--vscode-textBlockQuote-border, var(--vscode-editorLineNumber-foreground));
   /* No z-index: paint naturally in stacking context */
   opacity: 0.5;
   pointer-events: none;
@@ -266,7 +272,7 @@
   border-radius: 50%;
   z-index: 10;
   background-color: var(--vscode-descriptionForeground);
-  box-shadow: 0 0 0 2px var(--vscode-editor-background), 0 0 0 3px var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
+  box-shadow: 0 0 0 2px var(--vscode-editor-background), 0 0 0 3px var(--vscode-textBlockQuote-border, var(--vscode-editorLineNumber-foreground));
   transition: all 0.2s ease;
 }
 
@@ -304,15 +310,15 @@
   right: 8px;
   opacity: 0;
   pointer-events: none;
-  background: color-mix(in srgb, var(--input-bg) 60%, black);
-  border: 1px solid color-mix(in srgb, var(--input-bg) 40%, black);
+  background: color-mix(in srgb, var(--input-bg) 60%, var(--vscode-editor-background));
+  border: 1px solid color-mix(in srgb, var(--input-bg) 40%, var(--vscode-editor-background));
   border-radius: 4px;
   width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: color-mix(in srgb, var(--primary-text) 90%, white);
+  color: color-mix(in srgb, var(--primary-text) 90%, var(--vscode-editor-foreground));
   cursor: pointer;
   transition: opacity 0.15s ease;
   z-index: 10;
@@ -324,8 +330,8 @@
 }
 
 .user-message-undo-btn:hover {
-  background: color-mix(in srgb, var(--input-bg) 40%, black);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--input-bg) 40%, var(--vscode-editor-background));
+  color: var(--vscode-terminal-foreground);
 }
 
 .user-message-undo-btn svg {

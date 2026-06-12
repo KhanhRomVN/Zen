@@ -50,7 +50,7 @@ const FollowupOptions: React.FC<FollowupOptionsProps> = ({
                   : "var(--secondary-bg)",
               color:
                 selectedOption === option
-                  ? "#fff"
+                  ? "var(--vscode-button-foreground, #ffffff)"
                   : selectedOption
                     ? "var(--disabled-text)"
                     : "var(--primary-text)",

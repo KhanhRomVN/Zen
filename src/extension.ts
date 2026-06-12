@@ -14,7 +14,6 @@ export async function activate(extContext: vscode.ExtensionContext) {
 
   const contextManager = new ContextManager();
 
-
   const provider = new ZenChatViewProvider(
     extContext.extensionUri,
     contextManager,

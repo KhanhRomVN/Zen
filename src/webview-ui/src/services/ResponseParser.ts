@@ -207,7 +207,34 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     .replace(/<(\/?)search_file>/gi, "<$1search_files>")
     .replace(/<(\/?)list_file>/gi, "<$1list_files>");
 
+  // Pre-extract <thinking> blocks BEFORE any tool scanning so that tool tags
+  // inside a thinking block are never mistaken for real tool calls.
+  // We replace each <thinking>...</thinking> (or unclosed <thinking>) with a
+  // numbered placeholder __THINKING_N__ and store the content separately.
+  const thinkingBlocks: string[] = [];
+
+  // 1. Closed <thinking>...</thinking> blocks
+  remainingContent = remainingContent.replace(
+    /<thinking>([\s\S]*?)<\/thinking>/gi,
+    (_match, inner) => {
+      const idx = thinkingBlocks.length;
+      thinkingBlocks.push(inner);
+      return `__THINKING_${idx}__`;
+    },
+  );
+
+  // 2. Unclosed <thinking> (streaming — tail of content)
+  const unclosedThinkingMatch = /<thinking>([\s\S]*)$/i.exec(remainingContent);
+  let unclosedThinkingContent: string | null = null;
+  if (unclosedThinkingMatch) {
+    unclosedThinkingContent = unclosedThinkingMatch[1];
+    remainingContent = remainingContent.substring(0, unclosedThinkingMatch.index);
+  }
+
   // Scan for tools and text blocks
+  // Note: "thinking" is intentionally excluded — thinking blocks are pre-extracted
+  // above and stored in thinkingBlocks[]. Placeholders __THINKING_N__ in markdown
+  // text will be restored after the main scan loop.
   const toolPatterns = [
     "read_file",
     "write_to_file",
@@ -222,7 +249,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "file",
     "markdown",
     "question",
-    "thinking",
     "plan",
   ];
 
@@ -370,11 +396,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               content: innerContent.trim(),
             });
           }
-        } else if (toolName === "thinking") {
-          result.contentBlocks.push({
-            type: "thinking",
-            content: innerContent || "",
-          });
         } else if (toolName === "plan") {
           // Parse <step id="N" status="done|pending|in_progress">text</step>
           const steps: { id: string; status: "done" | "pending" | "in_progress"; text: string }[] = [];
@@ -456,8 +477,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         } else if (
           toolName !== "code" &&
           toolName !== "file" &&
-          toolName !== "conversation_name" &&
-          toolName !== "thinking"
+          toolName !== "conversation_name"
         ) {
           // It's a tool, let it stream!
           const actionIndex = result.actions.length;
@@ -481,11 +501,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           action.isPartial = true;
           result.contentBlocks.push({ type: "tool", action, actionIndex });
           result.actions.push(action);
-        } else if (toolName === "thinking") {
-          result.contentBlocks.push({
-            type: "thinking",
-            content: innerContent || "",
-          });
         } else {
           // For tools, hide entire content including XML until closed
         }
@@ -513,6 +528,82 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     .filter((b: any) => b.type === "markdown")
     .map((b: any) => (b as any).content)
     .join("\n\n");
+
+  // --- Restore thinking blocks from placeholders ---
+  // Walk contentBlocks and expand any markdown block that contains __THINKING_N__ placeholders.
+  // A single markdown segment may contain text + multiple placeholders interleaved, so we split
+  // each segment around the placeholders and emit the correct block types in order.
+  const placeholderRegex = /__THINKING_(\d+)__/g;
+
+  const expandedBlocks: ContentBlock[] = [];
+  for (const block of result.contentBlocks) {
+    if (block.type === "markdown" && placeholderRegex.test(block.content)) {
+      // Reset lastIndex after the test() call
+      placeholderRegex.lastIndex = 0;
+      const parts = block.content.split(/__THINKING_(\d+)__/);
+      // split with a capture group alternates: [text, idx, text, idx, ...text]
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+          // text segment
+          if (parts[i].trim()) {
+            expandedBlocks.push({ type: "markdown", content: parts[i] });
+          }
+        } else {
+          // thinking index
+          const thinkingIdx = parseInt(parts[i], 10);
+          expandedBlocks.push({
+            type: "thinking",
+            content: thinkingBlocks[thinkingIdx] ?? "",
+          });
+        }
+      }
+    } else if (block.type === "mixed_content") {
+      // Also expand placeholders inside mixed_content segments
+      const expandedSegments: any[] = [];
+      for (const seg of block.segments) {
+        if (seg.type === "markdown" && placeholderRegex.test(seg.content)) {
+          placeholderRegex.lastIndex = 0;
+          const parts = seg.content.split(/__THINKING_(\d+)__/);
+          for (let i = 0; i < parts.length; i++) {
+            if (i % 2 === 0) {
+              if (parts[i].trim()) {
+                expandedSegments.push({ type: "markdown", content: parts[i] });
+              }
+            } else {
+              const thinkingIdx = parseInt(parts[i], 10);
+              // Push as a standalone thinking block outside this mixed_content
+              expandedBlocks.push({ type: "mixed_content", segments: expandedSegments.splice(0) } as any);
+              expandedBlocks.push({
+                type: "thinking",
+                content: thinkingBlocks[thinkingIdx] ?? "",
+              });
+            }
+          }
+          if (expandedSegments.length > 0) {
+            expandedBlocks.push({ type: "mixed_content", segments: expandedSegments.splice(0) } as any);
+          }
+        } else {
+          expandedSegments.push(seg);
+        }
+      }
+      if (expandedSegments.length > 0) {
+        expandedBlocks.push({ ...block, segments: expandedSegments } as any);
+      }
+    } else {
+      expandedBlocks.push(block);
+    }
+  }
+
+  // Replace contentBlocks with expanded version
+  result.contentBlocks = expandedBlocks;
+
+  // Append unclosed thinking block at the end (streaming case)
+  if (unclosedThinkingContent !== null) {
+    result.contentBlocks.push({
+      type: "thinking",
+      content: unclosedThinkingContent,
+    });
+  }
 
   return result;
 };

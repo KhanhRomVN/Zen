@@ -65,7 +65,7 @@ const ToolPermissionDropdown: React.FC<{ toolId: string }> = ({ toolId }) => {
               border: "1px solid var(--vscode-widget-border)",
               borderRadius: "6px",
               overflow: "hidden",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+              boxShadow: "0 4px 12px color-mix(in srgb, var(--vscode-foreground, #000000) 20%, transparent)",
               minWidth: "120px",
             }}
           >

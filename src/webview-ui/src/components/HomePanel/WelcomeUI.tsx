@@ -277,7 +277,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
             boxSizing: "border-box",
           }}
         >
-          <Zap size={16} color="#eab308" style={{ flexShrink: 0 }} />
+          <Zap size={16} color="var(--vscode-editorWarning-foreground, #eab308)" style={{ flexShrink: 0 }} />
           <div
             style={{
               fontSize: "11px",
@@ -285,7 +285,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
               lineHeight: "1.4",
             }}
           >
-            <strong style={{ color: "#eab308" }}>{t("home.prerequisiteLabel")}</strong>{" "}
+            <strong style={{ color: "var(--vscode-editorWarning-foreground, #eab308)" }}>{t("home.prerequisiteLabel")}</strong>{" "}
             {t("home.prerequisiteText")}{" "}
             <a href="https://elara-home.vercel.app/" target="_blank" style={{ color: "var(--vscode-link-activeForeground, #3b82f6)", textDecoration: "none", fontWeight: 600 }}>
               Elara
@@ -326,7 +326,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                   height: "32px",
                   borderRadius: "6px",
                   backgroundColor: "rgba(59, 130, 246, 0.12)",
-                  color: "#3b82f6",
+                  color: "var(--vscode-textLink-foreground, #3b82f6)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -362,7 +362,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                   height: "32px",
                   borderRadius: "6px",
                   backgroundColor: "rgba(16, 185, 129, 0.12)",
-                  color: "#10b981",
+                  color: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -398,7 +398,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                   height: "32px",
                   borderRadius: "6px",
                   backgroundColor: "rgba(245, 158, 11, 0.12)",
-                  color: "#f59e0b",
+                  color: "var(--vscode-editorWarning-foreground, #f59e0b)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -434,7 +434,7 @@ const WelcomeUI: React.FC<WelcomeUIProps> = ({ onLoadConversation }) => {
                   height: "32px",
                   borderRadius: "6px",
                   backgroundColor: "rgba(139, 92, 246, 0.12)",
-                  color: "#8b5cf6",
+                  color: "var(--vscode-symbolIcon-namespaceForeground, #8b5cf6)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

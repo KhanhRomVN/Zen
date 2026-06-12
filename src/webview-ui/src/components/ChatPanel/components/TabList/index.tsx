@@ -66,14 +66,14 @@ const TabList: React.FC<TabListProps> = ({
           name: "DeepSeek",
           emoji: "🤖",
           bgColor: "rgba(59, 130, 246, 0.1)",
-          textColor: "#3b82f6",
+          textColor: "var(--vscode-textLink-foreground, #3b82f6)",
         };
       case "chatgpt":
         return {
           name: "ChatGPT",
           emoji: "💬",
           bgColor: "rgba(16, 185, 129, 0.1)",
-          textColor: "#10b981",
+          textColor: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
         };
 
       case "gemini":
@@ -81,21 +81,21 @@ const TabList: React.FC<TabListProps> = ({
           name: "Gemini",
           emoji: "✨",
           bgColor: "rgba(168, 85, 247, 0.1)",
-          textColor: "#a855f7",
+          textColor: "var(--vscode-symbolIcon-namespaceForeground, #a855f7)",
         };
       case "grok":
         return {
           name: "Grok",
           emoji: "⚡",
           bgColor: "rgba(249, 115, 22, 0.1)",
-          textColor: "#f97316",
+          textColor: "var(--vscode-editorWarning-foreground, #f97316)",
         };
       default:
         return {
           name: "Unknown",
           emoji: "❓",
           bgColor: "rgba(107, 114, 128, 0.1)",
-          textColor: "#6b7280",
+          textColor: "var(--vscode-descriptionForeground, #6b7280)",
         };
     }
   };
@@ -130,7 +130,7 @@ const TabList: React.FC<TabListProps> = ({
               backgroundColor: "var(--secondary-bg)",
               border:
                 tab.tabId === activeTabId
-                  ? "2px solid #FFD700" // Sparkling gold
+                  ? "2px solid var(--vscode-editorWarning-foreground, #FFD700)" // Sparkling gold
                   : "1px solid var(--border-color)",
               boxShadow:
                 tab.tabId === activeTabId
@@ -247,10 +247,10 @@ const TabList: React.FC<TabListProps> = ({
                 style={{
                   color:
                     tab.status === "busy"
-                      ? "#ff9800"
+                      ? "var(--vscode-editorWarning-foreground, #ff9800)"
                       : tab.status === "sleep"
-                        ? "#9c27b0"
-                        : "#4caf50",
+                        ? "var(--vscode-symbolIcon-namespaceForeground, #9c27b0)"
+                        : "var(--vscode-gitDecoration-addedResourceForeground, #4caf50)",
                   fontWeight: 600,
                 }}
               >
@@ -265,7 +265,7 @@ const TabList: React.FC<TabListProps> = ({
                       alignItems: "center",
                       gap: "4px",
                       fontSize: "var(--font-size-xs)",
-                      color: "#6366f1",
+                      color: "var(--vscode-textLink-foreground, #6366f1)",
                     }}
                   >
                     <span style={{ fontSize: "10px" }}>🗂️</span>

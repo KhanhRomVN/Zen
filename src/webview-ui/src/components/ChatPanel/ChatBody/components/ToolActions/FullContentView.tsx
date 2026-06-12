@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 interface FullContentViewProps {
   filePath: string;
@@ -6,43 +6,14 @@ interface FullContentViewProps {
   beforeContent: string | null; // null = CREATE, non-null = REWRITE
 }
 
-const getLanguage = (filePath: string): string => {
-  const ext = filePath.split(".").pop()?.toLowerCase() || "";
-  const map: Record<string, string> = {
-    ts: "typescript",
-    tsx: "tsx",
-    js: "javascript",
-    jsx: "jsx",
-    py: "python",
-    rs: "rust",
-    go: "go",
-    java: "java",
-    c: "c",
-    cpp: "cpp",
-    cs: "csharp",
-    css: "css",
-    scss: "scss",
-    html: "html",
-    json: "json",
-    yaml: "yaml",
-    yml: "yaml",
-    md: "markdown",
-    sh: "bash",
-    bash: "bash",
-    xml: "xml",
-    sql: "sql",
-    php: "php",
-    rb: "ruby",
-    kt: "kotlin",
-    swift: "swift",
-    dart: "dart",
-  };
-  return map[ext] || "text";
-};
-
 const getBasename = (filePath: string): string => {
   return filePath.split(/[\\/]/).pop() || filePath;
 };
+
+// Lines per animation tick — larger = faster scroll
+const LINES_PER_TICK = 4;
+// Interval between ticks in ms
+const TICK_MS = 16;
 
 export const FullContentView: React.FC<FullContentViewProps> = ({
   filePath,
@@ -51,9 +22,45 @@ export const FullContentView: React.FC<FullContentViewProps> = ({
 }) => {
   const isCreate = beforeContent === null;
   const basename = getBasename(filePath);
-  const _language = getLanguage(filePath); // reserved for future syntax highlighting
   const lines = content ? content.split("\n") : [];
   const lineCount = lines.length;
+
+  // How many lines are currently visible (drives the typewriter effect)
+  const [visibleCount, setVisibleCount] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
+
+  // Reset and re-animate whenever content changes
+  useEffect(() => {
+    if (!lines.length) return;
+
+    setVisibleCount(0);
+
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      setVisibleCount((prev) => {
+        const next = prev + LINES_PER_TICK;
+        if (next >= lines.length) {
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          return lines.length;
+        }
+        return next;
+      });
+    }, TICK_MS);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+    // intentionally only on content change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content]);
+
+  // Auto-scroll to bottom while animating
+  useEffect(() => {
+    if (contentAreaRef.current && visibleCount < lineCount) {
+      contentAreaRef.current.scrollTop = contentAreaRef.current.scrollHeight;
+    }
+  }, [visibleCount, lineCount]);
 
   const badgeStyle: React.CSSProperties = {
     display: "inline-block",
@@ -98,36 +105,6 @@ export const FullContentView: React.FC<FullContentViewProps> = ({
     background: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
   };
 
-  const tableStyle: React.CSSProperties = {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontFamily: "var(--vscode-editor-font-family, monospace)",
-    fontSize: "12px",
-  };
-
-  const lineNumCellStyle: React.CSSProperties = {
-    width: "40px",
-    minWidth: "40px",
-    textAlign: "right",
-    paddingRight: "12px",
-    paddingLeft: "8px",
-    color: "var(--vscode-editorLineNumber-foreground, rgba(255,255,255,0.3))",
-    userSelect: "none",
-    verticalAlign: "top",
-    lineHeight: "1.5",
-    whiteSpace: "nowrap",
-  };
-
-  const codeLineStyle: React.CSSProperties = {
-    paddingLeft: "8px",
-    paddingRight: "16px",
-    color: "var(--vscode-editor-foreground)",
-    whiteSpace: "pre",
-    verticalAlign: "top",
-    lineHeight: "1.5",
-    wordBreak: "break-all",
-  };
-
   if (!content) {
     return (
       <div style={containerStyle}>
@@ -153,6 +130,9 @@ export const FullContentView: React.FC<FullContentViewProps> = ({
     );
   }
 
+  const visibleLines = lines.slice(0, visibleCount);
+  const isAnimating = visibleCount < lineCount;
+
   return (
     <div style={containerStyle}>
       {/* Header */}
@@ -177,24 +157,88 @@ export const FullContentView: React.FC<FullContentViewProps> = ({
             whiteSpace: "nowrap",
           }}
         >
-          {lineCount} {lineCount === 1 ? "line" : "lines"}
+          {isAnimating ? `${visibleCount} / ${lineCount}` : `${lineCount}`}{" "}
+          {lineCount === 1 ? "line" : "lines"}
         </span>
         <span style={badgeStyle}>{isCreate ? "CREATE" : "REWRITE"}</span>
       </div>
 
-      {/* Content area with line numbers */}
-      <div style={contentAreaStyle}>
-        <table style={tableStyle}>
-          <tbody>
-            {lines.map((line, idx) => (
-              <tr key={idx}>
-                <td style={lineNumCellStyle}>{idx + 1}</td>
-                <td style={codeLineStyle}>{line}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Plain-text content area — no syntax highlighting, fast typewriter scroll */}
+      <div ref={contentAreaRef} style={contentAreaStyle}>
+        <pre
+          style={{
+            margin: 0,
+            padding: "6px 0",
+            fontFamily: "var(--vscode-editor-font-family, monospace)",
+            fontSize: "12px",
+            lineHeight: "1.5",
+            color: "var(--vscode-editor-foreground)",
+            whiteSpace: "pre",
+            overflowX: "auto",
+          }}
+        >
+          {visibleLines.map((line, idx) => (
+            <div
+              key={idx}
+              style={{ display: "flex", minHeight: "1.5em" }}
+            >
+              {/* Line number gutter */}
+              <span
+                style={{
+                  width: "40px",
+                  minWidth: "40px",
+                  textAlign: "right",
+                  paddingRight: "12px",
+                  paddingLeft: "8px",
+                  color: "var(--vscode-editorLineNumber-foreground, rgba(255,255,255,0.3))",
+                  userSelect: "none",
+                  flexShrink: 0,
+                }}
+              >
+                {idx + 1}
+              </span>
+              {/* Plain text line — no highlighting */}
+              <span style={{ paddingLeft: "4px", paddingRight: "16px" }}>
+                {line}
+              </span>
+            </div>
+          ))}
+          {/* Blinking cursor while animating */}
+          {isAnimating && (
+            <div style={{ display: "flex", minHeight: "1.5em" }}>
+              <span
+                style={{
+                  width: "40px",
+                  minWidth: "40px",
+                  paddingRight: "12px",
+                  paddingLeft: "8px",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  paddingLeft: "4px",
+                  display: "inline-block",
+                  width: "7px",
+                  height: "14px",
+                  background: "var(--vscode-editor-foreground)",
+                  opacity: 0.8,
+                  animation: "zen-cursor-blink 0.6s step-end infinite",
+                  verticalAlign: "middle",
+                }}
+              />
+            </div>
+          )}
+        </pre>
       </div>
+
+      {/* Cursor blink keyframes injected once */}
+      <style>{`
+        @keyframes zen-cursor-blink {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 };

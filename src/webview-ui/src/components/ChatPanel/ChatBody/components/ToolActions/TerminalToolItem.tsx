@@ -106,11 +106,11 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
   const isCompleted = hasOutput && !isTerminalBusy;
   const toolColor = getToolColor("run_command");
   const dotColor = isRejected
-    ? "#ff4d4d"
+    ? "var(--vscode-errorForeground, #ff4d4d)"
     : isCompleted
-      ? "#3fb950"
+      ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
       : isTerminalBusy || (isActionClicked && !outputData)
-        ? "#e3b341"
+        ? "var(--vscode-editorWarning-foreground, #e3b341)"
         : isActiveGroup
           ? "var(--vscode-button-background)"
           : "var(--vscode-descriptionForeground)";
@@ -124,9 +124,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
         className="timeline-dot"
         style={{
           backgroundColor: dotColor,
-          boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${
-            dotColor.startsWith("var") ? dotColor : `${dotColor}80`
-          }`,
+          boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
           top: "10px",
         }}
       />
@@ -198,10 +196,10 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
               }}
               title="Finalize output, kill process and delete terminal"
               style={{
-                background: "rgba(244, 67, 54, 0.1)",
-                border: "1px solid rgba(244, 67, 54, 0.3)",
+                background: "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 30%, transparent)",
                 cursor: "pointer",
-                color: "rgb(244, 67, 54)",
+                color: "var(--vscode-errorForeground, #f44336)",
                 padding: "4px 8px",
                 borderRadius: "6px",
                 display: "flex",
@@ -238,7 +236,7 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
             color: "var(--vscode-terminal-foreground, #cccccc)",
             padding: "6px 10px",
             backgroundColor: "var(--vscode-terminal-background, #1e1e1e)",
-            border: "1px solid var(--vscode-panel-border)",
+            border: "1px solid var(--vscode-panel-border, rgba(128,128,128,0.2))",
             borderRadius: "6px",
             whiteSpace: "pre-wrap",
             wordBreak: "break-all",

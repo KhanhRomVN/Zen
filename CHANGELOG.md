@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-06-12
+
+### ✨ Added
+- **Qwen server-side conversation tree support (`parent_id`)**: Zen now captures `parent_id` from Qwen's SSE stream metadata after each response and automatically sends it as `parent_message_id` on the next request. This eliminates an extra server-side HTTP round-trip (previously ~200–500 ms latency) that was required to look up the current node in Qwen's tree-based message history. Context is preserved correctly across all follow-up turns without relying on the server fallback
+- **Debug logging for model selection**: Key model lifecycle events are now logged to the browser console under the `[Zen]` prefix — `resetSession`, new session pin, model resolve, stream metadata accept/reject, and `initialMessageData` consumption. Filter by `[Zen]` in DevTools to trace model race conditions without code changes
+
+### 🐛 Fixed
+- **Model switch race condition when sending from HomePanel**: Multiple interacting race conditions caused the wrong model to be used after switching models in HomePanel
+  1. **`lastUsedModelRef` was cleared too late**: `resetSession()` set `lastUsedModelRef = null` synchronously, but the effect that called `sendMessage` with the new model could run before `isApiUrlReady` resolved — leaving a window where another effect or stream callback could overwrite the ref with stale data. Fixed by pinning `model` and `account` from the caller into `lastUsedModelRef` / `lastUsedAccountRef` immediately when `isNewSession` is detected, before any async operations
+  2. **Stream metadata silently overwrote user's model choice**: After req1 completed, the SSE stream returned `meta.providerId` / `meta.modelId` from the server. These were unconditionally written back to `lastUsedModelRef`, which could overwrite the newly selected model if the server echoed a different value (e.g. from a cached session). Fixed by only updating the ref when the server confirms the same model that was sent, or when the ref is empty
+  3. **`initialMessageData` consumed with stale closure values**: The `useEffect` in `ChatPanel` that fires `sendMessage` when `initialMessageData` arrives captured `initialMessageData.model` through the closure. Capturing into an explicit local `const` before the call ensures the correct model reaches `sendMessage` synchronously regardless of React render timing
+- **"Used model by account" badge shown on every Qwen message**: The metadata change detection in `MessageBox` included `conversationId` in its comparison. Qwen returns a new `conversation_id` in the SSE metadata of every response, causing `metaChanged = true` on every turn and re-rendering the badge repeatedly. Removed `conversationId` from the badge diff check — only `providerId`, `modelId`, `accountId`, and `email` now trigger a new badge, matching the behaviour of other providers
+
+### 🔧 Improved
+- **`resetSession` no longer pre-clears `lastUsedModelRef`**: Previously `resetSession()` set both model and account refs to `null`. This created a gap between the reset and the subsequent `sendMessage` call where tool-execution requests (which pass no model) could fail to resolve a model. The refs are now left untouched by `resetSession` and overwritten by `sendMessage` at the correct time (isNewSession pin or resolve phase)
+
+---
+
 ## [1.4.8] - 2026-06-11
 
 ### 🐛 Fixed

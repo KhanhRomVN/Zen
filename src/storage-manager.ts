@@ -141,16 +141,24 @@ export class GlobalStorageManager {
    */
   async getToolOutputsForConversation(
     conversationId: string,
-  ): Promise<Record<string, { output: string; isError: boolean; terminalId?: string }> | undefined> {
+  ): Promise<
+    | Record<string, { output: string; isError: boolean; terminalId?: string }>
+    | undefined
+  > {
     try {
       const allKeys = await this.list("zen-chat:");
-      const matchingKeys = allKeys.filter((k) => k.endsWith(`:${conversationId}`));
+      const matchingKeys = allKeys.filter((k) =>
+        k.endsWith(`:${conversationId}`),
+      );
       for (const key of matchingKeys) {
         const raw = await this.get(key);
         if (!raw) continue;
         try {
           const parsed = JSON.parse(raw);
-          if (parsed.toolOutputs && Object.keys(parsed.toolOutputs).length > 0) {
+          if (
+            parsed.toolOutputs &&
+            Object.keys(parsed.toolOutputs).length > 0
+          ) {
             return parsed.toolOutputs;
           }
         } catch {}

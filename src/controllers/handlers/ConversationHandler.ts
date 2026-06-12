@@ -149,10 +149,17 @@ export class ConversationHandler {
               const isArray = Array.isArray(candidateParsed);
               // Fetch toolOutputs from GlobalStorageManager
               const toolOutputs = isArray
-                ? (await this.storageManager?.getToolOutputsForConversation(conversationId)) ?? undefined
-                : candidateParsed.toolOutputs ?? (await this.storageManager?.getToolOutputsForConversation(conversationId)) ?? undefined;
-              const toolOutputKeys = toolOutputs ? Object.keys(toolOutputs) : [];
-              console.log(`[ConversationHandler] fallback getConversation | convId=${conversationId} | toolOutputKeys=${JSON.stringify(toolOutputKeys)}`);
+                ? ((await this.storageManager?.getToolOutputsForConversation(
+                    conversationId,
+                  )) ?? undefined)
+                : (candidateParsed.toolOutputs ??
+                  (await this.storageManager?.getToolOutputsForConversation(
+                    conversationId,
+                  )) ??
+                  undefined);
+              const toolOutputKeys = toolOutputs
+                ? Object.keys(toolOutputs)
+                : [];
               webviewView.webview.postMessage({
                 command: "conversationResult",
                 requestId: message.requestId,
@@ -183,15 +190,19 @@ export class ConversationHandler {
       const parsed = JSON.parse(content);
       const isArray = Array.isArray(parsed);
       // Fetch toolOutputs from GlobalStorageManager (source of truth for toolOutputs)
-      const toolOutputsFromStorage = await this.storageManager?.getToolOutputsForConversation(conversationId);
+      const toolOutputsFromStorage =
+        await this.storageManager?.getToolOutputsForConversation(
+          conversationId,
+        );
       const toolOutputs = isArray
-        ? toolOutputsFromStorage ?? undefined
-        : parsed.toolOutputs ?? toolOutputsFromStorage ?? undefined;
+        ? (toolOutputsFromStorage ?? undefined)
+        : (parsed.toolOutputs ?? toolOutputsFromStorage ?? undefined);
       const toolOutputKeys = toolOutputs ? Object.keys(toolOutputs) : [];
       const errorOutputKeys = toolOutputs
-        ? Object.entries(toolOutputs).filter(([, v]: [string, any]) => v.isError).map(([k]) => k)
+        ? Object.entries(toolOutputs)
+            .filter(([, v]: [string, any]) => v.isError)
+            .map(([k]) => k)
         : [];
-      console.log(`[ConversationHandler] getConversation | convId=${conversationId} | isArray=${isArray} | toolOutputKeys=${JSON.stringify(toolOutputKeys)} | errorOutputKeys=${JSON.stringify(errorOutputKeys)}`);
 
       webviewView.webview.postMessage({
         command: "conversationResult",

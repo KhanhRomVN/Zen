@@ -201,6 +201,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Reset hasProcessedInitial whenever a new tab/chat session starts
   // so that initialMessageData from a subsequent HomePanel send is not skipped.
   // resetSession() resets all refs synchronously so sendMessage sees isNewSession=true.
+  // NOTE: Do NOT clear lastUsedModelRef here — it is pinned inside sendMessage
+  // when isNewSession=true to avoid the model-switch race condition.
   useEffect(() => {
     hasProcessedInitial.current = false;
     resetSession();
@@ -336,11 +338,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     if (initialMessageData && !hasProcessedInitial.current && isApiUrlReady) {
       hasProcessedInitial.current = true;
+      // Capture model/account explicitly into local const to avoid any stale
+      // closure or React state lag — these must reach sendMessage synchronously.
+      const modelToSend = initialMessageData.model ?? null;
+      const accountToSend = initialMessageData.account ?? null;
       sendMessage(
         initialMessageData.content,
         initialMessageData.files,
-        initialMessageData.model,
-        initialMessageData.account,
+        modelToSend,
+        accountToSend,
         false,
         undefined,
         undefined,
@@ -378,8 +384,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
     const tabId = selectedTab?.tabId || -1;
     const folderPath = selectedTab?.folderPath || null;
-    const errorKeys = Object.entries(toolOutputs).filter(([, v]) => v.isError).map(([k]) => k);
-    console.log(`[ChatPanel][PERSIST-TOOLOUTPUTS] convId=${currentConversationId} | total=${Object.keys(toolOutputs).length} | errorKeys=${JSON.stringify(errorKeys)}`);
+    const errorKeys = Object.entries(toolOutputs)
+      .filter(([, v]) => v.isError)
+      .map(([k]) => k);
     saveConversation(
       tabId,
       folderPath,
@@ -466,9 +473,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           ? Object.keys(data.data.toolOutputs)
           : [];
         const errorToolKeys = data.data?.toolOutputs
-          ? Object.entries(data.data.toolOutputs).filter(([, v]: [string, any]) => v.isError).map(([k]) => k)
+          ? Object.entries(data.data.toolOutputs)
+              .filter(([, v]: [string, any]) => v.isError)
+              .map(([k]) => k)
           : [];
-        console.log(`[ChatPanel][RESTORE] conversationResult | msgCount=${data.data?.messages?.length ?? 0} | toolOutputKeys=${JSON.stringify(toolOutputKeys)} | errorToolKeys=${JSON.stringify(errorToolKeys)} | hasError=${!!data.error} | convId=${data.data?.conversationId}`);
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({
@@ -477,14 +485,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             }),
           );
           const errorMsgs = restoredMessages.filter((m: Message) => m.isError);
-          console.log(`[ChatPanel][RESTORE] restoredMessages=${restoredMessages.length} | isError messages=${errorMsgs.length} | isError ids=${JSON.stringify(errorMsgs.map((m: Message) => m.id))}`);
           setMessages(restoredMessages);
 
           if (
             data.data.toolOutputs &&
             Object.keys(data.data.toolOutputs).length > 0
           ) {
-            console.log(`[ChatPanel][RESTORE] restoring toolOutputs | keys=${JSON.stringify(Object.keys(data.data.toolOutputs))} | errorKeys=${JSON.stringify(errorToolKeys)}`);
             setToolOutputs(data.data.toolOutputs);
           } else {
             console.warn(

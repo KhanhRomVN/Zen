@@ -14,7 +14,7 @@ interface PlanBlockProps {
   isLastItemInList?: boolean;
 }
 
-const PURPLE = "#a78bfa";
+const PURPLE = "var(--vscode-textLink-foreground, #a78bfa)";
 
 const PlanBlock: React.FC<PlanBlockProps> = ({ steps, isLastMessage, isLastItemInList = true }) => {
   const { lang } = useI18n();

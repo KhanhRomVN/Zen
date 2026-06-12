@@ -762,14 +762,14 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               let displayCode = group.content;
               let diffStats: { added: number; removed: number } | undefined = undefined;
               let prefix: string | undefined = undefined;
-              let statusColor: string | undefined = "#6a737d";
+              let statusColor: string | undefined = "var(--vscode-descriptionForeground, #6a737d)";
 
               if (isDiffBlock) {
                 const diffResult = parseDiff(group.content);
                 displayCode = diffResult.code;
                 diffStats = diffResult.stats;
                 prefix = "Edit";
-                statusColor = "#3fb950";
+                statusColor = "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
               }
 
               content = (
@@ -817,14 +817,16 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 </div>
               );
             } else if (group.type === "markdown") {
-              const dotColor = message.isError ? "#ff4d4f" : "#3fb950";
+              const dotColor = message.isError
+                ? "var(--vscode-errorForeground, #ff4d4f)"
+                : "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
               content = (
                 <div>
                   <div
                     className="timeline-dot"
                     style={{
                       backgroundColor: dotColor,
-                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${dotColor}80`,
+                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
                       top: "10px",
                     }}
                   />
@@ -841,14 +843,16 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 </div>
               );
             } else if (group.type === "mixed_content") {
-              const dotColor = message.isError ? "#ff4d4f" : "#3fb950";
+              const dotColor = message.isError
+                ? "var(--vscode-errorForeground, #ff4d4f)"
+                : "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
               content = (
                 <div>
                   <div
                     className="timeline-dot"
                     style={{
                       backgroundColor: dotColor,
-                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${dotColor}80`,
+                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
                       top: "10px",
                     }}
                   />
@@ -889,7 +893,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               const isAnswered = !!message.selectedOption;
               const isThisActive = isLastMessage && !isInteractionBlocked;
               const dotColor = isAnswered
-                ? "#3fb950"
+                ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
                 : isThisActive
                   ? "var(--vscode-button-background)"
                   : "var(--vscode-descriptionForeground)";
@@ -900,9 +904,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     className="timeline-dot"
                     style={{
                       backgroundColor: dotColor,
-                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${
-                        dotColor.startsWith("var") ? dotColor : `${dotColor}80`
-                      }`,
+                      boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
                       top: "28px",
                     }}
                   />

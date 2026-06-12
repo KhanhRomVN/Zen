@@ -17,13 +17,13 @@ export const TOOL_LABELS: Record<string, string> = {
 };
 
 export const TOOL_COLORS: Record<string, string> = {
-  read_file: "#3b82f6",
-  write_to_file: "#10b981",
-  replace_in_file: "#10b981",
-  delete_file: "#ef4444",
-  delete_folder: "#ef4444",
-  run_command: "#f59e0b",
-  default: "#6b7280",
+  read_file: "var(--vscode-textLink-foreground, #3b82f6)",
+  write_to_file: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
+  replace_in_file: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
+  delete_file: "var(--vscode-errorForeground, #ef4444)",
+  delete_folder: "var(--vscode-errorForeground, #ef4444)",
+  run_command: "var(--vscode-editorWarning-foreground, #f59e0b)",
+  default: "var(--vscode-descriptionForeground, #6b7280)",
 };
 
 export const CLICKABLE_TOOLS = [

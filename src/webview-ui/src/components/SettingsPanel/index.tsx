@@ -56,7 +56,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
             border: "1px solid rgba(139,92,246,0.4)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#a78bfa",
+            color: "var(--vscode-textLink-foreground, #a78bfa)",
           }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -80,7 +80,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             padding: "5px", borderRadius: "6px", flexShrink: 0,
             backgroundColor: closeHover ? "rgba(239,68,68,0.12)" : "rgba(128,128,128,0.12)",
             border: closeHover ? "1px solid rgba(239,68,68,0.4)" : "1px solid transparent",
-            color: closeHover ? "#f87171" : "var(--secondary-text)",
+            color: closeHover ? "var(--vscode-errorForeground, #f87171)" : "var(--secondary-text)",
             cursor: "pointer", transition: "all 0.15s ease",
           }}
           title="Close Settings"

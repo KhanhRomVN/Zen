@@ -7,7 +7,11 @@ import {
   getDefaultPrompt,
   combinePrompts,
 } from "../components/ChatPanel/prompts";
-import { PERSISTENT_RULES, buildPermissionModeTag, buildPermissionModeTagCompact } from "../components/ChatPanel/prompts/persistent-rules";
+import {
+  PERSISTENT_RULES,
+  buildPermissionModeTag,
+  buildPermissionModeTagCompact,
+} from "../components/ChatPanel/prompts/persistent-rules";
 import {
   logChatToWorkspace,
   saveConversation,
@@ -71,7 +75,11 @@ export const useChatLLM = ({
   onConversationIdChange,
   onToolRequest,
 }: UseChatLLMProps) => {
-  const { language: preferredLanguage, aiLanguage, permissionMode } = useSettings();
+  const {
+    language: preferredLanguage,
+    aiLanguage,
+    permissionMode,
+  } = useSettings();
   const { workspace, treeView } = useProject();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -101,6 +109,9 @@ export const useChatLLM = ({
   const lastUsedModelRef = useRef<any>(null);
   const lastUsedAccountRef = useRef<any>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Qwen: lưu parent_id từ stream metadata để gửi cho request tiếp theo
+  // Chỉ dùng cho Qwen — provider khác server sẽ bỏ qua field này
+  const qwenParentIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -209,6 +220,7 @@ export const useChatLLM = ({
     messagesRef.current = [];
     lastUsedModelRef.current = null;
     lastUsedAccountRef.current = null;
+    qwenParentIdRef.current = undefined;
     setCurrentConversationId("");
     setMessages([]);
     setIsProcessingSync(false);
@@ -284,8 +296,11 @@ export const useChatLLM = ({
         currentConversationIdRef.current = effectiveChatUuid; // sync update immediately
         setCurrentConversationId(effectiveChatUuid);
         backendConversationIdRef.current = ""; // reset for new session
-        lastUsedModelRef.current = null;
-        lastUsedAccountRef.current = null;
+        // Pin model/account from caller immediately — before any async ops.
+        // This prevents resetSession() race or stream metadata from overwriting
+        // the model the user just selected.
+        if (model) lastUsedModelRef.current = model;
+        if (account) lastUsedAccountRef.current = account;
         setConversationToolOverrides({});
 
         // Tell extension to create an empty log file
@@ -642,6 +657,10 @@ export const useChatLLM = ({
 
         let finalPayloadMessages = payloadMessages;
 
+        // Qwen: ưu tiên qwenParentIdRef (lưu từ stream turn trước), fallback về tham số parentMessageId
+        const effectiveParentMessageId =
+          qwenParentIdRef.current ?? parentMessageId;
+
         const body = {
           modelId: finalModel?.id,
           providerId: finalModel?.providerId,
@@ -655,8 +674,8 @@ export const useChatLLM = ({
                   `zen-backend-conv:${effectiveChatUuid}`,
                 ) || undefined
               : undefined),
-          ...(parentMessageId
-            ? { parent_message_id: Number(parentMessageId) }
+          ...(effectiveParentMessageId
+            ? { parent_message_id: effectiveParentMessageId }
             : {}),
           is_thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           is_search: localStorage.getItem("zen-search-enabled") === "true",
@@ -790,6 +809,12 @@ export const useChatLLM = ({
                       assistantMessage.response_message_id =
                         metaObj.response_message_id;
 
+                    // Qwen: lưu parent_id để dùng cho request tiếp theo
+                    // Server forward event này từ response.created của Qwen
+                    if (metaObj.parent_id) {
+                      qwenParentIdRef.current = metaObj.parent_id;
+                    }
+
                     // DeepSeek: server đang auto-continue response bị ngắt giữa chừng
                     if (metaObj.continuing === true) {
                       const prevContinuing = isContinuing;
@@ -815,14 +840,34 @@ export const useChatLLM = ({
                       setIncompletePartialToolType(null);
                     }
 
-                    // 🆕 Sync metadata to lastUsed refs for subsequent tool execution requests
+                    // Sync metadata to lastUsed refs for subsequent tool execution requests.
+                    // IMPORTANT: Only update if server confirms the same model that was sent
+                    // (finalModel). Never let server metadata silently overwrite a user's
+                    // model switch — that is the root cause of the model race-condition bug.
                     if (metaObj.providerId || metaObj.modelId) {
-                      lastUsedModelRef.current = {
-                        id: metaObj.modelId || lastUsedModelRef.current?.id,
-                        providerId:
-                          metaObj.providerId ||
-                          lastUsedModelRef.current?.providerId,
-                      };
+                      const serverModelId =
+                        metaObj.modelId || lastUsedModelRef.current?.id;
+                      const serverProviderId =
+                        metaObj.providerId ||
+                        lastUsedModelRef.current?.providerId;
+                      // Only write back if it matches what we sent, or if ref is empty
+                      const sentModelId = finalModel?.id;
+                      const sentProviderId = finalModel?.providerId;
+                      if (
+                        !lastUsedModelRef.current ||
+                        (serverModelId === sentModelId &&
+                          serverProviderId === sentProviderId)
+                      ) {
+                        lastUsedModelRef.current = {
+                          id: serverModelId,
+                          providerId: serverProviderId,
+                        };
+                      } else {
+                        console.warn(
+                          `[Zen][stream] metadata REJECTED (mismatch) | server=${serverProviderId}/${serverModelId} | sent=${sentProviderId}/${sentModelId} | keeping=${lastUsedModelRef.current?.providerId}/${lastUsedModelRef.current?.id}`,
+                        );
+                      }
+                      // Always keep the account in sync (account confirmation from server is safe)
                     }
                     if (metaObj.accountId) {
                       lastUsedAccountRef.current = { id: metaObj.accountId };
@@ -895,13 +940,33 @@ export const useChatLLM = ({
                 assistantMessage.websiteUrl = metaObj.websiteUrl;
               if (metaObj.email) assistantMessage.email = metaObj.email;
 
-              // 🆕 Sync metadata during buffer cleanup
+              // Qwen: cập nhật parent_id từ buffer cleanup nếu stream chính chưa nhận được
+              if (metaObj.parent_id) {
+                qwenParentIdRef.current = metaObj.parent_id;
+              }
+
+              // Sync metadata during buffer cleanup — same guard as main stream loop
               if (metaObj.providerId || metaObj.modelId) {
-                lastUsedModelRef.current = {
-                  id: metaObj.modelId || lastUsedModelRef.current?.id,
-                  providerId:
-                    metaObj.providerId || lastUsedModelRef.current?.providerId,
-                };
+                const serverModelId =
+                  metaObj.modelId || lastUsedModelRef.current?.id;
+                const serverProviderId =
+                  metaObj.providerId || lastUsedModelRef.current?.providerId;
+                const sentModelId = finalModel?.id;
+                const sentProviderId = finalModel?.providerId;
+                if (
+                  !lastUsedModelRef.current ||
+                  (serverModelId === sentModelId &&
+                    serverProviderId === sentProviderId)
+                ) {
+                  lastUsedModelRef.current = {
+                    id: serverModelId,
+                    providerId: serverProviderId,
+                  };
+                } else {
+                  console.warn(
+                    `[Zen][buffer-cleanup] metadata REJECTED | server=${serverProviderId}/${serverModelId} | sent=${sentProviderId}/${sentModelId}`,
+                  );
+                }
               }
               if (metaObj.accountId) {
                 lastUsedAccountRef.current = { id: metaObj.accountId };

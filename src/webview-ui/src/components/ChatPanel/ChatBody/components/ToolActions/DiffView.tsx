@@ -209,14 +209,14 @@ const DiffView: React.FC<DiffViewProps> = ({ filePath, beforeContent, afterConte
     switch (type) {
       case "added":
         return {
-          background: "rgba(70, 149, 74, 0.15)",
+          background: "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent)",
           color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
           display: "flex",
           whiteSpace: "pre",
         };
       case "removed":
         return {
-          background: "rgba(229, 83, 75, 0.15)",
+          background: "color-mix(in srgb, var(--vscode-gitDecoration-deletedResourceForeground, #f85149) 15%, transparent)",
           color: "var(--vscode-gitDecoration-deletedResourceForeground, #f85149)",
           display: "flex",
           whiteSpace: "pre",

@@ -31,13 +31,13 @@ const ContextCircle: React.FC<{ ratio: number }> = ({ ratio }) => {
   // Color: green → yellow → orange → red
   let color: string;
   if (clampedRatio < 0.5) {
-    color = "#4caf50"; // green
+    color = "var(--vscode-gitDecoration-addedResourceForeground, #4caf50)"; // green
   } else if (clampedRatio < 0.7) {
-    color = "#ffeb3b"; // yellow
+    color = "var(--vscode-editorWarning-foreground, #cca700)"; // yellow
   } else if (clampedRatio < 0.85) {
-    color = "#ff9800"; // orange
+    color = "var(--vscode-editorWarning-foreground, #ff9800)"; // orange
   } else {
-    color = "#f44336"; // red
+    color = "var(--vscode-errorForeground, #f44336)"; // red
   }
 
   const pct = Math.round(clampedRatio * 100);

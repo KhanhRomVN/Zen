@@ -174,7 +174,6 @@ export const saveConversation = async (
     const errorOutputKeys = mergedToolOutputs
       ? Object.entries(mergedToolOutputs).filter(([, v]) => v.isError).map(([k]) => k)
       : [];
-    console.log(`[ConversationService][SAVE] key=${key} | msgCount=${messagesToSave.length} | toolOutputKeys=${JSON.stringify(mergedToolOutputs ? Object.keys(mergedToolOutputs) : [])} | errorOutputKeys=${JSON.stringify(errorOutputKeys)} | incomingToolOutputsCount=${toolOutputs ? Object.keys(toolOutputs).length : 0}`);
 
     // Sync to in-memory cache — include toolOutputs so cache-hits also have output data
     ConversationCache.set(convId, {

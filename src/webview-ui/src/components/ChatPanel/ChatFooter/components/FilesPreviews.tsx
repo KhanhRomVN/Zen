@@ -61,7 +61,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                       objectFit: "cover",
                       borderRadius: "var(--border-radius)",
                       cursor: file.isUploading ? "default" : "pointer",
-                      border: file.error ? "1px solid #f44336" : "1px solid var(--border-color)",
+                      border: file.error ? "1px solid var(--vscode-errorForeground, #f44336)" : "1px solid var(--border-color)",
                       opacity: file.isUploading ? 0.5 : 1,
                       filter: file.isUploading ? "blur(0.5px)" : "none",
                     }}
@@ -84,7 +84,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                     >
                       <Loader2
                         size={16}
-                        color="#ffffff"
+                        color="var(--vscode-editor-foreground, #ffffff)"
                         className="spin-animation"
                       />
                     </div>
@@ -103,7 +103,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                         justifyContent: "center",
                         backgroundColor: "rgba(244, 67, 54, 0.6)",
                         borderRadius: "var(--border-radius)",
-                        color: "#fff",
+                        color: "var(--vscode-editor-foreground, #fff)",
                         fontSize: "12px",
                         fontWeight: "bold",
                         cursor: "help",
@@ -159,10 +159,10 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                   gap: "var(--spacing-xs)",
                   padding: "var(--spacing-xs) var(--spacing-sm)",
                   backgroundColor: "transparent",
-                  border: file.error ? "1px solid #f44336" : "none",
+                  border: file.error ? "1px solid var(--vscode-errorForeground, #f44336)" : "none",
                   borderRadius: "var(--border-radius)",
                   fontSize: "var(--font-size-xs)",
-                  color: file.error ? "#f44336" : "var(--primary-text)",
+                  color: file.error ? "var(--vscode-errorForeground, #f44336)" : "var(--primary-text)",
                   opacity: file.isUploading ? 0.6 : 1,
                 }}
               >
@@ -187,7 +187,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                   </span>
                 )}
                 {file.error && (
-                  <span style={{ fontSize: "10px", color: "#f44336" }} title={file.error}>
+                  <span style={{ fontSize: "10px", color: "var(--vscode-errorForeground, #f44336)" }} title={file.error}>
                     ⚠️
                   </span>
                 )}

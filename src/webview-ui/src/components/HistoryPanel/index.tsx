@@ -103,7 +103,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
             background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
             border: "1px solid rgba(139,92,246,0.4)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "#a78bfa",
+            color: "var(--vscode-textLink-foreground, #a78bfa)",
           }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect width="20" height="5" x="2" y="3" rx="1"/>
@@ -123,7 +123,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 fontSize: "10px", fontWeight: 600, padding: "1px 7px", borderRadius: "6px",
                 background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2))",
                 border: "1px solid rgba(139,92,246,0.5)",
-                color: "#c4b5fd",
+                color: "var(--vscode-textLink-foreground, #c4b5fd)",
               }}>
                 {totalCount}
               </span>
@@ -141,7 +141,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
             padding: "5px", borderRadius: "6px", flexShrink: 0,
             backgroundColor: closeHover ? "rgba(239,68,68,0.12)" : "rgba(128,128,128,0.12)",
             border: closeHover ? "1px solid rgba(239,68,68,0.4)" : "1px solid transparent",
-            color: closeHover ? "#f87171" : "var(--secondary-text)",
+            color: closeHover ? "var(--vscode-errorForeground, #f87171)" : "var(--secondary-text)",
             cursor: "pointer", transition: "all 0.15s ease",
           }}
           title="Close History"
@@ -200,7 +200,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
             padding: "5px", borderRadius: "6px", flexShrink: 0,
             backgroundColor: trashHover ? "rgba(234,179,8,0.12)" : "rgba(128,128,128,0.12)",
             border: trashHover ? "1px solid rgba(234,179,8,0.4)" : "1px solid transparent",
-            color: trashHover ? "#fbbf24" : "var(--secondary-text)",
+            color: trashHover ? "var(--vscode-editorWarning-foreground, #fbbf24)" : "var(--secondary-text)",
             cursor: "pointer", transition: "all 0.15s ease",
           }}
           title="Clear all history"

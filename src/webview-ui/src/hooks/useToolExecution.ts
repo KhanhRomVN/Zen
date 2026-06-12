@@ -621,7 +621,6 @@ export const useToolExecution = ({
           // because the Raw Terminal Logs are already being updated in real-time by terminalOutput/commandExecuted events.
           // Overwriting here would inject the "Output: [run_command...]" header and backticks into the TerminalBlock UI.
           if (action.type !== "run_command") {
-            console.log(`[useToolExecution][SET-OUTPUT] actionId=${actionId} | type=${action.type} | isError=${isError} | outputLen=${cleanOutput.length}`);
             setToolOutputs((prev) => ({
               ...prev,
               [actionId]: {

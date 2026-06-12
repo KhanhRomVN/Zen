@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ToolAction } from "../../../../../services/ResponseParser";
 import FileIcon from "../../../../common/FileIcon";
 import { RichtextBlock } from "../../../../RichtextBlock";
@@ -11,6 +11,68 @@ import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../../hooks/useI18n";
 import { useSettings } from "../../../../../context/SettingsContext";
 import { getPermissionDecision } from "../../../../../hooks/useToolExecution";
+
+// Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
+// Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
+const STREAM_BOX_HEIGHT = 154; // px — 120 base + 2 extra lines (≈17px/line)
+
+const StreamingPreviewBox: React.FC<{ content: string }> = ({ content }) => {
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom whenever content grows
+  useEffect(() => {
+    if (boxRef.current) {
+      boxRef.current.scrollTop = boxRef.current.scrollHeight;
+    }
+  }, [content]);
+
+  return (
+    <div
+      ref={boxRef}
+      style={{
+        height: `${STREAM_BOX_HEIGHT}px`,
+        overflowY: "hidden",          // no scrollbar visible — just auto-scroll
+        overflowX: "hidden",
+        background: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+        borderRadius: "4px",
+        border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+        marginTop: "4px",
+        padding: "6px 10px",
+        fontFamily: "var(--vscode-editor-font-family, monospace)",
+        fontSize: "11px",
+        lineHeight: "1.5",
+        color: "var(--vscode-editor-foreground)",
+        whiteSpace: "pre",
+        wordBreak: "break-all",
+        opacity: 0.85,
+        position: "relative",
+        // Fade out the top so it looks like a scrolling ticker
+        maskImage: "linear-gradient(to bottom, transparent 0%, black 30%)",
+        WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 30%)",
+      }}
+    >
+      {content}
+      {/* Blinking cursor at the end */}
+      <span
+        style={{
+          display: "inline-block",
+          width: "6px",
+          height: "12px",
+          background: "var(--vscode-editor-foreground)",
+          marginLeft: "1px",
+          verticalAlign: "middle",
+          animation: "zen-cursor-blink 0.6s step-end infinite",
+        }}
+      />
+      <style>{`
+        @keyframes zen-cursor-blink {
+          0%, 100% { opacity: 0.8; }
+          50%       { opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
+};
 
 interface FileToolItemProps {
   action: ToolAction;
@@ -122,7 +184,6 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   React.useEffect(() => {
     if (!debugLoggedRef.current) {
       debugLoggedRef.current = true;
-      console.log(`[FileToolItem][RENDER] actionId=${actionId} | type=${toolType} | isError=${isError} | hasOutput=${!!toolOutputs?.[actionId]} | outputLen=${toolOutputs?.[actionId]?.output?.length ?? 0}`);
     }
   }, [toolOutputs, actionId]);
 
@@ -220,7 +281,6 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
             {isPartial && (
               <span style={{ fontSize: "10px", opacity: 0.6, fontStyle: "italic", marginLeft: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
                 <span className="codicon codicon-loading codicon-modifier-spin" style={{ fontSize: "10px" }} />
-                {t("tools.streaming")}
               </span>
             )}
             {isSnapshotLoading && !isPartial && (
@@ -239,7 +299,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
             )}
           </div>
         }
-        statusColor={isError ? "var(--vscode-errorForeground)" : isCompleted ? "#3fb950" : isActiveGroup ? "var(--vscode-button-background)" : "var(--vscode-descriptionForeground)"}
+        statusColor={isError ? "var(--vscode-errorForeground)" : isCompleted ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)" : isActiveGroup ? "var(--vscode-button-background)" : "var(--vscode-descriptionForeground)"}
         diffStats={undefined}
         isPartial={isPartial}
         onClick={() => {
@@ -273,13 +333,13 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
         <div style={{
           display: "flex", alignItems: "flex-start", gap: "6px",
           padding: "5px 8px",
-          backgroundColor: "rgba(255,0,0,0.04)",
-          border: "1px solid rgba(255,80,80,0.2)",
+          backgroundColor: "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 4%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 20%, transparent)",
           borderRadius: "4px",
           marginTop: "2px",
         }}>
-          <span className="codicon codicon-error" style={{ fontSize: "11px", color: "rgba(220,80,80,0.7)", marginTop: "1px", flexShrink: 0 }} />
-          <span style={{ fontSize: "11px", color: "rgba(200,80,80,0.85)", fontFamily: "var(--vscode-editor-font-family, monospace)", wordBreak: "break-word" }}>
+          <span className="codicon codicon-error" style={{ fontSize: "11px", color: "var(--vscode-errorForeground, #f44336)", opacity: 0.7, marginTop: "1px", flexShrink: 0 }} />
+          <span style={{ fontSize: "11px", color: "var(--vscode-errorForeground, #f44336)", opacity: 0.85, fontFamily: "var(--vscode-editor-font-family, monospace)", wordBreak: "break-word" }}>
             {errorMessage}
           </span>
         </div>
@@ -300,6 +360,15 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
           )}
         </>
       )}
+
+      {/* Streaming preview — visible only while AI is still writing the file */}
+      {isPartial && (toolType === "write_to_file" || toolType === "replace_in_file") && (() => {
+        const streamContent =
+          toolType === "write_to_file"
+            ? (action.params.content || "")
+            : (action.params.diff || "");
+        return streamContent ? <StreamingPreviewBox content={streamContent} /> : null;
+      })()}
     </div>
   );
 };

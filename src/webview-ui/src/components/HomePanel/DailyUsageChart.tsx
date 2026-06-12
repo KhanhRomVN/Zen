@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect } from "react";
 interface HourEntry { date: string; requests: number; tokens: number; }
 interface Props { usage: HourEntry[]; title: string; }
 
-const LINE_COLOR = "#3b82f6";
+const LINE_COLOR = "var(--vscode-textLink-foreground, #3b82f6)";
 const CHART_H = 60;
 const CHART_W = 600; // viewBox width, scales with container
 const HOURS = Array.from({ length: 24 }, (_, i) => i);

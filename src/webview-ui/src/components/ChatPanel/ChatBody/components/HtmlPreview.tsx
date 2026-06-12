@@ -39,7 +39,7 @@ const HtmlPreview: React.FC<HtmlPreviewProps> = ({ content }) => {
         width: "100%",
         aspectRatio: "16 / 9",
         overflow: "hidden",
-        backgroundColor: "#1e1e1e", // Default background
+        backgroundColor: "var(--vscode-editor-background, #1e1e1e)", // Default background
         borderRadius: "var(--border-radius)",
         border: "1px solid var(--vscode-widget-border)",
         position: "relative",
@@ -64,7 +64,7 @@ const HtmlPreview: React.FC<HtmlPreviewProps> = ({ content }) => {
               <head>
                 <meta charset="utf-8">
                 <style>
-                  body { margin: 0; overflow: hidden; background-color: #fff; color: #000; height: 100vh; width: 100vw; }
+                  body { margin: 0; overflow: hidden; background-color: var(--vscode-editor-background, #fff); color: var(--vscode-editor-foreground, #000); height: 100vh; width: 100vw; }
                   /* Basic Reset */
                   * { box-sizing: border-box; }
                 </style>

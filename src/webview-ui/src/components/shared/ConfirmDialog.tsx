@@ -88,7 +88,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             style={{
               padding: "var(--spacing-sm) var(--spacing-md)",
               backgroundColor: "var(--error-color)",
-              color: "#ffffff",
+              color: "var(--vscode-button-foreground, #ffffff)",
               border: "none",
               borderRadius: "var(--border-radius)",
               cursor: "pointer",

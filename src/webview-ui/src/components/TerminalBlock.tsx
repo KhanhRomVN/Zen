@@ -94,13 +94,13 @@ const CopyButton: React.FC<{ getText: () => string; title?: string }> = ({ getTe
         border: "none",
         borderRadius: "4px",
         background: copied
-          ? "color-mix(in srgb, #4ade80 15%, transparent)"
+          ? "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground) 15%, transparent)"
           : hovered
-            ? "rgba(128, 128, 128, 0.22)"
+            ? "color-mix(in srgb, var(--vscode-foreground) 22%, transparent)"
             : "transparent",
         color: copied
-          ? "#4ade80"
-          : "var(--vscode-terminal-foreground, #cccccc)",
+          ? "var(--vscode-gitDecoration-addedResourceForeground)"
+          : "var(--vscode-terminal-foreground)",
         cursor: "pointer",
         flexShrink: 0,
         transition: "background 0.15s, color 0.15s, opacity 0.15s",
@@ -138,7 +138,7 @@ const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({ onInp
       alignItems: "flex-end",
       padding: "4px 10px",
       borderTop: "1px solid var(--vscode-panel-border)",
-      backgroundColor: "var(--vscode-terminal-background, #1e1e1e)",
+      backgroundColor: "var(--vscode-input-background, var(--vscode-terminal-background))",
     }}>
       <textarea
         ref={textareaRef}
@@ -154,7 +154,7 @@ const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({ onInp
           outline: "none",
           resize: "none",
           overflow: "hidden",
-          color: "var(--vscode-terminal-foreground, #cccccc)",
+          color: "var(--vscode-terminal-foreground)",
           fontFamily: "var(--vscode-editor-font-family, monospace)",
           fontSize: "12px",
           lineHeight: "18px",
@@ -166,6 +166,42 @@ const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({ onInp
     </div>
   );
 };
+
+/** Helper: Read a CSS custom property value from the document root.
+ *  Returns the resolved value or fallback if unavailable.
+ *  This is needed because xterm.js requires actual color values,
+ *  not CSS var() strings which it cannot parse. */
+const getCSSVar = (name: string, fallback: string): string => {
+  if (typeof document === "undefined" || !document.documentElement) return fallback;
+  const styles = getComputedStyle(document.documentElement);
+  const value = styles.getPropertyValue(name).trim();
+  return value || fallback;
+};
+
+/** Build xterm.js theme object by reading VS Code CSS variables from the DOM.
+ *  This ensures xterm receives actual resolved color values,
+ *  so terminal output colors match the current VS Code theme. */
+const buildXtermTheme = () => ({
+  background: "transparent",
+  foreground: getCSSVar("--vscode-terminal-foreground", "#cccccc"),
+  cursor: getCSSVar("--vscode-terminal-foreground", "#cccccc"),
+  black: getCSSVar("--vscode-terminal-ansiBlack", "#000000"),
+  red: getCSSVar("--vscode-terminal-ansiRed", "#cd3131"),
+  green: getCSSVar("--vscode-terminal-ansiGreen", "#0dbc79"),
+  yellow: getCSSVar("--vscode-terminal-ansiYellow", "#e5e510"),
+  blue: getCSSVar("--vscode-terminal-ansiBlue", "#2472c8"),
+  magenta: getCSSVar("--vscode-terminal-ansiMagenta", "#bc3fbc"),
+  cyan: getCSSVar("--vscode-terminal-ansiCyan", "#11a8cd"),
+  white: getCSSVar("--vscode-terminal-ansiWhite", "#e5e5e5"),
+  brightBlack: getCSSVar("--vscode-terminal-ansiBrightBlack", "#666666"),
+  brightRed: getCSSVar("--vscode-terminal-ansiBrightRed", "#f14c4c"),
+  brightGreen: getCSSVar("--vscode-terminal-ansiBrightGreen", "#23d18b"),
+  brightYellow: getCSSVar("--vscode-terminal-ansiBrightYellow", "#f5f543"),
+  brightBlue: getCSSVar("--vscode-terminal-ansiBrightBlue", "#3b8eea"),
+  brightMagenta: getCSSVar("--vscode-terminal-ansiBrightMagenta", "#d670d6"),
+  brightCyan: getCSSVar("--vscode-terminal-ansiBrightCyan", "#29b8db"),
+  brightWhite: getCSSVar("--vscode-terminal-ansiBrightWhite", "#e5e5e5"),
+});
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   logs,
@@ -224,11 +260,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
         disableStdin: true,
         fontSize: 12,
         fontFamily: 'var(--vscode-editor-font-family, "Courier New", Courier, monospace)',
-        theme: {
-          background: "transparent",
-          foreground: "var(--vscode-terminal-foreground, #cccccc)",
-          cursor: status === "busy" ? "var(--vscode-terminal-foreground)" : "transparent",
-        },
+        theme: buildXtermTheme(),
         allowProposedApi: true,
         rows: rows,
         cols: 80,
@@ -294,7 +326,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       xtermRef.current.options.cursorBlink = status === "busy";
       xtermRef.current.options.theme = {
         ...xtermRef.current.options.theme,
-        cursor: status === "busy" ? "var(--vscode-terminal-foreground)" : "transparent",
+        cursor: status === "busy" ? getCSSVar("--vscode-terminal-foreground", "#cccccc") : "transparent",
       };
     }
   }, [logs, status, isXtermVisible, rows]);
@@ -313,7 +345,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   return (
     <div
       className="terminal-block-container"
-      style={rejectedOutline ? { outline: "1px solid rgba(244, 67, 54, 0.6)", borderRadius: "6px" } : undefined}
+      style={rejectedOutline ? { outline: "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 60%, transparent)", borderRadius: "6px" } : undefined}
     >
       {/* ── COMMAND HEADER ── Copy button hidden by default, shown on hover via CSS */}
       {isXtermVisible && (
@@ -336,10 +368,10 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
           }}
           onMouseEnter={(e) => {
             if (canExpand)
-              e.currentTarget.style.backgroundColor = "var(--vscode-hover-bg)";
+              e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground, var(--vscode-editor-background))";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--vscode-editor-background)";
+            e.currentTarget.style.backgroundColor = "var(--vscode-editor-background, #1e1e1e)";
           }}
         >
           {/* Command text — same style as output */}

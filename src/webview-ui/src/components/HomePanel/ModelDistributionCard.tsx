@@ -1,6 +1,12 @@
 import React, { useState } from "react";
 
-const COLORS = ["#3b82f6", "#d97706", "#8b5cf6", "#10b981", "#f43f5e"];
+const COLORS = [
+  "var(--vscode-textLink-foreground, #3b82f6)",
+  "var(--vscode-editorWarning-foreground, #d97706)",
+  "var(--vscode-symbolIcon-namespaceForeground, #8b5cf6)",
+  "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
+  "var(--vscode-errorForeground, #f43f5e)",
+];
 const COLLAPSE_THRESHOLD = 4;
 const SIZE = 96;
 const STROKE = 11;
