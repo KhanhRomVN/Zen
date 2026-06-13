@@ -454,8 +454,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isStreaming,
   onStopGeneration,
 }) => {
-  const { isConnected, isElaraMismatch } = useBackendConnection();
-  const [apiUrl, setApiUrl] = React.useState("http://localhost:8888");
+  const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
   const [isLoadingCache, setIsLoadingCache] = React.useState(true);
   const { language: preferredLanguage } = useSettings();
@@ -582,18 +581,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // NOTE: Logic to hide dropdowns is applied in the render method below
   // We need to look further down for the return statement to modify the render.
   // Since replace_file_content handles contiguous blocks, I will target the props definition first.
-
-  // Load API URL
-  React.useEffect(() => {
-    const storage = (window as any).storage;
-    if (storage) {
-      storage.get("backend-api-url").then((res: any) => {
-        if (res?.value) {
-          setApiUrl(res.value);
-        }
-      });
-    }
-  }, []);
 
   // Fetch providers function
   const fetchProviders = React.useCallback(async () => {

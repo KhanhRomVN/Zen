@@ -64,6 +64,9 @@ interface MessageBoxProps {
   ) => void;
   onSelectOption?: (messageId: string, option: string) => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
+  singleLineReviewActions?: Record<string, { action: any; actionId: string; messageId: string }>;
+  onConfirmSingleLineAction?: (actionId: string) => void;
+  onRejectSingleLineAction?: (actionId: string) => void;
 }
 
 const MessageBoxCodeBlock: React.FC<{
@@ -97,7 +100,7 @@ const MessageBoxCodeBlock: React.FC<{
       {!isCollapsed && (
         <div style={{ paddingLeft: "29px" }}>
           <pre style={{ margin: 0, padding: "8px", overflow: "auto", fontFamily: "var(--vscode-editor-font-family, monospace)", fontSize: "12px", background: "var(--vscode-editor-background)", borderRadius: "4px" }}>
-            <code>{code}</code>
+            <code style={{ background: "none", padding: 0 }}>{code}</code>
           </pre>
         </div>
       )}
@@ -130,6 +133,9 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   onSelectOption,
   isSimpleMode = true,
   onRevertConversation,
+  singleLineReviewActions,
+  onConfirmSingleLineAction,
+  onRejectSingleLineAction,
 }) => {
   const { t } = useI18n();
 
@@ -862,7 +868,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                         return (
                           <div key={i} style={{ marginBottom: "8px", marginTop: "4px" }}>
                             <pre style={{ margin: 0, padding: "8px", overflow: "auto", fontFamily: "var(--vscode-editor-font-family, monospace)", fontSize: "12px", background: "var(--vscode-editor-background)", borderRadius: "4px" }}>
-                              <code>{seg.content}</code>
+                              <code style={{ background: "none", padding: 0 }}>{seg.content}</code>
                             </pre>
                           </div>
                         );
@@ -1038,6 +1044,9 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     ? (type) => type === "write_to_file" || type === "replace_in_file" || type === "run_command" || type === "execute_agent_action"
                     : undefined
                   }
+                  singleLineReviewActions={singleLineReviewActions}
+                  onConfirmSingleLineAction={onConfirmSingleLineAction}
+                  onRejectSingleLineAction={onRejectSingleLineAction}
                 />
               );
 

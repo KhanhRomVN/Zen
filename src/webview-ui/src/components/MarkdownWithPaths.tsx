@@ -145,6 +145,18 @@ const domNodeToReact = (
     }
   }
 
+  // <code> inside <pre> → strip VSCode-injected background
+  if (tag === "code" && el.closest("pre")) {
+    const children: ReactChild[] = Array.from(el.childNodes).map((child, i) =>
+      domNodeToReact(child, `${key}-${i}`, knownFilePaths),
+    );
+    return (
+      <code key={key} style={{ background: "none", padding: 0 }}>
+        {children}
+      </code>
+    );
+  }
+
   // Recursively convert children
   const children: ReactChild[] = Array.from(el.childNodes).map((child, i) =>
     domNodeToReact(child, `${key}-${i}`, knownFilePaths),

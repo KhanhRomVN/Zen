@@ -75,6 +75,10 @@ export const saveConversation = async (
     string,
     { output: string; isError: boolean; terminalId?: string }
   >,
+  singleLineReviewActions?: Record<
+    string,
+    { action: any; actionId: string; messageId: string }
+  >,
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
@@ -103,6 +107,9 @@ export const saveConversation = async (
           { output: string; isError: boolean; terminalId?: string }
         >
       | undefined;
+    let existingSingleLineReviewActions:
+      | Record<string, { action: any; actionId: string; messageId: string }>
+      | undefined;
 
     // Always check in-memory cache first — it's sync and avoids race conditions
     // when multiple saveConversation calls happen concurrently (e.g. toolOutputs persist
@@ -110,6 +117,7 @@ export const saveConversation = async (
     const cached = ConversationCache.get(convId);
     if (cached) {
       existingToolOutputs = cached.toolOutputs;
+      existingSingleLineReviewActions = cached.singleLineReviewActions;
       existingBackendConversationId = cached.backendConversationId;
     }
 
@@ -124,8 +132,19 @@ export const saveConversation = async (
           existingBackendConversationId = parsed.backendConversationId;
         }
         // Only use disk toolOutputs if cache had nothing — cache is more up-to-date
-        if (!existingToolOutputs && parsed.toolOutputs && Object.keys(parsed.toolOutputs).length > 0) {
+        if (
+          !existingToolOutputs &&
+          parsed.toolOutputs &&
+          Object.keys(parsed.toolOutputs).length > 0
+        ) {
           existingToolOutputs = parsed.toolOutputs;
+        }
+        if (
+          !existingSingleLineReviewActions &&
+          parsed.singleLineReviewActions &&
+          Object.keys(parsed.singleLineReviewActions).length > 0
+        ) {
+          existingSingleLineReviewActions = parsed.singleLineReviewActions;
         }
       }
     } catch (error) {}
@@ -143,12 +162,22 @@ export const saveConversation = async (
         ? { ...(existingToolOutputs || {}), ...toolOutputs }
         : existingToolOutputs || undefined;
 
+    // Merge incoming singleLineReviewActions with existing ones
+    const mergedSingleLineReviewActions =
+      singleLineReviewActions && Object.keys(singleLineReviewActions).length > 0
+        ? {
+            ...(existingSingleLineReviewActions || {}),
+            ...singleLineReviewActions,
+          }
+        : existingSingleLineReviewActions || undefined;
+
     const data = {
       messages: messagesToSave,
       conversationId: convId,
       backendConversationId:
         backendConversationId || existingBackendConversationId,
       toolOutputs: mergedToolOutputs,
+      singleLineReviewActions: mergedSingleLineReviewActions,
       metadata: {
         id: key,
         tabId,
@@ -172,16 +201,19 @@ export const saveConversation = async (
 
     await storage.set(key, JSON.stringify(data), false);
     const errorOutputKeys = mergedToolOutputs
-      ? Object.entries(mergedToolOutputs).filter(([, v]) => v.isError).map(([k]) => k)
+      ? Object.entries(mergedToolOutputs)
+          .filter(([, v]) => v.isError)
+          .map(([k]) => k)
       : [];
 
-    // Sync to in-memory cache — include toolOutputs so cache-hits also have output data
+    // Sync to in-memory cache — include toolOutputs & singleLineReviewActions so cache-hits also have this data
     ConversationCache.set(convId, {
       messages: messagesToSave,
       conversationId: convId,
       backendConversationId:
         backendConversationId || existingBackendConversationId,
       toolOutputs: mergedToolOutputs,
+      singleLineReviewActions: mergedSingleLineReviewActions,
     });
 
     return convId;

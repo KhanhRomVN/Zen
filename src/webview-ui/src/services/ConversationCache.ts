@@ -7,6 +7,7 @@ export interface CachedConversation {
   currentModel?: any;
   currentAccount?: any;
   toolOutputs?: Record<string, { output: string; isError: boolean; terminalId?: string }>;
+  singleLineReviewActions?: Record<string, { action: any; actionId: string; messageId: string }>;
 }
 
 const MAX_CACHE = 20;

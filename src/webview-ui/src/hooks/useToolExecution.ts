@@ -167,6 +167,12 @@ export const useToolExecution = ({
   isStoppedRef,
 }: UseToolExecutionProps) => {
   const { permissionMode } = useSettings();
+  // Use a ref so handleToolRequest (memoised with []) always reads the latest mode,
+  // avoiding a stale-closure bug when the user switches modes mid-session.
+  const permissionModeRef = useRef<PermissionMode>(permissionMode);
+  useEffect(() => {
+    permissionModeRef.current = permissionMode;
+  }, [permissionMode]);
   const [executionState, setExecutionState] = useState<{
     total: number;
     completed: number;
@@ -185,6 +191,11 @@ export const useToolExecution = ({
   const [rejectedActions, setRejectedActions] = useState<Set<string>>(
     new Set(),
   );
+
+  // Single-line review state for write_to_file actions
+  const [singleLineReviewActions, setSingleLineReviewActions] = useState<
+    Record<string, { action: any; actionId: string; messageId: string; messageObj: Message }>
+  >({});
 
   const clickedActionsRef = useRef<Set<string>>(new Set());
   const pendingToolResolvers = useRef<
@@ -281,6 +292,10 @@ export const useToolExecution = ({
           ...prev,
           [message.terminalId]: message.status,
         }));
+      } else if (message.command === "restoreSingleLineReviewActions") {
+        if (message.actions && Object.keys(message.actions).length > 0) {
+          setSingleLineReviewActions(message.actions);
+        }
       } else if (message.command === "runCommandResult") {
         if (message.terminalId && message.actionId) {
           terminalToActionMap.current.set(message.terminalId, message.actionId);
@@ -684,8 +699,36 @@ export const useToolExecution = ({
           );
         }
 
+        // SINGLE-LINE REVIEW CHECK: Detect write_to_file with content on a single line > 200 chars
+        if (action.type === "write_to_file") {
+          const content = action.params.content || "";
+          if (!content.includes("\n") && content.length > 100) {
+            // Pause and require user review
+            wasInterruptedByManual = true;
+            setSingleLineReviewActions((prev) => ({
+              ...prev,
+              [actionId]: {
+                action: { ...action, actionId },
+                actionId,
+                messageId: message.id,
+                messageObj: message,
+              },
+            }));
+            setExecutionState({
+              total: actions.length,
+              completed: index,
+              status: "idle",
+            });
+            // Remove from clickedActions since we didn't actually execute
+            clickedActionsRef.current.delete(actionId);
+            setClickedActions(new Set(clickedActionsRef.current));
+            break;
+          }
+        }
+
         // Check if we should auto-execute this tool
-        const decision = getPermissionDecision(permissionMode, action.type);
+        // Read from ref to always use the latest mode (avoids stale-closure bug).
+        const decision = getPermissionDecision(permissionModeRef.current, action.type);
         const isConversationAuto =
           conversationToolOverrides[action.type] === "auto";
 
@@ -709,7 +752,7 @@ export const useToolExecution = ({
           setRejectedActions((prev) => new Set(prev).add(actionId));
           window.postMessage({ command: "markActionRejected", actionId }, "*");
         } else if (decision === "deny") {
-          result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionMode}).`;
+          result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionModeRef.current}).`;
         } else {
           result = await executeSingleAction(
             { ...action, actionId },
@@ -888,6 +931,230 @@ export const useToolExecution = ({
     [],
   );
 
+  /**
+   * Confirm a single-line write_to_file action that was paused for review.
+   * Executes the action and processes the result into the buffer for autoReq flush.
+   */
+  const confirmSingleLineAction = useCallback(
+    async (actionId: string) => {
+      const reviewEntry = singleLineReviewActions[actionId];
+      if (!reviewEntry) return;
+
+      const { action, messageObj } = reviewEntry;
+
+      // Remove from review state
+      setSingleLineReviewActions((prev) => {
+        const next = { ...prev };
+        delete next[actionId];
+        return next;
+      });
+
+      // Mark as clicked
+      clickedActionsRef.current.add(actionId);
+      setClickedActions(new Set(clickedActionsRef.current));
+
+      // Determine skipDiagnostics
+      const parsed = parseAIResponse(messageObj.content);
+      const allActions = parsed.actions;
+      const actionIdx = allActions.findIndex(
+        (_a: any, i: number) => `${messageObj.id}-action-${i}` === actionId,
+      );
+      let skipDiagnostics = false;
+      if (actionIdx !== -1) {
+        const currentPath = action.params.path || action.params.file_path;
+        const subsequentActions = allActions.slice(actionIdx + 1);
+        skipDiagnostics = subsequentActions.some(
+          (a: any) =>
+            (a.type === "replace_in_file" || a.type === "write_to_file") &&
+            (a.params.path || a.params.file_path) === currentPath,
+        );
+      }
+
+      // Execute the action
+      const result = await executeSingleAction(
+        action,
+        skipDiagnostics,
+        true, // bypassIgnore
+      );
+
+      if (result !== null) {
+        // Update toolOutputs
+        let cleanOutput = result;
+        const prefixMatch = result.match(/^\[.*?\] Result:\s*/);
+        if (prefixMatch)
+          cleanOutput = result.substring(prefixMatch[0].length);
+        if (cleanOutput.startsWith("```\n") && cleanOutput.endsWith("\n```"))
+          cleanOutput = cleanOutput.substring(4, cleanOutput.length - 4);
+        else if (cleanOutput.startsWith("```") && cleanOutput.endsWith("```"))
+          cleanOutput = cleanOutput.substring(3, cleanOutput.length - 3);
+
+        const isError =
+          result.includes("Result: Error") ||
+          result.includes("Tool execution blocked") ||
+          result.includes("Tool execution rejected");
+
+        setToolOutputs((prev) => ({
+          ...prev,
+          [actionId]: {
+            output: cleanOutput,
+            isError,
+          },
+        }));
+
+        window.postMessage(
+          {
+            command: isError ? "markActionFailed" : "markActionClicked",
+            actionId,
+          },
+          "*",
+        );
+
+        // Add to buffer and trigger flush
+        setAvailableToolResultsBuffer((prev) => {
+          const newBuffer = [...(prev[messageObj.id] || []), result];
+
+          // Check if all actions for this message are complete
+          const parsed = parseAIResponse(messageObj.content);
+          const allActionIds = parsed.actions.map(
+            (_: any, idx: number) => `${messageObj.id}-action-${idx}`,
+          );
+          const currentMessage = messagesRef?.current.find(
+            (m) => m.id === messageObj.id,
+          );
+          const selectedOption = currentMessage?.selectedOption;
+          const hasQuestion = !!parsed.question;
+          const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+
+          const isAllComplete =
+            allActionIds.every((id: string) =>
+              clickedActionsRef.current.has(id),
+            ) && isQuestionAnswered;
+
+          if (isAllComplete && !flushedMessageIdsRef.current.has(messageObj.id)) {
+            if (handleSendMessageRef.current && !isStoppedRef?.current) {
+              flushedMessageIdsRef.current.add(messageObj.id);
+              let finalContent = newBuffer.join("\n\n");
+              if (selectedOption) {
+                const questionTitle =
+                  parsed.question?.type === "question"
+                    ? (parsed.question as any).title
+                    : "Question";
+                finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
+              }
+
+              const guardedContent = applyTokenLimitGuard(
+                finalContent,
+                parsed.actions || [],
+                newBuffer,
+              );
+
+              handleSendMessageRef.current(
+                guardedContent,
+                undefined,
+                undefined,
+                undefined,
+                true,
+                allActionIds,
+                true,
+              );
+            }
+            return { ...prev, [messageObj.id]: [] };
+          } else if (flushedMessageIdsRef.current.has(messageObj.id)) {
+            return { ...prev, [messageObj.id]: [] };
+          } else {
+            return { ...prev, [messageObj.id]: newBuffer };
+          }
+        });
+      }
+    },
+    [singleLineReviewActions, messagesRef],
+  );
+
+  /**
+   * Reject a single-line write_to_file action that was paused for review.
+   * Sends an error message to the AI so it can retry with proper formatting.
+   */
+  const rejectSingleLineAction = useCallback(
+    (actionId: string) => {
+      const reviewEntry = singleLineReviewActions[actionId];
+      if (!reviewEntry) return;
+
+      const { action, messageObj } = reviewEntry;
+
+      // Remove from review state
+      setSingleLineReviewActions((prev) => {
+        const next = { ...prev };
+        delete next[actionId];
+        return next;
+      });
+
+      // Mark as rejected
+      setRejectedActions((prev) => new Set(prev).add(actionId));
+      window.postMessage({ command: "markActionRejected", actionId }, "*");
+
+      const filePath = action.params.file_path || action.params.path || "unknown";
+      const errorResult = `[write_to_file for '${filePath}'] Result: Error - Nội dung file bị dồn vào 1 dòng duy nhất (${action.params.content?.length || 0} ký tự). Vui lòng chia lại thành nhiều dòng với ngắt dòng (\\n) thực sự trước khi thực hiện write_to_file.`;
+
+      // Add to buffer and trigger flush so AI gets the error
+      setAvailableToolResultsBuffer((prev) => {
+        const newBuffer = [...(prev[messageObj.id] || []), errorResult];
+
+        const parsed = parseAIResponse(messageObj.content);
+        const allActionIds = parsed.actions.map(
+          (_: any, idx: number) => `${messageObj.id}-action-${idx}`,
+        );
+        const currentMessage = messagesRef?.current.find(
+          (m) => m.id === messageObj.id,
+        );
+        const selectedOption = currentMessage?.selectedOption;
+        const hasQuestion = !!parsed.question;
+        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+
+        const isAllComplete =
+          allActionIds.every((id: string) =>
+            clickedActionsRef.current.has(id) ||
+            id === actionId, // this rejected action counts as done
+          ) && isQuestionAnswered;
+
+        if (isAllComplete && !flushedMessageIdsRef.current.has(messageObj.id)) {
+          if (handleSendMessageRef.current && !isStoppedRef?.current) {
+            flushedMessageIdsRef.current.add(messageObj.id);
+            let finalContent = newBuffer.join("\n\n");
+            if (selectedOption) {
+              const questionTitle =
+                parsed.question?.type === "question"
+                  ? (parsed.question as any).title
+                  : "Question";
+              finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
+            }
+
+            const guardedContent = applyTokenLimitGuard(
+              finalContent,
+              parsed.actions || [],
+              newBuffer,
+            );
+
+            handleSendMessageRef.current(
+              guardedContent,
+              undefined,
+              undefined,
+              undefined,
+              true,
+              allActionIds,
+              true,
+            );
+          }
+          return { ...prev, [messageObj.id]: [] };
+        } else if (flushedMessageIdsRef.current.has(messageObj.id)) {
+          return { ...prev, [messageObj.id]: [] };
+        } else {
+          return { ...prev, [messageObj.id]: newBuffer };
+        }
+      });
+    },
+    [singleLineReviewActions, messagesRef],
+  );
+
   // 🆕 Auto-flush effect: When messages state changes, check if we can now flush buffered results
   // because a question was finally answered.
   useEffect(() => {
@@ -964,5 +1231,8 @@ export const useToolExecution = ({
     rejectedActions,
     terminalStatus,
     handleToolRequest,
+    singleLineReviewActions,
+    confirmSingleLineAction,
+    rejectSingleLineAction,
   };
 };

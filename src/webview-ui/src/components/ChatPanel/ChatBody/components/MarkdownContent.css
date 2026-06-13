@@ -89,12 +89,28 @@
   font-weight: 600;
 }
 
-.markdown-content-inline code {
+.markdown-content-inline :not(pre) > code {
   background-color: var(--vscode-editor-lineHighlightBackground);
   padding: 2px 4px;
   border-radius: 4px;
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 0.9em;
+}
+
+.markdown-content-inline pre > code {
+  background: none !important;
+  padding: 0;
+}
+
+.markdown-content-inline pre {
+  background-color: var(--vscode-textCodeBlock-background, var(--vscode-editor-background, #1e1e1e));
+  border-radius: 4px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  line-height: 1.5;
 }
 
 .markdown-content-inline a {

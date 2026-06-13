@@ -31,6 +31,9 @@ interface ToolActionsListProps {
   conversationId?: string;
   allActions?: ToolAction[];
   isBlockedByPrecedingInteraction?: boolean;
+  singleLineReviewActions?: Record<string, { action: any; actionId: string; messageId: string }>;
+  onConfirmSingleLineAction?: (actionId: string) => void;
+  onRejectSingleLineAction?: (actionId: string) => void;
 }
 
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
@@ -52,6 +55,9 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   allActions,
   isBlockedByPrecedingInteraction = false,
   isVisibleTool = (type: string) => true,
+  singleLineReviewActions,
+  onConfirmSingleLineAction,
+  onRejectSingleLineAction,
 }) => {
   // Filter out invisible tools immediately
   const visibleItems = useMemo(() => {
@@ -239,6 +245,9 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             activeTerminalIds={activeTerminalIds}
             attachedTerminalIds={attachedTerminalIds}
             conversationId={conversationId}
+            singleLineReviewActions={singleLineReviewActions}
+            onConfirmSingleLineAction={onConfirmSingleLineAction}
+            onRejectSingleLineAction={onRejectSingleLineAction}
           />
         </React.Fragment>
       );

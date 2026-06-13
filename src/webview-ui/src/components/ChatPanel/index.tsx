@@ -174,6 +174,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setToolOutputs,
     terminalStatus,
     handleToolRequest,
+    singleLineReviewActions,
+    confirmSingleLineAction,
+    rejectSingleLineAction,
   } = useToolExecution({
     conversationIdRef: currentConversationIdRef,
     messagesRef: messagesRef,
@@ -400,6 +403,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     );
   }, [toolOutputs, currentConversationId]);
 
+  // Persist singleLineReviewActions to disk when they change
+  useEffect(() => {
+    if (!currentConversationId || Object.keys(singleLineReviewActions).length === 0) return;
+    const tabId = selectedTab?.tabId || -1;
+    const folderPath = selectedTab?.folderPath || null;
+    saveConversation(
+      tabId,
+      folderPath,
+      messages,
+      currentConversationId,
+      selectedTab || undefined,
+      true,
+      undefined,
+      undefined,
+      undefined,
+      singleLineReviewActions,
+    );
+  }, [singleLineReviewActions, currentConversationId]);
+
   // Load conversation from extension
   useEffect(() => {
     const load = async () => {
@@ -427,6 +449,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             Object.keys(cached.toolOutputs).length > 0
           ) {
             setToolOutputs(cached.toolOutputs);
+          }
+          if (
+            cached.singleLineReviewActions &&
+            Object.keys(cached.singleLineReviewActions).length > 0
+          ) {
+            window.postMessage({
+              command: "restoreSingleLineReviewActions",
+              actions: cached.singleLineReviewActions,
+            }, "*");
           }
           // Restore pending revert parent if any
           const pendingParent = sessionStorage.getItem(
@@ -501,6 +532,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             console.warn(
               `[ChatPanel][RESTORE] NO toolOutputs in conversationResult — file tool errors will show blank`,
             );
+          }
+
+          // Restore singleLineReviewActions
+          if (
+            data.data.singleLineReviewActions &&
+            Object.keys(data.data.singleLineReviewActions).length > 0
+          ) {
+            // Need to call the setter from useToolExecution — we access it via a workaround
+            // The setter is internal to useToolExecution, so we need to pass it up or use ref.
+            // For now, we post a message to trigger the restore
+            window.postMessage({
+              command: "restoreSingleLineReviewActions",
+              actions: data.data.singleLineReviewActions,
+            }, "*");
           }
 
           // Restore pending revert parent if any
@@ -832,6 +877,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onRevertConversation={handleRevertConversation}
         onAutoScrollPausedChange={setAutoScrollPaused}
         scrollToBottomRef={scrollToBottomRef}
+        singleLineReviewActions={singleLineReviewActions}
+        onConfirmSingleLineAction={confirmSingleLineAction}
+        onRejectSingleLineAction={rejectSingleLineAction}
       />
       <ChatFooter
         apiUrl={apiUrl}

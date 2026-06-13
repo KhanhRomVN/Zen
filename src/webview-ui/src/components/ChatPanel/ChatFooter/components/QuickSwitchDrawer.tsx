@@ -96,7 +96,7 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
 
   const filteredProviders = useMemo(() => {
     return providers
-      .filter((p) => p.is_enabled !== false && p.total_accounts > 0)
+      .filter((p) => p.is_enabled !== false)
       .map((provider) => {
         const filteredModels = (provider.models || []).filter(
           (m) =>
@@ -322,7 +322,7 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
                   {provider.provider_name || provider.provider_id}
                 </div>
                 {provider.models.map((model) => {
-                  const isDisabled = provider.total_accounts === 0;
+                  const isDisabled = false;
 
                   return (
                     <div

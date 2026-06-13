@@ -88,12 +88,18 @@ interface FileToolItemProps {
   onToolClick: (action: ToolAction, messageId: string, index: number, type: "accept_all" | "accept_once" | "reject") => void;
   mergedItems?: { action: ToolAction; index: number }[];
   conversationId?: string;
+  singleLineReviewActions?: Record<string, { action: any; actionId: string; messageId: string }>;
+  onConfirmSingleLineAction?: (actionId: string) => void;
+  onRejectSingleLineAction?: (actionId: string) => void;
 }
 
 const FileToolItem: React.FC<FileToolItemProps> = ({
   action, actionIndex, messageId, isActionClicked, isActiveGroup,
   isLastMessage, isLastItemInList, toolOutputs, allMessages, fileStatsMap, onToolClick,
   mergedItems, conversationId,
+  singleLineReviewActions,
+  onConfirmSingleLineAction,
+  onRejectSingleLineAction,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isSnapshotLoading, setIsSnapshotLoading] = React.useState(false);
@@ -313,6 +319,105 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
           }
         }}
       />
+
+      {/* Single-line review UI for write_to_file with content crammed into 1 line */}
+      {toolType === "write_to_file" && singleLineReviewActions?.[actionId] && (() => {
+        const reviewContent = action.params.content || "";
+        return (
+          <div style={{
+            marginTop: "8px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+          }}>
+            <textarea
+              readOnly
+              value={reviewContent}
+              style={{
+                width: "100%",
+                minHeight: "200px",
+                maxHeight: "400px",
+                padding: "8px 10px",
+                fontFamily: "var(--vscode-editor-font-family, monospace)",
+                fontSize: "11px",
+                lineHeight: "1.5",
+                color: "var(--vscode-editor-foreground)",
+                backgroundColor: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+                border: "1.5px dashed #e5a100",
+                borderRadius: "4px",
+                resize: "vertical",
+                outline: "none",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-all",
+              }}
+            />
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+            }}>
+              <span style={{
+                fontSize: "11px",
+                color: "#e5a100",
+                fontWeight: 500,
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+              }}>
+                <span className="codicon codicon-warning" style={{ fontSize: "11px" }} />
+                Nội dung file bị dồn vào 1 dòng ({reviewContent.length} ký tự)
+              </span>
+              <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRejectSingleLineAction?.(actionId);
+                  }}
+                  style={{
+                    padding: "4px 12px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    borderRadius: "4px",
+                    border: "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 40%, transparent)",
+                    backgroundColor: "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
+                    color: "var(--vscode-errorForeground, #f44336)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <span className="codicon codicon-close" style={{ fontSize: "11px" }} />
+                  Từ chối
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onConfirmSingleLineAction?.(actionId);
+                  }}
+                  style={{
+                    padding: "4px 12px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    borderRadius: "4px",
+                    border: "1px solid color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 40%, transparent)",
+                    backgroundColor: "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 10%, transparent)",
+                    color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <span className="codicon codicon-check" style={{ fontSize: "11px" }} />
+                  Xác nhận
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {!isCompleted && !isPartial && (isActiveGroup || !isLastMessage) && getPermissionDecision(permissionMode, toolType) === "prompt" && (
         <div style={{ marginTop: "8px", marginBottom: "8px" }}>

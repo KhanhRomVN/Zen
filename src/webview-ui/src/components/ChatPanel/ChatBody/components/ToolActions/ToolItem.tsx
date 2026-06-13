@@ -36,6 +36,9 @@ interface ToolItemProps {
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
+  singleLineReviewActions?: Record<string, { action: any; actionId: string; messageId: string }>;
+  onConfirmSingleLineAction?: (actionId: string) => void;
+  onRejectSingleLineAction?: (actionId: string) => void;
 }
 
 const ToolItem: React.FC<ToolItemProps> = ({
@@ -43,6 +46,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
   isActiveGroup, failedActions, isLastMessage, isLastItemInList = true,
   toolOutputs, terminalStatus, nextUserMessage, allMessages,
   activeTerminalIds, attachedTerminalIds, conversationId,
+  singleLineReviewActions,
+  onConfirmSingleLineAction,
+  onRejectSingleLineAction,
 }) => {
   const { rootPath } = useProject();
 
@@ -193,6 +199,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
           onToolClick={onToolClick}
           mergedItems={group}
           conversationId={conversationId}
+          singleLineReviewActions={singleLineReviewActions}
+          onConfirmSingleLineAction={onConfirmSingleLineAction}
+          onRejectSingleLineAction={onRejectSingleLineAction}
         />
       );
     }
@@ -214,6 +223,9 @@ const ToolItem: React.FC<ToolItemProps> = ({
             fileStatsMap={fileStatsMap}
             onToolClick={onToolClick}
             conversationId={conversationId}
+            singleLineReviewActions={singleLineReviewActions}
+            onConfirmSingleLineAction={onConfirmSingleLineAction}
+            onRejectSingleLineAction={onRejectSingleLineAction}
           />
         ))}
       </>

@@ -172,6 +172,9 @@ export class ConversationHandler {
                     ? undefined
                     : candidateParsed.backendConversationId,
                   toolOutputs,
+                  singleLineReviewActions: isArray
+                    ? undefined
+                    : candidateParsed.singleLineReviewActions,
                 },
               });
               return;
@@ -214,6 +217,9 @@ export class ConversationHandler {
             ? undefined
             : parsed.backendConversationId,
           toolOutputs,
+          singleLineReviewActions: isArray
+            ? undefined
+            : parsed.singleLineReviewActions,
         },
       });
     } catch (error: any) {

@@ -21,6 +21,9 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
   isRestored?: boolean;
   onContinue?: () => void;
   hasInitialMessage?: boolean;
+  singleLineReviewActions?: Record<string, { action: any; actionId: string; messageId: string }>;
+  onConfirmSingleLineAction?: (actionId: string) => void;
+  onRejectSingleLineAction?: (actionId: string) => void;
 }
 
 // Hooks
@@ -61,6 +64,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   onRevertConversation,
   onAutoScrollPausedChange,
   scrollToBottomRef,
+  singleLineReviewActions,
+  onConfirmSingleLineAction,
+  onRejectSingleLineAction,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -299,6 +305,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               onSelectOption={onSelectOption}
               isSimpleMode={isSimpleMode}
               onRevertConversation={onRevertConversation}
+              singleLineReviewActions={singleLineReviewActions}
+              onConfirmSingleLineAction={onConfirmSingleLineAction}
+              onRejectSingleLineAction={onRejectSingleLineAction}
             />
           );
         })}
