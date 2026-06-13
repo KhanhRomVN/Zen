@@ -145,7 +145,6 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
   // tooltip state — follow mouse cursor directly
   const [tooltipModel, setTooltipModel] = useState<{ model: any; x: number; y: number } | null>(null);
   const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isOverTooltip = useRef(false);
   const mousePos = useRef({ x: 0, y: 0 });
   const activeRowRect = useRef<DOMRect | null>(null);
 
@@ -283,12 +282,10 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
   }, [providers, searchQuery, accountCountMap]);
 
   const handleModelMouseEnter = (model: any, e: React.MouseEvent<HTMLDivElement>) => {
-    console.log("[QuickSwitchDrawer] Model hover:", { name: model.name, is_thinking: model.is_thinking, context_length: model.context_length, success_rate: model.success_rate, is_search: model.is_search, is_upload: model.is_upload });
     activeRowRect.current = e.currentTarget.getBoundingClientRect();
     if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
     tooltipTimer.current = setTimeout(() => {
       const { x, y } = mousePos.current;
-      console.log("[QuickSwitchDrawer] Tooltip show for:", model.name, "at:", x, y);
       setTooltipModel({ model, x, y });
     }, 100);
   };
@@ -296,11 +293,9 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
   // mouseleave is unreliable in VSCode webview — hide is handled by mousemove bounds check above
   const handleModelMouseLeave = () => {
     if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
-    // Only cancel the pending timer; actual hide is done by mousemove when cursor leaves row bounds
-    // But also hide immediately if tooltip isn't shown yet
     setTooltipModel((prev) => {
-      if (prev === null) return null; // wasn't shown, nothing to do
-      return prev; // keep shown — mousemove will hide when cursor leaves bounds
+      if (prev === null) return null;
+      return prev;
     });
   };
 

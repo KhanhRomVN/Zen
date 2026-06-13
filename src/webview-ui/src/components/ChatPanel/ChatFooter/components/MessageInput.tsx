@@ -510,39 +510,69 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   // 🆕 Tool Settings Drawer Logic removed - now per-tool dropdown in ToolItem
   const currentProviderConfig = React.useMemo(() => {
-    if (!currentModel?.providerId) return null;
-    return providers.find(
+    if (!currentModel?.providerId) {
+      console.log("[DEBUG currentProviderConfig] currentModel.providerId is missing, returning null");
+      return null;
+    }
+    const found = providers.find(
       (p) =>
         p.provider_id?.toLowerCase() === currentModel.providerId?.toLowerCase(),
     );
+    console.log("[DEBUG currentProviderConfig] lookup providerId:", currentModel.providerId, "| found:", found ? { provider_id: found.provider_id, is_search: found.is_search } : null, "| providers count:", providers.length);
+    return found ?? null;
   }, [currentModel, providers]);
 
   const currentModelConfig = React.useMemo(() => {
-    if (!currentProviderConfig || !currentModel?.id) return null;
-    return currentProviderConfig.models?.find(
+    if (!currentProviderConfig || !currentModel?.id) {
+      console.log("[DEBUG currentModelConfig] missing currentProviderConfig or currentModel.id, returning null");
+      return null;
+    }
+    const found = currentProviderConfig.models?.find(
       (m: any) => m.id?.toLowerCase() === currentModel.id?.toLowerCase(),
     );
+    console.log("[DEBUG currentModelConfig] lookup modelId:", currentModel.id, "| found:", found ? { id: found.id, is_thinking: found.is_thinking, is_search: found.is_search } : null);
+    return found ?? null;
   }, [currentProviderConfig, currentModel]);
 
   const showThinkingButton = React.useMemo(() => {
     // Prefer fields on currentModel directly (already enriched), fallback to config lookup
-    if (currentModel?.is_thinking !== undefined) return !!currentModel.is_thinking;
-    return !!currentModelConfig?.is_thinking;
+    const result = currentModel?.is_thinking !== undefined
+      ? !!currentModel.is_thinking
+      : !!currentModelConfig?.is_thinking;
+    console.log("[MessageInput] showThinkingButton:", result, "| currentModel.is_thinking:", currentModel?.is_thinking, "| modelConfig.is_thinking:", currentModelConfig?.is_thinking);
+    return result;
   }, [currentModel, currentModelConfig]);
 
   const showSearchButton = React.useMemo(() => {
-    // Prefer fields on currentModel directly (already enriched), fallback to config lookup
+    // Priority: model-level > provider-level
+    // Only fall through to the next level if the current level is undefined (not set),
+    // never let provider-level override an explicit model-level false.
+    let result: boolean;
     if (currentModel?.is_search !== undefined) {
-      return !!currentModel.is_search || !!currentProviderConfig?.is_search;
+      // Model object already enriched with capability flags — trust it exclusively
+      result = !!currentModel.is_search;
+    } else if (currentModelConfig?.is_search !== undefined) {
+      // Model config from providers list has the flag
+      result = !!currentModelConfig.is_search;
+    } else {
+      // Neither model nor modelConfig has the flag — fall back to provider-level
+      result = !!currentProviderConfig?.is_search;
     }
-    return (
-      !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search
-    );
+    console.log("[MessageInput] showSearchButton:", result, "| currentModel.is_search:", currentModel?.is_search, "| modelConfig.is_search:", currentModelConfig?.is_search, "| provider.is_search:", currentProviderConfig?.is_search);
+    return result;
   }, [currentModel, currentModelConfig, currentProviderConfig]);
 
   // Sync thinking and search toggles when model changes
   React.useEffect(() => {
     if (providers.length === 0 || !currentModel) return;
+    console.log("[MessageInput] currentModel changed:", {
+      id: currentModel?.id,
+      providerId: currentModel?.providerId,
+      is_thinking: currentModel?.is_thinking,
+      is_search: currentModel?.is_search,
+      is_upload: currentModel?.is_upload,
+    });
+    console.log("[MessageInput] currentModelConfig:", currentModelConfig);
 
     const hasThinking = currentModel?.is_thinking !== undefined
       ? !!currentModel.is_thinking
@@ -573,11 +603,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
   ]);
 
   const supportsUpload = React.useMemo(() => {
-    // Prefer fields on currentModel directly (already enriched), fallback to config lookup
-    if (currentModel?.is_upload !== undefined) return !!currentModel.is_upload;
-    if (currentModelConfig?.is_upload !== undefined) return !!currentModelConfig.is_upload;
-    if (!currentProviderConfig) return false;
-    return !!currentProviderConfig.is_upload;
+    // Priority: model-level > modelConfig-level > provider-level (strict cascade, no OR merging)
+    let result: boolean;
+    if (currentModel?.is_upload !== undefined) {
+      result = !!currentModel.is_upload;
+    } else if (currentModelConfig?.is_upload !== undefined) {
+      result = !!currentModelConfig.is_upload;
+    } else {
+      result = !!currentProviderConfig?.is_upload;
+    }
+    console.log("[MessageInput] supportsUpload:", result, "| currentModel.is_upload:", currentModel?.is_upload, "| modelConfig.is_upload:", currentModelConfig?.is_upload, "| provider.is_upload:", currentProviderConfig?.is_upload);
+    return result;
   }, [currentModel, currentProviderConfig, currentModelConfig]);
 
   const formatWorkspacePath = (path: string) => {
@@ -859,12 +895,35 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   faviconUrl = `${new URL(prov.website).origin}/favicon.ico`;
                 } catch {}
               }
-              setCurrentModel({
+
+              // DEBUG: Log the raw modelObj from providers to check capability fields
+              console.log("[DEBUG onSelect] selected:", selected);
+              console.log("[DEBUG onSelect] prov found:", prov ? { provider_id: prov.provider_id, is_search: prov.is_search } : null);
+              console.log("[DEBUG onSelect] modelObj found:", modelObj ? {
+                id: modelObj.id,
+                name: modelObj.name,
+                is_thinking: modelObj.is_thinking,
+                is_search: modelObj.is_search,
+                is_upload: modelObj.is_upload,
+              } : null);
+
+              const newModel = {
                 ...selected,
                 id: selected.modelId,
                 name: modelObj?.name || selected.modelId,
                 favicon: faviconUrl,
+                is_thinking: modelObj?.is_thinking ?? false,
+                is_search: modelObj?.is_search ?? false,
+                is_upload: modelObj?.is_upload ?? false,
+              };
+              console.log("[DEBUG onSelect] newModel being set:", {
+                id: newModel.id,
+                providerId: newModel.providerId,
+                is_thinking: newModel.is_thinking,
+                is_search: newModel.is_search,
+                is_upload: newModel.is_upload,
               });
+              setCurrentModel(newModel);
               setCurrentAccount({
                 id: selected.accountId,
                 email: selected.email,
