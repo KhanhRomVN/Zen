@@ -41,39 +41,31 @@ interface ModelTooltipProps {
 }
 
 const BoolBadge: React.FC<{ value: boolean }> = ({ value }) => (
-  <span style={{ color: value ? "#4ade80" : "#6b7280", fontWeight: 600 }}>
+  <span style={{ color: value ? "#4ade80" : "#ef4444", fontWeight: 600 }}>
     {value ? "✓" : "✗"}
   </span>
 );
 
 const ModelTooltip: React.FC<ModelTooltipProps> = ({ model, x, y }) => {
+  const hasImageUpload = model.is_image_upload === true || model.is_upload === true;
+  const hasVideoUpload = model.is_video_upload === true;
+
   const rows: { label: string; value: React.ReactNode }[] = [
     {
-      label: "Context",
-      value: model.context_length != null
-        ? `${Number(model.context_length).toLocaleString()} tokens`
-        : <span style={{ opacity: 0.4 }}>—</span>,
-    },
-    {
-      label: "Success rate",
-      value: model.success_rate != null
-        ? (
-          <span style={{
-            color: model.success_rate >= 80 ? "#4ade80" : model.success_rate >= 50 ? "#facc15" : "#f87171",
-            fontWeight: 600,
-          }}>
-            {Number(model.success_rate).toFixed(1)}%
-          </span>
-        )
+      label: "Max Context",
+      value: (model.max_context_length != null || model.context_length != null)
+        ? `${Number(model.max_context_length ?? model.context_length).toLocaleString()} tokens`
         : <span style={{ opacity: 0.4 }}>—</span>,
     },
     { label: "Thinking", value: <BoolBadge value={!!model.is_thinking} /> },
-    { label: "Search",   value: <BoolBadge value={!!model.is_search} /> },
-    { label: "Upload",   value: <BoolBadge value={!!model.is_upload} /> },
+    ...(model.is_search !== undefined ? [{ label: "Search", value: <BoolBadge value={!!model.is_search} /> }] : []),
+    ...(model.is_memory !== undefined ? [{ label: "Memory", value: <BoolBadge value={!!model.is_memory} /> }] : []),
+    ...(hasImageUpload ? [{ label: "Image upload", value: <BoolBadge value={true} /> }] : []),
+    ...(hasVideoUpload ? [{ label: "Video upload", value: <BoolBadge value={true} /> }] : []),
   ];
 
   const TOOLTIP_W = 210;
-  const TOOLTIP_H = 140; // approx
+  const TOOLTIP_H = 160; // increased for description
   const OFFSET_X = 14;
   const OFFSET_Y = 10;
   const viewW = window.innerWidth;
@@ -109,6 +101,24 @@ const ModelTooltip: React.FC<ModelTooltipProps> = ({ model, x, y }) => {
       <div style={{ fontWeight: 700, marginBottom: "6px", fontSize: "12px", borderBottom: "1px solid rgba(128,128,128,0.2)", paddingBottom: "5px" }}>
         {model.name}
       </div>
+      {model.description && (
+        <div style={{
+          marginBottom: "8px",
+          paddingBottom: "6px",
+          borderBottom: "1px solid rgba(128,128,128,0.15)",
+          fontSize: "10.5px",
+          opacity: 0.85,
+          fontStyle: "italic",
+          lineHeight: 1.4,
+          maxHeight: "60px",
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+        }}>
+          {model.description}
+        </div>
+      )}
       {rows.map((r) => (
         <div
           key={r.label}
@@ -508,8 +518,7 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
                             opacity: isDisabled ? 0.45 : 1,
                           }}
                         >
-                          <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
-                            {/* Model name — smaller & secondary */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%" }}>
                             <span style={{ fontSize: "12px", fontWeight: 400, color: "var(--secondary-text)" }}>
                               {model.name}
                             </span>

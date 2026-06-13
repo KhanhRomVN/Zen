@@ -74,6 +74,92 @@ const StreamingPreviewBox: React.FC<{ content: string }> = ({ content }) => {
   );
 };
 
+// ─── Thinking Preview Box ────────────────────────────────────────────────────
+// Shown while <thinking>...</thinking> is streaming (tag not yet closed).
+// Same visual style as StreamingPreviewBox. Hidden completely once tag is closed.
+const ThinkingPreviewBox: React.FC<{ content: string }> = ({ content }) => {
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (boxRef.current) {
+      boxRef.current.scrollTop = boxRef.current.scrollHeight;
+    }
+  }, [content]);
+
+  return (
+    <div style={{ marginBottom: "6px" }}>
+      {/* CircleDot + THINKING label */}
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "7px",
+        marginBottom: "4px",
+      }}>
+        {/* Animated circle-dot */}
+        <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", width: "12px", height: "12px", flexShrink: 0 }}>
+          <span style={{
+            position: "absolute",
+            width: "12px",
+            height: "12px",
+            borderRadius: "50%",
+            background: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
+            opacity: 0.25,
+            animation: "zen-thinking-pulse 1.4s ease-in-out infinite",
+          }} />
+          <span style={{
+            width: "6px",
+            height: "6px",
+            borderRadius: "50%",
+            background: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
+            flexShrink: 0,
+          }} />
+          <style>{`
+            @keyframes zen-thinking-pulse {
+              0%, 100% { transform: scale(1); opacity: 0.25; }
+              50%       { transform: scale(1.8); opacity: 0.08; }
+            }
+          `}</style>
+        </span>
+        <span style={{
+          fontSize: "10px",
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
+          opacity: 0.85,
+        }}>
+          Thinking
+        </span>
+      </div>
+
+      {/* Plain content box — mirrors StreamingPreviewBox style */}
+      <div
+        ref={boxRef}
+        style={{
+          height: `${STREAM_BOX_HEIGHT}px`,
+          overflowY: "hidden",
+          overflowX: "hidden",
+          background: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+          borderRadius: "4px",
+          border: "1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, var(--vscode-widget-border, rgba(255,255,255,0.08)))",
+          padding: "6px 10px",
+          fontFamily: "var(--vscode-editor-font-family, monospace)",
+          fontSize: "11px",
+          lineHeight: "1.5",
+          color: "var(--vscode-editor-foreground)",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          opacity: 0.8,
+          maskImage: "linear-gradient(to bottom, transparent 0%, black 30%)",
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 30%)",
+        }}
+      >
+        {content}
+      </div>
+    </div>
+  );
+};
+
 interface FileToolItemProps {
   action: ToolAction;
   actionIndex: number;
@@ -184,6 +270,21 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   const isPartial = action.isPartial;
   const isError = !!toolOutputs?.[actionId]?.isError;
   const errorMessage = isError ? toolOutputs?.[actionId]?.output || "" : "";
+
+  // ─── Thinking content ───────────────────────────────────────────────────────
+  // Extract <thinking>...</thinking> or unclosed <thinking>... from the current
+  // streaming message content. Only shown while the tag is open (streaming).
+  // Once </thinking> is closed, the parser replaces it with __THINKING_N__ and
+  // the raw content no longer contains the open tag → we show nothing.
+  const thinkingContent = React.useMemo(() => {
+    if (!isPartial) return null; // only relevant while streaming
+    const currentMsg = allMessages?.find((m) => m.id === messageId);
+    if (!currentMsg?.content) return null;
+    // Match unclosed <thinking> tag (streaming, no closing tag yet)
+    const unclosedMatch = /<thinking>([\s\S]*)$/i.exec(currentMsg.content);
+    if (unclosedMatch) return unclosedMatch[1];
+    return null;
+  }, [isPartial, allMessages, messageId]);
 
   // Debug: log khi render với toolOutputs (chỉ log 1 lần per actionId)
   const debugLoggedRef = React.useRef(false);
@@ -464,6 +565,11 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
             />
           )}
         </>
+      )}
+
+      {/* Thinking preview — visible only while <thinking> tag is open (streaming) */}
+      {thinkingContent !== null && thinkingContent.length > 0 && (
+        <ThinkingPreviewBox content={thinkingContent} />
       )}
 
       {/* Streaming preview — visible only while AI is still writing the file */}

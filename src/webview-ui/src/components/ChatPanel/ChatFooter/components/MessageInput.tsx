@@ -59,6 +59,25 @@ const GlobeIcon = () => (
   </svg>
 );
 
+const MemoryIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="lucide lucide-database-icon lucide-database"
+  >
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M3 12a9 3 0 0 0 18 0" />
+    <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+  </svg>
+);
+
 interface ToggleButtonProps {
   isOn: boolean;
   onClick: () => void;
@@ -168,6 +187,60 @@ const SearchButton: React.FC<ToggleButtonProps> = ({
         style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
       >
         Search
+      </span>
+    </button>
+  );
+};
+
+const MemoryButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: isOn
+          ? "1px solid var(--vscode-editorBracketHighlight-foreground3, rgba(139, 92, 246, 0.4))"
+          : "1px solid rgba(128, 128, 128, 0.2)",
+        background: isOn
+          ? isHovered
+            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #8b5cf6) 20%, transparent)"
+            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #8b5cf6) 12%, transparent)"
+          : isHovered
+            ? "rgba(128, 128, 128, 0.2)"
+            : "rgba(128, 128, 128, 0.12)",
+        color: isOn
+          ? "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)"
+          : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={title}
+    >
+      <MemoryIcon />
+      <span
+        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+      >
+        Memory
       </span>
     </button>
   );
@@ -482,6 +555,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
     }
   });
 
+  const [isMemory, setIsMemory] = React.useState(() => {
+    try {
+      return localStorage.getItem("zen-memory-enabled") === "true";
+    } catch {
+      return false;
+    }
+  });
+
   const [isPlusHovered, setIsPlusHovered] = React.useState(false);
 
   const toggleThinking = () => {
@@ -502,6 +583,39 @@ const MessageInput: React.FC<MessageInputProps> = ({
       } catch {}
       return next;
     });
+  };
+
+  const toggleMemory = async () => {
+    if (!currentAccount?.id) {
+      console.warn("No account selected, cannot toggle memory");
+      return;
+    }
+    
+    const newState = !isMemory;
+    // Optimistic update
+    setIsMemory(newState);
+    localStorage.setItem("zen-memory-enabled", String(newState));
+    
+    // Sync to server
+    try {
+      const response = await fetch(`${apiUrl}/v1/accounts/${currentAccount.id}/memory`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_memory_enabled: newState })
+      });
+      const result = await response.json();
+      if (!result.success) {
+        // Rollback on error
+        setIsMemory(!newState);
+        localStorage.setItem("zen-memory-enabled", String(!newState));
+        console.error("Failed to update memory state on server:", result.message);
+      }
+    } catch (error) {
+      // Rollback on network error
+      setIsMemory(!newState);
+      localStorage.setItem("zen-memory-enabled", String(!newState));
+      console.error("Failed to sync memory state with server:", error);
+    }
   };
 
   const displayAccount = React.useMemo(() => {
@@ -561,6 +675,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
     console.log("[MessageInput] showSearchButton:", result, "| currentModel.is_search:", currentModel?.is_search, "| modelConfig.is_search:", currentModelConfig?.is_search, "| provider.is_search:", currentProviderConfig?.is_search);
     return result;
   }, [currentModel, currentModelConfig, currentProviderConfig]);
+
+  const showMemoryButton = React.useMemo(() => {
+    // Check if model supports memory (is_memory flag)
+    const result = currentModel?.is_memory === true;
+    console.log("[MessageInput] showMemoryButton:", result);
+    console.log("[MessageInput] currentModel full:", currentModel);
+    console.log("[MessageInput] currentModel.is_memory value:", currentModel?.is_memory);
+    return result;
+  }, [currentModel]);
 
   // Sync thinking and search toggles when model changes
   React.useEffect(() => {
@@ -898,13 +1021,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
               // DEBUG: Log the raw modelObj from providers to check capability fields
               console.log("[DEBUG onSelect] selected:", selected);
-              console.log("[DEBUG onSelect] prov found:", prov ? { provider_id: prov.provider_id, is_search: prov.is_search } : null);
+              console.log("[DEBUG onSelect] prov found:", prov ? { provider_id: prov.provider_id, is_search: prov.is_search, is_memory: prov.is_memory } : null);
               console.log("[DEBUG onSelect] modelObj found:", modelObj ? {
                 id: modelObj.id,
                 name: modelObj.name,
                 is_thinking: modelObj.is_thinking,
                 is_search: modelObj.is_search,
                 is_upload: modelObj.is_upload,
+                is_memory: modelObj.is_memory,
               } : null);
 
               const newModel = {
@@ -915,6 +1039,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 is_thinking: modelObj?.is_thinking ?? false,
                 is_search: modelObj?.is_search ?? false,
                 is_upload: modelObj?.is_upload ?? false,
+                is_memory: modelObj?.is_memory ?? prov?.is_memory ?? false,
               };
               console.log("[DEBUG onSelect] newModel being set:", {
                 id: newModel.id,
@@ -928,6 +1053,22 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 id: selected.accountId,
                 email: selected.email,
               });
+              
+              // Fetch memory state from server
+              const fetchMemoryState = async () => {
+                try {
+                  const response = await fetch(`${apiUrl}/v1/accounts/${selected.accountId}/memory`);
+                  const result = await response.json();
+                  if (result.success && result.data) {
+                    setIsMemory(result.data.is_memory_enabled);
+                    // Sync to localStorage
+                    localStorage.setItem("zen-memory-enabled", String(result.data.is_memory_enabled));
+                  }
+                } catch (error) {
+                  console.error("Failed to fetch memory state:", error);
+                }
+              };
+              fetchMemoryState();
               setShowModelDrawer(false);
             }}
           />
@@ -1097,6 +1238,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 isOn={isSearch}
                 onClick={toggleSearch}
                 title="Toggle Web Search Grounding"
+              />
+            )}
+
+            {/* Memory Toggle */}
+            {showMemoryButton && (
+              <MemoryButton
+                isOn={isMemory}
+                onClick={toggleMemory}
+                title="Toggle Memory Reference (Saved memories & chat history)"
               />
             )}
           </div>
