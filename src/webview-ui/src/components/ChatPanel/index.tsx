@@ -794,7 +794,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
 
-  // Enrich currentModel with provider-config data (avg_context_limit, etc.)
+  // Enrich currentModel with provider-config data
   const enrichedModel = useMemo(() => {
     if (!currentModel) return null;
     if (!Array.isArray(providers)) return currentModel;
@@ -890,7 +890,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isHistoryMode={isHistoryMode}
         messages={messages}
         isConversationStarted={messages.length > 0 || !!initialMessageData}
-        currentModel={currentModel}
+        currentModel={enrichedModel ?? currentModel}
         setCurrentModel={setCurrentModel}
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}

@@ -19,62 +19,6 @@ interface ChatHeaderProps {
   currentAccount?: any;
 }
 
-/** Small SVG ring that shows context usage as a colored arc */
-const ContextCircle: React.FC<{ ratio: number }> = ({ ratio }) => {
-  const clampedRatio = Math.min(1, Math.max(0, ratio));
-  const size = 12; // matches ~font-size 11-12px
-  const stroke = 1.8;
-  const r = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * r;
-  const dashOffset = circumference * (1 - clampedRatio);
-
-  // Color: green → yellow → orange → red
-  let color: string;
-  if (clampedRatio < 0.5) {
-    color = "var(--vscode-gitDecoration-addedResourceForeground, #4caf50)"; // green
-  } else if (clampedRatio < 0.7) {
-    color = "var(--vscode-editorWarning-foreground, #cca700)"; // yellow
-  } else if (clampedRatio < 0.85) {
-    color = "var(--vscode-editorWarning-foreground, #ff9800)"; // orange
-  } else {
-    color = "var(--vscode-errorForeground, #f44336)"; // red
-  }
-
-  const pct = Math.round(clampedRatio * 100);
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      style={{ flexShrink: 0, transform: "rotate(-90deg)" }}
-    >
-      <title>{`Context usage: ${pct}%`}</title>
-      {/* Track */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="var(--vscode-editorWidget-border, rgba(255,255,255,0.12))"
-        strokeWidth={stroke}
-      />
-      {/* Progress arc */}
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke={color}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={dashOffset}
-        style={{ transition: "stroke-dashoffset 0.4s ease, stroke 0.4s ease" }}
-      />
-    </svg>
-  );
-};
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({
   selectedTab,
@@ -96,12 +40,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   else if (providerId.toLowerCase().includes("google")) faviconUrl = "https://www.google.com/s2/favicons?domain=google.com&sz=64";
   else if (providerId.toLowerCase().includes("openrouter")) faviconUrl = "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=64";
 
-  // Compute context ratio if the model has avg_context_limit
-  const avgContextLimit: number | null = currentModel?.avg_context_limit ?? null;
   const totalTokens = contextUsage?.total ?? 0;
-  const contextRatio = avgContextLimit != null && avgContextLimit > 0
-    ? totalTokens / avgContextLimit
-    : null;
 
   return (
     <div
@@ -195,10 +134,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             flexShrink: 0,
           }}
         >
-          {contextRatio !== null && (
-            <ContextCircle ratio={contextRatio} />
-          )}
-          <span>{contextUsage ? formatTokens(contextUsage.total) : "0"}</span>
+          {<span>{contextUsage ? formatTokens(contextUsage.total) : "0"}</span>}
         </div>
       </div>
     </div>

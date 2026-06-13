@@ -525,22 +525,31 @@ const MessageInput: React.FC<MessageInputProps> = ({
   }, [currentProviderConfig, currentModel]);
 
   const showThinkingButton = React.useMemo(() => {
+    // Prefer fields on currentModel directly (already enriched), fallback to config lookup
+    if (currentModel?.is_thinking !== undefined) return !!currentModel.is_thinking;
     return !!currentModelConfig?.is_thinking;
-  }, [currentModelConfig]);
+  }, [currentModel, currentModelConfig]);
 
   const showSearchButton = React.useMemo(() => {
+    // Prefer fields on currentModel directly (already enriched), fallback to config lookup
+    if (currentModel?.is_search !== undefined) {
+      return !!currentModel.is_search || !!currentProviderConfig?.is_search;
+    }
     return (
       !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search
     );
-  }, [currentModelConfig, currentProviderConfig]);
+  }, [currentModel, currentModelConfig, currentProviderConfig]);
 
   // Sync thinking and search toggles when model changes
   React.useEffect(() => {
     if (providers.length === 0 || !currentModel) return;
 
-    const hasThinking = !!currentModelConfig?.is_thinking;
-    const hasSearch =
-      !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search;
+    const hasThinking = currentModel?.is_thinking !== undefined
+      ? !!currentModel.is_thinking
+      : !!currentModelConfig?.is_thinking;
+    const hasSearch = currentModel?.is_search !== undefined
+      ? (!!currentModel.is_search || !!currentProviderConfig?.is_search)
+      : (!!currentModelConfig?.is_search || !!currentProviderConfig?.is_search);
 
     if (!hasThinking && isThinking) {
       setIsThinking(false);
@@ -564,9 +573,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
   ]);
 
   const supportsUpload = React.useMemo(() => {
+    // Prefer fields on currentModel directly (already enriched), fallback to config lookup
+    if (currentModel?.is_upload !== undefined) return !!currentModel.is_upload;
+    if (currentModelConfig?.is_upload !== undefined) return !!currentModelConfig.is_upload;
     if (!currentProviderConfig) return false;
     return !!currentProviderConfig.is_upload;
-  }, [currentProviderConfig]);
+  }, [currentModel, currentProviderConfig, currentModelConfig]);
 
   const formatWorkspacePath = (path: string) => {
     if (!path) return "";
