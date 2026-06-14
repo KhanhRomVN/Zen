@@ -171,7 +171,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
   const isFileTool =
     toolType === "replace_in_file" || toolType === "write_to_file" ||
-    toolType === "read_file" || toolType === "list_files" || toolType === "search_files" ||
+    toolType === "read_file" || toolType === "list_files" || toolType === "search_files" || toolType === "grep" ||
     toolType === "delete_file" || toolType === "delete_folder";
 
   if (isFileTool) {

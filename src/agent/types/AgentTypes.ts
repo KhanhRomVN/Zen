@@ -8,10 +8,13 @@ export interface AgentPermissions {
 }
 
 export interface AgentAction {
-  type: "read" | "edit" | "execute" | "add";
+  type: "read" | "edit" | "execute" | "add" | "grep";
   path?: string;
   content?: string;
   command?: string;
+  search_term?: string;
+  file_path?: string;
+  folder_path?: string;
   requestId: string;
   timestamp: number;
 }

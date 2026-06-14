@@ -3,6 +3,7 @@ import ChatPanel from "./components/ChatPanel";
 import HomePanel from "./components/HomePanel";
 import HistoryPanel from "./components/HistoryPanel";
 import SettingsPanel from "./components/SettingsPanel";
+import AccountPanel from "./components/AccountPanel";
 import "./styles/components/chat.css";
 import { ProjectProvider } from "./context/ProjectContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -41,6 +42,7 @@ const App: React.FC = () => {
 
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAccounts, setShowAccounts] = useState(false);
   const [selectedTab, setSelectedTab] = useState<TabInfo | null>(null);
   const [previousPanel, setPreviousPanel] = useState<"tab" | "chat" | null>(
     null,
@@ -125,6 +127,7 @@ const App: React.FC = () => {
           }
           setShowHistory(true);
           setShowSettings(false);
+          setShowAccounts(false);
           break;
         case "showSettings":
           if (selectedTab) {
@@ -134,10 +137,22 @@ const App: React.FC = () => {
           }
           setShowSettings(true);
           setShowHistory(false);
+          setShowAccounts(false);
+          break;
+        case "showAccounts":
+          if (selectedTab) {
+            setPreviousPanel("chat");
+          } else {
+            setPreviousPanel("tab");
+          }
+          setShowAccounts(true);
+          setShowHistory(false);
+          setShowSettings(false);
           break;
         case "newChat":
           setShowHistory(false);
           setShowSettings(false);
+          setShowAccounts(false);
           setSelectedTab(null);
           setPreviousPanel(null);
           setInitialMessageData(null); // Clear initial data on new chat
@@ -191,25 +206,29 @@ const App: React.FC = () => {
         <BackendConnectionProvider>
           <ProjectProvider>
             <div className="app-container">
-              {lastSelectedTabRef.current && (
-                <div style={{ display: selectedTab ? "contents" : "none" }}>
-                  <ChatPanel
-                    selectedTab={lastSelectedTabRef.current}
-                    onBack={handleBack}
-                    tabs={tabs}
-                    onTabSelect={handleTabSelect}
-                    onLoadConversation={handleLoadConversation}
-                    initialMessageData={initialMessageData}
-                    onClearInitialData={() => setInitialMessageData(null)}
-                  />
-                </div>
-              )}
-              {!selectedTab && (
-                <HomePanel
-                  onSendMessage={handleHomeSendMessage}
-                  onLoadConversation={handleLoadConversation}
-                  initialValue={homeInitialValue}
-                />
+              {!showAccounts && (
+                <>
+                  {lastSelectedTabRef.current && (
+                    <div style={{ display: selectedTab ? "contents" : "none" }}>
+                      <ChatPanel
+                        selectedTab={lastSelectedTabRef.current}
+                        onBack={handleBack}
+                        tabs={tabs}
+                        onTabSelect={handleTabSelect}
+                        onLoadConversation={handleLoadConversation}
+                        initialMessageData={initialMessageData}
+                        onClearInitialData={() => setInitialMessageData(null)}
+                      />
+                    </div>
+                  )}
+                  {!selectedTab && (
+                    <HomePanel
+                      onSendMessage={handleHomeSendMessage}
+                      onLoadConversation={handleLoadConversation}
+                      initialValue={homeInitialValue}
+                    />
+                  )}
+                </>
               )}
               <HistoryPanel
                 isOpen={showHistory}
@@ -223,6 +242,13 @@ const App: React.FC = () => {
                 isOpen={showSettings}
                 onClose={() => {
                   setShowSettings(false);
+                  setPreviousPanel(null);
+                }}
+              />
+              <AccountPanel
+                isOpen={showAccounts}
+                onClose={() => {
+                  setShowAccounts(false);
                   setPreviousPanel(null);
                 }}
               />

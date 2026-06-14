@@ -11,6 +11,7 @@ import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../../hooks/useI18n";
 import { useSettings } from "../../../../../context/SettingsContext";
 import { getPermissionDecision } from "../../../../../hooks/useToolExecution";
+import GrepBlock from "../../GrepBlock";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
 // Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
@@ -312,22 +313,45 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
     : undefined;
 
   const isWriteOrEditTool = toolType === "write_to_file" || toolType === "replace_in_file" || toolType === "delete_file" || toolType === "delete_folder";
-  const isCompleted =
+  const isGrepTool = toolType === "grep";
+  const isCompleted: boolean = Boolean(
     !isPartial &&
-    (isActionClicked ||
+    (!!isActionClicked ||
       isError ||
       (isWriteOrEditTool
         ? !!toolOutputs?.[actionId] || !!nextUserMessage
-        : (codeContent && codeContent.trim().length > 0) || !!nextUserMessage));
+        : (codeContent && codeContent.trim().length > 0) || !!nextUserMessage))
+  );
 
   const prefix =
     toolType === "replace_in_file" ? t("tools.update")
     : toolType === "write_to_file" ? (fileStatsMap[rawPath] ? t("tools.rewrite") : t("tools.create"))
     : toolType === "list_files" ? t("tools.list")
     : toolType === "search_files" ? t("tools.search")
+    : toolType === "grep" ? "GREP"
     : toolType === "delete_file" ? t("tools.delete")
     : toolType === "delete_folder" ? t("tools.delete")
     : t("tools.read");
+
+  // For grep tool, render GrepBlock component
+  if (isGrepTool) {
+    const grepCompleted = !isPartial && (isActionClicked || isError || !!toolOutputs?.[actionId] || !!nextUserMessage);
+    const errorMsg = isError ? toolOutputs?.[actionId]?.output || "" : "";
+    
+    return (
+      <GrepBlock
+        action={action}
+        actionId={actionId}
+        toolOutputs={toolOutputs}
+        isPartial={!!isPartial}
+        isCompleted={grepCompleted}
+        isError={isError}
+        errorMessage={errorMsg}
+        conversationId={conversationId}
+        allMessages={allMessages}
+      />
+    );
+  }
 
   return (
     <div
@@ -406,7 +430,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
             )}
           </div>
         }
-        statusColor={isError ? "var(--vscode-errorForeground)" : isCompleted ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)" : isActiveGroup ? "var(--vscode-button-background)" : "var(--vscode-descriptionForeground)"}
+        statusColor={isError ? "var(--vscode-errorForeground)" : (isCompleted as boolean) ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)" : !!isActiveGroup ? "var(--vscode-button-background)" : "var(--vscode-descriptionForeground)"}
         diffStats={undefined}
         isPartial={isPartial}
         onClick={() => {

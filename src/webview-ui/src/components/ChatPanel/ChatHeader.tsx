@@ -17,6 +17,8 @@ interface ChatHeaderProps {
   conversationId?: string;
   currentModel?: any;
   currentAccount?: any;
+  onToggleSearch?: () => void;
+  isSearchOpen?: boolean;
 }
 
 
@@ -26,6 +28,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   taskName,
   currentModel,
   currentAccount,
+  onToggleSearch,
+  isSearchOpen = false,
 }) => {
   const formatTokens = (num: number) => {
     if (num >= 1000) return (num / 1000).toFixed(1) + "K";
@@ -122,19 +126,56 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           )}
         </div>
 
-        {/* Right: Token Usage + Context Circle */}
+        {/* Right: Token Usage + Search icon */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "5px",
-            fontSize: "11px",
-            color: "var(--secondary-text)",
-            opacity: 0.8,
+            gap: "8px",
             flexShrink: 0,
           }}
         >
-          {<span>{contextUsage ? formatTokens(contextUsage.total) : "0"}</span>}
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--secondary-text)",
+              opacity: 0.8,
+            }}
+          >
+            {contextUsage ? formatTokens(contextUsage.total) : "0"}
+          </span>
+          <button
+            onClick={onToggleSearch}
+            title="Search in chat"
+            style={{
+              background: isSearchOpen
+                ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
+                : "transparent",
+              border: isSearchOpen
+                ? "1px solid color-mix(in srgb, var(--vscode-button-background) 40%, transparent)"
+                : "1px solid transparent",
+              cursor: "pointer",
+              padding: "3px 4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: isSearchOpen
+                ? "var(--vscode-button-background, var(--vscode-textLink-foreground))"
+                : "var(--vscode-icon-foreground, var(--secondary-text))",
+              opacity: isSearchOpen ? 1 : 0.65,
+              borderRadius: "4px",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => { if (!isSearchOpen) e.currentTarget.style.opacity = "1"; }}
+            onMouseLeave={(e) => { if (!isSearchOpen) e.currentTarget.style.opacity = "0.65"; }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m13 13.5 2-2.5-2-2.5"/>
+              <path d="m21 21-4.3-4.3"/>
+              <path d="M9 8.5 7 11l2 2.5"/>
+              <circle cx="11" cy="11" r="8"/>
+            </svg>
+          </button>
         </div>
       </div>
     </div>

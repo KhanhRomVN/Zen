@@ -74,6 +74,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const { isSimpleMode } = useSettings();
 
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [isRestored, setIsRestored] = useState(false);
   const [revertInput, setRevertInput] = useState<{
     value: string;
@@ -841,6 +844,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         conversationId={currentConversationId}
         currentModel={enrichedModel}
         currentAccount={currentAccount}
+        onToggleSearch={() => {
+          setIsSearchOpen((v) => !v);
+          if (isSearchOpen) setSearchQuery("");
+        }}
+        isSearchOpen={isSearchOpen}
       />
       <ChatBody
         messages={messages}
@@ -880,6 +888,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         singleLineReviewActions={singleLineReviewActions}
         onConfirmSingleLineAction={confirmSingleLineAction}
         onRejectSingleLineAction={rejectSingleLineAction}
+        isSearchOpen={isSearchOpen}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onCloseSearch={() => { setIsSearchOpen(false); setSearchQuery(""); }}
       />
       <ChatFooter
         apiUrl={apiUrl}

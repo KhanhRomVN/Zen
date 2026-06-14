@@ -87,23 +87,23 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
       <div
         style={{
           padding: "16px var(--spacing-md) 14px",
+          borderTop: "1px solid var(--border-color)",
           borderBottom: "1px solid var(--border-color)",
           flexShrink: 0,
           backgroundColor: "var(--tertiary-bg)",
           display: "flex",
-          alignItems: "flex-start",
+          alignItems: "center",
           justifyContent: "space-between",
           gap: "12px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-          {/* Neon square badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* Icon badge - VSCode theme neutral */}
           <div style={{
             width: "36px", height: "36px", borderRadius: "8px", flexShrink: 0,
-            background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
-            border: "1px solid rgba(139,92,246,0.4)",
+            background: "rgba(128,128,128,0.1)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--vscode-textLink-foreground, #a78bfa)",
+            color: "var(--vscode-foreground)",
           }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect width="20" height="5" x="2" y="3" rx="1"/>
@@ -114,21 +114,12 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
             </svg>
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
-              <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--primary-text)", letterSpacing: "0.01em" }}>
+            <div style={{ marginBottom: "3px" }}>
+              <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--primary-text)", letterSpacing: "0.01em" }}>
                 History
               </span>
-              {/* Neon badge count */}
-              <span style={{
-                fontSize: "10px", fontWeight: 600, padding: "1px 7px", borderRadius: "6px",
-                background: "linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.2))",
-                border: "1px solid rgba(139,92,246,0.5)",
-                color: "var(--vscode-textLink-foreground, #c4b5fd)",
-              }}>
-                {totalCount}
-              </span>
             </div>
-            <p style={{ margin: 0, fontSize: "11px", color: "var(--secondary-text)", opacity: 0.7, lineHeight: 1.4 }}>
+            <p style={{ margin: 0, fontSize: "12px", color: "var(--secondary-text)", opacity: 0.7, lineHeight: 1.4 }}>
               {t("history.desc")}
             </p>
           </div>
@@ -140,9 +131,10 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
           style={{
             padding: "5px", borderRadius: "6px", flexShrink: 0,
             backgroundColor: closeHover ? "rgba(239,68,68,0.12)" : "rgba(128,128,128,0.12)",
-            border: closeHover ? "1px solid rgba(239,68,68,0.4)" : "1px solid transparent",
+            border: "none",
             color: closeHover ? "var(--vscode-errorForeground, #f87171)" : "var(--secondary-text)",
             cursor: "pointer", transition: "all 0.15s ease",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}
           title="Close History"
         >

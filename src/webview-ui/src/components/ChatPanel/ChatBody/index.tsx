@@ -1,9 +1,260 @@
-import React, { useMemo, useRef, useEffect } from "react";
+import React, { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import {
   parseAIResponse,
   ParsedResponse,
 } from "../../../services/ResponseParser";
 import { Message, ChatBodyProps } from "./types";
+
+// ─── SearchBar Component ──────────────────────────────────────────────────────
+interface SearchBarProps {
+  searchQuery: string;
+  onSearchQueryChange?: (q: string) => void;
+  onCloseSearch?: () => void;
+  bodyRef: React.RefObject<HTMLDivElement>;
+}
+
+type SearchFlag = "matchCase" | "wholeWord" | "regex";
+
+const SearchBar: React.FC<SearchBarProps> = ({ searchQuery: initialQuery, onSearchQueryChange, onCloseSearch, bodyRef }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Local query state — not controlled by parent to avoid re-render issues
+  const [localQuery, setLocalQuery] = useState(initialQuery || "");
+  const [flags, setFlags] = useState<Set<SearchFlag>>(new Set<SearchFlag>(["regex"]));
+  const [matchCount, setMatchCount] = useState(0);
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  // Auto-focus on mount
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleQueryChange = (q: string) => {
+    setLocalQuery(q);
+    onSearchQueryChange?.(q);
+  };
+
+  const toggleFlag = (f: SearchFlag) => {
+    setFlags(prev => {
+      const next = new Set(prev);
+      next.has(f) ? next.delete(f) : next.add(f);
+      return next;
+    });
+  };
+
+  // Build regex from query + flags
+  const buildRegex = useCallback((q: string): RegExp | null => {
+    if (!q) return null;
+    try {
+      const isRegex = flags.has("regex");
+      const pattern = isRegex ? q : (flags.has("wholeWord") ? `\\b${q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b` : q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      const regexFlags = flags.has("matchCase") ? "g" : "gi";
+      return new RegExp(pattern, regexFlags);
+    } catch { return null; }
+  }, [flags]);
+
+  // Highlight effect — runs when query, flags, or body content changes
+  useEffect(() => {
+    const root = bodyRef.current;
+    if (!root) return;
+
+    // Remove previous highlights
+    const prev = root.querySelectorAll("mark.zen-search-hl");
+    prev.forEach(el => {
+      const parent = el.parentNode;
+      if (parent) { parent.replaceChild(document.createTextNode(el.textContent || ""), el); parent.normalize(); }
+    });
+
+    const regex = buildRegex(localQuery);
+    if (!regex) { setMatchCount(0); setCurrentIdx(0); return; }
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const p = node.parentElement;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        const tag = p.tagName.toLowerCase();
+        if (tag === "input" || tag === "textarea" || tag === "script" || tag === "style") return NodeFilter.FILTER_REJECT;
+        if (p.closest("mark.zen-search-hl")) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+
+    const nodes: Text[] = [];
+    let n: Node | null;
+    while ((n = walker.nextNode())) nodes.push(n as Text);
+
+    let total = 0;
+    nodes.forEach(textNode => {
+      const text = textNode.textContent || "";
+      regex.lastIndex = 0;
+      if (!regex.test(text)) return;
+      regex.lastIndex = 0;
+      const parent = textNode.parentNode;
+      if (!parent) return;
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      let m: RegExpExecArray | null;
+      regex.lastIndex = 0;
+      while ((m = regex.exec(text)) !== null) {
+        if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const mark = document.createElement("mark");
+        mark.className = "zen-search-hl";
+        mark.dataset.matchIdx = String(total++);
+        mark.textContent = m[0];
+        mark.style.cssText = "background:var(--vscode-editor-findMatchHighlightBackground,rgba(255,255,0,0.35));color:inherit;border-radius:2px;padding:0 1px;";
+        frag.appendChild(mark);
+        last = m.index + m[0].length;
+        if (m[0].length === 0) regex.lastIndex++;
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      parent.replaceChild(frag, textNode);
+    });
+
+    setMatchCount(total);
+    setCurrentIdx(total > 0 ? 1 : 0);
+  }, [localQuery, flags, buildRegex, bodyRef]);
+
+  // Navigate matches
+  const navigate = (dir: 1 | -1) => {
+    if (matchCount === 0) return;
+    const root = bodyRef.current;
+    if (!root) return;
+    const marks = root.querySelectorAll("mark.zen-search-hl");
+    // Remove current focus style
+    marks.forEach(m => { (m as HTMLElement).style.background = "var(--vscode-editor-findMatchHighlightBackground,rgba(255,255,0,0.35))"; (m as HTMLElement).style.outline = ""; });
+    const next = ((currentIdx - 1 + dir + matchCount) % matchCount) + 1;
+    setCurrentIdx(next);
+    const target = marks[next - 1] as HTMLElement | undefined;
+    if (target) {
+      target.style.background = "var(--vscode-editor-findMatchBackground,rgba(255,165,0,0.6))";
+      target.style.outline = "1px solid var(--vscode-editor-findMatchBorder,orange)";
+      target.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  };
+
+  const iconBtn = (active: boolean, title: string, onClick: () => void, children: React.ReactNode) => (
+    <button
+      title={title}
+      onClick={onClick}
+      style={{
+        background: active ? "color-mix(in srgb, var(--vscode-button-background) 20%, transparent)" : "transparent",
+        border: active ? "1px solid color-mix(in srgb, var(--vscode-button-background) 45%, transparent)" : "1px solid transparent",
+        color: active ? "var(--vscode-button-background)" : "var(--vscode-icon-foreground)",
+        cursor: "pointer", padding: "2px 4px", borderRadius: "3px",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        opacity: active ? 1 : 0.6,
+        transition: "all 0.12s ease", flexShrink: 0,
+      }}
+      onMouseEnter={e => { if (!active) e.currentTarget.style.opacity = "1"; }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.opacity = "0.6"; }}
+    >
+      {children}
+    </button>
+  );
+
+  const inputBorderStyle = "1px solid var(--vscode-input-border, var(--border-color))";
+  const inputBg = "var(--vscode-input-background, var(--primary-bg))";
+
+  return (
+    <div style={{
+      position: "sticky", top: 0, zIndex: 100, alignSelf: "flex-end",
+      display: "inline-flex", alignItems: "center", gap: "4px",
+      boxShadow: "0 2px 10px rgba(0,0,0,0.32)", marginBottom: "6px",
+      backgroundColor: "var(--vscode-editorWidget-background, var(--vscode-input-background, var(--primary-bg)))",
+      border: "1px solid var(--vscode-editorWidget-border, var(--vscode-input-border, var(--border-color)))",
+      borderRadius: "6px", padding: "3px 4px",
+    }}>
+
+      {/* Inner wrapper: left=input, right=flag icons — same background, no gap */}
+      <div style={{
+        display: "flex", alignItems: "stretch",
+        overflow: "hidden",
+        backgroundColor: inputBg,
+        borderRadius: "3px",
+      }}>
+        {/* Left: text input — same bg as right panel */}
+        <input
+          ref={inputRef}
+          type="text"
+          value={localQuery}
+          onChange={e => handleQueryChange(e.target.value)}
+          placeholder="Search"
+          onKeyDown={e => {
+            if (e.key === "Escape") { onCloseSearch?.(); }
+            else if (e.key === "Enter") { navigate(e.shiftKey ? -1 : 1); }
+          }}
+          style={{
+            background: inputBg, border: "none", outline: "none",
+            color: "var(--vscode-input-foreground)",
+            fontSize: "12px", padding: "4px 6px", width: "180px",
+            fontFamily: "var(--vscode-font-family, sans-serif)",
+          }}
+        />
+        {/* Right: 3 toggle icons, separated by left border — same bg */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: "1px", padding: "2px 4px",
+          borderLeft: inputBorderStyle,
+          backgroundColor: inputBg,
+        }}>
+          {/* Match Case: Aa */}
+          {iconBtn(flags.has("matchCase"), "Match Case (Alt+C)", () => toggleFlag("matchCase"),
+            <span style={{ fontSize: "11px", fontWeight: 700, fontFamily: "monospace", lineHeight: 1 }}>Aa</span>
+          )}
+          {/* Whole Word: [ ab ] */}
+          {iconBtn(flags.has("wholeWord"), "Match Whole Word (Alt+W)", () => toggleFlag("wholeWord"),
+            <span style={{ fontSize: "10px", fontWeight: 700, fontFamily: "monospace", letterSpacing: "-0.5px", lineHeight: 1 }}>ab</span>
+          )}
+          {/* Regex: .* */}
+          {iconBtn(flags.has("regex"), "Use Regular Expression (Alt+R)", () => toggleFlag("regex"),
+            <span style={{ fontSize: "10px", fontWeight: 700, fontFamily: "monospace", lineHeight: 1 }}>.*</span>
+          )}
+        </div>
+      </div>
+
+      {/* Match counter + navigation + close */}
+      <span style={{ fontSize: "11px", color: "var(--vscode-descriptionForeground)", whiteSpace: "nowrap", minWidth: "72px", textAlign: "center", userSelect: "none" }}>
+        {localQuery
+          ? (matchCount === 0 ? "No results" : `${currentIdx} of ${matchCount}`)
+          : "\u00A0"}
+      </span>
+
+      {/* Arrow up */}
+      <button
+        title="Previous match (Shift+Enter)"
+        onClick={() => navigate(-1)}
+        disabled={matchCount === 0}
+        style={{ background: "transparent", border: "none", cursor: matchCount > 0 ? "pointer" : "default", color: "var(--vscode-icon-foreground)", padding: "2px 3px", opacity: matchCount > 0 ? 0.7 : 0.3, display: "flex", alignItems: "center" }}
+        onMouseEnter={e => { if (matchCount > 0) e.currentTarget.style.opacity = "1"; }}
+        onMouseLeave={e => { if (matchCount > 0) e.currentTarget.style.opacity = "0.7"; }}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+      </button>
+
+      {/* Arrow down */}
+      <button
+        title="Next match (Enter)"
+        onClick={() => navigate(1)}
+        disabled={matchCount === 0}
+        style={{ background: "transparent", border: "none", cursor: matchCount > 0 ? "pointer" : "default", color: "var(--vscode-icon-foreground)", padding: "2px 3px", opacity: matchCount > 0 ? 0.7 : 0.3, display: "flex", alignItems: "center" }}
+        onMouseEnter={e => { if (matchCount > 0) e.currentTarget.style.opacity = "1"; }}
+        onMouseLeave={e => { if (matchCount > 0) e.currentTarget.style.opacity = "0.7"; }}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+
+      {/* Close X */}
+      <button
+        title="Close (Esc)"
+        onClick={() => { handleQueryChange(""); onCloseSearch?.(); }}
+        style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--vscode-icon-foreground)", padding: "2px 3px", opacity: 0.55, display: "flex", alignItems: "center", transition: "opacity 0.12s" }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = "0.55"; }}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+        </svg>
+      </button>
+    </div>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface ExtendedChatBodyProps extends ChatBodyProps {
   executionState?: {
@@ -24,6 +275,10 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
   singleLineReviewActions?: Record<string, { action: any; actionId: string; messageId: string }>;
   onConfirmSingleLineAction?: (actionId: string) => void;
   onRejectSingleLineAction?: (actionId: string) => void;
+  isSearchOpen?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (q: string) => void;
+  onCloseSearch?: () => void;
 }
 
 // Hooks
@@ -67,9 +322,14 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   singleLineReviewActions,
   onConfirmSingleLineAction,
   onRejectSingleLineAction,
+  isSearchOpen = false,
+  searchQuery = "",
+  onSearchQueryChange,
+  onCloseSearch,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   // Persistent parse cache across renders — keyed by message content.
   // This avoids re-running marked.parse() on old messages every time a new
@@ -231,8 +491,11 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     return map;
   }, [parsedMessages]);
 
+  // Auto-focus search input when search opens — handled inside SearchBar component
+
   return (
     <div
+      ref={bodyRef}
       style={{
         flex: 1,
         overflowY: "auto",
@@ -244,8 +507,19 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         flexDirection: "column",
         gap: "var(--spacing-md)",
         fontSize: "14px",
+        position: "relative",
       }}
     >
+      {/* Search bar — sticky top-right, VS Code style */}
+      {isSearchOpen && (
+        <SearchBar
+          searchQuery={searchQuery}
+          onSearchQueryChange={onSearchQueryChange}
+          onCloseSearch={onCloseSearch}
+          bodyRef={bodyRef}
+        />
+      )}
+
       {visibleMessages.length === 0 && !isProcessing && !hasInitialMessage && (
         <WelcomeUI onLoadConversation={onLoadConversation} />
       )}

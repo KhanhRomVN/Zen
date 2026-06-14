@@ -65,12 +65,12 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       );
 
       const defaultPermissions: AgentPermissions = {
-        readProjectFile: false,
-        readAllFile: false,
-        editProjectFiles: false,
-        editAddFile: false,
-        executeSafeCommand: false,
-        executeAllCommands: false,
+        readProjectFile: true,
+        readAllFile: true,
+        editProjectFiles: true,
+        editAddFile: true,
+        executeSafeCommand: true,
+        executeAllCommands: false, // executeAllCommands stays false by default for safety
       };
 
       this._agentManager = new AgentCapabilityManager(

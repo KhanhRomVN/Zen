@@ -4,6 +4,7 @@ import {
   FileEditCapability,
   FileAddCapability,
   CommandExecutor,
+  grepCapability,
 } from "./capabilities";
 import {
   AgentPermissions,
@@ -18,6 +19,7 @@ export class AgentCapabilityManager {
   private fileEditCapability: FileEditCapability;
   private fileAddCapability: FileAddCapability;
   private commandExecutor: CommandExecutor;
+  private grepCapability: grepCapability;
 
   constructor(permissions: AgentPermissions, workspaceRoot: string) {
     this.validator = new PermissionValidator(permissions, workspaceRoot);
@@ -25,10 +27,11 @@ export class AgentCapabilityManager {
     this.fileEditCapability = new FileEditCapability();
     this.fileAddCapability = new FileAddCapability();
     this.commandExecutor = new CommandExecutor(workspaceRoot);
+    this.grepCapability = new grepCapability(workspaceRoot);
   }
 
   public async executeAction(
-    action: AgentAction
+    action: AgentAction,
   ): Promise<AgentExecutionResult> {
     // Step 1: Validate permissions
     const validation = this.validator.validate(action);
@@ -52,6 +55,8 @@ export class AgentCapabilityManager {
           return await this.fileAddCapability.execute(action);
         case "execute":
           return await this.commandExecutor.execute(action);
+        case "grep":
+          return await this.grepCapability.execute(action);
         default:
           return {
             success: false,

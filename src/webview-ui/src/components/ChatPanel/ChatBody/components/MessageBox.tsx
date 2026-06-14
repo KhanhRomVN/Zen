@@ -521,7 +521,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           }
 
           // ------------------------------
-          if (!isSimpleMode && message.thinking && message.thinking.trim()) {
+          if (message.thinking && message.thinking.trim()) {
             groups.push({
               type: "thinking",
               content: message.thinking,
@@ -734,30 +734,66 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                       border: "none",
                     }}
                   >
-                    <span
-                      className="codicon codicon-lightbulb"
-                      style={{
-                        color: "var(--vscode-descriptionForeground)",
-                        fontSize: "14px",
-                        opacity: 0.8,
-                      }}
-                    />
+                    {/* Animated circle-dot — purple */}
+                    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center", width: "12px", height: "12px" }}>
+                      <span style={{
+                        position: "absolute",
+                        width: "12px",
+                        height: "12px",
+                        borderRadius: "50%",
+                        background: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
+                        opacity: 0.25,
+                      }} />
+                      <span style={{
+                        width: "6px",
+                        height: "6px",
+                        borderRadius: "50%",
+                        background: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
+                        flexShrink: 0,
+                      }} />
+                    </span>
                   </div>
-                  <div
-                    style={{
-                      paddingLeft: "29px",
-                      paddingTop: "4px",
-                      fontSize: "0.9em",
-                      color: "var(--vscode-descriptionForeground)",
-                      opacity: 0.8,
-                      lineHeight: 1.5,
-                      maxHeight: "22.5em",
-                      overflowY: "auto",
-                      whiteSpace: "pre-wrap",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {group.content}
+                  <div style={{ paddingLeft: "29px", paddingTop: "4px" }}>
+                    {/* THINKING label */}
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      marginBottom: "6px",
+                    }}>
+                      <span style={{
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
+                        opacity: 0.85,
+                      }}>
+                        Thinking
+                      </span>
+                    </div>
+                    {/* Plain content block */}
+                    <div
+                      style={{
+                        padding: "6px 10px",
+                        background: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+                        borderRadius: "4px",
+                        border: "1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, var(--vscode-widget-border, rgba(255,255,255,0.08)))",
+                        fontFamily: "var(--vscode-editor-font-family, monospace)",
+                        fontSize: "11px",
+                        lineHeight: "1.5",
+                        color: "var(--vscode-descriptionForeground, var(--vscode-editor-foreground))",
+                        opacity: 0.85,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        maxHeight: "240px",
+                        overflowY: "auto",
+                        scrollbarWidth: "thin",
+                        scrollbarColor: "var(--vscode-scrollbarSlider-background) transparent",
+                      }}
+                    >
+                      {group.content}
+                    </div>
                   </div>
                 </div>
               );

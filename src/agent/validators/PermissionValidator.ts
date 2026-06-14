@@ -18,7 +18,10 @@ export class PermissionValidator {
   public validate(action: AgentAction): ValidationResult {
     // Perform strict security validation before checking user permission settings
     if (action.path) {
-      const securityCheck = SecurityValidator.validatePath(action.path, action.type !== "read");
+      const securityCheck = SecurityValidator.validatePath(
+        action.path,
+        action.type !== "read",
+      );
       if (!securityCheck.safe) {
         return { allowed: false, reason: securityCheck.reason };
       }
@@ -40,6 +43,8 @@ export class PermissionValidator {
         return this.validateAdd(action);
       case "execute":
         return this.validateExecute(action);
+      case "grep":
+        return this.validateSmartSearch(action);
       default:
         return { allowed: false, reason: "Unknown action type" };
     }
@@ -164,6 +169,38 @@ export class PermissionValidator {
 
     const commandLower = command.toLowerCase().trim();
     return safeCommands.some((safe) => commandLower.startsWith(safe));
+  }
+
+  private validateSmartSearch(action: AgentAction): ValidationResult {
+    if (!action.search_term) {
+      return { allowed: false, reason: "Missing search term" };
+    }
+
+    const hasFilePath = !!action.file_path;
+    const hasFolderPath = !!action.folder_path;
+
+    if (!hasFilePath && !hasFolderPath) {
+      return {
+        allowed: false,
+        reason: "Either file_path or folder_path must be provided",
+      };
+    }
+
+    if (hasFilePath && hasFolderPath) {
+      return {
+        allowed: false,
+        reason: "Provide only one of file_path or folder_path, not both",
+      };
+    }
+
+    // Resolve relative paths against workspaceRoot before permission check.
+    // Relative paths like ".", "src", etc. are always relative to the workspace.
+    const rawPath = (action.file_path || action.folder_path)!;
+    const resolvedPath = path.isAbsolute(rawPath)
+      ? rawPath
+      : path.resolve(this.workspaceRoot, rawPath);
+
+    return this.validateRead({ ...action, path: resolvedPath });
   }
 
   public updatePermissions(newPermissions: AgentPermissions): void {

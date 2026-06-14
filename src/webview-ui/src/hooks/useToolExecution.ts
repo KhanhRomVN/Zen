@@ -127,11 +127,61 @@ function applyTokenLimitGuard(
   return `${warning}\n\n---\n\n${content}`;
 }
 
+/**
+ * Format grep result data as compact XML-like text to minimize LLM token usage.
+ * Instead of JSON (with braces, quotes, commas), uses a structured tag format.
+ *
+ * Example output:
+ * <grep_results search="foo" total_matches="12" files="3">
+ * <file path="src/a.ts" matches="2">
+ *   3: const foo = 1
+ *  17: foo.init()
+ * </file>
+ * </grep_results>
+ */
+function formatGrepResultCompact(data: {
+  searchTerm: string;
+  results: Record<string, { lineNumber: number; lineContent: string }[]>;
+  totalFilesSearched: number;
+  totalMatches: number;
+}): string {
+  const { searchTerm, results, totalFilesSearched, totalMatches } = data;
+  const filePaths = Object.keys(results);
+  const fileCount = filePaths.length;
+
+  if (totalMatches === 0) {
+    return `<grep_results search="${searchTerm}" total_matches="0" files_searched="${totalFilesSearched}" />\n`;
+  }
+
+  const lines: string[] = [];
+  lines.push(`<grep_results search="${searchTerm}" total_matches="${totalMatches}" files="${fileCount}" files_searched="${totalFilesSearched}">`);
+
+  for (const filePath of filePaths) {
+    const matches = results[filePath];
+    // Shorten path: keep last 3 segments to save tokens
+    const parts = filePath.split("/");
+    const shortPath = parts.length > 3 ? ".../" + parts.slice(-3).join("/") : filePath;
+    lines.push(`<file path="${shortPath}" matches="${matches.length}">`);
+    for (const match of matches) {
+      // Right-align line number in 5 chars, then content (trimmed to 120 chars)
+      const lineNum = String(match.lineNumber).padStart(5);
+      const content = match.lineContent.length > 120
+        ? match.lineContent.slice(0, 117) + "..."
+        : match.lineContent;
+      lines.push(`${lineNum}: ${content}`);
+    }
+    lines.push(`</file>`);
+  }
+
+  lines.push(`</grep_results>`);
+  return lines.join("\n");
+}
+
 export const getPermissionDecision = (
   mode: PermissionMode,
   toolType: string,
 ): "allow" | "prompt" | "deny" => {
-  const readTools = ["read_file", "list_files", "search_files"];
+  const readTools = ["read_file", "list_files", "search_files", "grep"];
   switch (mode) {
     case "fullAccess":
       return "allow";
@@ -638,7 +688,57 @@ export const useToolExecution = ({
           );
           break;
         }
+
+        case "grep": {
+          const requestId = `grep-${Date.now()}-${Math.random()}`;
+          const searchTerm = action.params.search_term;
+          const filePath = action.params.file_path;
+          const folderPath = action.params.folder_path;
+          const targetDesc = filePath || folderPath || "unknown";
+
+          console.log(`[Zen][grep] Executing grep | search_term="${searchTerm}" | target="${targetDesc}" | requestId=${requestId}`);
+
+          extensionService.postMessage({
+            command: "executeAgentAction",
+            action: {
+              type: "grep",
+              search_term: searchTerm,
+              file_path: filePath,
+              folder_path: folderPath,
+              requestId,
+              timestamp: Date.now(),
+            },
+          });
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              console.log(`[Zen][grep] Result received | requestId=${requestId} | success=${msg.result?.success}`);
+              if (msg.result?.success) {
+                const data = msg.result.data;
+                // Format as compact XML-like text to minimize token usage
+                const resultText = formatGrepResultCompact(data);
+                resolve(
+                  `[grep for '${searchTerm}' in '${targetDesc}'] Result:\n${resultText}`,
+                );
+              } else {
+                const errMsg = msg.result?.error || "Unknown error";
+                console.warn(`[Zen][grep] Error | requestId=${requestId} | error="${errMsg}"`);
+                resolve(
+                  `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`,
+                );
+              }
+            },
+            30000,
+            () => {
+              console.warn(`[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`);
+              resolve(null);
+            },
+          );
+          break;
+        }
+
         default:
+          console.warn(`[Zen][tool] Unhandled tool type: "${action.type}" — resolving null`);
           resolve(null);
       }
     });

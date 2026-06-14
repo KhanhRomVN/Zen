@@ -44,19 +44,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
       <div
         style={{
           padding: "16px var(--spacing-md, 16px) 14px",
+          borderTop: "1px solid var(--border-color)",
           borderBottom: "1px solid var(--border-color)",
-          display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: "12px", backgroundColor: "var(--tertiary-bg)", flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-          {/* Neon square badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {/* Icon badge - VSCode theme neutral */}
           <div style={{
             width: "36px", height: "36px", borderRadius: "8px", flexShrink: 0,
-            background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
-            border: "1px solid rgba(139,92,246,0.4)",
+            background: "rgba(128,128,128,0.1)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--vscode-textLink-foreground, #a78bfa)",
+            color: "var(--vscode-foreground)",
           }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -64,10 +64,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             </svg>
           </div>
           <div>
-            <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--primary-text)", letterSpacing: "0.01em", display: "block", marginBottom: "3px" }}>
+            <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--primary-text)", letterSpacing: "0.01em", display: "block", marginBottom: "3px" }}>
               {t("settings.title")}
             </span>
-            <p style={{ margin: 0, fontSize: "11px", color: "var(--secondary-text)", opacity: 0.7, lineHeight: 1.4 }}>
+            <p style={{ margin: 0, fontSize: "12px", color: "var(--secondary-text)", opacity: 0.7, lineHeight: 1.4 }}>
               {t("settings.desc")}
             </p>
           </div>
@@ -78,10 +78,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
           onMouseLeave={() => setCloseHover(false)}
           style={{
             padding: "5px", borderRadius: "6px", flexShrink: 0,
+            alignSelf: "center",
             backgroundColor: closeHover ? "rgba(239,68,68,0.12)" : "rgba(128,128,128,0.12)",
-            border: closeHover ? "1px solid rgba(239,68,68,0.4)" : "1px solid transparent",
+            border: "none",
             color: closeHover ? "var(--vscode-errorForeground, #f87171)" : "var(--secondary-text)",
             cursor: "pointer", transition: "all 0.15s ease",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}
           title="Close Settings"
         >

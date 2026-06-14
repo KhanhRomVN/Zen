@@ -55,6 +55,10 @@ export async function activate(extContext: vscode.ExtensionContext) {
     provider.postMessageToWebview({ command: "showHistory" });
   });
 
+  const accountsCommand = vscode.commands.registerCommand("zen.openAccounts", () => {
+    provider.postMessageToWebview({ command: "showAccounts" });
+  });
+
   const newChatCommand = vscode.commands.registerCommand("zen.newChat", () => {
     provider.postMessageToWebview({ command: "newChat" });
   });
@@ -111,6 +115,7 @@ export async function activate(extContext: vscode.ExtensionContext) {
     openChatCommand,
     settingsCommand,
     historyCommand,
+    accountsCommand,
     newChatCommand,
     refreshProjectStructureCommand,
     clearOldStorageCommand,
