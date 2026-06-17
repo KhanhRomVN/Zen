@@ -1186,6 +1186,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
               backgroundColor: "transparent",
               color: "var(--primary-text)",
               overflow: "auto",
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
               opacity:
                 isHistoryMode || !isConnected || isLoadingCache || isProcessing
                   ? 0.6
