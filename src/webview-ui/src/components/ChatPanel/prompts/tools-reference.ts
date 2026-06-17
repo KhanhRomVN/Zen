@@ -51,33 +51,6 @@ Examples:
 <code language="ts">read-only display</code>
 <question><option>A</option><option>B</option></question>
 
-## Plan Tag (optional, for long multi-step tasks only)
-
-Use <plan> ONLY when the task is clearly long (5+ major phases or touches many files across multiple systems). It is a high-level progress tracker shown to the user — steps must be broad and conceptual, NOT granular sub-operations.
-
-**Rules:**
-- Use at most 3–6 steps total. Each step = one high-level phase (e.g. "Read source files", "Refactor auth module", "Run tests").
-- Do NOT create a step for each individual file read or small edit.
-- Re-emit the full <plan> block each time you update step statuses (done/in_progress/pending).
-- status values: "done" | "in_progress" | "pending"
-- Omit entirely for short or single-turn tasks.
-
-**Example (emit at start of a long task):**
-<plan>
-  <step id="1" status="in_progress">Explore project structure</step>
-  <step id="2" status="pending">Refactor authentication module</step>
-  <step id="3" status="pending">Update API routes</step>
-  <step id="4" status="pending">Run and verify tests</step>
-</plan>
-
-**Example (update mid-task, in a tool turn — NO markdown in same message):**
-<plan>
-  <step id="1" status="done">Explore project structure</step>
-  <step id="2" status="done">Refactor authentication module</step>
-  <step id="3" status="in_progress">Update API routes</step>
-  <step id="4" status="pending">Run and verify tests</step>
-</plan>
-
 Never output a <markdown> block in the same message with tool calls. Wait for tool results in the next turn before writing any markdown.
 After each read_file, STOP and wait for the file content before proceeding.
 

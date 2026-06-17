@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 
 import ProjectStructureDrawer from "./components/ProjectStructureDrawer";
 import ProjectContextModal from "./ProjectContextModal";
+import { useBackendConnection } from "../../../context/BackendConnectionContext";
 
 import { ChatFooterProps } from "./types";
 
@@ -114,6 +115,12 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
   const [showChangesDropdown, setShowChangesDropdown] = useState(false);
   const [showProjectContextModal, setShowProjectContextModal] = useState(false);
   const [projectContext, setProjectContext] = useState<any>(null); // Use proper type if available
+  const { apiUrl } = useBackendConnection();
+
+  // Browser session state
+  const [isBrowserSessionReady, setIsBrowserSessionReady] = useState(false);
+  const [showBrowserWarning, setShowBrowserWarning] = useState(false);
+  const [isLaunchingBrowser, setIsLaunchingBrowser] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mentionDropdownRef = useRef<HTMLDivElement>(null);
@@ -258,6 +265,99 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
     }
   };
 
+  // Browser session functions
+  const checkBrowserSession = useCallback(async () => {
+    if (!currentModel || currentModel.providerId !== "zai-browser") {
+      setIsBrowserSessionReady(true);
+      setShowBrowserWarning(false);
+      return;
+    }
+
+    if (!currentAccount?.id) {
+      setIsBrowserSessionReady(false);
+      setShowBrowserWarning(true);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${apiUrl}/v1/accounts/${currentAccount.id}/browser/status`,
+      );
+      const result = await response.json();
+      if (result.success && result.data) {
+        if (result.data.has_profile && result.data.is_running) {
+          setIsBrowserSessionReady(true);
+          setShowBrowserWarning(false);
+        } else {
+          setIsBrowserSessionReady(false);
+          setShowBrowserWarning(true);
+        }
+      } else {
+        setIsBrowserSessionReady(false);
+        setShowBrowserWarning(true);
+      }
+    } catch (error) {
+      console.error("Failed to check browser session:", error);
+      setIsBrowserSessionReady(false);
+      setShowBrowserWarning(true);
+    }
+  }, [currentModel, currentAccount, apiUrl]);
+
+  const launchBrowserSession = async () => {
+    if (!currentModel || !currentAccount) return;
+    setIsLaunchingBrowser(true);
+    try {
+      const response = await fetch(
+        `${apiUrl}/v1/accounts/${currentAccount.id}/browser/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      const result = await response.json();
+      if (result.success) {
+        setIsBrowserSessionReady(true);
+        setShowBrowserWarning(false);
+      } else {
+        console.error("Failed to launch browser:", result.message);
+      }
+    } catch (error) {
+      console.error("Failed to launch browser:", error);
+    } finally {
+      setIsLaunchingBrowser(false);
+    }
+  };
+
+  useEffect(() => {
+    checkBrowserSession();
+  }, [checkBrowserSession]);
+
+  useEffect(() => {
+    if (
+      !currentModel ||
+      currentModel.providerId !== "zai-browser" ||
+      !currentAccount?.id
+    )
+      return;
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(
+          `${apiUrl}/v1/accounts/${currentAccount.id}/browser/status`,
+        );
+        const result = await response.json();
+        if (result.success && result.data) {
+          const isRunning = result.data.is_running === true;
+          setIsBrowserSessionReady(isRunning);
+          setShowBrowserWarning(!isRunning);
+        }
+      } catch (error) {
+        console.error("Polling browser status failed:", error);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [currentModel, currentAccount?.id, apiUrl]);
+
   // Handle Git Commit Generation removed
 
   // Handle Textarea Change
@@ -380,6 +480,18 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
     setMentionType,
   ]);
 
+  // Get browser warning state from parent or manage locally
+  // For now, we'll assume it's passed via props or context
+  // Temporary: check currentModel to determine if warning should show
+  const showWarning =
+    showBrowserWarning && currentModel?.providerId === "zai-browser";
+
+  // Dynamic bottom padding based on browser warning
+  const footerPaddingBottom =
+    showBrowserWarning && currentModel?.providerId === "zai-browser"
+      ? "20px"
+      : "8px";
+
   return (
     <div
       id="chat-footer-container"
@@ -393,6 +505,8 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
         width: "100%",
         backgroundColor: "var(--secondary-bg)",
         zIndex: 100,
+        transition: "bottom 0.2s ease",
+        paddingBottom: footerPaddingBottom,
       }}
     >
       {/* Hidden Inputs */}
@@ -490,31 +604,17 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           uploadedFiles={uploadedFiles}
           textareaRef={textareaRef}
           handleTextareaChange={handleTextareaChange}
-          handleKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) =>
-            handleKeyDown(e)
-          }
+          handleKeyDown={handleKeyDown}
           handlePaste={handlePaste}
           handleDragOver={handleDragOver}
           handleDrop={handleDrop}
           setShowAtMenu={setShowAtMenu}
           handleFileSelect={handleFileSelect}
-          onOpenProjectStructure={() => {
-            setShowProjectStructureDrawer(true);
-            const vscodeApi = (window as any).vscodeApi;
-            if (vscodeApi) {
-              if (
-                availableFiles.length === 0 ||
-                availableFolders.length === 0
-              ) {
-                vscodeApi.postMessage({ command: "getWorkspaceFiles" });
-                vscodeApi.postMessage({ command: "getWorkspaceFolders" });
-              }
-            }
-          }}
+          onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
           showChangesDropdown={showChangesDropdown}
           setShowChangesDropdown={setShowChangesDropdown}
           messages={messages}
-          handleSend={(model: any, account: any) => handleSend(model, account)}
+          handleSend={handleSend}
           hasProjectContext={!!projectContext}
           onOpenProjectContext={() => setShowProjectContextModal(true)}
           folderPath={folderPath}
@@ -524,10 +624,12 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           currentAccount={currentAccount}
           setCurrentAccount={setCurrentAccount}
           isProcessing={isProcessing}
-          isStreaming={!!isStreaming}
+          isStreaming={isStreaming}
           onStopGeneration={onStopGeneration}
+          showBrowserWarning={showBrowserWarning}
+          isLaunchingBrowser={isLaunchingBrowser}
+          onLaunchBrowserSession={launchBrowserSession}
         />
-
         <MentionDropdowns
           showAtMenu={showAtMenu}
           showMentionDropdown={showMentionDropdown}

@@ -78,6 +78,9 @@ export class ChatController {
         case "openWorkspaceFile":
           await this.systemHandler.handleOpenFile(message);
           break;
+        case "openFileAtLine":
+          await this.systemHandler.handleOpenFileAtLine(message);
+          break;
         case "openFolder":
           await this.systemHandler.handleOpenFolder(message);
           break;

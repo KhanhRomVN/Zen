@@ -495,6 +495,9 @@ interface MessageInputProps {
   // 🆕 Stop Generation Props
   isStreaming?: boolean;
   onStopGeneration?: () => void;
+  showBrowserWarning?: boolean;
+  isLaunchingBrowser?: boolean;
+  onLaunchBrowserSession?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -526,6 +529,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isProcessing,
   isStreaming,
   onStopGeneration,
+  showBrowserWarning = false,
+  isLaunchingBrowser = false,
+  onLaunchBrowserSession,
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
@@ -590,25 +596,31 @@ const MessageInput: React.FC<MessageInputProps> = ({
       console.warn("No account selected, cannot toggle memory");
       return;
     }
-    
+
     const newState = !isMemory;
     // Optimistic update
     setIsMemory(newState);
     localStorage.setItem("zen-memory-enabled", String(newState));
-    
+
     // Sync to server
     try {
-      const response = await fetch(`${apiUrl}/v1/accounts/${currentAccount.id}/memory`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_memory_enabled: newState })
-      });
+      const response = await fetch(
+        `${apiUrl}/v1/accounts/${currentAccount.id}/memory`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_memory_enabled: newState }),
+        },
+      );
       const result = await response.json();
       if (!result.success) {
         // Rollback on error
         setIsMemory(!newState);
         localStorage.setItem("zen-memory-enabled", String(!newState));
-        console.error("Failed to update memory state on server:", result.message);
+        console.error(
+          "Failed to update memory state on server:",
+          result.message,
+        );
       }
     } catch (error) {
       // Rollback on network error
@@ -625,35 +637,31 @@ const MessageInput: React.FC<MessageInputProps> = ({
   // 🆕 Tool Settings Drawer Logic removed - now per-tool dropdown in ToolItem
   const currentProviderConfig = React.useMemo(() => {
     if (!currentModel?.providerId) {
-      console.log("[DEBUG currentProviderConfig] currentModel.providerId is missing, returning null");
       return null;
     }
     const found = providers.find(
       (p) =>
         p.provider_id?.toLowerCase() === currentModel.providerId?.toLowerCase(),
     );
-    console.log("[DEBUG currentProviderConfig] lookup providerId:", currentModel.providerId, "| found:", found ? { provider_id: found.provider_id, is_search: found.is_search } : null, "| providers count:", providers.length);
     return found ?? null;
   }, [currentModel, providers]);
 
   const currentModelConfig = React.useMemo(() => {
     if (!currentProviderConfig || !currentModel?.id) {
-      console.log("[DEBUG currentModelConfig] missing currentProviderConfig or currentModel.id, returning null");
       return null;
     }
     const found = currentProviderConfig.models?.find(
       (m: any) => m.id?.toLowerCase() === currentModel.id?.toLowerCase(),
     );
-    console.log("[DEBUG currentModelConfig] lookup modelId:", currentModel.id, "| found:", found ? { id: found.id, is_thinking: found.is_thinking, is_search: found.is_search } : null);
     return found ?? null;
   }, [currentProviderConfig, currentModel]);
 
   const showThinkingButton = React.useMemo(() => {
     // Prefer fields on currentModel directly (already enriched), fallback to config lookup
-    const result = currentModel?.is_thinking !== undefined
-      ? !!currentModel.is_thinking
-      : !!currentModelConfig?.is_thinking;
-    console.log("[MessageInput] showThinkingButton:", result, "| currentModel.is_thinking:", currentModel?.is_thinking, "| modelConfig.is_thinking:", currentModelConfig?.is_thinking);
+    const result =
+      currentModel?.is_thinking !== undefined
+        ? !!currentModel.is_thinking
+        : !!currentModelConfig?.is_thinking;
     return result;
   }, [currentModel, currentModelConfig]);
 
@@ -672,37 +680,26 @@ const MessageInput: React.FC<MessageInputProps> = ({
       // Neither model nor modelConfig has the flag — fall back to provider-level
       result = !!currentProviderConfig?.is_search;
     }
-    console.log("[MessageInput] showSearchButton:", result, "| currentModel.is_search:", currentModel?.is_search, "| modelConfig.is_search:", currentModelConfig?.is_search, "| provider.is_search:", currentProviderConfig?.is_search);
     return result;
   }, [currentModel, currentModelConfig, currentProviderConfig]);
 
   const showMemoryButton = React.useMemo(() => {
     // Check if model supports memory (is_memory flag)
     const result = currentModel?.is_memory === true;
-    console.log("[MessageInput] showMemoryButton:", result);
-    console.log("[MessageInput] currentModel full:", currentModel);
-    console.log("[MessageInput] currentModel.is_memory value:", currentModel?.is_memory);
     return result;
   }, [currentModel]);
 
   // Sync thinking and search toggles when model changes
   React.useEffect(() => {
     if (providers.length === 0 || !currentModel) return;
-    console.log("[MessageInput] currentModel changed:", {
-      id: currentModel?.id,
-      providerId: currentModel?.providerId,
-      is_thinking: currentModel?.is_thinking,
-      is_search: currentModel?.is_search,
-      is_upload: currentModel?.is_upload,
-    });
-    console.log("[MessageInput] currentModelConfig:", currentModelConfig);
-
-    const hasThinking = currentModel?.is_thinking !== undefined
-      ? !!currentModel.is_thinking
-      : !!currentModelConfig?.is_thinking;
-    const hasSearch = currentModel?.is_search !== undefined
-      ? (!!currentModel.is_search || !!currentProviderConfig?.is_search)
-      : (!!currentModelConfig?.is_search || !!currentProviderConfig?.is_search);
+    const hasThinking =
+      currentModel?.is_thinking !== undefined
+        ? !!currentModel.is_thinking
+        : !!currentModelConfig?.is_thinking;
+    const hasSearch =
+      currentModel?.is_search !== undefined
+        ? !!currentModel.is_search || !!currentProviderConfig?.is_search
+        : !!currentModelConfig?.is_search || !!currentProviderConfig?.is_search;
 
     if (!hasThinking && isThinking) {
       setIsThinking(false);
@@ -735,7 +732,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
     } else {
       result = !!currentProviderConfig?.is_upload;
     }
-    console.log("[MessageInput] supportsUpload:", result, "| currentModel.is_upload:", currentModel?.is_upload, "| modelConfig.is_upload:", currentModelConfig?.is_upload, "| provider.is_upload:", currentProviderConfig?.is_upload);
     return result;
   }, [currentModel, currentProviderConfig, currentModelConfig]);
 
@@ -905,7 +901,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
           flexDirection: "column",
           position: "relative",
           borderRadius: "var(--border-radius)",
-          border: !isConnected ? "1px solid var(--vscode-errorForeground, #f44336)" : "1px solid transparent",
+          border: !isConnected
+            ? "1px solid var(--vscode-errorForeground, #f44336)"
+            : "1px solid transparent",
           transition: "border 0.3s ease",
           marginTop:
             !isConversationStarted || (isConnected && isElaraMismatch)
@@ -1019,18 +1017,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 } catch {}
               }
 
-              // DEBUG: Log the raw modelObj from providers to check capability fields
-              console.log("[DEBUG onSelect] selected:", selected);
-              console.log("[DEBUG onSelect] prov found:", prov ? { provider_id: prov.provider_id, is_search: prov.is_search, is_memory: prov.is_memory } : null);
-              console.log("[DEBUG onSelect] modelObj found:", modelObj ? {
-                id: modelObj.id,
-                name: modelObj.name,
-                is_thinking: modelObj.is_thinking,
-                is_search: modelObj.is_search,
-                is_upload: modelObj.is_upload,
-                is_memory: modelObj.is_memory,
-              } : null);
-
               const newModel = {
                 ...selected,
                 id: selected.modelId,
@@ -1041,28 +1027,26 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 is_upload: modelObj?.is_upload ?? false,
                 is_memory: modelObj?.is_memory ?? prov?.is_memory ?? false,
               };
-              console.log("[DEBUG onSelect] newModel being set:", {
-                id: newModel.id,
-                providerId: newModel.providerId,
-                is_thinking: newModel.is_thinking,
-                is_search: newModel.is_search,
-                is_upload: newModel.is_upload,
-              });
               setCurrentModel(newModel);
               setCurrentAccount({
                 id: selected.accountId,
                 email: selected.email,
               });
-              
+
               // Fetch memory state from server
               const fetchMemoryState = async () => {
                 try {
-                  const response = await fetch(`${apiUrl}/v1/accounts/${selected.accountId}/memory`);
+                  const response = await fetch(
+                    `${apiUrl}/v1/accounts/${selected.accountId}/memory`,
+                  );
                   const result = await response.json();
                   if (result.success && result.data) {
                     setIsMemory(result.data.is_memory_enabled);
                     // Sync to localStorage
-                    localStorage.setItem("zen-memory-enabled", String(result.data.is_memory_enabled));
+                    localStorage.setItem(
+                      "zen-memory-enabled",
+                      String(result.data.is_memory_enabled),
+                    );
                   }
                 } catch (error) {
                   console.error("Failed to fetch memory state:", error);
@@ -1072,6 +1056,48 @@ const MessageInput: React.FC<MessageInputProps> = ({
               setShowModelDrawer(false);
             }}
           />
+        )}
+        {/* Browser session warning - bottom right inside MessageInput */}
+        {showBrowserWarning && currentModel?.providerId === "zai-browser" && (
+          <div
+            onClick={isLaunchingBrowser ? undefined : onLaunchBrowserSession}
+            style={{
+              position: "absolute",
+              top: "100%",
+              right: "8px",
+              backgroundColor: "rgba(251, 146, 60, 0.15)",
+              padding: "4px 10px",
+              fontSize: "11px",
+              fontWeight: 500,
+              borderBottomLeftRadius: "8px",
+              borderBottomRightRadius: "8px",
+              border: "1px solid rgba(251, 146, 60, 0.3)",
+              borderTop: "none",
+              zIndex: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              cursor: isLaunchingBrowser ? "not-allowed" : "pointer",
+              marginTop: "-1px",
+              opacity: isLaunchingBrowser ? 0.6 : 1,
+            }}
+            onMouseEnter={(e) => {
+              if (!isLaunchingBrowser) {
+                e.currentTarget.style.backgroundColor =
+                  "rgba(251, 146, 60, 0.25)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor =
+                "rgba(251, 146, 60, 0.15)";
+            }}
+          >
+            <span style={{ fontSize: "11px", fontWeight: 500 }}>
+              {isLaunchingBrowser
+                ? "Launching browser session..."
+                : "Browser session not ready. Click here"}
+            </span>
+          </div>
         )}
         <div
           style={{

@@ -63,7 +63,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   }
 
   return (
-    <div style={{ display: "flex", gap: "6px", marginTop: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: "6px", marginTop: "8px", marginBottom: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
       {[
         { type: "accept_once" as const, color: toolColor, icon: <Check size={14} strokeWidth={2.5} />, label: t("toolActions.accept"), title: "Accept Once" },
         { type: "reject" as const, color: "var(--vscode-errorForeground, #ff4d4d)", icon: <X size={14} strokeWidth={2.5} />, label: t("toolActions.reject"), title: "Reject this tool call" },
@@ -73,14 +73,15 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
           onClick={(e) => { e.stopPropagation(); if (isClickable) onExecute(e, type); }}
           disabled={isLoading}
           style={{
-            background: `${color}1A`, color, border: `1px solid ${color}33`,
+            background: `color-mix(in srgb, ${color} 15%, transparent)`,
+            color, border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
             cursor: isLoading ? "wait" : "pointer", padding: "4px 10px",
             borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: "11px", fontWeight: 600, height: "24px", transition: "all 0.2s ease",
             gap: "6px",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = `${color}26`; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = `${color}1A`; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = `color-mix(in srgb, ${color} 25%, transparent)`; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = `color-mix(in srgb, ${color} 15%, transparent)`; }}
           title={btnTitle}
         >
           {icon}

@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as vscode from "vscode";
 import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
 
 export class FileEditCapability {
@@ -13,12 +14,39 @@ export class FileEditCapability {
         throw new Error("Missing content");
       }
 
-      await fs.promises.writeFile(action.path, action.content, "utf-8");
+      const workspaceRoot =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+      const candidates = path.isAbsolute(action.path)
+        ? [action.path, path.join(workspaceRoot, action.path)]
+        : [path.join(workspaceRoot, action.path), action.path];
+
+      let targetPath: string | undefined;
+      let lastError: unknown;
+      for (const candidate of candidates) {
+        try {
+          // Check if file exists for edit
+          await fs.promises.access(candidate, fs.constants.F_OK);
+          targetPath = candidate;
+          break;
+        } catch (e) {
+          lastError = e;
+        }
+      }
+
+      if (!targetPath) {
+        // If no existing file found, use the first candidate (prefer workspace-relative)
+        targetPath = candidates[0] || action.path;
+        // Ensure directory exists
+        const dir = path.dirname(targetPath);
+        await fs.promises.mkdir(dir, { recursive: true });
+      }
+
+      await fs.promises.writeFile(targetPath, action.content, "utf-8");
 
       return {
         success: true,
         data: {
-          path: action.path,
+          path: targetPath,
           size: Buffer.byteLength(action.content, "utf-8"),
         },
         timestamp: Date.now(),

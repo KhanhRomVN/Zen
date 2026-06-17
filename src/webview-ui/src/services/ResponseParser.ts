@@ -40,7 +40,14 @@ export type ContentBlock =
     }
   | { type: "tool"; action: ToolAction; actionIndex?: number }
   | { type: "thinking"; content: string }
-  | { type: "plan"; steps: { id: string; status: "done" | "pending" | "in_progress"; text: string }[] };
+  | {
+      type: "plan";
+      steps: {
+        id: string;
+        status: "done" | "pending" | "in_progress";
+        text: string;
+      }[];
+    };
 
 /**
  * Decode common HTML entities back to their original characters
@@ -133,24 +140,46 @@ const parseToolAction = (
   // Extract specific parameters based on tool type
   switch (toolName) {
     case "read_file":
-      params.file_path = extractParam(innerContent, "file_path", "filePath", "filepath", "path");
+      params.file_path = extractParam(
+        innerContent,
+        "file_path",
+        "filePath",
+        "filepath",
+        "path",
+      );
       params.start_line = extractParam(innerContent, "start_line", "startLine");
       params.end_line = extractParam(innerContent, "end_line", "endLine");
       break;
 
     case "write_to_file":
-      params.file_path = extractParam(innerContent, "file_path", "filePath", "filepath", "path");
+      params.file_path = extractParam(
+        innerContent,
+        "file_path",
+        "filePath",
+        "filepath",
+        "path",
+      );
       params.content = extractParamValue(innerContent, "content");
       break;
 
     case "replace_in_file":
-      params.file_path = extractParam(innerContent, "file_path", "filePath", "filepath", "path");
+      params.file_path = extractParam(
+        innerContent,
+        "file_path",
+        "filePath",
+        "filepath",
+        "path",
+      );
       params.diff = extractParamValue(innerContent, "diff");
       break;
 
     case "run_command":
       params.command = extractParamValue(innerContent, "command");
-      params.terminal_id = extractParam(innerContent, "terminal_id", "terminalId");
+      params.terminal_id = extractParam(
+        innerContent,
+        "terminal_id",
+        "terminalId",
+      );
       params.cwd = extractParamValue(innerContent, "cwd");
       break;
 
@@ -159,16 +188,30 @@ const parseToolAction = (
       break;
 
     case "list_files":
-      params.folder_path = extractParam(innerContent, "folder_path", "folderPath", "path");
+      params.folder_path = extractParam(
+        innerContent,
+        "folder_path",
+        "folderPath",
+        "path",
+      );
       params.depth = extractParamValue(innerContent, "depth");
       params.recursive = extractParamValue(innerContent, "recursive");
       params.type = extractParamValue(innerContent, "type");
       break;
 
     case "search_files":
-      params.folder_path = extractParam(innerContent, "folder_path", "folderPath", "path");
+      params.folder_path = extractParam(
+        innerContent,
+        "folder_path",
+        "folderPath",
+        "path",
+      );
       params.regex = extractParamValue(innerContent, "regex");
-      params.file_pattern = extractParam(innerContent, "file_pattern", "filePattern");
+      params.file_pattern = extractParam(
+        innerContent,
+        "file_pattern",
+        "filePattern",
+      );
       break;
 
     case "search_content":
@@ -179,17 +222,41 @@ const parseToolAction = (
       break;
 
     case "delete_file":
-      params.file_path = extractParam(innerContent, "file_path", "filePath", "filepath", "path");
+      params.file_path = extractParam(
+        innerContent,
+        "file_path",
+        "filePath",
+        "filepath",
+        "path",
+      );
       break;
 
     case "delete_folder":
-      params.folder_path = extractParam(innerContent, "folder_path", "folderPath", "path");
+      params.folder_path = extractParam(
+        innerContent,
+        "folder_path",
+        "folderPath",
+        "path",
+      );
       break;
 
     case "grep":
-      params.search_term = extractParam(innerContent, "search_term", "searchTerm");
-      params.file_path = extractParam(innerContent, "file_path", "filePath", "filepath");
-      params.folder_path = extractParam(innerContent, "folder_path", "folderPath");
+      params.search_term = extractParam(
+        innerContent,
+        "search_term",
+        "searchTerm",
+      );
+      params.file_path = extractParam(
+        innerContent,
+        "file_path",
+        "filePath",
+        "filepath",
+      );
+      params.folder_path = extractParam(
+        innerContent,
+        "folder_path",
+        "folderPath",
+      );
       break;
   }
 
@@ -246,7 +313,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   let unclosedThinkingContent: string | null = null;
   if (unclosedThinkingMatch) {
     unclosedThinkingContent = unclosedThinkingMatch[1];
-    remainingContent = remainingContent.substring(0, unclosedThinkingMatch.index);
+    remainingContent = remainingContent.substring(
+      0,
+      unclosedThinkingMatch.index,
+    );
   }
 
   // Scan for tools and text blocks
@@ -417,14 +487,21 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           }
         } else if (toolName === "plan") {
           // Parse <step id="N" status="done|pending|in_progress">text</step>
-          const steps: { id: string; status: "done" | "pending" | "in_progress"; text: string }[] = [];
-          const stepRegex = /<step\s+id="([^"]+)"\s+status="([^"]+)">([\s\S]*?)<\/step>/gi;
+          const steps: {
+            id: string;
+            status: "done" | "pending" | "in_progress";
+            text: string;
+          }[] = [];
+          const stepRegex =
+            /<step\s+id="([^"]+)"\s+status="([^"]+)">([\s\S]*?)<\/step>/gi;
           let stepMatch;
           while ((stepMatch = stepRegex.exec(innerContent || "")) !== null) {
             const status = stepMatch[2] as "done" | "pending" | "in_progress";
             steps.push({
               id: stepMatch[1],
-              status: ["done", "pending", "in_progress"].includes(status) ? status : "pending",
+              status: ["done", "pending", "in_progress"].includes(status)
+                ? status
+                : "pending",
               text: stepMatch[3].trim(),
             });
           }
@@ -507,8 +584,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             const filePathMatch = (innerContent || "").match(filePathRegex);
             if (filePathMatch && filePathMatch[1].trim() !== "") {
               // Recovery condition met: build a fully-closed XML and parse normally
-              const recoveredRawXml = rawXml + (innerContent || "") + "</read_file>";
-              const action = parseToolAction("read_file", innerContent || "", recoveredRawXml);
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</read_file>";
+              const action = parseToolAction(
+                "read_file",
+                innerContent || "",
+                recoveredRawXml,
+              );
               // action.isPartial is intentionally NOT set
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
@@ -591,7 +673,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             } else {
               const thinkingIdx = parseInt(parts[i], 10);
               // Push as a standalone thinking block outside this mixed_content
-              expandedBlocks.push({ type: "mixed_content", segments: expandedSegments.splice(0) } as any);
+              expandedBlocks.push({
+                type: "mixed_content",
+                segments: expandedSegments.splice(0),
+              } as any);
               expandedBlocks.push({
                 type: "thinking",
                 content: thinkingBlocks[thinkingIdx] ?? "",
@@ -599,7 +684,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
           }
           if (expandedSegments.length > 0) {
-            expandedBlocks.push({ type: "mixed_content", segments: expandedSegments.splice(0) } as any);
+            expandedBlocks.push({
+              type: "mixed_content",
+              segments: expandedSegments.splice(0),
+            } as any);
           }
         } else {
           expandedSegments.push(seg);

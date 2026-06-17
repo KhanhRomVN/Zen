@@ -17,7 +17,7 @@ import { RichtextBlock } from "../../../RichtextBlock";
 import MarkdownWithPaths from "../../../MarkdownWithPaths";
 import "../../../TerminalBlock.css";
 import "./MarkdownContent.css";
-import PlanBlock from "./PlanBlock";
+
 import { buildRetryPrompt } from "../../prompts";
 import { useI18n } from "../../../../hooks/useI18n";
 import type { I18nKey } from "../../../../i18n";
@@ -474,11 +474,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 content: string;
                 key: string;
               }
-            | {
-                type: "plan";
-                steps: { id: string; status: "done" | "pending" | "in_progress"; text: string }[];
-                key: string;
-              }
           > = [];
 
           // --- 🆕 METADATA DOT CHECK ---
@@ -590,13 +585,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   type: "mixed_content",
                   segments: block.segments,
                   key: `mixed_content-${idx}`,
-                });
-              } else if (block.type === "plan") {
-                flushTools();
-                groups.push({
-                  type: "plan",
-                  steps: block.steps,
-                  key: `plan-${idx}`,
                 });
               } else {
                 // Flush tools before adding non-tool block
@@ -797,8 +785,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                   </div>
                 </div>
               );
-            } else if (group.type === "plan") {
-              content = <PlanBlock steps={group.steps} />;
+            
             } else if (group.type === "code") {
               const isDiffBlock = isDiff(group.content, group.language);
               let displayCode = group.content;
@@ -991,6 +978,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               const rawMessage = codeMatch ? codeMatch[2] : errorText;
               const translatedMessage = translateError(rawMessage);
               const dotColor = "var(--vscode-testing-iconFailedColor, #f14c4c)";
+              const errorColor = "var(--vscode-errorForeground, #f44336)";
               content = (
                 <div>
                   <div
@@ -1003,56 +991,84 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     }}
                   />
                   <div style={{ paddingLeft: "29px", paddingTop: "4px", maxWidth: "100%", boxSizing: "border-box" }}>
-                    <ToolHeader
-                      title={
-                        <span style={{ color: dotColor, fontWeight: 700, fontSize: "12px", letterSpacing: "0.5px" }}>
+                    {/* Red box container */}
+                    <div
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${errorColor} 6%, transparent)`,
+                        border: `1px solid color-mix(in srgb, ${errorColor} 25%, transparent)`,
+                        borderRadius: "6px",
+                        padding: "10px 14px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span
+                          className="codicon codicon-error"
+                          style={{
+                            fontSize: "14px",
+                            color: errorColor,
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span style={{ color: errorColor, fontWeight: 700, fontSize: "12px", letterSpacing: "0.3px" }}>
                           ERROR{errorCode ? `: ${errorCode}` : ""}
                         </span>
-                      }
-                      subTitle={translatedMessage}
-                      subTitleClassName="error-sub-info"
-                      statusColor={dotColor}
-                    />
-                    {onSendMessage && (
-                      <button
-                        onClick={handleRetry}
+                      </div>
+                      <div
                         style={{
-                          backgroundColor: "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 12%, transparent)",
-                          color: "var(--vscode-testing-iconFailedColor, #f14c4c)",
-                          border: "1px solid color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 30%, transparent)",
-                          padding: "6px 12px",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "6px",
-                          marginTop: "8px",
-                          height: "26px",
-                          boxSizing: "border-box",
-                          transition: "all 0.2s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor =
-                            "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 22%, transparent)";
-                          e.currentTarget.style.borderColor =
-                            "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 45%, transparent)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor =
-                            "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 12%, transparent)";
-                          e.currentTarget.style.borderColor =
-                            "color-mix(in srgb, var(--vscode-testing-iconFailedColor, #f14c4c) 30%, transparent)";
+                          fontSize: "12px",
+                          color: "var(--vscode-editor-foreground)",
+                          opacity: 0.9,
+                          lineHeight: 1.5,
+                          wordBreak: "break-word",
                         }}
                       >
-                        <span className="codicon codicon-refresh" style={{ fontSize: "12px", display: "inline-flex", alignItems: "center" }} />
-                        <span>{t("chat.retry")}</span>
-                      </button>
-                    )}
+                        {translatedMessage}
+                      </div>
+                      {onSendMessage && (
+                        <button
+                          onClick={handleRetry}
+                          style={{
+                            backgroundColor: `color-mix(in srgb, ${errorColor} 12%, transparent)`,
+                            color: errorColor,
+                            border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
+                            padding: "5px 14px",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.5px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "6px",
+                            height: "28px",
+                            boxSizing: "border-box",
+                            transition: "all 0.2s ease",
+                            alignSelf: "flex-start",
+                            marginTop: "2px",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor =
+                              `color-mix(in srgb, ${errorColor} 22%, transparent)`;
+                            e.currentTarget.style.borderColor =
+                              `color-mix(in srgb, ${errorColor} 45%, transparent)`;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor =
+                              `color-mix(in srgb, ${errorColor} 12%, transparent)`;
+                            e.currentTarget.style.borderColor =
+                              `color-mix(in srgb, ${errorColor} 30%, transparent)`;
+                          }}
+                        >
+                          <span className="codicon codicon-refresh" style={{ fontSize: "12px", display: "inline-flex", alignItems: "center" }} />
+                          <span>{t("chat.retry")}</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -1119,7 +1135,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               if (hasUnclickedOrBusyAction) isInteractionBlocked = true;
             }
 
-            if (group.type === "tools" || group.type === "plan") {
+            if (group.type === "tools") {
               return <React.Fragment key={group.key}>{content}</React.Fragment>;
             }
 

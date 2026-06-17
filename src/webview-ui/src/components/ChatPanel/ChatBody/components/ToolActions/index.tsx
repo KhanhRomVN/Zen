@@ -189,15 +189,29 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
         // or a message in history containing the output of this action, it is completed.
         const hasHistoryOutput = !!nextUserMessage || !!allMessages?.some((m) => m.actionIds?.includes(actionId));
 
-        if (!isClicked && !hasOutput && !hasHistoryOutput) {
-          // If it is a write/edit tool, on restore it shouldn't block subsequent tools
+        // Check if this action is completed (clicked, has output, or history output)
+        const isCompleted = isClicked || hasOutput || hasHistoryOutput;
+
+        if (!isCompleted) {
           const action = allActions ? allActions[i] : null;
           const isWriteTool = action && (action.type === "write_to_file" || action.type === "replace_in_file");
-          if (isWriteTool) {
-            continue;
+
+          // In approval mode, write/edit tools MUST be approved one by one.
+          // However, on restore (hasHistoryOutput from saved conversation), we should NOT block.
+          // The check `hasHistoryOutput` already covers the restore case.
+          // So if it's a write/edit tool and there's no history output, it MUST block.
+          if (isWriteTool && !hasHistoryOutput) {
+            // Write/edit tool not yet approved → block subsequent tools
+            isPreviousAllDone = false;
+            break;
           }
-          isPreviousAllDone = false;
-          break;
+          // For non-write tools (read, run_command, etc.), block as usual
+          if (!isWriteTool) {
+            isPreviousAllDone = false;
+            break;
+          }
+          // Fallback: if it's a write/edit tool but somehow got here (shouldn't happen),
+          // continue to allow sequential approval flow
         }
 
         // If it's a run_command, check if it's actually finished

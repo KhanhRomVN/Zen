@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as vscode from "vscode";
 import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
 
 export class FileAddCapability {
@@ -13,21 +14,48 @@ export class FileAddCapability {
         throw new Error("Missing content");
       }
 
-      // Check if file already exists
-      if (fs.existsSync(action.path)) {
-        throw new Error("File already exists");
+      const workspaceRoot =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+      const candidates = path.isAbsolute(action.path)
+        ? [action.path, path.join(workspaceRoot, action.path)]
+        : [path.join(workspaceRoot, action.path), action.path];
+
+      let targetPath: string | undefined;
+      let lastError: unknown;
+      for (const candidate of candidates) {
+        try {
+          // Check if file already exists
+          await fs.promises.access(candidate, fs.constants.F_OK);
+          // File exists, but we need to create new file, so throw error
+          throw new Error(`File already exists: ${candidate}`);
+        } catch (e: any) {
+          if (e.message && e.message.includes("already exists")) {
+            throw e;
+          }
+          // File doesn't exist, use this candidate
+          targetPath = candidate;
+          break;
+        }
+      }
+
+      if (!targetPath) {
+        // If all candidates exist (shouldn't happen), use first candidate
+        targetPath = candidates[0] || action.path;
+        if (fs.existsSync(targetPath)) {
+          throw new Error(`File already exists: ${targetPath}`);
+        }
       }
 
       // Create directories if needed
-      const dir = path.dirname(action.path);
+      const dir = path.dirname(targetPath);
       await fs.promises.mkdir(dir, { recursive: true });
 
-      await fs.promises.writeFile(action.path, action.content, "utf-8");
+      await fs.promises.writeFile(targetPath, action.content, "utf-8");
 
       return {
         success: true,
         data: {
-          path: action.path,
+          path: targetPath,
           size: Buffer.byteLength(action.content, "utf-8"),
         },
         timestamp: Date.now(),

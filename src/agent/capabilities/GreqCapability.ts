@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
+import { LoggerService } from "../../services/LoggerService";
 
 interface MatchResult {
   lineNumber: number;
@@ -15,14 +16,22 @@ export class grepCapability {
   }
 
   async execute(action: AgentAction): Promise<AgentExecutionResult> {
+    const logger = LoggerService.getInstance();
     try {
       const searchTerm = action.search_term;
+      const filePath = action.file_path;
+      const folderPath = action.folder_path;
+
+      logger.debug(`[GREP] Execute called with:`, {
+        searchTerm,
+        filePath,
+        folderPath,
+        actionType: action.type,
+      });
+
       if (!searchTerm || searchTerm.trim().length === 0) {
         throw new Error("Missing search term");
       }
-
-      const filePath = action.file_path;
-      const folderPath = action.folder_path;
 
       if (!filePath && !folderPath) {
         throw new Error("Either file_path or folder_path must be provided");
@@ -36,6 +45,8 @@ export class grepCapability {
       const pattern = this.createSearchPattern(searchTerm);
       const regex = new RegExp(pattern, "i");
 
+      logger.debug(`[GREP] Pattern created: ${regex.source}`);
+
       let filesToSearch: string[] = [];
 
       if (filePath) {
@@ -43,6 +54,7 @@ export class grepCapability {
         const resolvedPath = path.isAbsolute(filePath)
           ? filePath
           : path.resolve(this.workspaceRoot, filePath);
+        logger.debug(`[GREP] Resolved file path: ${resolvedPath}`);
         if (!fs.existsSync(resolvedPath)) {
           throw new Error(`File not found: ${filePath}`);
         }
@@ -52,20 +64,32 @@ export class grepCapability {
         const resolvedFolder = path.isAbsolute(folderPath)
           ? folderPath
           : path.resolve(this.workspaceRoot, folderPath);
+        logger.debug(`[GREP] Resolved folder path: ${resolvedFolder}`);
         if (!fs.existsSync(resolvedFolder)) {
           throw new Error(`Folder not found: ${folderPath}`);
         }
         filesToSearch = this.getAllFiles(resolvedFolder);
+        logger.debug(`[GREP] Found ${filesToSearch.length} files to search in folder`);
       }
 
       const results: Record<string, MatchResult[]> = {};
+      let filesWithMatches = 0;
 
       for (const file of filesToSearch) {
         const matches = await this.searchInFile(file, regex);
         if (matches.length > 0) {
           results[file] = matches;
+          filesWithMatches++;
+          logger.debug(`[GREP] File ${file} has ${matches.length} matches`);
         }
       }
+
+      const totalMatches = Object.values(results).reduce(
+        (sum, matches) => sum + matches.length,
+        0,
+      );
+
+      logger.info(`[GREP] Search completed: ${filesWithMatches}/${filesToSearch.length} files matched, ${totalMatches} total matches`);
 
       return {
         success: true,
@@ -74,17 +98,16 @@ export class grepCapability {
           pattern: regex.source,
           results,
           totalFilesSearched: filesToSearch.length,
-          totalMatches: Object.values(results).reduce(
-            (sum, matches) => sum + matches.length,
-            0,
-          ),
+          totalMatches,
         },
         timestamp: Date.now(),
       };
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error(`[GREP] Error executing grep:`, error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMsg,
         timestamp: Date.now(),
       };
     }

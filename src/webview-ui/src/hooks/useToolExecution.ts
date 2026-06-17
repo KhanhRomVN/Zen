@@ -90,18 +90,10 @@ function applyTokenLimitGuard(
       const r = results[i] || "";
       const t = Math.round(calculateTokens(r));
       const p =
-        a.params?.path ||
-        a.params?.file_path ||
-        a.params?.folder_path ||
-        "?";
+        a.params?.path || a.params?.file_path || a.params?.folder_path || "?";
       return `${a.type}("${p}") ~${t}`;
     })
     .join(", ");
-
-  console.log(
-    `[Zen][TokenGuard] autoReq flush | totalTokens=${totalEstimatedTokens} | threshold=${MAX_INPUT_TOKEN_WARNING_THRESHOLD} | overflow=${totalEstimatedTokens > MAX_INPUT_TOKEN_WARNING_THRESHOLD}` +
-      (overflowProneBreakdown ? ` | breakdown=[${overflowProneBreakdown}]` : ""),
-  );
 
   if (totalEstimatedTokens <= MAX_INPUT_TOKEN_WARNING_THRESHOLD) {
     return content;
@@ -154,20 +146,21 @@ function formatGrepResultCompact(data: {
   }
 
   const lines: string[] = [];
-  lines.push(`<grep_results search="${searchTerm}" total_matches="${totalMatches}" files="${fileCount}" files_searched="${totalFilesSearched}">`);
+  lines.push(
+    `<grep_results search="${searchTerm}" total_matches="${totalMatches}" files="${fileCount}" files_searched="${totalFilesSearched}">`,
+  );
 
   for (const filePath of filePaths) {
     const matches = results[filePath];
-    // Shorten path: keep last 3 segments to save tokens
-    const parts = filePath.split("/");
-    const shortPath = parts.length > 3 ? ".../" + parts.slice(-3).join("/") : filePath;
-    lines.push(`<file path="${shortPath}" matches="${matches.length}">`);
+    // Use full path for accurate file opening; display shortening is done in UI
+    lines.push(`<file path="${filePath}" matches="${matches.length}">`);
     for (const match of matches) {
       // Right-align line number in 5 chars, then content (trimmed to 120 chars)
       const lineNum = String(match.lineNumber).padStart(5);
-      const content = match.lineContent.length > 120
-        ? match.lineContent.slice(0, 117) + "..."
-        : match.lineContent;
+      const content =
+        match.lineContent.length > 120
+          ? match.lineContent.slice(0, 117) + "..."
+          : match.lineContent;
       lines.push(`${lineNum}: ${content}`);
     }
     lines.push(`</file>`);
@@ -244,7 +237,10 @@ export const useToolExecution = ({
 
   // Single-line review state for write_to_file actions
   const [singleLineReviewActions, setSingleLineReviewActions] = useState<
-    Record<string, { action: any; actionId: string; messageId: string; messageObj: Message }>
+    Record<
+      string,
+      { action: any; actionId: string; messageId: string; messageObj: Message }
+    >
   >({});
 
   const clickedActionsRef = useRef<Set<string>>(new Set());
@@ -696,8 +692,6 @@ export const useToolExecution = ({
           const folderPath = action.params.folder_path;
           const targetDesc = filePath || folderPath || "unknown";
 
-          console.log(`[Zen][grep] Executing grep | search_term="${searchTerm}" | target="${targetDesc}" | requestId=${requestId}`);
-
           extensionService.postMessage({
             command: "executeAgentAction",
             action: {
@@ -712,7 +706,6 @@ export const useToolExecution = ({
           messageDispatcher.register(
             requestId,
             (msg) => {
-              console.log(`[Zen][grep] Result received | requestId=${requestId} | success=${msg.result?.success}`);
               if (msg.result?.success) {
                 const data = msg.result.data;
                 // Format as compact XML-like text to minimize token usage
@@ -722,7 +715,9 @@ export const useToolExecution = ({
                 );
               } else {
                 const errMsg = msg.result?.error || "Unknown error";
-                console.warn(`[Zen][grep] Error | requestId=${requestId} | error="${errMsg}"`);
+                console.warn(
+                  `[Zen][grep] Error | requestId=${requestId} | error="${errMsg}"`,
+                );
                 resolve(
                   `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`,
                 );
@@ -730,7 +725,9 @@ export const useToolExecution = ({
             },
             30000,
             () => {
-              console.warn(`[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`);
+              console.warn(
+                `[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`,
+              );
               resolve(null);
             },
           );
@@ -738,7 +735,9 @@ export const useToolExecution = ({
         }
 
         default:
-          console.warn(`[Zen][tool] Unhandled tool type: "${action.type}" — resolving null`);
+          console.warn(
+            `[Zen][tool] Unhandled tool type: "${action.type}" — resolving null`,
+          );
           resolve(null);
       }
     });
@@ -828,7 +827,10 @@ export const useToolExecution = ({
 
         // Check if we should auto-execute this tool
         // Read from ref to always use the latest mode (avoids stale-closure bug).
-        const decision = getPermissionDecision(permissionModeRef.current, action.type);
+        const decision = getPermissionDecision(
+          permissionModeRef.current,
+          action.type,
+        );
         const isConversationAuto =
           conversationToolOverrides[action.type] === "auto";
 
@@ -1081,8 +1083,7 @@ export const useToolExecution = ({
         // Update toolOutputs
         let cleanOutput = result;
         const prefixMatch = result.match(/^\[.*?\] Result:\s*/);
-        if (prefixMatch)
-          cleanOutput = result.substring(prefixMatch[0].length);
+        if (prefixMatch) cleanOutput = result.substring(prefixMatch[0].length);
         if (cleanOutput.startsWith("```\n") && cleanOutput.endsWith("\n```"))
           cleanOutput = cleanOutput.substring(4, cleanOutput.length - 4);
         else if (cleanOutput.startsWith("```") && cleanOutput.endsWith("```"))
@@ -1130,7 +1131,10 @@ export const useToolExecution = ({
               clickedActionsRef.current.has(id),
             ) && isQuestionAnswered;
 
-          if (isAllComplete && !flushedMessageIdsRef.current.has(messageObj.id)) {
+          if (
+            isAllComplete &&
+            !flushedMessageIdsRef.current.has(messageObj.id)
+          ) {
             if (handleSendMessageRef.current && !isStoppedRef?.current) {
               flushedMessageIdsRef.current.add(messageObj.id);
               let finalContent = newBuffer.join("\n\n");
@@ -1192,7 +1196,8 @@ export const useToolExecution = ({
       setRejectedActions((prev) => new Set(prev).add(actionId));
       window.postMessage({ command: "markActionRejected", actionId }, "*");
 
-      const filePath = action.params.file_path || action.params.path || "unknown";
+      const filePath =
+        action.params.file_path || action.params.path || "unknown";
       const errorResult = `[write_to_file for '${filePath}'] Result: Error - Nội dung file bị dồn vào 1 dòng duy nhất (${action.params.content?.length || 0} ký tự). Vui lòng chia lại thành nhiều dòng với ngắt dòng (\\n) thực sự trước khi thực hiện write_to_file.`;
 
       // Add to buffer and trigger flush so AI gets the error
@@ -1211,9 +1216,9 @@ export const useToolExecution = ({
         const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
 
         const isAllComplete =
-          allActionIds.every((id: string) =>
-            clickedActionsRef.current.has(id) ||
-            id === actionId, // this rejected action counts as done
+          allActionIds.every(
+            (id: string) =>
+              clickedActionsRef.current.has(id) || id === actionId, // this rejected action counts as done
           ) && isQuestionAnswered;
 
         if (isAllComplete && !flushedMessageIdsRef.current.has(messageObj.id)) {

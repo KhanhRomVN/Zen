@@ -408,7 +408,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Persist singleLineReviewActions to disk when they change
   useEffect(() => {
-    if (!currentConversationId || Object.keys(singleLineReviewActions).length === 0) return;
+    if (
+      !currentConversationId ||
+      Object.keys(singleLineReviewActions).length === 0
+    )
+      return;
     const tabId = selectedTab?.tabId || -1;
     const folderPath = selectedTab?.folderPath || null;
     saveConversation(
@@ -457,10 +461,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             cached.singleLineReviewActions &&
             Object.keys(cached.singleLineReviewActions).length > 0
           ) {
-            window.postMessage({
-              command: "restoreSingleLineReviewActions",
-              actions: cached.singleLineReviewActions,
-            }, "*");
+            window.postMessage(
+              {
+                command: "restoreSingleLineReviewActions",
+                actions: cached.singleLineReviewActions,
+              },
+              "*",
+            );
           }
           // Restore pending revert parent if any
           const pendingParent = sessionStorage.getItem(
@@ -470,9 +477,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           setIsRestored(cached.messages.length > 0);
           // 🔧 FIX: Sync ref immediately (same race-condition fix as conversationResult handler)
           currentConversationIdRef.current = cached.conversationId;
-          console.log(
-            `[ChatPanel][CACHE-RESTORE] conversationIdRef updated synchronously: ${cached.conversationId}`,
-          );
           setCurrentConversationId(cached.conversationId);
           if (cached.backendConversationId) {
             setBackendConversationId(cached.backendConversationId);
@@ -545,10 +549,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             // Need to call the setter from useToolExecution — we access it via a workaround
             // The setter is internal to useToolExecution, so we need to pass it up or use ref.
             // For now, we post a message to trigger the restore
-            window.postMessage({
-              command: "restoreSingleLineReviewActions",
-              actions: data.data.singleLineReviewActions,
-            }, "*");
+            window.postMessage(
+              {
+                command: "restoreSingleLineReviewActions",
+                actions: data.data.singleLineReviewActions,
+              },
+              "*",
+            );
           }
 
           // Restore pending revert parent if any
@@ -565,9 +572,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             // to prevent race condition where sendMessage reads stale "" ref between
             // resetSession() and the useEffect that syncs state→ref.
             currentConversationIdRef.current = data.data.conversationId;
-            console.log(
-              `[ChatPanel][RESTORE] conversationIdRef updated synchronously: ${data.data.conversationId}`,
-            );
             setCurrentConversationId(data.data.conversationId);
 
             // 🆕 Restore Backend Conversation ID from messages if available
@@ -891,7 +895,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isSearchOpen={isSearchOpen}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
-        onCloseSearch={() => { setIsSearchOpen(false); setSearchQuery(""); }}
+        onCloseSearch={() => {
+          setIsSearchOpen(false);
+          setSearchQuery("");
+        }}
       />
       <ChatFooter
         apiUrl={apiUrl}

@@ -154,6 +154,51 @@ export class SystemHandler {
     } catch (error) {}
   }
 
+  public async handleOpenFileAtLine(message: any) {
+    const filePath = message.path;
+    const line = message.line || 1;
+    const selection = message.selection;
+
+    if (!filePath) return;
+
+    try {
+      const uri = path.isAbsolute(filePath)
+        ? vscode.Uri.file(filePath)
+        : vscode.Uri.joinPath(
+            vscode.workspace.workspaceFolders![0].uri,
+            filePath,
+          );
+      const document = await vscode.workspace.openTextDocument(uri);
+      const editor = await vscode.window.showTextDocument(document);
+
+      // Convert 1-based line to 0-based position
+      const lineIndex = Math.max(0, line - 1);
+      const lineText = document.lineAt(lineIndex);
+      const position = new vscode.Position(lineIndex, 0);
+
+      // If selection is provided, use it; otherwise select the whole line
+      if (selection && selection.startLine && selection.endLine) {
+        const startPos = new vscode.Position(
+          Math.max(0, selection.startLine - 1),
+          0
+        );
+        const endPos = new vscode.Position(
+          Math.min(document.lineCount - 1, selection.endLine - 1),
+          document.lineAt(Math.min(document.lineCount - 1, selection.endLine - 1)).text.length
+        );
+        editor.selection = new vscode.Selection(startPos, endPos);
+        editor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+      } else {
+        // Select the entire line
+        const endPosition = new vscode.Position(lineIndex, lineText.text.length);
+        editor.selection = new vscode.Selection(position, endPosition);
+        editor.revealRange(new vscode.Range(position, endPosition), vscode.TextEditorRevealType.InCenter);
+      }
+    } catch (error) {
+      console.error('[SystemHandler] handleOpenFileAtLine error:', error);
+    }
+  }
+
   public async handleOpenPreview(message: any) {
     const doc = await vscode.workspace.openTextDocument({
       content: message.content,
