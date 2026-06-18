@@ -1,8 +1,29 @@
 import React from "react";
-import { FileIcon, Terminal, Loader2 } from "lucide-react";
-import { UploadedFile, AttachedItem } from "../../../types";
-import { formatFileSize } from "../../../utils/utils";
-import FileIconCommon from "../../common/FileIcon";
+import { FileIcon as FileIconLucide, Terminal, Loader2 } from "lucide-react";
+import FileIcon from "@/icons/FileIcon";
+
+interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  content: string; // Base64 or text content
+  file_id?: string;
+  isUploading?: boolean;
+  error?: string;
+}
+
+interface AttachedItem {
+  id: string;
+  path: string;
+  type: "file" | "folder" | "external";
+}
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+};
 
 interface FilesPreviewsProps {
   uploadedFiles: UploadedFile[];
@@ -285,7 +306,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                       onClick={() => onAttachedItemClick(item)}
                       title={`Click to open: ${item.path}`}
                     >
-                      <FileIcon
+                      <FileIconLucide
                         path={item.path}
                         style={{ width: "14px", height: "14px" }}
                       />
@@ -374,7 +395,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                       onClick={() => onAttachedItemClick(item)}
                       title={item.path}
                     >
-                      <FileIconCommon
+                      <FileIcon
                         path={item.path}
                         isFolder={true}
                         style={{ width: "14px", height: "14px" }}

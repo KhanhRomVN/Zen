@@ -14,8 +14,8 @@ import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "../../hooks/useToolExecution";
 
 import WelcomeUI from "../../../home/components/WelcomeUI";
-import ProcessingIndicator from "./messages/ProcessingIndicator";
-import MessageBox from "./messages/MessageBox";
+import ProcessingIndicator from "../messages/ProcessingIndicator";
+import MessageBox from "../messages/MessageBox";
 
 // ─── SearchBar Component ──────────────────────────────────────────────────────
 interface SearchBarProps {
@@ -513,7 +513,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   isProcessing,
   onSendToolRequest,
   onSendMessage,
-
   executionState,
   toolOutputs,
   terminalStatus,

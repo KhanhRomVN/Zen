@@ -1,8 +1,8 @@
 import React from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import FileIcon from "../../common/FileIcon";
-import { extensionService } from "../../../../../services/ExtensionService";
+import FileIcon from "@/icons/FileIcon";
+import { extensionService } from "../../../../services/ExtensionService";
 
 const ABSOLUTE_PATH_REGEX = /^(\/[^\s<>"'`]+|[A-Za-z]:\\[^\s<>"'`]+)/;
 const RELATIVE_PATH_WITH_FOLDERS_REGEX =

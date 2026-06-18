@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import FileIcon from "../../common/FileIcon";
 import "./RichtextBlock.css";
+import FileIcon from "@/icons/FileIcon";
 
 interface RichtextBlockProps {
   content: string;

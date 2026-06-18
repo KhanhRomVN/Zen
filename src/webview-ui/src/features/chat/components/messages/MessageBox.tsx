@@ -1,19 +1,19 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Message } from "../../../types";
-import { ParsedResponse } from "../../../services/ResponseParser";
+import { Message } from "../../types";
+import { ParsedResponse } from "../../services/ResponseParser";
 import ToolActionsList from "../tools/index";
 import QuestionAnswerBlock from "../blocks/QuestionAnswerBlock";
 import HtmlBlock from "../blocks/HtmlBlock";
-import FileIcon from "../../common/FileIcon";
-import { isDiff, parseDiff } from "../../../../../utils/diffUtils";
+import FileIcon from "@/icons/FileIcon";
+import { isDiff, parseDiff } from "../../../../utils/diffUtils";
 import { ToolHeader } from "../tools/ToolHeader";
 import MarkdownBlock from "../blocks/MarkdownBlock";
 import "../blocks/TerminalBlock.css";
 import "../blocks/MarkdownBlock.css";
-import { buildRetryPrompt } from "../../../prompts";
-import { useI18n } from "../../../../../hooks/useI18n";
-import type { I18nKey } from "../../../../../i18n";
+import { buildRetryPrompt } from "../../prompts";
+import { useI18n } from "../../../../hooks/useI18n";
+import type { I18nKey } from "../../../../i18n";
 
 interface MessageBoxProps {
   message: Message;

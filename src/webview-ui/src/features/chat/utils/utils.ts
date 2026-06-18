@@ -1,5 +1,5 @@
 import { ACTION_NAMES, TOOL_LABELS, TOOL_COLORS } from "../constants/constants";
-import { Message, WorkspaceItem } from "../types";
+import { Message } from "../types";
 import { ALLOWED_FILE_EXTENSIONS } from "../constants/constants";
 
 export const getActionName = (type: string): string => {
@@ -103,12 +103,6 @@ export const copyToClipboard = (text: string) => {
   navigator.clipboard.writeText(text);
 };
 
-export const formatFileSize = (bytes: number): string => {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-};
-
 // Helper function to get search query from message
 export const getSearchQuery = (message: string): string => {
   const fileMatch = message.match(/@file:\s*([^\s]*)$/);
@@ -123,16 +117,6 @@ export const getSearchQuery = (message: string): string => {
 };
 
 // Helper function to filter items based on search query
-export const getFilteredItems = (
-  items: WorkspaceItem[],
-  message: string,
-): WorkspaceItem[] => {
-  const query = getSearchQuery(message).toLowerCase();
-  if (!query) {
-    return items;
-  }
-  return items.filter((item) => item.path.toLowerCase().includes(query));
-};
 
 export const isFileAllowed = (filename: string): boolean => {
   const ext = filename.substring(filename.lastIndexOf(".")).toLowerCase();

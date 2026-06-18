@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
-import { ToolAction } from "../../../services/ResponseParser";
-import { Message } from "../../../types";
+import { ToolAction } from "../../services/ResponseParser";
+import { Message } from "../../types";
 import ToolRouter from "./ToolRouter";
 
 interface ToolActionsListProps {

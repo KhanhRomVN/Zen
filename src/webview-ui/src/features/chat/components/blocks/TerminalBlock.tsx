@@ -3,7 +3,7 @@ import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import "./TerminalBlock.css";
-import { useProject } from "../../../../../context/ProjectContext";
+import { useProject } from "../../../../context/ProjectContext";
 
 interface TerminalBlockProps {
   logs: string;

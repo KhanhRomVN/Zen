@@ -1,13 +1,13 @@
 import React from "react";
-import { ToolAction } from "../../../services/ResponseParser";
+import { ToolAction } from "../../services/ResponseParser";
 import { TerminalBlock } from "../blocks/TerminalBlock";
-import { getToolColor } from "../../../utils/utils";
-import { extensionService } from "../../../../../services/ExtensionService";
-import { Message } from "../../../types";
+import { getToolColor } from "../../utils/utils";
+import { extensionService } from "../../../../services/ExtensionService";
+import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
-import { useI18n } from "../../../../../hooks/useI18n";
-import { useSettings } from "../../../../../context/SettingsContext";
-import { getPermissionDecision } from "../../../hooks/useToolExecution";
+import { useI18n } from "../../../../hooks/useI18n";
+import { useSettings } from "../../../../context/SettingsContext";
+import { getPermissionDecision } from "../../hooks/useToolExecution";
 
 interface TerminalToolRendererProps {
   action: ToolAction;

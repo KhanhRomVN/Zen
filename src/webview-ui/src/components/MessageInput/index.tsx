@@ -1,12 +1,22 @@
 import React from "react";
-import { UploadedFile } from "../../../types/index";
-import { PlusIcon, SendIcon } from "@/icons";
+import { PlusIcon, SendIcon } from "@/icons/Icon";
 import { X, Zap, ShieldCheck, Eye } from "lucide-react";
-import { useBackendConnection } from "../../../../../context/BackendConnectionContext";
-import { LANGUAGES } from "../../../../setting/components/LanguageSelector";
-import { useSettings } from "../../../../../context/SettingsContext";
-import QuickSwitchDrawer from "./QuickSwitchDrawer";
+import { useBackendConnection } from "../../context/BackendConnectionContext";
+import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
+import { useSettings } from "../../context/SettingsContext";
+import ModelAccountDrawer from "./ModelAccountDrawer";
 import { useI18n } from "@/hooks/useI18n";
+
+export interface UploadedFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  content: string; // Base64 or text content
+  file_id?: string;
+  isUploading?: boolean;
+  error?: string;
+}
 
 const BrainCogIcon = () => (
   <svg
@@ -990,7 +1000,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </div>
         )}
         {showModelDrawer && (
-          <QuickSwitchDrawer
+          <ModelAccountDrawer
             isOpen={showModelDrawer}
             onClose={() => setShowModelDrawer(false)}
             providers={providers}

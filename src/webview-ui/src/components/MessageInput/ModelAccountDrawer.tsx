@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Search, ChevronRight, X, ChevronLeft } from "lucide-react";
-import { useI18n } from "../../../../../hooks/useI18n";
+import { useI18n } from "@/hooks/useI18n";
 
 interface Provider {
   provider_id: string;
@@ -20,7 +20,7 @@ interface Account {
   is_enabled: boolean;
 }
 
-interface QuickSwitchDrawerProps {
+interface ModelAccountDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   providers: Provider[];
@@ -159,7 +159,7 @@ const ModelTooltip: React.FC<ModelTooltipProps> = ({ model, x, y }) => {
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
+const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
   isOpen,
   onClose,
   providers,
@@ -899,4 +899,4 @@ const QuickSwitchDrawer: React.FC<QuickSwitchDrawerProps> = ({
   );
 };
 
-export default QuickSwitchDrawer;
+export default ModelAccountDrawer;

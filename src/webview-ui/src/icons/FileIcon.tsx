@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  getFileIconPath,
-  getFolderIconPath,
-} from "../../../../utils/fileIconMapper";
+import { getFileIconPath, getFolderIconPath } from "../utils/fileIconMapper";
 
 interface FileIconProps {
   path: string;

@@ -1,24 +1,23 @@
 import React, { useEffect, useRef } from "react";
-import { ToolAction } from "../../../services/ResponseParser";
-import FileIcon from "../../common/FileIcon";
-
+import { ToolAction } from "../../services/ResponseParser";
+import FileIcon from "@/icons/FileIcon";
 import { ToolHeader } from "./ToolHeader";
-import { parseDiff } from "../../../../../utils/diffUtils";
+import { parseDiff } from "../../../../utils/diffUtils";
 import {
   getFilename,
   getToolColor,
   getDisplayPath,
   collectConvFilePaths,
-} from "../../../utils/utils";
+} from "../../utils/utils";
 import {
   extensionService,
   messageDispatcher,
-} from "../../../../../services/ExtensionService";
-import { Message } from "../../../types";
+} from "../../../../services/ExtensionService";
+import { Message } from "../../types";
 import ExecuteButton from "./ExecuteButton";
-import { useI18n } from "../../../../../hooks/useI18n";
-import { useSettings } from "../../../../../context/SettingsContext";
-import { getPermissionDecision } from "../../../hooks/useToolExecution";
+import { useI18n } from "../../../../hooks/useI18n";
+import { useSettings } from "../../../../context/SettingsContext";
+import { getPermissionDecision } from "../../hooks/useToolExecution";
 import GrepBlock from "../blocks/GrepBlock";
 import { RichtextBlock } from "../blocks/RichtextBlock";
 

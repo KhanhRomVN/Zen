@@ -114,18 +114,3 @@ export interface Rule {
   createdAt: number;
   updatedAt: number;
 }
-
-export interface ChatFooterProps {
-  onSendMessage: (
-    content: string,
-    files?: any[],
-    model?: any,
-    account?: any,
-    skipFirstRequestLogic?: boolean,
-    actionIds?: string[],
-    uiHidden?: boolean,
-  ) => void | Promise<void>;
-  isHistoryMode?: boolean;
-  messages: any[];
-  isProcessing?: boolean;
-}

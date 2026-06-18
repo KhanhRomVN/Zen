@@ -1,9 +1,40 @@
 import React from "react";
-import { WorkspaceItem, Rule } from "../../../types";
-import { FileIcon, FolderIcon, FolderOpenIcon, LawIcon, MessageIcon } from "../../../../../icons";
-import FileImageIcon from "../../common/FileIcon";
-import { getFilteredItems } from "../../../utils/utils";
+import {
+  FileIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  LawIcon,
+  MessageIcon,
+} from "../../icons/Icon";
+import FileImageIcon from "../../icons/FileIcon";
 import { Search, X, Clock, Terminal } from "lucide-react";
+import { getSearchQuery } from "@/features/chat/utils/utils";
+
+export const getFilteredItems = (
+  items: WorkspaceItem[],
+  message: string,
+): WorkspaceItem[] => {
+  const query = getSearchQuery(message).toLowerCase();
+  if (!query) {
+    return items;
+  }
+  return items.filter((item) => item.path.toLowerCase().includes(query));
+};
+
+interface WorkspaceItem {
+  path: string;
+  type: "file" | "folder";
+  lastModified?: number;
+  size?: number;
+}
+
+interface Rule {
+  id: string;
+  name: string;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
+}
 
 const shortenPath = (path: string, maxLength: number = 40) => {
   if (path.length <= maxLength) return path;

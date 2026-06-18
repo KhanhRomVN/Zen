@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { AttachedItem, WorkspaceItem, Rule } from "../types";
+import { WorkspaceItem, Rule } from "../types";
+
+interface AttachedItem {
+  id: string;
+  path: string;
+  type: "file" | "folder" | "external";
+}
 
 interface UseMentionSystemProps {
   message: string;

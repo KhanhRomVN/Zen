@@ -5,10 +5,9 @@ import React, {
   useRef,
   useMemo,
 } from "react";
-import ChatHeader from "./components/ChatHeader";
 import ChatBody from "./components/ChatBody";
-import ChatFooter from "./components/ChatFooter";
 import { useSettings } from "../../context/SettingsContext";
+import { useBackendConnection } from "../../context/BackendConnectionContext";
 
 import { extensionService } from "./services/ExtensionService";
 import {
@@ -19,9 +18,17 @@ import { parseAIResponse } from "./services/ResponseParser";
 import { HISTORY_CONTEXT_REMINDER } from "./prompts";
 import { useChatLLM } from "./hooks/useChatLLM";
 import { useToolExecution } from "./hooks/useToolExecution";
+import { useWorkspaceData } from "./hooks/useWorkspaceData";
+import { useFileHandling } from "./hooks/useFileHandling";
+import { useMentionSystem } from "./hooks/useMentionSystem";
 import { TabInfo } from "../../types";
 import { Message } from "./types";
 import { ConversationCache } from "./services/ConversationCache";
+
+// Shared components
+import MessageInput from "@/components/MessageInput";
+import FilesPreviews from "@/components/MessageInput/FilesPreviews";
+import MentionDropdowns from "@/components/MessageInput/MentionDropdowns";
 
 interface ChatPanelProps {
   selectedTab: TabInfo | null;
@@ -63,8 +70,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     new Set(),
   );
   const [currentModel, setCurrentModel] = useState<any>(
-    // Seed from initialMessageData so ChatHeader shows correct model immediately,
-    // preventing the cache-load from MessageInput from overwriting it.
     () => initialMessageData?.model ?? null,
   );
   const [currentAccount, setCurrentAccount] = useState<any>(
@@ -84,6 +89,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const revertParentMessageIdRef = useRef<string | null>(null);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const scrollToBottomRef = useRef<(() => void) | null>(null);
+
+  // --- ChatFooter local state ---
+  const [message, setMessage] = useState("");
+  const storage = extensionService.getStorage();
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDraftRestoredRef = useRef(false);
+  const undoStackRef = useRef<string[]>([]);
+  const undoIndexRef = useRef<number>(-1);
+  const isUndoingRef = useRef(false);
+  const [showProjectStructureDrawer, setShowProjectStructureDrawer] =
+    useState(false);
+  const [showChangesDropdown, setShowChangesDropdown] = useState(false);
+  const [showProjectContextModal, setShowProjectContextModal] = useState(false);
+  const [projectContext, setProjectContext] = useState<any>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mentionDropdownRef = useRef<HTMLDivElement>(null);
+  const [isBrowserSessionReady, setIsBrowserSessionReady] = useState(false);
+  const [showBrowserWarning, setShowBrowserWarning] = useState(false);
+  const [isLaunchingBrowser, setIsLaunchingBrowser] = useState(false);
+  const { apiUrl: backendApiUrl } = useBackendConnection();
 
   // --- Hooks ---
   const {
@@ -120,6 +145,66 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       ),
   });
 
+  const { availableFiles, availableFolders, availableRules } =
+    useWorkspaceData();
+
+  const {
+    showAtMenu,
+    setShowAtMenu,
+    showMentionDropdown,
+    setShowMentionDropdown,
+    mentionType,
+    setMentionType,
+    attachedItems,
+    checkMentions,
+    handleMentionOptionSelect,
+    handleWorkspaceItemSelect,
+    handleRuleSelect,
+    removeAttachedItem,
+    clearAttachedItems,
+    addAttachedItem,
+  } = useMentionSystem({
+    message,
+    setMessage,
+    textareaRef,
+    availableFiles,
+    availableFolders,
+    onRequestWorkspaceFiles: () => {
+      const vscodeApi = (window as any).vscodeApi;
+      if (vscodeApi) {
+        vscodeApi.postMessage({ command: "getWorkspaceFiles" });
+      }
+    },
+    onRequestWorkspaceFolders: () => {
+      const vscodeApi = (window as any).vscodeApi;
+      if (vscodeApi) {
+        vscodeApi.postMessage({ command: "getWorkspaceFolders" });
+      }
+    },
+  });
+
+  const {
+    uploadedFiles,
+    externalFiles,
+    fileInputRef,
+    externalFileInputRef,
+    handlePaste,
+    handleFileSelect,
+    handleFileInputChange,
+    removeFile,
+    handleExternalFileSelect,
+    handleExternalFileInputChange,
+    handleDragOver,
+    handleDrop,
+    clearFiles,
+  } = useFileHandling({
+    accountId: currentAccount?.id,
+    onAddAttachedItem: (item) => {
+      addAttachedItem(item);
+      setShowAtMenu(false);
+    },
+  });
+
   // --- Refs ---
   const hasProcessedInitial = useRef(false);
   const hasAppendedHistoryContext = useRef(false);
@@ -136,8 +221,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       actionIds?: string[],
       uiHidden?: boolean,
     ) => {
-      // If this is a real user message (not a tool result), clear the stop flag
-      // so subsequent tool auto-flush is allowed again.
       if (!skipFirstRequestLogic) {
         isStoppedRef.current = false;
       }
@@ -148,8 +231,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       if (isFromHistory && !hasAppendedHistoryContext.current) {
         hasAppendedHistoryContext.current = true;
         finalContent = content + HISTORY_CONTEXT_REMINDER;
-      } else if (false) {
-        // wasPaused logic removed — stop now triggers revert instead of continue
       }
       const parentMsgId = revertParentMessageIdRef.current || undefined;
       revertParentMessageIdRef.current = null;
@@ -204,10 +285,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   });
 
   // Reset hasProcessedInitial whenever a new tab/chat session starts
-  // so that initialMessageData from a subsequent HomePanel send is not skipped.
-  // resetSession() resets all refs synchronously so sendMessage sees isNewSession=true.
-  // NOTE: Do NOT clear lastUsedModelRef here — it is pinned inside sendMessage
-  // when isNewSession=true to avoid the model-switch race condition.
   useEffect(() => {
     hasProcessedInitial.current = false;
     resetSession();
@@ -229,11 +306,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return messages.reduce(
       (acc, msg) => {
         if (msg.isCancelled) return acc;
-
-        // Use the new standardized token_usage field if available
         if (msg.token_usage) {
           acc.total += msg.token_usage;
-          // Optionally attribute to prompt/completion if we have granular data
           if (msg.usage) {
             acc.prompt += msg.usage.prompt_tokens || 0;
             acc.completion += msg.usage.completion_tokens || 0;
@@ -243,7 +317,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             acc.completion += msg.token_usage;
           }
         } else if (msg.usage) {
-          // Fallback for legacy messages or specific API responses
           acc.prompt += msg.usage.prompt_tokens || 0;
           acc.completion += msg.usage.completion_tokens || 0;
           acc.total += msg.usage.total_tokens || 0;
@@ -317,14 +390,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             : res.value;
           setApiUrl(url);
         }
-        // Mark ready regardless — if no saved URL, default is used
         setIsApiUrlReady(true);
       })
       .catch((err: any) => {
-        console.warn(
-          "[Zen] ChatPanel failed to load apiUrl from storage:",
-          err,
-        );
+        console.warn("[Zen] ChatPanel failed to load apiUrl from storage:", err);
         setIsApiUrlReady(true);
       });
   }, []);
@@ -343,8 +412,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     if (initialMessageData && !hasProcessedInitial.current && isApiUrlReady) {
       hasProcessedInitial.current = true;
-      // Capture model/account explicitly into local const to avoid any stale
-      // closure or React state lag — these must reach sendMessage synchronously.
       const modelToSend = initialMessageData.model ?? null;
       const accountToSend = initialMessageData.account ?? null;
       sendMessage(
@@ -360,7 +427,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, [initialMessageData, sendMessage, onClearInitialData, isApiUrlReady]);
 
-  // Update ConversationCache when local messages or selection changes
+  // Update ConversationCache
   useEffect(() => {
     if (currentConversationId && messages.length > 0) {
       const existing = ConversationCache.get(currentConversationId);
@@ -384,14 +451,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     toolOutputs,
   ]);
 
-  // Persist toolOutputs to disk when they change
+  // Persist toolOutputs
   useEffect(() => {
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
     const tabId = selectedTab?.tabId || -1;
     const folderPath = selectedTab?.folderPath || null;
-    const errorKeys = Object.entries(toolOutputs)
-      .filter(([, v]) => v.isError)
-      .map(([k]) => k);
     saveConversation(
       tabId,
       folderPath,
@@ -405,7 +469,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     );
   }, [toolOutputs, currentConversationId]);
 
-  // Persist singleLineReviewActions to disk when they change
+  // Persist singleLineReviewActions
   useEffect(() => {
     if (
       !currentConversationId ||
@@ -428,7 +492,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     );
   }, [singleLineReviewActions, currentConversationId]);
 
-  // Load conversation from extension
+  // Load conversation
   useEffect(() => {
     const load = async () => {
       if (!selectedTab) {
@@ -446,7 +510,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       hasAppendedHistoryContext.current = false;
       const convId = (selectedTab as any).conversationId;
       if (convId) {
-        // Try reading from in-memory cache first
         const cached = ConversationCache.get(convId);
         if (cached) {
           setMessages(cached.messages);
@@ -468,13 +531,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               "*",
             );
           }
-          // Restore pending revert parent if any
           const pendingParent = sessionStorage.getItem(
             `zen-revert-parent:${convId}`,
           );
           if (pendingParent) revertParentMessageIdRef.current = pendingParent;
           setIsRestored(cached.messages.length > 0);
-          // 🔧 FIX: Sync ref immediately (same race-condition fix as conversationResult handler)
           currentConversationIdRef.current = cached.conversationId;
           setCurrentConversationId(cached.conversationId);
           if (cached.backendConversationId) {
@@ -497,7 +558,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           requestId,
         });
       } else {
-        // New chat tab with no existing conversationId — reset everything
         setMessages([]);
         setCurrentConversationId("");
         setIsLoadingConversation(false);
@@ -506,19 +566,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     load();
   }, [selectedTab?.tabId, (selectedTab as any)?.conversationId]);
 
-  // Handle incoming messages for data loading
+  // Handle incoming messages
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
-        const toolOutputKeys = data.data?.toolOutputs
-          ? Object.keys(data.data.toolOutputs)
-          : [];
-        const errorToolKeys = data.data?.toolOutputs
-          ? Object.entries(data.data.toolOutputs)
-              .filter(([, v]: [string, any]) => v.isError)
-              .map(([k]) => k)
-          : [];
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({
@@ -526,7 +578,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               id: msg.id || `restored-${Date.now()}-${i}`,
             }),
           );
-          const errorMsgs = restoredMessages.filter((m: Message) => m.isError);
           setMessages(restoredMessages);
 
           if (
@@ -534,20 +585,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             Object.keys(data.data.toolOutputs).length > 0
           ) {
             setToolOutputs(data.data.toolOutputs);
-          } else {
-            console.warn(
-              `[ChatPanel][RESTORE] NO toolOutputs in conversationResult — file tool errors will show blank`,
-            );
           }
 
-          // Restore singleLineReviewActions
           if (
             data.data.singleLineReviewActions &&
             Object.keys(data.data.singleLineReviewActions).length > 0
           ) {
-            // Need to call the setter from useToolExecution — we access it via a workaround
-            // The setter is internal to useToolExecution, so we need to pass it up or use ref.
-            // For now, we post a message to trigger the restore
             window.postMessage(
               {
                 command: "restoreSingleLineReviewActions",
@@ -557,7 +600,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             );
           }
 
-          // Restore pending revert parent if any
           const pendingParent = sessionStorage.getItem(
             `zen-revert-parent:${data.data?.conversationId}`,
           );
@@ -567,27 +609,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             setIsRestored(true);
           }
           if (data.data.conversationId) {
-            // 🔧 FIX: Update ref synchronously BEFORE setCurrentConversationId (async)
-            // to prevent race condition where sendMessage reads stale "" ref between
-            // resetSession() and the useEffect that syncs state→ref.
             currentConversationIdRef.current = data.data.conversationId;
             setCurrentConversationId(data.data.conversationId);
 
-            // 🆕 Restore Backend Conversation ID from messages if available
             const lastMsgWithBackendId = [...restoredMessages]
               .reverse()
               .find((m: Message) => m.conversationId);
-
             const backendIdFromMsg = lastMsgWithBackendId?.conversationId;
-
-            // Restore metadata from the last assistant message to prime the LLM hooks
             const lastAssistantWithMeta = [...restoredMessages]
               .reverse()
               .find(
                 (m: Message) =>
                   m.role === "assistant" && m.providerId && m.modelId,
               );
-
             const restoredMeta = lastAssistantWithMeta
               ? {
                   providerId: lastAssistantWithMeta.providerId,
@@ -595,30 +629,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                   accountId: lastAssistantWithMeta.accountId,
                 }
               : undefined;
-
-            // Use backendId from message history, or the top-level backendConversationId, or fallback to local UUID
             const backendIdToUse =
               backendIdFromMsg ||
               data.data.backendConversationId ||
               data.data.conversationId;
             setBackendConversationId(backendIdToUse, restoredMeta);
 
-            // Restore Main Model and Account from the last assistant message
             const lastAssistantMsgForMeta = [...restoredMessages]
               .reverse()
               .find(
                 (m: Message) =>
                   m.role === "assistant" && m.providerId && m.modelId,
               );
-
             let modelToCache: any = undefined;
             let accountToCache: any = undefined;
-
             if (lastAssistantMsgForMeta) {
               modelToCache = {
                 providerId: lastAssistantMsgForMeta.providerId!,
                 id: lastAssistantMsgForMeta.modelId!,
-                name: lastAssistantMsgForMeta.modelId!, // Fallback name
+                name: lastAssistantMsgForMeta.modelId!,
               };
               accountToCache = {
                 id: lastAssistantMsgForMeta.accountId!,
@@ -627,8 +656,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               setCurrentModel(modelToCache);
               setCurrentAccount(accountToCache);
             }
-
-            // Sync to in-memory cache
             ConversationCache.set(data.data.conversationId, {
               messages: restoredMessages,
               conversationId: data.data.conversationId,
@@ -651,7 +678,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       ) {
         const targetId = revertMessageIdRef.current;
         revertMessageIdRef.current = null;
-
         if (targetId === "__first__") {
           deleteConversation(currentConversationId);
           const firstUserMsg = messagesRef.current.find(
@@ -681,7 +707,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               .find((m) => m.role === "assistant");
             revertParentMessageIdRef.current =
               prevAssistant?.response_message_id || null;
-            // Persist across webview reloads
             if (revertParentMessageIdRef.current) {
               sessionStorage.setItem(
                 `zen-revert-parent:${currentConversationId}`,
@@ -713,6 +738,294 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return () => window.removeEventListener("message", handler);
   }, [currentConversationId]);
 
+  // --- ChatFooter draft restore ---
+  useEffect(() => {
+    if (!currentConversationId) return;
+    isDraftRestoredRef.current = false;
+    storage
+      .get(`draft:${currentConversationId}`)
+      .then((res: any) => {
+        if (res?.value && !isDraftRestoredRef.current && !revertInput?.value) {
+          setMessage(res.value);
+          undoStackRef.current = [res.value];
+          undoIndexRef.current = 0;
+        }
+        isDraftRestoredRef.current = true;
+      })
+      .catch(() => {
+        isDraftRestoredRef.current = true;
+      });
+  }, [currentConversationId]);
+
+  // Debounce-save draft
+  useEffect(() => {
+    if (!currentConversationId || !isDraftRestoredRef.current) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      if (message.trim()) {
+        storage.set(`draft:${currentConversationId}`, message).catch(() => {});
+      } else {
+        storage.delete(`draft:${currentConversationId}`).catch(() => {});
+      }
+    }, 500);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [message, currentConversationId]);
+
+  useEffect(() => {
+    if (revertInput?.value !== undefined) {
+      setMessage(revertInput.value || "");
+      undoStackRef.current = revertInput.value ? [revertInput.value] : [];
+      undoIndexRef.current = revertInput.value ? 0 : -1;
+    }
+  }, [revertInput?.value, revertInput?.nonce]);
+
+  // --- ChatFooter handlers ---
+  const handleSend = (model: any, account: any) => {
+    if (
+      message.trim() ||
+      uploadedFiles.length > 0 ||
+      attachedItems.length > 0
+    ) {
+      wrappedSendMessage(
+        message,
+        [...uploadedFiles, ...attachedItems],
+        model || currentModel,
+        account || currentAccount,
+        undefined,
+        undefined,
+        undefined,
+      );
+      setMessage("");
+      if (currentConversationId)
+        storage.delete(`draft:${currentConversationId}`).catch(() => {});
+      clearFiles();
+      clearAttachedItems();
+      undoStackRef.current = [];
+      undoIndexRef.current = -1;
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
+    }
+  };
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    if (!isUndoingRef.current) {
+      const newStack = undoStackRef.current.slice(0, undoIndexRef.current + 1);
+      newStack.push(value);
+      undoStackRef.current = newStack;
+      undoIndexRef.current = newStack.length - 1;
+    }
+    setMessage(value);
+    checkMentions(value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const isUndo = (e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey;
+    const isRedo =
+      ((e.ctrlKey || e.metaKey) && e.key === "y") ||
+      ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z");
+
+    if (isUndo) {
+      e.preventDefault();
+      if (undoIndexRef.current > 0) {
+        isUndoingRef.current = true;
+        undoIndexRef.current -= 1;
+        const prev = undoStackRef.current[undoIndexRef.current];
+        setMessage(prev);
+        checkMentions(prev);
+        isUndoingRef.current = false;
+      } else if (undoIndexRef.current === 0) {
+        isUndoingRef.current = true;
+        undoIndexRef.current = -1;
+        setMessage("");
+        checkMentions("");
+        isUndoingRef.current = false;
+      }
+      return;
+    }
+
+    if (isRedo) {
+      e.preventDefault();
+      if (undoIndexRef.current < undoStackRef.current.length - 1) {
+        isUndoingRef.current = true;
+        undoIndexRef.current += 1;
+        const next = undoStackRef.current[undoIndexRef.current];
+        setMessage(next);
+        checkMentions(next);
+        isUndoingRef.current = false;
+      }
+      return;
+    }
+  };
+
+  const handleOpenImage = (file: any) => {
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      vscodeApi.postMessage({
+        command: "openTempImage",
+        content: file.content,
+        filename: file.name,
+      });
+    }
+  };
+
+  const checkBrowserSession = useCallback(async () => {
+    if (!currentModel || currentModel.providerId !== "zai-browser") {
+      setIsBrowserSessionReady(true);
+      setShowBrowserWarning(false);
+      return;
+    }
+    if (!currentAccount?.id) {
+      setIsBrowserSessionReady(false);
+      setShowBrowserWarning(true);
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${backendApiUrl}/v1/accounts/${currentAccount.id}/browser/status`,
+      );
+      const result = await response.json();
+      if (result.success && result.data) {
+        if (result.data.has_profile && result.data.is_running) {
+          setIsBrowserSessionReady(true);
+          setShowBrowserWarning(false);
+        } else {
+          setIsBrowserSessionReady(false);
+          setShowBrowserWarning(true);
+        }
+      } else {
+        setIsBrowserSessionReady(false);
+        setShowBrowserWarning(true);
+      }
+    } catch (error) {
+      console.error("Failed to check browser session:", error);
+      setIsBrowserSessionReady(false);
+      setShowBrowserWarning(true);
+    }
+  }, [currentModel, currentAccount, backendApiUrl]);
+
+  const launchBrowserSession = async () => {
+    if (!currentModel || !currentAccount) return;
+    setIsLaunchingBrowser(true);
+    try {
+      const response = await fetch(
+        `${backendApiUrl}/v1/accounts/${currentAccount.id}/browser/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        },
+      );
+      const result = await response.json();
+      if (result.success) {
+        setIsBrowserSessionReady(true);
+        setShowBrowserWarning(false);
+      } else {
+        console.error("Failed to launch browser:", result.message);
+      }
+    } catch (error) {
+      console.error("Failed to launch browser:", error);
+    } finally {
+      setIsLaunchingBrowser(false);
+    }
+  };
+
+  useEffect(() => {
+    checkBrowserSession();
+  }, [checkBrowserSession]);
+
+  useEffect(() => {
+    if (
+      !currentModel ||
+      currentModel.providerId !== "zai-browser" ||
+      !currentAccount?.id
+    )
+      return;
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(
+          `${backendApiUrl}/v1/accounts/${currentAccount.id}/browser/status`,
+        );
+        const result = await response.json();
+        if (result.success && result.data) {
+          const isRunning = result.data.is_running === true;
+          setIsBrowserSessionReady(isRunning);
+          setShowBrowserWarning(!isRunning);
+        }
+      } catch (error) {
+        console.error("Polling browser status failed:", error);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [currentModel, currentAccount?.id, backendApiUrl]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(
+        textareaRef.current.scrollHeight,
+        240,
+      )}px`;
+    }
+  }, [message]);
+
+  // Click outside for dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showAtMenu) {
+        const menu = document.querySelector('[data-at-menu="true"]');
+        if (menu && !menu.contains(target) && target !== textareaRef.current) {
+          setShowAtMenu(false);
+        }
+      }
+      if (showMentionDropdown) {
+        const dropdown = document.querySelector(
+          '[data-mention-dropdown="true"]',
+        );
+        if (dropdown && !dropdown.contains(target)) {
+          setShowMentionDropdown(false);
+          setMentionType(null);
+        }
+      }
+    };
+    if (showAtMenu || showMentionDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showAtMenu, showMentionDropdown]);
+
+  // Load Project Context
+  useEffect(() => {
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      vscodeApi.postMessage({ command: "loadProjectContext" });
+    }
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.command === "projectContextResponse") {
+        setProjectContext(message.context);
+      } else if (message.command === "addAttachedItem") {
+        const isFolder =
+          message.itemType === "folder" ||
+          (!message.uri.includes(".") && !message.itemType);
+        addAttachedItem({
+          id: Math.random().toString(36).substring(7),
+          path: message.uri,
+          type: isFolder ? "folder" : "file",
+        });
+      }
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
   // --- Handlers ---
   const handleClearChat = useCallback(() => {
     extensionService.postMessage({
@@ -726,7 +1039,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const handleRevertConversation = useCallback(
     (messageId: string, timestamp: number) => {
       if (!currentConversationId) return;
-      // Check if this is the first user message
       const visibleUserMessages = messagesRef.current.filter(
         (m) => !m.uiHidden && !m.isCancelled && m.role === "user",
       );
@@ -744,6 +1056,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     },
     [currentConversationId, messagesRef],
   );
+
   const handleClearConfirmed = async () => {
     if (selectedTab) {
       await deleteConversation(currentConversationId);
@@ -754,29 +1067,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const handleStopGeneration = useCallback(() => {
-    isStoppedRef.current = true; // block any pending tool auto-flush
-    stopGeneration(); // already sets isProcessing=false, isStreaming=false
+    isStoppedRef.current = true;
+    stopGeneration();
     setIsProcessing(false);
-
-    // Mark the in-progress assistant message (the one being streamed) as cancelled/truncated.
-    // We do NOT revert previous messages — all prior context (including 100+ tool-call turns) must be preserved.
     setMessages((prev) => {
-      // Find the last assistant message that has no content yet or is clearly mid-stream
-      // (it will be the final item or very close to it)
       const lastAssistantIdx = [...prev].reduceRight(
         (found, m, i) =>
           found === -1 && m.role === "assistant" && !m.isCancelled ? i : found,
         -1,
       );
       if (lastAssistantIdx === -1) return prev;
-
       const updated = [...prev];
       updated[lastAssistantIdx] = {
         ...updated[lastAssistantIdx],
         isCancelled: true,
       };
-
-      // Persist so the truncated state survives a reload
       const tabId = selectedTab?.tabId || -1;
       const folderPath = selectedTab?.folderPath || null;
       saveConversation(
@@ -787,7 +1092,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         selectedTab || undefined,
         true,
       );
-
       return updated;
     });
   }, [
@@ -800,7 +1104,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
 
-  // Enrich currentModel with provider-config data
   const enrichedModel = useMemo(() => {
     if (!currentModel) return null;
     if (!Array.isArray(providers)) return currentModel;
@@ -814,6 +1117,33 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return { ...currentModel, ...modelData };
   }, [currentModel, providers]);
 
+  // ChatHeader helpers
+  const formatTokens = (num: number) => {
+    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+    return num.toString();
+  };
+
+  const providerId =
+    currentModel?.providerId || selectedTab?.provider || "deepseek";
+  let faviconUrl =
+    "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
+  if (providerId.toLowerCase().includes("openai"))
+    faviconUrl = "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
+  else if (providerId.toLowerCase().includes("anthropic"))
+    faviconUrl =
+      "https://www.google.com/s2/favicons?domain=anthropic.com&sz=64";
+  else if (providerId.toLowerCase().includes("google"))
+    faviconUrl = "https://www.google.com/s2/favicons?domain=google.com&sz=64";
+  else if (providerId.toLowerCase().includes("openrouter"))
+    faviconUrl =
+      "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=64";
+
+  const totalTokens = contextUsage?.total ?? 0;
+  const footerPaddingBottom =
+    showBrowserWarning && currentModel?.providerId === "zai-browser"
+      ? "20px"
+      : "8px";
+
   return (
     <div
       className="chat-panel"
@@ -825,34 +1155,168 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         color: "var(--vscode-editor-foreground)",
       }}
     >
-      <ChatHeader
-        selectedTab={
-          selectedTab ||
-          ({
-            tabId: -1,
-            containerName: "Global",
-            title: "New Chat",
-            status: "free",
-            canAccept: true,
-            requestCount: 0,
-            provider: "deepseek",
-          } as any)
-        }
-        onBack={onBack}
-        onClearChat={handleClearChat}
-        isLoadingConversation={isLoadingConversation}
-        firstRequestMessage={firstRequestMessage}
-        contextUsage={contextUsage}
-        taskName={currentTaskName}
-        conversationId={currentConversationId}
-        currentModel={enrichedModel}
-        currentAccount={currentAccount}
-        onToggleSearch={() => {
-          setIsSearchOpen((v) => !v);
-          if (isSearchOpen) setSearchQuery("");
+      {/* ─── ChatHeader (inlined) ─── */}
+      <div
+        style={{
+          borderBottom: "1px solid var(--border-color)",
+          backgroundColor: "var(--primary-bg)",
+          display: "flex",
+          flexDirection: "column",
         }}
-        isSearchOpen={isSearchOpen}
-      />
+      >
+        <div
+          style={{
+            padding: "8px 12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "8px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "var(--primary-text)",
+              overflow: "hidden",
+            }}
+          >
+            <img
+              src={faviconUrl}
+              alt="provider"
+              style={{ width: "14px", height: "14px", borderRadius: "2px" }}
+            />
+            <span style={{ whiteSpace: "nowrap" }}>
+              {providerId}/{currentModel?.id || "chat"}
+            </span>
+            {currentAccount?.email && (
+              <span
+                style={{
+                  opacity: 0.7,
+                  fontStyle: "italic",
+                  fontWeight: "normal",
+                  fontSize: "11px",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: "150px",
+                }}
+                title={currentAccount.email}
+              >
+                {currentAccount.email}
+              </span>
+            )}
+            {currentTaskName && (
+              <>
+                <span style={{ opacity: 0.3 }}>|</span>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    fontSize: "11px",
+                    color: "var(--vscode-textLink-foreground)",
+                    fontWeight: 500,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "5px",
+                      height: "5px",
+                      borderRadius: "50%",
+                      backgroundColor: "currentColor",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {currentTaskName}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: "11px",
+                color: "var(--secondary-text)",
+                opacity: 0.8,
+              }}
+            >
+              {contextUsage ? formatTokens(contextUsage.total) : "0"}
+            </span>
+            <button
+              onClick={() => {
+                setIsSearchOpen((v) => !v);
+                if (isSearchOpen) setSearchQuery("");
+              }}
+              title="Search in chat"
+              style={{
+                background: isSearchOpen
+                  ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
+                  : "transparent",
+                border: isSearchOpen
+                  ? "1px solid color-mix(in srgb, var(--vscode-button-background) 40%, transparent)"
+                  : "1px solid transparent",
+                cursor: "pointer",
+                padding: "3px 4px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: isSearchOpen
+                  ? "var(--vscode-button-background, var(--vscode-textLink-foreground))"
+                  : "var(--vscode-icon-foreground, var(--secondary-text))",
+                opacity: isSearchOpen ? 1 : 0.65,
+                borderRadius: "4px",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (!isSearchOpen) e.currentTarget.style.opacity = "1";
+              }}
+              onMouseLeave={(e) => {
+                if (!isSearchOpen) e.currentTarget.style.opacity = "0.65";
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m13 13.5 2-2.5-2-2.5" />
+                <path d="m21 21-4.3-4.3" />
+                <path d="M9 8.5 7 11l2 2.5" />
+                <circle cx="11" cy="11" r="8" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── ChatBody ─── */}
       <ChatBody
         messages={messages}
         isProcessing={isProcessing}
@@ -899,28 +1363,118 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           setSearchQuery("");
         }}
       />
-      <ChatFooter
-        apiUrl={apiUrl}
-        folderPath={selectedTab?.folderPath || null}
-        onSendMessage={(c, f, m, a, skip, ids, hidden) =>
-          wrappedSendMessage(c, f, m, a, skip, ids, hidden)
-        }
-        isHistoryMode={isHistoryMode}
-        messages={messages}
-        isConversationStarted={messages.length > 0 || !!initialMessageData}
-        currentModel={enrichedModel ?? currentModel}
-        setCurrentModel={setCurrentModel}
-        currentAccount={currentAccount}
-        setCurrentAccount={setCurrentAccount}
-        isProcessing={isProcessing || executionState.status === "running"}
-        isStreaming={isStreaming}
-        onStopGeneration={handleStopGeneration}
-        initialValue={revertInput?.value}
-        initialValueNonce={revertInput?.nonce}
-        conversationId={currentConversationId}
-        autoScrollPaused={autoScrollPaused}
-        onResumeScroll={() => scrollToBottomRef.current?.()}
-      />
+
+      {/* ─── ChatFooter (inlined) ─── */}
+      <div
+        id="chat-footer-container"
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          backgroundColor: "var(--secondary-bg)",
+          zIndex: 100,
+          transition: "bottom 0.2s ease",
+          paddingBottom: footerPaddingBottom,
+        }}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleFileInputChange}
+          accept="image/*,text/*"
+        />
+        <input
+          ref={externalFileInputRef}
+          type="file"
+          multiple
+          style={{ display: "none" }}
+          onChange={handleExternalFileInputChange}
+        />
+
+        <FilesPreviews
+          uploadedFiles={uploadedFiles}
+          attachedItems={attachedItems}
+          onRemoveFile={removeFile}
+          onRemoveAttachedItem={removeAttachedItem}
+          onOpenImage={handleOpenImage}
+          onAttachedItemClick={(item) => {
+            const vscodeApi = (window as any).vscodeApi;
+            if (!vscodeApi) return;
+            if (item.type === "file") {
+              vscodeApi.postMessage({
+                command: "openWorkspaceFile",
+                path: item.path,
+              });
+            } else if (item.type === "folder") {
+              vscodeApi.postMessage({
+                command: "openWorkspaceFolder",
+                path: item.path,
+              });
+            } else if (item.type === ("terminal" as any)) {
+              vscodeApi.postMessage({
+                command: "focusTerminal",
+                terminalId: item.path,
+              });
+            }
+          }}
+        />
+
+        <div style={{ position: "relative" }}>
+          <MessageInput
+            message={message}
+            setMessage={setMessage}
+            isHistoryMode={isHistoryMode}
+            uploadedFiles={uploadedFiles}
+            textareaRef={textareaRef}
+            handleTextareaChange={handleTextareaChange}
+            handleKeyDown={handleKeyDown}
+            handlePaste={handlePaste}
+            handleDragOver={handleDragOver}
+            handleDrop={handleDrop}
+            setShowAtMenu={setShowAtMenu}
+            handleFileSelect={handleFileSelect}
+            onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
+            showChangesDropdown={showChangesDropdown}
+            setShowChangesDropdown={setShowChangesDropdown}
+            messages={messages}
+            handleSend={handleSend}
+            hasProjectContext={!!projectContext}
+            onOpenProjectContext={() => setShowProjectContextModal(true)}
+            folderPath={selectedTab?.folderPath || null}
+            isConversationStarted={messages.length > 0 || !!initialMessageData}
+            currentModel={enrichedModel ?? currentModel}
+            setCurrentModel={setCurrentModel}
+            currentAccount={currentAccount}
+            setCurrentAccount={setCurrentAccount}
+            isProcessing={isProcessing || executionState.status === "running"}
+            isStreaming={isStreaming}
+            onStopGeneration={handleStopGeneration}
+            showBrowserWarning={showBrowserWarning}
+            isLaunchingBrowser={isLaunchingBrowser}
+            onLaunchBrowserSession={launchBrowserSession}
+          />
+          <MentionDropdowns
+            showAtMenu={showAtMenu}
+            showMentionDropdown={showMentionDropdown}
+            mentionType={mentionType}
+            availableFiles={availableFiles}
+            availableFolders={availableFolders}
+            availableRules={availableRules}
+            message={message}
+            handleMentionOptionSelect={handleMentionOptionSelect}
+            handleExternalFileSelect={handleExternalFileSelect}
+            handleWorkspaceItemSelect={handleWorkspaceItemSelect}
+            handleRuleSelect={handleRuleSelect}
+            mentionDropdownRef={mentionDropdownRef}
+          />
+        </div>
+      </div>
     </div>
   );
 };

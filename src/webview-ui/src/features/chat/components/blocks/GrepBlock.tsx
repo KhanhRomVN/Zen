@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { ToolAction } from "../../../services/ResponseParser";
-import { extensionService } from "../../../../../services/ExtensionService";
-import { getFileIconPath } from "../../../../../utils/fileIconMapper";
+import { ToolAction } from "../../services/ResponseParser";
+import { extensionService } from "../../../../services/ExtensionService";
+import { getFileIconPath } from "../../../../utils/fileIconMapper";
 
 interface GrepBlockProps {
   action: ToolAction;

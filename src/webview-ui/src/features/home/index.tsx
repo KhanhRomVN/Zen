@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import ChatFooter from "../chat/components/ChatFooter";
+import MessageInput from "@/components/MessageInput";
 import WelcomeUI from "./components/WelcomeUI";
 import { TabInfo } from "../../types";
 import { extensionService } from "../../services/ExtensionService";
@@ -56,6 +56,30 @@ const HomePanel: React.FC<HomePanelProps> = ({
     requestCount: 0,
   };
 
+  const [message, setMessage] = useState(initialValue || "");
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  const handleSend = (model: any, account: any) => {
+    if (message.trim()) {
+      onSendMessage(message, [], model, account);
+      setMessage("");
+    }
+  };
+
+  // Placeholder functions for MessageInput props that HomePanel doesn't need
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter key is handled by MessageInput itself via handleSend
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {};
+  const handleDragOver = (e: React.DragEvent) => {};
+  const handleDrop = (e: React.DragEvent) => {};
+  const handleFileSelect = () => {};
+
   return (
     <div
       className="home-panel"
@@ -78,21 +102,34 @@ const HomePanel: React.FC<HomePanelProps> = ({
       >
         <WelcomeUI onLoadConversation={onLoadConversation} />
       </div>
-      <ChatFooter
-        onSendMessage={(content, files, model, account) => {
-          onSendMessage(content, files || [], model, account);
-        }}
+      <MessageInput
+        message={message}
+        setMessage={setMessage}
         isHistoryMode={false}
-        messages={[]} // No messages in HomePanel
-        isProcessing={false}
-        isStreaming={false}
+        uploadedFiles={[]}
+        textareaRef={textareaRef}
+        handleTextareaChange={handleTextareaChange}
+        handleKeyDown={handleKeyDown}
+        handlePaste={handlePaste}
+        handleDragOver={handleDragOver}
+        handleDrop={handleDrop}
+        setShowAtMenu={() => {}}
+        handleFileSelect={handleFileSelect}
+        onOpenProjectStructure={() => {}}
+        showChangesDropdown={false}
+        setShowChangesDropdown={() => {}}
+        messages={[]}
+        handleSend={handleSend}
+        hasProjectContext={false}
+        onOpenProjectContext={() => {}}
+        folderPath={folderPath || null}
+        isConversationStarted={false}
         currentModel={currentModel}
         setCurrentModel={setCurrentModel}
         currentAccount={currentAccount}
         setCurrentAccount={setCurrentAccount}
-        initialValue={initialValue}
-        conversationId="home"
-        folderPath={folderPath || null}
+        isProcessing={false}
+        isStreaming={false}
       />
     </div>
   );
