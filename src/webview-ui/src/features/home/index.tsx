@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import MessageInput from "@/components/MessageInput";
-import WelcomeUI from "./components/WelcomeUI";
-import { TabInfo } from "../../types";
+import WelcomeUI from "../chat/components/WelcomeUI";
 import { extensionService } from "../../services/ExtensionService";
 
 interface HomePanelProps {
@@ -25,14 +24,12 @@ const HomePanel: React.FC<HomePanelProps> = ({
   initialValue,
 }) => {
   useEffect(() => {
-    // Trigger history limit enforcement on mount
     extensionService.postMessage({
       command: "getHistory",
       requestId: `home-enforce-${Date.now()}`,
     });
   }, []);
 
-  // Read workspace folder path injected by ZenChatViewProvider
   const folderPath = (window as any).__zenWorkspaceFolderPath as
     | string
     | null
@@ -40,22 +37,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
 
   const [currentModel, setCurrentModel] = useState<any>(null);
   const [currentAccount, setCurrentAccount] = useState<any>(null);
-
-  // Dummy tab for Header to verify visual consistency
-  const dummyTab: TabInfo = {
-    tabId: -1,
-    title: "New Chat",
-    // type: "chat", // Removed as it is not in TabInfo? Or check definition.
-    // Wait, if TabInfo has type, I should keep it. But error says it does not.
-    status: "free",
-    conversationId: "",
-    folderPath: null,
-    provider: currentModel?.providerId,
-    containerName: "Home",
-    canAccept: true,
-    requestCount: 0,
-  };
-
   const [message, setMessage] = useState(initialValue || "");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -66,18 +47,14 @@ const HomePanel: React.FC<HomePanelProps> = ({
     }
   };
 
-  // Placeholder functions for MessageInput props that HomePanel doesn't need
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter key is handled by MessageInput itself via handleSend
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {};
-  const handleDragOver = (e: React.DragEvent) => {};
-  const handleDrop = (e: React.DragEvent) => {};
+  const handleKeyDown = (_e: React.KeyboardEvent<HTMLTextAreaElement>) => {};
+  const handlePaste = (_e: React.ClipboardEvent<HTMLTextAreaElement>) => {};
+  const handleDragOver = (_e: React.DragEvent) => {};
+  const handleDrop = (_e: React.DragEvent) => {};
   const handleFileSelect = () => {};
 
   return (
@@ -90,7 +67,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
         backgroundColor: "var(--primary-bg)",
       }}
     >
-      {/* ChatHeader removed as per user request */}
       <div
         style={{
           flex: 1,

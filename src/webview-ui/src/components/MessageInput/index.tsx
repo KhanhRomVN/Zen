@@ -1133,7 +1133,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                handleSend(currentModel, currentAccount);
+                // Only send if not history mode, connected, not loading, not processing
+                if (!isHistoryMode && isConnected && !isLoadingCache && !isProcessing) {
+                  handleSend(currentModel, currentAccount);
+                }
               } else {
                 handleKeyDown(e);
               }
@@ -1172,9 +1175,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                       ? t("chat.inputProcessing")
                       : t("chat.inputMentionHint")
             }
-            disabled={
-              isHistoryMode || !isConnected || isLoadingCache || isProcessing
-            }
+            disabled={false}
             rows={1}
             style={{
               width: "100%",
@@ -1190,14 +1191,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
               overflow: "auto",
               whiteSpace: "pre-wrap",
               wordWrap: "break-word",
-              opacity:
-                isHistoryMode || !isConnected || isLoadingCache || isProcessing
-                  ? 0.6
-                  : 1,
-              cursor:
-                isHistoryMode || !isConnected || isLoadingCache || isProcessing
-                  ? "not-allowed"
-                  : "text",
+              opacity: 1,
+              cursor: "text",
             }}
           />
         </div>
