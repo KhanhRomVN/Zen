@@ -1,0 +1,449 @@
+import React, { useRef, useEffect, useMemo } from "react";
+import {
+  parseAIResponse,
+  ParsedResponse,
+  ToolAction,
+} from "../services/ResponseParser";
+import { useSettings } from "../../../context/SettingsContext";
+import { useCollapseSections } from "../hooks/useCollapseSections";
+import { useToolActions } from "../hooks/useToolActions";
+import { useScrollBehavior } from "../hooks/useScrollBehavior";
+import { getPermissionDecision } from "../hooks/useToolExecution";
+import { Message } from "../types/message";
+import ProcessingIndicator from "./messages/ProcessingIndicator";
+import MessageBox from "./messages/MessageBox";
+import SearchBar from "./SearchBar";
+
+interface ChatBodyProps {
+  messages: Message[];
+  isProcessing: boolean;
+  onSendToolRequest?: (
+    action: ToolAction | ToolAction[],
+    message: Message,
+    isAutoTrigger?: boolean,
+    actionType?: "accept_all" | "accept_once" | "reject",
+  ) => void;
+  onToolAction?: (
+    actionId: string,
+    actionType: "accept_all" | "accept_once" | "reject",
+    toolName?: string,
+  ) => void;
+  onSendMessage?: (
+    content: string,
+    files?: any[],
+    model?: any,
+    account?: any,
+    skipFirstRequestLogic?: boolean,
+    actionIds?: string[],
+    uiHidden?: boolean,
+  ) => void | Promise<void>;
+  onSelectOption?: (messageId: string, option: string) => void;
+  /** ID of the first user message — used to skip rendering it in some views. */
+  firstRequestMessageId?: string;
+  executionState?: {
+    total: number;
+    completed: number;
+    status: "idle" | "running" | "error" | "done";
+  };
+  toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  terminalStatus?: Record<string, "busy" | "free">;
+  onLoadConversation?: (
+    conversationId: string,
+    tabId: number,
+    folderPath: string | null,
+  ) => void;
+  onRevertConversation?: (messageId: string, timestamp: number) => void;
+  onAutoScrollPausedChange?: (paused: boolean) => void;
+  scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
+  /** DeepSeek incomplete SSE continuation flags. */
+  isContinuing?: boolean;
+  incompleteHasPartialTool?: boolean;
+  incompletePartialToolType?: string | null;
+}
+
+export interface ExtendedChatBodyProps extends ChatBodyProps {
+  executionState?: {
+    total: number;
+    completed: number;
+    status: "idle" | "running" | "error" | "done";
+  };
+  toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  terminalStatus?: Record<string, "busy" | "free">;
+  activeTerminalIds?: Set<string>;
+  attachedTerminalIds?: Set<string>;
+  conversationId?: string;
+  previousAssistantMessage?: Message;
+  isSimpleMode?: boolean;
+  isRestored?: boolean;
+  onContinue?: () => void;
+  hasInitialMessage?: boolean;
+  singleLineReviewActions?: Record<
+    string,
+    { action: any; actionId: string; messageId: string }
+  >;
+  onConfirmSingleLineAction?: (actionId: string) => void;
+  onRejectSingleLineAction?: (actionId: string) => void;
+  isSearchOpen?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (q: string) => void;
+  onCloseSearch?: () => void;
+}
+
+const ChatBody: React.FC<ExtendedChatBodyProps> = ({
+  messages,
+  isProcessing,
+  onSendToolRequest,
+  onSendMessage,
+  executionState,
+  toolOutputs,
+  terminalStatus,
+  firstRequestMessageId,
+  onLoadConversation,
+  activeTerminalIds,
+  attachedTerminalIds,
+  conversationId,
+  onToolAction,
+  onSelectOption,
+  isSimpleMode = true,
+  isRestored = false,
+  isContinuing = false,
+  incompleteHasPartialTool = false,
+  incompletePartialToolType = null,
+  onContinue,
+  hasInitialMessage = false,
+  onRevertConversation,
+  onAutoScrollPausedChange,
+  scrollToBottomRef,
+  singleLineReviewActions,
+  onConfirmSingleLineAction,
+  onRejectSingleLineAction,
+  isSearchOpen = false,
+  searchQuery = "",
+  onSearchQueryChange,
+  onCloseSearch,
+}: ExtendedChatBodyProps) => {
+  const { permissionMode } = useSettings();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const parseCacheRef = useRef<Map<string, ParsedResponse>>(new Map());
+
+  const parsedMessages = useMemo(() => {
+    const cache = parseCacheRef.current;
+    return messages.map((msg) => {
+      if (!cache.has(msg.content)) {
+        cache.set(msg.content, parseAIResponse(msg.content));
+      }
+      return { ...msg, parsed: cache.get(msg.content)! };
+    });
+  }, [messages]);
+
+  const { collapsedSections, toggleCollapse } = useCollapseSections();
+  const { clickedActions, handleToolClick, failedActions, rejectedActions } =
+    useToolActions({
+      onSendToolRequest,
+      onToolAction,
+      parsedMessages,
+      isProcessing,
+      isRestored,
+    });
+  const { autoScrollPaused, scrollToBottom } = useScrollBehavior(
+    messagesEndRef,
+    [messages, isProcessing],
+  );
+
+  const prevPausedRef = useRef(false);
+  useEffect(() => {
+    if (autoScrollPaused !== prevPausedRef.current) {
+      prevPausedRef.current = autoScrollPaused;
+      onAutoScrollPausedChange?.(autoScrollPaused);
+    }
+  }, [autoScrollPaused, onAutoScrollPausedChange]);
+
+  useEffect(() => {
+    if (scrollToBottomRef) scrollToBottomRef.current = scrollToBottom;
+  }, [scrollToBottom, scrollToBottomRef]);
+
+  const hasUnexecutedAutoActions = useMemo(() => {
+    if (!isRestored || messages.length === 0) return false;
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage.role !== "assistant") return false;
+    const parsed = parseAIResponse(lastMessage.content);
+    if (!parsed.actions || parsed.actions.length === 0) return false;
+    const firstPendingAction = parsed.actions.find(
+      (action: any, idx: number) => {
+        if (action.isPartial) return false;
+        const actionId = `${lastMessage.id}-action-${idx}`;
+        const hasOutput = toolOutputs && toolOutputs[actionId];
+        const isClicked = clickedActions.has(actionId);
+        return !hasOutput && !isClicked;
+      },
+    );
+    if (!firstPendingAction) return false;
+    const isVisible =
+      !isSimpleMode ||
+      [
+        "write_to_file",
+        "replace_in_file",
+        "run_command",
+        "execute_agent_action",
+      ].includes(firstPendingAction.type);
+    if (isVisible) return false;
+    const decision = getPermissionDecision(
+      permissionMode,
+      firstPendingAction.type,
+    );
+    return decision === "allow";
+  }, [
+    messages,
+    isRestored,
+    toolOutputs,
+    permissionMode,
+    clickedActions,
+    isSimpleMode,
+  ]);
+
+  const visibleMessages = useMemo(() => {
+    return messages.filter((msg) => !msg.uiHidden && !msg.isCancelled);
+  }, [messages, firstRequestMessageId]);
+
+  const lastAssistantIndex = useMemo(() => {
+    for (let i = visibleMessages.length - 1; i >= 0; i--) {
+      if (visibleMessages[i].role === "assistant") return i;
+    }
+    return -1;
+  }, [visibleMessages]);
+
+  const isResponding = useMemo(() => {
+    if (!isProcessing || visibleMessages.length === 0) return false;
+    const lastMessage = visibleMessages[visibleMessages.length - 1];
+    if (lastMessage.role !== "assistant") return false;
+    const parsedMessage = parsedMessages.find((pm) => pm.id === lastMessage.id);
+    if (!parsedMessage) return false;
+    const parsed = parsedMessage.parsed;
+    const hasText = parsed.displayText && parsed.displayText.trim().length > 0;
+    const hasActions = parsed.actions && parsed.actions.length > 0;
+    const hasOtherBlocks =
+      parsed.contentBlocks &&
+      parsed.contentBlocks.some((b) => {
+        switch (b.type) {
+          case "tool":
+            return true;
+          case "mixed_content":
+            return b.segments.length > 0;
+          case "code":
+          case "html":
+          case "file":
+          case "markdown":
+            return b.content.trim().length > 0;
+          default:
+            return false;
+        }
+      });
+    return !!(hasText || hasActions || hasOtherBlocks);
+  }, [isProcessing, visibleMessages, parsedMessages]);
+
+  return (
+    <div
+      ref={bodyRef}
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        padding: "var(--spacing-lg)",
+        backgroundColor: "var(--secondary-bg)",
+        paddingBottom:
+          visibleMessages.length > 0 ? "200px" : "var(--spacing-lg)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--spacing-md)",
+        fontSize: "14px",
+        position: "relative",
+      }}
+    >
+      {isSearchOpen && (
+        <SearchBar
+          searchQuery={searchQuery}
+          onSearchQueryChange={onSearchQueryChange}
+          onCloseSearch={onCloseSearch}
+          bodyRef={bodyRef}
+        />
+      )}
+
+      <div className="chat-timeline-wrapper">
+        {visibleMessages.map((message, index) => {
+          const parsedMessage = parsedMessages.find(
+            (pm) => pm.id === message.id,
+          );
+          if (!parsedMessage) return null;
+          const parsedContent = parsedMessage.parsed;
+          const nextUserMessage = messages
+            .slice(messages.findIndex((m) => m.id === message.id) + 1)
+            .find((m) => m.role === "user");
+          const previousAssistantMessage = messages
+            .slice(
+              0,
+              messages.findIndex((m) => m.id === message.id),
+            )
+            .reverse()
+            .find((m) => m.role === "assistant");
+          return (
+            <MessageBox
+              key={message.id}
+              message={message}
+              parsedContent={parsedContent}
+              nextUserMessage={nextUserMessage}
+              isGenerating={
+                isProcessing && index === visibleMessages.length - 1
+              }
+              isCollapsed={
+                message.role === "user"
+                  ? collapsedSections.has(`prompt-${message.id}`)
+                  : false
+              }
+              onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
+              clickedActions={clickedActions}
+              failedActions={failedActions}
+              rejectedActions={rejectedActions}
+              onToolClick={handleToolClick}
+              executionState={executionState}
+              isLastMessage={
+                index === visibleMessages.length - 1 ||
+                index === lastAssistantIndex
+              }
+              toolOutputs={toolOutputs}
+              terminalStatus={terminalStatus}
+              allMessages={messages}
+              activeTerminalIds={activeTerminalIds}
+              attachedTerminalIds={attachedTerminalIds}
+              conversationId={conversationId}
+              previousAssistantMessage={previousAssistantMessage}
+              onSendMessage={onSendMessage}
+              onSelectOption={onSelectOption}
+              isSimpleMode={isSimpleMode}
+              onRevertConversation={onRevertConversation}
+              singleLineReviewActions={singleLineReviewActions}
+              onConfirmSingleLineAction={onConfirmSingleLineAction}
+              onRejectSingleLineAction={onRejectSingleLineAction}
+            />
+          );
+        })}
+      </div>
+
+      {hasUnexecutedAutoActions && onContinue && (
+        <div
+          style={{
+            paddingLeft: "29px",
+            marginTop: "12px",
+            marginBottom: "12px",
+            display: "flex",
+          }}
+        >
+          <button
+            onClick={onContinue}
+            style={{
+              backgroundColor:
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 15%, transparent)",
+              color: "var(--vscode-button-background, #007acc)",
+              border:
+                "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 30%, transparent)",
+              padding: "6px 16px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              height: "28px",
+              boxSizing: "border-box",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor =
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 25%, transparent)";
+              e.currentTarget.style.borderColor =
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 50%, transparent)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor =
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 15%, transparent)";
+              e.currentTarget.style.borderColor =
+                "color-mix(in srgb, var(--vscode-button-background, #007acc) 30%, transparent)";
+            }}
+          >
+            <span
+              className="codicon codicon-play"
+              style={{
+                fontSize: "12px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            />
+            <span>Continue Task</span>
+          </button>
+        </div>
+      )}
+
+      {isContinuing && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "10px",
+            padding: "8px 14px",
+            marginBottom: "4px",
+            marginTop: "4px",
+            background:
+              "color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 8%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 25%, transparent)",
+            borderRadius: "8px",
+            color: "var(--vscode-editor-foreground)",
+            fontSize: "12px",
+          }}
+        >
+          <span
+            style={{
+              flexShrink: 0,
+              marginTop: "2px",
+              display: "inline-block",
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: "var(--vscode-editorWarning-foreground, #cca700)",
+              animation: "zen-pulse 1.2s ease-in-out infinite",
+            }}
+          />
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+            <span style={{ fontWeight: 600, opacity: 0.9 }}>
+              Response bị ngắt — đang tiếp tục…
+            </span>
+            <span style={{ opacity: 0.7, lineHeight: "1.4" }}>
+              {incompleteHasPartialTool
+                ? `AI tự động ngắt response dài. Đang ghép phần còn lại của \`${incompletePartialToolType ?? "tool"}\` trước khi thực thi.`
+                : "AI tự động ngắt response dài. Đang lấy phần còn lại…"}
+            </span>
+          </div>
+          <style>{`
+            @keyframes zen-pulse {
+              0%, 100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.4; transform: scale(0.75); }
+            }
+          `}</style>
+        </div>
+      )}
+
+      {(isProcessing || hasInitialMessage) && (
+        <ProcessingIndicator isResponding={isResponding} />
+      )}
+
+      <div ref={messagesEndRef} />
+    </div>
+  );
+};
+
+export default ChatBody;

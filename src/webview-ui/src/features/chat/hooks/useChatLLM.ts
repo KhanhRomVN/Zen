@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Message } from "../types";
+import { Message } from "../types/message";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 import { getDefaultPrompt, combinePrompts } from "../prompts";
 import {
@@ -16,6 +16,7 @@ import {
 import { useSettings } from "../../../context/SettingsContext";
 import { useProject } from "../../../context/ProjectContext";
 import { extensionService } from "@/services/ExtensionService";
+import { useFileUpload } from "./useFileUpload";
 
 export interface TabInfo {
   tabId: number;
@@ -91,6 +92,7 @@ export const useChatLLM = ({
     permissionMode,
   } = useSettings();
   const { workspace, treeView } = useProject();
+  const { uploadFiles } = useFileUpload(apiUrl);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const isProcessingRef = useRef(false);
@@ -599,68 +601,13 @@ export const useChatLLM = ({
           : [];
 
         if (localFiles.length > 0) {
-          for (const file of localFiles) {
-            if (file.file_id) {
-              ref_file_ids.push(file.file_id);
-              continue;
-            }
-
-            if (!finalAccount?.id) {
-              throw new Error(
-                "No active account selected for file upload. Please select/add an account first.",
-              );
-            }
-
-            try {
-              let blob: Blob;
-              if (file.content.startsWith("data:")) {
-                const arr = file.content.split(",");
-                const mime =
-                  arr[0].match(/:(.*?);/)?.[1] ||
-                  file.type ||
-                  "application/octet-stream";
-                const bstr = atob(arr[1]);
-                let n = bstr.length;
-                const u8arr = new Uint8Array(n);
-                while (n--) {
-                  u8arr[n] = bstr.charCodeAt(n);
-                }
-                blob = new Blob([u8arr], { type: mime });
-              } else {
-                blob = new Blob([file.content], {
-                  type: file.type || "text/plain",
-                });
-              }
-
-              const formData = new FormData();
-              formData.append("file", blob, file.name);
-
-              const uploadRes = await fetch(
-                `${apiUrl}/v1/chat/accounts/${finalAccount.id}/uploads`,
-                {
-                  method: "POST",
-                  body: formData,
-                },
-              );
-
-              if (!uploadRes.ok) {
-                throw new Error(
-                  `Upload API returned status ${uploadRes.status}`,
-                );
-              }
-
-              const uploadData = await uploadRes.json();
-              if (uploadData.success && uploadData.data?.file_id) {
-                ref_file_ids.push(uploadData.data.file_id);
-              } else {
-                throw new Error(uploadData.error || "Unknown upload error");
-              }
-            } catch (err) {
-              throw new Error(
-                `Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            }
+          if (!finalAccount?.id) {
+            throw new Error(
+              "No active account selected for file upload. Please select/add an account first.",
+            );
           }
+          const uploadedIds = await uploadFiles(localFiles, finalAccount.id);
+          ref_file_ids.push(...uploadedIds);
         }
 
         const effPromptPayload = isReq1

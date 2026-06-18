@@ -1,3 +1,7 @@
+import { normalizeTagVariants } from "./parsers/TagNormalizer";
+import { parseToolAction, extractParamValue } from "./parsers/ToolParser";
+import { extractThinkingBlocks } from "./parsers/ThinkingParser";
+
 export interface ParsedResponse {
   followupQuestion: string | null;
   followupOptions: string[] | null;
@@ -42,224 +46,6 @@ export type ContentBlock =
   | { type: "thinking"; content: string };
 
 /**
- * Decode common HTML entities back to their original characters
- */
-const decodeHtmlEntities = (text: string): string => {
-  return text
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
-};
-
-/**
- * Parse XML-like content to extract parameter value
- */
-/**
- * Params that carry multi-line file content — must NOT be trimmed so that
- * leading/trailing newlines (which are meaningful code lines) are preserved
- * when an SSE stream is split across multiple chunks.
- */
-const CONTENT_PARAMS = new Set(["content", "diff"]);
-
-/**
- * Extract a param value trying multiple tag name aliases in order.
- * Useful when AI may use camelCase variants (e.g. filePath vs file_path).
- */
-const extractParam = (content: string, ...aliases: string[]): string | null => {
-  for (const alias of aliases) {
-    const value = extractParamValue(content, alias);
-    if (value !== null && value !== "") return value;
-  }
-  return null;
-};
-
-const extractParamValue = (
-  content: string,
-  paramName: string,
-): string | null => {
-  // Whether this param holds raw file content (no aggressive trimming allowed)
-  const isContentParam = CONTENT_PARAMS.has(paramName);
-
-  // Try standard XML tag first
-  const standardRegex = new RegExp(
-    `<${paramName}>([\\s\\S]*?)<\\/${paramName}>`,
-    "i",
-  );
-  const standardMatch = content.match(standardRegex);
-  if (standardMatch) {
-    let value = standardMatch[1];
-    // Remove ```text wrappers if present
-    value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-    const decoded = decodeHtmlEntities(value);
-    // For file content params: only strip a single leading/trailing newline added
-    // by the XML tag boundaries — do NOT trim() which would eat real blank lines.
-    // For other params (file_path, command, etc.): full trim is safe and expected.
-    return isContentParam ? decoded.replace(/^\n|\n$/g, "") : decoded.trim();
-  }
-
-  // Try self-closing tag with content
-  const selfClosingRegex = new RegExp(
-    `<${paramName}\\s*>([\\s\\S]*?)(?=<[\\w_]+>|$)`,
-    "i",
-  );
-  const selfClosingMatch = content.match(selfClosingRegex);
-  if (selfClosingMatch) {
-    let value = selfClosingMatch[1];
-    value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-    let decoded = decodeHtmlEntities(value);
-    if (!isContentParam) {
-      decoded = decoded.trim();
-      // Strip malformed closing tag suffix like /paramName> or paramName>
-      const malformedCloseRegex = new RegExp(`/?${paramName}>?$`, "i");
-      decoded = decoded.replace(malformedCloseRegex, "").trim();
-    } else {
-      decoded = decoded.replace(/^\n|\n$/g, "");
-    }
-    return decoded;
-  }
-  return null;
-};
-
-const parseToolAction = (
-  toolName: string,
-  innerContent: string,
-  rawXml: string,
-): ToolAction => {
-  const params: Record<string, any> = {};
-
-  // Extract specific parameters based on tool type
-  switch (toolName) {
-    case "read_file":
-      params.file_path = extractParam(
-        innerContent,
-        "file_path",
-        "filePath",
-        "filepath",
-        "path",
-      );
-      params.start_line = extractParam(innerContent, "start_line", "startLine");
-      params.end_line = extractParam(innerContent, "end_line", "endLine");
-      break;
-
-    case "write_to_file":
-      params.file_path = extractParam(
-        innerContent,
-        "file_path",
-        "filePath",
-        "filepath",
-        "path",
-      );
-      params.content = extractParamValue(innerContent, "content");
-      break;
-
-    case "replace_in_file":
-      params.file_path = extractParam(
-        innerContent,
-        "file_path",
-        "filePath",
-        "filepath",
-        "path",
-      );
-      params.diff = extractParamValue(innerContent, "diff");
-      break;
-
-    case "run_command":
-      params.command = extractParamValue(innerContent, "command");
-      params.terminal_id = extractParam(
-        innerContent,
-        "terminal_id",
-        "terminalId",
-      );
-      params.cwd = extractParamValue(innerContent, "cwd");
-      break;
-
-    case "execute_agent_action":
-      // No special param handling needed yet
-      break;
-
-    case "list_files":
-      params.folder_path = extractParam(
-        innerContent,
-        "folder_path",
-        "folderPath",
-        "path",
-      );
-      params.depth = extractParamValue(innerContent, "depth");
-      params.recursive = extractParamValue(innerContent, "recursive");
-      params.type = extractParamValue(innerContent, "type");
-      break;
-
-    case "search_files":
-      params.folder_path = extractParam(
-        innerContent,
-        "folder_path",
-        "folderPath",
-        "path",
-      );
-      params.regex = extractParamValue(innerContent, "regex");
-      params.file_pattern = extractParam(
-        innerContent,
-        "file_pattern",
-        "filePattern",
-      );
-      break;
-
-    case "search_content":
-    case "get_outline":
-    case "get_definition":
-    case "get_references":
-      // removed tools — ignore
-      break;
-
-    case "delete_file":
-      params.file_path = extractParam(
-        innerContent,
-        "file_path",
-        "filePath",
-        "filepath",
-        "path",
-      );
-      break;
-
-    case "delete_folder":
-      params.folder_path = extractParam(
-        innerContent,
-        "folder_path",
-        "folderPath",
-        "path",
-      );
-      break;
-
-    case "grep":
-      params.search_term = extractParam(
-        innerContent,
-        "search_term",
-        "searchTerm",
-      );
-      params.file_path = extractParam(
-        innerContent,
-        "file_path",
-        "filePath",
-        "filepath",
-      );
-      params.folder_path = extractParam(
-        innerContent,
-        "folder_path",
-        "folderPath",
-      );
-      break;
-  }
-
-  return {
-    type: toolName as any,
-    params,
-    rawXml,
-  };
-};
-
-/**
  * Parse AI response to extract tool actions
  * Supports interleaved text and tool calls
  */
@@ -279,113 +65,17 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Hide </no_response> markers
   remainingContent = remainingContent.replace(/<\/no_response\s*>/gi, "");
 
-  // Normalize singular/variant tool tag names to canonical forms
-  remainingContent = remainingContent
-    .replace(/<(\/?)search_file>/gi, "<$1search_files>")
-    .replace(/<(\/?)list_file>/gi, "<$1list_files>");
-
-  // ── Explicit tag variant normalization ───────────────────────────────────
-  // Maps every known AI-generated variant of a tool tag name to its canonical
-  // form.  Variants are derived from observed model behaviour: camelCase,
-  // PascalCase, mixed snake_case, partial capitalisation, etc.
-  // A regex is built per canonical tool that matches ALL listed variants
-  // (open tags, close tags, tags with attributes) and rewrites them in-place.
-  const TAG_VARIANTS: Record<string, string[]> = {
-    read_file: [
-      "readFile", "ReadFile", "read_File", "ReadFile",
-      "readfile", "READFILE", "Read_File", "read_file",
-      "Readfile", "readFile", "READ_FILE",
-    ],
-    write_to_file: [
-      "writeToFile", "WriteToFile", "write_to_File", "WritetoFile",
-      "writetofile", "WRITETOFILE", "Write_To_File", "write_to_file",
-      "writefile", "WriteFile", "WRITE_TO_FILE", "write_toFile",
-      "writeTofile", "WriteTo_File",
-    ],
-    replace_in_file: [
-      "replaceInFile", "ReplaceInFile", "replace_in_File", "ReplaceInfile",
-      "replaceinfile", "REPLACEINFILE", "Replace_In_File", "replace_in_file",
-      "replaceFile", "ReplaceFile", "REPLACE_IN_FILE", "replace_InFile",
-      "replaceInfile", "Replace_in_file",
-    ],
-    list_files: [
-      "listFiles", "ListFiles", "list_Files", "ListFile",
-      "listfiles", "LISTFILES", "List_Files", "list_file",
-      "ListFile", "listFile", "LIST_FILES", "list_Files",
-    ],
-    search_files: [
-      "searchFiles", "SearchFiles", "search_Files", "SearchFile",
-      "searchfiles", "SEARCHFILES", "Search_Files", "search_file",
-      "SearchFile", "searchFile", "SEARCH_FILES", "search_Files",
-    ],
-    run_command: [
-      "runCommand", "RunCommand", "run_Command", "RunCommand",
-      "runcommand", "RUNCOMMAND", "Run_Command", "run_command",
-      "Runcommand", "runCommand", "RUN_COMMAND",
-    ],
-    execute_agent_action: [
-      "executeAgentAction", "ExecuteAgentAction", "execute_agent_Action",
-      "executeagentaction", "EXECUTEAGENTACTION", "Execute_Agent_Action",
-      "executeAgent", "ExecuteAgent", "EXECUTE_AGENT_ACTION",
-    ],
-    delete_file: [
-      "deleteFile", "DeleteFile", "delete_File", "DeleteFile",
-      "deletefile", "DELETEFILE", "Delete_File", "delete_file",
-      "Deletefile", "deleteFile", "DELETE_FILE",
-    ],
-    delete_folder: [
-      "deleteFolder", "DeleteFolder", "delete_Folder", "DeleteFolder",
-      "deletefolder", "DELETEFOLDER", "Delete_Folder", "delete_folder",
-      "Deletefolder", "deleteFolder", "DELETE_FOLDER",
-    ],
-    grep: [
-      "Grep", "GREP",
-    ],
-  };
-
-  for (const [canonical, variants] of Object.entries(TAG_VARIANTS)) {
-    // Build alternation pattern from variants (escape special chars)
-    const escaped = variants.map((v) =>
-      v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-    );
-    const pattern = new RegExp(
-      `<(\\/?)(${escaped.join("|")})(\\s[^>]*)?\\s*>`,
-      "g",
-    );
-    remainingContent = remainingContent.replace(
-      pattern,
-      (_m, slash: string, _tag: string, attrs: string | undefined) =>
-        `<${slash}${canonical}${attrs ?? ""}>`,
-    );
-  }
-  // ─────────────────────────────────────────────────────────────────────────
+  // Normalize all tag name variants to canonical forms
+  remainingContent = normalizeTagVariants(remainingContent);
 
   // Pre-extract <thinking> blocks BEFORE any tool scanning so that tool tags
   // inside a thinking block are never mistaken for real tool calls.
-  // We replace each <thinking>...</thinking> (or unclosed <thinking>) with a
-  // numbered placeholder __THINKING_N__ and store the content separately.
-  const thinkingBlocks: string[] = [];
-
-  // 1. Closed <thinking>...</thinking> blocks
-  remainingContent = remainingContent.replace(
-    /<thinking>([\s\S]*?)<\/thinking>/gi,
-    (_match, inner) => {
-      const idx = thinkingBlocks.length;
-      thinkingBlocks.push(inner);
-      return `__THINKING_${idx}__`;
-    },
-  );
-
-  // 2. Unclosed <thinking> (streaming — tail of content)
-  const unclosedThinkingMatch = /<thinking>([\s\S]*)$/i.exec(remainingContent);
-  let unclosedThinkingContent: string | null = null;
-  if (unclosedThinkingMatch) {
-    unclosedThinkingContent = unclosedThinkingMatch[1];
-    remainingContent = remainingContent.substring(
-      0,
-      unclosedThinkingMatch.index,
-    );
-  }
+  const {
+    remainingContent: contentAfterThinking,
+    thinkingBlocks,
+    unclosedThinkingContent,
+  } = extractThinkingBlocks(remainingContent);
+  remainingContent = contentAfterThinking;
 
   // Scan for tools and text blocks
   // Note: "thinking" is intentionally excluded — thinking blocks are pre-extracted
@@ -410,7 +100,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   // Fix missing opening bracket for the first tool call due to prefix/prefill stripping.
   // Use only horizontal whitespace (\t, space) — NOT \n — and no 'i' flag to avoid
-  // accidentally eating the first character of normal text (e.g. "Dựa trên...").
+  // accidentally eating the first character of normal text.
   const toolNamesPattern = toolPatterns.join("|");
   const missingBracketRegex = new RegExp(
     `^([ \t]*(?:•[ \t]*)?)(${toolNamesPattern})>`,
@@ -418,9 +108,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   if (missingBracketRegex.test(remainingContent)) {
     remainingContent = remainingContent.replace(missingBracketRegex, "$1<$2>");
   }
-
-  // We need to parse linearly to maintain order
-  // Strategy: Find the first occurrence of ANY tool tag OR markdown code block
 
   // Helper to find next tag
   const findNextTag = (str: string) => {
@@ -452,7 +139,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       }
     }
 
-    // 3. If no closed tag/block found at a closer position, check for unclosed start tags
+    // 2. If no closed tag/block found at a closer position, check for unclosed start tags
     for (const toolName of toolPatterns) {
       const openRegex = new RegExp(`<${toolName}(?:\\s+[^>]*)?>`, "i");
       const match = openRegex.exec(str);
@@ -676,8 +363,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   // --- Restore thinking blocks from placeholders ---
   // Walk contentBlocks and expand any markdown block that contains __THINKING_N__ placeholders.
-  // A single markdown segment may contain text + multiple placeholders interleaved, so we split
-  // each segment around the placeholders and emit the correct block types in order.
   const placeholderRegex = /__THINKING_(\d+)__/g;
 
   const expandedBlocks: ContentBlock[] = [];
