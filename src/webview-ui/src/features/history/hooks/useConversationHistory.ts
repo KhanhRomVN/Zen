@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { extensionService } from "../services/ExtensionService";
 import { ConversationItem } from "../types";
+import { extensionService } from "@/services/ExtensionService";
 
 export const useConversationHistory = (isOpen: boolean) => {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);

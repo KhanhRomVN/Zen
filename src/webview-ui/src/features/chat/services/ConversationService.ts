@@ -1,4 +1,4 @@
-import { extensionService } from "./ExtensionService";
+import { extensionService } from "../../../services/ExtensionService";
 import { Message } from "../types";
 import { ConversationCache } from "./ConversationCache";
 

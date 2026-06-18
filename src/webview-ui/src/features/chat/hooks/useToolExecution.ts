@@ -1,9 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Message } from "../types";
-import {
-  extensionService,
-  messageDispatcher,
-} from "../services/ExtensionService";
+
 import { parseAIResponse } from "../services/ResponseParser";
 import { calculateTokens } from "../services/ConversationService";
 import {
@@ -12,6 +9,10 @@ import {
 } from "../prompts/token-limit-warning";
 
 import { useSettings, PermissionMode } from "../../../context/SettingsContext";
+import {
+  extensionService,
+  messageDispatcher,
+} from "@/services/ExtensionService";
 
 /** Tools that commonly produce large outputs and should be tracked for token overflow. */
 const OVERFLOW_PRONE_TOOLS = new Set([

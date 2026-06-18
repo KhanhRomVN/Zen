@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Message } from "../types";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
-import { extensionService } from "../services/ExtensionService";
 import { getDefaultPrompt, combinePrompts } from "../prompts";
 import {
   PERSISTENT_RULES,
@@ -16,6 +15,7 @@ import {
 } from "../services/ConversationService";
 import { useSettings } from "../../../context/SettingsContext";
 import { useProject } from "../../../context/ProjectContext";
+import { extensionService } from "@/services/ExtensionService";
 
 export interface TabInfo {
   tabId: number;

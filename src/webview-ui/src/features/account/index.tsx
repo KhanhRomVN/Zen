@@ -16,6 +16,7 @@ import ConfirmDeleteDrawer from "./components/ConfirmDeleteDrawer";
 import ProviderFilterDropdown from "./components/ProviderFilterDropdown";
 import { useAccounts } from "./hooks/useAccounts";
 import { getFaviconUrl } from "./utils";
+import { extensionService } from "../../services/ExtensionService";
 
 interface AccountPanelProps {
   isOpen: boolean;
@@ -63,10 +64,9 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
 
   const handleImport = async () => {
     try {
-      const result = await (window as any).api?.accounts?.import?.();
-      if (result?.success) {
-        fetchAccounts(pagination.page, pagination.limit, true);
-      }
+      extensionService.postMessage({ command: "importAccounts" });
+      // Re-fetch after a brief delay to pick up any imported accounts
+      setTimeout(() => fetchAccounts(pagination.page, pagination.limit, true), 800);
     } catch (error) {
       console.error("Failed to import:", error);
     }

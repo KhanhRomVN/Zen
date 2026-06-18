@@ -12,12 +12,11 @@ import { useToolActions } from "./hooks/useToolActions";
 import { useScrollBehavior } from "./hooks/useScrollBehavior";
 import { getPermissionDecision } from "./hooks/useToolExecution";
 
-import WelcomeUI from "./components/WelcomeUI";
 import ProcessingIndicator from "./components/messages/ProcessingIndicator";
 import MessageBox from "./components/messages/MessageBox";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 
-import { extensionService } from "./services/ExtensionService";
+import { extensionService } from "../../services/ExtensionService";
 import {
   saveConversation,
   deleteConversation,
@@ -697,10 +696,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           onCloseSearch={onCloseSearch}
           bodyRef={bodyRef}
         />
-      )}
-
-      {visibleMessages.length === 0 && !isProcessing && !hasInitialMessage && (
-        <WelcomeUI onLoadConversation={onLoadConversation} />
       )}
 
       <div className="chat-timeline-wrapper">
