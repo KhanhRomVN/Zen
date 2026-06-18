@@ -1,5 +1,5 @@
 import React from "react";
-import "./TerminalBlock.css";
+import "../blocks/TerminalBlock.css";
 
 interface ToolHeaderProps {
   title: React.ReactNode;
@@ -91,7 +91,9 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
           </div>
         </div>
         {(subTitle || diffStats) && (
-          <div className={`terminal-sub-info${subTitleClassName ? ` ${subTitleClassName}` : ""}`}>
+          <div
+            className={`terminal-sub-info${subTitleClassName ? ` ${subTitleClassName}` : ""}`}
+          >
             {diffStats ? (
               <span
                 style={{

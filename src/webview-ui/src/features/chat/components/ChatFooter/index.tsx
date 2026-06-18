@@ -1,7 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-
-import ProjectStructureDrawer from "./components/ProjectStructureDrawer";
-import ProjectContextModal from "./components/ProjectContextModal";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 
 import { ChatFooterProps } from "../../types";
@@ -556,47 +553,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
       />
 
       <div style={{ position: "relative" }}>
-        {autoScrollPaused && (
-          <button
-            onClick={onResumeScroll}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--input-bg)";
-            }}
-            style={{
-              position: "absolute",
-              bottom: "100%",
-              right: "8px",
-              marginBottom: "-1px",
-              zIndex: 20,
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "5px 10px",
-              fontSize: "11px",
-              fontWeight: 600,
-              cursor: "pointer",
-              backgroundColor: "var(--input-bg)",
-              color: "var(--primary-text)",
-              borderTopLeftRadius: "8px",
-              borderTopRightRadius: "8px",
-              borderBottomLeftRadius: "0",
-              borderBottomRightRadius: "0",
-              border: "1px solid var(--border-color)",
-              borderBottom: "none",
-              boxShadow: "0 -2px 6px rgba(0,0,0,0.1)",
-              transition: "all 0.2s ease",
-            }}
-          >
-            <span
-              className="codicon codicon-arrow-down"
-              style={{ fontSize: "12px" }}
-            />
-            Resume scroll
-          </button>
-        )}
         <MessageInput
           message={message}
           setMessage={setMessage}
@@ -645,27 +601,6 @@ const ChatFooter: React.FC<ExtendedChatFooterProps> = ({
           mentionDropdownRef={mentionDropdownRef}
         />
       </div>
-
-      <ProjectStructureDrawer
-        isOpen={showProjectStructureDrawer}
-        onClose={() => setShowProjectStructureDrawer(false)}
-        files={availableFiles}
-        folders={availableFolders}
-        onRefresh={() => {
-          const vscodeApi = (window as any).vscodeApi;
-          if (vscodeApi) {
-            vscodeApi.postMessage({ command: "getWorkspaceFiles" });
-            vscodeApi.postMessage({ command: "getWorkspaceFolders" });
-          }
-        }}
-      />
-
-      <ProjectContextModal
-        isOpen={showProjectContextModal}
-        onClose={() => setShowProjectContextModal(false)}
-        initialContext={projectContext}
-        onSave={handleSaveProjectContext}
-      />
     </div>
   );
 };

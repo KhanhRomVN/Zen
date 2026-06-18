@@ -1,6 +1,5 @@
 import React from "react";
 import { UploadedFile } from "../../../types/index";
-import ChangesTree from "./ChangesTree";
 import { PlusIcon, SendIcon } from "./Icons";
 import { X, Zap, ShieldCheck, Eye } from "lucide-react";
 import { useBackendConnection } from "../../../../../context/BackendConnectionContext";
@@ -888,13 +887,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
         position: "relative",
       }}
     >
-      {showChangesDropdown && (
-        <ChangesTree
-          messages={messages}
-          onClose={() => setShowChangesDropdown(false)}
-        />
-      )}
-
       <div
         style={{
           display: "flex",

@@ -1,6 +1,6 @@
 import React from "react";
 import { Check, X } from "lucide-react";
-import { useI18n } from "../../../../../../hooks/useI18n";
+import { useI18n } from "../../../../../hooks/useI18n";
 
 export interface ExecuteButtonProps {
   isCompleted: boolean;

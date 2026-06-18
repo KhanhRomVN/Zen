@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState } from "react";
 
-interface HtmlPreviewProps {
+interface HtmlBlockProps {
   content: string;
 }
 
-const HtmlPreview: React.FC<HtmlPreviewProps> = ({ content }) => {
+const HtmlBlock: React.FC<HtmlBlockProps> = ({ content }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.1); // Start small
 
@@ -94,4 +94,4 @@ const HtmlPreview: React.FC<HtmlPreviewProps> = ({ content }) => {
   );
 };
 
-export default HtmlPreview;
+export default HtmlBlock;

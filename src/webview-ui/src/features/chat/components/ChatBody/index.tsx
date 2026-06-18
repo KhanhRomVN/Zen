@@ -14,9 +14,8 @@ import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "../../hooks/useToolExecution";
 
 import WelcomeUI from "../../../home/components/WelcomeUI";
-import ProcessingIndicator from "./components/ProcessingIndicator";
-import ScrollToBottomButton from "./components/ScrollToBottomButton";
-import MessageBox from "./components/MessageBox";
+import ProcessingIndicator from "./messages/ProcessingIndicator";
+import MessageBox from "./messages/MessageBox";
 
 // ─── SearchBar Component ──────────────────────────────────────────────────────
 interface SearchBarProps {
@@ -916,8 +915,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       )}
 
       <div ref={messagesEndRef} />
-
-      {!isAtBottom && <ScrollToBottomButton onClick={scrollToBottom} />}
     </div>
   );
 };

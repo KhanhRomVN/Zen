@@ -7,7 +7,7 @@ import {
   LawIcon,
   MessageIcon,
 } from "./Icons";
-import FileImageIcon from "../../ChatBody/components/FileIcon";
+import FileImageIcon from "../../common/FileIcon";
 import { getFilteredItems } from "../../../utils/utils";
 import { Search, X, Clock, Terminal } from "lucide-react";
 

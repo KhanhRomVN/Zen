@@ -1,29 +1,13 @@
 import React from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import FileIcon from "./FileIcon";
+import FileIcon from "../../common/FileIcon";
 import { extensionService } from "../../../../../services/ExtensionService";
 
-/**
- * Detect whether a string token looks like an absolute file/folder path.
- */
 const ABSOLUTE_PATH_REGEX = /^(\/[^\s<>"'`]+|[A-Za-z]:\\[^\s<>"'`]+)/;
-
-/**
- * Detect relative paths containing folders, e.g. "server/src/provider/zai.ts" or "resources/z_ai_auth.json"
- */
 const RELATIVE_PATH_WITH_FOLDERS_REGEX =
   /^[^\s<>"'`|*?:]+[/\\][^\s<>"'`|*?:]+\.[a-zA-Z0-9]{1,10}$/;
-
-/**
- * A basename-only filename with extension, e.g. "test.md".
- * No slashes allowed — those are handled by PATH_WITH_FOLDERS or ABSOLUTE_PATH.
- */
 const FILENAME_REGEX = /^[^\s/\\<>"'`]+\.[a-zA-Z0-9]{1,10}$/;
-
-/**
- * Check if a token is a folder path (ends with / or absolute with no extension on last segment)
- */
 const isLikelyFolder = (token: string): boolean => {
   if (token.endsWith("/") || token.endsWith("\\")) return true;
   if (ABSOLUTE_PATH_REGEX.test(token)) {
@@ -38,15 +22,10 @@ const isLikelyFolder = (token: string): boolean => {
 };
 
 interface PathChipProps {
-  /** The display text shown on the chip */
   displayText: string;
-  /** The actual path used for click action (may differ from displayText for resolved basenames) */
   resolvedPath: string;
 }
 
-/**
- * A small inline chip for file/folder paths — shows icon + text, clickable.
- */
 const PathChip: React.FC<PathChipProps> = ({ displayText, resolvedPath }) => {
   const isFolder = isLikelyFolder(resolvedPath);
 
@@ -103,14 +82,6 @@ const PathChip: React.FC<PathChipProps> = ({ displayText, resolvedPath }) => {
 
 type ReactChild = React.ReactNode;
 
-/**
- * Convert a DOM Node into React nodes.
- *
- * Rules for inline <code> elements (backtick spans):
- *  - Absolute paths   → always PathChip
- *  - Basename-only    → PathChip ONLY if found in `knownFilePaths` map (resolved from prior toolcalls)
- *  - Everything else  → keep as original <code> element
- */
 const domNodeToReact = (
   node: Node,
   key: string | number,
@@ -192,25 +163,14 @@ const domNodeToReact = (
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface MarkdownWithPathsProps {
+export interface MarkdownBlockProps {
   content: string;
   className?: string;
   style?: React.CSSProperties;
-  /**
-   * Map of basename → full path, built from previous toolcall history.
-   * Used to resolve filenames like "z_ai_auth.json" to their full paths.
-   */
   knownFilePaths?: Map<string, string>;
 }
 
-/**
- * Renders a markdown string with smart inline file/folder path detection.
- *
- * - Absolute paths in backticks → always clickable PathChip
- * - Basename-only filenames in backticks → PathChip only if found in `knownFilePaths`
- * - Everything else → normal markdown rendering
- */
-const MarkdownWithPaths: React.FC<MarkdownWithPathsProps> = React.memo(
+const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(
   ({ content, className, style, knownFilePaths }) => {
     const resolvedMap = knownFilePaths || new Map<string, string>();
 
@@ -227,11 +187,6 @@ const MarkdownWithPaths: React.FC<MarkdownWithPathsProps> = React.memo(
       return Array.from(wrapper.childNodes).map((child, i) =>
         domNodeToReact(child, i, resolvedMap),
       );
-      // Intentionally use content as the only dep for the expensive markdown→DOM parse.
-      // knownFilePaths (the Map) changes reference on every render during streaming,
-      // but its entries rarely change — we use a serialized size+keys snapshot as dep
-      // so we only re-parse when the map actually gains new entries.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [content, resolvedMap.size]);
 
     return (
@@ -253,4 +208,4 @@ const MarkdownWithPaths: React.FC<MarkdownWithPathsProps> = React.memo(
   },
 );
 
-export default MarkdownWithPaths;
+export default MarkdownBlock;

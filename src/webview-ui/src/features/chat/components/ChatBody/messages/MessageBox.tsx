@@ -2,16 +2,15 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Message } from "../../../types";
 import { ParsedResponse } from "../../../services/ResponseParser";
-import FollowupOptions from "./FollowupOptions";
-import ToolActionsList from "./ToolActions/index";
-import QuestionBlock from "./QuestionBlock";
-import HtmlPreview from "./HtmlPreview";
-import FileIcon from "./FileIcon";
+import ToolActionsList from "../tools/index";
+import QuestionAnswerBlock from "../blocks/QuestionAnswerBlock";
+import HtmlBlock from "../blocks/HtmlBlock";
+import FileIcon from "../../common/FileIcon";
 import { isDiff, parseDiff } from "../../../../../utils/diffUtils";
-import { ToolHeader } from "./ToolHeader";
-import MarkdownWithPaths from "./MarkdownWithPaths";
-import "./TerminalBlock.css";
-import "./MarkdownContent.css";
+import { ToolHeader } from "../tools/ToolHeader";
+import MarkdownBlock from "../blocks/MarkdownBlock";
+import "../blocks/TerminalBlock.css";
+import "../blocks/MarkdownBlock.css";
 import { buildRetryPrompt } from "../../../prompts";
 import { useI18n } from "../../../../../hooks/useI18n";
 import type { I18nKey } from "../../../../../i18n";
@@ -942,7 +941,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
               />
             );
           } else if (group.type === "html") {
-            content = <HtmlPreview content={group.content} />;
+            content = <HtmlBlock content={group.content} />;
           } else if (group.type === "file") {
             content = (
               <div
@@ -997,7 +996,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     color: "var(--primary-text)",
                   }}
                 >
-                  <MarkdownWithPaths
+                  <MarkdownBlock
                     content={group.content}
                     knownFilePaths={knownFilePaths}
                   />
@@ -1046,7 +1045,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                       );
                     } else if (seg.type === "markdown") {
                       return (
-                        <MarkdownWithPaths
+                        <MarkdownBlock
                           key={i}
                           content={seg.content}
                           className="markdown-content-inline"
@@ -1055,7 +1054,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                       );
                     } else {
                       return (
-                        <MarkdownWithPaths
+                        <MarkdownBlock
                           key={i}
                           content={seg.content}
                           className="markdown-content-inline"
@@ -1086,12 +1085,12 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                     top: "28px",
                   }}
                 />
-                <QuestionBlock
+                <QuestionAnswerBlock
                   options={group.options}
                   title={group.title}
                   optional={group.optional}
                   selectedOption={message.selectedOption}
-                  onOptionSelect={(option) => {
+                  onOptionSelect={(option: string) => {
                     if (onSelectOption) {
                       onSelectOption(message.id, option);
                     }
@@ -1327,19 +1326,6 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           );
         });
       })()}
-
-      {/* 6. Follow-up Options (Legacy) - Hide if we have a proper Question block */}
-      {parsedContent.followupOptions &&
-        !parsedContent.contentBlocks.some(
-          (b: { type: string }) => b.type === "question",
-        ) && (
-          <FollowupOptions
-            options={parsedContent.followupOptions}
-            messageId={message.id}
-            selectedOption={undefined}
-            onOptionClick={(opt: string) => {}}
-          />
-        )}
     </div>
   );
 };

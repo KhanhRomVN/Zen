@@ -1,26 +1,26 @@
-import React, { useEffect, useRef, useState } from "react";
-import { ToolAction } from "../../../../services/ResponseParser";
-import FileIcon from "../FileIcon";
-import { RichtextBlock } from "../RichtextBlock";
-import { ToolHeader } from "../ToolHeader";
-import { parseDiff } from "../../../../../../utils/diffUtils";
+import React, { useEffect, useRef } from "react";
+import { ToolAction } from "../../../services/ResponseParser";
+import FileIcon from "../../common/FileIcon";
+
+import { ToolHeader } from "./ToolHeader";
+import { parseDiff } from "../../../../../utils/diffUtils";
 import {
   getFilename,
   getToolColor,
   getDisplayPath,
   collectConvFilePaths,
-} from "../../../../utils/utils";
+} from "../../../utils/utils";
 import {
   extensionService,
   messageDispatcher,
-} from "../../../../../../services/ExtensionService";
-import { Message } from "../../../../types";
+} from "../../../../../services/ExtensionService";
+import { Message } from "../../../types";
 import ExecuteButton from "./ExecuteButton";
-import { useI18n } from "../../../../../../hooks/useI18n";
-import { useSettings } from "../../../../../../context/SettingsContext";
-import { getPermissionDecision } from "../../../../hooks/useToolExecution";
-import GrepBlock from "../GrepBlock";
-import FilePreviewBlock from "./FilePreviewBlock";
+import { useI18n } from "../../../../../hooks/useI18n";
+import { useSettings } from "../../../../../context/SettingsContext";
+import { getPermissionDecision } from "../../../hooks/useToolExecution";
+import GrepBlock from "../blocks/GrepBlock";
+import { RichtextBlock } from "../blocks/RichtextBlock";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
 // Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
@@ -132,6 +132,7 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   onRejectSingleLineAction,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
+  const [isGrepCollapsed, setIsGrepCollapsed] = React.useState(true);
   const [isSnapshotLoading, setIsSnapshotLoading] = React.useState(false);
   const { t } = useI18n();
   const { permissionMode } = useSettings();
@@ -320,30 +321,20 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
                   ? t("tools.delete")
                   : t("tools.read");
 
-  // For grep tool, render GrepBlock component
-  if (isGrepTool) {
-    const grepCompleted =
-      !isPartial &&
-      (isActionClicked ||
-        isError ||
-        !!toolOutputs?.[actionId] ||
-        !!nextUserMessage);
-    const errorMsg = isError ? toolOutputs?.[actionId]?.output || "" : "";
-
-    return (
-      <GrepBlock
-        action={action}
-        actionId={actionId}
-        toolOutputs={toolOutputs}
-        isPartial={!!isPartial}
-        isCompleted={grepCompleted}
-        isError={isError}
-        errorMessage={errorMsg}
-        conversationId={conversationId}
-        allMessages={allMessages}
-      />
-    );
-  }
+  // For grep tool, we'll render in the main flow with ToolHeader
+  const grepCompleted =
+    isGrepTool &&
+    !isPartial &&
+    (isActionClicked ||
+      isError ||
+      !!toolOutputs?.[actionId] ||
+      !!nextUserMessage);
+  const grepErrorMsg =
+    isGrepTool && isError ? toolOutputs?.[actionId]?.output || "" : "";
+  const grepHasResults =
+    isGrepTool && toolOutputs?.[actionId]?.output
+      ? toolOutputs[actionId].output.includes("<grep_results")
+      : false;
 
   return (
     <div
@@ -362,172 +353,297 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
     >
       <ToolHeader
         title={
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "12px",
-              color: "var(--vscode-editor-foreground)",
-            }}
-          >
-            <span style={{ fontWeight: 600, opacity: 0.8 }}>{prefix}</span>
-            <FileIcon
-              path={rawPath}
-              isFolder={
-                toolType === "list_files" || !!action.params.folder_path
-              }
-              style={{ width: "16px", height: "16px" }}
-            />
-            <span
+          isGrepTool ? (
+            // Grep-specific header
+            <div
               style={{
-                fontWeight: 500,
-                opacity: 0.9,
-                fontFamily: "var(--vscode-editor-font-family, monospace)",
-                fontSize: "11px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                color: "var(--vscode-editor-foreground)",
+                cursor: isCompleted ? "pointer" : "default",
               }}
+              onClick={
+                isCompleted ? () => setIsGrepCollapsed((v) => !v) : undefined
+              }
             >
-              {displayName}
-              {toolType === "read_file" &&
-                (() => {
-                  const sl = action.params.start_line;
-                  const el = action.params.end_line;
-                  const totalLines = fileStatsMap[rawPath]?.lines;
-                  if (sl !== undefined && sl !== null && sl !== "") {
-                    const start = parseInt(String(sl), 10) + 1; // convert 0-based to 1-based
-                    const end =
-                      el !== undefined && el !== null && el !== ""
-                        ? parseInt(String(el), 10) + 1
-                        : totalLines;
-                    return (
-                      <span
-                        style={{
-                          opacity: 0.55,
-                          fontSize: "10px",
-                          marginLeft: "2px",
-                        }}
-                      >
-                        ({start}-{end ?? "?"})
-                      </span>
-                    );
-                  }
-                  if (totalLines) {
-                    return (
-                      <span
-                        style={{
-                          opacity: 0.55,
-                          fontSize: "10px",
-                          marginLeft: "2px",
-                        }}
-                      >
-                        (1-{totalLines})
-                      </span>
-                    );
-                  }
-                  return null;
-                })()}
-              {toolType === "read_file" && diagnosticCount > 0 && (
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>GREP</span>
+              <span
+                style={{
+                  fontFamily: "var(--vscode-editor-font-family, monospace)",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "var(--vscode-textLink-foreground)",
+                  padding: "0 5px",
+                  backgroundColor:
+                    "color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent)",
+                  borderRadius: "3px",
+                }}
+              >
+                {action.params.search_term || action.params.searchTerm || ""}
+              </span>
+              {(() => {
+                const folderPath =
+                  action.params.folder_path || action.params.folderPath || "";
+                const filePath =
+                  action.params.file_path || action.params.filePath || "";
+                const targetPath = folderPath || filePath || "";
+                const isFolder = !!folderPath;
+                if (!targetPath) return null;
+                return (
+                  <>
+                    <span style={{ opacity: 0.4, fontSize: "11px" }}>in</span>
+                    <FileIcon
+                      path={targetPath}
+                      isFolder={isFolder}
+                      style={{ width: "14px", height: "14px" }}
+                    />
+                    <span
+                      style={{
+                        fontWeight: 500,
+                        opacity: 0.8,
+                        fontFamily:
+                          "var(--vscode-editor-font-family, monospace)",
+                        fontSize: "11px",
+                      }}
+                    >
+                      {getDisplayPath(targetPath, allPaths) || "..."}
+                    </span>
+                  </>
+                );
+              })()}
+              {isPartial && !isCompleted && (
                 <span
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "2px",
-                    marginLeft: "5px",
-                    padding: "0 4px",
-                    backgroundColor:
-                      "color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 15%, transparent)",
-                    color: "var(--vscode-errorForeground, #f14c4c)",
-                    borderRadius: "3px",
                     fontSize: "10px",
-                    fontWeight: 600,
-                    lineHeight: "16px",
+                    opacity: 0.55,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
                   }}
                 >
                   <span
-                    className="codicon codicon-error"
-                    style={{ fontSize: "9px" }}
+                    className="codicon codicon-loading codicon-modifier-spin"
+                    style={{ fontSize: "10px" }}
                   />
-                  {diagnosticCount}
+                  Searching...
                 </span>
               )}
-            </span>
-            {isPartial && (
-              <span
-                style={{
-                  fontSize: "10px",
-                  opacity: 0.6,
-                  fontStyle: "italic",
-                  marginLeft: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
+              {isCompleted &&
+                (() => {
+                  const output = toolOutputs?.[actionId]?.output || "";
+                  let totalMatches = 0;
+                  let fileCount = 0;
+                  try {
+                    const match = output.match(/total_matches="(\d+)"/);
+                    if (match) totalMatches = parseInt(match[1], 10);
+                    const fileMatch = output.match(/files="(\d+)"/);
+                    if (fileMatch) fileCount = parseInt(fileMatch[1], 10);
+                  } catch {}
+                  if (totalMatches === 0 && fileCount === 0) {
+                    return (
+                      <span
+                        style={{
+                          opacity: 0.5,
+                          fontSize: "10px",
+                          color: "var(--vscode-descriptionForeground)",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        no matches
+                      </span>
+                    );
+                  }
+                  return (
+                    <span
+                      style={{
+                        opacity: 0.5,
+                        fontSize: "10px",
+                        color: "var(--vscode-descriptionForeground)",
+                      }}
+                    >
+                      {totalMatches} {totalMatches === 1 ? "match" : "matches"}{" "}
+                      in {fileCount} {fileCount === 1 ? "file" : "files"}
+                    </span>
+                  );
+                })()}
+              {isCompleted && (
                 <span
-                  className="codicon codicon-loading codicon-modifier-spin"
-                  style={{ fontSize: "10px" }}
+                  className={`codicon codicon-chevron-${isGrepCollapsed ? "right" : "down"}`}
+                  style={{ fontSize: "10px", opacity: 0.5, marginLeft: "2px" }}
                 />
-              </span>
-            )}
-            {isSnapshotLoading && !isPartial && (
+              )}
+            </div>
+          ) : (
+            // Original header for non-grep tools
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                color: "var(--vscode-editor-foreground)",
+              }}
+            >
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>{prefix}</span>
+              <FileIcon
+                path={rawPath}
+                isFolder={
+                  toolType === "list_files" || !!action.params.folder_path
+                }
+                style={{ width: "16px", height: "16px" }}
+              />
               <span
                 style={{
-                  fontSize: "10px",
-                  opacity: 0.5,
-                  marginLeft: "4px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "3px",
-                }}
-              >
-                <span
-                  className="codicon codicon-loading codicon-modifier-spin"
-                  style={{ fontSize: "10px" }}
-                />
-              </span>
-            )}
-            {diffStats && (
-              <span
-                style={{
-                  display: "flex",
-                  gap: "4px",
-                  opacity: 0.7,
-                  fontSize: "11px",
-                  marginLeft: "4px",
                   fontWeight: 500,
+                  opacity: 0.9,
+                  fontFamily: "var(--vscode-editor-font-family, monospace)",
+                  fontSize: "11px",
                 }}
               >
+                {displayName}
+                {toolType === "read_file" &&
+                  (() => {
+                    const sl = action.params.start_line;
+                    const el = action.params.end_line;
+                    const totalLines = fileStatsMap[rawPath]?.lines;
+                    if (sl !== undefined && sl !== null && sl !== "") {
+                      const start = parseInt(String(sl), 10) + 1; // convert 0-based to 1-based
+                      const end =
+                        el !== undefined && el !== null && el !== ""
+                          ? parseInt(String(el), 10) + 1
+                          : totalLines;
+                      return (
+                        <span
+                          style={{
+                            opacity: 0.55,
+                            fontSize: "10px",
+                            marginLeft: "2px",
+                          }}
+                        >
+                          ({start}-{end ?? "?"})
+                        </span>
+                      );
+                    }
+                    if (totalLines) {
+                      return (
+                        <span
+                          style={{
+                            opacity: 0.55,
+                            fontSize: "10px",
+                            marginLeft: "2px",
+                          }}
+                        >
+                          (1-{totalLines})
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
+                {toolType === "read_file" && diagnosticCount > 0 && (
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "2px",
+                      marginLeft: "5px",
+                      padding: "0 4px",
+                      backgroundColor:
+                        "color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 15%, transparent)",
+                      color: "var(--vscode-errorForeground, #f14c4c)",
+                      borderRadius: "3px",
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      lineHeight: "16px",
+                    }}
+                  >
+                    <span
+                      className="codicon codicon-error"
+                      style={{ fontSize: "9px" }}
+                    />
+                    {diagnosticCount}
+                  </span>
+                )}
+              </span>
+              {isPartial && (
                 <span
                   style={{
-                    color:
-                      "var(--vscode-gitDecoration-addedResourceForeground)",
+                    fontSize: "10px",
+                    opacity: 0.6,
+                    fontStyle: "italic",
+                    marginLeft: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
                   }}
                 >
-                  +{diffStats.added}
+                  <span
+                    className="codicon codicon-loading codicon-modifier-spin"
+                    style={{ fontSize: "10px" }}
+                  />
                 </span>
+              )}
+              {isSnapshotLoading && !isPartial && (
                 <span
                   style={{
-                    color:
-                      "var(--vscode-gitDecoration-deletedResourceForeground)",
+                    fontSize: "10px",
+                    opacity: 0.5,
+                    marginLeft: "4px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "3px",
                   }}
                 >
-                  -{diffStats.removed}
+                  <span
+                    className="codicon codicon-loading codicon-modifier-spin"
+                    style={{ fontSize: "10px" }}
+                  />
                 </span>
-              </span>
-            )}
-            {linesCount > 0 && (
-              <span
-                style={{
-                  opacity: 0.7,
-                  fontSize: "11px",
-                  marginLeft: "4px",
-                  fontWeight: 500,
-                }}
-              >
-                +{linesCount} lines
-              </span>
-            )}
-          </div>
+              )}
+              {diffStats && (
+                <span
+                  style={{
+                    display: "flex",
+                    gap: "4px",
+                    opacity: 0.7,
+                    fontSize: "11px",
+                    marginLeft: "4px",
+                    fontWeight: 500,
+                  }}
+                >
+                  <span
+                    style={{
+                      color:
+                        "var(--vscode-gitDecoration-addedResourceForeground)",
+                    }}
+                  >
+                    +{diffStats.added}
+                  </span>
+                  <span
+                    style={{
+                      color:
+                        "var(--vscode-gitDecoration-deletedResourceForeground)",
+                    }}
+                  >
+                    -{diffStats.removed}
+                  </span>
+                </span>
+              )}
+              {linesCount > 0 && (
+                <span
+                  style={{
+                    opacity: 0.7,
+                    fontSize: "11px",
+                    marginLeft: "4px",
+                    fontWeight: 500,
+                  }}
+                >
+                  +{linesCount} lines
+                </span>
+              )}
+            </div>
+          )
         }
         statusColor={
           isError
@@ -784,13 +900,33 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
             isActiveGroup;
 
           return (
-            <FilePreviewBlock
+            <RichtextBlock
               content={streamContent}
-              isStreaming={isPartial && !isWaitingForApproval}
+              showHeader={false}
               maxHeight={200}
             />
           );
         })()}
+
+      {/* Grep tool results — rendered inside the main flow with ToolHeader */}
+      {isGrepTool && (
+        <>
+          {/* GrepBlock renders the content; header is handled above */}
+          <GrepBlock
+            action={action}
+            actionId={actionId}
+            toolOutputs={toolOutputs}
+            isPartial={!!isPartial}
+            isCompleted={grepCompleted}
+            isError={isError}
+            errorMessage={grepErrorMsg}
+            conversationId={conversationId}
+            allMessages={allMessages}
+            isCollapsed={isGrepCollapsed}
+            onToggleCollapse={() => setIsGrepCollapsed((v) => !v)}
+          />
+        </>
+      )}
     </div>
   );
 };

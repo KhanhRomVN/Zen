@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import FileIcon from "./FileIcon";
+import FileIcon from "../../common/FileIcon";
 import "./RichtextBlock.css";
 
 interface RichtextBlockProps {

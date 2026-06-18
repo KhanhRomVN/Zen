@@ -1,7 +1,7 @@
 import React from "react";
 import { Send } from "lucide-react";
 
-interface QuestionBlockProps {
+interface QuestionAnswerBlockProps {
   options: string[];
   onOptionSelect: (option: string) => void;
   disabled?: boolean;
@@ -10,7 +10,7 @@ interface QuestionBlockProps {
   optional?: boolean;
 }
 
-const QuestionBlock: React.FC<QuestionBlockProps> = ({
+const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   options,
   onOptionSelect,
   disabled = false,
@@ -289,4 +289,4 @@ const QuestionBlock: React.FC<QuestionBlockProps> = ({
   );
 };
 
-export default QuestionBlock;
+export default QuestionAnswerBlock;

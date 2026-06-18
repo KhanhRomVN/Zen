@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { ToolAction } from "../../../../services/ResponseParser";
-import { formatActionForDisplay } from "../../../../services/ResponseParser";
-import { getToolColor } from "../../../../utils/utils";
-import { CLICKABLE_TOOLS } from "../../../../constants/constants";
-import { extensionService } from "../../../../../../services/ExtensionService";
-import { Message } from "../../../../types";
-import { useProject } from "../../../../../../context/ProjectContext";
+import { ToolAction } from "../../../services/ResponseParser";
+import { formatActionForDisplay } from "../../../services/ResponseParser";
+import { getToolColor } from "../../../utils/utils";
+import { CLICKABLE_TOOLS } from "../../../constants/constants";
+import { extensionService } from "../../../../../services/ExtensionService";
+import { Message } from "../../../types";
+import { useProject } from "../../../../../context/ProjectContext";
 import FileToolItem from "./FileToolItem";
 import TerminalToolItem from "./TerminalToolItem";
 
