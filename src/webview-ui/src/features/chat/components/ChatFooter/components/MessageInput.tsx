@@ -1,6 +1,6 @@
 import React from "react";
 import { UploadedFile } from "../../../types/index";
-import { PlusIcon, SendIcon } from "./Icons";
+import { PlusIcon, SendIcon } from "@/icons";
 import { X, Zap, ShieldCheck, Eye } from "lucide-react";
 import { useBackendConnection } from "../../../../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../../../setting/components/LanguageSelector";

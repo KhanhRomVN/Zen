@@ -9,7 +9,7 @@ import { useI18n } from "../../../../../hooks/useI18n";
 import { useSettings } from "../../../../../context/SettingsContext";
 import { getPermissionDecision } from "../../../hooks/useToolExecution";
 
-interface TerminalToolItemProps {
+interface TerminalToolRendererProps {
   action: ToolAction;
   actionIndex: number;
   messageId: string;
@@ -33,7 +33,7 @@ interface TerminalToolItemProps {
   storedOutput?: string | null;
 }
 
-const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
+const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
   action,
   actionIndex,
   messageId,
@@ -320,4 +320,4 @@ const TerminalToolItem: React.FC<TerminalToolItemProps> = ({
   );
 };
 
-export default TerminalToolItem;
+export default TerminalToolRenderer;

@@ -86,7 +86,7 @@ const StreamingPreviewBox: React.FC<{ content: string }> = ({ content }) => {
   );
 };
 
-interface FileToolItemProps {
+interface FileToolRendererProps {
   action: ToolAction;
   actionIndex: number;
   messageId: string;
@@ -113,7 +113,7 @@ interface FileToolItemProps {
   onRejectSingleLineAction?: (actionId: string) => void;
 }
 
-const FileToolItem: React.FC<FileToolItemProps> = ({
+const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   action,
   actionIndex,
   messageId,
@@ -931,4 +931,4 @@ const FileToolItem: React.FC<FileToolItemProps> = ({
   );
 };
 
-export default FileToolItem;
+export default FileToolRenderer;

@@ -6,10 +6,10 @@ import { CLICKABLE_TOOLS } from "../../../constants/constants";
 import { extensionService } from "../../../../../services/ExtensionService";
 import { Message } from "../../../types";
 import { useProject } from "../../../../../context/ProjectContext";
-import FileToolItem from "./FileToolItem";
-import TerminalToolItem from "./TerminalToolItem";
+import FileToolRenderer from "./FileToolRenderer";
+import TerminalToolRenderer from "./TerminalToolRenderer";
 
-interface ToolItemProps {
+interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
   messageId: string;
   clickedActions: Set<string>;
@@ -47,7 +47,7 @@ interface ToolItemProps {
   onRejectSingleLineAction?: (actionId: string) => void;
 }
 
-const ToolItem: React.FC<ToolItemProps> = ({
+const ToolRouter: React.FC<ToolRouterProps> = ({
   group,
   messageId,
   clickedActions,
@@ -260,7 +260,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
     if (isMergedGroup) {
       return (
-        <FileToolItem
+        <FileToolRenderer
           key={group[0].index}
           action={group[0].action}
           actionIndex={group[0].index}
@@ -287,7 +287,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
     return (
       <>
         {group.map((item, idx) => (
-          <FileToolItem
+          <FileToolRenderer
             key={item.index}
             action={item.action}
             actionIndex={item.index}
@@ -314,7 +314,7 @@ const ToolItem: React.FC<ToolItemProps> = ({
 
   if (toolType === "run_command") {
     return (
-      <TerminalToolItem
+      <TerminalToolRenderer
         action={firstAction}
         actionIndex={group[0].index}
         messageId={messageId}
@@ -390,4 +390,4 @@ const ToolItem: React.FC<ToolItemProps> = ({
   );
 };
 
-export default ToolItem;
+export default ToolRouter;

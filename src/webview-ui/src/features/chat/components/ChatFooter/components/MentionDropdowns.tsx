@@ -1,12 +1,6 @@
 import React from "react";
 import { WorkspaceItem, Rule } from "../../../types";
-import {
-  FileIcon,
-  FolderIcon,
-  FolderOpenIcon,
-  LawIcon,
-  MessageIcon,
-} from "./Icons";
+import { FileIcon, FolderIcon, FolderOpenIcon, LawIcon, MessageIcon } from "../../../../../icons";
 import FileImageIcon from "../../common/FileIcon";
 import { getFilteredItems } from "../../../utils/utils";
 import { Search, X, Clock, Terminal } from "lucide-react";

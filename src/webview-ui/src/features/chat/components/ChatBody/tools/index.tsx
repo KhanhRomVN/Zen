@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { ToolAction } from "../../../services/ResponseParser";
 import { Message } from "../../../types";
-import ToolItem from "./ToolItem";
+import ToolRouter from "./ToolRouter";
 
 interface ToolActionsListProps {
   message: Message;
@@ -251,7 +251,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
 
       return (
         <React.Fragment key={key}>
-          <ToolItem
+          <ToolRouter
             group={group}
             messageId={message.id}
             clickedActions={clickedActions}
