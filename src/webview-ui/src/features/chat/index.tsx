@@ -393,7 +393,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setIsApiUrlReady(true);
       })
       .catch((err: any) => {
-        console.warn("[Zen] ChatPanel failed to load apiUrl from storage:", err);
+        console.warn(
+          "[Zen] ChatPanel failed to load apiUrl from storage:",
+          err,
+        );
         setIsApiUrlReady(true);
       });
   }, []);
