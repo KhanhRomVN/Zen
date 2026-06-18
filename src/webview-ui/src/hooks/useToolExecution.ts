@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Message } from "../components/ChatPanel/ChatBody/types";
+import { Message } from "../features/chat/ChatBody/types";
 import {
   extensionService,
   messageDispatcher,
@@ -9,7 +9,7 @@ import { calculateTokens } from "../services/ConversationService";
 import {
   buildTokenLimitWarningPrompt,
   TokenLimitFileInfo,
-} from "../components/ChatPanel/prompts/token-limit-warning";
+} from "../features/chat/prompts/token-limit-warning";
 
 import { useSettings, PermissionMode } from "../context/SettingsContext";
 

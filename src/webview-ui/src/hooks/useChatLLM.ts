@@ -1,17 +1,17 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Message } from "../components/ChatPanel/ChatBody/types";
+import { Message } from "../features/chat/ChatBody/types";
 import { TabInfo } from "../types";
 import { ToolAction, parseAIResponse } from "../services/ResponseParser";
 import { extensionService } from "../services/ExtensionService";
 import {
   getDefaultPrompt,
   combinePrompts,
-} from "../components/ChatPanel/prompts";
+} from "../features/chat/prompts";
 import {
   PERSISTENT_RULES,
   buildPermissionModeTag,
   buildPermissionModeTagCompact,
-} from "../components/ChatPanel/prompts/persistent-rules";
+} from "../features/chat/prompts/persistent-rules";
 import {
   logChatToWorkspace,
   saveConversation,

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import ChatPanel from "./components/ChatPanel";
+import ChatPanel from "./features/chat";
 import HomePanel from "./components/HomePanel";
 import HistoryPanel from "./components/HistoryPanel";
 import SettingsPanel from "./components/SettingsPanel";
-import AccountPanel from "./components/AccountPanel";
+import AccountPanel from "./features/account";
 import "./styles/components/chat.css";
 import { ProjectProvider } from "./context/ProjectContext";
 import { ThemeProvider } from "./context/ThemeContext";

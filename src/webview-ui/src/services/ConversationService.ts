@@ -1,5 +1,5 @@
 import { extensionService } from "./ExtensionService";
-import { Message } from "../components/ChatPanel/ChatBody/types";
+import { Message } from "../features/chat/ChatBody/types";
 import { TabInfo } from "../types";
 import { ConversationCache } from "./ConversationCache";
 

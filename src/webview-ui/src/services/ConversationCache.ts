@@ -1,4 +1,4 @@
-import { Message } from "../components/ChatPanel/ChatBody/types";
+import { Message } from "../features/chat/ChatBody/types";
 
 export interface CachedConversation {
   messages: Message[];

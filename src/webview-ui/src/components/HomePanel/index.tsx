@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import ChatHeader from "../ChatPanel/ChatHeader";
-import ChatFooter from "../ChatPanel/ChatFooter";
+import ChatHeader from "../../features/chat/ChatHeader";
+import ChatFooter from "../../features/chat/ChatFooter";
 import WelcomeUI from "./WelcomeUI";
 import { TabInfo } from "../../types";
 import { extensionService } from "../../services/ExtensionService";
