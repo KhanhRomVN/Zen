@@ -5,24 +5,23 @@ import React, {
   useRef,
   useMemo,
 } from "react";
-import ChatHeader from "./ChatHeader";
-import ChatBody from "./ChatBody";
-import ChatFooter from "./ChatFooter";
+import ChatHeader from "./components/ChatHeader";
+import ChatBody from "./components/ChatBody";
+import ChatFooter from "./components/ChatFooter";
 import { useSettings } from "../../context/SettingsContext";
 
-import { extensionService } from "../../services/ExtensionService";
+import { extensionService } from "./services/ExtensionService";
 import {
   saveConversation,
   deleteConversation,
-  getConversationKey,
-} from "../../services/ConversationService";
-import { parseAIResponse } from "../../services/ResponseParser";
-import { HISTORY_CONTEXT_REMINDER, AFTER_PAUSE_REMINDER } from "./prompts";
-import { useChatLLM } from "../../hooks/useChatLLM";
-import { useToolExecution } from "../../hooks/useToolExecution";
+} from "./services/ConversationService";
+import { parseAIResponse } from "./services/ResponseParser";
+import { HISTORY_CONTEXT_REMINDER } from "./prompts";
+import { useChatLLM } from "./hooks/useChatLLM";
+import { useToolExecution } from "./hooks/useToolExecution";
 import { TabInfo } from "../../types";
-import { Message } from "./ChatBody/types";
-import { ConversationCache } from "../../services/ConversationCache";
+import { Message } from "./types";
+import { ConversationCache } from "./services/ConversationCache";
 
 interface ChatPanelProps {
   selectedTab: TabInfo | null;
