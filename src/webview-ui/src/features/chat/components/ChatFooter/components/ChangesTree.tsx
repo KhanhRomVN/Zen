@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { parseAIResponse, ToolAction } from "../services/ResponseParser";
-import FileIcon from "./ChatBody/components/FileIcon";
+import { parseAIResponse, ToolAction } from "../../../services/ResponseParser";
+import FileIcon from "../../ChatBody/components/FileIcon";
 
 interface ChangesTreeProps {
   messages: any[];

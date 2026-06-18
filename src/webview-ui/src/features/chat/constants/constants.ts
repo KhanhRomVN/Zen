@@ -20,7 +20,8 @@ export const TOOL_LABELS: Record<string, string> = {
 export const TOOL_COLORS: Record<string, string> = {
   read_file: "var(--vscode-textLink-foreground, #3b82f6)",
   write_to_file: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
-  replace_in_file: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
+  replace_in_file:
+    "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
   grep: "var(--vscode-textLink-foreground, #3b82f6)",
   delete_file: "var(--vscode-errorForeground, #ef4444)",
   delete_folder: "var(--vscode-errorForeground, #ef4444)",
@@ -40,6 +41,37 @@ export const CLICKABLE_TOOLS = [
   "run_command",
 ];
 
-export const MANUAL_CONFIRMATION_TOOLS = [
-  "run_command",
+export const MANUAL_CONFIRMATION_TOOLS = ["run_command"];
+
+// Whitelist of allowed file extensions for external files
+export const ALLOWED_FILE_EXTENSIONS = [
+  ".txt",
+  ".md",
+  ".json",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".py",
+  ".java",
+  ".cpp",
+  ".c",
+  ".h",
+  ".hpp",
+  ".css",
+  ".html",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".toml",
+  ".ini",
+  ".cfg",
+  ".sh",
+  ".go",
+  ".rs",
+  ".rb",
+  ".php",
+  ".swift",
+  ".kt",
+  ".scala",
 ];

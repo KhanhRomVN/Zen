@@ -1,6 +1,6 @@
 import React from "react";
-import { UploadedFile } from "../types";
-import ChangesTree from "../../ChangesTree";
+import { UploadedFile } from "../../../types/index";
+import ChangesTree from "./ChangesTree";
 import { PlusIcon, SendIcon } from "./Icons";
 import { X, Zap, ShieldCheck, Eye } from "lucide-react";
 import { useBackendConnection } from "../../../../../context/BackendConnectionContext";

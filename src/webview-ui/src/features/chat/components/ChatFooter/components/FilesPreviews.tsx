@@ -1,7 +1,7 @@
 import React from "react";
 import { FileIcon, Terminal, Loader2 } from "lucide-react";
-import { UploadedFile, AttachedItem } from "../types";
-import { formatFileSize } from "../utils";
+import { UploadedFile, AttachedItem } from "../../../types";
+import { formatFileSize } from "../../../utils/utils";
 import FileIconCommon from "../../ChatBody/components/FileIcon";
 
 interface FilesPreviewsProps {

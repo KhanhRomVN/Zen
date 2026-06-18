@@ -15,7 +15,7 @@ export const useWorkspaceData = () => {
         if (data.files && !data.error) {
           setAvailableFiles(data.files);
         } else if (data.error) {
-          }
+        }
       } else if (data.command === "workspaceFoldersResponse") {
         if (data.folders && !data.error) {
           setAvailableFolders(data.folders);
@@ -43,8 +43,7 @@ export const useWorkspaceData = () => {
     if (stored) {
       try {
         setAvailableRules(JSON.parse(stored));
-      } catch (error) {
-      }
+      } catch (error) {}
     }
   }, []);
 

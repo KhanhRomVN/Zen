@@ -1,5 +1,5 @@
 import React from "react";
-import { WorkspaceItem, Rule } from "../types";
+import { WorkspaceItem, Rule } from "../../../types";
 import {
   FileIcon,
   FolderIcon,
@@ -8,7 +8,7 @@ import {
   MessageIcon,
 } from "./Icons";
 import FileImageIcon from "../../ChatBody/components/FileIcon";
-import { getFilteredItems } from "../utils";
+import { getFilteredItems } from "../../../utils/utils";
 import { Search, X, Clock, Terminal } from "lucide-react";
 
 const shortenPath = (path: string, maxLength: number = 40) => {

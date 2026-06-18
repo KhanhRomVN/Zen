@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { UploadedFile, ExternalFile, AttachedItem } from "../types";
-import { isFileAllowed, readFileAsText } from "../utils";
-import { useSettings } from "../../../../../context/SettingsContext";
+import { isFileAllowed, readFileAsText } from "../utils/utils";
+import { useSettings } from "../../../context/SettingsContext";
 
 interface UseFileHandlingProps {
   accountId?: string;

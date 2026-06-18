@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 
 import ProjectStructureDrawer from "./components/ProjectStructureDrawer";
-import ProjectContextModal from "./ProjectContextModal";
+import ProjectContextModal from "./components/ProjectContextModal";
 import { useBackendConnection } from "../../../../context/BackendConnectionContext";
 
-import { ChatFooterProps } from "./types";
+import { ChatFooterProps } from "../../types";
 
 interface ExtendedChatFooterProps extends ChatFooterProps {
   apiUrl?: string;
@@ -25,9 +25,9 @@ interface ExtendedChatFooterProps extends ChatFooterProps {
 }
 
 // Hooks
-import { useWorkspaceData } from "./hooks/useWorkspaceData";
-import { useFileHandling } from "./hooks/useFileHandling";
-import { useMentionSystem } from "./hooks/useMentionSystem";
+import { useWorkspaceData } from "../../hooks/useWorkspaceData";
+import { useFileHandling } from "../../hooks/useFileHandling";
+import { useMentionSystem } from "../../hooks/useMentionSystem";
 
 // Components
 import FilesPreviews from "./components/FilesPreviews";
