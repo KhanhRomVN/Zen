@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from "react";
 import { Message } from "../types/message";
 
 import { parseAIResponse } from "../services/ResponseParser";
@@ -38,7 +38,10 @@ export const useToolExecution = ({
   // Use a ref so handleToolRequest (memoised with []) always reads the latest mode,
   // avoiding a stale-closure bug when the user switches modes mid-session.
   const permissionModeRef = useRef<PermissionMode>(permissionMode);
-  useEffect(() => {
+  // Sử dụng useLayoutEffect để update ref ngay lập tức khi permissionMode thay đổi
+  // Tránh stale closure khi handleToolRequest được gọi ngay sau khi mode change
+  useLayoutEffect(() => {
+    console.log(`[useToolExecution] permissionMode updated: ${permissionModeRef.current} → ${permissionMode}`);
     permissionModeRef.current = permissionMode;
   }, [permissionMode]);
   const [executionState, setExecutionState] = useState<{
@@ -576,7 +579,9 @@ export const useToolExecution = ({
       conversationToolOverrides: Record<string, "auto"> = {},
       actionType?: "accept_all" | "accept_once" | "reject",
     ) => {
-      console.log(`[useToolExecution] handleToolRequest ENTRY: actionType=${actionType}, messageId=${message.id}, isAutoTrigger=${isAutoTrigger}`);
+      // 🐛 FIX: Đọc permissionMode từ ref đã được update đồng bộ qua useLayoutEffect
+      const currentPermissionMode = permissionModeRef.current;
+      console.log(`[useToolExecution] handleToolRequest ENTRY: actionType=${actionType}, messageId=${message.id}, isAutoTrigger=${isAutoTrigger}, currentPermissionMode=${currentPermissionMode}`);
       let wasInterruptedByManual = false;
 
       const actions = (
@@ -586,37 +591,41 @@ export const useToolExecution = ({
         _index: a._index !== undefined ? a._index : idx,
       }));
 
+      console.log(`[useToolExecution] actions mapped: length=${actions.length}, actionType=${actionType}, firstAction._index=${actions[0]?._index}, firstAction.type=${actions[0]?.type}`);
+
       // Track actions that were pre-skipped (already triggered) vs actually executed
       const validResults: string[] = [];
       let skippedCount = 0;
+      console.log(`[useToolExecution] before setExecutionState: actions.length=${actions.length}`);
       setExecutionState({
         total: actions.length,
         completed: 0,
         status: "running",
       });
+      console.log(`[useToolExecution] after setExecutionState`);
 
+      console.log(`[useToolExecution] before loop: actions.length=${actions.length}, actionType=${actionType}`);
       for (let index = 0; index < actions.length; index++) {
         const action = actions[index];
         const actionId =
           action.actionId || `${message.id}-action-${action._index}`;
 
-        // DEBUG: Log khi reject để biết action đang được xử lý
-        if (actionType === "reject") {
-          console.log(`[useToolExecution] LOOP: index=${index}, actionId=${actionId}, action._index=${action._index}, action.type=${action.type}, hasInClickedRef=${clickedActionsRef.current.has(actionId)}`);
-        }
+        // DEBUG: Log chi tiết cho tất cả các action
+        console.log(`[useToolExecution] LOOP START: index=${index}, actionId=${actionId}, action._index=${action._index}, action.type=${action.type}, actionType=${actionType}, hasInClickedRef=${clickedActionsRef.current.has(actionId)}`);
 
         // GUARD: Prevent duplicate execution of same action Id
         // 🐛 FIX: Khi reject, KHÔNG skip action dù đã có trong clickedActionsRef
         const isReject = actionType === "reject";
-        if (!isReject && clickedActionsRef.current.has(actionId)) {
-          if (isReject) {
-            console.log(`[useToolExecution] LOOP: actionId=${actionId} already in clickedActionsRef, skipping. skippedCount will be ${skippedCount + 1}`);
-          }
+        const isAlreadyClicked = clickedActionsRef.current.has(actionId);
+        console.log(`[useToolExecution] LOOP GUARD: index=${index}, isReject=${isReject}, isAlreadyClicked=${isAlreadyClicked}`);
+        if (!isReject && isAlreadyClicked) {
+          console.log(`[useToolExecution] LOOP: actionId=${actionId} already in clickedActionsRef, skipping. skippedCount will be ${skippedCount + 1}`);
           skippedCount++;
           continue;
         }
 
         // Optimistically mark as clicked to prevent race conditions
+        console.log(`[useToolExecution] LOOP: marking actionId=${actionId} as clicked`);
         clickedActionsRef.current.add(actionId);
         setClickedActions(new Set(clickedActionsRef.current));
 
@@ -633,14 +642,14 @@ export const useToolExecution = ({
               a.params.path === currentPath,
           );
         }
+        console.log(`[useToolExecution] LOOP: isEditAction=${isEditAction}, skipDiagnostics=${skipDiagnostics}`);
 
         // SINGLE-LINE REVIEW CHECK: Detect write_to_file with content on a single line > 200 chars
         if (action.type === "write_to_file") {
           const content = action.params.content || "";
-          if (!content.includes("\n") && content.length > 100) {
-            if (actionType === "reject") {
-              console.log(`[useToolExecution] SINGLE-LINE REVIEW: intercepting actionId=${actionId}, content length=${content.length}`);
-            }
+          const isSingleLine = !content.includes("\n") && content.length > 100;
+          if (isSingleLine) {
+            console.log(`[useToolExecution] SINGLE-LINE REVIEW: intercepting actionId=${actionId}, content length=${content.length}, actionType=${actionType}, isAutoTrigger=${isAutoTrigger}`);
             // Pause and require user review
             wasInterruptedByManual = true;
             setSingleLineReviewActions((prev) => ({
@@ -665,9 +674,9 @@ export const useToolExecution = ({
         }
 
         // Check if we should auto-execute this tool
-        // Read from ref to always use the latest mode (avoids stale-closure bug).
+        // 🐛 FIX: Sử dụng currentPermissionMode thay vì permissionModeRef để tránh stale closure
         const decision = getPermissionDecision(
-          permissionModeRef.current,
+          currentPermissionMode,
           action.type,
         );
         const isConversationAuto =
@@ -676,7 +685,10 @@ export const useToolExecution = ({
         const shouldPauseForManual =
           decision === "prompt" && !isConversationAuto;
 
+        console.log(`[useToolExecution] LOOP DECISION: index=${index}, decision=${decision}, isConversationAuto=${isConversationAuto}, shouldPauseForManual=${shouldPauseForManual}, isAutoTrigger=${isAutoTrigger}`);
+
         if (isAutoTrigger && shouldPauseForManual) {
+          console.log(`[useToolExecution] LOOP: auto-trigger paused for manual approval on actionId=${actionId}`);
           wasInterruptedByManual = true;
           // Set to idle so the UI doesn't show loading state falsely
           setExecutionState({
@@ -688,6 +700,7 @@ export const useToolExecution = ({
         }
 
         let result: string | null = null;
+        console.log(`[useToolExecution] LOOP RESULT: index=${index}, actionType=${actionType}, decision=${decision}`);
         if (actionType === "reject") {
           console.log(`[useToolExecution] REJECT BLOCK: processing actionId=${actionId}, action.type=${action.type}`);
           result = `Output: [${action.type}] Tool execution rejected by user.`;
@@ -699,13 +712,16 @@ export const useToolExecution = ({
           window.postMessage({ command: "markActionRejected", actionId }, "*");
           console.log(`[useToolExecution] REJECT: posted markActionRejected for actionId=${actionId}`);
         } else if (decision === "deny") {
+          console.log(`[useToolExecution] DECISION DENY: actionId=${actionId}`);
           result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionModeRef.current}).`;
         } else {
+          console.log(`[useToolExecution] EXECUTE: actionId=${actionId}, action.type=${action.type}, decision=${decision}, isAutoTrigger=${isAutoTrigger}, actionType=${actionType}`);
           result = await executeSingleAction(
             { ...action, actionId },
             skipDiagnostics,
             decision === "allow" || isConversationAuto,
           );
+          console.log(`[useToolExecution] EXECUTE RESULT: actionId=${actionId}, result=${result ? 'success' : 'null'}`);
         }
 
         if (result !== null) {
@@ -742,6 +758,8 @@ export const useToolExecution = ({
                 terminalId: (action as any).params?.terminal_id,
               },
             }));
+          } else {
+            console.log(`[useToolExecution] skip setToolOutputs for run_command: actionId=${actionId}`);
           }
 
           const finalTerminalId = (action as any).params?.terminal_id;
@@ -770,6 +788,7 @@ export const useToolExecution = ({
             return next;
           });
         } else {
+          console.log(`[useToolExecution] result is null for actionId=${actionId}, setting error state`);
           setExecutionState((prev) => ({ ...prev, status: "error" }));
           break;
         }

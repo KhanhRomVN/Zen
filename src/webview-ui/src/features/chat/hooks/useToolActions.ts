@@ -212,19 +212,26 @@ export const useToolActions = ({
       const contentBlocks = lastMessage.parsed.contentBlocks || [];
       const selectedOption = lastMessage.selectedOption;
 
+      console.log(`[useToolActions] AUTO-TRIGGER CHECK: permissionMode=${permissionMode}, lastMessage.id=${lastMessage.id}, actions count=${lastMessage.parsed.actions.length}`);
+
       lastMessage.parsed.actions.forEach((action: ToolAction, idx: number) => {
         const actionId = `${lastMessage.id}-action-${idx}`;
 
         // Only run action if not streaming partial tool
-        if (action.isPartial) return;
+        if (action.isPartial) {
+          console.log(`[useToolActions] AUTO: action ${idx} is partial, skipping`);
+          return;
+        }
 
         // Has it completed running/cancelled?
         if (
           clickedActions.has(actionId) ||
           failedActions.has(actionId) ||
           triggeredIdsRef.current.has(actionId)
-        )
+        ) {
+          console.log(`[useToolActions] AUTO: action ${idx} already completed (clicked=${clickedActions.has(actionId)}, failed=${failedActions.has(actionId)}, triggered=${triggeredIdsRef.current.has(actionId)})`);
           return;
+        }
 
         // SEQUENTIAL BLOCK CHECK:
         // Find this action's position in contentBlocks to check for preceding unanswered questions or tools
@@ -248,20 +255,28 @@ export const useToolActions = ({
             return false;
           });
 
-        if (isBlocked) return;
+        if (isBlocked) {
+          console.log(`[useToolActions] AUTO: action ${idx} is blocked by preceding interaction`);
+          return;
+        }
 
         // Check if settings specify this tool runs auto or deny
         const decision = getPermissionDecision(permissionMode, action.type);
+        console.log(`[useToolActions] AUTO: action ${idx} (${action.type}) decision=${decision}`);
         if (decision === "allow" || decision === "deny") {
           // Optimistic Synchronous Update
           triggeredIdsRef.current.add(actionId);
           setClickedActions((prev: Set<string>) => new Set(prev).add(actionId));
           actionsToRun.push({ ...action, actionId, _index: idx } as any);
+          console.log(`[useToolActions] AUTO: action ${idx} added to actionsToRun`);
         }
       });
 
       if (actionsToRun.length > 0) {
+        console.log(`[useToolActions] AUTO: sending ${actionsToRun.length} actions to onSendToolRequest`);
         onSendToolRequest(actionsToRun as any, lastMessage, true);
+      } else {
+        console.log(`[useToolActions] AUTO: no actions to run`);
       }
     }
   }, [
