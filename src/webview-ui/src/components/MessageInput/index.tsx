@@ -643,6 +643,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
     return currentAccount || null;
   }, [currentAccount]);
 
+  // Auto-resize textarea: expand up to maxHeight, shrink when content is deleted
+  React.useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    // Reset to auto so scrollHeight reflects actual content height
+    el.style.height = "auto";
+    const maxHeight = 240; // px, must match the style below
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, [message, textareaRef]);
+
   // 🆕 Tool Settings Drawer Logic removed - now per-tool dropdown in ToolItem
   const currentProviderConfig = React.useMemo(() => {
     if (!currentModel?.providerId) {
@@ -1188,11 +1199,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
               fontSize: "var(--font-size-sm)",
               backgroundColor: "transparent",
               color: "var(--primary-text)",
-              overflow: "auto",
+              overflow: "hidden",
               whiteSpace: "pre-wrap",
               wordWrap: "break-word",
               opacity: 1,
               cursor: "text",
+              boxSizing: "border-box",
             }}
           />
         </div>

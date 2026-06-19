@@ -135,16 +135,21 @@ export const useToolActions = ({
       actionIndex: number,
       type: "accept_all" | "accept_once" | "reject" = "accept_once",
     ) => {
+      console.log(`[useToolActions] handleToolClick called: type=${type}, actionIndex=${actionIndex}, messageId=${message.id}`);
+
       if (!onSendToolRequest) {
+        console.warn('[useToolActions] onSendToolRequest is undefined, cannot handle click');
         return;
       }
 
       const actionIdBase = `${message.id}-action-`;
 
       if (type === "reject") {
+        // 🐛 FIX: Truyền đúng _index cho action để không bị nhầm actionId
         const actions = Array.isArray(actionOrActions)
-          ? actionOrActions
-          : [actionOrActions];
+          ? actionOrActions.map((a) => ({ ...a, _index: actionIndex }))
+          : [{ ...actionOrActions, _index: actionIndex }];
+        console.log(`[useToolActions] REJECT: sending to onSendToolRequest with ${actions.length} actions, actionIndex=${actionIndex}, _index=${actions[0]._index}`);
         onSendToolRequest(actions as any, message, false, "reject");
         return;
       }

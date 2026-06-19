@@ -1113,15 +1113,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         incompleteHasPartialTool={incompleteHasPartialTool}
         incompletePartialToolType={incompletePartialToolType}
         isSimpleMode={isSimpleMode}
-        onSendToolRequest={(actions, msg, isAuto, type) =>
-          handleToolRequest(
+        onSendToolRequest={(actions, msg, isAuto, type) => {
+          console.log(`[ChatPanel] onSendToolRequest called: type=${type}, actions=${Array.isArray(actions) ? actions.length : 1}, messageId=${msg.id}`);
+          return handleToolRequest(
             actions,
             msg,
             isAuto,
             conversationToolOverrides,
             type,
-          )
-        }
+          );
+        }}
         onSendMessage={(c, f, m, a, skip, ids, hidden) =>
           wrappedSendMessage(c, f, m, a, skip, ids, hidden)
         }

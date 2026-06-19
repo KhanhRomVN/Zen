@@ -576,6 +576,7 @@ export const useToolExecution = ({
       conversationToolOverrides: Record<string, "auto"> = {},
       actionType?: "accept_all" | "accept_once" | "reject",
     ) => {
+      console.log(`[useToolExecution] handleToolRequest ENTRY: actionType=${actionType}, messageId=${message.id}, isAutoTrigger=${isAutoTrigger}`);
       let wasInterruptedByManual = false;
 
       const actions = (
@@ -599,8 +600,18 @@ export const useToolExecution = ({
         const actionId =
           action.actionId || `${message.id}-action-${action._index}`;
 
+        // DEBUG: Log khi reject để biết action đang được xử lý
+        if (actionType === "reject") {
+          console.log(`[useToolExecution] LOOP: index=${index}, actionId=${actionId}, action._index=${action._index}, action.type=${action.type}, hasInClickedRef=${clickedActionsRef.current.has(actionId)}`);
+        }
+
         // GUARD: Prevent duplicate execution of same action Id
-        if (clickedActionsRef.current.has(actionId)) {
+        // 🐛 FIX: Khi reject, KHÔNG skip action dù đã có trong clickedActionsRef
+        const isReject = actionType === "reject";
+        if (!isReject && clickedActionsRef.current.has(actionId)) {
+          if (isReject) {
+            console.log(`[useToolExecution] LOOP: actionId=${actionId} already in clickedActionsRef, skipping. skippedCount will be ${skippedCount + 1}`);
+          }
           skippedCount++;
           continue;
         }
@@ -627,6 +638,9 @@ export const useToolExecution = ({
         if (action.type === "write_to_file") {
           const content = action.params.content || "";
           if (!content.includes("\n") && content.length > 100) {
+            if (actionType === "reject") {
+              console.log(`[useToolExecution] SINGLE-LINE REVIEW: intercepting actionId=${actionId}, content length=${content.length}`);
+            }
             // Pause and require user review
             wasInterruptedByManual = true;
             setSingleLineReviewActions((prev) => ({
@@ -675,9 +689,15 @@ export const useToolExecution = ({
 
         let result: string | null = null;
         if (actionType === "reject") {
+          console.log(`[useToolExecution] REJECT BLOCK: processing actionId=${actionId}, action.type=${action.type}`);
           result = `Output: [${action.type}] Tool execution rejected by user.`;
-          setRejectedActions((prev) => new Set(prev).add(actionId));
+          setRejectedActions((prev) => {
+            const next = new Set(prev).add(actionId);
+            console.log(`[useToolExecution] REJECT: setRejectedActions, actionId=${actionId}, new size=${next.size}`);
+            return next;
+          });
           window.postMessage({ command: "markActionRejected", actionId }, "*");
+          console.log(`[useToolExecution] REJECT: posted markActionRejected for actionId=${actionId}`);
         } else if (decision === "deny") {
           result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionModeRef.current}).`;
         } else {
@@ -689,6 +709,7 @@ export const useToolExecution = ({
         }
 
         if (result !== null) {
+          console.log(`[useToolExecution] result !== null for actionId=${actionId}, result=${result.substring(0, 100)}...`);
           validResults.push(result);
 
           // Update outputs
@@ -706,10 +727,13 @@ export const useToolExecution = ({
             result.includes("Tool execution blocked") ||
             result.includes("Tool execution rejected");
 
+          console.log(`[useToolExecution] actionId=${actionId}, isError=${isError}, cleanOutput length=${cleanOutput.length}`);
+
           // CRITICAL: For run_command, we do NOT overwrite toolOutputs with the formatted 'result'
           // because the Raw Terminal Logs are already being updated in real-time by terminalOutput/commandExecuted events.
           // Overwriting here would inject the "Output: [run_command...]" header and backticks into the TerminalBlock UI.
           if (action.type !== "run_command") {
+            console.log(`[useToolExecution] setToolOutputs for actionId=${actionId}, isError=${isError}`);
             setToolOutputs((prev) => ({
               ...prev,
               [actionId]: {
@@ -730,6 +754,7 @@ export const useToolExecution = ({
           }));
 
           // UI Notification
+          console.log(`[useToolExecution] posting UI notification for actionId=${actionId}, isError=${isError}`);
           window.postMessage(
             {
               command: isError ? "markActionFailed" : "markActionClicked",
@@ -737,9 +762,11 @@ export const useToolExecution = ({
             },
             "*",
           );
+          console.log(`[useToolExecution] setClickedActions for actionId=${actionId}`);
           setClickedActions((prev) => {
             const next = new Set(prev).add(actionId);
             clickedActionsRef.current = next;
+            console.log(`[useToolExecution] clickedActions size after add: ${next.size}`);
             return next;
           });
         } else {
@@ -749,7 +776,13 @@ export const useToolExecution = ({
       }
 
       const allActionsPreSkipped = skippedCount === actions.length;
+      if (actionType === "reject") {
+        console.log(`[useToolExecution] REJECT: skippedCount=${skippedCount}, actions.length=${actions.length}, allActionsPreSkipped=${allActionsPreSkipped}`);
+      }
       if (allActionsPreSkipped) {
+        if (actionType === "reject") {
+          console.log(`[useToolExecution] REJECT: all actions pre-skipped, returning early!`);
+        }
         setExecutionState((prev) =>
           prev.status === "error" ? prev : { ...prev, status: "done" },
         );

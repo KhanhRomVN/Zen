@@ -807,9 +807,10 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               toolColor={toolColor}
               title="Approve action"
               labelText={t("tools.approve")}
-              onExecute={(e, type) =>
-                onToolClick(action, messageId, actionIndex, type)
-              }
+              onExecute={(e, type) => {
+                console.log(`[FileToolRenderer] onExecute called for ${actionId} with type=${type}`);
+                onToolClick(action, messageId, actionIndex, type);
+              }}
             />
           </div>
         )}
