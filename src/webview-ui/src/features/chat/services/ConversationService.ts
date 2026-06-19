@@ -1,33 +1,17 @@
 import { extensionService } from "../../../services/ExtensionService";
-import { Message } from "../types";
+import { Message } from "../types/message";
 import { ConversationCache } from "./ConversationCache";
-
-export interface TabInfo {
-  tabId: number;
-  containerName: string;
-  title: string;
-  url?: string;
-  status: "free" | "busy" | "sleep";
-  canAccept: boolean;
-  requestCount: number;
-  folderPath?: string | null;
-  conversationId?: string | null;
-  provider?: "deepseek" | "chatgpt" | "gemini" | "grok";
-  cookieStoreId?: string;
-}
+import { ChatSession } from "../types/chat";
 
 const STORAGE_PREFIX = "zen-chat";
 
 export interface ChatMetadata {
   id: string;
-  tabId: number;
+  sessionId: number;
   folderPath: string | null;
   title: string;
   lastModified: number;
   messageCount: number;
-  containerName?: string;
-  provider?: "deepseek" | "chatgpt" | "gemini" | "grok";
-
   createdAt: number;
   totalRequests: number;
   totalTokenUsage: number;
@@ -42,7 +26,6 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
     }
 
     const logEntry = { ...message };
-    // Retain actionIds for tool execution tracking on session restore
     logEntry.timestamp = new Date().toISOString();
     logEntry.conversationId = message.conversationId;
 
@@ -56,12 +39,11 @@ export const logChatToWorkspace = (chatUuid: string, message: any) => {
 
 export const calculateTokens = (text: string): number => {
   if (!text) return 0;
-  // Fast approximation: ~4 chars per token (avoids heavy gpt-tokenizer encode)
   return Math.ceil(text.length / 4);
 };
 
 export const getConversationKey = (
-  tabId: number,
+  sessionId: number,
   folderPath: string | null,
   conversationId?: string,
 ): string => {
@@ -71,16 +53,16 @@ export const getConversationKey = (
 
   const safeFolderPath = folderPath || "global";
   const convId = conversationId || Date.now().toString();
-  const fullKey = `${STORAGE_PREFIX}:${tabId}:${safeFolderPath}:${convId}`;
+  const fullKey = `${STORAGE_PREFIX}:${sessionId}:${safeFolderPath}:${convId}`;
   return fullKey;
 };
 
 export const saveConversation = async (
-  tabId: number,
+  sessionId: number,
   folderPath: string | null,
   messages: Message[],
   conversationId?: string,
-  selectedTab?: TabInfo,
+  currentChat?: ChatSession,
   skipTimestampUpdate?: boolean,
   title?: string,
   backendConversationId?: string,
@@ -98,9 +80,8 @@ export const saveConversation = async (
     if (!storage) return "";
 
     const convId = conversationId || Date.now().toString();
-    const key = getConversationKey(tabId, folderPath, convId);
+    const key = getConversationKey(sessionId, folderPath, convId);
 
-    // Calculate stats
     const activeMessages = messages.filter((m) => !m.isCancelled);
     const totalRequests = activeMessages.filter(
       (m: Message) => m.role === "user",
@@ -124,9 +105,6 @@ export const saveConversation = async (
       | Record<string, { action: any; actionId: string; messageId: string }>
       | undefined;
 
-    // Always check in-memory cache first — it's sync and avoids race conditions
-    // when multiple saveConversation calls happen concurrently (e.g. toolOutputs persist
-    // fires at the same time as the post-stream final save).
     const cached = ConversationCache.get(convId);
     if (cached) {
       existingToolOutputs = cached.toolOutputs;
@@ -144,7 +122,6 @@ export const saveConversation = async (
         if (!existingBackendConversationId) {
           existingBackendConversationId = parsed.backendConversationId;
         }
-        // Only use disk toolOutputs if cache had nothing — cache is more up-to-date
         if (
           !existingToolOutputs &&
           parsed.toolOutputs &&
@@ -162,20 +139,13 @@ export const saveConversation = async (
       }
     } catch (error) {}
 
-    const messagesToSave = messages.map((m) => {
-      const cloned = { ...m };
-      // Retain actionIds for tool execution tracking on session restore
-      return cloned;
-    });
+    const messagesToSave = messages.map((m) => ({ ...m }));
 
-    // Merge incoming toolOutputs with existing ones so error outputs are never dropped.
-    // If caller passes no toolOutputs (undefined), preserve whatever is already on disk.
     const mergedToolOutputs =
       toolOutputs && Object.keys(toolOutputs).length > 0
         ? { ...(existingToolOutputs || {}), ...toolOutputs }
         : existingToolOutputs || undefined;
 
-    // Merge incoming singleLineReviewActions with existing ones
     const mergedSingleLineReviewActions =
       singleLineReviewActions && Object.keys(singleLineReviewActions).length > 0
         ? {
@@ -193,7 +163,7 @@ export const saveConversation = async (
       singleLineReviewActions: mergedSingleLineReviewActions,
       metadata: {
         id: key,
-        tabId,
+        sessionId,
         folderPath,
         title:
           title ||
@@ -204,8 +174,6 @@ export const saveConversation = async (
           ? existingLastModified || Date.now()
           : Date.now(),
         messageCount: messages.length,
-        containerName: selectedTab?.containerName,
-        provider: selectedTab?.provider,
         createdAt: existingCreatedAt || Date.now(),
         totalRequests,
         totalTokenUsage,
@@ -213,13 +181,7 @@ export const saveConversation = async (
     };
 
     await storage.set(key, JSON.stringify(data), false);
-    const errorOutputKeys = mergedToolOutputs
-      ? Object.entries(mergedToolOutputs)
-          .filter(([, v]) => v.isError)
-          .map(([k]) => k)
-      : [];
 
-    // Sync to in-memory cache — include toolOutputs & singleLineReviewActions so cache-hits also have this data
     ConversationCache.set(convId, {
       messages: messagesToSave,
       conversationId: convId,
@@ -240,7 +202,6 @@ export const deleteConversation = async (
 ): Promise<boolean> => {
   if (!conversationId) return false;
 
-  // Sync delete to in-memory cache
   ConversationCache.delete(conversationId);
 
   return new Promise((resolve) => {

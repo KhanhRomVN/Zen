@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Message } from "../../types";
+import { Message } from "../../types/message";
 import { ParsedResponse } from "../../services/ResponseParser";
 import ToolActionsList from "../tools/index";
 import QuestionAnswerBlock from "../blocks/QuestionAnswerBlock";

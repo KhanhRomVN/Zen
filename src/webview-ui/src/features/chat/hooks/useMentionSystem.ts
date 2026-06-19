@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { WorkspaceItem, Rule } from "../types";
+import { WorkspaceItem, Rule } from "../types/workspace";
 
 interface AttachedItem {
   id: string;

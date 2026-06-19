@@ -11,15 +11,16 @@ import {
  */
 export function getFileIcon(filename: string): string {
   if (!filename) return "file.svg";
-  
+
   // Clean filename to lowercase and get base name
-  const name = filename.split("/").pop()?.toLowerCase() || filename.toLowerCase();
-  
+  const name =
+    filename.split("/").pop()?.toLowerCase() || filename.toLowerCase();
+
   // 1. Check exact filename matches
   if (fileNamesMap[name]) {
     return `${fileNamesMap[name]}.svg`;
   }
-  
+
   // 2. Check extension matches (longest suffix first, e.g. for .spec.ts, .d.ts)
   const parts = name.split(".");
   for (let i = 1; i < parts.length; i++) {
@@ -28,7 +29,7 @@ export function getFileIcon(filename: string): string {
       return `${extensionsMap[ext]}.svg`;
     }
   }
-  
+
   // 3. Fallback default file icon
   return "file.svg";
 }
@@ -40,8 +41,8 @@ export function getFileIcon(filename: string): string {
  */
 export function getFileIconPath(filename: string): string {
   const iconName = getFileIcon(filename);
-  const baseUri = window.__zenImagesUri || "/images/icons";
-  const path = `${baseUri}/icons/${iconName}`;
+  const baseUri = window.__zenImagesUri || "/images";
+  const path = `${baseUri}/icons/material/${iconName}`;
   return path.replace(/([^:]\/)\/+/g, "$1");
 }
 
@@ -51,12 +52,17 @@ export function getFileIconPath(filename: string): string {
  * 1. getFolderIcon(folderName: string, isOpen: boolean)
  * 2. getFolderIcon(isOpen: boolean)
  */
-export function getFolderIcon(folderNameOrIsOpen: string | boolean = false, isOpenParam: boolean = false): string {
+export function getFolderIcon(
+  folderNameOrIsOpen: string | boolean = false,
+  isOpenParam: boolean = false,
+): string {
   let name = "";
   let isOpen = false;
 
   if (typeof folderNameOrIsOpen === "string") {
-    name = folderNameOrIsOpen.split("/").pop()?.toLowerCase() || folderNameOrIsOpen.toLowerCase();
+    name =
+      folderNameOrIsOpen.split("/").pop()?.toLowerCase() ||
+      folderNameOrIsOpen.toLowerCase();
     isOpen = isOpenParam;
   } else {
     isOpen = folderNameOrIsOpen;
@@ -78,10 +84,13 @@ export function getFolderIcon(folderNameOrIsOpen: string | boolean = false, isOp
  * 1. getFolderIconPath(folderName: string, isOpen: boolean)
  * 2. getFolderIconPath(isOpen: boolean)
  */
-export function getFolderIconPath(folderNameOrIsOpen: string | boolean = false, isOpenParam: boolean = false): string {
+export function getFolderIconPath(
+  folderNameOrIsOpen: string | boolean = false,
+  isOpenParam: boolean = false,
+): string {
   const iconName = getFolderIcon(folderNameOrIsOpen, isOpenParam);
-  const baseUri = window.__zenImagesUri || "/images/icons";
-  const path = `${baseUri}/icons/${iconName}`;
+  const baseUri = window.__zenImagesUri || "/images";
+  const path = `${baseUri}/icons/material/${iconName}`;
   return path.replace(/([^:]\/)\/+/g, "$1");
 }
 
@@ -107,8 +116,8 @@ export function getProviderIconPath(provider: string): string {
     iconName = "openai.svg";
   }
 
-  const baseUri = window.__zenImagesUri || "/images/icons";
-  const path = `${baseUri}/provider_icons/${iconName}`;
+  const baseUri = window.__zenImagesUri || "/images";
+  const path = `${baseUri}/icons/material/${iconName}`;
   return path.replace(/([^:]\/)\/+/g, "$1");
 }
 

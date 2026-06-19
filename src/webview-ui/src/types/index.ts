@@ -1,4 +1,4 @@
-export * from "./chat";
+// export * from "./chat";
 export * from "./storage.d";
 
 // Feature types — re-exported for unified import path
@@ -9,12 +9,3 @@ export type {
   AccountStats,
   FlatAccount,
 } from "../features/account/types";
-export type {
-  Message,
-  ChatBodyProps,
-  UploadedFile,
-  WorkspaceItem,
-  AttachedItem,
-  ExternalFile,
-  Rule,
-} from "../features/chat/types";

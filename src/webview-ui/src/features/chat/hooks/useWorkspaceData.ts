@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { WorkspaceItem, Rule } from "../types";
+import { WorkspaceItem, Rule } from "../types/workspace";
 
 export const useWorkspaceData = () => {
   const [availableFiles, setAvailableFiles] = useState<WorkspaceItem[]>([]);

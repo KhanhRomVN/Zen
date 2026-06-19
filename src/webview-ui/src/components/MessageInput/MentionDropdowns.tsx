@@ -8,7 +8,7 @@ import {
 } from "../../icons/Icon";
 import FileImageIcon from "../../icons/FileIcon";
 import { Search, X, Clock, Terminal } from "lucide-react";
-import { getSearchQuery } from "@/features/chat/utils/utils";
+import { getSearchQuery } from "@/features/chat/utils/fileUtils";
 
 export const getFilteredItems = (
   items: WorkspaceItem[],

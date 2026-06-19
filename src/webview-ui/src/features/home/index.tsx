@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Zap } from "lucide-react";
 import MessageInput from "@/components/MessageInput";
+import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import StatsGrid from "./components/StatsGrid";
 import RecentActivity from "./components/RecentActivity";
 import ModelDistributionCard from "./components/ModelDistributionCard";
@@ -9,6 +10,7 @@ import { ConversationItem } from "../history/types";
 import { extensionService } from "../../services/ExtensionService";
 import { useI18n } from "../../hooks/useI18n";
 import { useSettings } from "../../context/SettingsContext";
+import { useFileHandling } from "../../hooks/useFileHandling";
 
 const SLOGANS_KEYS = [
   "home.slogan0",
@@ -195,9 +197,10 @@ const HomePanel: React.FC<HomePanelProps> = ({
 
   // MessageInput handlers
   const handleSend = (model: any, account: any) => {
-    if (message.trim()) {
-      onSendMessage(message, [], model, account);
+    if (message.trim() || uploadedFiles.length > 0) {
+      onSendMessage(message, [...uploadedFiles], model, account);
       setMessage("");
+      clearFiles();
     }
   };
 
@@ -206,10 +209,23 @@ const HomePanel: React.FC<HomePanelProps> = ({
   };
 
   const handleKeyDown = (_e: React.KeyboardEvent<HTMLTextAreaElement>) => {};
-  const handlePaste = (_e: React.ClipboardEvent<HTMLTextAreaElement>) => {};
-  const handleDragOver = (_e: React.DragEvent) => {};
-  const handleDrop = (_e: React.DragEvent) => {};
-  const handleFileSelect = () => {};
+
+  const {
+    uploadedFiles,
+    fileInputRef,
+    externalFileInputRef,
+    handlePaste,
+    handleFileSelect,
+    handleFileInputChange,
+    removeFile,
+    handleExternalFileInputChange,
+    handleDragOver,
+    handleDrop,
+    clearFiles,
+  } = useFileHandling({
+    accountId: currentAccount?.id,
+    onAddAttachedItem: () => {}, // no mention system in home
+  });
 
   return (
     <div
@@ -423,11 +439,43 @@ const HomePanel: React.FC<HomePanelProps> = ({
       </div>
 
       {/* ─── MessageInput ─── */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleFileInputChange}
+        accept="image/*,text/*"
+      />
+      <input
+        ref={externalFileInputRef}
+        type="file"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleExternalFileInputChange}
+      />
+      <FilesPreviews
+        uploadedFiles={uploadedFiles}
+        attachedItems={[]}
+        onRemoveFile={removeFile}
+        onRemoveAttachedItem={() => {}}
+        onOpenImage={(file) => {
+          const vscodeApi = (window as any).vscodeApi;
+          if (vscodeApi) {
+            vscodeApi.postMessage({
+              command: "openTempImage",
+              content: file.content,
+              filename: file.name,
+            });
+          }
+        }}
+        onAttachedItemClick={() => {}}
+      />
       <MessageInput
         message={message}
         setMessage={setMessage}
         isHistoryMode={false}
-        uploadedFiles={[]}
+        uploadedFiles={uploadedFiles}
         textareaRef={textareaRef}
         handleTextareaChange={handleTextareaChange}
         handleKeyDown={handleKeyDown}

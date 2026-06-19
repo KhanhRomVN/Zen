@@ -17,24 +17,9 @@ import { useSettings } from "../../../context/SettingsContext";
 import { useProject } from "../../../context/ProjectContext";
 import { extensionService } from "@/services/ExtensionService";
 import { useFileUpload } from "./useFileUpload";
+import { ChatSession } from "../types/chat";
 
-export interface TabInfo {
-  tabId: number;
-  containerName: string;
-  title: string;
-  url?: string;
-  status: "free" | "busy" | "sleep";
-  canAccept: boolean;
-  requestCount: number;
-  folderPath?: string | null;
-  conversationId?: string | null;
-  provider?: "deepseek" | "chatgpt" | "gemini" | "grok";
-  cookieStoreId?: string;
-}
-
-/** Returns only top-level entries from a formatted tree string.
- *  Files keep their "(N lines)" annotation.
- *  Folders show "(N files)" counted from all their descendants. */
+/** Returns only top-level entries from a formatted tree string. */
 const getShallowTree = (tree: string): string => {
   const lines = tree.split("\n");
   const result: string[] = [];
@@ -60,7 +45,6 @@ const getShallowTree = (tree: string): string => {
         result.push(line);
       }
     } else if (currentFolder !== null) {
-      // count every non-directory descendant as a file
       if (!line.trimEnd().endsWith("/")) fileCount++;
     }
   }
@@ -70,7 +54,7 @@ const getShallowTree = (tree: string): string => {
 
 interface UseChatLLMProps {
   apiUrl: string;
-  selectedTab: TabInfo | null;
+  selectedTab: ChatSession | null;
   onConversationIdChange?: (id: string) => void;
   onToolRequest?: (
     actions: ToolAction[],
@@ -169,10 +153,10 @@ export const useChatLLM = ({
             });
 
             // Persist the changes
-            const tabId = selectedTab?.tabId || -1;
+            const sessionId = selectedTab?.sessionId || -1;
             const folderPath = selectedTab?.folderPath || null;
             saveConversation(
-              tabId,
+              sessionId,
               folderPath,
               updated,
               currentConversationIdRef.current,
@@ -204,10 +188,10 @@ export const useChatLLM = ({
               return m;
             });
 
-            const tabId = selectedTab?.tabId || -1;
+            const sessionId = selectedTab?.sessionId || -1;
             const folderPath = selectedTab?.folderPath || null;
             saveConversation(
-              tabId,
+              sessionId,
               folderPath,
               updated,
               currentConversationIdRef.current,
@@ -293,7 +277,7 @@ export const useChatLLM = ({
         return;
       }
 
-      const tabId = selectedTab?.tabId || -1;
+      const sessionId = selectedTab?.sessionId || -1;
       const folderPath = selectedTab?.folderPath || null;
 
       // Clean up ghosted (cancelled) messages
@@ -548,7 +532,7 @@ export const useChatLLM = ({
 
       // Save & Log
       saveConversation(
-        tabId,
+        sessionId,
         folderPath,
         updatedMessages,
         effectiveChatUuid,
@@ -631,19 +615,19 @@ export const useChatLLM = ({
         const effectiveParentMessageId =
           qwenParentIdRef.current ?? parentMessageId;
 
+        const convIdToSend =
+          backendConversationIdRef.current ||
+          (effectiveChatUuid
+            ? sessionStorage.getItem(`zen-backend-conv:${effectiveChatUuid}`) || undefined
+            : undefined);
+
         const body = {
           modelId: finalModel?.id,
           providerId: finalModel?.providerId,
           accountId: finalAccount?.id,
           messages: finalPayloadMessages,
           stream: true,
-          conversationId:
-            backendConversationIdRef.current ||
-            (effectiveChatUuid
-              ? sessionStorage.getItem(
-                  `zen-backend-conv:${effectiveChatUuid}`,
-                ) || undefined
-              : undefined),
+          ...(convIdToSend ? { conversationId: convIdToSend } : {}),
           ...(effectiveParentMessageId
             ? { parent_message_id: effectiveParentMessageId }
             : {}),
@@ -1029,7 +1013,7 @@ export const useChatLLM = ({
 
         // Save final conversation state
         saveConversation(
-          tabId,
+          sessionId,
           folderPath,
           [...updatedMessages, assistantMessage],
           effectiveChatUuid,
@@ -1067,7 +1051,7 @@ export const useChatLLM = ({
         if (effectiveChatUuid) {
           try {
             saveConversation(
-              tabId,
+              sessionId,
               folderPath,
               messagesWithError,
               effectiveChatUuid,
@@ -1138,10 +1122,10 @@ export const useChatLLM = ({
       );
       setMessages(updatedMessages);
 
-      const tabId = selectedTab?.tabId || -1;
+      const sessionId = selectedTab?.sessionId || -1;
       const folderPath = selectedTab?.folderPath || null;
       saveConversation(
-        tabId,
+        sessionId,
         folderPath,
         updatedMessages,
         currentConversationIdRef.current,

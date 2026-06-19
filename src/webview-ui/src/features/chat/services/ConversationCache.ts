@@ -1,4 +1,4 @@
-import { Message } from "../types";
+import { Message } from "../types/message";
 
 export interface CachedConversation {
   messages: Message[];

@@ -17,9 +17,9 @@ import { HISTORY_CONTEXT_REMINDER } from "./prompts";
 import { useChatLLM } from "./hooks/useChatLLM";
 import { useToolExecution } from "./hooks/useToolExecution";
 import { useWorkspaceData } from "./hooks/useWorkspaceData";
-import { useFileHandling } from "./hooks/useFileHandling";
+import { useFileHandling } from "../../hooks/useFileHandling";
 import { useMentionSystem } from "./hooks/useMentionSystem";
-import { TabInfo } from "../../types";
+import { ChatSession } from "./types/chat";
 import { Message } from "./types/message";
 import { ConversationCache } from "./services/ConversationCache";
 import ChatBody from "./components/ChatBody";
@@ -34,13 +34,11 @@ import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import MentionDropdowns from "@/components/MessageInput/MentionDropdowns";
 
 interface ChatPanelProps {
-  selectedTab: TabInfo | null;
+  currentChat: ChatSession | null;
   onBack: (contentToReturn?: string) => void;
-  tabs?: TabInfo[];
-  onTabSelect?: (tab: TabInfo) => void;
   onLoadConversation?: (
     conversationId: string,
-    tabId: number,
+    sessionId: number,
     folderPath: string | null,
   ) => void;
   initialMessageData?: {
@@ -53,10 +51,8 @@ interface ChatPanelProps {
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
-  selectedTab,
+  currentChat,
   onBack,
-  tabs,
-  onTabSelect,
   onLoadConversation,
   initialMessageData,
   onClearInitialData,
@@ -122,7 +118,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     handleSelectOption,
   } = useChatLLM({
     apiUrl,
-    selectedTab,
+    selectedTab: currentChat,
     onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
       handleToolRequest(
         actions,
@@ -232,7 +228,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setIsRestored(false);
       let finalContent = content;
       const isFromHistory =
-        !!(selectedTab as any)?.conversationId && !selectedTab?.canAccept;
+        !!(currentChat as any)?.conversationId && !currentChat?.canAccept;
       if (isFromHistory && !hasAppendedHistoryContext.current) {
         hasAppendedHistoryContext.current = true;
         finalContent = content + HISTORY_CONTEXT_REMINDER;
@@ -253,7 +249,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         parentMsgId,
       );
     },
-    [sendMessage, selectedTab],
+    [sendMessage, currentChat],
   );
 
   const {
@@ -293,12 +289,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     hasProcessedInitial.current = false;
     resetSession();
-  }, [selectedTab?.tabId]);
+  }, [currentChat?.sessionId]);
 
   // --- Memoized Values ---
   const isHistoryMode = useMemo(() => {
-    return !!(selectedTab as any)?.conversationId && !selectedTab?.canAccept;
-  }, [selectedTab]);
+    return !!(currentChat as any)?.conversationId && !currentChat?.canAccept;
+  }, [currentChat]);
 
   const parsedMessages = useMemo(() => {
     return messages.map((msg: Message) => ({
@@ -422,20 +418,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Persist toolOutputs
   useEffect(() => {
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
-    const tabId = selectedTab?.tabId || -1;
-    const folderPath = selectedTab?.folderPath || null;
+    const sessionId = currentChat?.sessionId || -1;
+    const folderPath = currentChat?.folderPath || null;
     saveConversation(
-      tabId,
+      sessionId,
       folderPath,
       messages,
       currentConversationId,
-      selectedTab || undefined,
+      currentChat || undefined,
       true,
       undefined,
       undefined,
       toolOutputs,
     );
-  }, [toolOutputs, currentConversationId]);
+  }, [toolOutputs, currentConversationId, currentChat]);
 
   // Persist singleLineReviewActions
   useEffect(() => {
@@ -444,26 +440,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       Object.keys(singleLineReviewActions).length === 0
     )
       return;
-    const tabId = selectedTab?.tabId || -1;
-    const folderPath = selectedTab?.folderPath || null;
+    const sessionId = currentChat?.sessionId || -1;
+    const folderPath = currentChat?.folderPath || null;
     saveConversation(
-      tabId,
+      sessionId,
       folderPath,
       messages,
       currentConversationId,
-      selectedTab || undefined,
+      currentChat || undefined,
       true,
       undefined,
       undefined,
       undefined,
       singleLineReviewActions,
     );
-  }, [singleLineReviewActions, currentConversationId]);
+  }, [singleLineReviewActions, currentConversationId, currentChat]);
 
   // Load conversation
   useEffect(() => {
     const load = async () => {
-      if (!selectedTab) {
+      if (!currentChat) {
         if (currentConversationIdRef.current) {
           return;
         }
@@ -476,7 +472,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setIsLoadingConversation(true);
       setIsRestored(false);
       hasAppendedHistoryContext.current = false;
-      const convId = (selectedTab as any).conversationId;
+      const convId = (currentChat as any).conversationId;
       if (convId) {
         const cached = ConversationCache.get(convId);
         if (cached) {
@@ -532,7 +528,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
     };
     load();
-  }, [selectedTab?.tabId, (selectedTab as any)?.conversationId]);
+  }, [currentChat?.sessionId, (currentChat as any)?.conversationId]);
 
   // Handle incoming messages
   useEffect(() => {
@@ -851,7 +847,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   );
 
   const handleClearConfirmed = async () => {
-    if (selectedTab) {
+    if (currentChat) {
       await deleteConversation(currentConversationId);
       setMessages([]);
       setIsProcessing(false);
@@ -875,14 +871,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         ...updated[lastAssistantIdx],
         isCancelled: true,
       };
-      const tabId = selectedTab?.tabId || -1;
-      const folderPath = selectedTab?.folderPath || null;
+      const sessionId = currentChat?.sessionId || -1;
+      const folderPath = currentChat?.folderPath || null;
       saveConversation(
-        tabId,
+        sessionId,
         folderPath,
         updated,
         currentConversationId,
-        selectedTab || undefined,
+        currentChat || undefined,
         true,
       );
       return updated;
@@ -891,7 +887,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     stopGeneration,
     setIsProcessing,
     setMessages,
-    selectedTab,
+    currentChat,
     currentConversationId,
   ]);
 
@@ -917,7 +913,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const providerId =
-    currentModel?.providerId || selectedTab?.provider || "deepseek";
+    currentModel?.providerId || "deepseek";
   let faviconUrl =
     "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
   if (providerId.toLowerCase().includes("openai"))
@@ -1239,7 +1235,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             handleSend={handleSend}
             hasProjectContext={!!projectContext}
             onOpenProjectContext={() => setShowProjectContextModal(true)}
-            folderPath={selectedTab?.folderPath || null}
+            folderPath={currentChat?.folderPath || null}
             isConversationStarted={messages.length > 0 || !!initialMessageData}
             currentModel={enrichedModel ?? currentModel}
             setCurrentModel={setCurrentModel}

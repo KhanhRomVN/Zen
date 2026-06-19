@@ -3,17 +3,13 @@ import { ToolAction } from "../../services/ResponseParser";
 import FileIcon from "@/icons/FileIcon";
 import { ToolHeader } from "./ToolHeader";
 import { parseDiff } from "../../../../utils/diffUtils";
-import {
-  getFilename,
-  getToolColor,
-  getDisplayPath,
-  collectConvFilePaths,
-} from "../../utils/utils";
+import { getFilename, getToolColor } from "../../utils/toolUtils";
+import { getDisplayPath, collectConvFilePaths } from "../../utils/pathUtils";
 import {
   extensionService,
   messageDispatcher,
 } from "../../../../services/ExtensionService";
-import { Message } from "../../types";
+import { Message } from "../../types/message";
 import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../hooks/useI18n";
 import { useSettings } from "../../../../context/SettingsContext";

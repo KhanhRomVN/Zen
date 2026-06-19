@@ -10,9 +10,8 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { BackendConnectionProvider } from "./context/BackendConnectionContext";
 import { SettingsProvider } from "./context/SettingsContext";
 
-import { TabInfo } from "./types";
-
 import { extensionService } from "./services/ExtensionService";
+import { ChatSession } from "./features/chat/types/chat";
 
 // Initialize global storage API
 (window as any).storage = extensionService.getStorage();
@@ -43,67 +42,28 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAccounts, setShowAccounts] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<TabInfo | null>(null);
+  const [currentChat, setCurrentChat] = useState<ChatSession | null>(null);
   const [previousPanel, setPreviousPanel] = useState<"tab" | "chat" | null>(
     null,
   );
-  const [externalTabs, setExternalTabs] = useState<TabInfo[]>([]);
   const [homeInitialValue, setHomeInitialValue] = useState("");
 
-  // Lift tabs state lên App level để persist khi switch panels
-  const tabs: TabInfo[] = []; // WebSocket removed, using empty tabs for now
-  const handleMessage = (data: any) => {};
-  const clearTabs = () => {};
-
-  // 🔥 CRITICAL: Wrap handleMessage trong useRef để tránh dependency change
-  const handleMessageRef = useRef(handleMessage);
-
-  useEffect(() => {
-    handleMessageRef.current = handleMessage;
-  }, [handleMessage]);
-
-  const handleTabSelect = (tab: TabInfo) => {
-    setSelectedTab(tab);
-    setShowHistory(false);
-    setShowSettings(false);
-  };
-
   const handleLoadConversation = useCallback(
-    (conversationId: string, tabId: number, folderPath: string | null) => {
-      // Find matching tab from current tabs
-      const matchingTab = tabs.find((t) => t.tabId === tabId);
+    (conversationId: string, sessionId: number, folderPath: string | null) => {
+      // Create a new chat session for the loaded conversation
+      const newSession: ChatSession = {
+        sessionId: sessionId,
+        folderPath: folderPath,
+        conversationId: conversationId,
+        canAccept: true, // Allow input for loaded history
+      };
 
-      if (matchingTab) {
-        // Set selected tab with conversationId flag
-        const newSelectedTab = {
-          ...matchingTab,
-          conversationId: conversationId,
-        } as any;
-
-        setSelectedTab(newSelectedTab);
-        setShowHistory(false);
-        setShowSettings(false);
-        setPreviousPanel(null); // Reset previous panel
-      } else {
-        // Create virtual tab when real tab not found
-        const virtualTab = {
-          tabId: tabId,
-          containerName: "Virtual Tab",
-          title: "Loaded Conversation",
-          status: "free" as const,
-          canAccept: true, // Allow input for loaded history
-          requestCount: 0,
-          folderPath: folderPath,
-          conversationId: conversationId,
-        };
-
-        setSelectedTab(virtualTab as any);
-        setShowHistory(false);
-        setShowSettings(false);
-        setPreviousPanel(null);
-      }
+      setCurrentChat(newSession);
+      setShowHistory(false);
+      setShowSettings(false);
+      setPreviousPanel(null);
     },
-    [tabs],
+    [],
   );
 
   // 🆕 Initial Message Data State
@@ -120,7 +80,7 @@ const App: React.FC = () => {
       switch (message.command) {
         case "showHistory":
           // Save current panel before switching
-          if (selectedTab) {
+          if (currentChat) {
             setPreviousPanel("chat");
           } else {
             setPreviousPanel("tab");
@@ -130,7 +90,7 @@ const App: React.FC = () => {
           setShowAccounts(false);
           break;
         case "showSettings":
-          if (selectedTab) {
+          if (currentChat) {
             setPreviousPanel("chat");
           } else {
             setPreviousPanel("tab");
@@ -140,7 +100,7 @@ const App: React.FC = () => {
           setShowAccounts(false);
           break;
         case "showAccounts":
-          if (selectedTab) {
+          if (currentChat) {
             setPreviousPanel("chat");
           } else {
             setPreviousPanel("tab");
@@ -153,7 +113,7 @@ const App: React.FC = () => {
           setShowHistory(false);
           setShowSettings(false);
           setShowAccounts(false);
-          setSelectedTab(null);
+          setCurrentChat(null);
           setPreviousPanel(null);
           setInitialMessageData(null); // Clear initial data on new chat
           break;
@@ -162,7 +122,7 @@ const App: React.FC = () => {
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [selectedTab]);
+  }, [currentChat]);
 
   const handleHomeSendMessage = useCallback(
     (content: string, files: any[], model: any, account: any) => {
@@ -172,24 +132,20 @@ const App: React.FC = () => {
         model,
         account,
       });
-      const newTab: TabInfo = {
-        tabId: Date.now(),
-        containerName: "New Chat",
-        title: "New Chat",
-        status: "free",
-        conversationId: "", // Empty for new chat
+      const newSession: ChatSession = {
+        sessionId: Date.now(),
         folderPath: (window as any).__zenWorkspaceFolderPath || null,
+        conversationId: "", // Empty for new chat
         canAccept: true,
-        requestCount: 0,
       };
-      setSelectedTab(newTab);
+      setCurrentChat(newSession);
       setHomeInitialValue(""); // Clear when starting fresh from Home
     },
     [],
   );
 
   const handleBack = useCallback((contentToReturn?: string) => {
-    setSelectedTab(null);
+    setCurrentChat(null);
     if (typeof contentToReturn === "string" && contentToReturn.trim()) {
       setHomeInitialValue(contentToReturn);
     } else {
@@ -197,8 +153,8 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const lastSelectedTabRef = React.useRef<TabInfo | null>(null);
-  if (selectedTab) lastSelectedTabRef.current = selectedTab;
+  const lastChatRef = React.useRef<ChatSession | null>(null);
+  if (currentChat) lastChatRef.current = currentChat;
 
   return (
     <ThemeProvider>
@@ -208,20 +164,18 @@ const App: React.FC = () => {
             <div className="app-container">
               {!showAccounts && (
                 <>
-                  {lastSelectedTabRef.current && (
-                    <div style={{ display: selectedTab ? "contents" : "none" }}>
+                  {lastChatRef.current && (
+                    <div style={{ display: currentChat ? "contents" : "none" }}>
                       <ChatPanel
-                        selectedTab={lastSelectedTabRef.current}
+                        currentChat={lastChatRef.current}
                         onBack={handleBack}
-                        tabs={tabs}
-                        onTabSelect={handleTabSelect}
                         onLoadConversation={handleLoadConversation}
                         initialMessageData={initialMessageData}
                         onClearInitialData={() => setInitialMessageData(null)}
                       />
                     </div>
                   )}
-                  {!selectedTab && (
+                  {!currentChat && (
                     <HomePanel
                       onSendMessage={handleHomeSendMessage}
                       onLoadConversation={handleLoadConversation}

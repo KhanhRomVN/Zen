@@ -1,4 +1,4 @@
-import { Message } from "../types";
+import { Message } from "../types/message";
 
 /**
  * Given a full path and all paths in the conversation, returns the shortest

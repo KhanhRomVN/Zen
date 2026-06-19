@@ -1,7 +1,14 @@
 import { useState, useRef } from "react";
-import { UploadedFile, ExternalFile, AttachedItem } from "../types";
-import { isFileAllowed, readFileAsText } from "../utils/utils";
-import { useSettings } from "../../../context/SettingsContext";
+import {
+  UploadedFile,
+  ExternalFile,
+  AttachedItem,
+} from "../types/file-uploader";
+import {
+  isFileAllowed,
+  readFileAsText,
+} from "../features/chat/utils/fileUtils";
+import { useSettings } from "../context/SettingsContext";
 
 interface UseFileHandlingProps {
   accountId?: string;

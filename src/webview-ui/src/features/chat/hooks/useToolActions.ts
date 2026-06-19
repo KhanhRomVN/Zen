@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ToolAction } from "../services/ResponseParser";
-import { Message } from "../types";
+import { Message } from "../types/message";
 import { CLICKABLE_TOOLS } from "../constants/constants";
 import { useSettings } from "../../../context/SettingsContext";
 import { getPermissionDecision } from "../hooks/useToolExecution";

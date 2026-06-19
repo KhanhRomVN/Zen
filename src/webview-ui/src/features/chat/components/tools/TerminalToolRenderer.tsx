@@ -1,9 +1,9 @@
 import React from "react";
 import { ToolAction } from "../../services/ResponseParser";
 import { TerminalBlock } from "../blocks/TerminalBlock";
-import { getToolColor } from "../../utils/utils";
+import { getToolColor } from "../../utils/toolUtils";
 import { extensionService } from "../../../../services/ExtensionService";
-import { Message } from "../../types";
+import { Message } from "../../types/message";
 import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../hooks/useI18n";
 import { useSettings } from "../../../../context/SettingsContext";
