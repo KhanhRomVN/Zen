@@ -247,7 +247,8 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     toolType === "search_files" ||
     toolType === "grep" ||
     toolType === "delete_file" ||
-    toolType === "delete_folder";
+    toolType === "delete_folder" ||
+    toolType === "move_file";
 
   if (isFileTool) {
     const MERGE_TYPES = new Set(["write_to_file", "replace_in_file"]);

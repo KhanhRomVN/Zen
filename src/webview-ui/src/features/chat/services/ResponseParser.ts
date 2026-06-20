@@ -23,6 +23,7 @@ export interface ToolAction {
     | "execute_agent_action"
     | "delete_file"
     | "delete_folder"
+    | "move_file"
     | "grep";
   params: Record<string, any>;
   rawXml: string;
@@ -90,6 +91,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "search_files",
     "delete_file",
     "delete_folder",
+    "move_file",
     "execute_agent_action",
     "grep",
     "code",
@@ -473,6 +475,9 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "search_files":
       return `search_files: ${action.params.regex || "unknown"}`;
+
+    case "move_file":
+      return `move_file: ${action.params.file_path || "unknown"} → ${action.params.target_folder_path || "unknown"}`;
 
     default:
       return ``;

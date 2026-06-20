@@ -189,6 +189,9 @@ export class ChatController {
         case "deleteFolder":
           await this.fileHandler.handleDeleteFolder(message, webviewView);
           break;
+        case "moveFile":
+          await this.fileHandler.handleMoveFile(message, webviewView);
+          break;
         case "getSnapshot":
           await this.fileHandler.handleGetSnapshot(message, webviewView);
           break;

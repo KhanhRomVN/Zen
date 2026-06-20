@@ -2,10 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
 import type { LanguageCode } from "../i18n";
 
-export type PermissionMode =
-  | "fullAccess"
-  | "approval"
-  | "readOnly";
+export type PermissionMode = "fullAccess" | "approval" | "readOnly";
 
 interface SettingsContextType {
   language: LanguageCode;
@@ -25,14 +22,16 @@ interface SettingsContextType {
   setLiveWritePreview: (value: boolean) => void;
 }
 
-export const defaultToolPermissions: Record<string, "full_access" | "review"> = {
-  read_file: "full_access",
-  write_to_file: "full_access",
-  replace_in_file: "full_access",
-  list_files: "full_access",
-  search_files: "full_access",
-  run_command: "full_access",
-};
+export const defaultToolPermissions: Record<string, "full_access" | "review"> =
+  {
+    read_file: "full_access",
+    write_to_file: "full_access",
+    replace_in_file: "full_access",
+    list_files: "full_access",
+    search_files: "full_access",
+    run_command: "full_access",
+    move_file: "full_access",
+  };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
   undefined,
@@ -56,7 +55,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     return "English";
   });
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
-  const [permissionModeState, setPermissionModeState] = useState<PermissionMode>("fullAccess");
+  const [permissionModeState, setPermissionModeState] =
+    useState<PermissionMode>("fullAccess");
   const [toolPermissionsState, setToolPermissionsState] = useState<
     Record<string, "full_access" | "review">
   >(defaultToolPermissions);
@@ -137,7 +137,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_permission_mode", mode);
   };
 
-  const setToolPermission = (toolId: string, value: "full_access" | "review") => {
+  const setToolPermission = (
+    toolId: string,
+    value: "full_access" | "review",
+  ) => {
     setToolPermissionsState((prev) => {
       const next = { ...prev, [toolId]: value };
       const storage = extensionService.getStorage();
@@ -147,7 +150,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const setAllToolPermissions = (value: "full_access" | "review") => {
-    const next = Object.fromEntries(Object.keys(defaultToolPermissions).map((k) => [k, value])) as Record<string, "full_access" | "review">;
+    const next = Object.fromEntries(
+      Object.keys(defaultToolPermissions).map((k) => [k, value]),
+    ) as Record<string, "full_access" | "review">;
     setToolPermissionsState(next);
     const storage = extensionService.getStorage();
     storage.set("zen_tool_permissions", JSON.stringify(next));

@@ -8,6 +8,7 @@ import {
   isFileAllowed,
   readFileAsText,
 } from "../features/chat/utils/fileUtils";
+import { ALLOWED_FILE_EXTENSIONS } from "../features/chat/constants/constants";
 import { useSettings } from "../context/SettingsContext";
 
 interface UseFileHandlingProps {
@@ -22,6 +23,7 @@ export const useFileHandling = ({
   const { apiUrl } = useSettings();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [externalFiles, setExternalFiles] = useState<ExternalFile[]>([]);
+  const [invalidExternalFiles, setInvalidExternalFiles] = useState<{name: string, path: string, reason: string}[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const externalFileInputRef = useRef<HTMLInputElement>(null);
@@ -138,9 +140,24 @@ export const useFileHandling = ({
     const files = e.target.files;
     if (!files) return;
 
+    // Check if textOnly mode is set on the input element
+    const textOnly = (e.target as any).dataset?.textOnly === "true";
+
     const newFiles: UploadedFile[] = [];
+    const invalidFiles: {name: string, reason: string}[] = [];
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
+
+      // If textOnly mode, filter out image files
+      if (textOnly && file.type.startsWith("image/")) {
+        invalidFiles.push({
+          name: file.name,
+          reason: "Image files are not allowed when upload is disabled",
+        });
+        continue;
+      }
+
       const reader = new FileReader();
 
       await new Promise<void>((resolve) => {
@@ -165,11 +182,26 @@ export const useFileHandling = ({
       });
     }
 
+    if (invalidFiles.length > 0) {
+      const vscodeApi = (window as any).vscodeApi;
+      const message = `Cannot add file(s):\n${invalidFiles.map(f => `• ${f.name}: ${f.reason}`).join('\n')}`;
+      if (vscodeApi) {
+        vscodeApi.postMessage({
+          command: "showWarning",
+          message: message,
+        });
+      } else {
+        alert(message);
+      }
+    }
+
     setUploadedFiles((prev) => [...prev, ...newFiles]);
     newFiles.forEach((file) => uploadFileToServer(file));
 
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+      // Clean up the dataset flag
+      delete (fileInputRef.current as any).dataset.textOnly;
     }
   };
 
@@ -189,16 +221,23 @@ export const useFileHandling = ({
     const files = e.target.files;
     if (!files) return;
 
+    const newInvalidFiles: {name: string, path: string, reason: string}[] = [];
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
       // Validate file extension
       if (!isFileAllowed(file.name)) {
+        newInvalidFiles.push({
+          name: file.name,
+          path: (file as any).path || file.webkitRelativePath || file.name,
+          reason: `File type "${file.name.substring(file.name.lastIndexOf('.'))}" is not supported. Allowed: ${ALLOWED_FILE_EXTENSIONS.join(', ')}`,
+        });
         continue;
       }
 
       try {
-        // Read file content
+        // Read file content - if this fails, file is not readable as text
         const content = await readFileAsText(file);
 
         // Get full path (webkitRelativePath or name)
@@ -222,7 +261,28 @@ export const useFileHandling = ({
           type: "external",
         };
         onAddAttachedItem(attachedItem);
-      } catch (error) {}
+      } catch (error) {
+        // File is not readable as text
+        newInvalidFiles.push({
+          name: file.name,
+          path: (file as any).path || file.webkitRelativePath || file.name,
+          reason: `Cannot read "${file.name}" as text. The file may be binary, corrupted, or too large.`,
+        });
+      }
+    }
+
+    if (newInvalidFiles.length > 0) {
+      setInvalidExternalFiles((prev) => [...prev, ...newInvalidFiles]);
+      // Show warning to user
+      const vscodeApi = (window as any).vscodeApi;
+      if (vscodeApi) {
+        vscodeApi.postMessage({
+          command: "showWarning",
+          message: `${newInvalidFiles.length} file(s) could not be added:\n${newInvalidFiles.map(f => `• ${f.name}: ${f.reason}`).join('\n')}`,
+        });
+      } else {
+        alert(`Cannot add file(s):\n${newInvalidFiles.map(f => `• ${f.name}: ${f.reason}`).join('\n')}`);
+      }
     }
 
     // Reset input
@@ -278,11 +338,17 @@ export const useFileHandling = ({
   const clearFiles = () => {
     setUploadedFiles([]);
     setExternalFiles([]);
+    setInvalidExternalFiles([]);
+  };
+
+  const clearInvalidExternalFiles = () => {
+    setInvalidExternalFiles([]);
   };
 
   return {
     uploadedFiles,
     externalFiles,
+    invalidExternalFiles,
     fileInputRef,
     externalFileInputRef,
     handlePaste,
@@ -294,5 +360,6 @@ export const useFileHandling = ({
     handleDragOver,
     handleDrop,
     clearFiles,
+    clearInvalidExternalFiles,
   };
 };

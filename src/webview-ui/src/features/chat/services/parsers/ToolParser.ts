@@ -179,6 +179,28 @@ export const parseToolAction = (
       );
       break;
 
+    case "move_file":
+      params.file_path = extractParam(
+        innerContent,
+        "file_path",
+        "filePath",
+        "filepath",
+        "source_path",
+        "sourcePath",
+        "path",
+      );
+      params.target_folder_path = extractParam(
+        innerContent,
+        "target_folder_path",
+        "targetFolderPath",
+        "target_folder",
+        "targetFolder",
+        "destination",
+        "dest",
+        "to",
+      );
+      break;
+
     case "grep":
       params.search_term = extractParam(
         innerContent,

@@ -103,14 +103,21 @@ export class FileHandler {
       }
 
       // Security Check
-      const securityCheck = SecurityValidator.validatePath(absPath.fsPath, false);
+      const securityCheck = SecurityValidator.validatePath(
+        absPath.fsPath,
+        false,
+      );
       if (!securityCheck.safe) {
         throw new Error(securityCheck.reason || "Security validation failed");
       }
 
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
       const ignoreCheck = await fsAnalyzer.isIgnored(absPath.fsPath);
-      if (ignoreCheck.ignored && !pathValue.endsWith("workspace.md") && !message.bypassIgnore) {
+      if (
+        ignoreCheck.ignored &&
+        !pathValue.endsWith("workspace.md") &&
+        !message.bypassIgnore
+      ) {
         throw new Error(
           `Path '${pathValue}' is out of scope (ignored by .gitignore or project settings).`,
         );
@@ -161,7 +168,11 @@ export class FileHandler {
       if (!pathValue)
         throw new Error("The 'path' argument must be of type string.");
 
-      logger.info(`[write_to_file] Start`, { path: pathValue, contentLength: message.content?.length, requestId: message.requestId });
+      logger.info(`[write_to_file] Start`, {
+        path: pathValue,
+        contentLength: message.content?.length,
+        requestId: message.requestId,
+      });
 
       let absolutePath: vscode.Uri;
       if (pathValue.endsWith("workspace.md")) {
@@ -175,7 +186,10 @@ export class FileHandler {
       }
 
       // Security Check
-      const securityCheck = SecurityValidator.validatePath(absolutePath.fsPath, true);
+      const securityCheck = SecurityValidator.validatePath(
+        absolutePath.fsPath,
+        true,
+      );
       if (!securityCheck.safe) {
         throw new Error(securityCheck.reason || "Security validation failed");
       }
@@ -183,20 +197,25 @@ export class FileHandler {
       const release = await this.fileLockManager.acquire(absolutePath.fsPath);
       try {
         if (message.conversationId) {
-          CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
+          CheckpointManager.getInstance().setActiveConversationId(
+            message.conversationId,
+          );
         }
         const fileExists = fs.existsSync(absolutePath.fsPath);
         let beforeContent: string | null = null;
         if (fileExists) {
           try {
-            beforeContent = await fs.promises.readFile(absolutePath.fsPath, "utf-8");
+            beforeContent = await fs.promises.readFile(
+              absolutePath.fsPath,
+              "utf-8",
+            );
           } catch {
             beforeContent = null;
           }
         }
         await CheckpointManager.getInstance().createCheckpoint(
           absolutePath.fsPath,
-          fileExists ? "modify" : "create"
+          fileExists ? "modify" : "create",
         );
 
         await vscode.workspace.fs.createDirectory(
@@ -206,7 +225,9 @@ export class FileHandler {
           absolutePath,
           Buffer.from(message.content, "utf8"),
         );
-        logger.info(`[write_to_file] File written successfully`, { path: pathValue });
+        logger.info(`[write_to_file] File written successfully`, {
+          path: pathValue,
+        });
 
         if (message.conversationId && message.actionId) {
           await SnapshotManager.getInstance().saveSnapshot(
@@ -229,7 +250,10 @@ export class FileHandler {
         await new Promise((r) => setTimeout(r, 1500));
         const diagnostics = this.getDiagnosticsForFile(absolutePath);
         if (diagnostics.length) {
-          logger.warn(`[write_to_file] Diagnostics found`, { path: pathValue, count: diagnostics.length });
+          logger.warn(`[write_to_file] Diagnostics found`, {
+            path: pathValue,
+            count: diagnostics.length,
+          });
         }
         webviewView.webview.postMessage({
           command: "writeFileResult",
@@ -247,7 +271,10 @@ export class FileHandler {
         });
       }
     } catch (e: any) {
-      logger.error(`[write_to_file] Error`, { path: message.path || message.filePath || message.file_path, error: e.message });
+      logger.error(`[write_to_file] Error`, {
+        path: message.path || message.filePath || message.file_path,
+        error: e.message,
+      });
       webviewView.webview.postMessage({
         command: "writeFileResult",
         requestId: message.requestId,
@@ -274,7 +301,11 @@ export class FileHandler {
       return;
     }
 
-    logger.info(`[replace_in_file] Start`, { path: pathValue, diffLength: message.diff?.length, requestId: message.requestId });
+    logger.info(`[replace_in_file] Start`, {
+      path: pathValue,
+      diffLength: message.diff?.length,
+      requestId: message.requestId,
+    });
 
     let absPath: vscode.Uri;
     if (pathValue.endsWith("workspace.md")) {
@@ -304,9 +335,14 @@ export class FileHandler {
     }
 
     if (message.conversationId) {
-      CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
+      CheckpointManager.getInstance().setActiveConversationId(
+        message.conversationId,
+      );
     }
-    await CheckpointManager.getInstance().createCheckpoint(absPath.fsPath, "modify");
+    await CheckpointManager.getInstance().createCheckpoint(
+      absPath.fsPath,
+      "modify",
+    );
 
     const release = await this.fileLockManager.acquire(absPath.fsPath);
     let newContent: string | undefined;
@@ -327,7 +363,10 @@ export class FileHandler {
         /<<<<<<< SEARCH\s*\n([\s\S]*?)\n\s*=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
       );
       if (!match) {
-        logger.error(`[replace_in_file] Invalid diff format`, { path: pathValue, diff: message.diff?.substring(0, 200) });
+        logger.error(`[replace_in_file] Invalid diff format`, {
+          path: pathValue,
+          diff: message.diff?.substring(0, 200),
+        });
         throw new Error("Invalid diff format");
       }
 
@@ -336,20 +375,33 @@ export class FileHandler {
       const searchArgs = clean(match[1]);
       const replaceArgs = clean(match[2]);
 
-      logger.debug(`[replace_in_file] Parsed diff`, { path: pathValue, searchLength: searchArgs.length, replaceLength: replaceArgs.length });
+      logger.debug(`[replace_in_file] Parsed diff`, {
+        path: pathValue,
+        searchLength: searchArgs.length,
+        replaceLength: replaceArgs.length,
+      });
 
       let target = searchArgs;
       if (content.indexOf(searchArgs) === -1) {
-        logger.warn(`[replace_in_file] Exact match not found, trying fuzzy`, { path: pathValue });
+        logger.warn(`[replace_in_file] Exact match not found, trying fuzzy`, {
+          path: pathValue,
+        });
         const fuzzy = FuzzyMatcher.findMatch(content, searchArgs);
         if (!fuzzy || fuzzy.score <= 1e-9) {
-          logger.error(`[replace_in_file] Search text not found`, { path: pathValue });
+          logger.error(`[replace_in_file] Search text not found`, {
+            path: pathValue,
+          });
           throw new Error("Search text not found");
         }
-        logger.info(`[replace_in_file] Fuzzy match found`, { path: pathValue, score: fuzzy.score });
+        logger.info(`[replace_in_file] Fuzzy match found`, {
+          path: pathValue,
+          score: fuzzy.score,
+        });
         target = fuzzy.originalText;
       } else {
-        logger.debug(`[replace_in_file] Exact match found`, { path: pathValue });
+        logger.debug(`[replace_in_file] Exact match found`, {
+          path: pathValue,
+        });
       }
 
       newContent = content.replace(target, replaceArgs);
@@ -358,7 +410,9 @@ export class FileHandler {
         absPath,
         Buffer.from(newContent, "utf8"),
       );
-      logger.info(`[replace_in_file] File updated successfully`, { path: pathValue });
+      logger.info(`[replace_in_file] File updated successfully`, {
+        path: pathValue,
+      });
 
       if (message.conversationId && message.actionId && newContent) {
         await SnapshotManager.getInstance().saveSnapshot(
@@ -371,7 +425,10 @@ export class FileHandler {
         );
       }
     } catch (e: any) {
-      logger.error(`[replace_in_file] Error during replace`, { path: pathValue, error: e.message });
+      logger.error(`[replace_in_file] Error during replace`, {
+        path: pathValue,
+        error: e.message,
+      });
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
         requestId: message.requestId,
@@ -389,7 +446,10 @@ export class FileHandler {
       await new Promise((r) => setTimeout(r, 1500));
       const diagnostics = this.getDiagnosticsForFile(absPath);
       if (diagnostics.length) {
-        logger.warn(`[replace_in_file] Diagnostics found`, { path: pathValue, count: diagnostics.length });
+        logger.warn(`[replace_in_file] Diagnostics found`, {
+          path: pathValue,
+          count: diagnostics.length,
+        });
       }
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
@@ -463,7 +523,9 @@ export class FileHandler {
       const { rgPath } = require("@vscode/ripgrep");
       // Use ripgrep (cross-platform) instead of grep: -l = files with matches, -e = regex pattern
       const safeRegex = regex.replace(/"/g, '\\"');
-      const safeSearchPath = path.isAbsolute(searchPath) ? searchPath : path.join(workspaceFolder.uri.fsPath, searchPath);
+      const safeSearchPath = path.isAbsolute(searchPath)
+        ? searchPath
+        : path.join(workspaceFolder.uri.fsPath, searchPath);
       const cmd = `"${rgPath}" -l -e "${safeRegex}" "${safeSearchPath}"`;
       exec(
         cmd,
@@ -699,7 +761,8 @@ export class FileHandler {
       let maxDepth = 1;
       if (message.depth !== undefined && message.depth !== null) {
         maxDepth = parseInt(String(message.depth), 10) || 1;
-      } else if (recursiveParam === "true" || recursiveParam === true) maxDepth = 20;
+      } else if (recursiveParam === "true" || recursiveParam === true)
+        maxDepth = 20;
       else if (recursiveParam)
         maxDepth = parseInt(String(recursiveParam), 10) || 1;
 
@@ -710,7 +773,11 @@ export class FileHandler {
           `Path '${dirPath}' is out of scope (ignored by .gitignore or project settings).`,
         );
       }
-      const tree = await fsAnalyzer.getFileTree(maxDepth, absolutePath.fsPath, true);
+      const tree = await fsAnalyzer.getFileTree(
+        maxDepth,
+        absolutePath.fsPath,
+        true,
+      );
 
       webviewView.webview.postMessage({
         command: "listFilesResult",
@@ -803,7 +870,10 @@ export class FileHandler {
     }
   }
 
-  public async handleDeleteFolder(message: any, webviewView: vscode.WebviewView) {
+  public async handleDeleteFolder(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
@@ -844,13 +914,120 @@ export class FileHandler {
     }
   }
 
-  public async handleGetSnapshot(message: any, webviewView: vscode.WebviewView): Promise<void> {
+  public async handleMoveFile(message: any, webviewView: vscode.WebviewView) {
+    const logger = LoggerService.getInstance();
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) throw new Error("No workspace");
+
+      const sourcePath = message.file_path || message.source_path;
+      const targetFolderPath = message.target_folder_path;
+      if (!sourcePath) throw new Error("'file_path' is required");
+      if (!targetFolderPath)
+        throw new Error("'target_folder_path' is required");
+
+      logger.info(`[move_file] Start`, {
+        source: sourcePath,
+        targetFolder: targetFolderPath,
+        requestId: message.requestId,
+      });
+
+      const absSource = path.isAbsolute(sourcePath)
+        ? sourcePath
+        : path.join(workspaceFolder.uri.fsPath, sourcePath);
+
+      const absTargetFolder = path.isAbsolute(targetFolderPath)
+        ? targetFolderPath
+        : path.join(workspaceFolder.uri.fsPath, targetFolderPath);
+
+      // Security checks
+      const sourceCheck = SecurityValidator.validatePath(absSource, false);
+      if (!sourceCheck.safe)
+        throw new Error(
+          sourceCheck.reason || "Security validation failed for source",
+        );
+
+      const targetCheck = SecurityValidator.validatePath(absTargetFolder, true);
+      if (!targetCheck.safe)
+        throw new Error(
+          targetCheck.reason || "Security validation failed for target",
+        );
+
+      // Verify source file exists
+      try {
+        await fs.promises.stat(absSource);
+      } catch {
+        throw new Error(`Source file not found: '${sourcePath}'`);
+      }
+
+      // Ensure target folder exists (create if needed)
+      await fs.promises.mkdir(absTargetFolder, { recursive: true });
+
+      const fileName = path.basename(absSource);
+      const absDestination = path.join(absTargetFolder, fileName);
+
+      // Create checkpoint for undo support
+      const checkpointManager = CheckpointManager.getInstance();
+      if (message.conversationId) {
+        checkpointManager.setActiveConversationId(message.conversationId);
+      }
+      await checkpointManager.createCheckpoint(absSource, "delete");
+
+      // Move file: try rename first (same filesystem), fallback to copy+delete
+      try {
+        await fs.promises.rename(absSource, absDestination);
+      } catch (renameErr: any) {
+        // EXDEV = cross-device rename not permitted — fallback to copy + delete
+        if (renameErr.code === "EXDEV") {
+          await fs.promises.copyFile(absSource, absDestination);
+          await fs.promises.unlink(absSource);
+        } else {
+          throw renameErr;
+        }
+      }
+
+      const newPath = path
+        .relative(workspaceFolder.uri.fsPath, absDestination)
+        .replace(/\\/g, "/");
+
+      logger.info(`[move_file] File moved successfully`, {
+        source: sourcePath,
+        destination: absDestination,
+        newPath,
+      });
+
+      webviewView.webview.postMessage({
+        command: "moveFileResult",
+        requestId: message.requestId,
+        success: true,
+        newPath,
+      });
+    } catch (e: any) {
+      logger.error(`[move_file] Error`, {
+        source: message.file_path || message.source_path,
+        error: e.message,
+      });
+      webviewView.webview.postMessage({
+        command: "moveFileResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  public async handleGetSnapshot(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ): Promise<void> {
     try {
       const { conversationId, actionId, requestId } = message;
       if (!conversationId || !actionId) {
         throw new Error("conversationId and actionId are required");
       }
-      const snapshot = await SnapshotManager.getInstance().getSnapshot(conversationId, actionId);
+      const snapshot = await SnapshotManager.getInstance().getSnapshot(
+        conversationId,
+        actionId,
+      );
       if (!snapshot) {
         webviewView.webview.postMessage({
           command: "getSnapshotResult",

@@ -487,6 +487,7 @@ interface MessageInputProps {
   handleDrop: (e: React.DragEvent) => void;
   setShowAtMenu: (show: boolean) => void;
   handleFileSelect: () => void;
+  fileInputRef?: React.RefObject<HTMLInputElement>;
   onOpenProjectStructure: () => void;
   showChangesDropdown: boolean;
   setShowChangesDropdown: (show: boolean) => void;
@@ -522,6 +523,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   handleDrop,
   setShowAtMenu,
   handleFileSelect,
+  fileInputRef,
   onOpenProjectStructure,
   showChangesDropdown,
   setShowChangesDropdown,
@@ -1229,33 +1231,41 @@ const MessageInput: React.FC<MessageInputProps> = ({
               alignItems: "center",
             }}
           >
-            {supportsUpload && (
-              <div
-                onClick={handleFileSelect}
-                onMouseEnter={() => setIsPlusHovered(true)}
-                onMouseLeave={() => setIsPlusHovered(false)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "22px",
-                  width: "22px",
-                  boxSizing: "border-box",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                  border: "1px solid rgba(128, 128, 128, 0.2)",
-                  background: isPlusHovered
-                    ? "rgba(128, 128, 128, 0.2)"
-                    : "rgba(128, 128, 128, 0.12)",
-                  color: "var(--vscode-foreground)",
-                  opacity: isPlusHovered ? 0.9 : 0.7,
-                }}
-                title="Attach files"
-              >
-                <PlusIcon />
-              </div>
-            )}
+            <div
+              onClick={() => {
+                // Use the file input ref from parent
+                if (fileInputRef?.current) {
+                  // Store textOnly flag on the input element for the change handler to use
+                  (fileInputRef.current as any).dataset.textOnly = String(!supportsUpload);
+                  fileInputRef.current.click();
+                } else {
+                  // Fallback: use handleFileSelect
+                  handleFileSelect();
+                }
+              }}
+              onMouseEnter={() => setIsPlusHovered(true)}
+              onMouseLeave={() => setIsPlusHovered(false)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "22px",
+                width: "22px",
+                boxSizing: "border-box",
+                borderRadius: "4px",
+                cursor: "pointer",
+                transition: "all 0.2s ease-in-out",
+                border: "1px solid rgba(128, 128, 128, 0.2)",
+                background: isPlusHovered
+                  ? "rgba(128, 128, 128, 0.2)"
+                  : "rgba(128, 128, 128, 0.12)",
+                color: "var(--vscode-foreground)",
+                opacity: isPlusHovered ? 0.9 : 0.7,
+              }}
+              title={supportsUpload ? "Attach files" : "Attach text files only"}
+            >
+              <PlusIcon />
+            </div>
 
             {/* Global Tool Permission */}
             <GlobalPermissionButton />

@@ -278,7 +278,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     toolType === "write_to_file" ||
     toolType === "replace_in_file" ||
     toolType === "delete_file" ||
-    toolType === "delete_folder";
+    toolType === "delete_folder" ||
+    toolType === "move_file";
   const isGrepTool = toolType === "grep";
   const isCompleted: boolean = Boolean(
     !isPartial &&
@@ -314,7 +315,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 ? t("tools.delete")
                 : toolType === "delete_folder"
                   ? t("tools.delete")
-                  : t("tools.read");
+                  : toolType === "move_file"
+                    ? "MOVE"
+                    : t("tools.read");
 
   // For grep tool, we'll render in the main flow with ToolHeader
   const grepCompleted =
@@ -808,7 +811,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               title="Approve action"
               labelText={t("tools.approve")}
               onExecute={(e, type) => {
-                console.log(`[FileToolRenderer] onExecute called for ${actionId} with type=${type}`);
+                console.log(
+                  `[FileToolRenderer] onExecute called for ${actionId} with type=${type}`,
+                );
                 onToolClick(action, messageId, actionIndex, type);
               }}
             />

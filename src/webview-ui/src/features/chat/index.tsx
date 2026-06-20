@@ -31,7 +31,6 @@ import { useDraftManagement } from "./hooks/useDraftManagement";
 // Shared components
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
-import MentionDropdowns from "@/components/MessageInput/MentionDropdowns";
 
 interface ChatPanelProps {
   currentChat: ChatSession | null;
@@ -180,6 +179,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const {
     uploadedFiles,
     externalFiles,
+    invalidExternalFiles,
     fileInputRef,
     externalFileInputRef,
     handlePaste,
@@ -191,6 +191,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     handleDragOver,
     handleDrop,
     clearFiles,
+    clearInvalidExternalFiles,
   } = useFileHandling({
     accountId: currentAccount?.id,
     onAddAttachedItem: (item) => {
@@ -704,6 +705,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // --- ChatFooter handlers ---
   const handleSend = (model: any, account: any) => {
+    // Check for invalid external files before sending
+    if (invalidExternalFiles && invalidExternalFiles.length > 0) {
+      const vscodeApi = (window as any).vscodeApi;
+      const message = `Cannot send message due to invalid file(s):\n${invalidExternalFiles.map(f => `• ${f.name}: ${f.reason}`).join('\n')}\n\nPlease remove these files and try again.`;
+      if (vscodeApi) {
+        vscodeApi.postMessage({
+          command: "showError",
+          message: message,
+        });
+      } else {
+        alert(message);
+      }
+      return;
+    }
+
     if (
       message.trim() ||
       uploadedFiles.length > 0 ||
@@ -722,6 +738,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       clearDraft();
       clearFiles();
       clearAttachedItems();
+      clearInvalidExternalFiles();
       undoStackRef.current = [];
       undoIndexRef.current = -1;
       if (textareaRef.current) {
@@ -1229,6 +1246,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             handleDrop={handleDrop}
             setShowAtMenu={setShowAtMenu}
             handleFileSelect={handleFileSelect}
+            fileInputRef={fileInputRef}
             onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
             showChangesDropdown={showChangesDropdown}
             setShowChangesDropdown={setShowChangesDropdown}
@@ -1249,20 +1267,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             isLaunchingBrowser={isLaunchingBrowser}
             onLaunchBrowserSession={launchBrowserSession}
           />
-          <MentionDropdowns
-            showAtMenu={showAtMenu}
-            showMentionDropdown={showMentionDropdown}
-            mentionType={mentionType}
-            availableFiles={availableFiles}
-            availableFolders={availableFolders}
-            availableRules={availableRules}
-            message={message}
-            handleMentionOptionSelect={handleMentionOptionSelect}
-            handleExternalFileSelect={handleExternalFileSelect}
-            handleWorkspaceItemSelect={handleWorkspaceItemSelect}
-            handleRuleSelect={handleRuleSelect}
-            mentionDropdownRef={mentionDropdownRef}
-          />
+          
         </div>
       </div>
     </div>

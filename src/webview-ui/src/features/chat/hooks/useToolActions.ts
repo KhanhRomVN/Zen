@@ -135,8 +135,6 @@ export const useToolActions = ({
       actionIndex: number,
       type: "accept_all" | "accept_once" | "reject" = "accept_once",
     ) => {
-      console.log(`[useToolActions] handleToolClick called: type=${type}, actionIndex=${actionIndex}, messageId=${message.id}`);
-
       if (!onSendToolRequest) {
         console.warn('[useToolActions] onSendToolRequest is undefined, cannot handle click');
         return;
@@ -149,7 +147,6 @@ export const useToolActions = ({
         const actions = Array.isArray(actionOrActions)
           ? actionOrActions.map((a) => ({ ...a, _index: actionIndex }))
           : [{ ...actionOrActions, _index: actionIndex }];
-        console.log(`[useToolActions] REJECT: sending to onSendToolRequest with ${actions.length} actions, actionIndex=${actionIndex}, _index=${actions[0]._index}`);
         onSendToolRequest(actions as any, message, false, "reject");
         return;
       }
@@ -212,14 +209,12 @@ export const useToolActions = ({
       const contentBlocks = lastMessage.parsed.contentBlocks || [];
       const selectedOption = lastMessage.selectedOption;
 
-      console.log(`[useToolActions] AUTO-TRIGGER CHECK: permissionMode=${permissionMode}, lastMessage.id=${lastMessage.id}, actions count=${lastMessage.parsed.actions.length}`);
 
       lastMessage.parsed.actions.forEach((action: ToolAction, idx: number) => {
         const actionId = `${lastMessage.id}-action-${idx}`;
 
         // Only run action if not streaming partial tool
         if (action.isPartial) {
-          console.log(`[useToolActions] AUTO: action ${idx} is partial, skipping`);
           return;
         }
 
@@ -229,7 +224,6 @@ export const useToolActions = ({
           failedActions.has(actionId) ||
           triggeredIdsRef.current.has(actionId)
         ) {
-          console.log(`[useToolActions] AUTO: action ${idx} already completed (clicked=${clickedActions.has(actionId)}, failed=${failedActions.has(actionId)}, triggered=${triggeredIdsRef.current.has(actionId)})`);
           return;
         }
 
@@ -256,27 +250,22 @@ export const useToolActions = ({
           });
 
         if (isBlocked) {
-          console.log(`[useToolActions] AUTO: action ${idx} is blocked by preceding interaction`);
           return;
         }
 
         // Check if settings specify this tool runs auto or deny
         const decision = getPermissionDecision(permissionMode, action.type);
-        console.log(`[useToolActions] AUTO: action ${idx} (${action.type}) decision=${decision}`);
         if (decision === "allow" || decision === "deny") {
           // Optimistic Synchronous Update
           triggeredIdsRef.current.add(actionId);
           setClickedActions((prev: Set<string>) => new Set(prev).add(actionId));
           actionsToRun.push({ ...action, actionId, _index: idx } as any);
-          console.log(`[useToolActions] AUTO: action ${idx} added to actionsToRun`);
         }
       });
 
       if (actionsToRun.length > 0) {
-        console.log(`[useToolActions] AUTO: sending ${actionsToRun.length} actions to onSendToolRequest`);
         onSendToolRequest(actionsToRun as any, lastMessage, true);
       } else {
-        console.log(`[useToolActions] AUTO: no actions to run`);
       }
     }
   }, [

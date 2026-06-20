@@ -13,6 +13,7 @@ export const TOOL_LABELS: Record<string, string> = {
   grep: "Grep",
   delete_file: "Delete",
   delete_folder: "Delete",
+  move_file: "Move",
   run_command: "Executing",
   default: "Zen",
 };
@@ -25,6 +26,7 @@ export const TOOL_COLORS: Record<string, string> = {
   grep: "var(--vscode-textLink-foreground, #3b82f6)",
   delete_file: "var(--vscode-errorForeground, #ef4444)",
   delete_folder: "var(--vscode-errorForeground, #ef4444)",
+  move_file: "var(--vscode-editorWarning-foreground, #f59e0b)",
   run_command: "var(--vscode-editorWarning-foreground, #f59e0b)",
   default: "var(--vscode-descriptionForeground, #6b7280)",
 };
@@ -38,6 +40,7 @@ export const CLICKABLE_TOOLS = [
   "grep",
   "delete_file",
   "delete_folder",
+  "move_file",
   "run_command",
 ];
 
