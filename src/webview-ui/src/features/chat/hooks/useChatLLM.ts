@@ -572,6 +572,35 @@ export const useChatLLM = ({
       if (finalModel) lastUsedModelRef.current = finalModel;
       if (finalAccount) lastUsedAccountRef.current = finalAccount;
 
+      // 🔄 Model/Account switch detection: if the user changed provider or account
+      // mid-session, the old backendConversationId belongs to a different provider
+      // and must NOT be sent to the new one (it would cause session-not-found errors).
+      const prevModel = effModel; // value before we set lastUsedModelRef
+      const prevAccount = effAccount;
+      const modelSwitched =
+        !skipFirstRequestLogic &&
+        prevModel &&
+        finalModel &&
+        (prevModel.id !== finalModel.id ||
+          prevModel.providerId !== finalModel.providerId);
+      const accountSwitched =
+        !skipFirstRequestLogic &&
+        prevAccount &&
+        finalAccount &&
+        prevAccount.id !== finalAccount.id;
+
+      if (modelSwitched || accountSwitched) {
+        console.warn(
+          `[Zen] Model/account switched — resetting backend conversationId and qwenParentId`,
+          { prevModel, finalModel, prevAccount, finalAccount },
+        );
+        backendConversationIdRef.current = "";
+        qwenParentIdRef.current = undefined;
+        try {
+          sessionStorage.removeItem(`zen-backend-conv:${effectiveChatUuid}`);
+        } catch {}
+      }
+
       try {
         // Upload any local files first
         const ref_file_ids: string[] = [];
@@ -612,9 +641,12 @@ export const useChatLLM = ({
         let finalPayloadMessages = payloadMessages;
 
         // Qwen: ưu tiên qwenParentIdRef (lưu từ stream turn trước), fallback về tham số parentMessageId
+        // Note: qwenParentIdRef is cleared above if model/account switched.
         const effectiveParentMessageId =
           qwenParentIdRef.current ?? parentMessageId;
 
+        // Only reuse backend conversationId if model/account did NOT switch.
+        // If they switched, backendConversationIdRef was already cleared above.
         const convIdToSend =
           backendConversationIdRef.current ||
           (effectiveChatUuid
