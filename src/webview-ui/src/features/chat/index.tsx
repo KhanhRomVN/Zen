@@ -430,6 +430,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       .catch(() => {});
   }, [apiUrl]);
 
+  // Sync currentModel/currentAccount from initialMessageData whenever it changes.
+  // CRITICAL: ChatPanel is never unmounted — App.tsx hides it with display:none
+  // so that useState initializers only run once (at first mount). When the user
+  // switches models in HomePanel and sends a message, initialMessageData prop
+  // changes but currentModel state stays stale (old model). This effect ensures
+  // the header and all subsequent interactions use the correct new model.
+  useEffect(() => {
+    if (initialMessageData?.model) {
+      setCurrentModel(initialMessageData.model);
+    }
+    if (initialMessageData?.account) {
+      setCurrentAccount(initialMessageData.account);
+    }
+  }, [initialMessageData]);
+
   useEffect(() => {
     if (initialMessageData && !hasProcessedInitial.current && isApiUrlReady) {
       hasProcessedInitial.current = true;
