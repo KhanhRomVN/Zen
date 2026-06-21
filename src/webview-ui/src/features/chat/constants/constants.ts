@@ -28,6 +28,8 @@ export const TOOL_COLORS: Record<string, string> = {
   delete_folder: "var(--vscode-errorForeground, #ef4444)",
   move_file: "var(--vscode-editorWarning-foreground, #f59e0b)",
   run_command: "var(--vscode-editorWarning-foreground, #f59e0b)",
+  git_status: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
+  commit_message: "var(--vscode-editorBracketHighlight-foreground2, #b39ddb)",
   default: "var(--vscode-descriptionForeground, #6b7280)",
 };
 

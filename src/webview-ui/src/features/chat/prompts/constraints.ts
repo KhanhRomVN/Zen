@@ -17,4 +17,9 @@ export const CONSTRAINTS = `# CONSTRAINTS
 - **CONVENTION-CHECK**: Before creating a new file or adding a new function, use search_files to find one similar file as a reference. Copy the project's naming convention, import style, and error handling pattern exactly.
 - **EDIT-SAFETY**: If replace_in_file fails a 2nd time on the same file → re-read that file (it may have changed since the last read). Do not retry more than 2 times with the same SEARCH block.
 - **COMMAND-FAILURE**: When run_command returns a non-zero exit code: 1. Analyze stderr first — do not read additional files. 2. If it is a dependency error (npm ERR, ModuleNotFound) → propose a dependency fix, do not modify source code. 3. If it is a compile error → read only the file mentioned in the error, no other files. 4. If the error is unclear → paste the stderr to the user and ask exactly one question.
-- **PARTIAL-BATCH**: If one operation in a batch fails, already-successful operations are NOT rolled back. Report clearly: "2/3 succeeded, file X failed because of reason Y". Fix the failed file independently — do not redo the entire batch.`;
+- **PARTIAL-BATCH**: If one operation in a batch fails, already-successful operations are NOT rolled back. Report clearly: "2/3 succeeded, file X failed because of reason Y". Fix the failed file independently — do not redo the entire batch.
+- **TOOL-BATCH-LIMIT**: Never invoke more than 3 tool calls of the same type in a single turn to avoid exceeding max_input_token. Apply to ALL tool types:
+  - read_file: max 3 files/turn → read next batch after results return
+  - write_to_file / replace_in_file: max 3 files/turn → write next batch after results return
+  - list_files / search_files / grep: max 3 calls/turn → proceed after results return
+  If a task requires more (e.g., 9 files to read), split into batches: [3 → wait → 3 → wait → 3]. Between batches, check if the already-returned results are sufficient before reading the next batch — stop early if the target information has been found.`;

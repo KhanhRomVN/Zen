@@ -45,6 +45,8 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
               style={{
                 backgroundColor: statusColor,
                 top: "8px",
+                left: "15px",
+                transform: "translateX(-50%)",
                 boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${statusColor} 50%, transparent)`,
               }}
             />

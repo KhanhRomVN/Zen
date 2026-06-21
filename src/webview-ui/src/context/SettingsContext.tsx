@@ -9,6 +9,8 @@ interface SettingsContextType {
   setLanguage: (lang: LanguageCode) => void;
   aiLanguage: string;
   setAiLanguage: (lang: string) => void;
+  commitMessageLanguage: "en" | "vi";
+  setCommitMessageLanguage: (lang: "en" | "vi") => void;
   apiUrl: string;
   setApiUrl: (url: string) => void;
   toolPermissions: Record<string, "full_access" | "review">;
@@ -53,6 +55,18 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       if (saved) return saved;
     } catch (e) {}
     return "English";
+  });
+  const [commitMessageLanguage, setCommitMessageLanguageState] = useState<"en" | "vi">(() => {
+    try {
+      const saved = localStorage.getItem("zen_commit_message_language");
+      if (saved === "vi" || saved === "en") return saved;
+    } catch (e) {}
+    // Default: use UI language as fallback
+    try {
+      const uiLang = localStorage.getItem("zen_preferred_language");
+      if (uiLang === "vi") return "vi";
+    } catch (e) {}
+    return "en";
   });
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
   const [permissionModeState, setPermissionModeState] =
@@ -125,6 +139,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_ai_language", lang);
   };
 
+  const setCommitMessageLanguage = (lang: "en" | "vi") => {
+    setCommitMessageLanguageState(lang);
+    try {
+      localStorage.setItem("zen_commit_message_language", lang);
+    } catch (e) {}
+    const storage = extensionService.getStorage();
+    storage.set("zen_commit_message_language", lang);
+  };
+
   const setApiUrl = (url: string) => {
     setApiUrlState(url);
     const storage = extensionService.getStorage();
@@ -179,6 +202,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setLanguage,
         aiLanguage,
         setAiLanguage,
+        commitMessageLanguage,
+        setCommitMessageLanguage,
         apiUrl,
         setApiUrl,
         toolPermissions: toolPermissionsState,

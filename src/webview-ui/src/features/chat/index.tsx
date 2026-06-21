@@ -14,6 +14,7 @@ import {
   deleteConversation,
 } from "./services/ConversationService";
 import { HISTORY_CONTEXT_REMINDER } from "./prompts";
+import { getCommitMessagePrompt } from "./prompts/commit-message";
 import { useChatLLM } from "./hooks/useChatLLM";
 import { useToolExecution } from "./hooks/useToolExecution";
 import { useWorkspaceData } from "./hooks/useWorkspaceData";
@@ -71,7 +72,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     () => initialMessageData?.account ?? null,
   );
 
-  const { isSimpleMode } = useSettings();
+  const { isSimpleMode, commitMessageLanguage } = useSettings();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1133,21 +1134,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         return;
       }
 
-      // Build prompt for AI with special marker for commit message detection
-      const prompt = `[COMMIT_MESSAGE_REQUEST]
-Hãy tạo một commit message dựa trên danh sách file thay đổi sau:
-
-\`\`\`
-${gitStatusText}
-\`\`\`
-
-Yêu cầu:
-- Sử dụng cấu trúc: <emoji> <type>(<scope>): <subject>
-- Liệt kê các thay đổi chi tiết với dấu "-" ở đầu dòng
-- Viết bằng tiếng Việt
-- Commit message ngắn gọn, rõ ràng, có ý nghĩa
-- Trả lời chỉ với commit message, không thêm nội dung khác
-- Đặt commit message trong thẻ <commit_message>...</commit_message>`;
+      // Build prompt for AI using the structured template from prompts/commit-message.ts
+      const commitLang = commitMessageLanguage || "vi";
+      const formattedPrompt = getCommitMessagePrompt(commitLang, gitStatusText);
+      const prompt = `[COMMIT_MESSAGE_REQUEST]\n${formattedPrompt}`;
 
       try {
         // Use sendMessage to send to AI with uiHidden: true to hide the user message

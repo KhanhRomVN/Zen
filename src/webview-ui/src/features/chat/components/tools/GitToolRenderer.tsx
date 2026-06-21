@@ -3,6 +3,7 @@ import { ToolHeader } from "./ToolHeader";
 import { ToolAction } from "../../services/ResponseParser";
 import GitStatusBlock, { GitStatusItem } from "../blocks/GitStatusBlock";
 import "../blocks/TerminalBlock.css";
+import { getToolColor } from "../../utils/toolUtils";
 
 interface GitToolRendererProps {
   action: ToolAction;
@@ -158,9 +159,9 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
     if (hasOutput) {
       const output = toolOutputs[actionId];
       if (output.isError) return "var(--vscode-errorForeground, #f14c4c)";
-      return "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)";
+      return getToolColor('git_status');
     }
-    return "var(--vscode-descriptionForeground, #8c8c8c)";
+    return getToolColor('git_status');
   };
 
   const getTitle = () => {

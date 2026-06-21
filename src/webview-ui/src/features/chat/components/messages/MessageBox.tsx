@@ -579,6 +579,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
         > = [];
 
         // --- 🆕 METADATA DOT CHECK ---
+        // Skip metadata dot for commit messages (they should continue the timeline without a new dot)
+        const isCommitMessage = message.content?.includes('[COMMIT_MESSAGE_REQUEST]') || 
+                                message.content?.includes('<commit_message>');
+        
         const metaChanged =
           !previousAssistantMessage ||
           message.conversationId !== previousAssistantMessage.conversationId ||
@@ -587,8 +591,9 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           message.accountId !== previousAssistantMessage.accountId ||
           message.email !== previousAssistantMessage.email;
 
-        // If metadata changed, inject the Metadata group
+        // If metadata changed, inject the Metadata group (skip for commit messages)
         if (
+          !isCommitMessage &&
           metaChanged &&
           (message.providerId || message.modelId || message.email)
         ) {

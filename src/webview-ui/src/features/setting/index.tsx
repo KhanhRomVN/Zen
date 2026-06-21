@@ -28,6 +28,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
     setLanguage,
     aiLanguage,
     setAiLanguage,
+    commitMessageLanguage,
+    setCommitMessageLanguage,
     isSimpleMode,
     setIsSimpleMode,
   } = useSettings();
@@ -240,6 +242,37 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Commit Message Language */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <label
+            style={{
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "var(--primary-text)",
+            }}
+          >
+            Ngôn ngữ commit message
+          </label>
+          <select
+            value={commitMessageLanguage}
+            onChange={(e) => setCommitMessageLanguage(e.target.value as "en" | "vi")}
+            style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}
+          >
+            <option value="en">🇬🇧 English</option>
+            <option value="vi">🇻🇳 Tiếng Việt</option>
+          </select>
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--secondary-text)",
+              opacity: 0.7,
+              marginTop: "2px",
+            }}
+          >
+            Ngôn ngữ sử dụng để tạo commit message từ git status
+          </div>
         </div>
 
         {/* Simple Mode Toggle */}

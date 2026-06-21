@@ -385,14 +385,15 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   if (toolType === "commit_message") {
     const messageContent =
       firstAction.params?.message || firstAction.params?.content || "";
+    const commitColor = getToolColor("commit_message");
     return (
       <div
         className="terminal-block commit-message-tool"
         style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
       >
         <ToolHeader
-          title="📝 COMMIT MESSAGE"
-          statusColor="var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)"
+          title="COMMIT MESSAGE"
+          statusColor={commitColor}
           icon={
             <span
               className="codicon codicon-git-commit"

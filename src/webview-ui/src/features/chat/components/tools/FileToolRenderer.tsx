@@ -341,7 +341,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         display: "flex",
         flexDirection: "column",
         gap: "6px",
-        paddingLeft: "29px",
         paddingBottom: isLastItemInList
           ? isLastMessage
             ? "0px"

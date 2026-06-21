@@ -9,6 +9,10 @@ export interface CommitMessageBlockProps {
   isProcessing?: boolean;
 }
 
+/**
+ * Pure content block for commit message.
+ * Header is managed by ToolRouter/ToolHeader (consistent with other tools).
+ */
 const CommitMessageBlock: React.FC<CommitMessageBlockProps> = ({
   message,
   onAccept,
@@ -16,10 +20,7 @@ const CommitMessageBlock: React.FC<CommitMessageBlockProps> = ({
   isProcessing = false,
 }) => {
   return (
-    <div className="commit-message-block">
-      <div className="commit-message-header">
-        <span className="commit-message-label">📝 COMMIT MESSAGE</span>
-      </div>
+    <div className="commit-message-block" style={{ padding: "0px 12px 12px 29px" }}>
       <div className="commit-message-body">
         <pre className="commit-message-content">{message}</pre>
       </div>
