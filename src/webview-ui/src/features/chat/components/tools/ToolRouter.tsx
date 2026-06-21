@@ -388,26 +388,14 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     const messageContent =
       firstAction.params?.message || firstAction.params?.content || "";
     const commitColor = getToolColor("commit_message");
-    // Determine if this is the last action in the message
-    const currentActionIdx =
-      allActions?.findIndex((a: ToolAction) => a === firstAction) ?? -1;
-    const isLastAction =
-      currentActionIdx === -1 ||
-      currentActionIdx === (allActions?.length || 0) - 1;
-    const timelineClass = isLastAction ? "timeline-item last" : "timeline-item";
     return (
       <div
-        className={timelineClass}
+        className="timeline-item"
         style={{
           position: "relative",
           display: "flex",
           flexDirection: "column",
           gap: "6px",
-          paddingBottom: isLastAction
-            ? isLastMessage
-              ? "0px"
-              : "12px"
-            : "8px",
         }}
       >
         <div
@@ -585,28 +573,18 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     const stats = parseDiffStats(diffContent);
 
     // Determine if there are actions after this one (for timeline line)
-    const currentActionIdx =
-      allActions?.findIndex((a: ToolAction) => a === firstAction) ?? -1;
-    const isLastAction =
-      currentActionIdx === -1 ||
-      currentActionIdx === (allActions?.length || 0) - 1;
-    const timelineClass = isLastAction ? "timeline-item last" : "timeline-item";
+    // Use "timeline-item" always — let CSS handle line drawing via padding-bottom
 
     // If no output yet and we're not the active group, show a loading/skeleton state
     if (!hasOutput && !isActiveGroup) {
       return (
         <div
-          className={timelineClass}
+          className="timeline-item"
           style={{
             position: "relative",
             display: "flex",
             flexDirection: "column",
             gap: "6px",
-            paddingBottom: isLastAction
-              ? isLastMessage
-                ? "0px"
-                : "12px"
-              : "8px",
           }}
         >
           <GitDiffBlock
@@ -632,17 +610,12 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
-        className={timelineClass}
+        className="timeline-item"
         style={{
           position: "relative",
           display: "flex",
           flexDirection: "column",
           gap: "6px",
-          paddingBottom: isLastAction
-            ? isLastMessage
-              ? "0px"
-              : "12px"
-            : "8px",
         }}
       >
         <GitDiffBlock
