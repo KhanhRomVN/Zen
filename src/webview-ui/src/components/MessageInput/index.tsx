@@ -558,6 +558,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const pendingAccountIdRef = React.useRef<string | null>(null);
   const [showModelDrawer, setShowModelDrawer] = React.useState(false);
 
+  // Refs that always hold the latest model/account values.
+  // Required because applyCache runs inside a useEffect closure and would
+  // otherwise capture stale values of currentModel/currentAccount from mount.
+  const currentModelRef = React.useRef<any>(null);
+  const currentAccountRef = React.useRef<any>(null);
+  currentModelRef.current = currentModel;
+  currentAccountRef.current = currentAccount;
+
   const displayModel = React.useMemo(() => {
     return currentModel || null;
   }, [currentModel]);
@@ -804,8 +812,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
     const applyCache = (saved: any) => {
       if (cancelled) return;
-      if (saved.model) setCurrentModel(saved.model);
-      if (saved.accountId) {
+      // Only restore from cache if the parent hasn't already provided a model/account.
+      // When ChatPanel passes initialMessageData.model (user just selected a new model),
+      // that value takes priority over the stale local cache. Overwriting it here was the
+      // root cause of "first message after model switch uses old model" bug.
+      // Use refs (not closure values) to get the latest currentModel/currentAccount.
+      if (saved.model && !currentModelRef.current) setCurrentModel(saved.model);
+      if (saved.accountId && !currentAccountRef.current) {
         pendingAccountIdRef.current = saved.accountId;
         if (saved.email) {
           setCurrentAccount({ id: saved.accountId, email: saved.email });
