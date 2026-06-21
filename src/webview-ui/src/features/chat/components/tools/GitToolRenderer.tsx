@@ -159,9 +159,9 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
     if (hasOutput) {
       const output = toolOutputs[actionId];
       if (output.isError) return "var(--vscode-errorForeground, #f14c4c)";
-      return getToolColor('git_status');
+      return getToolColor("git_status");
     }
-    return getToolColor('git_status');
+    return getToolColor("git_status");
   };
 
   const getTitle = () => {
@@ -212,15 +212,25 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
       }}
     >
       <ToolHeader
-        title={getTitle()}
+        title={
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "12px",
+              color: "var(--vscode-editor-foreground)",
+            }}
+          >
+            <span style={{ fontWeight: 600, opacity: 0.8 }}>{getTitle()}</span>
+            <span
+              className="codicon codicon-git-pull-request"
+              style={{ fontSize: "14px" }}
+            />
+          </div>
+        }
         subTitle={getSubtitle()}
         statusColor={getStatusColor()}
-        icon={
-          <span
-            className="codicon codicon-git-pull-request"
-            style={{ fontSize: "14px" }}
-          />
-        }
         isPartial={false}
       />
 

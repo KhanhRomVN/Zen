@@ -40,6 +40,12 @@
   background-color: transparent;
 }
 
+/* Commit message tool: remove border-bottom from header */
+.terminal-block.commit-message-tool .terminal-block-header {
+  border-bottom: none;
+  background-color: transparent;
+}
+
 .terminal-info {
   display: flex;
   flex-direction: column;

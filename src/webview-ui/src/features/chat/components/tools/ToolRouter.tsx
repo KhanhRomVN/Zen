@@ -244,11 +244,10 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
   if (!group || group.length === 0) return null;
 
-  const firstAction = group[0].action;
+const firstAction = group[0].action;
   const toolType = firstAction.type;
   const toolColor = getToolColor(toolType);
   const clickableTools = CLICKABLE_TOOLS;
-
   const isFileTool =
     toolType === "replace_in_file" ||
     toolType === "write_to_file" ||
@@ -392,17 +391,27 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
         style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
       >
         <ToolHeader
-          title="COMMIT MESSAGE"
-          statusColor={commitColor}
-          icon={
-            <span
-              className="codicon codicon-git-commit"
-              style={{ fontSize: "14px" }}
-            />
+          title={
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                color: "var(--vscode-editor-foreground)",
+              }}
+            >
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>COMMIT MESSAGE</span>
+              <span
+                className="codicon codicon-git-commit"
+                style={{ fontSize: "14px" }}
+              />
+            </div>
           }
+          statusColor={commitColor}
           isPartial={false}
         />
-        <div style={{ padding: "0px 12px 12px 29px" }}>
+        <div style={{ padding: "4px 12px 12px 29px" }}>
           <div
             style={{
               padding: "12px 14px",
@@ -515,7 +524,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     <>
       {group.map(({ action, index }) => (
         <div key={index} style={{ marginBottom: "8px" }}>
-          <div
+<div
             style={{
               padding: "var(--spacing-sm) var(--spacing-md)",
               backgroundColor: "var(--secondary-bg)",
@@ -545,7 +554,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             >
               {formatActionForDisplay(action)}
             </span>
-            {clickableTools.includes(action.type) && (
+{clickableTools.includes(action.type) && (
               <svg
                 width="16"
                 height="16"
