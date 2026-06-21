@@ -1,7 +1,7 @@
 export function getCommitMessagePrompt(
   language: "en" | "vi",
   gitStatus: string,
-  fileContents?: Record<string, string>, // nội dung các file nếu đã đọc
+  fileContents?: Record<string, string>,
 ): string {
   const languageName = language === "en" ? "English" : "Vietnamese";
 
@@ -26,16 +26,25 @@ You are a Git commit message generator. Your job is to analyze changes and produ
 
 ## STEP 1 — Assess context sufficiency
 
-Before generating a commit message, evaluate whether the git status alone provides enough context:
+Before generating a commit message, evaluate whether the git status alone provides enough context.
 
-**Request file contents if ANY of these conditions are true:**
-- There are more than 5 changed files and their purposes are not obvious from filenames alone
+**Use \`<git_diff>\` to get file-level diff if ANY of these conditions are true:**
 - File names are ambiguous (e.g., utils.ts, helpers.py, index.ts, common.js)
-- There are mixed change types that are hard to group without seeing the code
 - There are deleted or renamed files whose impact is unclear
 - The change appears to touch critical areas (auth, payment, security, database migrations)
+- Mixed change types that are hard to group without seeing the actual code changes
+- There are more than 5 changed files and their purposes are not obvious from filenames alone
 
-**Proceed to generate commit message ONLY if:**
+**Tool usage:**
+\`\`\`xml
+<git_diff><file_path>path/to/file</file_path></git_diff>
+\`\`\`
+- Call one \`<git_diff>\` per file you need to inspect.
+- Batch all \`<git_diff>\` calls in a single message (one message, multiple tags).
+- STOP after calling the tools. Wait for the diff results before generating the commit message.
+- After receiving results, proceed to STEP 2.
+
+**Proceed directly to STEP 2 WITHOUT calling \`<git_diff>\` ONLY if:**
 - File names clearly indicate the purpose of changes (e.g., fix-login-bug.ts, add-user-avatar.tsx)
 - There are 5 or fewer changed files with clear, related purposes
 - File contents have already been provided below

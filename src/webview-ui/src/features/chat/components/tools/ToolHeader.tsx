@@ -3,7 +3,7 @@ import "../blocks/TerminalBlock.css";
 
 interface ToolHeaderProps {
   title: React.ReactNode;
-  subTitle?: string;
+  subTitle?: React.ReactNode;
   subTitleClassName?: string;
   statusColor?: string;
   diffStats?: {

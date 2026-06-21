@@ -56,7 +56,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (e) {}
     return "English";
   });
-  const [commitMessageLanguage, setCommitMessageLanguageState] = useState<"en" | "vi">(() => {
+  const [commitMessageLanguage, setCommitMessageLanguageState] = useState<
+    "en" | "vi"
+  >(() => {
     try {
       const saved = localStorage.getItem("zen_commit_message_language");
       if (saved === "vi" || saved === "en") return saved;

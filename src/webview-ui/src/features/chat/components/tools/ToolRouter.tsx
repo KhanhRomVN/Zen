@@ -244,7 +244,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
   if (!group || group.length === 0) return null;
 
-const firstAction = group[0].action;
+  const firstAction = group[0].action;
   const toolType = firstAction.type;
   const toolColor = getToolColor(toolType);
   const clickableTools = CLICKABLE_TOOLS;
@@ -401,7 +401,9 @@ const firstAction = group[0].action;
                 color: "var(--vscode-editor-foreground)",
               }}
             >
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>COMMIT MESSAGE</span>
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>
+                COMMIT MESSAGE
+              </span>
               <span
                 className="codicon codicon-git-commit"
                 style={{ fontSize: "14px" }}
@@ -524,7 +526,7 @@ const firstAction = group[0].action;
     <>
       {group.map(({ action, index }) => (
         <div key={index} style={{ marginBottom: "8px" }}>
-<div
+          <div
             style={{
               padding: "var(--spacing-sm) var(--spacing-md)",
               backgroundColor: "var(--secondary-bg)",
@@ -554,7 +556,7 @@ const firstAction = group[0].action;
             >
               {formatActionForDisplay(action)}
             </span>
-{clickableTools.includes(action.type) && (
+            {clickableTools.includes(action.type) && (
               <svg
                 width="16"
                 height="16"

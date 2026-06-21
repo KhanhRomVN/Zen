@@ -349,9 +349,10 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
         // --- 🆕 METADATA DOT CHECK ---
         // Skip metadata dot for commit messages (they should continue the timeline without a new dot)
-        const isCommitMessage = message.content?.includes('[COMMIT_MESSAGE_REQUEST]') || 
-                                message.content?.includes('<commit_message>');
-        
+        const isCommitMessage =
+          message.content?.includes("[COMMIT_MESSAGE_REQUEST]") ||
+          message.content?.includes("<commit_message>");
+
         const metaChanged =
           !previousAssistantMessage ||
           message.conversationId !== previousAssistantMessage.conversationId ||

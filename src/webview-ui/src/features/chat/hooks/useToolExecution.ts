@@ -640,7 +640,6 @@ export const useToolExecution = ({
         _index: a._index !== undefined ? a._index : idx,
       }));
 
-
       // Track actions that were pre-skipped (already triggered) vs actually executed
       const validResults: string[] = [];
       let skippedCount = 0;
@@ -724,7 +723,6 @@ export const useToolExecution = ({
         const shouldPauseForManual =
           decision === "prompt" && !isConversationAuto;
 
-
         if (isAutoTrigger && shouldPauseForManual) {
           wasInterruptedByManual = true;
           // Set to idle so the UI doesn't show loading state falsely
@@ -771,7 +769,6 @@ export const useToolExecution = ({
             result.includes("Result: Error") ||
             result.includes("Tool execution blocked") ||
             result.includes("Tool execution rejected");
-
 
           // CRITICAL: For run_command, we do NOT overwrite toolOutputs with the formatted 'result'
           // because the Raw Terminal Logs are already being updated in real-time by terminalOutput/commandExecuted events.

@@ -103,7 +103,7 @@
 .git-status-actions {
   display: flex;
   gap: 6px;
-  padding: 8px 14px 10px 0px;
+  padding: 8px 0 10px 0;
   justify-content: flex-end;
   background: transparent;
 }

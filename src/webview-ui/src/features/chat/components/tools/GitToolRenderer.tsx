@@ -140,17 +140,29 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
   const actionId = `${messageId}-action-${actionIndex}`;
   const hasOutput = toolOutputs && toolOutputs[actionId];
 
-  // Parse git output from toolOutputs if gitStatusItems is empty
+  // Parse git output from toolOutputs or from action params (for restored conversations)
   const parsedItems = useMemo(() => {
     if (gitStatusItems.length > 0) {
       return gitStatusItems;
     }
+    // First, try to get from toolOutputs (works for active sessions)
     if (hasOutput && toolOutputs[actionId] && !toolOutputs[actionId].isError) {
       const parsed = parseGitStatusOutput(toolOutputs[actionId].output);
-      return parsed;
+      if (parsed.length > 0) return parsed;
+    }
+    // Fallback: parse from action.params.items (restored from conversation)
+    const itemsFromParams = action.params?.items;
+    if (itemsFromParams && Array.isArray(itemsFromParams) && itemsFromParams.length > 0) {
+      return itemsFromParams;
+    }
+    // Last resort: try to parse from raw git output stored in action params
+    const rawOutput = action.params?.raw;
+    if (rawOutput && typeof rawOutput === 'string') {
+      const parsed = parseGitStatusOutput(rawOutput);
+      if (parsed.length > 0) return parsed;
     }
     return [];
-  }, [gitStatusItems, hasOutput, toolOutputs, actionId]);
+  }, [gitStatusItems, hasOutput, toolOutputs, actionId, action.params]);
 
   // Use parsed items instead of the prop
   const effectiveItems = parsedItems.length > 0 ? parsedItems : gitStatusItems;
@@ -164,10 +176,10 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
     return getToolColor("git_status");
   };
 
-  const getTitle = () => {
+  const getTitleParts = () => {
     if (hasOutput) {
       const output = toolOutputs[actionId];
-      if (output.isError) return "GIT STATUS — Error";
+      if (output.isError) return { label: "GIT STATUS", stats: "Error" };
       const totalAdded = effectiveItems.reduce(
         (sum, item) => sum + (item.added || 0),
         0,
@@ -176,14 +188,17 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
         (sum, item) => sum + (item.deleted || 0),
         0,
       );
-      return `GIT STATUS — ${effectiveItems.length} changes +${totalAdded} -${totalDeleted}`;
+      return {
+        label: "GIT STATUS",
+        stats: `${effectiveItems.length} changes +${totalAdded} -${totalDeleted}`,
+        totalAdded,
+        totalDeleted,
+      };
     }
-    return "GIT STATUS";
+    return { label: "GIT STATUS", stats: "" };
   };
 
-  const getSubtitle = () => {
-    return "";
-  };
+  
 
   const handleConfirm = () => {
     if (onConfirm && effectiveItems.length > 0) {
@@ -217,19 +232,51 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "8px",
+              gap: "6px",
               fontSize: "12px",
               color: "var(--vscode-editor-foreground)",
             }}
           >
-            <span style={{ fontWeight: 600, opacity: 0.8 }}>{getTitle()}</span>
+            <span style={{ fontWeight: 600, opacity: 0.8 }}>
+              {getTitleParts().label}
+            </span>
+            {getTitleParts().stats && (
+              <>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    opacity: 0.5,
+                    marginLeft: "2px",
+                  }}
+                >
+                  {getTitleParts().stats.replace(/\+[0-9]+/, "").replace(/ -[0-9]+/, "").trim()}
+                </span>
+                <span
+                  style={{
+                    color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+                    fontWeight: 600,
+                    fontSize: "11px",
+                  }}
+                >
+                  +{getTitleParts().totalAdded}
+                </span>
+                <span
+                  style={{
+                    color: "var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c)",
+                    fontWeight: 600,
+                    fontSize: "11px",
+                  }}
+                >
+                  -{getTitleParts().totalDeleted}
+                </span>
+              </>
+            )}
             <span
               className="codicon codicon-git-pull-request"
-              style={{ fontSize: "14px" }}
+              style={{ fontSize: "14px", marginLeft: "2px" }}
             />
           </div>
         }
-        subTitle={getSubtitle()}
         statusColor={getStatusColor()}
         isPartial={false}
       />
