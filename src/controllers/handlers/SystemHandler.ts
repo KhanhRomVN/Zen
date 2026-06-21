@@ -476,7 +476,7 @@ export class SystemHandler {
     }
   }
 
-  public async handleAcceptCommitMessage(message: any) {
+  public async handleAcceptCommitMessage(message: any, webviewView?: vscode.WebviewView) {
     const commitMessage = message.message;
     if (!commitMessage) {
       console.error("[SystemHandler] acceptCommitMessage: No message provided");
@@ -497,7 +497,6 @@ export class SystemHandler {
       const escapedMessage = commitMessage.replace(/'/g, "'\\''");
 
       // Step 1: git add .
-      vscode.window.showInformationMessage("⏳ Đang stage changes...");
       await new Promise<void>((resolve, reject) => {
         exec(`git add .`, { cwd }, (err: any, stdout: string, stderr: string) => {
           if (err) {
@@ -509,7 +508,6 @@ export class SystemHandler {
       });
 
       // Step 2: git commit -m "..."
-      vscode.window.showInformationMessage("⏳ Đang commit...");
       const commitResult = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
         exec(
           `git commit -m '${escapedMessage}'`,
@@ -531,7 +529,6 @@ export class SystemHandler {
       }
 
       // Step 3: git push
-      vscode.window.showInformationMessage("⏳ Đang push...");
       await new Promise<void>((resolve, reject) => {
         exec(`git push`, { cwd }, (err: any, stdout: string, stderr: string) => {
           if (err) {
@@ -551,6 +548,32 @@ export class SystemHandler {
       console.error("[SystemHandler] acceptCommitMessage error:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
       vscode.window.showErrorMessage(`❌ Lỗi khi commit/push: ${errorMsg}`);
+
+      // Send error to webview to display in chat
+      if (webviewView?.webview) {
+        webviewView.webview.postMessage({
+          command: "commitError",
+          error: errorMsg,
+          timestamp: Date.now(),
+        });
+      } else {
+        // Fallback: try to find the webview via the active tab
+        try {
+          const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
+          if (activeTab && 'webview' in activeTab) {
+            const webview = (activeTab as any).webview;
+            if (webview) {
+              webview.postMessage({
+                command: "commitError",
+                error: errorMsg,
+                timestamp: Date.now(),
+              });
+            }
+          }
+        } catch (e) {
+          // Silently ignore fallback failure
+        }
+      }
     }
   }
 

@@ -261,11 +261,10 @@
   position: absolute;
   left: var(--timeline-axis);
   transform: translateX(-50%);
-  top: 14px; /* Start exactly at dot center (dot is at top:10px, size 8px -> center is 14px) */
-  bottom: -24px; /* Extend through 24px padding gap to connect to next item */
+  top: 14px; /* Dot center: top:10px + size 8px/2 = 14px */
+  bottom: 0;  /* Extend to bottom edge of item — padding-bottom creates the gap */
   width: 2px;
   background-color: var(--vscode-textBlockQuote-border, var(--vscode-editorLineNumber-foreground));
-  /* No z-index: paint naturally in stacking context */
   opacity: 0.5;
   pointer-events: none;
 }

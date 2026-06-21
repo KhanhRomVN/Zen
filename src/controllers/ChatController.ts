@@ -306,7 +306,7 @@ export class ChatController {
           await this.handleGenerateCommitMessage(message, webviewView);
           break;
         case "acceptCommitMessage":
-          await this.systemHandler.handleAcceptCommitMessage(message);
+          await this.systemHandler.handleAcceptCommitMessage(message, webviewView);
           break;
         case "rejectCommitMessage":
           await this.systemHandler.handleRejectCommitMessage(message);

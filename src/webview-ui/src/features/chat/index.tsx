@@ -660,6 +660,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
         setIsLoadingConversation(false);
         setIsProcessing(false);
+      } else if (data.command === "commitError") {
+        // Display git commit/push error in chat
+        const errorMsg = data.error || "Unknown git error";
+        const errorMessage: Message = {
+          id: `msg-error-${Date.now()}`,
+          role: "assistant",
+          content: `❌ **Lỗi commit/push**\n\n\`\`\`\n${errorMsg}\n\`\`\``,
+          timestamp: Date.now(),
+          isError: true,
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        // Also show notification
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "showError",
+            message: `Lỗi commit/push: ${errorMsg.substring(0, 200)}${errorMsg.length > 200 ? "..." : ""}`,
+          });
+        }
       } else if (
         data.command === "clearChatConfirmed" &&
         data.conversationId === currentConversationId

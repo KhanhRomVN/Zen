@@ -44,7 +44,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
               className={`terminal-status-dot timeline-dot ${isPartial ? "streaming-pulse" : ""}`}
               style={{
                 backgroundColor: statusColor,
-                top: "8px",
+                top: "10px",
                 left: "15px",
                 transform: "translateX(-50%)",
                 boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${statusColor} 50%, transparent)`,

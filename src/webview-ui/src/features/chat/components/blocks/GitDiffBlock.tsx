@@ -231,7 +231,7 @@ const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
         marginBottom: "8px",
         backgroundColor: "transparent",
         borderRadius: "0px",
-        overflow: "hidden",
+        overflow: "visible",
       }}
     >
       <ToolHeader

@@ -8,6 +8,7 @@ import FileIcon from "@/icons/FileIcon";
 import { isDiff, parseDiff } from "../../../../utils/diffUtils";
 import { ToolHeader } from "../tools/ToolHeader";
 import MarkdownBlock from "../blocks/MarkdownBlock";
+import ErrorBlock from "../blocks/ErrorBlock";
 import "../blocks/TerminalBlock.css";
 import "../blocks/MarkdownBlock.css";
 import { buildRetryPrompt } from "../../prompts";
@@ -908,124 +909,16 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
             const errorCode = codeMatch ? codeMatch[1] : null;
             const rawMessage = codeMatch ? codeMatch[2] : errorText;
             const translatedMessage = translateError(rawMessage);
-            const dotColor = "var(--vscode-testing-iconFailedColor, #f14c4c)";
-            const errorColor = "var(--vscode-errorForeground, #f44336)";
             content = (
-              <div>
-                <div
-                  className="timeline-dot"
-                  style={{
-                    backgroundColor: dotColor,
-                    boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px ${dotColor}`,
-                    top: "10px",
-                    border: "none",
-                  }}
-                />
-                <div
-                  style={{
-                    paddingLeft: "29px",
-                    paddingTop: "4px",
-                    maxWidth: "100%",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  {/* Red box container */}
-                  <div
-                    style={{
-                      backgroundColor: `color-mix(in srgb, ${errorColor} 6%, transparent)`,
-                      border: `1px solid color-mix(in srgb, ${errorColor} 25%, transparent)`,
-                      borderRadius: "6px",
-                      padding: "10px 14px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "6px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                      }}
-                    >
-                      <span
-                        className="codicon codicon-error"
-                        style={{
-                          fontSize: "14px",
-                          color: errorColor,
-                          flexShrink: 0,
-                        }}
-                      />
-                      <span
-                        style={{
-                          color: errorColor,
-                          fontWeight: 700,
-                          fontSize: "12px",
-                          letterSpacing: "0.3px",
-                        }}
-                      >
-                        ERROR{errorCode ? `: ${errorCode}` : ""}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "var(--vscode-editor-foreground)",
-                        opacity: 0.9,
-                        lineHeight: 1.5,
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      {translatedMessage}
-                    </div>
-                    {onSendMessage && (
-                      <button
-                        onClick={handleRetry}
-                        style={{
-                          backgroundColor: `color-mix(in srgb, ${errorColor} 12%, transparent)`,
-                          color: errorColor,
-                          border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
-                          padding: "5px 14px",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "6px",
-                          height: "28px",
-                          boxSizing: "border-box",
-                          transition: "all 0.2s ease",
-                          alignSelf: "flex-start",
-                          marginTop: "2px",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${errorColor} 22%, transparent)`;
-                          e.currentTarget.style.borderColor = `color-mix(in srgb, ${errorColor} 45%, transparent)`;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = `color-mix(in srgb, ${errorColor} 12%, transparent)`;
-                          e.currentTarget.style.borderColor = `color-mix(in srgb, ${errorColor} 30%, transparent)`;
-                        }}
-                      >
-                        <span
-                          className="codicon codicon-refresh"
-                          style={{
-                            fontSize: "12px",
-                            display: "inline-flex",
-                            alignItems: "center",
-                          }}
-                        />
-                        <span>{t("chat.retry")}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <ErrorBlock
+                content={translatedMessage}
+                errorCode={errorCode || undefined}
+                isLast={isLast}
+                isLastMessage={isLastMessage}
+              />
             );
+            // Error renders its own timeline-item wrapper like tool groups
+            return <React.Fragment key={group.key}>{content}</React.Fragment>;
           } else {
             content = (
               <ToolActionsList
