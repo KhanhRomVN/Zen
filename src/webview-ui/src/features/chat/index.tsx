@@ -1368,19 +1368,28 @@ Yêu cầu:
     return num.toString();
   };
 
-  const providerId = currentModel?.providerId || "deepseek";
-  let faviconUrl =
-    "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
-  if (providerId.toLowerCase().includes("openai"))
-    faviconUrl = "https://www.google.com/s2/favicons?domain=openai.com&sz=64";
-  else if (providerId.toLowerCase().includes("anthropic"))
-    faviconUrl =
-      "https://www.google.com/s2/favicons?domain=anthropic.com&sz=64";
-  else if (providerId.toLowerCase().includes("google"))
-    faviconUrl = "https://www.google.com/s2/favicons?domain=google.com&sz=64";
-  else if (providerId.toLowerCase().includes("openrouter"))
-    faviconUrl =
-      "https://www.google.com/s2/favicons?domain=openrouter.ai&sz=64";
+  // Use enrichedModel (model with full capability flags) for header display,
+  // same source as what MessageInput receives — ensures header always matches
+  // the model the user has actually selected/switched to.
+  const displayedModel = enrichedModel ?? currentModel;
+  const providerId = displayedModel?.providerId || "";
+  let faviconUrl = providerId
+    ? `https://www.google.com/s2/favicons?domain=${(() => {
+        const pid = providerId.toLowerCase();
+        if (pid.includes("openai")) return "openai.com";
+        if (pid.includes("anthropic")) return "anthropic.com";
+        if (pid.includes("google") || pid.includes("gemini")) return "google.com";
+        if (pid.includes("openrouter")) return "openrouter.ai";
+        if (pid.includes("deepseek")) return "deepseek.com";
+        if (pid.includes("zenmux") || pid.includes("moonshotai")) return "zenmux.ai";
+        if (pid.includes("qwen")) return "qwen.ai";
+        if (pid.includes("groq")) return "groq.com";
+        if (pid.includes("mistral")) return "mistral.ai";
+        if (pid.includes("glm") || pid.includes("zai") || pid.includes("z-ai")) return "bigmodel.cn";
+        return "deepseek.com";
+      })()}&sz=64`
+    : "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
+
 
   const totalTokens = contextUsage?.total ?? 0;
   const footerPaddingBottom =
@@ -1434,7 +1443,7 @@ Yêu cầu:
               style={{ width: "14px", height: "14px", borderRadius: "2px" }}
             />
             <span style={{ whiteSpace: "nowrap" }}>
-              {providerId}/{currentModel?.id || "chat"}
+              {displayedModel?.providerId || "?"}/{displayedModel?.id || "chat"}
             </span>
             {currentAccount?.email && (
               <span
