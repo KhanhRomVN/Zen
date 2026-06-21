@@ -47,13 +47,12 @@ export const extractParamValue = (
     return isContentParam ? decoded.replace(/^\n|\n$/g, "") : decoded.trim();
   }
 
-  // Try self-closing tag with content
-  // Lookahead stops at any opening tag (<word>) OR any closing tag (</word>) OR end-of-string.
-  // This handles mismatched tag names, e.g. <filePath>...</file_path>.
-  const selfClosingRegex = new RegExp(
-    `<${paramName}\\s*>([\\s\\S]*?)(?=<\\/?[\\w_]+\\s*>|$)`,
-    "i",
-  );
+  const selfClosingRegex = isContentParam
+    ? new RegExp(`<${paramName}\\s*>([\\s\\S]*)$`, "i")
+    : new RegExp(
+        `<${paramName}\\s*>([\\s\\S]*?)(?=<\\/?[\\w_]+\\s*>|$)`,
+        "i",
+      );
   const selfClosingMatch = content.match(selfClosingRegex);
   if (selfClosingMatch) {
     let value = selfClosingMatch[1];

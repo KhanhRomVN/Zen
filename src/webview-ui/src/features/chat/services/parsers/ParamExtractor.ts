@@ -53,11 +53,12 @@ export const extractParamValue = (
     return isContentParam ? decoded.replace(/^\n|\n$/g, "") : decoded.trim();
   }
 
-  // Try self-closing tag with content
-  const selfClosingRegex = new RegExp(
-    `<${paramName}\\s*>([\\s\\S]*?)(?=<[\\w_]+>|$)`,
-    "i",
-  );
+  const selfClosingRegex = isContentParam
+    ? new RegExp(`<${paramName}\\s*>([\\s\\S]*)$`, "i")
+    : new RegExp(
+        `<${paramName}\\s*>([\\s\\S]*?)(?=<[\\w_]+>|$)`,
+        "i",
+      );
   const selfClosingMatch = content.match(selfClosingRegex);
   if (selfClosingMatch) {
     let value = selfClosingMatch[1];
