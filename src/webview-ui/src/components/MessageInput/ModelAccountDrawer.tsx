@@ -18,6 +18,8 @@ interface Account {
   email?: string;
   provider_id: string;
   is_enabled: boolean;
+  usage?: string;
+  reset_period?: string;
 }
 
 interface ModelAccountDrawerProps {
@@ -839,6 +841,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                         borderRadius: "4px",
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "space-between",
                         transition: "background-color 0.2s",
                       }}
                       onMouseEnter={(e) =>
@@ -858,6 +861,27 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                       >
                         {acc.email || acc.name || acc.id}
                       </span>
+                      {acc.usage && (
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            backgroundColor: acc.usage.includes("5/5") || acc.usage.toLowerCase().includes("limit") || acc.usage.toLowerCase().includes("unknown")
+                              ? "rgba(239, 68, 68, 0.12)"
+                              : "rgba(34, 197, 94, 0.12)",
+                            color: acc.usage.includes("5/5") || acc.usage.toLowerCase().includes("limit") || acc.usage.toLowerCase().includes("unknown")
+                              ? "#f87171"
+                              : "#4ade80",
+                            fontWeight: 500,
+                            border: acc.usage.includes("5/5") || acc.usage.toLowerCase().includes("limit") || acc.usage.toLowerCase().includes("unknown")
+                              ? "1px solid rgba(239, 68, 68, 0.2)"
+                              : "1px solid rgba(34, 197, 94, 0.2)",
+                          }}
+                        >
+                          {acc.usage}
+                        </span>
+                      )}
                     </div>
                   ));
                 })()

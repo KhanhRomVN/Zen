@@ -548,28 +548,42 @@ export const useChatLLM = ({
       const oldAccount = lastUsedAccountRef.current;
 
       // Persist / Resolve Model and Account
+      // Priority: explicit param > lastUsedRef (persisted from prior turn)
       const effModel = model || oldModel;
       const effAccount = account || oldAccount;
 
-      // 🆕 History Fallback: If metadata is still missing (e.g. after restoration), look back at history
+      // 🆕 History Fallback: Only apply when BOTH the explicit param AND the tracked ref
+      // are null — meaning this is a truly fresh session with zero model context.
+      // IMPORTANT: Do NOT apply history fallback if oldModel exists, because that would
+      // mask a model switch (user switched model → new model not yet in ref → param is null
+      // → fallback restores old model from history → switch detection sees no change → BUG).
       let finalModel = effModel;
       let finalAccount = effAccount;
 
-      if (!finalModel || !finalAccount) {
+      if (!finalModel && !oldModel) {
+        // Truly fresh session — safe to restore model from last assistant message
         const lastMetadataMsg = [...filteredMessages]
           .reverse()
           .find((m) => m.role === "assistant" && m.providerId && m.modelId);
 
         if (lastMetadataMsg) {
-          if (!finalModel) {
-            finalModel = {
-              id: lastMetadataMsg.modelId!,
-              providerId: lastMetadataMsg.providerId!,
-            };
-          }
-          if (!finalAccount && lastMetadataMsg.accountId) {
-            finalAccount = { id: lastMetadataMsg.accountId };
-          }
+          finalModel = {
+            id: lastMetadataMsg.modelId!,
+            providerId: lastMetadataMsg.providerId!,
+          };
+          console.log(`[Zen] History fallback: restored model=${finalModel.id} (no prior ref)`);
+        }
+      }
+
+      if (!finalAccount && !oldAccount) {
+        // Truly fresh session — safe to restore account from last assistant message
+        const lastMetadataMsg = [...filteredMessages]
+          .reverse()
+          .find((m) => m.role === "assistant" && m.accountId);
+
+        if (lastMetadataMsg?.accountId) {
+          finalAccount = { id: lastMetadataMsg.accountId };
+          console.log(`[Zen] History fallback: restored account=${finalAccount.id} (no prior ref)`);
         }
       }
 
@@ -579,6 +593,10 @@ export const useChatLLM = ({
       // 🔄 Model/Account switch detection: if the user changed provider or account
       // mid-session, the old backendConversationId belongs to a different provider
       // and must NOT be sent to the new one (it would cause session-not-found errors).
+      //
+      // Switch detection compares `oldModel` (ref before this request) vs `finalModel`.
+      // Because history fallback above is now guarded by `!oldModel`, it can no longer
+      // silently restore the old model from history and mask a switch.
       const modelSwitched =
         !skipFirstRequestLogic &&
         oldModel &&
