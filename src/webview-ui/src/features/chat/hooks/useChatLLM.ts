@@ -543,9 +543,13 @@ export const useChatLLM = ({
       );
       // User message log will happen after response when we have backendConversationId
 
+      // Save old model and account to detect switches before they are updated
+      const oldModel = lastUsedModelRef.current;
+      const oldAccount = lastUsedAccountRef.current;
+
       // Persist / Resolve Model and Account
-      const effModel = model || lastUsedModelRef.current;
-      const effAccount = account || lastUsedAccountRef.current;
+      const effModel = model || oldModel;
+      const effAccount = account || oldAccount;
 
       // 🆕 History Fallback: If metadata is still missing (e.g. after restoration), look back at history
       let finalModel = effModel;
@@ -575,24 +579,22 @@ export const useChatLLM = ({
       // 🔄 Model/Account switch detection: if the user changed provider or account
       // mid-session, the old backendConversationId belongs to a different provider
       // and must NOT be sent to the new one (it would cause session-not-found errors).
-      const prevModel = effModel; // value before we set lastUsedModelRef
-      const prevAccount = effAccount;
       const modelSwitched =
         !skipFirstRequestLogic &&
-        prevModel &&
+        oldModel &&
         finalModel &&
-        (prevModel.id !== finalModel.id ||
-          prevModel.providerId !== finalModel.providerId);
+        (oldModel.id !== finalModel.id ||
+          oldModel.providerId !== finalModel.providerId);
       const accountSwitched =
         !skipFirstRequestLogic &&
-        prevAccount &&
+        oldAccount &&
         finalAccount &&
-        prevAccount.id !== finalAccount.id;
+        oldAccount.id !== finalAccount.id;
 
       if (modelSwitched || accountSwitched) {
         console.warn(
           `[Zen] Model/account switched — resetting backend conversationId and qwenParentId`,
-          { prevModel, finalModel, prevAccount, finalAccount },
+          { prevModel: oldModel, finalModel, prevAccount: oldAccount, finalAccount },
         );
         backendConversationIdRef.current = "";
         qwenParentIdRef.current = undefined;
@@ -989,20 +991,6 @@ export const useChatLLM = ({
           );
         }
 
-        // Final state update to ensure UI and subsequent logic see the latest usage info
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessage.id ? assistantMessage : m,
-          ),
-        );
-
-        setIsProcessingSync(false);
-        setIsStreaming(false);
-        setIsContinuingSync(false);
-        setIncompleteHasPartialTool(false);
-        setIncompletePartialToolType(null);
-        abortControllerRef.current = null;
-
         // Log user message first, then assistant message, both with the real conversationId
         try {
           const userMsgToLog = updatedMessages[updatedMessages.length - 1];
@@ -1035,6 +1023,16 @@ export const useChatLLM = ({
             conversationId: finalConversationId,
           });
         } catch (logErr) {}
+
+        // Final state update to ensure UI and subsequent logic see the latest usage info (with correct metadata)
+        setMessages([...updatedMessages, assistantMessage]);
+
+        setIsProcessingSync(false);
+        setIsStreaming(false);
+        setIsContinuingSync(false);
+        setIncompleteHasPartialTool(false);
+        setIncompletePartialToolType(null);
+        abortControllerRef.current = null;
 
         // Parse for metadata logging only.
         // NOTE: Do NOT call onToolRequest here. Auto-triggering is handled exclusively
