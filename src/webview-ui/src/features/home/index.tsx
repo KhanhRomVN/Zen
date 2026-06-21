@@ -51,10 +51,35 @@ const HomePanel: React.FC<HomePanelProps> = ({
     | undefined;
 
   // MessageInput state
-  const [currentModel, setCurrentModel] = useState<any>(null);
-  const [currentAccount, setCurrentAccount] = useState<any>(null);
+  const [currentModel, setCurrentModel] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem("zen_last_model");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+  const [currentAccount, setCurrentAccount] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem("zen_last_account");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
   const [message, setMessage] = useState(initialValue || "");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Persist model/account selection when changed
+  useEffect(() => {
+    if (currentModel) {
+      localStorage.setItem("zen_last_model", JSON.stringify(currentModel));
+    }
+  }, [currentModel]);
+
+  useEffect(() => {
+    if (currentAccount) {
+      localStorage.setItem("zen_last_account", JSON.stringify(currentAccount));
+    }
+  }, [currentAccount]);
 
   // Dashboard state
   const [sloganIndex, setSloganIndex] = useState(0);

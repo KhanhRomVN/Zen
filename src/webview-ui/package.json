@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "build": "webpack --mode production",
-    "postbuild": "mkdir -p dist/images && cp -r ../../images/icons/material dist/images/",
     "watch": "webpack --watch --mode development"
   },
   "dependencies": {

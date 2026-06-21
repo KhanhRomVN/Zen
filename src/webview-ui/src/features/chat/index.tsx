@@ -65,12 +65,46 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [providers, setProviders] = useState<any[]>([]);
   const [isLoadingConversation, setIsLoadingConversation] = useState(true);
   const { activeTerminalIds, attachedTerminalIds } = useTerminalPolling();
-  const [currentModel, setCurrentModel] = useState<any>(
-    () => initialMessageData?.model ?? null,
-  );
-  const [currentAccount, setCurrentAccount] = useState<any>(
-    () => initialMessageData?.account ?? null,
-  );
+  const [currentModel, setCurrentModel] = useState<any>(() => {
+    if (initialMessageData?.model) return initialMessageData.model;
+    try {
+      const saved = localStorage.getItem("zen_last_model");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+  const [currentAccount, setCurrentAccount] = useState<any>(() => {
+    if (initialMessageData?.account) return initialMessageData.account;
+    try {
+      const saved = localStorage.getItem("zen_last_account");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+
+  // Refs to always access the latest model/account values inside callbacks.
+  // Without these, callbacks created via useCallback can capture stale closure
+  // values of currentModel/currentAccount from a previous render, leading to
+  // the wrong model being sent when the user switches mid-session.
+  const currentModelRef = useRef<any>(null);
+  const currentAccountRef = useRef<any>(null);
+
+  // Keep refs in sync with state (synchronous, runs before any async callbacks)
+  currentModelRef.current = currentModel;
+  currentAccountRef.current = currentAccount;
+
+  // Persist model/account selection when changed
+  useEffect(() => {
+    if (currentModel) {
+      localStorage.setItem("zen_last_model", JSON.stringify(currentModel));
+    }
+  }, [currentModel]);
+
+  useEffect(() => {
+    if (currentAccount) {
+      localStorage.setItem("zen_last_account", JSON.stringify(currentAccount));
+    }
+  }, [currentAccount]);
 
   const { isSimpleMode, commitMessageLanguage } = useSettings();
 
@@ -747,11 +781,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       uploadedFiles.length > 0 ||
       attachedItems.length > 0
     ) {
+      // Use refs (not state) to get the latest model/account values.
+      // This prevents stale closure: if the user changed model right before
+      // pressing Send, the state update may not have propagated into this
+      // callback yet, but the ref always reflects the latest value.
+      const latestModel = model || currentModelRef.current;
+      const latestAccount = account || currentAccountRef.current;
       wrappedSendMessage(
         message,
         [...uploadedFiles, ...attachedItems],
-        model || currentModel,
-        account || currentAccount,
+        latestModel,
+        latestAccount,
         undefined,
         undefined,
         undefined,

@@ -1,4 +1,5 @@
 const path = require("path");
+const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 module.exports = {
   // Make webpack output use paths relative to this folder in logs/errors
@@ -66,7 +67,16 @@ module.exports = {
       },
     ],
   },
-  plugins: [],
+  plugins: [
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: path.resolve(__dirname, "../../images/icons/material"),
+          to: path.resolve(__dirname, "dist/images/material"),
+        },
+      ],
+    }),
+  ],
   devtool: process.env.NODE_ENV === "production" ? false : "source-map",
   performance: {
     hints: false,
