@@ -4,11 +4,11 @@
  */
 const decodeHtmlEntities = (text: string): string => {
   return text
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&/g, "&")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/"/g, '"')
+    .replace(/'/g, "'");
 };
 
 // Re-export so ToolParser can import from one place without duplicating.
@@ -157,6 +157,7 @@ const TAG_VARIANTS: Record<string, string[]> = {
     "MOVE_FILE",
   ],
   grep: ["Grep", "GREP"],
+  git_diff: ["gitDiff", "GitDiff", "git-diff", "Git_Diff", "gitdiff", "GIT_DIFF"],
 };
 
 /**

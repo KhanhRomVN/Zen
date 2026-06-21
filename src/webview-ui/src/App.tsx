@@ -50,6 +50,11 @@ const App: React.FC = () => {
 
   const handleLoadConversation = useCallback(
     (conversationId: string, sessionId: number, folderPath: string | null) => {
+      console.log(`[History] Loading conversation from card click`, {
+        conversationId,
+        sessionId,
+        folderPath,
+      });
       // Create a new chat session for the loaded conversation
       const newSession: ChatSession = {
         sessionId: sessionId,

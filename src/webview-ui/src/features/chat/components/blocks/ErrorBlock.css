@@ -1,0 +1,48 @@
+/* ErrorBlock — no border on the outer block, header stays clean */
+.error-block {
+  border: none !important;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+/* Remove divider between ToolHeader and content */
+.error-block .terminal-block-header {
+  border-bottom: none !important;
+}
+
+/* Error content styling — border + background only wraps the output area */
+.error-block-content {
+  padding: 8px 12px 12px 12px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--vscode-editor-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 40%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 6%, transparent);
+  margin: 4px 12px 8px 29px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 50%, transparent) transparent;
+}
+
+.error-block-content::-webkit-scrollbar {
+  width: 1px;
+}
+
+.error-block-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.error-block-content::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 50%, transparent);
+  border-radius: 2px;
+}
+
+.error-block-content::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 80%, transparent);
+}

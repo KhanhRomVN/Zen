@@ -607,6 +607,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
+        console.log(`[History] conversationResult received`, {
+          conversationId: data.data?.conversationId,
+          messageCount: data.data?.messages?.length || 0,
+          hasToolOutputs: data.data?.toolOutputs ? Object.keys(data.data.toolOutputs).length > 0 : false,
+          requestId: data.requestId,
+        });
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({
@@ -703,6 +709,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
         setIsLoadingConversation(false);
         setIsProcessing(false);
+      } else if (data.command === "commitError") {
+        // Display git commit/push error in chat
+        const errorMsg = data.error || "Unknown git error";
+        const errorMessage: Message = {
+          id: `msg-error-${Date.now()}`,
+          role: "assistant",
+          content: `❌ **Lỗi commit/push**\n\n\`\`\`\n${errorMsg}\n\`\`\``,
+          timestamp: Date.now(),
+          isError: true,
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        // Also show notification
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "showError",
+            message: `Lỗi commit/push: ${errorMsg.substring(0, 200)}${errorMsg.length > 200 ? "..." : ""}`,
+          });
+        }
       } else if (
         data.command === "clearChatConfirmed" &&
         data.conversationId === currentConversationId

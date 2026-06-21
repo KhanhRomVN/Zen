@@ -1137,6 +1137,67 @@ export class FileHandler {
     }
   }
 
+  public async handleGitDiff(message: any, webviewView: vscode.WebviewView) {
+    const logger = LoggerService.getInstance();
+    const { exec } = require("child_process");
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      webviewView.webview.postMessage({
+        command: "gitDiffResult",
+        requestId: message.requestId,
+        error: "No workspace folder found",
+      });
+      return;
+    }
+
+    const filePath = message.file_path || message.path;
+    if (!filePath) {
+      webviewView.webview.postMessage({
+        command: "gitDiffResult",
+        requestId: message.requestId,
+        error: "file_path is required",
+      });
+      return;
+    }
+
+    const cwd = workspaceFolder.uri.fsPath;
+    // Escape the file path for shell
+    const escapedPath = filePath.replace(/"/g, '\\"');
+
+    exec(
+      `git diff -- "${escapedPath}"`,
+      { cwd, maxBuffer: 1024 * 1024 * 10 },
+      (err: any, stdout: string, stderr: string) => {
+        if (err) {
+          // git diff exits with 1 when there are no changes, which is not an error
+          if (err.code === 1 && stdout.trim() === "") {
+            webviewView.webview.postMessage({
+              command: "gitDiffResult",
+              requestId: message.requestId,
+              diff: "",
+              error: null,
+            });
+            return;
+          }
+          webviewView.webview.postMessage({
+            command: "gitDiffResult",
+            requestId: message.requestId,
+            error: stderr || err.message || "Git diff failed",
+          });
+          return;
+        }
+
+        const diffLength = stdout?.length || 0;
+
+        webviewView.webview.postMessage({
+          command: "gitDiffResult",
+          requestId: message.requestId,
+          diff: stdout || "",
+        });
+      },
+    );
+  }
+
   public async handleGetSnapshot(
     message: any,
     webviewView: vscode.WebviewView,

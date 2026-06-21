@@ -476,7 +476,7 @@ export class SystemHandler {
     }
   }
 
-  public async handleAcceptCommitMessage(message: any) {
+  public async handleAcceptCommitMessage(message: any, webviewView?: vscode.WebviewView) {
     const commitMessage = message.message;
     if (!commitMessage) {
       console.error("[SystemHandler] acceptCommitMessage: No message provided");
@@ -490,20 +490,90 @@ export class SystemHandler {
         return;
       }
 
-      // Write the commit message to a file or run git commit
-      // For now, copy to clipboard and show a notification
-      await vscode.env.clipboard.writeText(commitMessage);
-      vscode.window.showInformationMessage(
-        `✅ Commit message đã được copy vào clipboard. Sử dụng "git commit -m" để commit.`,
-      );
+      const cwd = workspaceFolder.uri.fsPath;
+      const { exec } = require("child_process");
 
-      // Optionally, we could run git commit directly
-      // But for safety, we let the user review and commit manually
+      // Escape the commit message for shell (single quotes)
+      const escapedMessage = commitMessage.replace(/'/g, "'\\''");
+
+      // Step 1: git add .
+      await new Promise<void>((resolve, reject) => {
+        exec(`git add .`, { cwd }, (err: any, stdout: string, stderr: string) => {
+          if (err) {
+            reject(new Error(stderr || err.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      // Step 2: git commit -m "..."
+      const commitResult = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        exec(
+          `git commit -m '${escapedMessage}'`,
+          { cwd },
+          (err: any, stdout: string, stderr: string) => {
+            if (err && !stderr.includes("nothing to commit")) {
+              reject(new Error(stderr || err.message));
+            } else {
+              resolve({ stdout, stderr });
+            }
+          },
+        );
+      });
+
+      // Check if there was nothing to commit
+      if (commitResult.stderr.includes("nothing to commit")) {
+        vscode.window.showWarningMessage("⚠️ Không có thay đổi nào để commit");
+        return;
+      }
+
+      // Step 3: git push
+      await new Promise<void>((resolve, reject) => {
+        exec(`git push`, { cwd }, (err: any, stdout: string, stderr: string) => {
+          if (err) {
+            reject(new Error(stderr || err.message));
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      vscode.window.showInformationMessage("✅ Commit và push thành công!");
+
+      // Optionally copy to clipboard as backup
+      await vscode.env.clipboard.writeText(commitMessage);
+
     } catch (error) {
       console.error("[SystemHandler] acceptCommitMessage error:", error);
-      vscode.window.showErrorMessage(
-        `Lỗi khi xác nhận commit message: ${error}`,
-      );
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`❌ Lỗi khi commit/push: ${errorMsg}`);
+
+      // Send error to webview to display in chat
+      if (webviewView?.webview) {
+        webviewView.webview.postMessage({
+          command: "commitError",
+          error: errorMsg,
+          timestamp: Date.now(),
+        });
+      } else {
+        // Fallback: try to find the webview via the active tab
+        try {
+          const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
+          if (activeTab && 'webview' in activeTab) {
+            const webview = (activeTab as any).webview;
+            if (webview) {
+              webview.postMessage({
+                command: "commitError",
+                error: errorMsg,
+                timestamp: Date.now(),
+              });
+            }
+          }
+        } catch (e) {
+          // Silently ignore fallback failure
+        }
+      }
     }
   }
 

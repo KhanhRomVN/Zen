@@ -308,7 +308,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "4px",
+        gap: "0",
       }}
     >
       {memoizedActions}

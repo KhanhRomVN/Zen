@@ -15,6 +15,7 @@ export const TOOL_LABELS: Record<string, string> = {
   delete_folder: "Delete",
   move_file: "Move",
   run_command: "Executing",
+  git_diff: "Diff",
   default: "Zen",
 };
 
@@ -30,6 +31,7 @@ export const TOOL_COLORS: Record<string, string> = {
   run_command: "var(--vscode-editorWarning-foreground, #f59e0b)",
   git_status: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
   commit_message: "var(--vscode-editorBracketHighlight-foreground2, #b39ddb)",
+  git_diff: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
   default: "var(--vscode-descriptionForeground, #6b7280)",
 };
 
@@ -44,6 +46,7 @@ export const CLICKABLE_TOOLS = [
   "delete_folder",
   "move_file",
   "run_command",
+  "git_diff",
 ];
 
 export const MANUAL_CONFIRMATION_TOOLS = ["run_command"];

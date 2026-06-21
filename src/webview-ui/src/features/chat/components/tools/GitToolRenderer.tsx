@@ -223,7 +223,7 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "8px",
         backgroundColor: "transparent",
         borderRadius: "0px",
-        overflow: "hidden",
+        overflow: "visible",
       }}
     >
       <ToolHeader

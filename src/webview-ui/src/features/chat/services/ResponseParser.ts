@@ -26,7 +26,8 @@ export interface ToolAction {
     | "move_file"
     | "grep"
     | "git_status"
-    | "commit_message";
+    | "commit_message"
+    | "git_diff";
   params: Record<string, any>;
   rawXml: string;
   isPartial?: boolean;
@@ -98,6 +99,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "grep",
     "git_status",
     "commit_message",
+    "git_diff",
     "code",
     "file",
     "markdown",

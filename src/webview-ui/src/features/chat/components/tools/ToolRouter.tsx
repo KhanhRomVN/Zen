@@ -10,6 +10,7 @@ import FileToolRenderer from "./FileToolRenderer";
 import TerminalToolRenderer from "./TerminalToolRenderer";
 import GitToolRenderer from "./GitToolRenderer";
 import { ToolHeader } from "./ToolHeader";
+import GitDiffBlock from "../blocks/GitDiffBlock";
 
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
@@ -38,6 +39,7 @@ interface ToolRouterProps {
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
   allMessages?: Message[];
+  allActions?: ToolAction[];
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
@@ -68,6 +70,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   terminalStatus,
   nextUserMessage,
   allMessages,
+  allActions,
   activeTerminalIds,
   attachedTerminalIds,
   conversationId,
@@ -387,136 +390,251 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     const commitColor = getToolColor("commit_message");
     return (
       <div
-        className="terminal-block commit-message-tool"
-        style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
+        className="timeline-item"
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
       >
-        <ToolHeader
-          title={
+        <div
+          className="terminal-block commit-message-tool"
+          style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
+        >
+          <ToolHeader
+            title={
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  color: "var(--vscode-editor-foreground)",
+                }}
+              >
+                <span style={{ fontWeight: 600, opacity: 0.8 }}>
+                  COMMIT MESSAGE
+                </span>
+                <span
+                  className="codicon codicon-git-commit"
+                  style={{ fontSize: "14px" }}
+                />
+              </div>
+            }
+            statusColor={commitColor}
+            isPartial={false}
+          />
+          <div style={{ padding: "4px 12px 12px 29px" }}>
+            <div
+              style={{
+                padding: "12px 14px",
+                background: "var(--vscode-editor-background, #1e1e1e)",
+                borderRadius: "6px",
+                border: "1px solid var(--vscode-widget-border, #454545)",
+                fontFamily: "var(--vscode-editor-font-family, monospace)",
+                fontSize: "13px",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                color: "var(--vscode-foreground, #cccccc)",
+                maxHeight: "auto",
+                overflowY: "visible",
+              }}
+            >
+              {messageContent}
+            </div>
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "12px",
-                color: "var(--vscode-editor-foreground)",
+                gap: "6px",
+                padding: "8px 0 4px 0",
+                justifyContent: "flex-end",
               }}
             >
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>
-                COMMIT MESSAGE
-              </span>
-              <span
-                className="codicon codicon-git-commit"
-                style={{ fontSize: "14px" }}
-              />
+              <button
+                onClick={() => {
+                  const vscodeApi = (window as any).vscodeApi;
+                  if (vscodeApi) {
+                    vscodeApi.postMessage({
+                      command: "acceptCommitMessage",
+                      message: messageContent,
+                    });
+                  }
+                }}
+                style={{
+                  background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`,
+                  color:
+                    "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
+                  border: `1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 30%, transparent)`,
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  height: "24px",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 25%, transparent)`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`;
+                }}
+              >
+                <span
+                  className="codicon codicon-check"
+                  style={{ fontSize: "12px" }}
+                />
+                Accept
+              </button>
+              <button
+                onClick={() => {
+                  const vscodeApi = (window as any).vscodeApi;
+                  if (vscodeApi) {
+                    vscodeApi.postMessage({
+                      command: "rejectCommitMessage",
+                    });
+                  }
+                }}
+                style={{
+                  background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
+                  color: "var(--vscode-errorForeground, #ff4d4d)",
+                  border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  height: "24px",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`;
+                }}
+              >
+                <span
+                  className="codicon codicon-close"
+                  style={{ fontSize: "12px" }}
+                />
+                Reject
+              </button>
             </div>
-          }
-          statusColor={commitColor}
-          isPartial={false}
-        />
-        <div style={{ padding: "4px 12px 12px 29px" }}>
-          <div
-            style={{
-              padding: "12px 14px",
-              background: "var(--vscode-editor-background, #1e1e1e)",
-              borderRadius: "6px",
-              border: "1px solid var(--vscode-widget-border, #454545)",
-              fontFamily: "var(--vscode-editor-font-family, monospace)",
-              fontSize: "13px",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-              color: "var(--vscode-foreground, #cccccc)",
-              maxHeight: "300px",
-              overflowY: "auto",
-            }}
-          >
-            {messageContent}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: "6px",
-              padding: "8px 0 4px 0",
-              justifyContent: "flex-end",
-            }}
-          >
-            <button
-              onClick={() => {
-                // Accept commit message - copy to clipboard or commit
-                const vscodeApi = (window as any).vscodeApi;
-                if (vscodeApi) {
-                  vscodeApi.postMessage({
-                    command: "acceptCommitMessage",
-                    message: messageContent,
-                  });
-                }
-              }}
-              style={{
-                background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`,
-                color:
-                  "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
-                border: `1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 30%, transparent)`,
-                padding: "4px 10px",
-                borderRadius: "6px",
-                fontSize: "11px",
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                height: "24px",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 25%, transparent)`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`;
-              }}
-            >
-              <span
-                className="codicon codicon-check"
-                style={{ fontSize: "12px" }}
-              />
-              Accept
-            </button>
-            <button
-              onClick={() => {
-                // Reject commit message
-                const vscodeApi = (window as any).vscodeApi;
-                if (vscodeApi) {
-                  vscodeApi.postMessage({
-                    command: "rejectCommitMessage",
-                  });
-                }
-              }}
-              style={{
-                background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
-                color: "var(--vscode-errorForeground, #ff4d4d)",
-                border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
-                padding: "4px 10px",
-                borderRadius: "6px",
-                fontSize: "11px",
-                fontWeight: 600,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                height: "24px",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`;
-              }}
-            >
-              <span
-                className="codicon codicon-close"
-                style={{ fontSize: "12px" }}
-              />
-              Reject
-            </button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (toolType === "git_diff") {
+    const filePath = firstAction.params.file_path || "";
+    const diffColor = getToolColor("git_diff");
+    const actionIndex = group[0].index;
+    const actionId = `${messageId}-action-${actionIndex}`;
+
+    // Check if we already have the diff result in toolOutputs
+    const outputData = toolOutputs?.[actionId];
+    const diffContent = outputData?.output || firstAction.params.diff || "";
+    const hasOutput = !!outputData && !outputData.isError;
+
+    // Auto-execute the tool if not yet executed and it's the active group
+    const hasTriggeredExecution = React.useRef(false);
+    React.useEffect(() => {
+      if (
+        !hasTriggeredExecution.current &&
+        !hasOutput &&
+        isActiveGroup &&
+        !isLastMessage
+      ) {
+        hasTriggeredExecution.current = true;
+        onToolClick(firstAction, messageId, actionIndex, "accept_once");
+      }
+    }, [hasOutput, isActiveGroup, isLastMessage, actionId]);
+
+    // Parse diff stats from the diff content
+    const parseDiffStats = (content: string) => {
+      let added = 0;
+      let deleted = 0;
+      if (!content) return { added: 0, deleted: 0 };
+      const lines = content.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("+") && !line.startsWith("+++")) added++;
+        if (line.startsWith("-") && !line.startsWith("---")) deleted++;
+      }
+      return { added, deleted };
+    };
+
+    const stats = parseDiffStats(diffContent);
+
+    // Determine if there are actions after this one (for timeline line)
+    // Use "timeline-item" always — let CSS handle line drawing via padding-bottom
+
+    // If no output yet and we're not the active group, show a loading/skeleton state
+    if (!hasOutput && !isActiveGroup) {
+      return (
+        <div
+          className="timeline-item"
+          style={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            gap: "6px",
+          }}
+        >
+          <GitDiffBlock
+            filePath={filePath}
+            diffContent=""
+            added={0}
+            deleted={0}
+            statusColor={diffColor}
+            isPartial={true}
+            onFileClick={(path) => {
+              const vscodeApi = (window as any).vscodeApi;
+              if (vscodeApi) {
+                vscodeApi.postMessage({
+                  command: "openFile",
+                  path,
+                });
+              }
+            }}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className="timeline-item"
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
+      >
+        <GitDiffBlock
+          filePath={filePath}
+          diffContent={diffContent}
+          added={stats.added}
+          deleted={stats.deleted}
+          statusColor={diffColor}
+          isPartial={!hasOutput && isActiveGroup}
+          onFileClick={(path) => {
+            const vscodeApi = (window as any).vscodeApi;
+            if (vscodeApi) {
+              vscodeApi.postMessage({
+                command: "openFile",
+                path,
+              });
+            }
+          }}
+        />
       </div>
     );
   }
