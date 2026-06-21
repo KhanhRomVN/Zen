@@ -558,6 +558,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
+        console.log(`[History] conversationResult received`, {
+          conversationId: data.data?.conversationId,
+          messageCount: data.data?.messages?.length || 0,
+          hasToolOutputs: data.data?.toolOutputs ? Object.keys(data.data.toolOutputs).length > 0 : false,
+          requestId: data.requestId,
+        });
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({

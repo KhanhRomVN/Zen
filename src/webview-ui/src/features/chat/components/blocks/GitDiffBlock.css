@@ -1,0 +1,9 @@
+/* Git Diff Block - remove divider from header */
+.git-diff-block .terminal-block-header {
+  border-bottom: none !important;
+  background-color: transparent !important;
+}
+
+.git-diff-block .terminal-block-header:hover {
+  background-color: transparent !important;
+}

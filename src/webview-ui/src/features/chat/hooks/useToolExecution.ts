@@ -612,6 +612,36 @@ export const useToolExecution = ({
           resolve(null);
           break;
 
+        case "git_diff": {
+          const requestId = `git-diff-${Date.now()}-${Math.random()}`;
+          const filePath = action.params.file_path || action.params.path;
+          extensionService.postMessage({
+            command: "gitDiff",
+            file_path: filePath,
+            requestId,
+          });
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                resolve(
+                  `[git_diff for '${filePath}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                const diffContent = msg.diff || "";
+                resolve(
+                  `[git_diff for '${filePath}'] Result:\n\`\`\`diff\n${diffContent}\n\`\`\``,
+                );
+              }
+            },
+            30000,
+            () => {
+              resolve(null);
+            },
+          );
+          break;
+        }
+
         default:
           console.warn(
             `[Zen][tool] Unhandled tool type: "${action.type}" — resolving null`,

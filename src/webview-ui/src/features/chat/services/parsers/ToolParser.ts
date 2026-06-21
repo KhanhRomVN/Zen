@@ -244,6 +244,21 @@ export const parseToolAction = (
         params.message = innerContent.trim();
       }
       break;
+
+    case "git_diff":
+      params.file_path = extractParam(
+        innerContent,
+        "file_path",
+        "filePath",
+        "filepath",
+        "path",
+      );
+      // Also capture raw diff content if present
+      const diffContent = extractParamValue(innerContent, "diff");
+      if (diffContent) {
+        params.diff = diffContent;
+      }
+      break;
   }
 
   return {

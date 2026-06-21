@@ -295,6 +295,9 @@ export class ChatController {
         case "runGitStatus":
           await this.fileHandler.handleRunGitStatus(message, webviewView);
           break;
+        case "gitDiff":
+          await this.fileHandler.handleGitDiff(message, webviewView);
+          break;
         case "showGitDiff":
           await this.systemHandler.handleShowGitDiff(message);
           break;
