@@ -5,7 +5,7 @@ import ToolRouter from "./ToolRouter";
 
 interface ToolActionsListProps {
   message: Message;
-  items: { action: ToolAction; index: number }[]; // Changed from actions: ToolAction[]
+  items: { action: ToolAction; index: number }[];
   clickedActions: Set<string>;
   rejectedActions?: Set<string>;
   onToolClick: (
@@ -37,8 +37,11 @@ interface ToolActionsListProps {
   >;
   onConfirmSingleLineAction?: (actionId: string) => void;
   onRejectSingleLineAction?: (actionId: string) => void;
+  onGitConfirm?: (items: any[]) => void;
+  onGitCancel?: () => void;
+  gitStatusItems?: any[];
+  isGitProcessing?: boolean;
 }
-
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
   message,
   items,
@@ -61,6 +64,10 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   singleLineReviewActions,
   onConfirmSingleLineAction,
   onRejectSingleLineAction,
+  onGitConfirm,
+  onGitCancel,
+  gitStatusItems,
+  isGitProcessing,
 }) => {
   // Filter out invisible tools immediately
   const visibleItems = useMemo(() => {
@@ -274,6 +281,10 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             singleLineReviewActions={singleLineReviewActions}
             onConfirmSingleLineAction={onConfirmSingleLineAction}
             onRejectSingleLineAction={onRejectSingleLineAction}
+            onGitConfirm={onGitConfirm}
+            onGitCancel={onGitCancel}
+            gitStatusItems={gitStatusItems}
+            isGitProcessing={isGitProcessing}
           />
         </React.Fragment>
       );

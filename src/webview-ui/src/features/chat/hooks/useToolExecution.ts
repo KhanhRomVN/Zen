@@ -191,6 +191,17 @@ export const useToolExecution = ({
             [message.terminalId]: "busy",
           }));
         }
+      } else if (message.command === "gitStatusResult") {
+        // Handle git status results
+        if (message.actionId && message.output !== undefined) {
+          setToolOutputs((prev) => ({
+            ...prev,
+            [message.actionId]: {
+              output: message.output || "",
+              isError: !!message.error,
+            },
+          }));
+        }
       }
     };
 
@@ -595,6 +606,11 @@ export const useToolExecution = ({
           );
           break;
         }
+
+        case "git_status":
+          // git_status is display-only, no execution needed
+          resolve(null);
+          break;
 
         default:
           console.warn(

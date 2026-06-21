@@ -840,6 +840,128 @@ export class FileHandler {
     // Git changes logic via git extension or simple shell
   }
 
+  public async handleRunGitStatus(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    const { exec } = require("child_process");
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      webviewView.webview.postMessage({
+        command: "gitStatusResult",
+        requestId: message.requestId,
+        error: "No workspace folder found",
+      });
+      return;
+    }
+
+    const cwd = workspaceFolder.uri.fsPath;
+
+    // Run git status and git diff --numstat in parallel
+    const runCommand = (
+      cmd: string,
+    ): Promise<{ stdout: string; stderr: string; error?: any }> => {
+      return new Promise((resolve) => {
+        exec(
+          cmd,
+          { cwd, maxBuffer: 1024 * 1024 * 10 },
+          (err: any, stdout: string, stderr: string) => {
+            if (err) {
+              resolve({ stdout: "", stderr, error: err });
+            } else {
+              resolve({ stdout, stderr });
+            }
+          },
+        );
+      });
+    };
+
+    const statusPromise = runCommand("git status --porcelain");
+    const diffPromise = runCommand("git diff --numstat");
+    const diffCachedPromise = runCommand("git diff --cached --numstat");
+
+    Promise.all([statusPromise, diffPromise, diffCachedPromise])
+      .then(([statusResult, diffResult, diffCachedResult]) => {
+        // Check for git status error
+        if (statusResult.error) {
+          console.error(`[Git] Error running git status:`, statusResult.error);
+          if (statusResult.error.code === "ENOENT") {
+            webviewView.webview.postMessage({
+              command: "gitStatusResult",
+              requestId: message.requestId,
+              error:
+                "Git is not installed or not in PATH. Please install Git and try again.",
+            });
+          } else {
+            webviewView.webview.postMessage({
+              command: "gitStatusResult",
+              requestId: message.requestId,
+              error:
+                statusResult.stderr ||
+                statusResult.error.message ||
+                "Git status failed",
+            });
+          }
+          return;
+        }
+
+        const statusOutput = statusResult.stdout;
+        const diffOutput = diffResult.stdout;
+        const diffCachedOutput = diffCachedResult.stdout;
+
+        // Parse diff stats
+        const diffStats: Record<string, { added: number; deleted: number }> =
+          {};
+
+        // Parse unstaged diff stats
+        const diffLines = diffOutput.split("\n").filter((line) => line.trim());
+        for (const line of diffLines) {
+          const parts = line.split("\t");
+          if (parts.length >= 3) {
+            const added = parseInt(parts[0], 10) || 0;
+            const deleted = parseInt(parts[1], 10) || 0;
+            const filePath = parts.slice(2).join("\t").trim();
+            if (filePath) {
+              diffStats[filePath] = { added, deleted };
+            }
+          }
+        }
+
+        // Parse staged diff stats (overwrite if both staged and unstaged have changes)
+        const diffCachedLines = diffCachedOutput
+          .split("\n")
+          .filter((line) => line.trim());
+        for (const line of diffCachedLines) {
+          const parts = line.split("\t");
+          if (parts.length >= 3) {
+            const added = parseInt(parts[0], 10) || 0;
+            const deleted = parseInt(parts[1], 10) || 0;
+            const filePath = parts.slice(2).join("\t").trim();
+            if (filePath) {
+              // For staged files, we want to show the staged diff stats
+              diffStats[filePath] = { added, deleted };
+            }
+          }
+        }
+
+        // Send combined result
+        webviewView.webview.postMessage({
+          command: "gitStatusResult",
+          requestId: message.requestId,
+          output: statusOutput,
+          diffStats: diffStats,
+        });
+      })
+      .catch((err) => {
+        console.error(`[Git] Error in Promise.all:`, err);
+        webviewView.webview.postMessage({
+          command: "gitStatusResult",
+          requestId: message.requestId,
+          error: err.message || "Failed to get git status",
+        });
+      });
+  }
+
   public async handleDeleteFile(message: any, webviewView: vscode.WebviewView) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];

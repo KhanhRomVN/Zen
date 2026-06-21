@@ -213,6 +213,11 @@ export const useToolActions = ({
       lastMessage.parsed.actions.forEach((action: ToolAction, idx: number) => {
         const actionId = `${lastMessage.id}-action-${idx}`;
 
+        // Skip display-only tools - they should not be auto-executed
+        if (action.type === "git_status" || action.type === "commit_message") {
+          return;
+        }
+
         // Only run action if not streaming partial tool
         if (action.isPartial) {
           return;

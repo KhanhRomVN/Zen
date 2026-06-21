@@ -1,6 +1,7 @@
 import React from "react";
 import { PlusIcon, SendIcon } from "@/icons/Icon";
 import { X, Zap, ShieldCheck, Eye } from "lucide-react";
+import { GitPullRequestArrow } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
@@ -508,6 +509,9 @@ interface MessageInputProps {
   showBrowserWarning?: boolean;
   isLaunchingBrowser?: boolean;
   onLaunchBrowserSession?: () => void;
+  // 🆕 Git Pull Request Arrow
+  onGitPullRequest?: () => void;
+  isGitLoading?: boolean;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -543,6 +547,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   showBrowserWarning = false,
   isLaunchingBrowser = false,
   onLaunchBrowserSession,
+  onGitPullRequest,
+  isGitLoading = false,
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
@@ -581,6 +587,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   });
 
   const [isPlusHovered, setIsPlusHovered] = React.useState(false);
+  const [isGitHovered, setIsGitHovered] = React.useState(false);
 
   const toggleThinking = () => {
     setIsThinking((prev) => {
@@ -1147,7 +1154,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 // Only send if not history mode, connected, not loading, not processing
-                if (!isHistoryMode && isConnected && !isLoadingCache && !isProcessing) {
+                if (
+                  !isHistoryMode &&
+                  isConnected &&
+                  !isLoadingCache &&
+                  !isProcessing
+                ) {
                   handleSend(currentModel, currentAccount);
                 }
               } else {
@@ -1236,7 +1248,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 // Use the file input ref from parent
                 if (fileInputRef?.current) {
                   // Store textOnly flag on the input element for the change handler to use
-                  (fileInputRef.current as any).dataset.textOnly = String(!supportsUpload);
+                  (fileInputRef.current as any).dataset.textOnly =
+                    String(!supportsUpload);
                   fileInputRef.current.click();
                 } else {
                   // Fallback: use handleFileSelect
@@ -1266,6 +1279,54 @@ const MessageInput: React.FC<MessageInputProps> = ({
             >
               <PlusIcon />
             </div>
+
+            {/* Git Pull Request Arrow */}
+            {onGitPullRequest && (
+              <div
+                onClick={() => {
+                  if (!isGitLoading && !isProcessing) {
+                    onGitPullRequest();
+                  }
+                }}
+                onMouseEnter={() => setIsGitHovered(true)}
+                onMouseLeave={() => setIsGitHovered(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "22px",
+                  width: "22px",
+                  boxSizing: "border-box",
+                  borderRadius: "4px",
+                  cursor: isGitLoading || isProcessing ? "default" : "pointer",
+                  transition: "all 0.2s ease-in-out",
+                  border: "1px solid rgba(128, 128, 128, 0.2)",
+                  background:
+                    isGitHovered && !isGitLoading && !isProcessing
+                      ? "rgba(128, 128, 128, 0.2)"
+                      : "rgba(128, 128, 128, 0.12)",
+                  color:
+                    isGitLoading || isProcessing
+                      ? "var(--vscode-descriptionForeground, #8c8c8c)"
+                      : "var(--vscode-foreground)",
+                  opacity:
+                    isGitHovered && !isGitLoading && !isProcessing
+                      ? 0.9
+                      : isGitLoading || isProcessing
+                        ? 0.5
+                        : 0.7,
+                }}
+                title={
+                  isGitLoading
+                    ? "Đang kiểm tra git status..."
+                    : isProcessing
+                      ? "Đang xử lý task, vui lòng đợi..."
+                      : "Git Pull Request - Kiểm tra thay đổi"
+                }
+              >
+                <GitPullRequestArrow size={16} />
+              </div>
+            )}
 
             {/* Global Tool Permission */}
             <GlobalPermissionButton />

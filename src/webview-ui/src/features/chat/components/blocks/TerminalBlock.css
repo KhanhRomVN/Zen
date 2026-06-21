@@ -17,11 +17,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 12px 0px 0;
+  padding: 2px 12px 0px 29px;
   background-color: transparent;
   border-bottom: none;
   user-select: none;
   cursor: pointer;
+  position: relative;
 }
 
 /* Terminal block context: needs distinct header to separate from dark terminal background */
@@ -31,6 +32,12 @@
     var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.1))
   );
   border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.12));
+}
+
+/* Git tool: remove border-bottom from header */
+.terminal-block.git-tool .terminal-block-header {
+  border-bottom: none;
+  background-color: transparent;
 }
 
 .terminal-info {

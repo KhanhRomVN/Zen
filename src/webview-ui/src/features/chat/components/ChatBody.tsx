@@ -59,6 +59,10 @@ interface ChatBodyProps {
   isContinuing?: boolean;
   incompleteHasPartialTool?: boolean;
   incompletePartialToolType?: string | null;
+  onGitConfirm?: (items: any[]) => void;
+  onGitCancel?: () => void;
+  gitStatusItems?: any[];
+  isGitProcessing?: boolean;
 }
 
 export interface ExtendedChatBodyProps extends ChatBodyProps {
@@ -121,6 +125,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   searchQuery = "",
   onSearchQueryChange,
   onCloseSearch,
+  onGitConfirm,
+  onGitCancel,
+  gitStatusItems,
+  isGitProcessing,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -324,6 +332,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               singleLineReviewActions={singleLineReviewActions}
               onConfirmSingleLineAction={onConfirmSingleLineAction}
               onRejectSingleLineAction={onRejectSingleLineAction}
+              onGitConfirm={onGitConfirm}
+              onGitCancel={onGitCancel}
+              gitStatusItems={gitStatusItems}
+              isGitProcessing={isGitProcessing}
             />
           );
         })}

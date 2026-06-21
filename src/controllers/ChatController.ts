@@ -292,6 +292,22 @@ export class ChatController {
         case "getGitChanges":
           await this.fileHandler.handleGetGitChanges(message, webviewView);
           break;
+        case "runGitStatus":
+          await this.fileHandler.handleRunGitStatus(message, webviewView);
+          break;
+        case "showGitDiff":
+          await this.systemHandler.handleShowGitDiff(message);
+          break;
+        case "generateCommitMessage":
+          // Handle commit message generation directly in ChatController
+          await this.handleGenerateCommitMessage(message, webviewView);
+          break;
+        case "acceptCommitMessage":
+          await this.systemHandler.handleAcceptCommitMessage(message);
+          break;
+        case "rejectCommitMessage":
+          await this.systemHandler.handleRejectCommitMessage(message);
+          break;
         case "requestContext":
           await this.projectContextHandler.handleRequestContext(
             message,
@@ -304,5 +320,84 @@ export class ChatController {
 
   public async updateTheme(webview: vscode.Webview) {
     await this.systemHandler.updateTheme(webview);
+  }
+
+  public async handleGenerateCommitMessage(message: any, webviewView: vscode.WebviewView) {
+    try {
+      const { statusItems, model, account } = message;
+      if (!statusItems || statusItems.length === 0) {
+        webviewView.webview.postMessage({
+          command: 'generateCommitMessageResult',
+          requestId: message.requestId,
+          error: 'No git status items provided',
+        });
+        return;
+      }
+
+      // Build prompt from status items
+      const gitStatusText = statusItems
+        .map((item: any) => `${item.staged ? '[staged]' : '[unstaged]'} ${item.status} ${item.path}`)
+        .join('\n');
+
+      const prompt = `[COMMIT_MESSAGE_REQUEST]
+Hãy tạo một commit message dựa trên danh sách file thay đổi sau:
+
+\`\`\`
+${gitStatusText}
+\`\`\`
+
+Yêu cầu:
+- Sử dụng cấu trúc: <emoji> <type>(<scope>): <subject>
+- Liệt kê các thay đổi chi tiết với dấu "-" ở đầu dòng
+- Viết bằng tiếng Việt
+- Commit message ngắn gọn, rõ ràng, có ý nghĩa
+- Trả lời chỉ với commit message, không thêm nội dung khác
+- Đặt commit message trong thẻ <commit_message>...</commit_message>`;
+
+      // Create a new conversation ID
+      const conversationId = `commit-${Date.now()}`;
+      
+      // TODO: Use the actual AI model to generate the commit message
+      // For now, we'll send a response back to the webview
+      // The webview will handle the display
+
+      // For testing, send a mock response
+      // In production, this would use the AI model
+      
+      // Since we don't have direct access to the AI model here,
+      // we'll use the existing sendMessage flow with a new conversation
+      
+      // Create a new conversation using the conversation handler
+      // This is a simplified version - we need to actually generate the commit message
+      
+      // For now, let's use a simple approach: call the sendMessage with a new conversation
+      const sendMessageResult = await this.conversationHandler.handleSendMessage(
+        {
+          ...message,
+          content: prompt,
+          model: model,
+          account: account,
+          conversationId: conversationId,
+          isCommitMessage: true,
+        },
+        webviewView
+      );
+
+      // Return the result to the webview
+      webviewView.webview.postMessage({
+        command: 'generateCommitMessageResult',
+        requestId: message.requestId,
+        success: true,
+        conversationId: conversationId,
+      });
+
+    } catch (error) {
+      console.error('[ChatController] handleGenerateCommitMessage error:', error);
+      webviewView.webview.postMessage({
+        command: 'generateCommitMessageResult',
+        requestId: message.requestId,
+        error: error instanceof Error ? error.message : 'Failed to generate commit message',
+      });
+    }
   }
 }

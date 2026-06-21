@@ -8,6 +8,8 @@ import { Message } from "../../types/message";
 import { useProject } from "../../../../context/ProjectContext";
 import FileToolRenderer from "./FileToolRenderer";
 import TerminalToolRenderer from "./TerminalToolRenderer";
+import GitToolRenderer from "./GitToolRenderer";
+import { ToolHeader } from "./ToolHeader";
 
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
@@ -45,6 +47,10 @@ interface ToolRouterProps {
   >;
   onConfirmSingleLineAction?: (actionId: string) => void;
   onRejectSingleLineAction?: (actionId: string) => void;
+  onGitConfirm?: (statusItems: any[]) => void;
+  onGitCancel?: () => void;
+  gitStatusItems?: any[];
+  isGitProcessing?: boolean;
 }
 
 const ToolRouter: React.FC<ToolRouterProps> = ({
@@ -68,6 +74,10 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   singleLineReviewActions,
   onConfirmSingleLineAction,
   onRejectSingleLineAction,
+  onGitConfirm,
+  onGitCancel,
+  gitStatusItems,
+  isGitProcessing,
 }) => {
   const { rootPath } = useProject();
 
@@ -334,6 +344,168 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
         onToolClick={onToolClick}
         storedOutput={storedOutput}
       />
+    );
+  }
+
+  if (toolType === "git_status") {
+    // Use props gitStatusItems if available, otherwise parse from action params
+    let finalGitStatusItems = gitStatusItems;
+    if (!finalGitStatusItems || finalGitStatusItems.length === 0) {
+      let itemsFromParams = firstAction.params?.items || [];
+      if (typeof itemsFromParams === "string") {
+        try {
+          itemsFromParams = JSON.parse(itemsFromParams);
+        } catch (e) {
+          itemsFromParams = [];
+        }
+      }
+      finalGitStatusItems = itemsFromParams;
+    }
+    return (
+      <GitToolRenderer
+        action={firstAction}
+        actionIndex={group[0].index}
+        messageId={messageId}
+        isActionClicked={clickedActions.has(
+          `${messageId}-action-${group[0].index}`,
+        )}
+        isActiveGroup={isActiveGroup}
+        isLastMessage={isLastMessage}
+        isLastItemInList={isLastItemInList}
+        toolOutputs={toolOutputs}
+        onToolClick={onToolClick}
+        gitStatusItems={finalGitStatusItems}
+        isProcessing={isGitProcessing || executionState?.status === "running"}
+        onConfirm={onGitConfirm}
+        onCancel={onGitCancel}
+      />
+    );
+  }
+
+  if (toolType === "commit_message") {
+    const messageContent =
+      firstAction.params?.message || firstAction.params?.content || "";
+    return (
+      <div
+        className="terminal-block commit-message-tool"
+        style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
+      >
+        <ToolHeader
+          title="📝 COMMIT MESSAGE"
+          statusColor="var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)"
+          icon={
+            <span
+              className="codicon codicon-git-commit"
+              style={{ fontSize: "14px" }}
+            />
+          }
+          isPartial={false}
+        />
+        <div style={{ padding: "0px 12px 12px 29px" }}>
+          <div
+            style={{
+              padding: "12px 14px",
+              background: "var(--vscode-editor-background, #1e1e1e)",
+              borderRadius: "6px",
+              border: "1px solid var(--vscode-widget-border, #454545)",
+              fontFamily: "var(--vscode-editor-font-family, monospace)",
+              fontSize: "13px",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              color: "var(--vscode-foreground, #cccccc)",
+              maxHeight: "300px",
+              overflowY: "auto",
+            }}
+          >
+            {messageContent}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: "6px",
+              padding: "8px 0 4px 0",
+              justifyContent: "flex-end",
+            }}
+          >
+            <button
+              onClick={() => {
+                // Accept commit message - copy to clipboard or commit
+                const vscodeApi = (window as any).vscodeApi;
+                if (vscodeApi) {
+                  vscodeApi.postMessage({
+                    command: "acceptCommitMessage",
+                    message: messageContent,
+                  });
+                }
+              }}
+              style={{
+                background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`,
+                color:
+                  "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
+                border: `1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 30%, transparent)`,
+                padding: "4px 10px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                height: "24px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 25%, transparent)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`;
+              }}
+            >
+              <span
+                className="codicon codicon-check"
+                style={{ fontSize: "12px" }}
+              />
+              Accept
+            </button>
+            <button
+              onClick={() => {
+                // Reject commit message
+                const vscodeApi = (window as any).vscodeApi;
+                if (vscodeApi) {
+                  vscodeApi.postMessage({
+                    command: "rejectCommitMessage",
+                  });
+                }
+              }}
+              style={{
+                background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
+                color: "var(--vscode-errorForeground, #ff4d4d)",
+                border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
+                padding: "4px 10px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                height: "24px",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`;
+              }}
+            >
+              <span
+                className="codicon codicon-close"
+                style={{ fontSize: "12px" }}
+              />
+              Reject
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 

@@ -24,7 +24,9 @@ export interface ToolAction {
     | "delete_file"
     | "delete_folder"
     | "move_file"
-    | "grep";
+    | "grep"
+    | "git_status"
+    | "commit_message";
   params: Record<string, any>;
   rawXml: string;
   isPartial?: boolean;
@@ -94,6 +96,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "move_file",
     "execute_agent_action",
     "grep",
+    "git_status",
+    "commit_message",
     "code",
     "file",
     "markdown",
@@ -478,6 +482,10 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "move_file":
       return `move_file: ${action.params.file_path || "unknown"} → ${action.params.target_folder_path || "unknown"}`;
+
+    case "git_status":
+      const count = action.params.items?.length || 0;
+      return `git_status: ${count} changes`;
 
     default:
       return ``;

@@ -48,8 +48,10 @@ export const extractParamValue = (
   }
 
   // Try self-closing tag with content
+  // Lookahead stops at any opening tag (<word>) OR any closing tag (</word>) OR end-of-string.
+  // This handles mismatched tag names, e.g. <filePath>...</file_path>.
   const selfClosingRegex = new RegExp(
-    `<${paramName}\\s*>([\\s\\S]*?)(?=<[\\w_]+>|$)`,
+    `<${paramName}\\s*>([\\s\\S]*?)(?=<\\/?[\\w_]+\\s*>|$)`,
     "i",
   );
   const selfClosingMatch = content.match(selfClosingRegex);
@@ -59,7 +61,7 @@ export const extractParamValue = (
     let decoded = decodeHtmlEntities(value);
     if (!isContentParam) {
       decoded = decoded.trim();
-      // Strip malformed closing tag suffix like /paramName> or paramName>
+      // Strip any residual malformed closing tag suffix like /paramName> or paramName>
       const malformedCloseRegex = new RegExp(`/?${paramName}>?$`, "i");
       decoded = decoded.replace(malformedCloseRegex, "").trim();
     } else {
@@ -218,6 +220,29 @@ export const parseToolAction = (
         "folder_path",
         "folderPath",
       );
+      break;
+    case "git_status":
+      // Extract items as JSON string
+      const itemsParam = extractParam(innerContent, "items");
+      if (itemsParam) {
+        params.items = itemsParam;
+      }
+      // Extract raw output
+      const rawParam = extractParam(innerContent, "raw");
+      if (rawParam) {
+        params.raw = rawParam;
+      }
+      break;
+    case "commit_message":
+      // Extract commit message content
+      const messageParam = extractParam(innerContent, "message");
+      if (messageParam) {
+        params.message = messageParam;
+      }
+      // Or get the full content if no specific param
+      if (!params.message && innerContent.trim()) {
+        params.message = innerContent.trim();
+      }
       break;
   }
 

@@ -31,6 +31,8 @@ import { useDraftManagement } from "./hooks/useDraftManagement";
 // Shared components
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
+import GitStatusBlock from "./components/blocks/GitStatusBlock";
+import { RichtextBlock } from "./components/blocks/RichtextBlock";
 
 interface ChatPanelProps {
   currentChat: ChatSession | null;
@@ -73,6 +75,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Git state
+  const [gitStatus, setGitStatus] = useState<{
+    items: {
+      status: string;
+      path: string;
+      staged: boolean;
+      added?: number;
+      deleted?: number;
+    }[];
+    raw: string;
+    diffStats?: Record<string, { added: number; deleted: number }>;
+  } | null>(null);
+  const [gitLoading, setGitLoading] = useState(false);
+  const [gitError, setGitError] = useState<string | null>(null);
+  const [showGitStatusBlock, setShowGitStatusBlock] = useState(false);
+  const [gitCommitMessage, setGitCommitMessage] = useState<string | null>(null);
+  const [gitCommitLoading, setGitCommitLoading] = useState(false);
+  const [gitCommitInput, setGitCommitInput] = useState<string>("");
 
   const [isRestored, setIsRestored] = useState(false);
   const [revertInput, setRevertInput] = useState<{
@@ -708,7 +729,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     // Check for invalid external files before sending
     if (invalidExternalFiles && invalidExternalFiles.length > 0) {
       const vscodeApi = (window as any).vscodeApi;
-      const message = `Cannot send message due to invalid file(s):\n${invalidExternalFiles.map(f => `• ${f.name}: ${f.reason}`).join('\n')}\n\nPlease remove these files and try again.`;
+      const message = `Cannot send message due to invalid file(s):\n${invalidExternalFiles.map((f) => `• ${f.name}: ${f.reason}`).join("\n")}\n\nPlease remove these files and try again.`;
       if (vscodeApi) {
         vscodeApi.postMessage({
           command: "showError",
@@ -908,8 +929,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     currentConversationId,
   ]);
 
-  const firstRequestMessage = messages.find((m) => m.role === "user");
-
+  // 🆕 Git handlers
   const enrichedModel = useMemo(() => {
     if (!currentModel) return null;
     if (!Array.isArray(providers)) return currentModel;
@@ -923,14 +943,402 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return { ...currentModel, ...modelData };
   }, [currentModel, providers]);
 
+  const handleGitPullRequest = useCallback(async () => {
+    if (gitLoading) {
+      return;
+    }
+    setGitLoading(true);
+    setGitError(null);
+    setShowGitStatusBlock(false);
+    setGitCommitMessage(null);
+    try {
+      // Use extension service to run git status
+      const vscodeApi = (window as any).vscodeApi;
+      if (!vscodeApi) {
+        console.error("[Git] vscodeApi not available");
+        setGitError("Không thể kết nối với VSCode API");
+        setGitLoading(false);
+        return;
+      }
+
+      const requestId = `git-status-${Date.now()}`;
+      console.log("[Git] Request ID:", requestId);
+
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const promise = new Promise<{
+        output: string;
+        error?: string;
+        diffStats?: Record<string, { added: number; deleted: number }>;
+      }>((resolve) => {
+        const handler = (event: MessageEvent) => {
+          const msg = event.data;
+          if (
+            msg.command === "gitStatusResult" &&
+            msg.requestId === requestId
+          ) {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+            }
+            window.removeEventListener("message", handler);
+            resolve({
+              output: msg.output,
+              error: msg.error,
+              diffStats: msg.diffStats,
+            });
+          }
+        };
+        window.addEventListener("message", handler);
+        timeoutId = setTimeout(() => {
+          window.removeEventListener("message", handler);
+          resolve({ output: "", error: "Timeout" });
+        }, 10000);
+      });
+
+      vscodeApi.postMessage({
+        command: "runGitStatus",
+        requestId,
+      });
+
+      const result = await promise;
+
+      if (result.error && result.error !== "Timeout") {
+        console.error("[Git] Error from git status:", result.error);
+        setGitError(result.error);
+        setGitLoading(false);
+        return;
+      }
+
+      if (result.error === "Timeout") {
+        console.error("[Git] Timeout waiting for git status");
+        setGitError("Git status timeout. Vui lòng thử lại.");
+        setGitLoading(false);
+        return;
+      }
+
+      const output = result.output || "";
+      const diffStats = result.diffStats || {};
+      const lines = output.split("\n").filter((l: string) => l.trim());
+
+      if (lines.length === 0 || output.trim() === "") {
+        // Git status empty - show empty state with label
+        setGitStatus({ items: [], raw: output });
+        setShowGitStatusBlock(true);
+        setGitLoading(false);
+        return;
+      }
+
+      // Parse git status output
+      const items: { status: string; path: string; staged: boolean }[] = [];
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        // Format: "?? path", "M  path", "A  path", "M path", etc.
+        const parts = trimmed.match(/^([\w?]+)\s+(.*)$/);
+        if (parts) {
+          const status = parts[1].trim();
+          const path = parts[2].trim();
+          // Check if staged (no ? in status, and not "??")
+          const staged = !status.includes("?") && status !== "??";
+          items.push({ status, path, staged });
+        } else {
+          // Fallback: treat as untracked
+          items.push({ status: "?", path: trimmed, staged: false });
+        }
+      }
+
+      // Add diff stats to items
+      const itemsWithStats = items.map((item) => {
+        const stats = diffStats[item.path];
+        if (stats) {
+          return { ...item, added: stats.added, deleted: stats.deleted };
+        }
+        return { ...item, added: 0, deleted: 0 };
+      });
+
+      setGitStatus({ items: itemsWithStats, raw: output, diffStats });
+
+      // Add git status as a tool action using a formatted content string
+      // that will be parsed by parseAIResponse
+      const toolContent = `<git_status>
+<items>${JSON.stringify(itemsWithStats)}</items>
+<raw>${JSON.stringify(output)}</raw>
+Đã kiểm tra git status. Tìm thấy ${itemsWithStats.length} thay đổi.
+</git_status>`;
+
+      const messageId = `msg-git-${Date.now()}`;
+      const assistantMessage: Message = {
+        id: messageId,
+        role: "assistant",
+        content: toolContent,
+        timestamp: Date.now(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // Also update toolOutputs so GitToolRenderer can access the raw output
+      const actionId = `${messageId}-action-0`;
+      setToolOutputs((prev) => ({
+        ...prev,
+        [actionId]: {
+          output: output,
+          isError: false,
+        },
+      }));
+      setGitLoading(false);
+    } catch (err) {
+      console.error("[Git] Exception in handleGitPullRequest:", err);
+      setGitError(err instanceof Error ? err.message : "Unknown error");
+      setGitLoading(false);
+    }
+  }, [gitLoading]);
+
+  const handleGitConfirm = useCallback(
+    async (items?: any[]) => {
+      console.log("[Git] currentConversationId:", currentConversationId);
+      // Use provided items or fall back to gitStatus
+      const statusItems = items || gitStatus?.items || [];
+      if (statusItems.length === 0) {
+        // Empty status - show notification
+        const vscodeApi = (window as any).vscodeApi;
+        if (vscodeApi) {
+          vscodeApi.postMessage({
+            command: "showInformation",
+            message:
+              "Chưa có thay đổi nào để commit. Hãy thêm file với 'git add' trước.",
+          });
+        }
+        setShowGitStatusBlock(false);
+        return;
+      }
+
+      // Send message to AI to generate commit message
+      setGitCommitLoading(true);
+      const gitStatusText = statusItems
+        .map(
+          (item) =>
+            `${item.staged ? "[staged]" : "[unstaged]"} ${item.status} ${item.path}`,
+        )
+        .join("\n");
+
+      // Use the current model and account to send a message
+      const modelToUse = enrichedModel ?? currentModel;
+      const accountToUse = currentAccount;
+
+      if (!modelToUse || !accountToUse) {
+        setGitCommitLoading(false);
+        setGitError(
+          "Vui lòng chọn model và account trước khi tạo commit message.",
+        );
+        return;
+      }
+
+      // Build prompt for AI with special marker for commit message detection
+      const prompt = `[COMMIT_MESSAGE_REQUEST]
+Hãy tạo một commit message dựa trên danh sách file thay đổi sau:
+
+\`\`\`
+${gitStatusText}
+\`\`\`
+
+Yêu cầu:
+- Sử dụng cấu trúc: <emoji> <type>(<scope>): <subject>
+- Liệt kê các thay đổi chi tiết với dấu "-" ở đầu dòng
+- Viết bằng tiếng Việt
+- Commit message ngắn gọn, rõ ràng, có ý nghĩa
+- Trả lời chỉ với commit message, không thêm nội dung khác
+- Đặt commit message trong thẻ <commit_message>...</commit_message>`;
+
+      try {
+        // Use sendMessage to send to AI with uiHidden: true to hide the user message
+        // and skipLogic: true to bypass the first request logic
+        await wrappedSendMessage(
+          prompt,
+          undefined, // no files
+          modelToUse,
+          accountToUse,
+          true, // skipFirstRequestLogic = true
+          undefined,
+          true, // uiHidden = true
+        );
+
+        setGitCommitLoading(false);
+        // The AI response will be displayed in the chat as a commit_message block
+        setShowGitStatusBlock(false);
+      } catch (err) {
+        setGitCommitLoading(false);
+        setGitError(
+          err instanceof Error
+            ? err.message
+            : "Failed to generate commit message",
+        );
+      }
+    },
+    [
+      gitStatus,
+      enrichedModel,
+      currentModel,
+      currentAccount,
+      wrappedSendMessage,
+    ],
+  );
+
+  const handleGitCancel = useCallback(() => {
+    setShowGitStatusBlock(false);
+    setGitCommitMessage(null);
+    setGitError(null);
+    setGitCommitInput("");
+  }, []);
+
+  const handleGitRetry = useCallback(async () => {
+    if (!gitCommitInput?.trim() || !gitStatus) return;
+
+    setGitCommitLoading(true);
+    const gitStatusText = gitStatus.items
+      .map(
+        (item) =>
+          `${item.staged ? "[staged]" : "[unstaged]"} ${item.status} ${item.path}`,
+      )
+      .join("\n");
+
+    const modelToUse = enrichedModel ?? currentModel;
+    const accountToUse = currentAccount;
+
+    if (!modelToUse || !accountToUse) {
+      setGitCommitLoading(false);
+      setGitError(
+        "Vui lòng chọn model và account trước khi tạo commit message.",
+      );
+      return;
+    }
+
+    const prompt = `Hãy tạo một commit message dựa trên danh sách file thay đổi sau:
+
+\`\`\`
+${gitStatusText}
+\`\`\`
+
+Yêu cầu bổ sung: ${gitCommitInput.trim()}
+
+Yêu cầu:
+- Sử dụng cấu trúc: <emoji> <type>(<scope>): <subject>
+- Liệt kê các thay đổi chi tiết với dấu "-" ở đầu dòng
+- Viết bằng tiếng Việt
+- Commit message ngắn gọn, rõ ràng, có ý nghĩa`;
+
+    try {
+      await wrappedSendMessage(
+        prompt,
+        undefined,
+        modelToUse,
+        accountToUse,
+        false,
+        undefined,
+        undefined,
+      );
+      setGitCommitLoading(false);
+      setGitCommitInput("");
+      setShowGitStatusBlock(false);
+    } catch (err) {
+      setGitCommitLoading(false);
+      setGitError(
+        err instanceof Error
+          ? err.message
+          : "Failed to generate commit message",
+      );
+    }
+  }, [
+    gitCommitInput,
+    gitStatus,
+    enrichedModel,
+    currentModel,
+    currentAccount,
+    wrappedSendMessage,
+  ]);
+
+  const handleGitCommit = useCallback(async (message: string) => {
+    if (!message.trim()) return;
+    const vscodeApi = (window as any).vscodeApi;
+    if (!vscodeApi) {
+      setGitError("Không thể kết nối với VSCode API");
+      return;
+    }
+
+    setGitCommitLoading(true);
+    try {
+      const requestId = `git-commit-${Date.now()}`;
+      const promise = new Promise<{ success: boolean; error?: string }>(
+        (resolve) => {
+          const handler = (event: MessageEvent) => {
+            const msg = event.data;
+            if (
+              msg.command === "gitCommitResult" &&
+              msg.requestId === requestId
+            ) {
+              window.removeEventListener("message", handler);
+              resolve({ success: msg.success, error: msg.error });
+            }
+          };
+          window.addEventListener("message", handler);
+          setTimeout(() => {
+            window.removeEventListener("message", handler);
+            resolve({ success: false, error: "Timeout" });
+          }, 15000);
+        },
+      );
+
+      vscodeApi.postMessage({
+        command: "gitCommitAndPush",
+        requestId,
+        message: message.trim(),
+      });
+
+      const result = await promise;
+      setGitCommitLoading(false);
+      if (result.success) {
+        setGitCommitMessage(null);
+        setShowGitStatusBlock(false);
+        vscodeApi.postMessage({
+          command: "showInformation",
+          message: "✅ Commit và push thành công!",
+        });
+      } else {
+        setGitError(result.error || "Commit failed");
+      }
+    } catch (err) {
+      setGitCommitLoading(false);
+      setGitError(err instanceof Error ? err.message : "Commit failed");
+    }
+  }, []);
+
+  // Listen for AI response containing commit message
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === "assistant" && !lastMessage.isCancelled) {
+      const content = lastMessage.content;
+      // Check if this looks like a commit message
+      if (content && content.includes(":") && content.includes("-")) {
+        const lines = content.split("\n").filter((l) => l.trim());
+        // Simple heuristic: has emoji or conventional commit format
+        const hasCommitFormat = lines.some(
+          (l) => /^[\u{1F300}-\u{1F9FF}]/u.test(l) || /^[a-z]+\(/.test(l),
+        );
+        if (hasCommitFormat) {
+          setGitCommitMessage(content);
+        }
+      }
+    }
+  }, [messages]);
+
+  const firstRequestMessage = messages.find((m) => m.role === "user");
+
   // ChatHeader helpers
   const formatTokens = (num: number) => {
     if (num >= 1000) return (num / 1000).toFixed(1) + "K";
     return num.toString();
   };
 
-  const providerId =
-    currentModel?.providerId || "deepseek";
+  const providerId = currentModel?.providerId || "deepseek";
   let faviconUrl =
     "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
   if (providerId.toLowerCase().includes("openai"))
@@ -1130,16 +1538,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         incompleteHasPartialTool={incompleteHasPartialTool}
         incompletePartialToolType={incompletePartialToolType}
         isSimpleMode={isSimpleMode}
-        onSendToolRequest={(actions, msg, isAuto, type) => {
-          console.log(`[ChatPanel] onSendToolRequest called: type=${type}, actions=${Array.isArray(actions) ? actions.length : 1}, messageId=${msg.id}`);
-          return handleToolRequest(
+        onSendToolRequest={(actions, msg, isAuto, type) =>
+          handleToolRequest(
             actions,
             msg,
             isAuto,
             conversationToolOverrides,
             type,
-          );
-        }}
+          )
+        }
         onSendMessage={(c, f, m, a, skip, ids, hidden) =>
           wrappedSendMessage(c, f, m, a, skip, ids, hidden)
         }
@@ -1169,6 +1576,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           setIsSearchOpen(false);
           setSearchQuery("");
         }}
+        onGitConfirm={handleGitConfirm}
+        onGitCancel={handleGitCancel}
+        gitStatusItems={gitStatus?.items || []}
+        isGitProcessing={gitCommitLoading}
       />
 
       {/* ─── ChatFooter (inlined) ─── */}
@@ -1266,8 +1677,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             showBrowserWarning={showBrowserWarning}
             isLaunchingBrowser={isLaunchingBrowser}
             onLaunchBrowserSession={launchBrowserSession}
+            onGitPullRequest={handleGitPullRequest}
+            isGitLoading={gitLoading}
           />
-          
         </div>
       </div>
     </div>

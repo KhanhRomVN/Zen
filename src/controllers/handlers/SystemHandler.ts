@@ -180,22 +180,33 @@ export class SystemHandler {
       if (selection && selection.startLine && selection.endLine) {
         const startPos = new vscode.Position(
           Math.max(0, selection.startLine - 1),
-          0
+          0,
         );
         const endPos = new vscode.Position(
           Math.min(document.lineCount - 1, selection.endLine - 1),
-          document.lineAt(Math.min(document.lineCount - 1, selection.endLine - 1)).text.length
+          document.lineAt(
+            Math.min(document.lineCount - 1, selection.endLine - 1),
+          ).text.length,
         );
         editor.selection = new vscode.Selection(startPos, endPos);
-        editor.revealRange(new vscode.Range(startPos, endPos), vscode.TextEditorRevealType.InCenter);
+        editor.revealRange(
+          new vscode.Range(startPos, endPos),
+          vscode.TextEditorRevealType.InCenter,
+        );
       } else {
         // Select the entire line
-        const endPosition = new vscode.Position(lineIndex, lineText.text.length);
+        const endPosition = new vscode.Position(
+          lineIndex,
+          lineText.text.length,
+        );
         editor.selection = new vscode.Selection(position, endPosition);
-        editor.revealRange(new vscode.Range(position, endPosition), vscode.TextEditorRevealType.InCenter);
+        editor.revealRange(
+          new vscode.Range(position, endPosition),
+          vscode.TextEditorRevealType.InCenter,
+        );
       }
     } catch (error) {
-      console.error('[SystemHandler] handleOpenFileAtLine error:', error);
+      console.error("[SystemHandler] handleOpenFileAtLine error:", error);
     }
   }
 
@@ -273,7 +284,8 @@ export class SystemHandler {
   }
 
   public async handleOpenSnapshotDiff(message: any) {
-    const { filePath, operation, beforeContent, afterContent, actionId } = message;
+    const { filePath, operation, beforeContent, afterContent, actionId } =
+      message;
     const basename = path.basename(filePath || "file");
 
     if (operation === "write" && beforeContent === null) {
@@ -281,7 +293,10 @@ export class SystemHandler {
       try {
         const uri = path.isAbsolute(filePath)
           ? vscode.Uri.file(filePath)
-          : vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, filePath);
+          : vscode.Uri.joinPath(
+              vscode.workspace.workspaceFolders![0].uri,
+              filePath,
+            );
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc, { preview: false });
       } catch {
@@ -296,7 +311,9 @@ export class SystemHandler {
     }
 
     // REWRITE or REPLACE: open diff view with before ↔ after
-    const safeId = (actionId || Date.now()).toString().replace(/[^a-zA-Z0-9_-]/g, "_");
+    const safeId = (actionId || Date.now())
+      .toString()
+      .replace(/[^a-zA-Z0-9_-]/g, "_");
 
     const beforeKey = `${safeId}_before`;
     const afterKey = `${safeId}_after`;
@@ -307,23 +324,190 @@ export class SystemHandler {
     const beforeUri = ZenDiffProvider.toUri(beforeKey, basename);
     const afterUri = ZenDiffProvider.toUri(afterKey, basename);
 
-    const label = operation === "write"
-      ? `${basename} (Before ↔ After Rewrite)`
-      : `${basename} (Before ↔ After Edit)`;
+    const label =
+      operation === "write"
+        ? `${basename} (Before ↔ After Rewrite)`
+        : `${basename} (Before ↔ After Edit)`;
 
-    await vscode.commands.executeCommand("vscode.diff", beforeUri, afterUri, label);
+    await vscode.commands.executeCommand(
+      "vscode.diff",
+      beforeUri,
+      afterUri,
+      label,
+    );
   }
 
   private _getLanguageId(filePath: string): string {
     const ext = (filePath || "").split(".").pop()?.toLowerCase() || "";
     const map: Record<string, string> = {
-      ts: "typescript", tsx: "typescriptreact", js: "javascript", jsx: "javascriptreact",
-      py: "python", rs: "rust", go: "go", java: "java",
-      css: "css", scss: "scss", html: "html", json: "json",
-      md: "markdown", sh: "shellscript", yaml: "yaml", yml: "yaml",
-      xml: "xml", sql: "sql", php: "php", rb: "ruby",
-      kt: "kotlin", swift: "swift", dart: "dart", c: "c", cpp: "cpp",
+      ts: "typescript",
+      tsx: "typescriptreact",
+      js: "javascript",
+      jsx: "javascriptreact",
+      py: "python",
+      rs: "rust",
+      go: "go",
+      java: "java",
+      css: "css",
+      scss: "scss",
+      html: "html",
+      json: "json",
+      md: "markdown",
+      sh: "shellscript",
+      yaml: "yaml",
+      yml: "yaml",
+      xml: "xml",
+      sql: "sql",
+      php: "php",
+      rb: "ruby",
+      kt: "kotlin",
+      swift: "swift",
+      dart: "dart",
+      c: "c",
+      cpp: "cpp",
     };
     return map[ext] || "plaintext";
+  }
+
+  public async handleShowGitDiff(message: any) {
+    const filePath = message.filePath;
+    if (!filePath) {
+      console.error("[SystemHandler] showGitDiff: No filePath provided");
+      return;
+    }
+
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        console.error("[SystemHandler] No workspace folder found");
+        vscode.window.showErrorMessage("Không tìm thấy workspace folder");
+        return;
+      }
+
+      // Build URI for the file
+      const uri = path.isAbsolute(filePath)
+        ? vscode.Uri.file(filePath)
+        : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
+
+      // Try to open git diff using VSCode's git extension
+      // First, open the file in the editor
+      try {
+        const document = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(document);
+      } catch (error) {
+        console.warn("[SystemHandler] Failed to open file:", error);
+      }
+
+      // Method 1: Use git.openChange (specifically for showing changes)
+      try {
+        await vscode.commands.executeCommand("git.openChange", uri, "HEAD");
+        return;
+      } catch (error) {
+        console.warn("[SystemHandler] git.openChange failed:", error);
+      }
+
+      // Method 2: Use git.openResource with HEAD as revision
+      try {
+        await vscode.commands.executeCommand("git.openResource", uri, "HEAD");
+        return;
+      } catch (error) {
+        console.warn(
+          "[SystemHandler] git.openResource (with HEAD) failed:",
+          error,
+        );
+      }
+
+      // Method 3: Use git.openResource without revision
+      try {
+        await vscode.commands.executeCommand("git.openResource", uri);
+        return;
+      } catch (error) {
+        console.warn("[SystemHandler] git.openResource failed:", error);
+      }
+
+      // Method 4: Use git.show (opens the file in a diff view)
+      try {
+        await vscode.commands.executeCommand("git.show", uri);
+        return;
+      } catch (error) {
+        console.warn("[SystemHandler] git.show failed:", error);
+      }
+
+      // Method 5: Use git.openFile (opens the file with git diff)
+      try {
+        await vscode.commands.executeCommand("git.openFile", uri);
+        return;
+      } catch (error) {
+        console.warn("[SystemHandler] git.openFile failed:", error);
+      }
+
+      // Method 6: Use git.openFile2 (alternative)
+      try {
+        await vscode.commands.executeCommand("git.openFile2", uri);
+        return;
+      } catch (error) {
+        console.warn("[SystemHandler] git.openFile2 failed:", error);
+      }
+
+      // Method 7: Use git.stage with the file (to show diff in Source Control)
+      try {
+        await vscode.commands.executeCommand("git.stage", uri);
+        return;
+      } catch (error) {
+        console.warn("[SystemHandler] git.stage failed:", error);
+      }
+
+      // Method 8: Fallback - open the file directly
+      try {
+        const document = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(document);
+        vscode.window.showInformationMessage(
+          `Đã mở file ${path.basename(filePath)}. Sử dụng Source Control để xem diff.`,
+        );
+      } catch (error) {
+        console.error("[SystemHandler] Failed to open file:", error);
+        vscode.window.showErrorMessage(
+          `Không thể mở file: ${path.basename(filePath)}`,
+        );
+      }
+    } catch (error) {
+      console.error("[SystemHandler] showGitDiff error:", error);
+      vscode.window.showErrorMessage(`Lỗi khi mở git diff: ${error}`);
+    }
+  }
+
+  public async handleAcceptCommitMessage(message: any) {
+    const commitMessage = message.message;
+    if (!commitMessage) {
+      console.error("[SystemHandler] acceptCommitMessage: No message provided");
+      return;
+    }
+
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage("Không tìm thấy workspace folder");
+        return;
+      }
+
+      // Write the commit message to a file or run git commit
+      // For now, copy to clipboard and show a notification
+      await vscode.env.clipboard.writeText(commitMessage);
+      vscode.window.showInformationMessage(
+        `✅ Commit message đã được copy vào clipboard. Sử dụng "git commit -m" để commit.`,
+      );
+
+      // Optionally, we could run git commit directly
+      // But for safety, we let the user review and commit manually
+    } catch (error) {
+      console.error("[SystemHandler] acceptCommitMessage error:", error);
+      vscode.window.showErrorMessage(
+        `Lỗi khi xác nhận commit message: ${error}`,
+      );
+    }
+  }
+
+  public async handleRejectCommitMessage(message: any) {
+    vscode.window.showInformationMessage("Đã hủy commit message");
   }
 }

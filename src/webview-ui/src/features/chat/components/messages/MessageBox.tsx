@@ -17,8 +17,8 @@ import type { I18nKey } from "../../../../i18n";
 
 interface MessageBoxProps {
   message: Message;
-  parsedContent: ParsedResponse; // For assistant messages
-  isCollapsed: boolean; // For prompt sections
+  parsedContent: ParsedResponse;
+  isCollapsed: boolean;
   onToggleCollapse: () => void;
   clickedActions: Set<string>;
   failedActions?: Set<string>;
@@ -28,14 +28,14 @@ interface MessageBoxProps {
     message: Message,
     index: number,
     type: "accept_all" | "accept_once" | "reject",
-  ) => void; // Using any for action temporarily to match ToolAction
-  requestNumber?: number | null; // For user messages
+  ) => void;
+  requestNumber?: number | null;
   executionState?: {
     total: number;
     completed: number;
     status: "idle" | "running" | "error" | "done";
   };
-  isLastMessage?: boolean; // New prop
+  isLastMessage?: boolean;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
@@ -63,8 +63,11 @@ interface MessageBoxProps {
   >;
   onConfirmSingleLineAction?: (actionId: string) => void;
   onRejectSingleLineAction?: (actionId: string) => void;
+  onGitConfirm?: (items: any[]) => void;
+  onGitCancel?: () => void;
+  gitStatusItems?: any[];
+  isGitProcessing?: boolean;
 }
-
 const MessageBoxCodeBlock: React.FC<{
   code: string;
   language?: string;
@@ -166,6 +169,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
   singleLineReviewActions,
   onConfirmSingleLineAction,
   onRejectSingleLineAction,
+  onGitConfirm,
+  onGitCancel,
+  gitStatusItems,
+  isGitProcessing,
 }) => {
   const { t } = useI18n();
 
@@ -730,6 +737,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
           "replace_in_file",
           "run_command",
           "execute_agent_action",
+          "git_status",
         ]);
         const renderGroups = isSimpleMode
           ? groups.filter(
@@ -1275,6 +1283,10 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                 singleLineReviewActions={singleLineReviewActions}
                 onConfirmSingleLineAction={onConfirmSingleLineAction}
                 onRejectSingleLineAction={onRejectSingleLineAction}
+                onGitConfirm={onGitConfirm}
+                onGitCancel={onGitCancel}
+                gitStatusItems={gitStatusItems}
+                isGitProcessing={isGitProcessing}
               />
             );
 
