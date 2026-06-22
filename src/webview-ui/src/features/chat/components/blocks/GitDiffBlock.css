@@ -1,9 +1,9 @@
-/* Git Diff Block - remove divider from header */
+/* Git Diff Block - override terminal-block context border */
 .git-diff-block .terminal-block-header {
-  border-bottom: none !important;
-  background-color: transparent !important;
+  border-bottom: none;
+  background-color: transparent;
 }
 
 .git-diff-block .terminal-block-header:hover {
-  background-color: transparent !important;
+  background-color: transparent;
 }

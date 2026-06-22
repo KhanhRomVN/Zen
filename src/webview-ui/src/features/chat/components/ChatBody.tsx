@@ -13,6 +13,7 @@ import { Message } from "../types/message";
 import ProcessingIndicator from "./messages/ProcessingIndicator";
 import MessageBox from "./messages/MessageBox";
 import SearchBar from "./SearchBar";
+import { ChatErrorBoundary } from "./ChatErrorBoundary";
 
 interface ChatBodyProps {
   messages: Message[];
@@ -277,6 +278,45 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         />
       )}
 
+      {/* ── New messages indicator ─────────────────────────────────────── */}
+      {autoScrollPaused && isProcessing && (
+        <div
+          style={{
+            position: "sticky",
+            bottom: "12px",
+            zIndex: 20,
+            display: "flex",
+            justifyContent: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <button
+            onClick={scrollToBottom}
+            style={{
+              pointerEvents: "auto",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "5px 14px",
+              borderRadius: "20px",
+              border: "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 40%, transparent)",
+              background: "color-mix(in srgb, var(--vscode-editor-background) 85%, var(--vscode-button-background, #007acc))",
+              color: "var(--vscode-button-background, #007acc)",
+              fontSize: "11px",
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+              transition: "opacity 0.2s",
+            }}
+          >
+            <span
+              className="codicon codicon-arrow-down"
+              style={{ fontSize: "11px" }}
+            />
+            New messages
+          </button>
+        </div>
+      )}
       <div className="chat-timeline-wrapper">
         {visibleMessages.map((message, index) => {
           const parsedMessage = parsedMessages.find(
@@ -295,48 +335,50 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             .reverse()
             .find((m) => m.role === "assistant");
           return (
-            <MessageBox
-              key={message.id}
-              message={message}
-              parsedContent={parsedContent}
-              nextUserMessage={nextUserMessage}
-              isGenerating={
-                isProcessing && index === visibleMessages.length - 1
-              }
-              isCollapsed={
-                message.role === "user"
-                  ? collapsedSections.has(`prompt-${message.id}`)
-                  : false
-              }
-              onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
-              clickedActions={clickedActions}
-              failedActions={failedActions}
-              rejectedActions={rejectedActions}
-              onToolClick={handleToolClick}
-              executionState={executionState}
-              isLastMessage={
-                index === visibleMessages.length - 1 ||
-                index === lastAssistantIndex
-              }
-              toolOutputs={toolOutputs}
-              terminalStatus={terminalStatus}
-              allMessages={messages}
-              activeTerminalIds={activeTerminalIds}
-              attachedTerminalIds={attachedTerminalIds}
-              conversationId={conversationId}
-              previousAssistantMessage={previousAssistantMessage}
-              onSendMessage={onSendMessage}
-              onSelectOption={onSelectOption}
-              isSimpleMode={isSimpleMode}
-              onRevertConversation={onRevertConversation}
-              singleLineReviewActions={singleLineReviewActions}
-              onConfirmSingleLineAction={onConfirmSingleLineAction}
-              onRejectSingleLineAction={onRejectSingleLineAction}
-              onGitConfirm={onGitConfirm}
-              onGitCancel={onGitCancel}
-              gitStatusItems={gitStatusItems}
-              isGitProcessing={isGitProcessing}
-            />
+            <ChatErrorBoundary key={message.id}>
+              <MessageBox
+                key={message.id}
+                message={message}
+                parsedContent={parsedContent}
+                nextUserMessage={nextUserMessage}
+                isGenerating={
+                  isProcessing && index === visibleMessages.length - 1
+                }
+                isCollapsed={
+                  message.role === "user"
+                    ? collapsedSections.has(`prompt-${message.id}`)
+                    : false
+                }
+                onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
+                clickedActions={clickedActions}
+                failedActions={failedActions}
+                rejectedActions={rejectedActions}
+                onToolClick={handleToolClick}
+                executionState={executionState}
+                isLastMessage={
+                  index === visibleMessages.length - 1 ||
+                  index === lastAssistantIndex
+                }
+                toolOutputs={toolOutputs}
+                terminalStatus={terminalStatus}
+                allMessages={messages}
+                activeTerminalIds={activeTerminalIds}
+                attachedTerminalIds={attachedTerminalIds}
+                conversationId={conversationId}
+                previousAssistantMessage={previousAssistantMessage}
+                onSendMessage={onSendMessage}
+                onSelectOption={onSelectOption}
+                isSimpleMode={isSimpleMode}
+                onRevertConversation={onRevertConversation}
+                singleLineReviewActions={singleLineReviewActions}
+                onConfirmSingleLineAction={onConfirmSingleLineAction}
+                onRejectSingleLineAction={onRejectSingleLineAction}
+                onGitConfirm={onGitConfirm}
+                onGitCancel={onGitCancel}
+                gitStatusItems={gitStatusItems}
+                isGitProcessing={isGitProcessing}
+              />
+            </ChatErrorBoundary>
           );
         })}
       </div>

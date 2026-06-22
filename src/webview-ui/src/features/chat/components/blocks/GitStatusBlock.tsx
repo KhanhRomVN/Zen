@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import FileIcon from "@/icons/FileIcon";
 import "./GitStatusBlock.css";
+import { useI18n } from "../../../../hooks/useI18n";
 
 export interface GitStatusItem {
   status: string;
@@ -33,6 +34,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
   onCancel,
   isProcessing = false,
 }) => {
+  const { t } = useI18n();
   const handleRowClick = (path: string) => {
     // Send message to extension to show git diff
     const vscodeApi = (window as any).vscodeApi;
@@ -118,14 +120,14 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
       <div className="git-status-body">
         {stagedItems.length > 0 && (
           <div className="git-status-section">
-            <div className="git-status-section-title">Staged Changes</div>
+            <div className="git-status-section-title">{t("git.stagedChanges")}</div>
             {stagedItems.map((item, index) => renderItem(item, index))}
           </div>
         )}
 
         {unstagedItems.length > 0 && (
           <div className="git-status-section">
-            <div className="git-status-section-title">Unstaged Changes</div>
+            <div className="git-status-section-title">{t("git.unstagedChanges")}</div>
             {unstagedItems.map((item, index) => renderItem(item, index))}
           </div>
         )}
@@ -151,7 +153,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
           }}
         >
           <Check size={14} strokeWidth={2.5} />
-          <span>{isProcessing ? "Processing..." : "Tạo commit message"}</span>
+          <span>{isProcessing ? t("chat.processing") : t("git.createCommitMessage")}</span>
         </button>
         <button
           className="git-status-btn git-status-btn-cancel"
@@ -170,7 +172,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
           }}
         >
           <X size={14} strokeWidth={2.5} />
-          <span>Hủy</span>
+          <span>{t("git.cancel")}</span>
         </button>
       </div>
     </div>

@@ -176,8 +176,14 @@ const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(
 
     const reactNodes = React.useMemo(() => {
       // 1. Render markdown → sanitized HTML
+      // Strict DOMPurify config: strip event handlers and dangerous protocols
       const rawHtml = marked.parse(content) as string;
-      const sanitized = DOMPurify.sanitize(rawHtml);
+      const sanitized = DOMPurify.sanitize(rawHtml, {
+        USE_PROFILES: { html: true },
+        FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur", "onchange", "onsubmit"],
+        FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "input"],
+        ALLOW_DATA_ATTR: false,
+      });
 
       // 2. Parse into DOM
       const wrapper = document.createElement("div");

@@ -18,6 +18,12 @@ import {
   messageDispatcher,
 } from "@/services/ExtensionService";
 
+// ── Timeout constants ──────────────────────────────────────────────────────
+/** Standard timeout for file/git/search operations (ms) */
+const TOOL_TIMEOUT_STANDARD = 10_000;
+/** Extended timeout for long-running tools: grep, git diff, agent actions (ms) */
+const TOOL_TIMEOUT_EXTENDED = 30_000;
+
 interface UseToolExecutionProps {
   sendMessage: (
     content: string,
@@ -256,7 +262,7 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            10000,
+            TOOL_TIMEOUT_STANDARD,
             () => resolve(null),
           );
           break;
@@ -293,7 +299,7 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            10000,
+            TOOL_TIMEOUT_STANDARD,
             () => {
               console.warn(`[write_to_file] Timeout`, { requestId, filePath });
               resolve(null);
@@ -336,7 +342,7 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            10000,
+            TOOL_TIMEOUT_STANDARD,
             () => {
               console.warn(`[replace_in_file] Timeout`, {
                 requestId,
@@ -373,7 +379,7 @@ export const useToolExecution = ({
                 `[list_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(listResults) ? JSON.stringify(listResults, null, 2) : String(listResults)}\n\`\`\``,
               );
             },
-            10000,
+            TOOL_TIMEOUT_STANDARD,
             () => resolve(null),
           );
           break;
@@ -402,14 +408,9 @@ export const useToolExecution = ({
                 `[search_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(msg.results) ? msg.results.join("\n") : String(msg.results)}\n\`\`\``,
               );
             },
-            10000,
+            TOOL_TIMEOUT_STANDARD,
             () => resolve(null),
           );
-          break;
-        }
-        case "search_content": {
-          // removed
-          resolve(null);
           break;
         }
         case "run_command": {
@@ -442,14 +443,6 @@ export const useToolExecution = ({
           break;
         }
 
-        case "get_outline":
-        case "get_definition":
-        case "get_references": {
-          // removed
-          resolve(null);
-          break;
-        }
-
         case "delete_file": {
           const requestId = `delete-file-${Date.now()}-${Math.random()}`;
           const filePath = action.params.file_path;
@@ -471,7 +464,7 @@ export const useToolExecution = ({
                 `[delete_file for '${filePath}'] Result: File deleted successfully`,
               );
             },
-            10000,
+            TOOL_TIMEOUT_STANDARD,
             () => resolve(null),
           );
           break;
@@ -498,7 +491,7 @@ export const useToolExecution = ({
                 `[delete_folder for '${folderPath}'] Result: Folder deleted successfully`,
               );
             },
-            10000,
+            TOOL_TIMEOUT_STANDARD,
             () => resolve(null),
           );
           break;
@@ -527,7 +520,7 @@ export const useToolExecution = ({
                 `[move_file from '${filePath}' to '${targetFolderPath}'] Result: File moved successfully to '${msg.newPath || targetFolderPath}'`,
               );
             },
-            10000,
+            TOOL_TIMEOUT_STANDARD,
             () => resolve(null),
           );
           break;
@@ -552,7 +545,7 @@ export const useToolExecution = ({
                 );
               }
             },
-            30000,
+            TOOL_TIMEOUT_EXTENDED,
             () => resolve(null),
           );
           break;
@@ -596,7 +589,7 @@ export const useToolExecution = ({
                 );
               }
             },
-            30000,
+            TOOL_TIMEOUT_EXTENDED,
             () => {
               console.warn(
                 `[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`,
@@ -634,7 +627,7 @@ export const useToolExecution = ({
                 );
               }
             },
-            30000,
+            TOOL_TIMEOUT_EXTENDED,
             () => {
               resolve(null);
             },

@@ -4,6 +4,7 @@ import { ToolAction } from "../../services/ResponseParser";
 import GitStatusBlock, { GitStatusItem } from "../blocks/GitStatusBlock";
 import "../blocks/TerminalBlock.css";
 import { getToolColor } from "../../utils/toolUtils";
+import { parseGitStatusOutput } from "../../utils/parseGitStatus";
 
 interface GitToolRendererProps {
   action: ToolAction;
@@ -25,102 +26,6 @@ interface GitToolRendererProps {
   gitStatusItems?: GitStatusItem[];
   isProcessing?: boolean;
 }
-
-/**
- * Parse git status --porcelain output into GitStatusItem array
- */
-const parseGitStatusOutput = (output: string): GitStatusItem[] => {
-  if (!output || output.trim() === "") return [];
-
-  const lines = output.split("\n").filter((line) => line.trim() !== "");
-  const items: GitStatusItem[] = [];
-
-  for (const line of lines) {
-    // Git status --porcelain format:
-    // "M  file.txt" - staged modified
-    // " M file.txt" - unstaged modified
-    // "D  file.txt" - staged deleted
-    // " D file.txt" - unstaged deleted
-    // "A  file.txt" - staged added
-    // "?? file.txt" - untracked
-    // "R  old -> new" - renamed
-    // "C  old -> new" - copied
-    // "MM file.txt" - modified staged and unstaged
-
-    const trimmedLine = line.trim();
-    if (trimmedLine === "") continue;
-
-    // Extract status and path
-    let status = "";
-    let path = "";
-    let staged = false;
-
-    // Check for two-character status codes (first char = staged, second = unstaged)
-    // e.g., "MM", "AM", "M ", " M"
-    if (line.length >= 2) {
-      const firstChar = line[0];
-      const secondChar = line[1];
-      const pathStart = line.indexOf(
-        trimmedLine.split(/\s+/).slice(1).join(" "),
-      );
-
-      // Determine staged status
-      if (firstChar !== " " && firstChar !== "?") {
-        staged = true;
-      }
-
-      // Determine status code
-      if (firstChar === " " && secondChar !== " ") {
-        // Only unstaged changes
-        status = secondChar;
-        staged = false;
-      } else if (firstChar !== " " && secondChar === " ") {
-        // Only staged changes
-        status = firstChar;
-        staged = true;
-      } else if (firstChar !== " " && secondChar !== " ") {
-        // Both staged and unstaged changes
-        status = firstChar;
-        staged = true;
-      } else if (firstChar === "?" && secondChar === "?") {
-        // Untracked file
-        status = "?";
-        staged = false;
-      } else {
-        status = firstChar;
-        staged = false;
-      }
-
-      // Extract path (after status code)
-      const statusPattern = /^[A-Z? ]{2}\s+/;
-      const match = line.match(statusPattern);
-      if (match) {
-        path = line.substring(match[0].length).trim();
-      } else {
-        // Fallback: split by whitespace
-        const parts = line.split(/\s+/);
-        if (parts.length >= 2) {
-          path = parts.slice(1).join(" ");
-        } else {
-          path = line;
-        }
-      }
-
-      // Handle renamed/copied files: "R  old.txt -> new.txt"
-      if ((status === "R" || status === "C") && path.includes(" -> ")) {
-        path = path.split(" -> ")[1] || path;
-      }
-
-      items.push({
-        status: status.trim(),
-        path: path.trim(),
-        staged,
-      });
-    }
-  }
-
-  return items;
-};
 
 const GitToolRenderer: React.FC<GitToolRendererProps> = ({
   action,

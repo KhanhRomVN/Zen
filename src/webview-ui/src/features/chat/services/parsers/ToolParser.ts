@@ -154,13 +154,6 @@ export const parseToolAction = (
       );
       break;
 
-    case "search_content":
-    case "get_outline":
-    case "get_definition":
-    case "get_references":
-      // removed tools — ignore
-      break;
-
     case "delete_file":
       params.file_path = extractParam(
         innerContent,

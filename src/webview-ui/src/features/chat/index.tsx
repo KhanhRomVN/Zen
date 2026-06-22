@@ -24,10 +24,12 @@ import { ChatSession } from "./types/chat";
 import { Message } from "./types/message";
 import { ConversationCache } from "./services/ConversationCache";
 import ChatBody from "./components/ChatBody";
+import { ChatErrorBoundary } from "./components/ChatErrorBoundary";
 import { parseAIResponse } from "./services/ResponseParser";
 import { useTerminalPolling } from "./hooks/useTerminalPolling";
 import { useBrowserSession } from "./hooks/useBrowserSession";
 import { useDraftManagement } from "./hooks/useDraftManagement";
+import { parseGitStatusOutput } from "./utils/parseGitStatus";
 
 // Shared components
 import MessageInput from "@/components/MessageInput";
@@ -353,11 +355,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return !!(currentChat as any)?.conversationId && !currentChat?.canAccept;
   }, [currentChat]);
 
+  // Parse cache — reuse results across renders, avoiding redundant re-parses
+  // when only unrelated state changes (same messages array, same content).
+  const parseCacheRef = useRef<Map<string, ReturnType<typeof parseAIResponse>>>(new Map());
+
   const parsedMessages = useMemo(() => {
-    return messages.map((msg: Message) => ({
-      ...msg,
-      parsed: parseAIResponse(msg.content),
-    }));
+    const cache = parseCacheRef.current;
+    return messages.map((msg: Message) => {
+      if (!cache.has(msg.content)) {
+        cache.set(msg.content, parseAIResponse(msg.content));
+      }
+      return { ...msg, parsed: cache.get(msg.content)! };
+    });
   }, [messages]);
 
   const contextUsage = useMemo(() => {
@@ -1109,24 +1118,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         return;
       }
 
-      // Parse git status output
-      const items: { status: string; path: string; staged: boolean }[] = [];
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        // Format: "?? path", "M  path", "A  path", "M path", etc.
-        const parts = trimmed.match(/^([\w?]+)\s+(.*)$/);
-        if (parts) {
-          const status = parts[1].trim();
-          const path = parts[2].trim();
-          // Check if staged (no ? in status, and not "??")
-          const staged = !status.includes("?") && status !== "??";
-          items.push({ status, path, staged });
-        } else {
-          // Fallback: treat as untracked
-          items.push({ status: "?", path: trimmed, staged: false });
-        }
-      }
+      // Parse git status output using shared util
+      const items = parseGitStatusOutput(output);
 
       // Add diff stats to items
       const itemsWithStats = items.map((item) => {
@@ -1610,56 +1603,58 @@ Yêu cầu:
       </div>
 
       {/* ─── ChatBody ─── */}
-      <ChatBody
-        messages={messages}
-        isProcessing={isProcessing}
-        isContinuing={isContinuing}
-        incompleteHasPartialTool={incompleteHasPartialTool}
-        incompletePartialToolType={incompletePartialToolType}
-        isSimpleMode={isSimpleMode}
-        onSendToolRequest={(actions, msg, isAuto, type) =>
-          handleToolRequest(
-            actions,
-            msg,
-            isAuto,
-            conversationToolOverrides,
-            type,
-          )
-        }
-        onSendMessage={(c, f, m, a, skip, ids, hidden) =>
-          wrappedSendMessage(c, f, m, a, skip, ids, hidden)
-        }
-        executionState={executionState}
-        toolOutputs={toolOutputs}
-        terminalStatus={terminalStatus}
-        firstRequestMessageId={firstRequestMessage?.id}
-        onLoadConversation={onLoadConversation}
-        activeTerminalIds={activeTerminalIds}
-        attachedTerminalIds={attachedTerminalIds}
-        conversationId={currentConversationId}
-        onToolAction={handleToolAction}
-        onSelectOption={handleSelectOption}
-        isRestored={isRestored}
-        onContinue={() => setIsRestored(false)}
-        hasInitialMessage={!!initialMessageData}
-        onRevertConversation={handleRevertConversation}
-        onAutoScrollPausedChange={setAutoScrollPaused}
-        scrollToBottomRef={scrollToBottomRef}
-        singleLineReviewActions={singleLineReviewActions}
-        onConfirmSingleLineAction={confirmSingleLineAction}
-        onRejectSingleLineAction={rejectSingleLineAction}
-        isSearchOpen={isSearchOpen}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        onCloseSearch={() => {
-          setIsSearchOpen(false);
-          setSearchQuery("");
-        }}
-        onGitConfirm={handleGitConfirm}
-        onGitCancel={handleGitCancel}
-        gitStatusItems={gitStatus?.items || []}
-        isGitProcessing={gitCommitLoading}
-      />
+      <ChatErrorBoundary>
+        <ChatBody
+          messages={messages}
+          isProcessing={isProcessing}
+          isContinuing={isContinuing}
+          incompleteHasPartialTool={incompleteHasPartialTool}
+          incompletePartialToolType={incompletePartialToolType}
+          isSimpleMode={isSimpleMode}
+          onSendToolRequest={(actions, msg, isAuto, type) =>
+            handleToolRequest(
+              actions,
+              msg,
+              isAuto,
+              conversationToolOverrides,
+              type,
+            )
+          }
+          onSendMessage={(c, f, m, a, skip, ids, hidden) =>
+            wrappedSendMessage(c, f, m, a, skip, ids, hidden)
+          }
+          executionState={executionState}
+          toolOutputs={toolOutputs}
+          terminalStatus={terminalStatus}
+          firstRequestMessageId={firstRequestMessage?.id}
+          onLoadConversation={onLoadConversation}
+          activeTerminalIds={activeTerminalIds}
+          attachedTerminalIds={attachedTerminalIds}
+          conversationId={currentConversationId}
+          onToolAction={handleToolAction}
+          onSelectOption={handleSelectOption}
+          isRestored={isRestored}
+          onContinue={() => setIsRestored(false)}
+          hasInitialMessage={!!initialMessageData}
+          onRevertConversation={handleRevertConversation}
+          onAutoScrollPausedChange={setAutoScrollPaused}
+          scrollToBottomRef={scrollToBottomRef}
+          singleLineReviewActions={singleLineReviewActions}
+          onConfirmSingleLineAction={confirmSingleLineAction}
+          onRejectSingleLineAction={rejectSingleLineAction}
+          isSearchOpen={isSearchOpen}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          onCloseSearch={() => {
+            setIsSearchOpen(false);
+            setSearchQuery("");
+          }}
+          onGitConfirm={handleGitConfirm}
+          onGitCancel={handleGitCancel}
+          gitStatusItems={gitStatus?.items || []}
+          isGitProcessing={gitCommitLoading}
+        />
+      </ChatErrorBoundary>
 
       {/* ─── ChatFooter (inlined) ─── */}
       <div

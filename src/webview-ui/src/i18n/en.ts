@@ -80,6 +80,12 @@ export const en = {
     done: "Done",
     run: "Run",
   },
+  git: {
+    stagedChanges: "Staged Changes",
+    unstagedChanges: "Unstaged Changes",
+    createCommitMessage: "Create commit message",
+    cancel: "Cancel",
+  },
   history: {
     title: "History",
     desc: "Browse and restore past conversations",

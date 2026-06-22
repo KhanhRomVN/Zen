@@ -1,13 +1,13 @@
 /* ErrorBlock — no border on the outer block, header stays clean */
 .error-block {
-  border: none !important;
-  background: transparent !important;
-  overflow: visible !important;
+  border: none;
+  background: transparent;
+  overflow: visible;
 }
 
 /* Remove divider between ToolHeader and content */
 .error-block .terminal-block-header {
-  border-bottom: none !important;
+  border-bottom: none;
 }
 
 /* Error content styling — border + background only wraps the output area */

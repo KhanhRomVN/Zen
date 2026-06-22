@@ -20,8 +20,8 @@
 
 /* 🆕 Summary line for collapsed state */
 .code-block-summary {
-  background-color: transparent !important;
-  border-bottom: none !important;
+  background-color: transparent;
+  border-bottom: none;
   transition: opacity 0.2s;
 }
 
@@ -95,9 +95,9 @@
 }
 
 .copy-button {
-  background-color: transparent !important; /* Phase 2: No background */
+  background-color: transparent; /* Phase 2: No background */
   color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  border: none !important; /* Phase 2: No border */
+  border: none; /* Phase 2: No border */
   border-radius: 4px;
   padding: 0px; /* Phase 2: No padding */
   font-size: 11px;

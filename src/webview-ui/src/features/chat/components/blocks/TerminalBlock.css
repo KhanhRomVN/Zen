@@ -287,6 +287,18 @@
   background-color: var(--vscode-descriptionForeground);
   box-shadow: 0 0 0 2px var(--vscode-editor-background), 0 0 0 3px var(--vscode-textBlockQuote-border, var(--vscode-editorLineNumber-foreground));
   transition: all 0.2s ease;
+  animation: timeline-dot-fade-in 0.25s ease-out both;
+}
+
+@keyframes timeline-dot-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
 }
 
 /* Mask to hide the global timeline axis for specific sections */

@@ -82,6 +82,12 @@ export const vi: I18nDict = {
     done: "Hoàn thành",
     run: "Chạy",
   },
+  git: {
+    stagedChanges: "Staged Changes",
+    unstagedChanges: "Unstaged Changes",
+    createCommitMessage: "Tạo commit message",
+    cancel: "Hủy",
+  },
   history: {
     title: "Lịch sử",
     desc: "Duyệt và khôi phục các cuộc trò chuyện trước",
