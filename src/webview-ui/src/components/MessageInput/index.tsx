@@ -512,6 +512,7 @@ interface MessageInputProps {
   // 🆕 Git Status Button
   onGitPullRequest?: () => void;
   isGitLoading?: boolean;
+  isGitStatusVisible?: boolean;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -549,6 +550,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   onLaunchBrowserSession,
   onGitPullRequest,
   isGitLoading = false,
+  isGitStatusVisible = false,
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
@@ -1297,7 +1299,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             {onGitPullRequest && (
               <div
                 onClick={() => {
-                  if (!isGitLoading && !isProcessing) {
+                  if (!isGitLoading && !isProcessing && !isGitStatusVisible) {
                     onGitPullRequest();
                   }
                 }}
@@ -1311,30 +1313,32 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   width: "22px",
                   boxSizing: "border-box",
                   borderRadius: "4px",
-                  cursor: isGitLoading || isProcessing ? "default" : "pointer",
+                  cursor: isGitLoading || isProcessing || isGitStatusVisible ? "default" : "pointer",
                   transition: "all 0.2s ease-in-out",
                   border: "1px solid rgba(128, 128, 128, 0.2)",
                   background:
-                    isGitHovered && !isGitLoading && !isProcessing
+                    isGitHovered && !isGitLoading && !isProcessing && !isGitStatusVisible
                       ? "rgba(128, 128, 128, 0.2)"
                       : "rgba(128, 128, 128, 0.12)",
                   color:
-                    isGitLoading || isProcessing
+                    isGitLoading || isProcessing || isGitStatusVisible
                       ? "var(--vscode-descriptionForeground, #8c8c8c)"
                       : "var(--vscode-foreground)",
                   opacity:
-                    isGitHovered && !isGitLoading && !isProcessing
+                    isGitHovered && !isGitLoading && !isProcessing && !isGitStatusVisible
                       ? 0.9
-                      : isGitLoading || isProcessing
+                      : isGitLoading || isProcessing || isGitStatusVisible
                         ? 0.5
                         : 0.7,
                 }}
                 title={
-                  isGitLoading
-                    ? "Đang kiểm tra git status..."
-                    : isProcessing
-                      ? "Đang xử lý task, vui lòng đợi..."
-                      : "Git Status - Kiểm tra thay đổi đã staged"
+                  isGitStatusVisible
+                    ? "Git Status đang hiển thị"
+                    : isGitLoading
+                      ? "Đang kiểm tra git status..."
+                      : isProcessing
+                        ? "Đang xử lý task, vui lòng đợi..."
+                        : "Git Status - Kiểm tra thay đổi đã staged"
                 }
               >
                 <GitPullRequestArrow size={16} />

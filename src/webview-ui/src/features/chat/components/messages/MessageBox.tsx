@@ -55,6 +55,7 @@ interface MessageBoxProps {
   onGitConfirm?: (items: any[]) => void;
   onGitCancel?: () => void;
   gitStatusItems?: any[];
+  gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
 }

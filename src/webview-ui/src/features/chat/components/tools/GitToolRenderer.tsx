@@ -26,6 +26,7 @@ interface GitToolRendererProps {
   gitStatusItems?: GitStatusItem[];
   isProcessing?: boolean;
   isVisible?: boolean;
+  branch?: string;
 }
 
 const GitToolRenderer: React.FC<GitToolRendererProps> = ({
@@ -43,17 +44,14 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
   gitStatusItems = [],
   isProcessing = false,
   isVisible = true,
+  branch,
 }) => {
+  const actionId = `${messageId}-action-${actionIndex}`;
+
   // If not visible, don't render anything
   if (!isVisible) {
-    console.log("[GitToolRenderer] isVisible=false, returning null", {
-      isVisible,
-      gitStatusItemsLength: gitStatusItems.length,
-      actionId: `${messageId}-action-${actionIndex}`,
-    });
     return null;
   }
-  const actionId = `${messageId}-action-${actionIndex}`;
   const hasOutput = toolOutputs && toolOutputs[actionId];
 
   // Parse git output from toolOutputs or from action params (for restored conversations)
@@ -83,12 +81,6 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
   // Use parsed items instead of the prop
   const effectiveItems = parsedItems.length > 0 ? parsedItems : gitStatusItems;
 
-  console.log("[GitToolRenderer] Rendering with isVisible=true", {
-    gitStatusItemsLength: gitStatusItems.length,
-    effectiveItemsLength: effectiveItems?.length || 0,
-    parsedItemsLength: parsedItems.length,
-  });
-
   const getStatusColor = () => {
     if (hasOutput) {
       const output = toolOutputs[actionId];
@@ -111,7 +103,7 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
         0,
       );
       return {
-        label: "GIT STATUS",
+        label: `GIT STATUS${branch ? `(${branch})` : ""}`,
         stats: `${effectiveItems.length} changes +${totalAdded} -${totalDeleted}`,
         totalAdded,
         totalDeleted,
@@ -204,7 +196,7 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
         isPartial={false}
       />
 
-      {effectiveItems.length > 0 && (
+      {hasOutput && (
         <div style={{ padding: "0px 12px 12px 29px" }}>
           <GitStatusBlock
             statusItems={effectiveItems}
@@ -212,52 +204,6 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
             onCancel={handleCancel}
             isProcessing={isProcessing}
           />
-        </div>
-      )}
-
-      {effectiveItems.length === 0 && hasOutput && (
-        <div style={{ padding: "0px 12px 12px 29px" }}>
-          <div
-            style={{
-              padding: "16px",
-              textAlign: "center",
-              color: "var(--vscode-descriptionForeground, #8c8c8c)",
-              fontSize: "13px",
-            }}
-          >
-            <div style={{ fontSize: "24px", marginBottom: "8px" }}>📂</div>
-            <div style={{ fontWeight: 600, marginBottom: "4px" }}>
-              Không có thay đổi
-            </div>
-            <div style={{ fontSize: "12px" }}>
-              Chạy{" "}
-              <code
-                style={{
-                  background: "var(--vscode-textCodeBlock-background)",
-                  padding: "2px 6px",
-                  borderRadius: "4px",
-                }}
-              >
-                git add
-              </code>{" "}
-              để thêm file vào staging area
-            </div>
-            <button
-              onClick={handleCancel}
-              style={{
-                marginTop: "12px",
-                padding: "4px 16px",
-                background: "var(--vscode-button-secondaryBackground)",
-                color: "var(--vscode-button-secondaryForeground)",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "12px",
-              }}
-            >
-              Đóng
-            </button>
-          </div>
         </div>
       )}
     </div>

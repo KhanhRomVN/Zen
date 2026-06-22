@@ -63,6 +63,7 @@ interface ChatBodyProps {
   onGitConfirm?: (items: any[]) => void;
   onGitCancel?: () => void;
   gitStatusItems?: any[];
+  gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
 }
@@ -130,6 +131,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   onGitConfirm,
   onGitCancel,
   gitStatusItems,
+  gitStatusBranch,
   isGitProcessing,
   isGitStatusVisible = true,
 }: ExtendedChatBodyProps) => {
@@ -380,6 +382,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
                 onGitConfirm={onGitConfirm}
                 onGitCancel={onGitCancel}
                 gitStatusItems={gitStatusItems}
+                gitStatusBranch={gitStatusBranch}
                 isGitProcessing={isGitProcessing}
                 isGitStatusVisible={isGitStatusVisible}
               />

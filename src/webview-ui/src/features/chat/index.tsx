@@ -14,22 +14,26 @@ import {
   deleteConversation,
 } from "./services/ConversationService";
 import { HISTORY_CONTEXT_REMINDER } from "./prompts";
-import { getCommitMessagePrompt } from "./prompts/commit-message";
+
 import { useChatLLM } from "./hooks/useChatLLM";
 import { useToolExecution } from "./hooks/useToolExecution";
 import { useWorkspaceData } from "./hooks/useWorkspaceData";
+import { useGitOperations } from "./hooks/useGitOperations";
+import { useConversationRestore } from "./hooks/useConversationRestore";
 import { useFileHandling } from "../../hooks/useFileHandling";
 import { useMentionSystem } from "./hooks/useMentionSystem";
 import { ChatSession } from "./types/chat";
 import { Message } from "./types/message";
 import { ConversationCache } from "./services/ConversationCache";
+import ChatHeader from "./components/ChatHeader";
 import ChatBody from "./components/ChatBody";
+import ChatFooter from "./components/ChatFooter";
 import { ChatErrorBoundary } from "./components/ChatErrorBoundary";
 import { parseAIResponse } from "./services/ResponseParser";
 import { useTerminalPolling } from "./hooks/useTerminalPolling";
 import { useBrowserSession } from "./hooks/useBrowserSession";
 import { useDraftManagement } from "./hooks/useDraftManagement";
-import { parseGitStatusOutput } from "./utils/parseGitStatus";
+
 
 // Shared components
 import MessageInput from "@/components/MessageInput";
@@ -65,7 +69,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
   const [isApiUrlReady, setIsApiUrlReady] = useState(false);
   const [providers, setProviders] = useState<any[]>([]);
-  const [isLoadingConversation, setIsLoadingConversation] = useState(true);
+  
   const { activeTerminalIds, attachedTerminalIds } = useTerminalPolling();
   const [currentModel, setCurrentModel] = useState<any>(() => {
     if (initialMessageData?.model) return initialMessageData.model;
@@ -113,31 +117,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Git state
-  const [gitStatus, setGitStatus] = useState<{
-    items: {
-      status: string;
-      path: string;
-      staged: boolean;
-      added?: number;
-      deleted?: number;
-    }[];
-    raw: string;
-    diffStats?: Record<string, { added: number; deleted: number }>;
-  } | null>(null);
-  const [gitLoading, setGitLoading] = useState(false);
-  const [gitError, setGitError] = useState<string | null>(null);
-  const [showGitStatusBlock, setShowGitStatusBlock] = useState(false);
-  const [gitCommitMessage, setGitCommitMessage] = useState<string | null>(null);
-  const [gitCommitLoading, setGitCommitLoading] = useState(false);
-  const [gitCommitInput, setGitCommitInput] = useState<string>("");
+  // Git state - managed by useGitOperations hook
 
-  const [isRestored, setIsRestored] = useState(false);
-  const [revertInput, setRevertInput] = useState<{
-    value: string;
-    nonce: number;
-  } | null>(null);
-  const revertParentMessageIdRef = useRef<string | null>(null);
+  // Revert state - managed by useConversationRestore hook
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
@@ -150,6 +132,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mentionDropdownRef = useRef<HTMLDivElement>(null);
   const { apiUrl: backendApiUrl } = useBackendConnection();
+
+  // Revert state — owned by component so useDraftManagement can access it
+  const [revertInput, setRevertInput] = useState<{ value: string; nonce: number } | null>(null);
+  const revertParentMessageIdRef = useRef<string | null>(null);
 
   // --- Hooks ---
   const {
@@ -267,7 +253,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // --- Refs ---
   const hasProcessedInitial = useRef(false);
-  const hasAppendedHistoryContext = useRef(false);
   const wasPaused = useRef(false);
   const isStoppedRef = useRef(false);
 
@@ -342,6 +327,63 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionIds,
         uiHidden,
       ),
+  });
+
+  // Git operations
+  const {
+    gitStatus,
+    gitLoading,
+    gitError,
+    showGitStatusBlock,
+    gitCommitMessage,
+    gitCommitLoading,
+    gitCommitInput,
+    setGitCommitInput,
+    setShowGitStatusBlock,
+    setGitError,
+    setGitCommitMessage,
+    enrichedModel,
+    handleGitPullRequest,
+    handleGitConfirm,
+    handleGitCancel,
+    handleGitRetry,
+    handleGitCommit,
+    handleGitCommitMessageDetected,
+  } = useGitOperations({
+    currentModel,
+    currentAccount,
+    providers,
+    commitMessageLanguage,
+    currentConversationId,
+    wrappedSendMessage,
+    setMessages,
+    setToolOutputs,
+  });
+
+  // Conversation restore
+  const {
+    isLoadingConversation,
+    isRestored,
+    setIsRestored,
+    setIsLoadingConversation,
+    handleRevertConversation,
+    handleClearConfirmed,
+    hasAppendedHistoryContext,
+  } = useConversationRestore({
+    currentChat,
+    currentConversationId,
+    currentConversationIdRef,
+    messagesRef,
+    setMessages,
+    setIsProcessing,
+    setToolOutputs,
+    setBackendConversationId,
+    setCurrentConversationId,
+    setCurrentModel,
+    setCurrentAccount,
+    onBack,
+    revertParentMessageIdRef,
+    setRevertInput,
   });
 
   // Reset hasProcessedInitial whenever a new tab/chat session starts
@@ -539,278 +581,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     );
   }, [singleLineReviewActions, currentConversationId, currentChat]);
 
-  // Load conversation
-  useEffect(() => {
-    const load = async () => {
-      if (!currentChat) {
-        if (currentConversationIdRef.current) {
-          return;
-        }
-        setMessages([]);
-        setIsLoadingConversation(false);
-        setIsProcessing(false);
-        setIsRestored(false);
-        return;
-      }
-      setIsLoadingConversation(true);
-      setIsRestored(false);
-      hasAppendedHistoryContext.current = false;
-      const convId = (currentChat as any).conversationId;
-      if (convId) {
-        const cached = ConversationCache.get(convId);
-        if (cached) {
-          setMessages(cached.messages);
-          if (
-            cached.toolOutputs &&
-            Object.keys(cached.toolOutputs).length > 0
-          ) {
-            setToolOutputs(cached.toolOutputs);
-          }
-          if (
-            cached.singleLineReviewActions &&
-            Object.keys(cached.singleLineReviewActions).length > 0
-          ) {
-            window.postMessage(
-              {
-                command: "restoreSingleLineReviewActions",
-                actions: cached.singleLineReviewActions,
-              },
-              "*",
-            );
-          }
-          const pendingParent = sessionStorage.getItem(
-            `zen-revert-parent:${convId}`,
-          );
-          if (pendingParent) revertParentMessageIdRef.current = pendingParent;
-          setIsRestored(cached.messages.length > 0);
-          currentConversationIdRef.current = cached.conversationId;
-          setCurrentConversationId(cached.conversationId);
-          if (cached.backendConversationId) {
-            setBackendConversationId(cached.backendConversationId);
-          }
-          if (cached.currentModel) {
-            setCurrentModel(cached.currentModel);
-          }
-          if (cached.currentAccount) {
-            setCurrentAccount(cached.currentAccount);
-          }
-          setIsLoadingConversation(false);
-          return;
-        }
-
-        const requestId = `conv-${Date.now()}`;
-        extensionService.postMessage({
-          command: "getConversation",
-          conversationId: convId,
-          requestId,
-        });
-      } else {
-        setMessages([]);
-        setCurrentConversationId("");
-        setIsLoadingConversation(false);
-      }
-    };
-    load();
-  }, [currentChat?.sessionId, (currentChat as any)?.conversationId]);
-
-  // Handle incoming messages
-  useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      const data = event.data;
-      if (data.command === "conversationResult") {
-        console.log(`[History] conversationResult received`, {
-          conversationId: data.data?.conversationId,
-          messageCount: data.data?.messages?.length || 0,
-          hasToolOutputs: data.data?.toolOutputs
-            ? Object.keys(data.data.toolOutputs).length > 0
-            : false,
-          requestId: data.requestId,
-        });
-        if (data.data?.messages) {
-          const restoredMessages = data.data.messages.map(
-            (msg: Message, i: number) => ({
-              ...msg,
-              id: msg.id || `restored-${Date.now()}-${i}`,
-            }),
-          );
-          setMessages(restoredMessages);
-
-          if (
-            data.data.toolOutputs &&
-            Object.keys(data.data.toolOutputs).length > 0
-          ) {
-            setToolOutputs(data.data.toolOutputs);
-          }
-
-          if (
-            data.data.singleLineReviewActions &&
-            Object.keys(data.data.singleLineReviewActions).length > 0
-          ) {
-            window.postMessage(
-              {
-                command: "restoreSingleLineReviewActions",
-                actions: data.data.singleLineReviewActions,
-              },
-              "*",
-            );
-          }
-
-          const pendingParent = sessionStorage.getItem(
-            `zen-revert-parent:${data.data?.conversationId}`,
-          );
-          if (pendingParent) revertParentMessageIdRef.current = pendingParent;
-
-          if (data.data.messages.length > 0) {
-            setIsRestored(true);
-          }
-          if (data.data.conversationId) {
-            currentConversationIdRef.current = data.data.conversationId;
-            setCurrentConversationId(data.data.conversationId);
-
-            const lastMsgWithBackendId = [...restoredMessages]
-              .reverse()
-              .find((m: Message) => m.conversationId);
-            const backendIdFromMsg = lastMsgWithBackendId?.conversationId;
-            const lastAssistantWithMeta = [...restoredMessages]
-              .reverse()
-              .find(
-                (m: Message) =>
-                  m.role === "assistant" && m.providerId && m.modelId,
-              );
-            const restoredMeta = lastAssistantWithMeta
-              ? {
-                  providerId: lastAssistantWithMeta.providerId,
-                  modelId: lastAssistantWithMeta.modelId,
-                  accountId: lastAssistantWithMeta.accountId,
-                }
-              : undefined;
-            const backendIdToUse =
-              backendIdFromMsg ||
-              data.data.backendConversationId ||
-              data.data.conversationId;
-            setBackendConversationId(backendIdToUse, restoredMeta);
-
-            const lastAssistantMsgForMeta = [...restoredMessages]
-              .reverse()
-              .find(
-                (m: Message) =>
-                  m.role === "assistant" && m.providerId && m.modelId,
-              );
-            let modelToCache: any = undefined;
-            let accountToCache: any = undefined;
-            if (lastAssistantMsgForMeta) {
-              modelToCache = {
-                providerId: lastAssistantMsgForMeta.providerId!,
-                id: lastAssistantMsgForMeta.modelId!,
-                name: lastAssistantMsgForMeta.modelId!,
-              };
-              accountToCache = {
-                id: lastAssistantMsgForMeta.accountId!,
-                email: lastAssistantMsgForMeta.email!,
-              };
-              setCurrentModel(modelToCache);
-              setCurrentAccount(accountToCache);
-            }
-            ConversationCache.set(data.data.conversationId, {
-              messages: restoredMessages,
-              conversationId: data.data.conversationId,
-              backendConversationId: backendIdToUse,
-              currentModel: modelToCache,
-              currentAccount: accountToCache,
-            });
-          }
-        }
-        setIsLoadingConversation(false);
-        setIsProcessing(false);
-      } else if (data.command === "commitError") {
-        // Display git commit/push error in chat
-        const errorMsg = data.error || "Unknown git error";
-        const errorMessage: Message = {
-          id: `msg-error-${Date.now()}`,
-          role: "assistant",
-          content: `❌ **Lỗi commit/push**\n\n\`\`\`\n${errorMsg}\n\`\`\``,
-          timestamp: Date.now(),
-          isError: true,
-        };
-        setMessages((prev) => [...prev, errorMessage]);
-        // Also show notification
-        const vscodeApi = (window as any).vscodeApi;
-        if (vscodeApi) {
-          vscodeApi.postMessage({
-            command: "showError",
-            message: `Lỗi commit/push: ${errorMsg.substring(0, 200)}${errorMsg.length > 200 ? "..." : ""}`,
-          });
-        }
-      } else if (
-        data.command === "clearChatConfirmed" &&
-        data.conversationId === currentConversationId
-      ) {
-        handleClearConfirmed();
-      } else if (
-        data.command === "conversationReverted" &&
-        data.conversationId === currentConversationId
-      ) {
-        const targetId = revertMessageIdRef.current;
-        revertMessageIdRef.current = null;
-        if (targetId === "__first__") {
-          deleteConversation(currentConversationId);
-          const firstUserMsg = messagesRef.current.find(
-            (m) => !m.uiHidden && !m.isCancelled && m.role === "user",
-          );
-          let content = firstUserMsg?.content || "";
-          const match = content.match(
-            /<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/,
-          );
-          if (match) content = match[1];
-          setMessages([]);
-          setIsLoadingConversation(false);
-          onBack(content);
-        } else {
-          setMessages((prev) => {
-            const idx = targetId
-              ? prev.findIndex((m) => m.id === targetId)
-              : -1;
-            if (idx === -1) return prev;
-            const msg = prev[idx];
-            const match = msg.content.match(
-              /<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/,
-            );
-            const content = match ? match[1] : msg.content;
-            const prevAssistant = [...prev.slice(0, idx)]
-              .reverse()
-              .find((m) => m.role === "assistant");
-            revertParentMessageIdRef.current =
-              prevAssistant?.response_message_id || null;
-            if (revertParentMessageIdRef.current) {
-              sessionStorage.setItem(
-                `zen-revert-parent:${currentConversationId}`,
-                revertParentMessageIdRef.current,
-              );
-            } else {
-              sessionStorage.removeItem(
-                `zen-revert-parent:${currentConversationId}`,
-              );
-            }
-            setRevertInput({ value: content, nonce: Date.now() });
-            const reverted = prev.slice(0, idx);
-            const existing = ConversationCache.get(currentConversationId);
-            ConversationCache.set(currentConversationId, {
-              messages: reverted,
-              conversationId: currentConversationId,
-              backendConversationId: existing?.backendConversationId,
-              currentModel: existing?.currentModel,
-              currentAccount: existing?.currentAccount,
-            });
-            return reverted;
-          });
-          setIsLoadingConversation(false);
-          setIsProcessing(false);
-        }
-      }
-    };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-  }, [currentConversationId]);
+  // Conversation restore is now handled by useConversationRestore hook
 
   // --- ChatFooter handlers ---
   const handleSend = (model: any, account: any) => {
@@ -955,38 +726,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     });
   }, [currentConversationId]);
 
-  const revertMessageIdRef = useRef<string | null>(null);
-
-  const handleRevertConversation = useCallback(
-    (messageId: string, timestamp: number) => {
-      if (!currentConversationId) return;
-      const visibleUserMessages = messagesRef.current.filter(
-        (m) => !m.uiHidden && !m.isCancelled && m.role === "user",
-      );
-      const isFirstMessage =
-        visibleUserMessages.length > 0 &&
-        visibleUserMessages[0].id === messageId;
-      revertMessageIdRef.current = isFirstMessage ? "__first__" : messageId;
-      setIsLoadingConversation(true);
-      extensionService.postMessage({
-        command: "revertConversation",
-        conversationId: currentConversationId,
-        messageId,
-        timestamp,
-      });
-    },
-    [currentConversationId, messagesRef],
-  );
-
-  const handleClearConfirmed = async () => {
-    if (currentChat) {
-      await deleteConversation(currentConversationId);
-      setMessages([]);
-      setIsProcessing(false);
-      setCurrentConversationId(Date.now().toString());
-    }
-  };
-
   const handleStopGeneration = useCallback(() => {
     isStoppedRef.current = true;
     stopGeneration();
@@ -1023,412 +762,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     currentConversationId,
   ]);
 
-  // 🆕 Git handlers
-  const enrichedModel = useMemo(() => {
-    if (!currentModel) return null;
-    if (!Array.isArray(providers)) return currentModel;
-    const providerData = providers.find(
-      (p: any) => p.provider_id === currentModel.providerId,
-    );
-    const modelData = providerData?.models?.find(
-      (m: any) => m.id === currentModel.id,
-    );
-    if (!modelData) return currentModel;
-    return { ...currentModel, ...modelData };
-  }, [currentModel, providers]);
-
-  const handleGitPullRequest = useCallback(async () => {
-    if (gitLoading) {
-      return;
-    }
-    setGitLoading(true);
-    setGitError(null);
-    setShowGitStatusBlock(false);
-    setGitCommitMessage(null);
-    try {
-      // Use extension service to run git status
-      const vscodeApi = (window as any).vscodeApi;
-      if (!vscodeApi) {
-        console.error("[Git] vscodeApi not available");
-        setGitError("Không thể kết nối với VSCode API");
-        setGitLoading(false);
-        return;
-      }
-
-      const requestId = `git-status-${Date.now()}`;
-      console.log("[Git] Request ID:", requestId);
-
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      const promise = new Promise<{
-        output: string;
-        error?: string;
-        diffStats?: Record<string, { added: number; deleted: number }>;
-      }>((resolve) => {
-        const handler = (event: MessageEvent) => {
-          const msg = event.data;
-          if (
-            msg.command === "gitStatusResult" &&
-            msg.requestId === requestId
-          ) {
-            if (timeoutId) {
-              clearTimeout(timeoutId);
-              timeoutId = null;
-            }
-            window.removeEventListener("message", handler);
-            resolve({
-              output: msg.output,
-              error: msg.error,
-              diffStats: msg.diffStats,
-            });
-          }
-        };
-        window.addEventListener("message", handler);
-        timeoutId = setTimeout(() => {
-          window.removeEventListener("message", handler);
-          resolve({ output: "", error: "Timeout" });
-        }, 10000);
-      });
-
-      vscodeApi.postMessage({
-        command: "runGitStatus",
-        requestId,
-      });
-
-      const result = await promise;
-
-      if (result.error && result.error !== "Timeout") {
-        console.error("[Git] Error from git status:", result.error);
-        setGitError(result.error);
-        setGitLoading(false);
-        return;
-      }
-
-      if (result.error === "Timeout") {
-        console.error("[Git] Timeout waiting for git status");
-        setGitError("Git status timeout. Vui lòng thử lại.");
-        setGitLoading(false);
-        return;
-      }
-
-      const output = result.output || "";
-      const diffStats = result.diffStats || {};
-      const lines = output.split("\n").filter((l: string) => l.trim());
-
-      if (lines.length === 0 || output.trim() === "") {
-        // Git status empty - show empty state with label
-        setGitStatus({ items: [], raw: output });
-        setShowGitStatusBlock(true);
-        setGitLoading(false);
-        return;
-      }
-
-      // Parse git status output using shared util
-      const items = parseGitStatusOutput(output);
-
-      // Add diff stats to items
-      const itemsWithStats = items.map((item) => {
-        const stats = diffStats[item.path];
-        if (stats) {
-          return { ...item, added: stats.added, deleted: stats.deleted };
-        }
-        return { ...item, added: 0, deleted: 0 };
-      });
-
-      setGitStatus({ items: itemsWithStats, raw: output, diffStats });
-
-      // Add git status as a tool action using a formatted content string
-      // that will be parsed by parseAIResponse
-      const toolContent = `<git_status>
-<items>${JSON.stringify(itemsWithStats)}</items>
-<raw>${JSON.stringify(output)}</raw>
-Đã kiểm tra git status. Tìm thấy ${itemsWithStats.length} thay đổi.
-</git_status>`;
-
-      const messageId = `msg-git-${Date.now()}`;
-      const assistantMessage: Message = {
-        id: messageId,
-        role: "assistant",
-        content: toolContent,
-        timestamp: Date.now(),
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      // Also update toolOutputs so GitToolRenderer can access the raw output
-      const actionId = `${messageId}-action-0`;
-      setToolOutputs((prev) => ({
-        ...prev,
-        [actionId]: {
-          output: output,
-          isError: false,
-        },
-      }));
-      setGitLoading(false);
-    } catch (err) {
-      console.error("[Git] Exception in handleGitPullRequest:", err);
-      setGitError(err instanceof Error ? err.message : "Unknown error");
-      setGitLoading(false);
-    }
-  }, [gitLoading]);
-
-  const handleGitConfirm = useCallback(
-    async (items?: any[]) => {
-      console.log("[Git] currentConversationId:", currentConversationId);
-      // Use provided items or fall back to gitStatus
-      const statusItems = items || gitStatus?.items || [];
-      if (statusItems.length === 0) {
-        // Empty status - show notification
-        const vscodeApi = (window as any).vscodeApi;
-        if (vscodeApi) {
-          vscodeApi.postMessage({
-            command: "showInformation",
-            message:
-              "Chưa có thay đổi nào để commit. Hãy thêm file với 'git add' trước.",
-          });
-        }
-        setShowGitStatusBlock(false);
-        return;
-      }
-
-      // Send message to AI to generate commit message
-      setGitCommitLoading(true);
-      const gitStatusText = statusItems
-        .map(
-          (item) =>
-            `${item.staged ? "[staged]" : "[unstaged]"} ${item.status} ${item.path}`,
-        )
-        .join("\n");
-
-      // Use the current model and account to send a message
-      const modelToUse = enrichedModel ?? currentModel;
-      const accountToUse = currentAccount;
-
-      if (!modelToUse || !accountToUse) {
-        setGitCommitLoading(false);
-        setGitError(
-          "Vui lòng chọn model và account trước khi tạo commit message.",
-        );
-        return;
-      }
-
-      // Build prompt for AI using the structured template from prompts/commit-message.ts
-      const commitLang = commitMessageLanguage || "vi";
-      const formattedPrompt = getCommitMessagePrompt(commitLang, gitStatusText);
-      const prompt = `[COMMIT_MESSAGE_REQUEST]\n${formattedPrompt}`;
-
-      try {
-        // Use sendMessage to send to AI with uiHidden: true to hide the user message
-        // and skipLogic: true to bypass the first request logic
-        await wrappedSendMessage(
-          prompt,
-          undefined, // no files
-          modelToUse,
-          accountToUse,
-          true, // skipFirstRequestLogic = true
-          undefined,
-          true, // uiHidden = true
-        );
-
-        setGitCommitLoading(false);
-        // The AI response will be displayed in the chat as a commit_message block
-        setShowGitStatusBlock(false);
-      } catch (err) {
-        setGitCommitLoading(false);
-        setGitError(
-          err instanceof Error
-            ? err.message
-            : "Failed to generate commit message",
-        );
-      }
-    },
-    [
-      gitStatus,
-      enrichedModel,
-      currentModel,
-      currentAccount,
-      wrappedSendMessage,
-    ],
-  );
-
-  const handleGitCancel = useCallback(() => {
-    setShowGitStatusBlock(false);
-    setGitCommitMessage(null);
-    setGitError(null);
-    setGitCommitInput("");
-  }, []);
-
-  const handleGitRetry = useCallback(async () => {
-    if (!gitCommitInput?.trim() || !gitStatus) return;
-
-    setGitCommitLoading(true);
-    const gitStatusText = gitStatus.items
-      .map(
-        (item) =>
-          `${item.staged ? "[staged]" : "[unstaged]"} ${item.status} ${item.path}`,
-      )
-      .join("\n");
-
-    const modelToUse = enrichedModel ?? currentModel;
-    const accountToUse = currentAccount;
-
-    if (!modelToUse || !accountToUse) {
-      setGitCommitLoading(false);
-      setGitError(
-        "Vui lòng chọn model và account trước khi tạo commit message.",
-      );
-      return;
-    }
-
-    const prompt = `Hãy tạo một commit message dựa trên danh sách file thay đổi sau:
-
-\`\`\`
-${gitStatusText}
-\`\`\`
-
-Yêu cầu bổ sung: ${gitCommitInput.trim()}
-
-Yêu cầu:
-- Sử dụng cấu trúc: <emoji> <type>(<scope>): <subject>
-- Liệt kê các thay đổi chi tiết với dấu "-" ở đầu dòng
-- Viết bằng tiếng Việt
-- Commit message ngắn gọn, rõ ràng, có ý nghĩa`;
-
-    try {
-      await wrappedSendMessage(
-        prompt,
-        undefined,
-        modelToUse,
-        accountToUse,
-        false,
-        undefined,
-        undefined,
-      );
-      setGitCommitLoading(false);
-      setGitCommitInput("");
-      setShowGitStatusBlock(false);
-    } catch (err) {
-      setGitCommitLoading(false);
-      setGitError(
-        err instanceof Error
-          ? err.message
-          : "Failed to generate commit message",
-      );
-    }
-  }, [
-    gitCommitInput,
-    gitStatus,
-    enrichedModel,
-    currentModel,
-    currentAccount,
-    wrappedSendMessage,
-  ]);
-
-  const handleGitCommit = useCallback(async (message: string) => {
-    if (!message.trim()) return;
-    const vscodeApi = (window as any).vscodeApi;
-    if (!vscodeApi) {
-      setGitError("Không thể kết nối với VSCode API");
-      return;
-    }
-
-    setGitCommitLoading(true);
-    try {
-      const requestId = `git-commit-${Date.now()}`;
-      const promise = new Promise<{ success: boolean; error?: string }>(
-        (resolve) => {
-          const handler = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "gitCommitResult" &&
-              msg.requestId === requestId
-            ) {
-              window.removeEventListener("message", handler);
-              resolve({ success: msg.success, error: msg.error });
-            }
-          };
-          window.addEventListener("message", handler);
-          setTimeout(() => {
-            window.removeEventListener("message", handler);
-            resolve({ success: false, error: "Timeout" });
-          }, 15000);
-        },
-      );
-
-      vscodeApi.postMessage({
-        command: "gitCommitAndPush",
-        requestId,
-        message: message.trim(),
-      });
-
-      const result = await promise;
-      setGitCommitLoading(false);
-      if (result.success) {
-        setGitCommitMessage(null);
-        setShowGitStatusBlock(false);
-        vscodeApi.postMessage({
-          command: "showInformation",
-          message: "✅ Commit và push thành công!",
-        });
-      } else {
-        setGitError(result.error || "Commit failed");
-      }
-    } catch (err) {
-      setGitCommitLoading(false);
-      setGitError(err instanceof Error ? err.message : "Commit failed");
-    }
-  }, []);
-
-  // Listen for AI response containing commit message
+  // Listen for AI response containing commit message - using hook's detector
   useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.role === "assistant" && !lastMessage.isCancelled) {
-      const content = lastMessage.content;
-      // Check if this looks like a commit message
-      if (content && content.includes(":") && content.includes("-")) {
-        const lines = content.split("\n").filter((l) => l.trim());
-        // Simple heuristic: has emoji or conventional commit format
-        const hasCommitFormat = lines.some(
-          (l) => /^[\u{1F300}-\u{1F9FF}]/u.test(l) || /^[a-z]+\(/.test(l),
-        );
-        if (hasCommitFormat) {
-          setGitCommitMessage(content);
-        }
-      }
-    }
-  }, [messages]);
+    handleGitCommitMessageDetected(messages);
+  }, [messages, handleGitCommitMessageDetected]);
 
   const firstRequestMessage = messages.find((m) => m.role === "user");
-
-  // ChatHeader helpers
-  const formatTokens = (num: number) => {
-    if (num >= 1000) return (num / 1000).toFixed(1) + "K";
-    return num.toString();
-  };
 
   // Use enrichedModel (model with full capability flags) for header display,
   // same source as what MessageInput receives — ensures header always matches
   // the model the user has actually selected/switched to.
   const displayedModel = enrichedModel ?? currentModel;
-  const providerId = displayedModel?.providerId || "";
-  let faviconUrl = providerId
-    ? `https://www.google.com/s2/favicons?domain=${(() => {
-        const pid = providerId.toLowerCase();
-        if (pid.includes("openai")) return "openai.com";
-        if (pid.includes("anthropic")) return "anthropic.com";
-        if (pid.includes("google") || pid.includes("gemini"))
-          return "google.com";
-        if (pid.includes("openrouter")) return "openrouter.ai";
-        if (pid.includes("deepseek")) return "deepseek.com";
-        if (pid.includes("zenmux") || pid.includes("moonshotai"))
-          return "zenmux.ai";
-        if (pid.includes("qwen")) return "qwen.ai";
-        if (pid.includes("groq")) return "groq.com";
-        if (pid.includes("mistral")) return "mistral.ai";
-        if (pid.includes("glm") || pid.includes("zai") || pid.includes("z-ai"))
-          return "bigmodel.cn";
-        return "deepseek.com";
-      })()}&sz=64`
-    : "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
 
   const totalTokens = contextUsage?.total ?? 0;
   const footerPaddingBottom =
@@ -1447,166 +791,17 @@ Yêu cầu:
         color: "var(--vscode-editor-foreground)",
       }}
     >
-      {/* ─── ChatHeader (inlined) ─── */}
-      <div
-        style={{
-          borderBottom: "1px solid var(--border-color)",
-          backgroundColor: "var(--primary-bg)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "8px 12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "8px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "12px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-              overflow: "hidden",
-            }}
-          >
-            <img
-              src={faviconUrl}
-              alt="provider"
-              style={{ width: "14px", height: "14px", borderRadius: "2px" }}
-            />
-            <span style={{ whiteSpace: "nowrap" }}>
-              {displayedModel?.providerId || "?"}/{displayedModel?.id || "chat"}
-            </span>
-            {currentAccount?.email && (
-              <span
-                style={{
-                  opacity: 0.7,
-                  fontStyle: "italic",
-                  fontWeight: "normal",
-                  fontSize: "11px",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  maxWidth: "150px",
-                }}
-                title={currentAccount.email}
-              >
-                {currentAccount.email}
-              </span>
-            )}
-            {currentTaskName && (
-              <>
-                <span style={{ opacity: 0.3 }}>|</span>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    fontSize: "11px",
-                    color: "var(--vscode-textLink-foreground)",
-                    fontWeight: 500,
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "5px",
-                      height: "5px",
-                      borderRadius: "50%",
-                      backgroundColor: "currentColor",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span
-                    style={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {currentTaskName}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                fontSize: "11px",
-                color: "var(--secondary-text)",
-                opacity: 0.8,
-              }}
-            >
-              {contextUsage ? formatTokens(contextUsage.total) : "0"}
-            </span>
-            <button
-              onClick={() => {
-                setIsSearchOpen((v) => !v);
-                if (isSearchOpen) setSearchQuery("");
-              }}
-              title="Search in chat"
-              style={{
-                background: isSearchOpen
-                  ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
-                  : "transparent",
-                border: isSearchOpen
-                  ? "1px solid color-mix(in srgb, var(--vscode-button-background) 40%, transparent)"
-                  : "1px solid transparent",
-                cursor: "pointer",
-                padding: "3px 4px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: isSearchOpen
-                  ? "var(--vscode-button-background, var(--vscode-textLink-foreground))"
-                  : "var(--vscode-icon-foreground, var(--secondary-text))",
-                opacity: isSearchOpen ? 1 : 0.65,
-                borderRadius: "4px",
-                transition: "all 0.15s ease",
-              }}
-              onMouseEnter={(e) => {
-                if (!isSearchOpen) e.currentTarget.style.opacity = "1";
-              }}
-              onMouseLeave={(e) => {
-                if (!isSearchOpen) e.currentTarget.style.opacity = "0.65";
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m13 13.5 2-2.5-2-2.5" />
-                <path d="m21 21-4.3-4.3" />
-                <path d="M9 8.5 7 11l2 2.5" />
-                <circle cx="11" cy="11" r="8" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* ─── ChatHeader ─── */}
+      <ChatHeader
+        displayedModel={displayedModel}
+        currentAccount={currentAccount}
+        currentTaskName={currentTaskName}
+        contextUsage={contextUsage}
+        isSearchOpen={isSearchOpen}
+        setIsSearchOpen={setIsSearchOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
 
       {/* ─── ChatBody ─── */}
       <ChatErrorBoundary>
@@ -1658,110 +853,58 @@ Yêu cầu:
           onGitConfirm={handleGitConfirm}
           onGitCancel={handleGitCancel}
           gitStatusItems={gitStatus?.items || []}
+          gitStatusBranch={gitStatus?.branch || ""}
           isGitProcessing={gitCommitLoading}
+          isGitStatusVisible={showGitStatusBlock}
         />
       </ChatErrorBoundary>
 
-      {/* ─── ChatFooter (inlined) ─── */}
-      <div
-        id="chat-footer-container"
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          backgroundColor: "var(--secondary-bg)",
-          zIndex: 100,
-          transition: "bottom 0.2s ease",
-          paddingBottom: footerPaddingBottom,
-        }}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          style={{ display: "none" }}
-          onChange={handleFileInputChange}
-          accept="image/*,text/*"
-        />
-        <input
-          ref={externalFileInputRef}
-          type="file"
-          multiple
-          style={{ display: "none" }}
-          onChange={handleExternalFileInputChange}
-        />
-
-        <FilesPreviews
-          uploadedFiles={uploadedFiles}
-          attachedItems={attachedItems}
-          onRemoveFile={removeFile}
-          onRemoveAttachedItem={removeAttachedItem}
-          onOpenImage={handleOpenImage}
-          onAttachedItemClick={(item) => {
-            const vscodeApi = (window as any).vscodeApi;
-            if (!vscodeApi) return;
-            if (item.type === "file") {
-              vscodeApi.postMessage({
-                command: "openWorkspaceFile",
-                path: item.path,
-              });
-            } else if (item.type === "folder") {
-              vscodeApi.postMessage({
-                command: "openWorkspaceFolder",
-                path: item.path,
-              });
-            } else if (item.type === ("terminal" as any)) {
-              vscodeApi.postMessage({
-                command: "focusTerminal",
-                terminalId: item.path,
-              });
-            }
-          }}
-        />
-
-        <div style={{ position: "relative" }}>
-          <MessageInput
-            message={message}
-            setMessage={setMessage}
-            isHistoryMode={isHistoryMode}
-            uploadedFiles={uploadedFiles}
-            textareaRef={textareaRef}
-            handleTextareaChange={handleTextareaChange}
-            handleKeyDown={handleKeyDown}
-            handlePaste={handlePaste}
-            handleDragOver={handleDragOver}
-            handleDrop={handleDrop}
-            setShowAtMenu={setShowAtMenu}
-            handleFileSelect={handleFileSelect}
-            fileInputRef={fileInputRef}
-            onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
-            showChangesDropdown={showChangesDropdown}
-            setShowChangesDropdown={setShowChangesDropdown}
-            messages={messages}
-            handleSend={handleSend}
-            hasProjectContext={!!projectContext}
-            onOpenProjectContext={() => setShowProjectContextModal(true)}
-            folderPath={currentChat?.folderPath || null}
-            isConversationStarted={messages.length > 0 || !!initialMessageData}
-            currentModel={enrichedModel ?? currentModel}
-            setCurrentModel={setCurrentModel}
-            currentAccount={currentAccount}
-            setCurrentAccount={setCurrentAccount}
-            isProcessing={isProcessing || executionState.status === "running"}
-            isStreaming={isStreaming}
-            onStopGeneration={handleStopGeneration}
-            showBrowserWarning={showBrowserWarning}
-            isLaunchingBrowser={isLaunchingBrowser}
-            onLaunchBrowserSession={launchBrowserSession}
-            onGitPullRequest={handleGitPullRequest}
-            isGitLoading={gitLoading}
-          />
-        </div>
-      </div>
+      {/* ─── ChatFooter ─── */}
+      <ChatFooter
+        message={message}
+        setMessage={setMessage}
+        isHistoryMode={isHistoryMode}
+        uploadedFiles={uploadedFiles}
+        attachedItems={attachedItems}
+        textareaRef={textareaRef}
+        handleTextareaChange={handleTextareaChange}
+        handleKeyDown={handleKeyDown}
+        handlePaste={handlePaste}
+        handleDragOver={handleDragOver}
+        handleDrop={handleDrop}
+        setShowAtMenu={setShowAtMenu}
+        handleFileSelect={handleFileSelect}
+        fileInputRef={fileInputRef}
+        onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
+        showChangesDropdown={showChangesDropdown}
+        setShowChangesDropdown={setShowChangesDropdown}
+        messages={messages}
+        handleSend={handleSend}
+        hasProjectContext={!!projectContext}
+        onOpenProjectContext={() => setShowProjectContextModal(true)}
+        folderPath={currentChat?.folderPath || null}
+        isConversationStarted={messages.length > 0 || !!initialMessageData}
+        currentModel={enrichedModel ?? currentModel}
+        setCurrentModel={setCurrentModel}
+        currentAccount={currentAccount}
+        setCurrentAccount={setCurrentAccount}
+        isProcessing={isProcessing || executionState.status === "running"}
+        isStreaming={isStreaming}
+        onStopGeneration={handleStopGeneration}
+        showBrowserWarning={showBrowserWarning}
+        isLaunchingBrowser={isLaunchingBrowser}
+        onLaunchBrowserSession={launchBrowserSession}
+        onGitPullRequest={handleGitPullRequest}
+        gitLoading={gitLoading}
+        isGitStatusVisible={showGitStatusBlock}
+        removeAttachedItem={removeAttachedItem}
+        onOpenImage={handleOpenImage}
+        removeFile={removeFile}
+        externalFileInputRef={externalFileInputRef}
+        handleExternalFileInputChange={handleExternalFileInputChange}
+        handleFileInputChange={handleFileInputChange}
+        footerPaddingBottom={footerPaddingBottom}
+      />
     </div>
   );
 };

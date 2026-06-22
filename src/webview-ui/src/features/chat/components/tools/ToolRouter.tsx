@@ -52,6 +52,7 @@ interface ToolRouterProps {
   onGitConfirm?: (statusItems: any[]) => void;
   onGitCancel?: () => void;
   gitStatusItems?: any[];
+  gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
 }
@@ -81,6 +82,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   onGitConfirm,
   onGitCancel,
   gitStatusItems,
+  gitStatusBranch,
   isGitProcessing,
   isGitStatusVisible = true,
 }) => {
@@ -379,6 +381,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
         toolOutputs={toolOutputs}
         onToolClick={onToolClick}
         gitStatusItems={finalGitStatusItems}
+        branch={gitStatusBranch}
         isProcessing={isGitProcessing || executionState?.status === "running"}
         onConfirm={onGitConfirm}
         onCancel={onGitCancel}
@@ -427,7 +430,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                 }}
               >
                 <span style={{ fontWeight: 600, opacity: 0.8 }}>
-                  COMMIT MESSAGE
+                  COMMIT MESSAGE{gitStatusBranch ? `(${gitStatusBranch})` : ""}
                 </span>
                 <span
                   className="codicon codicon-git-commit"
@@ -439,7 +442,8 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                       fontSize: "10px",
                       fontWeight: 600,
                       color: "var(--vscode-errorForeground, #ff4d4d)",
-                      background: "color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)",
+                      background:
+                        "color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)",
                       padding: "2px 8px",
                       borderRadius: "4px",
                       marginLeft: "4px",
@@ -453,8 +457,10 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                     style={{
                       fontSize: "10px",
                       fontWeight: 600,
-                      color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
-                      background: "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent)",
+                      color:
+                        "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+                      background:
+                        "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent)",
                       padding: "2px 8px",
                       borderRadius: "4px",
                       marginLeft: "4px",
@@ -490,24 +496,40 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                   style={{
                     marginTop: "12px",
                     padding: "10px 14px",
-                    background: "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 10%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 30%, transparent)",
+                    background:
+                      "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 10%, transparent)",
+                    border:
+                      "1px solid color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 30%, transparent)",
                     borderRadius: "6px",
                     fontSize: "12px",
                     color: "var(--vscode-foreground)",
                   }}
                 >
-                  <div style={{ fontWeight: 600, color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)", marginBottom: "4px" }}>
-                    ✅ Commit thành công!
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      color:
+                        "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Commit thành công!
                   </div>
                   <div style={{ opacity: 0.8, fontSize: "11px" }}>
-                    Hãy chạy <code style={{
-                      background: "var(--vscode-textCodeBlock-background)",
-                      padding: "2px 6px",
-                      borderRadius: "4px",
-                      fontFamily: "var(--vscode-editor-font-family, monospace)",
-                      fontSize: "11px",
-                    }}>git push</code> để đẩy commit lên remote.
+                    Hãy chạy{" "}
+                    <code
+                      style={{
+                        background: "var(--vscode-textCodeBlock-background)",
+                        padding: "2px 6px",
+                        borderRadius: "4px",
+                        fontFamily:
+                          "var(--vscode-editor-font-family, monospace)",
+                        fontSize: "11px",
+                      }}
+                    >
+                      git push
+                    </code>{" "}
+                    để đẩy commit lên remote.
                   </div>
                 </div>
               )}
@@ -694,6 +716,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             deleted={0}
             statusColor={diffColor}
             isPartial={true}
+            branch={gitStatusBranch}
             onFileClick={(path) => {
               const vscodeApi = (window as any).vscodeApi;
               if (vscodeApi) {
@@ -725,6 +748,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
           deleted={stats.deleted}
           statusColor={diffColor}
           isPartial={!hasOutput && isActiveGroup}
+          branch={gitStatusBranch}
           onFileClick={(path) => {
             const vscodeApi = (window as any).vscodeApi;
             if (vscodeApi) {

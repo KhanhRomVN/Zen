@@ -12,6 +12,7 @@ export interface GitDiffBlockProps {
   isPartial?: boolean;
   statusColor?: string;
   onFileClick?: (filePath: string) => void;
+  branch?: string;
 }
 
 const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
@@ -22,6 +23,7 @@ const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
   isPartial = false,
   statusColor = "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
   onFileClick,
+  branch,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
@@ -167,7 +169,7 @@ const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
           color: "var(--vscode-editor-foreground)",
         }}
       >
-        <span style={{ fontWeight: 600, opacity: 0.8 }}>DIFF</span>
+        <span style={{ fontWeight: 600, opacity: 0.8 }}>DIFF{branch ? `(${branch})` : ""}</span>
         <FileIcon
           path={filePath}
           style={{ width: "14px", height: "14px", flexShrink: 0 }}

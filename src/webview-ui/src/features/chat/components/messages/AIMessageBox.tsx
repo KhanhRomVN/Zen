@@ -62,6 +62,7 @@ interface AIMessageBoxProps {
   onGitConfirm?: (items: any[]) => void;
   onGitCancel?: () => void;
   gitStatusItems?: any[];
+  gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
 }
@@ -166,6 +167,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   onGitConfirm,
   onGitCancel,
   gitStatusItems,
+  gitStatusBranch,
   isGitProcessing,
   isGitStatusVisible = true,
 }) => {
@@ -956,6 +958,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 onGitConfirm={onGitConfirm}
                 onGitCancel={onGitCancel}
                 gitStatusItems={gitStatusItems}
+                gitStatusBranch={gitStatusBranch}
                 isGitProcessing={isGitProcessing}
                 isGitStatusVisible={isGitStatusVisible}
               />

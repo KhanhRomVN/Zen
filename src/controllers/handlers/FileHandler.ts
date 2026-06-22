@@ -880,9 +880,10 @@ export class FileHandler {
     const diffPromise = runCommand("git diff --numstat");
     const diffCachedPromise = runCommand("git diff --cached --numstat");
     const unpushedPromise = runCommand("git log origin/HEAD..HEAD --oneline");
+    const branchPromise = runCommand("git rev-parse --abbrev-ref HEAD");
 
-    Promise.all([statusPromise, diffPromise, diffCachedPromise, unpushedPromise])
-      .then(([statusResult, diffResult, diffCachedResult, unpushedResult]) => {
+    Promise.all([statusPromise, diffPromise, diffCachedPromise, unpushedPromise, branchPromise])
+      .then(([statusResult, diffResult, diffCachedResult, unpushedResult, branchResult]) => {
         // Check for git status error
         if (statusResult.error) {
           console.error(`[Git] Error running git status:`, statusResult.error);
@@ -957,6 +958,8 @@ export class FileHandler {
           requestId: message.requestId,
         });
 
+        const branch = branchResult.stdout?.trim() || "";
+
         // Send combined result
         webviewView.webview.postMessage({
           command: "gitStatusResult",
@@ -964,6 +967,7 @@ export class FileHandler {
           output: statusOutput,
           diffStats: diffStats,
           unpushedCommits: unpushedCommits,
+          branch: branch,
         });
       })
       .catch((err) => {

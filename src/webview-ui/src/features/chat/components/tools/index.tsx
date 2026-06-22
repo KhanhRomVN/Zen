@@ -40,6 +40,7 @@ interface ToolActionsListProps {
   onGitConfirm?: (items: any[]) => void;
   onGitCancel?: () => void;
   gitStatusItems?: any[];
+  gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
 }
@@ -68,6 +69,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   onGitConfirm,
   onGitCancel,
   gitStatusItems,
+  gitStatusBranch,
   isGitProcessing,
   isGitStatusVisible = true,
 }) => {
@@ -286,6 +288,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             onGitConfirm={onGitConfirm}
             onGitCancel={onGitCancel}
             gitStatusItems={gitStatusItems}
+            gitStatusBranch={gitStatusBranch}
             isGitProcessing={isGitProcessing}
             isGitStatusVisible={isGitStatusVisible}
           />

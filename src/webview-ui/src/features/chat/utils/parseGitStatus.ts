@@ -9,6 +9,7 @@ export interface GitStatusEntry {
   staged: boolean;
   added?: number;
   deleted?: number;
+  isUnpushedCommit?: boolean;
 }
 
 /**
@@ -36,6 +37,13 @@ export const parseGitStatusOutput = (output: string): GitStatusEntry[] => {
 
     const firstChar = line[0];
     const secondChar = line[1];
+
+    // Validate that the first two characters are valid porcelain status chars
+    // Valid: space, A-Z, ?, ! — rejects JSON-stringified strings like '""'
+    const validStatusChars = /^[ A-Z?!]$/;
+    if (!validStatusChars.test(firstChar) || !validStatusChars.test(secondChar)) {
+      continue;
+    }
 
     let status = "";
     let path = "";

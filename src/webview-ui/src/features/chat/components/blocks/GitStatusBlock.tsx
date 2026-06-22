@@ -60,7 +60,22 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
       C: <Move size={14} strokeWidth={2} />,
       "?": <HelpCircle size={14} strokeWidth={2} />,
       "!": <FolderOpen size={14} strokeWidth={2} />,
-      "U": <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>,
+      U: (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 19V5" />
+          <path d="M5 12l7-7 7 7" />
+        </svg>
+      ),
     };
     return iconMap[status] || <FolderOpen size={14} strokeWidth={2} />;
   };
@@ -78,21 +93,18 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
     return "var(--vscode-foreground)";
   };
 
-  const stagedItems = statusItems.filter((item) => item.staged && !item.isUnpushedCommit);
-  const unstagedItems = statusItems.filter((item) => !item.staged && !item.isUnpushedCommit);
+  const stagedItems = statusItems.filter(
+    (item) => item.staged && !item.isUnpushedCommit,
+  );
+  const unstagedItems = statusItems.filter(
+    (item) => !item.staged && !item.isUnpushedCommit,
+  );
   const unpushedCommits = statusItems.filter((item) => item.isUnpushedCommit);
 
-  // Debug log
-  console.log("[GitStatusBlock] Render stats:", {
-    totalItems: statusItems.length,
-    stagedItems: stagedItems.length,
-    unstagedItems: unstagedItems.length,
-    unpushedCommits: unpushedCommits.length,
-    hasUnpushed: unpushedCommits.length > 0,
-  });
-
   // Button color based on git status
-  const hasStaged = statusItems.some((item) => item.staged && !item.isUnpushedCommit);
+  const hasStaged = statusItems.some(
+    (item) => item.staged && !item.isUnpushedCommit,
+  );
   const hasUnpushed = statusItems.some((item) => item.isUnpushedCommit);
   const buttonColor = hasStaged
     ? "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)"
@@ -138,28 +150,68 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
       <div className="git-status-body">
         {unpushedCommits.length > 0 && (
           <div className="git-status-section">
-            <div className="git-status-section-title" style={{ color: "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)" }}>
+            <div
+              className="git-status-section-title"
+              style={{
+                color:
+                  "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)",
+              }}
+            >
               📤 Chưa push ({unpushedCommits.length})
             </div>
             {unpushedCommits.map((item, index) => {
               const commitMsg = item.path;
-              const shortMsg = commitMsg.length > 60 ? commitMsg.substring(0, 60) + "..." : commitMsg;
+              const shortMsg =
+                commitMsg.length > 60
+                  ? commitMsg.substring(0, 60) + "..."
+                  : commitMsg;
               return (
                 <div
                   key={index}
                   className="git-status-item"
                   style={{
-                    borderLeftColor: "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)",
+                    borderLeftColor:
+                      "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)",
                     cursor: "default",
                   }}
                 >
-                  <span style={{ width: 16, height: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)" }}>
-                      <path d="M12 19V5"/>
-                      <path d="M5 12l7-7 7 7"/>
+                  <span
+                    style={{
+                      width: 16,
+                      height: 16,
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        color:
+                          "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)",
+                      }}
+                    >
+                      <path d="M12 19V5" />
+                      <path d="M5 12l7-7 7 7" />
                     </svg>
                   </span>
-                  <span className="git-status-path" style={{ fontFamily: "var(--vscode-editor-font-family, monospace)", fontSize: "11px", opacity: 0.85 }}>
+                  <span
+                    className="git-status-path"
+                    style={{
+                      fontFamily: "var(--vscode-editor-font-family, monospace)",
+                      fontSize: "11px",
+                      opacity: 0.85,
+                    }}
+                  >
                     {shortMsg}
                   </span>
                 </div>
