@@ -53,6 +53,7 @@ interface ToolRouterProps {
   onGitCancel?: () => void;
   gitStatusItems?: any[];
   isGitProcessing?: boolean;
+  isGitStatusVisible?: boolean;
 }
 
 const ToolRouter: React.FC<ToolRouterProps> = ({
@@ -81,6 +82,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   onGitCancel,
   gitStatusItems,
   isGitProcessing,
+  isGitStatusVisible = true,
 }) => {
   const { rootPath } = useProject();
 
@@ -380,6 +382,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
         isProcessing={isGitProcessing || executionState?.status === "running"}
         onConfirm={onGitConfirm}
         onCancel={onGitCancel}
+        isVisible={isGitStatusVisible}
       />
     );
   }
@@ -387,7 +390,17 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   if (toolType === "commit_message") {
     const messageContent =
       firstAction.params?.message || firstAction.params?.content || "";
+    const actionIndex = group[0].index;
+    const actionId = `${messageId}-action-${actionIndex}`;
     const commitColor = getToolColor("commit_message");
+    const isRejected = rejectedActions?.has(actionId) || false;
+    const [isCommitted, setIsCommitted] = React.useState(false);
+    const statusColor = isRejected
+      ? "var(--vscode-errorForeground, #ff4d4d)"
+      : isCommitted
+        ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+        : commitColor;
+
     return (
       <div
         className="timeline-item"
@@ -420,9 +433,39 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                   className="codicon codicon-git-commit"
                   style={{ fontSize: "14px" }}
                 />
+                {isRejected && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      color: "var(--vscode-errorForeground, #ff4d4d)",
+                      background: "color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)",
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      marginLeft: "4px",
+                    }}
+                  >
+                    REJECTED
+                  </span>
+                )}
+                {isCommitted && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+                      background: "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent)",
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      marginLeft: "4px",
+                    }}
+                  >
+                    ✓ COMMITTED
+                  </span>
+                )}
               </div>
             }
-            statusColor={commitColor}
+            statusColor={statusColor}
             isPartial={false}
           />
           <div style={{ padding: "4px 12px 12px 29px" }}>
@@ -442,90 +485,147 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
               }}
             >
               {messageContent}
+              {isCommitted && (
+                <div
+                  style={{
+                    marginTop: "12px",
+                    padding: "10px 14px",
+                    background: "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 10%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 30%, transparent)",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    color: "var(--vscode-foreground)",
+                  }}
+                >
+                  <div style={{ fontWeight: 600, color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)", marginBottom: "4px" }}>
+                    ✅ Commit thành công!
+                  </div>
+                  <div style={{ opacity: 0.8, fontSize: "11px" }}>
+                    Hãy chạy <code style={{
+                      background: "var(--vscode-textCodeBlock-background)",
+                      padding: "2px 6px",
+                      borderRadius: "4px",
+                      fontFamily: "var(--vscode-editor-font-family, monospace)",
+                      fontSize: "11px",
+                    }}>git push</code> để đẩy commit lên remote.
+                  </div>
+                </div>
+              )}
             </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "6px",
-                padding: "8px 0 4px 0",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                onClick={() => {
-                  const vscodeApi = (window as any).vscodeApi;
-                  if (vscodeApi) {
-                    vscodeApi.postMessage({
-                      command: "acceptCommitMessage",
-                      message: messageContent,
-                    });
-                  }
-                }}
+            {!isCommitted && !isRejected && (
+              <div
                 style={{
-                  background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`,
-                  color:
-                    "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
-                  border: `1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 30%, transparent)`,
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
+                  display: "flex",
                   gap: "6px",
-                  height: "24px",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 25%, transparent)`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`;
+                  padding: "8px 0 4px 0",
+                  justifyContent: "flex-end",
                 }}
               >
-                <span
-                  className="codicon codicon-check"
-                  style={{ fontSize: "12px" }}
-                />
-                Accept
-              </button>
-              <button
-                onClick={() => {
-                  const vscodeApi = (window as any).vscodeApi;
-                  if (vscodeApi) {
-                    vscodeApi.postMessage({
-                      command: "rejectCommitMessage",
-                    });
-                  }
-                }}
-                style={{
-                  background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
-                  color: "var(--vscode-errorForeground, #ff4d4d)",
-                  border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
-                  padding: "4px 10px",
-                  borderRadius: "6px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  height: "24px",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`;
-                }}
-              >
-                <span
-                  className="codicon codicon-close"
-                  style={{ fontSize: "12px" }}
-                />
-                Reject
-              </button>
-            </div>
+                <button
+                  onClick={() => {
+                    const vscodeApi = (window as any).vscodeApi;
+                    if (vscodeApi) {
+                      setIsCommitted(true);
+                      vscodeApi.postMessage({
+                        command: "acceptCommitMessage",
+                        message: messageContent,
+                      });
+                    }
+                  }}
+                  style={{
+                    background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`,
+                    color:
+                      "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
+                    border: `1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 30%, transparent)`,
+                    padding: "4px 10px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    height: "24px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 25%, transparent)`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`;
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  Accept
+                </button>
+                <button
+                  onClick={() => {
+                    // Mark action as rejected locally
+                    onToolClick(firstAction, messageId, actionIndex, "reject");
+                    // Also notify extension
+                    const vscodeApi = (window as any).vscodeApi;
+                    if (vscodeApi) {
+                      vscodeApi.postMessage({
+                        command: "rejectCommitMessage",
+                      });
+                    }
+                  }}
+                  style={{
+                    background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
+                    color: "var(--vscode-errorForeground, #ff4d4d)",
+                    border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
+                    padding: "4px 10px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor: isRejected ? "default" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    height: "24px",
+                    opacity: isRejected ? 0.5 : 1,
+                  }}
+                  disabled={isRejected}
+                  onMouseEnter={(e) => {
+                    if (!isRejected) {
+                      e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isRejected) {
+                      e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`;
+                    }
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                  {isRejected ? "Rejected" : "Reject"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

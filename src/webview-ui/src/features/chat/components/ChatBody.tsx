@@ -64,6 +64,7 @@ interface ChatBodyProps {
   onGitCancel?: () => void;
   gitStatusItems?: any[];
   isGitProcessing?: boolean;
+  isGitStatusVisible?: boolean;
 }
 
 export interface ExtendedChatBodyProps extends ChatBodyProps {
@@ -130,6 +131,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   onGitCancel,
   gitStatusItems,
   isGitProcessing,
+  isGitStatusVisible = true,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -299,8 +301,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
               gap: "6px",
               padding: "5px 14px",
               borderRadius: "20px",
-              border: "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 40%, transparent)",
-              background: "color-mix(in srgb, var(--vscode-editor-background) 85%, var(--vscode-button-background, #007acc))",
+              border:
+                "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 40%, transparent)",
+              background:
+                "color-mix(in srgb, var(--vscode-editor-background) 85%, var(--vscode-button-background, #007acc))",
               color: "var(--vscode-button-background, #007acc)",
               fontSize: "11px",
               fontWeight: 600,
@@ -377,6 +381,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
                 onGitCancel={onGitCancel}
                 gitStatusItems={gitStatusItems}
                 isGitProcessing={isGitProcessing}
+                isGitStatusVisible={isGitStatusVisible}
               />
             </ChatErrorBoundary>
           );

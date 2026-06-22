@@ -509,7 +509,7 @@ interface MessageInputProps {
   showBrowserWarning?: boolean;
   isLaunchingBrowser?: boolean;
   onLaunchBrowserSession?: () => void;
-  // 🆕 Git Pull Request Arrow
+  // 🆕 Git Status Button
   onGitPullRequest?: () => void;
   isGitLoading?: boolean;
 }
@@ -1293,7 +1293,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               <PlusIcon />
             </div>
 
-            {/* Git Pull Request Arrow */}
+            {/* Git Status Button */}
             {onGitPullRequest && (
               <div
                 onClick={() => {
@@ -1334,7 +1334,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     ? "Đang kiểm tra git status..."
                     : isProcessing
                       ? "Đang xử lý task, vui lòng đợi..."
-                      : "Git Pull Request - Kiểm tra thay đổi"
+                      : "Git Status - Kiểm tra thay đổi đã staged"
                 }
               >
                 <GitPullRequestArrow size={16} />

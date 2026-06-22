@@ -16,6 +16,7 @@ import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "../../hooks/useToolExecution";
 import GrepBlock from "../blocks/GrepBlock";
 import { RichtextBlock } from "../blocks/RichtextBlock";
+import FileStreamingBlock from "../blocks/FileStreamingBlock";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
 // Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
@@ -896,13 +897,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             !isCompleted &&
             isActiveGroup;
 
-          return (
-            <RichtextBlock
-              content={streamContent}
-              showHeader={false}
-              maxHeight={200}
-            />
-          );
+          return <FileStreamingBlock content={streamContent} maxHeight={200} />;
         })()}
 
       {/* Grep tool results — rendered inside the main flow with ToolHeader */}

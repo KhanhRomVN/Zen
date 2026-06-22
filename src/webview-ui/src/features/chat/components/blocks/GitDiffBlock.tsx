@@ -48,6 +48,13 @@ const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
         continue;
       }
 
+      // Skip git metadata lines (new file mode, etc.)
+      if (line.startsWith("new file mode")) continue;
+      if (line.startsWith("deleted file mode")) continue;
+
+      // Skip trailing git metadata (no newline at end of file)
+      if (line.includes("No newline at end of file")) continue;
+
       // Process lines within hunks
       if (inHunk) {
         let content = line;

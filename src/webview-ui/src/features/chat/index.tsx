@@ -357,7 +357,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Parse cache — reuse results across renders, avoiding redundant re-parses
   // when only unrelated state changes (same messages array, same content).
-  const parseCacheRef = useRef<Map<string, ReturnType<typeof parseAIResponse>>>(new Map());
+  const parseCacheRef = useRef<Map<string, ReturnType<typeof parseAIResponse>>>(
+    new Map(),
+  );
 
   const parsedMessages = useMemo(() => {
     const cache = parseCacheRef.current;
@@ -619,7 +621,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         console.log(`[History] conversationResult received`, {
           conversationId: data.data?.conversationId,
           messageCount: data.data?.messages?.length || 0,
-          hasToolOutputs: data.data?.toolOutputs ? Object.keys(data.data.toolOutputs).length > 0 : false,
+          hasToolOutputs: data.data?.toolOutputs
+            ? Object.keys(data.data.toolOutputs).length > 0
+            : false,
           requestId: data.requestId,
         });
         if (data.data?.messages) {
@@ -1411,18 +1415,20 @@ Yêu cầu:
         const pid = providerId.toLowerCase();
         if (pid.includes("openai")) return "openai.com";
         if (pid.includes("anthropic")) return "anthropic.com";
-        if (pid.includes("google") || pid.includes("gemini")) return "google.com";
+        if (pid.includes("google") || pid.includes("gemini"))
+          return "google.com";
         if (pid.includes("openrouter")) return "openrouter.ai";
         if (pid.includes("deepseek")) return "deepseek.com";
-        if (pid.includes("zenmux") || pid.includes("moonshotai")) return "zenmux.ai";
+        if (pid.includes("zenmux") || pid.includes("moonshotai"))
+          return "zenmux.ai";
         if (pid.includes("qwen")) return "qwen.ai";
         if (pid.includes("groq")) return "groq.com";
         if (pid.includes("mistral")) return "mistral.ai";
-        if (pid.includes("glm") || pid.includes("zai") || pid.includes("z-ai")) return "bigmodel.cn";
+        if (pid.includes("glm") || pid.includes("zai") || pid.includes("z-ai"))
+          return "bigmodel.cn";
         return "deepseek.com";
       })()}&sz=64`
     : "https://www.google.com/s2/favicons?domain=deepseek.com&sz=64";
-
 
   const totalTokens = contextUsage?.total ?? 0;
   const footerPaddingBottom =

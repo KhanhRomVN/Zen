@@ -879,9 +879,10 @@ export class FileHandler {
     const statusPromise = runCommand("git status --porcelain");
     const diffPromise = runCommand("git diff --numstat");
     const diffCachedPromise = runCommand("git diff --cached --numstat");
+    const unpushedPromise = runCommand("git log origin/HEAD..HEAD --oneline");
 
-    Promise.all([statusPromise, diffPromise, diffCachedPromise])
-      .then(([statusResult, diffResult, diffCachedResult]) => {
+    Promise.all([statusPromise, diffPromise, diffCachedPromise, unpushedPromise])
+      .then(([statusResult, diffResult, diffCachedResult, unpushedResult]) => {
         // Check for git status error
         if (statusResult.error) {
           console.error(`[Git] Error running git status:`, statusResult.error);
@@ -908,6 +909,7 @@ export class FileHandler {
         const statusOutput = statusResult.stdout;
         const diffOutput = diffResult.stdout;
         const diffCachedOutput = diffCachedResult.stdout;
+        const unpushedOutput = unpushedResult.stdout || "";
 
         // Parse diff stats
         const diffStats: Record<string, { added: number; deleted: number }> =
@@ -944,12 +946,24 @@ export class FileHandler {
           }
         }
 
+        // Parse unpushed commits
+        const unpushedCommits = unpushedOutput
+          .split("\n")
+          .filter((line: string) => line.trim().length > 0);
+
+        console.log(`[Git] Unpushed commits found: ${unpushedCommits.length}`, {
+          count: unpushedCommits.length,
+          preview: unpushedCommits.slice(0, 3).join(", "),
+          requestId: message.requestId,
+        });
+
         // Send combined result
         webviewView.webview.postMessage({
           command: "gitStatusResult",
           requestId: message.requestId,
           output: statusOutput,
           diffStats: diffStats,
+          unpushedCommits: unpushedCommits,
         });
       })
       .catch((err) => {
@@ -1164,36 +1178,118 @@ export class FileHandler {
     // Escape the file path for shell
     const escapedPath = filePath.replace(/"/g, '\\"');
 
+    // Step 1: Check if the file is tracked by git
     exec(
-      `git diff -- "${escapedPath}"`,
+      `git ls-files -- "${escapedPath}"`,
       { cwd, maxBuffer: 1024 * 1024 * 10 },
-      (err: any, stdout: string, stderr: string) => {
-        if (err) {
-          // git diff exits with 1 when there are no changes, which is not an error
-          if (err.code === 1 && stdout.trim() === "") {
+      (lsErr: any, lsStdout: string) => {
+        const isTracked = lsStdout.trim().length > 0;
+
+        if (!isTracked) {
+          // File is untracked (new file) - read its content and show as diff
+          const absPath = path.isAbsolute(filePath)
+            ? filePath
+            : path.join(cwd, filePath);
+          try {
+            const content = fs.readFileSync(absPath, "utf-8");
+            const diffOutput = `--- /dev/null\n+++ b/${filePath}\n@@ -0,0 +1,${content.split('\n').length} @@\n${content.split('\n').map((line: string) => '+ ' + line).join('\n')}`;
+            webviewView.webview.postMessage({
+              command: "gitDiffResult",
+              requestId: message.requestId,
+              diff: diffOutput,
+            });
+            return;
+          } catch (readErr) {
             webviewView.webview.postMessage({
               command: "gitDiffResult",
               requestId: message.requestId,
               diff: "",
-              error: null,
             });
             return;
           }
-          webviewView.webview.postMessage({
-            command: "gitDiffResult",
-            requestId: message.requestId,
-            error: stderr || err.message || "Git diff failed",
-          });
-          return;
         }
 
-        const diffLength = stdout?.length || 0;
+        // Step 2: Check if the file is staged (added to index)
+        exec(
+          `git status --porcelain -- "${escapedPath}"`,
+          { cwd, maxBuffer: 1024 * 1024 * 10 },
+          (statusErr: any, statusStdout: string) => {
+            let isStaged = false;
+            if (!statusErr) {
+              const lines = statusStdout.trim().split('\n').filter(l => l.length > 0);
+              for (const line of lines) {
+                // Status format: "XY path" where X = staged, Y = unstaged
+                // X can be 'A' (added), 'M' (modified), 'D' (deleted), etc.
+                if (line.length >= 2) {
+                  const stagedChar = line[0];
+                  if (stagedChar !== ' ' && stagedChar !== '?') {
+                    isStaged = true;
+                    break;
+                  }
+                }
+              }
+            }
 
-        webviewView.webview.postMessage({
-          command: "gitDiffResult",
-          requestId: message.requestId,
-          diff: stdout || "",
-        });
+            // Step 3: Run git diff with the appropriate flags
+            const diffCmd = isStaged
+              ? `git diff --cached -- "${escapedPath}"`
+              : `git diff -- "${escapedPath}"`;
+
+            exec(
+              diffCmd,
+              { cwd, maxBuffer: 1024 * 1024 * 10 },
+              (err: any, stdout: string, stderr: string) => {
+                // If git diff returns empty output, fallback to reading the file directly
+                const hasDiffOutput = stdout && stdout.trim().length > 0;
+                const isErrorWithNoOutput = err && err.code === 1 && stdout.trim() === "";
+
+                if (isErrorWithNoOutput || (!hasDiffOutput && !err)) {
+                  // Fallback: read file content directly (like read_file)
+                  const absPath = path.isAbsolute(filePath)
+                    ? filePath
+                    : path.join(cwd, filePath);
+                  try {
+                    const content = fs.readFileSync(absPath, "utf-8");
+                    const lines = content.split('\n');
+                    // Determine if staged or unstaged for the header
+                    const prefix = isStaged ? 'staged' : 'unstaged';
+                    const diffOutput = `--- a/${filePath}\n+++ b/${filePath} (${prefix})\n@@ -1,${lines.length} +1,${lines.length} @@\n${lines.map((line: string) => ' ' + line).join('\n')}`;
+                    webviewView.webview.postMessage({
+                      command: "gitDiffResult",
+                      requestId: message.requestId,
+                      diff: diffOutput,
+                    });
+                    return;
+                  } catch (readErr) {
+                    // If file can't be read, return empty diff
+                    webviewView.webview.postMessage({
+                      command: "gitDiffResult",
+                      requestId: message.requestId,
+                      diff: "",
+                      error: null,
+                    });
+                    return;
+                  }
+                }
+
+                if (err) {
+                  webviewView.webview.postMessage({
+                    command: "gitDiffResult",
+                    requestId: message.requestId,
+                    error: stderr || err.message || "Git diff failed",
+                  });
+                  return;
+                }
+
+                webviewView.webview.postMessage({
+                  command: "gitDiffResult",
+                  requestId: message.requestId,
+                  diff: stdout || "",
+                });
+              },
+            );
+          },
+        );
       },
     );
   }

@@ -41,6 +41,7 @@ interface ToolActionsListProps {
   onGitCancel?: () => void;
   gitStatusItems?: any[];
   isGitProcessing?: boolean;
+  isGitStatusVisible?: boolean;
 }
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
   message,
@@ -68,6 +69,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   onGitCancel,
   gitStatusItems,
   isGitProcessing,
+  isGitStatusVisible = true,
 }) => {
   // Filter out invisible tools immediately
   const visibleItems = useMemo(() => {
@@ -285,6 +287,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             onGitCancel={onGitCancel}
             gitStatusItems={gitStatusItems}
             isGitProcessing={isGitProcessing}
+            isGitStatusVisible={isGitStatusVisible}
           />
         </React.Fragment>
       );

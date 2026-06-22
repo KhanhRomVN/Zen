@@ -486,7 +486,7 @@ export class SystemHandler {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) {
-        vscode.window.showErrorMessage("Không tìm thấy workspace folder");
+        console.error("[SystemHandler] No workspace folder found");
         return;
       }
 
@@ -496,18 +496,7 @@ export class SystemHandler {
       // Escape the commit message for shell (single quotes)
       const escapedMessage = commitMessage.replace(/'/g, "'\\''");
 
-      // Step 1: git add .
-      await new Promise<void>((resolve, reject) => {
-        exec(`git add .`, { cwd }, (err: any, stdout: string, stderr: string) => {
-          if (err) {
-            reject(new Error(stderr || err.message));
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      // Step 2: git commit -m "..."
+      // git commit -m "..."
       const commitResult = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
         exec(
           `git commit -m '${escapedMessage}'`,
@@ -524,22 +513,11 @@ export class SystemHandler {
 
       // Check if there was nothing to commit
       if (commitResult.stderr.includes("nothing to commit")) {
-        vscode.window.showWarningMessage("⚠️ Không có thay đổi nào để commit");
+        console.log("[SystemHandler] Nothing to commit");
         return;
       }
 
-      // Step 3: git push
-      await new Promise<void>((resolve, reject) => {
-        exec(`git push`, { cwd }, (err: any, stdout: string, stderr: string) => {
-          if (err) {
-            reject(new Error(stderr || err.message));
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      vscode.window.showInformationMessage("✅ Commit và push thành công!");
+      console.log("[SystemHandler] Commit successful");
 
       // Optionally copy to clipboard as backup
       await vscode.env.clipboard.writeText(commitMessage);
@@ -547,7 +525,6 @@ export class SystemHandler {
     } catch (error) {
       console.error("[SystemHandler] acceptCommitMessage error:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
-      vscode.window.showErrorMessage(`❌ Lỗi khi commit/push: ${errorMsg}`);
 
       // Send error to webview to display in chat
       if (webviewView?.webview) {
@@ -578,6 +555,6 @@ export class SystemHandler {
   }
 
   public async handleRejectCommitMessage(message: any) {
-    vscode.window.showInformationMessage("Đã hủy commit message");
+    console.log("[SystemHandler] Commit message rejected");
   }
 }

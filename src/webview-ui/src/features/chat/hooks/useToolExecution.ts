@@ -621,7 +621,18 @@ export const useToolExecution = ({
                   `[git_diff for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
-                const diffContent = msg.diff || "";
+                let diffContent = msg.diff || "";
+                // Clean diff content: remove metadata lines that are not useful for AI
+                const cleanLines = diffContent.split("\n").filter((line: string) => {
+                  const trimmed = line.trim();
+                  if (trimmed.startsWith("diff")) return false;
+                  if (trimmed.startsWith("index ")) return false;
+                  if (trimmed.startsWith("new file mode")) return false;
+                  if (trimmed.startsWith("deleted file mode")) return false;
+                  if (trimmed.includes("No newline at end of file")) return false;
+                  return true;
+                });
+                diffContent = cleanLines.join("\n");
                 resolve(
                   `[git_diff for '${filePath}'] Result:\n\`\`\`diff\n${diffContent}\n\`\`\``,
                 );

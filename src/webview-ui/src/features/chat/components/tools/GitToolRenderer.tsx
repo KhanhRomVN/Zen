@@ -25,6 +25,7 @@ interface GitToolRendererProps {
   onCancel?: () => void;
   gitStatusItems?: GitStatusItem[];
   isProcessing?: boolean;
+  isVisible?: boolean;
 }
 
 const GitToolRenderer: React.FC<GitToolRendererProps> = ({
@@ -41,7 +42,17 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
   onCancel,
   gitStatusItems = [],
   isProcessing = false,
+  isVisible = true,
 }) => {
+  // If not visible, don't render anything
+  if (!isVisible) {
+    console.log("[GitToolRenderer] isVisible=false, returning null", {
+      isVisible,
+      gitStatusItemsLength: gitStatusItems.length,
+      actionId: `${messageId}-action-${actionIndex}`,
+    });
+    return null;
+  }
   const actionId = `${messageId}-action-${actionIndex}`;
   const hasOutput = toolOutputs && toolOutputs[actionId];
 
@@ -71,6 +82,12 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
 
   // Use parsed items instead of the prop
   const effectiveItems = parsedItems.length > 0 ? parsedItems : gitStatusItems;
+
+  console.log("[GitToolRenderer] Rendering with isVisible=true", {
+    gitStatusItemsLength: gitStatusItems.length,
+    effectiveItemsLength: effectiveItems?.length || 0,
+    parsedItemsLength: parsedItems.length,
+  });
 
   const getStatusColor = () => {
     if (hasOutput) {
@@ -116,6 +133,7 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
   };
 
   const handleCancel = () => {
+    console.log("[GitToolRenderer] handleCancel called, onCancel exists:", !!onCancel);
     if (onCancel) {
       onCancel();
     }
