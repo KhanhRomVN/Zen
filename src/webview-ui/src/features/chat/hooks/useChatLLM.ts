@@ -284,14 +284,13 @@ export const useChatLLM = ({
       const currentMessages = messagesRef.current;
       const filteredMessages = currentMessages.filter((m) => !m.isCancelled);
 
-      let effectiveChatUuid = currentConversationIdRef.current;
+let effectiveChatUuid = currentConversationIdRef.current;
       const isNewSession = !effectiveChatUuid;
 
       // GUARD: tool results must never create a new session — they belong to the current one
       if (skipFirstRequestLogic && isNewSession) {
         return;
       }
-
       if (isNewSession) {
         effectiveChatUuid = crypto.randomUUID?.() || Date.now().toString();
         currentConversationIdRef.current = effectiveChatUuid; // sync update immediately
@@ -571,7 +570,6 @@ export const useChatLLM = ({
             id: lastMetadataMsg.modelId!,
             providerId: lastMetadataMsg.providerId!,
           };
-          console.log(`[Zen] History fallback: restored model=${finalModel.id} (no prior ref)`);
         }
       }
 
@@ -583,7 +581,6 @@ export const useChatLLM = ({
 
         if (lastMetadataMsg?.accountId) {
           finalAccount = { id: lastMetadataMsg.accountId };
-          console.log(`[Zen] History fallback: restored account=${finalAccount.id} (no prior ref)`);
         }
       }
 
@@ -612,7 +609,12 @@ export const useChatLLM = ({
       if (modelSwitched || accountSwitched) {
         console.warn(
           `[Zen] Model/account switched — resetting backend conversationId and qwenParentId`,
-          { prevModel: oldModel, finalModel, prevAccount: oldAccount, finalAccount },
+          {
+            prevModel: oldModel,
+            finalModel,
+            prevAccount: oldAccount,
+            finalAccount,
+          },
         );
         backendConversationIdRef.current = "";
         qwenParentIdRef.current = undefined;
@@ -670,7 +672,8 @@ export const useChatLLM = ({
         const convIdToSend =
           backendConversationIdRef.current ||
           (effectiveChatUuid
-            ? sessionStorage.getItem(`zen-backend-conv:${effectiveChatUuid}`) || undefined
+            ? sessionStorage.getItem(`zen-backend-conv:${effectiveChatUuid}`) ||
+              undefined
             : undefined);
 
         const body = {
@@ -1165,42 +1168,103 @@ export const useChatLLM = ({
       }
     },
     handleSelectOption: (messageId: string, option: string) => {
-      let updatedMessages = messagesRef.current.map((m) =>
-        m.id === messageId ? { ...m, selectedOption: option } : m,
-      );
+      // Use setMessages with a callback to get the latest state
+      setMessages((currentMessages) => {
+        let updatedMessages = currentMessages.map((m) =>
+          m.id === messageId ? { ...m, selectedOption: option } : m,
+        );
 
-      // Check if this is a paginated question "all answered" payload
-      try {
-        const parsed = JSON.parse(option);
-        if (parsed.allAnswered === true && parsed.answers) {
-          // Update the message with questionAnswers
-          updatedMessages = messagesRef.current.map((m) =>
-            m.id === messageId
-              ? { ...m, questionAnswers: parsed.answers, selectedOption: option }
-              : m,
-          );
-          console.log(`[Zen][handleSelectOption] Saved questionAnswers for message ${messageId}:`, {
-            answerCount: Object.keys(parsed.answers).length,
-          });
+        let parsedPayload: {
+          allAnswered?: boolean;
+          answers?: Record<string, any>;
+          questions?: any[];
+        } | null = null;
+
+        // Check if this is a paginated question "all answered" payload
+        try {
+          const parsed = JSON.parse(option);
+          if (parsed.allAnswered === true && parsed.answers) {
+            parsedPayload = parsed;
+            // Update the message with selectedOption only (questionAnswers saved separately at root level)
+            updatedMessages = currentMessages.map((m) =>
+              m.id === messageId
+                ? {
+                    ...m,
+                    selectedOption: option,
+                    // Do NOT add questionAnswers to message - saved at root level
+                  }
+                : m,
+            );
+          }
+        } catch (e) {
+          // Not JSON or not allAnswered payload - ignore
         }
-      } catch (e) {
-        // Not JSON or not allAnswered payload - ignore
-      }
 
-      setMessages(updatedMessages);
+        // Ensure conversation ID exists before saving answers
+        let convId = currentConversationIdRef.current;
+        if (!convId) {
+          convId = crypto.randomUUID?.() || Date.now().toString();
+          currentConversationIdRef.current = convId;
+          setCurrentConversationId(convId);
+        }
 
-      const sessionId = selectedTab?.sessionId || -1;
-      const folderPath = selectedTab?.folderPath || null;
-      saveConversation(
-        sessionId,
-        folderPath,
-        updatedMessages,
-        currentConversationIdRef.current,
-        selectedTab || undefined,
-        true, // skipTimestampUpdate
-        undefined,
-        backendConversationIdRef.current,
-      );
+        // Extract questionAnswers from the payload
+        const answersToSave = parsedPayload?.answers ? { [messageId]: parsedPayload.answers } : undefined;
+
+        // Log the message state after update
+        const sessionId = selectedTab?.sessionId || -1;
+        const folderPath = selectedTab?.folderPath || null;
+
+        saveConversation(
+          sessionId,
+          folderPath,
+          updatedMessages,
+          convId,
+          selectedTab || undefined,
+          true, // skipTimestampUpdate
+          undefined,
+          backendConversationIdRef.current,
+          undefined, // toolOutputs
+          undefined, // singleLineReviewActions
+          answersToSave, // questionAnswers - saved at root level
+        );
+
+        // After state update, if this was an allAnswered payload, auto-submit the answers
+        // Use setTimeout with a small delay to ensure React has committed the state update
+        // and messagesRef.current has been synced via the useEffect.
+        if (parsedPayload && parsedPayload.answers) {
+          setTimeout(() => {
+            const questions = parsedPayload.questions || [];
+            const answers = parsedPayload.answers || {};
+
+            const formattedAnswers = Object.entries(answers)
+              .map(([qId, answer], index) => {
+                const question = questions.find((q: any) => q.id === qId);
+                const label = question?.label || qId;
+                const value = Array.isArray(answer.value)
+                  ? answer.value.join(", ")
+                  : String(answer.value);
+                const number = index + 1;
+                return `${number}. ${label}: ${value}`;
+              })
+              .join("\n");
+            const promptText = `Câu trả lời của người dùng:\n${formattedAnswers}`;
+
+            // Use sendMessage directly - it will use the latest messagesRef
+            sendMessage(
+              promptText,
+              undefined,
+              undefined,
+              undefined,
+              true,
+              undefined,
+              true,
+            );
+          }, 10);
+        }
+
+        return updatedMessages;
+      });
     },
   };
 };

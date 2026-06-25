@@ -21,7 +21,9 @@ interface UseGitOperationsProps {
   ) => Promise<void>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setToolOutputs: React.Dispatch<
-    React.SetStateAction<Record<string, { output: string; isError: boolean; terminalId?: string }>>
+    React.SetStateAction<
+      Record<string, { output: string; isError: boolean; terminalId?: string }>
+    >
   >;
 }
 
@@ -86,8 +88,6 @@ export const useGitOperations = ({
       }
 
       const requestId = `git-status-${Date.now()}`;
-      console.log("[Git] Request ID:", requestId);
-
       let timeoutId: ReturnType<typeof setTimeout> | null = null;
       const promise = new Promise<{
         output: string;
@@ -129,8 +129,6 @@ export const useGitOperations = ({
       });
 
       const result = await promise;
-      console.log("[Git] Promise resolved:", { hasOutput: !!result.output, outputLen: result.output?.length, hasError: !!result.error, error: result.error, hasDiffStats: !!result.diffStats });
-
       if (result.error && result.error !== "Timeout") {
         console.error("[Git] Error from git status:", result.error);
         setGitError(result.error);
@@ -160,7 +158,10 @@ export const useGitOperations = ({
         if (!trimmed) continue;
         // Format: "hash message"
         const spaceIdx = trimmed.indexOf(" ");
-        const shortHash = spaceIdx > 0 ? trimmed.substring(0, spaceIdx) : trimmed.substring(0, 7);
+        const shortHash =
+          spaceIdx > 0
+            ? trimmed.substring(0, spaceIdx)
+            : trimmed.substring(0, 7);
         const message = spaceIdx > 0 ? trimmed.substring(spaceIdx + 1) : "";
         items.push({
           status: "U", // Unpushed
@@ -173,24 +174,25 @@ export const useGitOperations = ({
       }
 
       // Build items with stats (or keep empty for clean state)
-      const itemsWithStats = items.length > 0
-        ? items.map((item) => {
-            const stats = diffStats[item.path];
-            if (stats) {
-              return { ...item, added: stats.added, deleted: stats.deleted };
-            }
-            return item;
-          })
-        : [];
+      const itemsWithStats =
+        items.length > 0
+          ? items.map((item) => {
+              const stats = diffStats[item.path];
+              if (stats) {
+                return { ...item, added: stats.added, deleted: stats.deleted };
+              }
+              return item;
+            })
+          : [];
 
       setGitStatus({ items: itemsWithStats, raw: output, diffStats, branch });
       setShowGitStatusBlock(true);
-      console.log("[Git] setGitStatus done, items:", itemsWithStats.length, "porcelain:", lines.length, "unpushed:", unpushedCommits.length);
 
       const changeCount = itemsWithStats.length;
-      const statusMessage = changeCount > 0
-        ? `Đã kiểm tra git status. Tìm thấy ${changeCount} thay đổi.`
-        : "Đã kiểm tra git status. Không có thay đổi nào.";
+      const statusMessage =
+        changeCount > 0
+          ? `Đã kiểm tra git status. Tìm thấy ${changeCount} thay đổi.`
+          : "Đã kiểm tra git status. Không có thay đổi nào.";
 
       const toolContent = `<git_status>
 <items>${JSON.stringify(itemsWithStats)}</items>
@@ -208,7 +210,6 @@ ${statusMessage}
 
       setMessages((prev) => {
         const filtered = prev.filter((msg) => !msg.id.startsWith("msg-git-"));
-        console.log("[Git] setMessages called, prev length:", prev.length, "filtered length:", filtered.length, "new messageId:", messageId);
         return [...filtered, assistantMessage];
       });
 
@@ -230,7 +231,6 @@ ${statusMessage}
 
   const handleGitConfirm = useCallback(
     async (items?: any[]) => {
-      console.log("[Git] currentConversationId:", currentConversationId);
       const statusItems = items || gitStatus?.items || [];
       if (statusItems.length === 0) {
         const vscodeApi = (window as any).vscodeApi;

@@ -280,12 +280,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           let hasNewSchema = false;
           const content = innerContent || "";
 
-          console.log(`[Zen][Question] Parsing question block, innerContent length: ${content.length}`);
-          console.log(`[Zen][Question] Full innerContent: "${content.substring(0, 500)}..."`);
-
           // Count total <q> tags found (both self-closing and non-self-closing)
           const qTagCount = (content.match(/<q\s+id=/gi) || []).length;
-          console.log(`[Zen][Question] Found ${qTagCount} <q> tags in innerContent`);
 
           // Find all <q> tags using a more reliable approach
           // We'll process each tag by finding the opening <q and then finding the matching closing </q> or />
@@ -304,17 +300,17 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             let i = qStart + 2;
 
             while (i < content.length) {
-              if (content[i] === '<' && content[i + 1] === '/') {
+              if (content[i] === "<" && content[i + 1] === "/") {
                 // Closing tag - we're not inside the opening tag anymore
                 break;
               }
-              if (content[i] === '>' && content[i - 1] === '/') {
+              if (content[i] === ">" && content[i - 1] === "/") {
                 // Self-closing: />
                 isSelfClosing = true;
                 tagEnd = i;
                 break;
               }
-              if (content[i] === '>') {
+              if (content[i] === ">") {
                 tagEnd = i;
                 break;
               }
@@ -340,7 +336,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
             hasNewSchema = true;
             const qId = idMatch[1].trim();
-            const qType = typeMatch[1].trim() as import("../types/message").QuestionType;
+            const qType =
+              typeMatch[1].trim() as import("../types/message").QuestionType;
             const qLabel = labelMatch ? labelMatch[1].trim() : "";
 
             let qInner = "";
@@ -361,8 +358,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               closeTagEnd = tagEnd + 1;
             }
 
-            console.log(`[Zen][Question] Processing <q> tag: id="${qId}", type="${qType}", label="${qLabel}"`);
-
             const qOptions: string[] = [];
             // Only try to extract options if there is inner content
             if (qInner.trim()) {
@@ -379,13 +374,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             // For text/confirm, no options needed - skip validation
             if (qType === "single" || qType === "multi") {
               if (qOptions.length < 2) {
-                console.warn(`[Zen][Question] ⚠️ SKIPPING question "${qId}" - type ${qType} needs at least 2 options, got ${qOptions.length}`);
+                console.warn(
+                  `[Zen][Question] ⚠️ SKIPPING question "${qId}" - type ${qType} needs at least 2 options, got ${qOptions.length}`,
+                );
                 searchIndex = closeTagEnd;
                 continue;
               }
-              console.log(`[Zen][Question] ✅ Valid options for "${qId}": ${qOptions.length} options`);
-            } else {
-              console.log(`[Zen][Question] ✅ Type "${qType}" does not require options, accepting`);
             }
 
             const question = {
@@ -394,30 +388,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               label: qLabel || `Question ${questions.length + 1}`,
               options: qOptions.length > 0 ? qOptions : undefined,
             };
-            console.log(`[Zen][Question] ✅ PUSHED question: id="${qId}", type="${qType}", label="${qLabel}", options=${qOptions.length}`);
+
             questions.push(question);
             processedCount++;
 
             // Move search index past this tag
             searchIndex = closeTagEnd;
-          }
-
-          if (hasNewSchema) {
-            console.log(`[Zen][Question] Total questions parsed: ${questions.length}`);
-          } else {
-            console.log(`[Zen][Question] No new schema found, falling back to legacy parsing`);
-          }
-
-          console.log(`[Zen][Question] ========== SUMMARY ==========`);
-          console.log(`[Zen][Question] Total <q> tags found: ${qTagCount}`);
-          console.log(`[Zen][Question] Total questions parsed: ${questions.length}`);
-          console.log(`[Zen][Question] Question IDs: ${questions.map(q => q.id).join(', ')}`);
-          console.log(`[Zen][Question] ================================`);
-
-          if (hasNewSchema) {
-            console.log(`[Zen][Question] New schema parsed successfully`);
-          } else {
-            console.log(`[Zen][Question] No new schema found, falling back to legacy parsing`);
           }
 
           // If no new schema found, fall back to legacy parsing

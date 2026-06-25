@@ -857,7 +857,10 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "question") {
-            const isAnswered = !!message.selectedOption || (message.questionAnswers && Object.keys(message.questionAnswers).length > 0);
+            const isAnswered =
+              !!message.selectedOption ||
+              (message.questionAnswers &&
+                Object.keys(message.questionAnswers).length > 0);
             const isThisActive = isLastMessage && !isInteractionBlocked;
             const dotColor = isAnswered
               ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
@@ -867,34 +870,23 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
             // Check if this is the new paginated format (has questions array)
             const hasQuestions = group.questions && group.questions.length > 0;
-            
-            // Log question rendering
-            if (hasQuestions) {
-              console.log(`[Zen][Question] Rendering paginated question block: ${group.questions?.length ?? 0} questions`, {
-                messageId: message.id,
-                questions: group.questions?.map(q => ({ id: q.id, type: q.type, label: q.label })) ?? [],
-                answered: Object.keys(message.questionAnswers || {}).length
-              });
-            } else {
-              console.log(`[Zen][Question] Rendering legacy question block: ${group.options.length} options`, {
-                messageId: message.id,
-                title: group.title,
-                answered: !!message.selectedOption
-              });
-            }
 
+            // Render QuestionAnswerBlock - it now manages its own summary mode internally
             content = (
               <QuestionAnswerBlock
                 questions={hasQuestions ? group.questions : undefined}
                 options={!hasQuestions ? group.options : undefined}
                 title={group.title}
                 optional={group.optional}
-                selectedOption={!hasQuestions ? message.selectedOption : undefined}
-                initialAnswers={hasQuestions ? message.questionAnswers || {} : undefined}
+                selectedOption={
+                  !hasQuestions ? message.selectedOption : undefined
+                }
+                initialAnswers={
+                  hasQuestions ? message.questionAnswers || {} : undefined
+                }
                 disabled={!!nextUserMessage || isGenerating}
                 onAnswer={(questionId, value) => {
                   if (!hasQuestions) return;
-                  console.log(`[Zen][Question] Answer received: question="${questionId}"`, { value });
                   if (onSelectOption) {
                     const answerStr = JSON.stringify({ questionId, value });
                     onSelectOption(message.id, answerStr);
@@ -902,32 +894,16 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 }}
                 onAllAnswered={(answers) => {
                   if (!hasQuestions) return;
-                  console.log(`[Zen][Question] All questions answered!`, {
-                    messageId: message.id,
-                    answerCount: Object.keys(answers).length,
-                    answers
-                  });
                   if (onSelectOption) {
-                    const allAnsweredStr = JSON.stringify({ allAnswered: true, answers });
+                    // Include questions in payload so handleSelectOption can format and auto-submit
+                    const allAnsweredStr = JSON.stringify({
+                      allAnswered: true,
+                      answers,
+                      questions: group.questions || [],
+                    });
                     onSelectOption(message.id, allAnsweredStr);
                   }
-                  // Auto-submit answers as a follow-up message (like tool calls)
-                  if (onSendMessage) {
-                    const questionList = group.questions || [];
-                    const formattedAnswers = Object.entries(answers)
-                      .map(([qId, answer], index) => {
-                        const question = questionList.find(q => q.id === qId);
-                        const label = question?.label || qId;
-                        const value = Array.isArray(answer.value) 
-                          ? answer.value.join(', ')
-                          : String(answer.value);
-                        const number = index + 1;
-                        return `${number}. ${label}: ${value}`;
-                      })
-                      .join('\n');
-                    const promptText = `Câu trả lời của người dùng:\n${formattedAnswers}`;
-                    onSendMessage(promptText, undefined, undefined, undefined, undefined, undefined, true);
-                  }
+                  // Auto-submit is now handled inside useChatLLM.handleSelectOption
                 }}
                 onOptionSelect={(option: string) => {
                   if (hasQuestions) return;

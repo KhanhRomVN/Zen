@@ -623,15 +623,18 @@ export const useToolExecution = ({
               } else {
                 let diffContent = msg.diff || "";
                 // Clean diff content: remove metadata lines that are not useful for AI
-                const cleanLines = diffContent.split("\n").filter((line: string) => {
-                  const trimmed = line.trim();
-                  if (trimmed.startsWith("diff")) return false;
-                  if (trimmed.startsWith("index ")) return false;
-                  if (trimmed.startsWith("new file mode")) return false;
-                  if (trimmed.startsWith("deleted file mode")) return false;
-                  if (trimmed.includes("No newline at end of file")) return false;
-                  return true;
-                });
+                const cleanLines = diffContent
+                  .split("\n")
+                  .filter((line: string) => {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith("diff")) return false;
+                    if (trimmed.startsWith("index ")) return false;
+                    if (trimmed.startsWith("new file mode")) return false;
+                    if (trimmed.startsWith("deleted file mode")) return false;
+                    if (trimmed.includes("No newline at end of file"))
+                      return false;
+                    return true;
+                  });
                 diffContent = cleanLines.join("\n");
                 resolve(
                   `[git_diff for '${filePath}'] Result:\n\`\`\`diff\n${diffContent}\n\`\`\``,
@@ -903,21 +906,11 @@ export const useToolExecution = ({
         const hasQuestion = !!parsed.question;
         // Check if question is answered: either legacy selectedOption or new questionAnswers
         const isQuestionAnswered = hasQuestion
-          ? !!(selectedOption || (questionAnswers && Object.keys(questionAnswers).length > 0))
+          ? !!(
+              selectedOption ||
+              (questionAnswers && Object.keys(questionAnswers).length > 0)
+            )
           : true;
-
-        // Log question state for debugging
-        if (hasQuestion) {
-          console.log(`[Zen][Question] handleToolRequest buffer - Question state:`, {
-            messageId: message.id,
-            hasQuestion,
-            selectedOption,
-            questionAnswersCount: Object.keys(questionAnswers || {}).length,
-            isQuestionAnswered,
-            validResultsCount: validResults.length,
-            actionsTotal: actions.length
-          });
-        }
 
         const allActionIds = parsed.actions.map(
           (_: any, idx: number) => `${message.id}-action-${idx}`,
@@ -938,14 +931,10 @@ export const useToolExecution = ({
             // Handle question answers - both legacy and new
             if (questionAnswers && Object.keys(questionAnswers).length > 0) {
               // New paginated format: send all answers
-              console.log(`[Zen][Question] Flushing ${Object.keys(questionAnswers).length} answers from buffer`, {
-                messageId: message.id,
-                answerCount: Object.keys(questionAnswers).length
-              });
               const answerLines = Object.entries(questionAnswers).map(
                 ([qId, answer]) => {
                   const q = (parsed.question as any)?.questions?.find(
-                    (q: any) => q.id === qId
+                    (q: any) => q.id === qId,
                   );
                   const label = q?.label || qId;
                   let valueStr = answer.value;
@@ -955,7 +944,7 @@ export const useToolExecution = ({
                     valueStr = valueStr ? "Yes" : "No";
                   }
                   return `[question: "${label}"] Answer: ${valueStr}`;
-                }
+                },
               );
               if (answerLines.length > 0) {
                 finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
@@ -1096,19 +1085,11 @@ export const useToolExecution = ({
           const questionAnswers = currentMessage?.questionAnswers;
           const hasQuestion = !!parsed.question;
           const isQuestionAnswered = hasQuestion
-            ? !!(selectedOption || (questionAnswers && Object.keys(questionAnswers).length > 0))
+            ? !!(
+                selectedOption ||
+                (questionAnswers && Object.keys(questionAnswers).length > 0)
+              )
             : true;
-          
-          // Log confirmSingleLineAction question state
-          if (hasQuestion) {
-            console.log(`[Zen][Question] confirmSingleLineAction - Question state:`, {
-              messageId: messageObj.id,
-              hasQuestion,
-              selectedOption,
-              questionAnswersCount: Object.keys(questionAnswers || {}).length,
-              isQuestionAnswered
-            });
-          }
 
           const isAllComplete =
             allActionIds.every((id: string) =>
@@ -1124,11 +1105,10 @@ export const useToolExecution = ({
               let finalContent = newBuffer.join("\n\n");
               // Handle question answers - both legacy and new
               if (questionAnswers && Object.keys(questionAnswers).length > 0) {
-                console.log(`[Zen][Question] confirmSingleLineAction flushing ${Object.keys(questionAnswers).length} answers`);
                 const answerLines = Object.entries(questionAnswers).map(
                   ([qId, answer]) => {
                     const q = (parsed.question as any)?.questions?.find(
-                      (q: any) => q.id === qId
+                      (q: any) => q.id === qId,
                     );
                     const label = q?.label || qId;
                     let valueStr = answer.value;
@@ -1138,10 +1118,11 @@ export const useToolExecution = ({
                       valueStr = valueStr ? "Yes" : "No";
                     }
                     return `[question: "${label}"] Answer: ${valueStr}`;
-                  }
+                  },
                 );
                 if (answerLines.length > 0) {
-                  finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
+                  finalContent =
+                    answerLines.join("\n\n") + "\n\n" + finalContent;
                 }
               } else if (selectedOption) {
                 const questionTitle =
@@ -1220,19 +1201,11 @@ export const useToolExecution = ({
         const questionAnswers = currentMessage?.questionAnswers;
         const hasQuestion = !!parsed.question;
         const isQuestionAnswered = hasQuestion
-          ? !!(selectedOption || (questionAnswers && Object.keys(questionAnswers).length > 0))
+          ? !!(
+              selectedOption ||
+              (questionAnswers && Object.keys(questionAnswers).length > 0)
+            )
           : true;
-        
-        // Log rejectSingleLineAction question state
-        if (hasQuestion) {
-          console.log(`[Zen][Question] rejectSingleLineAction - Question state:`, {
-            messageId: messageObj.id,
-            hasQuestion,
-            selectedOption,
-            questionAnswersCount: Object.keys(questionAnswers || {}).length,
-            isQuestionAnswered
-          });
-        }
 
         const isAllComplete =
           allActionIds.every(
@@ -1246,11 +1219,10 @@ export const useToolExecution = ({
             let finalContent = newBuffer.join("\n\n");
             // Handle question answers - both legacy and new
             if (questionAnswers && Object.keys(questionAnswers).length > 0) {
-              console.log(`[Zen][Question] rejectSingleLineAction flushing ${Object.keys(questionAnswers).length} answers`);
               const answerLines = Object.entries(questionAnswers).map(
                 ([qId, answer]) => {
                   const q = (parsed.question as any)?.questions?.find(
-                    (q: any) => q.id === qId
+                    (q: any) => q.id === qId,
                   );
                   const label = q?.label || qId;
                   let valueStr = answer.value;
@@ -1260,7 +1232,7 @@ export const useToolExecution = ({
                     valueStr = valueStr ? "Yes" : "No";
                   }
                   return `[question: "${label}"] Answer: ${valueStr}`;
-                }
+                },
               );
               if (answerLines.length > 0) {
                 finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
@@ -1313,7 +1285,11 @@ export const useToolExecution = ({
         const parsed = parseAIResponse(msg.content);
         const hasQuestion = !!parsed.question;
         const isQuestionAnswered = hasQuestion
-          ? !!(msg.selectedOption || (msg.questionAnswers && Object.keys(msg.questionAnswers).length > 0))
+          ? !!(
+              msg.selectedOption ||
+              (msg.questionAnswers &&
+                Object.keys(msg.questionAnswers).length > 0)
+            )
           : true;
 
         const allActionIds = parsed.actions.map(
@@ -1333,16 +1309,14 @@ export const useToolExecution = ({
             flushedMessageIdsRef.current.add(messageId);
             let finalContent = buffer.join("\n\n");
             // Handle question answers - both legacy and new
-            if (msg.questionAnswers && Object.keys(msg.questionAnswers).length > 0) {
-              console.log(`[Zen][Question] Auto-flush sending ${Object.keys(msg.questionAnswers).length} answers`, {
-                messageId,
-                answerCount: Object.keys(msg.questionAnswers).length,
-                bufferLength: buffer.length
-              });
+            if (
+              msg.questionAnswers &&
+              Object.keys(msg.questionAnswers).length > 0
+            ) {
               const answerLines = Object.entries(msg.questionAnswers).map(
                 ([qId, answer]) => {
                   const q = (parsed.question as any)?.questions?.find(
-                    (q: any) => q.id === qId
+                    (q: any) => q.id === qId,
                   );
                   const label = q?.label || qId;
                   let valueStr = answer.value;
@@ -1352,7 +1326,7 @@ export const useToolExecution = ({
                     valueStr = valueStr ? "Yes" : "No";
                   }
                   return `[question: "${label}"] Answer: ${valueStr}`;
-                }
+                },
               );
               if (answerLines.length > 0) {
                 finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
@@ -1373,7 +1347,6 @@ export const useToolExecution = ({
               buffer,
             );
 
-            console.log(`[Zen][Question] Auto-flush completed, sending ${finalContent.length} chars`);
             handleSendMessageRef.current(
               guardedContent,
               undefined,

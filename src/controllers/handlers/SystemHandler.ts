@@ -476,7 +476,10 @@ export class SystemHandler {
     }
   }
 
-  public async handleAcceptCommitMessage(message: any, webviewView?: vscode.WebviewView) {
+  public async handleAcceptCommitMessage(
+    message: any,
+    webviewView?: vscode.WebviewView,
+  ) {
     const commitMessage = message.message;
     if (!commitMessage) {
       console.error("[SystemHandler] acceptCommitMessage: No message provided");
@@ -497,7 +500,10 @@ export class SystemHandler {
       const escapedMessage = commitMessage.replace(/'/g, "'\\''");
 
       // git commit -m "..."
-      const commitResult = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+      const commitResult = await new Promise<{
+        stdout: string;
+        stderr: string;
+      }>((resolve, reject) => {
         exec(
           `git commit -m '${escapedMessage}'`,
           { cwd },
@@ -513,15 +519,11 @@ export class SystemHandler {
 
       // Check if there was nothing to commit
       if (commitResult.stderr.includes("nothing to commit")) {
-        console.log("[SystemHandler] Nothing to commit");
         return;
       }
 
-      console.log("[SystemHandler] Commit successful");
-
       // Optionally copy to clipboard as backup
       await vscode.env.clipboard.writeText(commitMessage);
-
     } catch (error) {
       console.error("[SystemHandler] acceptCommitMessage error:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -537,7 +539,7 @@ export class SystemHandler {
         // Fallback: try to find the webview via the active tab
         try {
           const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
-          if (activeTab && 'webview' in activeTab) {
+          if (activeTab && "webview" in activeTab) {
             const webview = (activeTab as any).webview;
             if (webview) {
               webview.postMessage({
@@ -554,7 +556,5 @@ export class SystemHandler {
     }
   }
 
-  public async handleRejectCommitMessage(message: any) {
-    console.log("[SystemHandler] Commit message rejected");
-  }
+  public async handleRejectCommitMessage(message: any) {}
 }

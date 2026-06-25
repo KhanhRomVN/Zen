@@ -309,7 +309,6 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
         <button
           className="git-status-btn git-status-btn-cancel"
           onClick={() => {
-            console.log("[GitStatusBlock] Cancel button clicked");
             onCancel();
           }}
           disabled={isProcessing}

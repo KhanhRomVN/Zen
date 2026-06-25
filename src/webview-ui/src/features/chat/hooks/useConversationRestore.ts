@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Message } from "../types/message";
 import { ChatSession } from "../types/chat";
 import { ConversationCache } from "../services/ConversationCache";
-import { saveConversation, deleteConversation } from "../services/ConversationService";
+import {
+  saveConversation,
+  deleteConversation,
+} from "../services/ConversationService";
 import { extensionService } from "@/services/ExtensionService";
 
 interface UseConversationRestoreProps {
@@ -12,14 +15,20 @@ interface UseConversationRestoreProps {
   messagesRef: React.MutableRefObject<Message[]>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   setIsProcessing: (val: boolean) => void;
-  setToolOutputs: React.Dispatch<React.SetStateAction<Record<string, { output: string; isError: boolean; terminalId?: string }>>>;
+  setToolOutputs: React.Dispatch<
+    React.SetStateAction<
+      Record<string, { output: string; isError: boolean; terminalId?: string }>
+    >
+  >;
   setBackendConversationId: (id: string, meta?: any) => void;
   setCurrentConversationId: (id: string) => void;
   setCurrentModel: (model: any) => void;
   setCurrentAccount: (account: any) => void;
   onBack: (contentToReturn?: string) => void;
   revertParentMessageIdRef: React.MutableRefObject<string | null>;
-  setRevertInput: React.Dispatch<React.SetStateAction<{ value: string; nonce: number } | null>>;
+  setRevertInput: React.Dispatch<
+    React.SetStateAction<{ value: string; nonce: number } | null>
+  >;
 }
 
 export const useConversationRestore = ({
@@ -38,7 +47,8 @@ export const useConversationRestore = ({
   revertParentMessageIdRef,
   setRevertInput,
 }: UseConversationRestoreProps) => {
-  const [isLoadingConversation, setIsLoadingConversation] = useState<boolean>(true);
+  const [isLoadingConversation, setIsLoadingConversation] =
+    useState<boolean>(true);
   const [isRestored, setIsRestored] = useState<boolean>(false);
   const revertMessageIdRef = useRef<string | null>(null);
   const hasAppendedHistoryContext = useRef(false);
@@ -122,14 +132,6 @@ export const useConversationRestore = ({
     const handler = (event: MessageEvent) => {
       const data = event.data;
       if (data.command === "conversationResult") {
-        console.log(`[History] conversationResult received`, {
-          conversationId: data.data?.conversationId,
-          messageCount: data.data?.messages?.length || 0,
-          hasToolOutputs: data.data?.toolOutputs
-            ? Object.keys(data.data.toolOutputs).length > 0
-            : false,
-          requestId: data.requestId,
-        });
         if (data.data?.messages) {
           const restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({
@@ -347,8 +349,12 @@ export const useConversationRestore = ({
   return {
     isLoadingConversation,
     isRestored,
-    setIsRestored: setIsRestored as React.Dispatch<React.SetStateAction<boolean>>,
-    setIsLoadingConversation: setIsLoadingConversation as React.Dispatch<React.SetStateAction<boolean>>,
+    setIsRestored: setIsRestored as React.Dispatch<
+      React.SetStateAction<boolean>
+    >,
+    setIsLoadingConversation: setIsLoadingConversation as React.Dispatch<
+      React.SetStateAction<boolean>
+    >,
     handleRevertConversation,
     handleClearConfirmed,
     hasAppendedHistoryContext,

@@ -121,6 +121,9 @@ export class ConversationHandler {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
       if (!workspaceFolder) {
+        console.warn(
+          `[Zen][ConversationHandler] ⚠️ No workspace folder found for conversation ${message.conversationId}`,
+        );
         return;
       }
       const { conversationId } = message;
@@ -160,13 +163,14 @@ export class ConversationHandler {
               const toolOutputKeys = toolOutputs
                 ? Object.keys(toolOutputs)
                 : [];
+
+              const messages = isArray ? candidateParsed : candidateParsed.messages || [];
+
               webviewView.webview.postMessage({
                 command: "conversationResult",
                 requestId: message.requestId,
                 data: {
-                  messages: isArray
-                    ? candidateParsed
-                    : candidateParsed.messages || [],
+                  messages: messages,
                   conversationId,
                   backendConversationId: isArray
                     ? undefined
@@ -207,11 +211,13 @@ export class ConversationHandler {
             .map(([k]) => k)
         : [];
 
+      const messages = isArray ? parsed : parsed.messages || [];
+
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,
         data: {
-          messages: isArray ? parsed : parsed.messages || [],
+          messages: messages,
           conversationId,
           backendConversationId: isArray
             ? undefined

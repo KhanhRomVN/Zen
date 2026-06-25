@@ -66,12 +66,16 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
     }
     // Fallback: parse from action.params.items (restored from conversation)
     const itemsFromParams = action.params?.items;
-    if (itemsFromParams && Array.isArray(itemsFromParams) && itemsFromParams.length > 0) {
+    if (
+      itemsFromParams &&
+      Array.isArray(itemsFromParams) &&
+      itemsFromParams.length > 0
+    ) {
       return itemsFromParams;
     }
     // Last resort: try to parse from raw git output stored in action params
     const rawOutput = action.params?.raw;
-    if (rawOutput && typeof rawOutput === 'string') {
+    if (rawOutput && typeof rawOutput === "string") {
       const parsed = parseGitStatusOutput(rawOutput);
       if (parsed.length > 0) return parsed;
     }
@@ -112,8 +116,6 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
     return { label: "GIT STATUS", stats: "" };
   };
 
-  
-
   const handleConfirm = () => {
     if (onConfirm && effectiveItems.length > 0) {
       onConfirm(effectiveItems);
@@ -125,7 +127,6 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
   };
 
   const handleCancel = () => {
-    console.log("[GitToolRenderer] handleCancel called, onCancel exists:", !!onCancel);
     if (onCancel) {
       onCancel();
     }
@@ -164,11 +165,15 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
                     marginLeft: "2px",
                   }}
                 >
-                  {getTitleParts().stats.replace(/\+[0-9]+/, "").replace(/ -[0-9]+/, "").trim()}
+                  {getTitleParts()
+                    .stats.replace(/\+[0-9]+/, "")
+                    .replace(/ -[0-9]+/, "")
+                    .trim()}
                 </span>
                 <span
                   style={{
-                    color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+                    color:
+                      "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
                     fontWeight: 600,
                     fontSize: "11px",
                   }}
@@ -177,7 +182,8 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
                 </span>
                 <span
                   style={{
-                    color: "var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c)",
+                    color:
+                      "var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c)",
                     fontWeight: 600,
                     fontSize: "11px",
                   }}

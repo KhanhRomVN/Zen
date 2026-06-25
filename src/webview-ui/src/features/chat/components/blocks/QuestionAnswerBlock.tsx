@@ -49,46 +49,54 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   const [multiCustomValues, setMultiCustomValues] = useState<
     Record<string, string>
   >({});
+  // Internal state to control summary view (avoid relying on props)
+  const [isSummaryMode, setIsSummaryModeState] = useState(false);
+  // Ref to track summary mode across re-renders and re-mounts
+  const isSummaryModeRef = useRef(false);
   const logPrefix = useRef(`[Zen][QuestionAnswerBlock]`);
+
+  // Wrapper to keep state and ref in sync
+  const setIsSummaryMode = (value: boolean) => {
+    isSummaryModeRef.current = value;
+    setIsSummaryModeState(value);
+  };
 
   // Legacy mode: single question with options
   const isLegacyMode = !isPaginated && legacyOptions.length > 0;
   const legacyAnswered = !!selectedOptionProp;
 
-  // Log initial render
+  // Sync initialAnswers to answers state when it changes (for history load)
   useEffect(() => {
-    if (isPaginated) {
-      console.log(
-        `${logPrefix.current} Initialized with ${questions.length} questions (paginated)`,
-        {
-          questions: questions.map((q) => ({
-            id: q.id,
-            type: q.type,
-            label: q.label,
-          })),
-          initialAnswers: Object.keys(initialAnswers),
-        },
-      );
-    } else if (isLegacyMode) {
-      console.log(
-        `${logPrefix.current} Initialized with ${legacyOptions.length} options (legacy)`,
-      );
-    }
-  }, []);
+    const initialAnswersKeys = Object.keys(initialAnswers);
+    const hasInitialAnswers = isPaginated && initialAnswersKeys.length > 0;
 
-  // Log when answers changes (for debugging selection issues)
-  useEffect(() => {
-    console.log(
-      `${logPrefix.current} answers changed:`,
-      Object.keys(answers).reduce(
-        (acc, key) => {
-          acc[key] = answers[key]?.value;
-          return acc;
-        },
-        {} as Record<string, any>,
-      ),
-    );
-  }, [answers]);
+    if (hasInitialAnswers) {
+      // If we're already in summary mode (check ref, not state, to survive re-mounts),
+      // don't reset answers or summary state.
+      if (isSummaryModeRef.current) {
+        return;
+      }
+      setAnswers(initialAnswers);
+      // Also restore selectedOptions and confirmValues from initialAnswers
+      Object.entries(initialAnswers).forEach(([qId, answer]) => {
+        const question = questions.find((q) => q.id === qId);
+        if (!question) return;
+        if (question.type === "confirm") {
+          setConfirmValues((prev) => ({
+            ...prev,
+            [qId]: answer.value as boolean,
+          }));
+        } else if (question.type === "single" || question.type === "multi") {
+          const value = answer.value;
+          // Only set selectedOptions if value is a string or string[]
+          if (typeof value === "string" || Array.isArray(value)) {
+            setSelectedOptions((prev) => ({ ...prev, [qId]: value }));
+          }
+        }
+        // For text, the value is stored in answers, textInputs will be populated from answers when rendering
+      });
+    }
+  }, [initialAnswers, isPaginated, questions, isSummaryMode]);
 
   const currentQuestion = isPaginated ? questions[currentIndex] : null;
   const totalQuestions = questions.length;
@@ -133,10 +141,17 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
       return typeof answer.value === "string" && answer.value.trim().length > 0;
     if (q.type === "confirm") return typeof answer.value === "boolean";
     return false;
-  }, [isPaginated, currentQuestion, answers, selectedOptions, textInputs, confirmValues]);
+  }, [
+    isPaginated,
+    currentQuestion,
+    answers,
+    selectedOptions,
+    textInputs,
+    confirmValues,
+  ]);
 
   const handleSingleSelect = (option: string) => {
-    if (disabled || !isPaginated || !currentQuestion) {
+    if (disabled || isAllAnswered || !isPaginated || !currentQuestion) {
       return;
     }
     const answer: QuestionAnswer = {
@@ -150,7 +165,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   };
 
   const handleMultiToggle = (option: string) => {
-    if (disabled || !isPaginated || !currentQuestion) return;
+    if (disabled || isAllAnswered || !isPaginated || !currentQuestion) return;
     const currentSelected =
       (selectedOptions[currentQuestion.id] as string[]) || [];
     const newSelected = currentSelected.includes(option)
@@ -162,66 +177,36 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     });
   };
 
-  const handleMultiSubmit = () => {
-    if (disabled || !isPaginated || !currentQuestion) return;
-    const value = (selectedOptions[currentQuestion.id] as string[]) || [];
-    if (value.length === 0) return;
-    console.log(
-      `${logPrefix.current} Multi submit: question="${currentQuestion.id}", selected=${value.length} options`,
-    );
-    const answer: QuestionAnswer = { questionId: currentQuestion.id, value };
-    const newAnswers = { ...answers, [currentQuestion.id]: answer };
-    setAnswers(newAnswers);
-    onAnswerProp?.(currentQuestion.id, value);
-    setTimeout(() => {
-      if (currentIndex < totalQuestions - 1) {
-        console.log(
-          `${logPrefix.current} Advancing to question ${currentIndex + 1} (of ${totalQuestions})`,
-        );
-        setCurrentIndex(currentIndex + 1);
-      } else {
-        console.log(
-          `${logPrefix.current} All questions answered! (${Object.keys(newAnswers).length}/${totalQuestions})`,
-        );
-        onAllAnsweredProp?.(newAnswers);
-      }
-    }, 300);
-  };
-
   const handleTextSubmit = () => {
-    if (disabled || !isPaginated || !currentQuestion) return;
+    if (disabled || isAllAnswered || !isPaginated || !currentQuestion) {
+      return;
+    }
+
     const value = textInputs[currentQuestion.id] || "";
-    if (value.trim().length === 0) return;
-    console.log(
-      `${logPrefix.current} Text submit: question="${currentQuestion.id}", value="${value.trim().substring(0, 50)}..."`,
-    );
+    if (value.trim().length === 0) {
+      return;
+    }
+
     const answer: QuestionAnswer = {
       questionId: currentQuestion.id,
       value: value.trim(),
     };
+
     const newAnswers = { ...answers, [currentQuestion.id]: answer };
     setAnswers(newAnswers);
     onAnswerProp?.(currentQuestion.id, value.trim());
     setTimeout(() => {
       if (currentIndex < totalQuestions - 1) {
-        console.log(
-          `${logPrefix.current} Advancing to question ${currentIndex + 1} (of ${totalQuestions})`,
-        );
         setCurrentIndex(currentIndex + 1);
       } else {
-        console.log(
-          `${logPrefix.current} All questions answered! (${Object.keys(newAnswers).length}/${totalQuestions})`,
-        );
+        // Switch to summary mode immediately when all questions are answered
+        setIsSummaryMode(true);
         onAllAnsweredProp?.(newAnswers);
       }
     }, 300);
   };
-
   const handleConfirm = (value: boolean) => {
-    if (disabled || !isPaginated || !currentQuestion) return;
-    console.log(
-      `${logPrefix.current} Confirm: question="${currentQuestion.id}", value=${value}`,
-    );
+    if (disabled || isAllAnswered || !isPaginated || !currentQuestion) return;
     const answer: QuestionAnswer = { questionId: currentQuestion.id, value };
     const newAnswers = { ...answers, [currentQuestion.id]: answer };
     setAnswers(newAnswers);
@@ -234,20 +219,10 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (currentQuestion?.type === "text") {
-        console.log(`${logPrefix.current} Enter key pressed, submitting text`);
         handleTextSubmit();
       }
     }
   };
-
-  // Log when all answered state changes
-  useEffect(() => {
-    if (isPaginated && isAllAnswered && totalQuestions > 0) {
-      console.log(
-        `${logPrefix.current} ✅ All ${totalQuestions} questions answered!`,
-      );
-    }
-  }, [isAllAnswered, totalQuestions, isPaginated]);
 
   // Determine the outer wrapper style - consistent with other tools
   const wrapperStyle = {
@@ -358,6 +333,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
 
   // Render single question type
   const renderSingle = (q: Question) => {
+    const isDisabled = disabled || isAllAnswered;
     // Use answers as the source of truth for selected value
     const selected = (answers[q.id]?.value as string) || "";
     // Get custom value from component-level state
@@ -402,7 +378,11 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     };
 
     // Render the "Khác" input bar (used both for AI-provided and auto-added)
-    const renderOtherInput = (isSelected: boolean, placeholder: string, key: string) => {
+    const renderOtherInput = (
+      isSelected: boolean,
+      placeholder: string,
+      key: string,
+    ) => {
       return (
         <div
           key={key}
@@ -418,7 +398,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             cursor: "pointer",
           }}
           onMouseEnter={(e) => {
-            if (!disabled && !isSelected) {
+            if (!isDisabled && !isSelected) {
               e.currentTarget.style.borderLeftColor =
                 "var(--vscode-descriptionForeground)";
               e.currentTarget.style.backgroundColor =
@@ -426,14 +406,14 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             }
           }}
           onMouseLeave={(e) => {
-            if (!disabled && !isSelected) {
+            if (!isDisabled && !isSelected) {
               e.currentTarget.style.borderLeftColor =
                 "var(--vscode-descriptionForeground)";
               e.currentTarget.style.backgroundColor = "transparent";
             }
           }}
           onClick={() => {
-            if (!disabled && !isSelected) {
+            if (!isDisabled && !isSelected) {
               const savedCustomValue = customValues[q.id] || "";
               const existingAnswer = (answers[q.id]?.value as string) || "";
               const hasKhacValue =
@@ -442,10 +422,15 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                 existingAnswer.toString().length > "Khác: ".length;
 
               if (savedCustomValue) {
-                setCustomValues((prev) => ({ ...prev, [q.id]: savedCustomValue }));
+                setCustomValues((prev) => ({
+                  ...prev,
+                  [q.id]: savedCustomValue,
+                }));
                 updateCustomSelection(savedCustomValue);
               } else if (hasKhacValue) {
-                const existingText = existingAnswer.toString().replace("Khác: ", "");
+                const existingText = existingAnswer
+                  .toString()
+                  .replace("Khác: ", "");
                 setCustomValues((prev) => ({ ...prev, [q.id]: existingText }));
                 updateCustomSelection(existingText);
               }
@@ -461,7 +446,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             }}
             onFocus={(e) => e.target.select()}
             placeholder={placeholder}
-            disabled={disabled}
+            disabled={isDisabled}
             style={{
               flex: 1,
               padding: "0px",
@@ -486,9 +471,15 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     options.forEach((option, index) => {
       // If this is the AI-provided "Khác" option, render it as input bar (skip regular button)
       if (index === options.length - 1 && hasAiOther) {
-        const isSelected = !!(selected && selected.toString().startsWith("Khác:"));
+        const isSelected = !!(
+          selected && selected.toString().startsWith("Khác:")
+        );
         renderedItems.push(
-          renderOtherInput(isSelected, "Khác (ý kiến của bạn)", `other-${q.id}`)
+          renderOtherInput(
+            isSelected,
+            "Khác (ý kiến của bạn)",
+            `other-${q.id}`,
+          ),
         );
         return;
       }
@@ -499,7 +490,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
         <button
           key={`${q.id}-${option}`}
           onClick={() => handleSingleSelect(option)}
-          disabled={disabled}
+          disabled={isDisabled}
           className="question-option-btn"
           data-selected={isSelected ? "true" : "false"}
           style={{
@@ -513,7 +504,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             border: "none",
             borderLeft: `3px solid ${isSelected ? "var(--vscode-button-background)" : "var(--vscode-descriptionForeground)"}`,
             borderRadius: "0",
-            cursor: disabled ? "default" : "pointer",
+            cursor: isDisabled ? "default" : "pointer",
             fontSize: "13px",
             fontWeight: isSelected ? 600 : 400,
             textAlign: "left",
@@ -523,7 +514,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             width: "100%",
           }}
           onMouseEnter={(e) => {
-            if (!disabled && !isSelected) {
+            if (!isDisabled && !isSelected) {
               e.currentTarget.style.borderLeftColor =
                 "var(--vscode-descriptionForeground)";
               e.currentTarget.style.color = "var(--vscode-foreground)";
@@ -532,7 +523,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             }
           }}
           onMouseLeave={(e) => {
-            if (!disabled && !isSelected) {
+            if (!isDisabled && !isSelected) {
               e.currentTarget.style.borderLeftColor =
                 "var(--vscode-descriptionForeground)";
               e.currentTarget.style.color = "var(--vscode-foreground)";
@@ -541,16 +532,22 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
           }}
         >
           {option}
-        </button>
+        </button>,
       );
     });
 
     // 2. ALWAYS add a "Khác" input bar at the end for single-choice questions
     // (even if AI didn't include it) - but avoid duplicate if AI already had it
     if (!hasAiOther) {
-      const isSelected = !!(selected && selected.toString().startsWith("Khác:"));
+      const isSelected = !!(
+        selected && selected.toString().startsWith("Khác:")
+      );
       renderedItems.push(
-        renderOtherInput(isSelected, "Khác (ý kiến của bạn)", `auto-other-${q.id}`)
+        renderOtherInput(
+          isSelected,
+          "Khác (ý kiến của bạn)",
+          `auto-other-${q.id}`,
+        ),
       );
     }
 
@@ -563,6 +560,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
 
   // Render multi question type
   const renderMulti = (q: Question) => {
+    const isDisabled = disabled || isAllAnswered;
     const selected = (selectedOptions[q.id] as string[]) || [];
     const isAnswered = !!answers[q.id];
     // Use component-level state for multi-choice custom value
@@ -581,25 +579,17 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     const otherOptionText = "Khác";
     const hasOtherOption = true; // Always true because we ensure "Khác" exists
 
-    console.log(`${logPrefix.current} renderMulti:`, {
-      questionId: q.id,
-      originalOptionsCount: originalOptions.length,
-      optionsCount: options.length,
-      optionsList: options.map((opt, i) => `[${i}] "${opt}"`).join(", "),
-      hasOtherOption,
-      otherOptionText,
-      selected,
-      isAnswered,
-      multiCustomValue,
-    });
+    // Only log when user interacts - remove verbose render logging
 
     const handleMultiCustomChange = (value: string) => {
       setMultiCustomValues((prev) => ({ ...prev, [q.id]: value }));
       // Only update selectedOptions with the custom value, do NOT auto-save answers
       if (value.trim()) {
         const fullValue = `Khác: ${value.trim()}`;
-        // Replace the "Khác" selection with the full value
-        const newSelected = selected.filter((opt) => opt !== otherOptionText);
+        // Remove all previous "Khác" entries (both the placeholder and any previous custom values)
+        const newSelected = selected.filter(
+          (opt) => opt !== otherOptionText && !opt.startsWith("Khác:"),
+        );
         newSelected.push(fullValue);
         setSelectedOptions({ ...selectedOptions, [q.id]: newSelected });
         // Do NOT call setAnswers or onAnswerProp here - answer will be saved via navigation buttons
@@ -626,7 +616,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                   alignItems: "center",
                   gap: "10px",
                   padding: "8px 6px",
-                  cursor: disabled || isAnswered ? "default" : "pointer",
+                  cursor: isDisabled || isAnswered ? "default" : "pointer",
                   opacity: isAnswered && !isSelected ? 0.5 : 1,
                   transition: "all 0.15s ease",
                   borderLeft: "none",
@@ -637,16 +627,6 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                   type="checkbox"
                   checked={isSelected}
                   onChange={() => {
-                    console.log(
-                      `${logPrefix.current} Multi checkbox clicked:`,
-                      {
-                        option,
-                        isOther,
-                        isSelected,
-                        selected,
-                        disabled,
-                      },
-                    );
                     if (isOther) {
                       // Toggle "Khác" selection - just like other options
                       if (selected.includes(option)) {
@@ -663,9 +643,6 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                           ...prev,
                           [q.id]: "",
                         }));
-                        console.log(`${logPrefix.current} Unselected "Khác":`, {
-                          newSelected,
-                        });
                       } else {
                         // Select "Khác"
                         const newSelected = [...selected, option];
@@ -673,23 +650,20 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                           ...selectedOptions,
                           [q.id]: newSelected,
                         });
-                        console.log(`${logPrefix.current} Selected "Khác":`, {
-                          newSelected,
-                        });
                       }
                     } else {
                       // Regular option toggle
                       handleMultiToggle(option);
                     }
                   }}
-                  disabled={disabled}
+                  disabled={isDisabled}
                   style={{
                     accentColor: isSelected
                       ? "var(--vscode-button-background)"
                       : "var(--vscode-descriptionForeground)",
                     width: "16px",
                     height: "16px",
-                    cursor: disabled || isAnswered ? "default" : "pointer",
+                    cursor: isDisabled || isAnswered ? "default" : "pointer",
                     opacity: isSelected ? 1 : 0.4,
                   }}
                 />
@@ -707,8 +681,8 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                         // Only update selectedOptions, do NOT auto-save answers
                         handleMultiCustomChange(e.target.value);
                       }}
-                      placeholder="Nhập ý kiến của bạn..."
-                      disabled={disabled}
+                      placeholder="Khác (ý kiến của bạn)"
+                      disabled={isDisabled}
                       style={{
                         flex: 1,
                         padding: "2px 8px",
@@ -736,6 +710,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
 
   // Render text question type
   const renderText = (q: Question) => {
+    const isDisabled = disabled || isAllAnswered;
     const value = textInputs[q.id] || "";
     const isAnswered = !!answers[q.id];
     return (
@@ -747,7 +722,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
           }
           onKeyDown={handleKeyDown}
           placeholder="Nhập câu trả lời của bạn..."
-          disabled={disabled || isAnswered}
+          disabled={isDisabled || isAnswered}
           style={{
             width: "100%",
             minHeight: "80px",
@@ -767,12 +742,15 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     );
   };
 
-// Render confirm question type
+  // Render confirm question type
   const renderConfirm = (q: Question) => {
+    const isDisabled = disabled || isAllAnswered;
     const isAnswered = !!answers[q.id];
     const selected = confirmValues[q.id];
-    const greenColor = "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
-    const redColor = "var(--vscode-gitDecoration-deletedResourceForeground, #f85149)";
+    const greenColor =
+      "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
+    const redColor =
+      "var(--vscode-gitDecoration-deletedResourceForeground, #f85149)";
     const customValue = customValues[q.id] || "";
 
     const updateCustomSelection = (value: string) => {
@@ -807,9 +785,11 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
       value: boolean,
       label: string,
       color: string,
-      isSelected: boolean
+      isSelected: boolean,
     ) => {
-      const borderColor = isSelected ? color : "var(--vscode-descriptionForeground)";
+      const borderColor = isSelected
+        ? color
+        : "var(--vscode-descriptionForeground)";
       const bgColor = isSelected
         ? `color-mix(in srgb, ${color} 20%, transparent)`
         : "transparent";
@@ -817,7 +797,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
       return (
         <div
           onClick={() => {
-            if (!disabled) {
+            if (!isDisabled) {
               handleConfirm(value);
             }
           }}
@@ -828,7 +808,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             borderLeft: `3px solid ${borderColor}`,
             backgroundColor: bgColor,
             borderRadius: "0",
-            cursor: disabled ? "default" : "pointer",
+            cursor: isDisabled ? "default" : "pointer",
             fontSize: "13px",
             fontWeight: isSelected ? 600 : 400,
             color: isSelected ? color : "var(--vscode-foreground)",
@@ -837,15 +817,18 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             width: "100%",
           }}
           onMouseEnter={(e) => {
-            if (!disabled && !isSelected) {
-              e.currentTarget.style.borderLeftColor = "var(--vscode-descriptionForeground)";
+            if (!isDisabled && !isSelected) {
+              e.currentTarget.style.borderLeftColor =
+                "var(--vscode-descriptionForeground)";
               e.currentTarget.style.color = "var(--vscode-foreground)";
-              e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--vscode-descriptionForeground) 10%, transparent)";
+              e.currentTarget.style.backgroundColor =
+                "color-mix(in srgb, var(--vscode-descriptionForeground) 10%, transparent)";
             }
           }}
           onMouseLeave={(e) => {
-            if (!disabled && !isSelected) {
-              e.currentTarget.style.borderLeftColor = "var(--vscode-descriptionForeground)";
+            if (!isDisabled && !isSelected) {
+              e.currentTarget.style.borderLeftColor =
+                "var(--vscode-descriptionForeground)";
               e.currentTarget.style.color = "var(--vscode-foreground)";
               e.currentTarget.style.backgroundColor = "transparent";
             }
@@ -857,22 +840,19 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     };
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "4px 0" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          padding: "4px 0",
+        }}
+      >
         {/* "Có" option bar */}
-        {renderOptionBar(
-          true,
-          "Có",
-          greenColor,
-          selected === true
-        )}
+        {renderOptionBar(true, "Có", greenColor, selected === true)}
 
         {/* "Không" option bar */}
-        {renderOptionBar(
-          false,
-          "Không",
-          redColor,
-          selected === false
-        )}
+        {renderOptionBar(false, "Không", redColor, selected === false)}
 
         {/* Input bar for custom answer (like single-choice "Khác") */}
         <div
@@ -888,14 +868,17 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             cursor: "pointer",
           }}
           onMouseEnter={(e) => {
-            if (!disabled && !customValue.trim()) {
-              e.currentTarget.style.borderLeftColor = "var(--vscode-descriptionForeground)";
-              e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--vscode-descriptionForeground) 10%, transparent)";
+            if (!isDisabled && !customValue.trim()) {
+              e.currentTarget.style.borderLeftColor =
+                "var(--vscode-descriptionForeground)";
+              e.currentTarget.style.backgroundColor =
+                "color-mix(in srgb, var(--vscode-descriptionForeground) 10%, transparent)";
             }
           }}
           onMouseLeave={(e) => {
-            if (!disabled && !customValue.trim()) {
-              e.currentTarget.style.borderLeftColor = "var(--vscode-descriptionForeground)";
+            if (!isDisabled && !customValue.trim()) {
+              e.currentTarget.style.borderLeftColor =
+                "var(--vscode-descriptionForeground)";
               e.currentTarget.style.backgroundColor = "transparent";
             }
           }}
@@ -909,7 +892,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             }}
             onFocus={(e) => e.target.select()}
             placeholder="Ý kiến khác..."
-            disabled={disabled}
+            disabled={isDisabled}
             style={{
               flex: 1,
               padding: "0px",
@@ -929,6 +912,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   };
   const renderQuestionContent = () => {
     if (!currentQuestion) return null;
+    const isReadOnly = isAllAnswered || disabled;
     switch (currentQuestion.type) {
       case "single":
         return renderSingle(currentQuestion);
@@ -944,6 +928,242 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   };
 
   const answeredCount = Object.keys(answers).length;
+
+  // Navigation icons for view mode (after all answered)
+  const renderNavIcons = () => {
+    // Only show if more than 1 question
+    if (totalQuestions <= 1) return null;
+    const iconColor = "var(--vscode-foreground)";
+    const bgColor = `color-mix(in srgb, ${iconColor} 10%, transparent)`;
+    return (
+      <div style={{ display: "flex", gap: "2px", alignItems: "center" }}>
+        <button
+          onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+          disabled={currentIndex === 0}
+          style={{
+            background: currentIndex === 0 ? "transparent" : bgColor,
+            border: "none",
+            color: iconColor,
+            cursor: currentIndex === 0 ? "default" : "pointer",
+            opacity: currentIndex === 0 ? 0.3 : 0.8,
+            padding: "4px 6px",
+            borderRadius: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="Câu hỏi trước"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+        <button
+          onClick={() =>
+            setCurrentIndex(Math.min(totalQuestions - 1, currentIndex + 1))
+          }
+          disabled={currentIndex === totalQuestions - 1}
+          style={{
+            background:
+              currentIndex === totalQuestions - 1 ? "transparent" : bgColor,
+            border: "none",
+            color: iconColor,
+            cursor: currentIndex === totalQuestions - 1 ? "default" : "pointer",
+            opacity: currentIndex === totalQuestions - 1 ? 0.3 : 0.8,
+            padding: "4px 6px",
+            borderRadius: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="Câu hỏi tiếp theo"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
+  // Render Summary view (copied from QuestionSummaryBlock)
+  const renderSummary = () => {
+    const answerCount = Object.keys(answers).length;
+    const statusColor =
+      answerCount === totalQuestions
+        ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+        : "var(--vscode-descriptionForeground)";
+
+    const formatAnswer = (answer: QuestionAnswer): string => {
+      const value = answer.value;
+      if (Array.isArray(value)) {
+        return value.join(", ");
+      }
+      if (typeof value === "boolean") {
+        return value ? "✅ Có" : "❌ Không";
+      }
+      return String(value);
+    };
+
+    const getAnswer = (questionId: string): string => {
+      const answer = answers[questionId];
+      if (!answer) return "Chưa trả lời";
+      return formatAnswer(answer);
+    };
+
+    return (
+      <div className="timeline-item" style={wrapperStyle}>
+        <ToolHeader
+          title={
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                color: "var(--vscode-editor-foreground)",
+              }}
+            >
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>QUESTION</span>
+              <span
+                style={{
+                  fontSize: "10px",
+                  opacity: 0.5,
+                  fontWeight: 400,
+                  marginLeft: "4px",
+                }}
+              >
+                ✅ Đã trả lời {answerCount}/{totalQuestions}
+              </span>
+            </div>
+          }
+          statusColor={statusColor}
+          icon={
+            <span
+              className="codicon codicon-question"
+              style={{ fontSize: "14px" }}
+            />
+          }
+        />
+        <div style={{ paddingLeft: "36px", marginTop: "8px" }}>
+          {title && (
+            <div
+              style={{
+                fontSize: "13px",
+                fontWeight: 500,
+                color: "var(--vscode-foreground)",
+                marginBottom: "12px",
+                padding: "4px 0",
+              }}
+            >
+              {title}
+            </div>
+          )}
+
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+          >
+            {questions.map((q, index) => {
+              const answer = getAnswer(q.id);
+              const isAnswered = !!answers[q.id];
+              const typeLabel = getTypeLabel(q.type);
+
+              return (
+                <div
+                  key={q.id}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
+                    padding: "6px 12px",
+                    borderRadius: "0",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      color: "var(--vscode-foreground)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        color: "var(--vscode-descriptionForeground)",
+                        opacity: 0.6,
+                        minWidth: "28px",
+                      }}
+                    >
+                      {index + 1}.
+                    </span>
+                    <span style={{ marginLeft: "-2px" }}>{q.label}</span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      paddingLeft: "30px",
+                      color: isAnswered
+                        ? "var(--vscode-foreground)"
+                        : "var(--vscode-descriptionForeground)",
+                      fontWeight: isAnswered ? 500 : 400,
+                      opacity: isAnswered ? 1 : 0.5,
+                    }}
+                  >
+                    {isAnswered ? (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "2px 10px",
+                          backgroundColor:
+                            "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)",
+                          borderRadius: "4px",
+                          fontSize: "12px",
+                        }}
+                      >
+                        {answer}
+                      </span>
+                    ) : (
+                      <span style={{ fontStyle: "italic" }}>Chưa trả lời</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // If in summary mode, render summary view
+  const willRenderSummary = isSummaryMode && isPaginated;
+  if (willRenderSummary) {
+    return renderSummary();
+  }
 
   return (
     <div className="timeline-item" style={wrapperStyle}>
@@ -967,9 +1187,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                 marginLeft: "4px",
               }}
             >
-              {isAllAnswered
-                ? "✅ Đã trả lời tất cả"
-                : `${answeredCount} / ${totalQuestions} đã trả lời`}
+              {`${answeredCount} / ${totalQuestions} đã trả lời`}
             </span>
           </div>
         }
@@ -980,6 +1198,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             style={{ fontSize: "14px" }}
           />
         }
+        headerActions={isAllAnswered ? renderNavIcons() : undefined}
       />
       <div style={{ paddingLeft: "36px", marginTop: "8px" }}>
         {/* Question Label */}
@@ -1055,13 +1274,22 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                   };
                   setAnswers(allAnswers);
                   onAnswerProp?.(currentQuestion.id, selected);
-                  console.log(
-                    `${logPrefix.current} Multi-choice answer saved:`,
-                    {
-                      questionId: currentQuestion.id,
-                      selected,
-                    },
-                  );
+                }
+
+                // For text, save the text input as answer before proceeding
+                if (currentQuestion?.type === "text") {
+                  const value = textInputs[currentQuestion.id] || "";
+                  if (value.trim().length === 0) return; // Must have content
+                  const answer: QuestionAnswer = {
+                    questionId: currentQuestion.id,
+                    value: value.trim(),
+                  };
+                  allAnswers = {
+                    ...answers,
+                    [currentQuestion.id]: answer,
+                  };
+                  setAnswers(allAnswers);
+                  onAnswerProp?.(currentQuestion.id, value.trim());
                 }
 
                 if (isCurrentAnswered()) {
@@ -1069,6 +1297,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                     setCurrentIndex(currentIndex + 1);
                   } else {
                     // All questions answered - trigger onAllAnswered with the latest answers
+                    setIsSummaryMode(true);
                     onAllAnsweredProp?.(allAnswers);
                   }
                 }
@@ -1095,25 +1324,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
           </div>
         )}
 
-        {/* All answered indicator */}
-        {isAllAnswered && (
-          <div
-            style={{
-              padding: "8px 12px",
-              marginTop: "8px",
-              backgroundColor:
-                "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent)",
-              border:
-                "1px solid color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 30%, transparent)",
-              borderRadius: "6px",
-              fontSize: "12px",
-              color: "var(--vscode-foreground)",
-              textAlign: "center",
-            }}
-          >
-            ✅ Đã trả lời tất cả {totalQuestions} câu hỏi
-          </div>
-        )}
+        {/* All answered indicator - removed */}
       </div>
     </div>
   );
