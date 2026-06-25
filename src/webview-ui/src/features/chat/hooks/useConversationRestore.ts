@@ -73,7 +73,28 @@ export const useConversationRestore = ({
       if (convId) {
         const cached = ConversationCache.get(convId);
         if (cached) {
-          setMessages(cached.messages);
+          // ✅ Restore questionAnswers vào message từ cache (giống toolOutputs)
+          let messagesToRestore = cached.messages;
+          if (
+            cached.questionAnswers &&
+            Object.keys(cached.questionAnswers).length > 0
+          ) {
+            console.log(
+              "[useConversationRestore] Restoring questionAnswers from CACHE:",
+              cached.questionAnswers,
+            );
+            messagesToRestore = cached.messages.map((msg) => ({
+              ...msg,
+              questionAnswers:
+                cached.questionAnswers![msg.id] || msg.questionAnswers,
+            }));
+            console.log(
+              "[useConversationRestore] Messages after cache questionAnswers restore:",
+              messagesToRestore.filter((m) => m.questionAnswers),
+            );
+          }
+
+          setMessages(messagesToRestore);
           if (
             cached.toolOutputs &&
             Object.keys(cached.toolOutputs).length > 0
@@ -133,12 +154,37 @@ export const useConversationRestore = ({
       const data = event.data;
       if (data.command === "conversationResult") {
         if (data.data?.messages) {
-          const restoredMessages = data.data.messages.map(
+          let restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({
               ...msg,
               id: msg.id || `restored-${Date.now()}-${i}`,
             }),
           );
+
+          // ✅ FIX: Restore questionAnswers vào message (giống như toolOutputs)
+          if (
+            data.data.questionAnswers &&
+            Object.keys(data.data.questionAnswers).length > 0
+          ) {
+            console.log(
+              "[useConversationRestore] Restoring questionAnswers to messages:",
+              data.data.questionAnswers,
+            );
+            restoredMessages = restoredMessages.map(
+              (msg: { id: string | number; questionAnswers: any }) => ({
+                ...msg,
+                questionAnswers:
+                  data.data.questionAnswers[msg.id] || msg.questionAnswers,
+              }),
+            );
+            console.log(
+              "[useConversationRestore] Messages after questionAnswers restore:",
+              restoredMessages.filter(
+                (m: { questionAnswers: any }) => m.questionAnswers,
+              ),
+            );
+          }
+
           setMessages(restoredMessages);
 
           if (
@@ -223,6 +269,9 @@ export const useConversationRestore = ({
               backendConversationId: backendIdToUse,
               currentModel: modelToCache,
               currentAccount: accountToCache,
+              toolOutputs: data.data.toolOutputs,
+              singleLineReviewActions: data.data.singleLineReviewActions,
+              questionAnswers: data.data.questionAnswers,
             });
           }
         }

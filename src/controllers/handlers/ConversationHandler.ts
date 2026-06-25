@@ -164,6 +164,11 @@ export class ConversationHandler {
                 ? Object.keys(toolOutputs)
                 : [];
 
+              // ✅ FIX: Get questionAnswers (giống toolOutputs)
+              const questionAnswers = isArray
+                ? undefined
+                : candidateParsed.questionAnswers;
+
               const messages = isArray ? candidateParsed : candidateParsed.messages || [];
 
               webviewView.webview.postMessage({
@@ -179,6 +184,7 @@ export class ConversationHandler {
                   singleLineReviewActions: isArray
                     ? undefined
                     : candidateParsed.singleLineReviewActions,
+                  questionAnswers,  // ✅ ADD THIS
                 },
               });
               return;
@@ -213,6 +219,22 @@ export class ConversationHandler {
 
       const messages = isArray ? parsed : parsed.messages || [];
 
+      // ✅ FIX: Get questionAnswers (giống toolOutputs)
+      const questionAnswers = isArray ? undefined : parsed.questionAnswers;
+
+      console.log(
+        `[ConversationHandler] handleGetConversation - sending data:`,
+        {
+          conversationId,
+          messagesCount: messages.length,
+          hasToolOutputs: !!toolOutputs,
+          toolOutputsKeys: toolOutputs ? Object.keys(toolOutputs) : [],
+          hasQuestionAnswers: !!questionAnswers,
+          questionAnswersKeys: questionAnswers ? Object.keys(questionAnswers) : [],
+          questionAnswersData: questionAnswers,
+        },
+      );
+
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,
@@ -226,6 +248,7 @@ export class ConversationHandler {
           singleLineReviewActions: isArray
             ? undefined
             : parsed.singleLineReviewActions,
+          questionAnswers,  // ✅ ADD THIS
         },
       });
     } catch (error: any) {

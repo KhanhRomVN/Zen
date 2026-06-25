@@ -463,6 +463,32 @@ let effectiveChatUuid = currentConversationIdRef.current;
         ? content
         : `## User Message\n<zen-user-content>\n${content}\n</zen-user-content>`;
 
+      // ✅ FIX: Capture existing questionAnswers before any operations to prevent overwriting
+      // This is especially important for auto-triggered requests (skipFirstRequestLogic=true)
+      // that happen after user answers questions in handleSelectOption
+      let preservedQuestionAnswers: Record<string, Record<string, any>> | undefined;
+      if (skipFirstRequestLogic && effectiveChatUuid) {
+        try {
+          const storage = (window as any).storage;
+          if (storage) {
+            const key = `zen-chat:${sessionId}:${folderPath || 'global'}:${effectiveChatUuid}`;
+            const existingData = await storage.get(key, false);
+            if (existingData && existingData.value) {
+              const parsed = JSON.parse(existingData.value);
+              if (parsed.questionAnswers && Object.keys(parsed.questionAnswers).length > 0) {
+                preservedQuestionAnswers = parsed.questionAnswers;
+                console.log("[useChatLLM] sendMessage - Preserved questionAnswers for auto-triggered request:", {
+                  convId: effectiveChatUuid,
+                  questionAnswersKeys: Object.keys(preservedQuestionAnswers ?? {}),
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[useChatLLM] sendMessage - Failed to preserve questionAnswers:", e);
+        }
+      }
+
       if (skipFirstRequestLogic) {
         // Detailed trace for tool results to catch duplicates
         const lastToolMsg = [...messagesRef.current]
@@ -539,6 +565,9 @@ let effectiveChatUuid = currentConversationIdRef.current;
         false,
         undefined,
         backendConversationIdRef.current,
+        undefined, // toolOutputs
+        undefined, // singleLineReviewActions
+        preservedQuestionAnswers, // ✅ FIX: Pass preserved questionAnswers to prevent overwrite
       );
       // User message log will happen after response when we have backendConversationId
 
@@ -1210,6 +1239,14 @@ let effectiveChatUuid = currentConversationIdRef.current;
 
         // Extract questionAnswers from the payload
         const answersToSave = parsedPayload?.answers ? { [messageId]: parsedPayload.answers } : undefined;
+
+        // ✅ DEBUG: Log questionAnswers before save
+        console.log("[useChatLLM] handleSelectOption - Saving questionAnswers:", {
+          messageId,
+          parsedPayload,
+          answersToSave,
+          convId,
+        });
 
         // Log the message state after update
         const sessionId = selectedTab?.sessionId || -1;

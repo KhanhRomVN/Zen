@@ -255,6 +255,18 @@ export const saveConversation = async (
       } as ChatMetadata,
     };
 
+    // ✅ DEBUG: Log before saving to storage
+    console.log("[ConversationService] saveConversation - data to save:", {
+      convId,
+      hasQuestionAnswers: !!finalQAForStorage,
+      questionAnswersKeys: finalQAForStorage ? Object.keys(finalQAForStorage) : [],
+      questionAnswersData: finalQAForStorage,
+      paramQuestionAnswers: questionAnswers,
+      extractedQuestionAnswers,
+      existingQuestionAnswers,
+      mergedQuestionAnswers,
+    });
+
     await storage.set(key, JSON.stringify(data), false);
 
     // Always store mergedQuestionAnswers in global store if it has data

@@ -51,8 +51,10 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   >({});
   // Internal state to control summary view (avoid relying on props)
   const [isSummaryMode, setIsSummaryModeState] = useState(false);
-  // Ref to track summary mode across re-renders and re-mounts
+  // Ref to track summary mode across re-renders and re-mounts (giống cách TerminalBlock track state)
   const isSummaryModeRef = useRef(false);
+  // Ref to track if we've restored from initialAnswers (prevent re-initialization)
+  const hasRestoredRef = useRef(false);
   const logPrefix = useRef(`[Zen][QuestionAnswerBlock]`);
 
   // Wrapper to keep state and ref in sync
@@ -66,16 +68,42 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   const legacyAnswered = !!selectedOptionProp;
 
   // Sync initialAnswers to answers state when it changes (for history load)
+  // ✅ FIX: Giống TerminalBlock - chỉ restore 1 lần, track bằng ref
   useEffect(() => {
     const initialAnswersKeys = Object.keys(initialAnswers);
     const hasInitialAnswers = isPaginated && initialAnswersKeys.length > 0;
 
+    console.log(`${logPrefix.current} useEffect[initialAnswers]`, {
+      hasInitialAnswers,
+      initialAnswersKeys,
+      hasRestoredRef: hasRestoredRef.current,
+      isSummaryModeRef: isSummaryModeRef.current,
+      questionsLength: questions.length,
+    });
+
     if (hasInitialAnswers) {
-      // If we're already in summary mode (check ref, not state, to survive re-mounts),
-      // don't reset answers or summary state.
-      if (isSummaryModeRef.current) {
+      // ✅ FIX: Nếu đã restore rồi, không restore lại (tránh re-initialization)
+      if (hasRestoredRef.current) {
+        console.log(
+          `${logPrefix.current} Already restored, skipping re-initialization`,
+        );
         return;
       }
+
+      // ✅ Mark as restored (track state giống TerminalBlock track writtenCharsRef)
+      hasRestoredRef.current = true;
+
+      // ✅ FIX: Khi có initialAnswers, tự động chuyển sang summaryMode
+      // (giống TerminalBlock tự động hiển thị output khi có logs)
+      const totalQuestions = questions.length;
+      const answeredCount = initialAnswersKeys.length;
+      if (answeredCount === totalQuestions) {
+        console.log(
+          `${logPrefix.current} All questions answered (${answeredCount}/${totalQuestions}), switching to summaryMode`,
+        );
+        setIsSummaryMode(true);
+      }
+
       setAnswers(initialAnswers);
       // Also restore selectedOptions and confirmValues from initialAnswers
       Object.entries(initialAnswers).forEach(([qId, answer]) => {
@@ -95,8 +123,19 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
         }
         // For text, the value is stored in answers, textInputs will be populated from answers when rendering
       });
+
+      console.log(`${logPrefix.current} Restored answers:`, {
+        answers: initialAnswers,
+        isSummaryMode: isSummaryModeRef.current,
+      });
+    } else {
+      // ✅ Reset hasRestoredRef when no initialAnswers (new question)
+      hasRestoredRef.current = false;
+      console.log(
+        `${logPrefix.current} No initialAnswers, reset hasRestoredRef`,
+      );
     }
-  }, [initialAnswers, isPaginated, questions, isSummaryMode]);
+  }, [initialAnswers, isPaginated, questions]);
 
   const currentQuestion = isPaginated ? questions[currentIndex] : null;
   const totalQuestions = questions.length;
