@@ -338,6 +338,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               options: string[];
               title?: string;
               optional?: boolean;
+              questions?: import("../../types/message").Question[];
               key: string;
             }
           | {
@@ -458,6 +459,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 options: block.options,
                 title: block.title,
                 optional: block.optional,
+                questions: block.questions,
                 key: `question-${idx}`,
               });
             } else if (block.type === "mixed_content") {
@@ -855,7 +857,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "question") {
-            const isAnswered = !!message.selectedOption;
+            const isAnswered = !!message.selectedOption || (message.questionAnswers && Object.keys(message.questionAnswers).length > 0);
             const isThisActive = isLastMessage && !isInteractionBlocked;
             const dotColor = isAnswered
               ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
@@ -863,45 +865,88 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 ? "var(--vscode-button-background)"
                 : "var(--vscode-descriptionForeground)";
 
+            // Check if this is the new paginated format (has questions array)
+            const hasQuestions = group.questions && group.questions.length > 0;
+            
+            // Log question rendering
+            if (hasQuestions) {
+              console.log(`[Zen][Question] Rendering paginated question block: ${group.questions?.length ?? 0} questions`, {
+                messageId: message.id,
+                questions: group.questions?.map(q => ({ id: q.id, type: q.type, label: q.label })) ?? [],
+                answered: Object.keys(message.questionAnswers || {}).length
+              });
+            } else {
+              console.log(`[Zen][Question] Rendering legacy question block: ${group.options.length} options`, {
+                messageId: message.id,
+                title: group.title,
+                answered: !!message.selectedOption
+              });
+            }
+
             content = (
-              <div>
-                <div
-                  className="timeline-dot"
-                  style={{
-                    backgroundColor: dotColor,
-                    boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
-                    top: "28px",
-                  }}
-                />
-                <QuestionAnswerBlock
-                  options={group.options}
-                  title={group.title}
-                  optional={group.optional}
-                  selectedOption={message.selectedOption}
-                  onOptionSelect={(option: string) => {
-                    if (onSelectOption) {
-                      onSelectOption(message.id, option);
-                    }
-
-                    // Check if there are tools in this message.
-                    // If so, useToolExecution will handle sending the combined request
-                    // once all tools are complete.
-                    const hasTools = (parsedContent.actions?.length || 0) > 0;
-
-                    if (onSendMessage && !hasTools) {
-                      const questionTitle = group.title || "Question";
-                      onSendMessage(
-                        `[question: "${questionTitle}"] Answer: ${option}`,
-                        undefined,
-                        undefined,
-                        undefined,
-                        true,
-                      );
-                    }
-                  }}
-                  disabled={!!nextUserMessage || isGenerating}
-                />
-              </div>
+              <QuestionAnswerBlock
+                questions={hasQuestions ? group.questions : undefined}
+                options={!hasQuestions ? group.options : undefined}
+                title={group.title}
+                optional={group.optional}
+                selectedOption={!hasQuestions ? message.selectedOption : undefined}
+                initialAnswers={hasQuestions ? message.questionAnswers || {} : undefined}
+                disabled={!!nextUserMessage || isGenerating}
+                onAnswer={(questionId, value) => {
+                  if (!hasQuestions) return;
+                  console.log(`[Zen][Question] Answer received: question="${questionId}"`, { value });
+                  if (onSelectOption) {
+                    const answerStr = JSON.stringify({ questionId, value });
+                    onSelectOption(message.id, answerStr);
+                  }
+                }}
+                onAllAnswered={(answers) => {
+                  if (!hasQuestions) return;
+                  console.log(`[Zen][Question] All questions answered!`, {
+                    messageId: message.id,
+                    answerCount: Object.keys(answers).length,
+                    answers
+                  });
+                  if (onSelectOption) {
+                    const allAnsweredStr = JSON.stringify({ allAnswered: true, answers });
+                    onSelectOption(message.id, allAnsweredStr);
+                  }
+                  // Auto-submit answers as a follow-up message (like tool calls)
+                  if (onSendMessage) {
+                    const questionList = group.questions || [];
+                    const formattedAnswers = Object.entries(answers)
+                      .map(([qId, answer], index) => {
+                        const question = questionList.find(q => q.id === qId);
+                        const label = question?.label || qId;
+                        const value = Array.isArray(answer.value) 
+                          ? answer.value.join(', ')
+                          : String(answer.value);
+                        const number = index + 1;
+                        return `${number}. ${label}: ${value}`;
+                      })
+                      .join('\n');
+                    const promptText = `Câu trả lời của người dùng:\n${formattedAnswers}`;
+                    onSendMessage(promptText, undefined, undefined, undefined, undefined, undefined, true);
+                  }
+                }}
+                onOptionSelect={(option: string) => {
+                  if (hasQuestions) return;
+                  if (onSelectOption) {
+                    onSelectOption(message.id, option);
+                  }
+                  const hasTools = (parsedContent.actions?.length || 0) > 0;
+                  if (onSendMessage && !hasTools) {
+                    const questionTitle = group.title || "Question";
+                    onSendMessage(
+                      `[question: "${questionTitle}"] Answer: ${option}`,
+                      undefined,
+                      undefined,
+                      undefined,
+                      true,
+                    );
+                  }
+                }}
+              />
             );
 
             // Update blocking state

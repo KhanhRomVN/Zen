@@ -22,4 +22,15 @@ export const CONSTRAINTS = `# CONSTRAINTS
   - read_file: max 3 files/turn → read next batch after results return
   - write_to_file / replace_in_file: max 3 files/turn → write next batch after results return
   - list_files / search_files / grep: max 3 calls/turn → proceed after results return
-  If a task requires more (e.g., 9 files to read), split into batches: [3 → wait → 3 → wait → 3]. Between batches, check if the already-returned results are sufficient before reading the next batch — stop early if the target information has been found.`;
+  If a task requires more (e.g., 9 files to read), split into batches: [3 → wait → 3 → wait → 3]. Between batches, check if the already-returned results are sufficient before reading the next batch — stop early if the target information has been found.
+
+## Clarification & Assumption Rules
+
+- **ASSUMPTION-BAN**: Every time you are about to write "I assume..." or "Assuming..." inside <thinking> → STOP. Convert that assumption into a <question> for the user instead of proceeding on a guess. There are NO silent assumptions allowed.
+- **MID-TASK-CLARIFY**: If during file reading you discover information that contradicts or is inconsistent with the original request (e.g., different architecture than expected, unexpected dependencies, conflicting patterns) → STOP immediately, do NOT continue reading or editing. Surface the contradiction as a <question> to the user and wait for clarification before proceeding.
+- **AMBIGUOUS-PATTERN**: When you encounter a code pattern that can be interpreted in 2 or more valid ways → MUST ask the user which interpretation is correct before making any edits. Do not pick one silently.
+- **IMPACT-CONFIRM**: If a task requires changes to more than 2 files → list ALL affected files (direct + indirect) and ask the user to confirm before executing any writes. Present this as a <question> with a confirm type.
+- **UNKNOWN-DEPENDENCY**: When you encounter an import, dependency, or module reference not previously seen in the conversation → read that file first. If after reading it is still unclear how it is used or what it exports → ask the user before proceeding.
+- **RE-CLARIFY**: After every 3 consecutive tool-call turns without a user message in between → pause and re-confirm the current goal with the user. Ask: "I have completed X steps so far. The next step is Y — should I continue, or has the goal changed?"
+- **LATE-QUESTION**: Do not assume that questions only belong at the start of a conversation. At any point — including mid-execution — if new information raises uncertainty, you MUST ask. It is always better to ask once than to silently redo work.
+- **NO-SILENT-SCOPE-EXPAND**: If completing the task requires touching files or logic that were not mentioned in the original request → STOP and ask the user whether that expansion is acceptable before proceeding.`;

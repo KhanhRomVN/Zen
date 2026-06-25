@@ -17,6 +17,7 @@ import { getPermissionDecision } from "../../hooks/useToolExecution";
 import GrepBlock from "../blocks/GrepBlock";
 import { RichtextBlock } from "../blocks/RichtextBlock";
 import FileStreamingBlock from "../blocks/FileStreamingBlock";
+import ErrorBlock from "../blocks/ErrorBlock";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
 // Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
@@ -817,44 +818,59 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           </div>
         )}
 
-      {!shouldHideContent && isError && errorMessage && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "6px",
-            padding: "5px 8px",
-            backgroundColor:
-              "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 4%, transparent)",
-            border:
-              "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 20%, transparent)",
-            borderRadius: "4px",
-            marginTop: "2px",
-          }}
-        >
-          <span
-            className="codicon codicon-error"
+      {!shouldHideContent &&
+        isError &&
+        errorMessage &&
+        (toolType === "replace_in_file" ? (
+          // Use ErrorBlock for replace_in_file errors
+          <div style={{ marginTop: "4px" }}>
+            <ErrorBlock
+              content={errorMessage}
+              errorCode="REPLACE_IN_FILE"
+              isPartial={isPartial}
+              isLast={isLastItemInList}
+              isLastMessage={isLastMessage}
+            />
+          </div>
+        ) : (
+          // Inline error display for other tools
+          <div
             style={{
-              fontSize: "11px",
-              color: "var(--vscode-errorForeground, #f44336)",
-              opacity: 0.7,
-              marginTop: "1px",
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: "11px",
-              color: "var(--vscode-errorForeground, #f44336)",
-              opacity: 0.85,
-              fontFamily: "var(--vscode-editor-font-family, monospace)",
-              wordBreak: "break-word",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "6px",
+              padding: "5px 8px",
+              backgroundColor:
+                "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 4%, transparent)",
+              border:
+                "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 20%, transparent)",
+              borderRadius: "4px",
+              marginTop: "2px",
             }}
           >
-            {errorMessage}
-          </span>
-        </div>
-      )}
+            <span
+              className="codicon codicon-error"
+              style={{
+                fontSize: "11px",
+                color: "var(--vscode-errorForeground, #f44336)",
+                opacity: 0.7,
+                marginTop: "1px",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: "11px",
+                color: "var(--vscode-errorForeground, #f44336)",
+                opacity: 0.85,
+                fontFamily: "var(--vscode-editor-font-family, monospace)",
+                wordBreak: "break-word",
+              }}
+            >
+              {errorMessage}
+            </span>
+          </div>
+        ))}
 
       {!shouldHideContent &&
         (toolType === "list_files" || toolType === "search_files") &&

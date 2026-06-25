@@ -898,9 +898,26 @@ export const useToolExecution = ({
           (m) => m.id === message.id,
         );
         const selectedOption = currentMessage?.selectedOption;
+        const questionAnswers = currentMessage?.questionAnswers;
         const parsed = parseAIResponse(message.content);
         const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+        // Check if question is answered: either legacy selectedOption or new questionAnswers
+        const isQuestionAnswered = hasQuestion
+          ? !!(selectedOption || (questionAnswers && Object.keys(questionAnswers).length > 0))
+          : true;
+
+        // Log question state for debugging
+        if (hasQuestion) {
+          console.log(`[Zen][Question] handleToolRequest buffer - Question state:`, {
+            messageId: message.id,
+            hasQuestion,
+            selectedOption,
+            questionAnswersCount: Object.keys(questionAnswers || {}).length,
+            isQuestionAnswered,
+            validResultsCount: validResults.length,
+            actionsTotal: actions.length
+          });
+        }
 
         const allActionIds = parsed.actions.map(
           (_: any, idx: number) => `${message.id}-action-${idx}`,
@@ -918,7 +935,32 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(message.id);
             let finalContent = newBuffer.join("\n\n");
-            if (selectedOption) {
+            // Handle question answers - both legacy and new
+            if (questionAnswers && Object.keys(questionAnswers).length > 0) {
+              // New paginated format: send all answers
+              console.log(`[Zen][Question] Flushing ${Object.keys(questionAnswers).length} answers from buffer`, {
+                messageId: message.id,
+                answerCount: Object.keys(questionAnswers).length
+              });
+              const answerLines = Object.entries(questionAnswers).map(
+                ([qId, answer]) => {
+                  const q = (parsed.question as any)?.questions?.find(
+                    (q: any) => q.id === qId
+                  );
+                  const label = q?.label || qId;
+                  let valueStr = answer.value;
+                  if (Array.isArray(valueStr)) {
+                    valueStr = valueStr.join(", ");
+                  } else if (typeof valueStr === "boolean") {
+                    valueStr = valueStr ? "Yes" : "No";
+                  }
+                  return `[question: "${label}"] Answer: ${valueStr}`;
+                }
+              );
+              if (answerLines.length > 0) {
+                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
+              }
+            } else if (selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title
@@ -1051,8 +1093,22 @@ export const useToolExecution = ({
             (m) => m.id === messageObj.id,
           );
           const selectedOption = currentMessage?.selectedOption;
+          const questionAnswers = currentMessage?.questionAnswers;
           const hasQuestion = !!parsed.question;
-          const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+          const isQuestionAnswered = hasQuestion
+            ? !!(selectedOption || (questionAnswers && Object.keys(questionAnswers).length > 0))
+            : true;
+          
+          // Log confirmSingleLineAction question state
+          if (hasQuestion) {
+            console.log(`[Zen][Question] confirmSingleLineAction - Question state:`, {
+              messageId: messageObj.id,
+              hasQuestion,
+              selectedOption,
+              questionAnswersCount: Object.keys(questionAnswers || {}).length,
+              isQuestionAnswered
+            });
+          }
 
           const isAllComplete =
             allActionIds.every((id: string) =>
@@ -1066,7 +1122,28 @@ export const useToolExecution = ({
             if (handleSendMessageRef.current && !isStoppedRef?.current) {
               flushedMessageIdsRef.current.add(messageObj.id);
               let finalContent = newBuffer.join("\n\n");
-              if (selectedOption) {
+              // Handle question answers - both legacy and new
+              if (questionAnswers && Object.keys(questionAnswers).length > 0) {
+                console.log(`[Zen][Question] confirmSingleLineAction flushing ${Object.keys(questionAnswers).length} answers`);
+                const answerLines = Object.entries(questionAnswers).map(
+                  ([qId, answer]) => {
+                    const q = (parsed.question as any)?.questions?.find(
+                      (q: any) => q.id === qId
+                    );
+                    const label = q?.label || qId;
+                    let valueStr = answer.value;
+                    if (Array.isArray(valueStr)) {
+                      valueStr = valueStr.join(", ");
+                    } else if (typeof valueStr === "boolean") {
+                      valueStr = valueStr ? "Yes" : "No";
+                    }
+                    return `[question: "${label}"] Answer: ${valueStr}`;
+                  }
+                );
+                if (answerLines.length > 0) {
+                  finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
+                }
+              } else if (selectedOption) {
                 const questionTitle =
                   parsed.question?.type === "question"
                     ? (parsed.question as any).title
@@ -1140,8 +1217,22 @@ export const useToolExecution = ({
           (m) => m.id === messageObj.id,
         );
         const selectedOption = currentMessage?.selectedOption;
+        const questionAnswers = currentMessage?.questionAnswers;
         const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+        const isQuestionAnswered = hasQuestion
+          ? !!(selectedOption || (questionAnswers && Object.keys(questionAnswers).length > 0))
+          : true;
+        
+        // Log rejectSingleLineAction question state
+        if (hasQuestion) {
+          console.log(`[Zen][Question] rejectSingleLineAction - Question state:`, {
+            messageId: messageObj.id,
+            hasQuestion,
+            selectedOption,
+            questionAnswersCount: Object.keys(questionAnswers || {}).length,
+            isQuestionAnswered
+          });
+        }
 
         const isAllComplete =
           allActionIds.every(
@@ -1153,7 +1244,28 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(messageObj.id);
             let finalContent = newBuffer.join("\n\n");
-            if (selectedOption) {
+            // Handle question answers - both legacy and new
+            if (questionAnswers && Object.keys(questionAnswers).length > 0) {
+              console.log(`[Zen][Question] rejectSingleLineAction flushing ${Object.keys(questionAnswers).length} answers`);
+              const answerLines = Object.entries(questionAnswers).map(
+                ([qId, answer]) => {
+                  const q = (parsed.question as any)?.questions?.find(
+                    (q: any) => q.id === qId
+                  );
+                  const label = q?.label || qId;
+                  let valueStr = answer.value;
+                  if (Array.isArray(valueStr)) {
+                    valueStr = valueStr.join(", ");
+                  } else if (typeof valueStr === "boolean") {
+                    valueStr = valueStr ? "Yes" : "No";
+                  }
+                  return `[question: "${label}"] Answer: ${valueStr}`;
+                }
+              );
+              if (answerLines.length > 0) {
+                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
+              }
+            } else if (selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title
@@ -1200,7 +1312,9 @@ export const useToolExecution = ({
 
         const parsed = parseAIResponse(msg.content);
         const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion ? !!msg.selectedOption : true;
+        const isQuestionAnswered = hasQuestion
+          ? !!(msg.selectedOption || (msg.questionAnswers && Object.keys(msg.questionAnswers).length > 0))
+          : true;
 
         const allActionIds = parsed.actions.map(
           (_, idx: number) => `${msg.id}-action-${idx}`,
@@ -1218,7 +1332,32 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(messageId);
             let finalContent = buffer.join("\n\n");
-            if (msg.selectedOption) {
+            // Handle question answers - both legacy and new
+            if (msg.questionAnswers && Object.keys(msg.questionAnswers).length > 0) {
+              console.log(`[Zen][Question] Auto-flush sending ${Object.keys(msg.questionAnswers).length} answers`, {
+                messageId,
+                answerCount: Object.keys(msg.questionAnswers).length,
+                bufferLength: buffer.length
+              });
+              const answerLines = Object.entries(msg.questionAnswers).map(
+                ([qId, answer]) => {
+                  const q = (parsed.question as any)?.questions?.find(
+                    (q: any) => q.id === qId
+                  );
+                  const label = q?.label || qId;
+                  let valueStr = answer.value;
+                  if (Array.isArray(valueStr)) {
+                    valueStr = valueStr.join(", ");
+                  } else if (typeof valueStr === "boolean") {
+                    valueStr = valueStr ? "Yes" : "No";
+                  }
+                  return `[question: "${label}"] Answer: ${valueStr}`;
+                }
+              );
+              if (answerLines.length > 0) {
+                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
+              }
+            } else if (msg.selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title
@@ -1234,6 +1373,7 @@ export const useToolExecution = ({
               buffer,
             );
 
+            console.log(`[Zen][Question] Auto-flush completed, sending ${finalContent.length} chars`);
             handleSendMessageRef.current(
               guardedContent,
               undefined,

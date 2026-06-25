@@ -38,7 +38,14 @@ export type ContentBlock =
   | { type: "html"; content: string }
   | { type: "file"; content: string }
   | { type: "markdown"; content: string }
-  | { type: "question"; options: string[]; title?: string; optional?: boolean }
+  | {
+      type: "question";
+      options: string[];
+      title?: string;
+      optional?: boolean;
+      /** New structured questions for pagination */
+      questions?: import("../types/message").Question[];
+    }
   | {
       type: "mixed_content";
       segments: (
@@ -253,11 +260,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             pushTextOrCodeBlocks("markdown", innerContent.trim());
           }
         } else if (toolName === "question") {
-          // Explicit <question> tag
+          // Explicit <question> tag - supports both legacy and new schema
           const options: string[] = [];
           let title: string | undefined = undefined;
+          const questions: import("../types/message").Question[] = [];
 
-          // Extract title if present
+          // Extract title if present (legacy)
           const titleMatch =
             /<question_title>([\s\S]*?)<\/question_title>/i.exec(
               innerContent || "",
@@ -266,25 +274,180 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             title = titleMatch[1].trim();
           }
 
-          const optionRegex = /<option>([\s\S]*?)<\/option>/gi;
-          let optMatch;
-          while ((optMatch = optionRegex.exec(innerContent || "")) !== null) {
-            if (optMatch[1].trim()) {
-              options.push(optMatch[1].trim());
+          // Try to parse new schema with <q> elements
+          // Support both self-closing (<q ... />) and non-self-closing (<q ...>...</q>) tags
+          // Use a more robust approach: find each <q> tag individually
+          let hasNewSchema = false;
+          const content = innerContent || "";
+
+          console.log(`[Zen][Question] Parsing question block, innerContent length: ${content.length}`);
+          console.log(`[Zen][Question] Full innerContent: "${content.substring(0, 500)}..."`);
+
+          // Count total <q> tags found (both self-closing and non-self-closing)
+          const qTagCount = (content.match(/<q\s+id=/gi) || []).length;
+          console.log(`[Zen][Question] Found ${qTagCount} <q> tags in innerContent`);
+
+          // Find all <q> tags using a more reliable approach
+          // We'll process each tag by finding the opening <q and then finding the matching closing </q> or />
+          let searchIndex = 0;
+          let processedCount = 0;
+
+          while (searchIndex < content.length) {
+            // Find the next <q tag
+            const qStart = content.indexOf("<q ", searchIndex);
+            if (qStart === -1) break;
+
+            // Find the end of the opening tag (> or />)
+            let tagEnd = -1;
+            let isSelfClosing = false;
+            let depth = 0;
+            let i = qStart + 2;
+
+            while (i < content.length) {
+              if (content[i] === '<' && content[i + 1] === '/') {
+                // Closing tag - we're not inside the opening tag anymore
+                break;
+              }
+              if (content[i] === '>' && content[i - 1] === '/') {
+                // Self-closing: />
+                isSelfClosing = true;
+                tagEnd = i;
+                break;
+              }
+              if (content[i] === '>') {
+                tagEnd = i;
+                break;
+              }
+              i++;
+            }
+
+            if (tagEnd === -1) {
+              // No closing > found, move past this tag
+              searchIndex = qStart + 2;
+              continue;
+            }
+
+            // Extract the opening tag attributes
+            const openTag = content.substring(qStart, tagEnd + 1);
+            const idMatch = openTag.match(/id="([^"]+)"/);
+            const typeMatch = openTag.match(/type="([^"]+)"/);
+            const labelMatch = openTag.match(/label="([^"]*)"/);
+
+            if (!idMatch || !typeMatch) {
+              searchIndex = tagEnd + 1;
+              continue;
+            }
+
+            hasNewSchema = true;
+            const qId = idMatch[1].trim();
+            const qType = typeMatch[1].trim() as import("../types/message").QuestionType;
+            const qLabel = labelMatch ? labelMatch[1].trim() : "";
+
+            let qInner = "";
+            let closeTagEnd = tagEnd;
+
+            if (!isSelfClosing) {
+              // Find the matching closing </q>
+              let closeIndex = content.indexOf("</q>", tagEnd + 1);
+              if (closeIndex === -1) {
+                // No closing tag found, treat as self-closing
+                closeTagEnd = tagEnd;
+              } else {
+                // Extract inner content between opening and closing tags
+                qInner = content.substring(tagEnd + 1, closeIndex);
+                closeTagEnd = closeIndex + 4; // length of </q>
+              }
+            } else {
+              closeTagEnd = tagEnd + 1;
+            }
+
+            console.log(`[Zen][Question] Processing <q> tag: id="${qId}", type="${qType}", label="${qLabel}"`);
+
+            const qOptions: string[] = [];
+            // Only try to extract options if there is inner content
+            if (qInner.trim()) {
+              const optionRegex = /<option>([\s\S]*?)<\/option>/gi;
+              let optMatch;
+              while ((optMatch = optionRegex.exec(qInner)) !== null) {
+                if (optMatch[1].trim()) {
+                  qOptions.push(optMatch[1].trim());
+                }
+              }
+            }
+
+            // For single/multi, ensure we have at least 2 options
+            // For text/confirm, no options needed - skip validation
+            if (qType === "single" || qType === "multi") {
+              if (qOptions.length < 2) {
+                console.warn(`[Zen][Question] ⚠️ SKIPPING question "${qId}" - type ${qType} needs at least 2 options, got ${qOptions.length}`);
+                searchIndex = closeTagEnd;
+                continue;
+              }
+              console.log(`[Zen][Question] ✅ Valid options for "${qId}": ${qOptions.length} options`);
+            } else {
+              console.log(`[Zen][Question] ✅ Type "${qType}" does not require options, accepting`);
+            }
+
+            const question = {
+              id: qId,
+              type: qType,
+              label: qLabel || `Question ${questions.length + 1}`,
+              options: qOptions.length > 0 ? qOptions : undefined,
+            };
+            console.log(`[Zen][Question] ✅ PUSHED question: id="${qId}", type="${qType}", label="${qLabel}", options=${qOptions.length}`);
+            questions.push(question);
+            processedCount++;
+
+            // Move search index past this tag
+            searchIndex = closeTagEnd;
+          }
+
+          if (hasNewSchema) {
+            console.log(`[Zen][Question] Total questions parsed: ${questions.length}`);
+          } else {
+            console.log(`[Zen][Question] No new schema found, falling back to legacy parsing`);
+          }
+
+          console.log(`[Zen][Question] ========== SUMMARY ==========`);
+          console.log(`[Zen][Question] Total <q> tags found: ${qTagCount}`);
+          console.log(`[Zen][Question] Total questions parsed: ${questions.length}`);
+          console.log(`[Zen][Question] Question IDs: ${questions.map(q => q.id).join(', ')}`);
+          console.log(`[Zen][Question] ================================`);
+
+          if (hasNewSchema) {
+            console.log(`[Zen][Question] New schema parsed successfully`);
+          } else {
+            console.log(`[Zen][Question] No new schema found, falling back to legacy parsing`);
+          }
+
+          // If no new schema found, fall back to legacy parsing
+          if (!hasNewSchema) {
+            const optionRegex = /<option>([\s\S]*?)<\/option>/gi;
+            let optMatch;
+            while ((optMatch = optionRegex.exec(innerContent || "")) !== null) {
+              if (optMatch[1].trim()) {
+                options.push(optMatch[1].trim());
+              }
             }
           }
+
+          const openTag = match[0].split(">")[0];
+          const optional = /optional=["']true["']/i.test(openTag);
+
+          // Build the question block
+          const qBlock: ContentBlock = {
+            type: "question",
+            options: options.length > 0 ? options : [],
+            title,
+            optional,
+            ...(questions.length > 0 ? { questions } : {}),
+          };
+
+          result.contentBlocks.push(qBlock);
+          result.question = qBlock;
+
+          // Legacy compatibility
           if (options.length > 0) {
-            const openTag = match[0].split(">")[0];
-            const optional = /optional=["']true["']/i.test(openTag);
-            const qBlock: ContentBlock = {
-              type: "question",
-              options,
-              title,
-              optional,
-            };
-            result.contentBlocks.push(qBlock);
-            result.question = qBlock;
-            // Also populate legacy for compatibility
             result.followupOptions = options;
           }
         } else {

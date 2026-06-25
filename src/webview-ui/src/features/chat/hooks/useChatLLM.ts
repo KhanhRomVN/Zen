@@ -1165,9 +1165,28 @@ export const useChatLLM = ({
       }
     },
     handleSelectOption: (messageId: string, option: string) => {
-      const updatedMessages = messagesRef.current.map((m) =>
+      let updatedMessages = messagesRef.current.map((m) =>
         m.id === messageId ? { ...m, selectedOption: option } : m,
       );
+
+      // Check if this is a paginated question "all answered" payload
+      try {
+        const parsed = JSON.parse(option);
+        if (parsed.allAnswered === true && parsed.answers) {
+          // Update the message with questionAnswers
+          updatedMessages = messagesRef.current.map((m) =>
+            m.id === messageId
+              ? { ...m, questionAnswers: parsed.answers, selectedOption: option }
+              : m,
+          );
+          console.log(`[Zen][handleSelectOption] Saved questionAnswers for message ${messageId}:`, {
+            answerCount: Object.keys(parsed.answers).length,
+          });
+        }
+      } catch (e) {
+        // Not JSON or not allAnswered payload - ignore
+      }
+
       setMessages(updatedMessages);
 
       const sessionId = selectedTab?.sessionId || -1;

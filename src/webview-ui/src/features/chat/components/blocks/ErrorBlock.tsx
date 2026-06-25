@@ -87,7 +87,7 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
         />
 
         {!isCollapsed && (
-          <div className="error-block-content">
+          <div className="error-block-content" style={{ paddingLeft: "36px" }}>
             <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
               {displayMessage}
             </div>

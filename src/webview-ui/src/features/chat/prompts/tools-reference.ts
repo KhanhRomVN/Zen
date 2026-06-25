@@ -51,7 +51,73 @@ Examples:
 <thinking>your private two-pass reasoning and planning</thinking>
 <markdown>prose, tables, explanations</markdown>
 <code language="ts">read-only display</code>
-<question><option>A</option><option>B</option></question>
+
+## <question> — Multi-Question Block
+
+Use <question> to ask the user one or more questions at once. Each question is a <q> element.
+
+**Schema:**
+\`\`\`xml
+<question>
+  <q id="1" type="single" label="Question text here?">
+    <option>Option A</option>
+    <option>Option B</option>
+    <option>Option C</option>
+  </q>
+  <q id="2" type="multi" label="Which features should be included?">
+    <option>Auth</option>
+    <option>Logging</option>
+    <option>Cache</option>
+    <option>Rate limiting</option>
+  </q>
+  <q id="3" type="text" label="What should the new module be named?" />
+  <q id="4" type="confirm" label="This will modify 4 files. Proceed?" />
+</question>
+\`\`\`
+
+**Supported types:**
+- \`single\` — user picks exactly one option from the list
+- \`multi\` — user picks one or more options from the list
+- \`text\` — user types a free-form answer (no <option> children needed)
+- \`confirm\` — yes/no question, renders as two buttons: Yes / No (no <option> children needed)
+
+**Rules:**
+- Always include a \`label\` attribute — this is the displayed question text.
+- Always include an \`id\` attribute — used to reference answers.
+- \`type="text"\` and \`type="confirm"\` must NOT have <option> children.
+- \`type="single"\` and \`type="multi"\` must have at least 2 <option> children.
+- Group related questions into one <question> block rather than asking in separate turns.
+- Use <question> any time you have uncertainty — do not silently assume an answer.
+
+**When to use <question>:**
+- Before starting a task when the request is ambiguous (ORIENT phase)
+- After EXPLORE when findings reveal multiple valid approaches
+- Mid-task when a READ reveals contradictions with the original plan (MID-TASK-CLARIFY)
+- Before EXECUTE when scope expanded beyond the original request (IMPACT-CONFIRM, NO-SILENT-SCOPE-EXPAND)
+- After every 3 consecutive tool turns without a user message (RE-CLARIFY)
+
+**Example — IMPACT-CONFIRM before a large change:**
+\`\`\`xml
+<question>
+  <q id="1" type="confirm" label="This change affects: auth/login.ts, auth/session.ts, middleware/guard.ts, types/user.ts. Proceed with all 4 files?" />
+  <q id="2" type="single" label="Which files should be prioritized if something goes wrong?">
+    <option>auth/login.ts (core logic first)</option>
+    <option>types/user.ts (types first, then logic)</option>
+    <option>Let me decide after seeing each result</option>
+  </q>
+</question>
+\`\`\`
+
+**Example — Ambiguous approach:**
+\`\`\`xml
+<question>
+  <q id="1" type="single" label="Two valid patterns exist in this codebase. Which should I follow?">
+    <option>Pattern A: class-based service with dependency injection (used in auth/)</option>
+    <option>Pattern B: functional module with explicit imports (used in utils/)</option>
+  </q>
+  <q id="2" type="confirm" label="Should I also update existing files that use the old pattern?" />
+</question>
+\`\`\`
 
 Never output a <markdown> block in the same message with tool calls. Wait for tool results in the next turn before writing any markdown.
 After each read_file, STOP and wait for the file content before proceeding.

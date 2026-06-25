@@ -282,13 +282,13 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
       <div
         style={{
           marginTop: "4px",
-          padding: "8px 12px",
+          padding: "8px 12px 8px 29px",
           backgroundColor:
             "color-mix(in srgb, var(--vscode-editor-background) 50%, transparent)",
           borderRadius: "4px",
           fontSize: "11px",
           color: "var(--vscode-descriptionForeground)",
-          textAlign: "center",
+          textAlign: "left",
         }}
       >
         <span
@@ -307,11 +307,15 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
         maxHeight: "320px",
         overflowY: "auto",
         marginTop: "2px",
+        marginLeft: "0px",
+        paddingLeft: "29px",
+        paddingRight: "10px",
+        paddingTop: "6px",
+        paddingBottom: "6px",
         background:
           "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
         border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
         borderRadius: "4px",
-        padding: "6px 10px",
         scrollbarWidth: "thin",
         scrollbarColor: "var(--vscode-scrollbarSlider-background) transparent",
       }}
