@@ -58,7 +58,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     >
       <div
         style={{
-          padding: "8px 12px",
+          padding: "12px 12px 8px 12px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",

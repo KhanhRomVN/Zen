@@ -139,21 +139,6 @@ export const parseToolAction = (
       params.type = extractParamValue(innerContent, "type");
       break;
 
-    case "search_files":
-      params.folder_path = extractParam(
-        innerContent,
-        "folder_path",
-        "folderPath",
-        "path",
-      );
-      params.regex = extractParamValue(innerContent, "regex");
-      params.file_pattern = extractParam(
-        innerContent,
-        "file_pattern",
-        "filePattern",
-      );
-      break;
-
     case "delete_file":
       params.file_path = extractParam(
         innerContent,

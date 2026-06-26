@@ -131,6 +131,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [isGrepCollapsed, setIsGrepCollapsed] = React.useState(true);
   const [isSnapshotLoading, setIsSnapshotLoading] = React.useState(false);
+  const [showRawView, setShowRawView] = React.useState(false);
+  const [isHeaderHovered, setIsHeaderHovered] = React.useState(false);
   const { t } = useI18n();
   const { permissionMode } = useSettings();
   const toolType = action.type;
@@ -147,7 +149,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     () => collectConvFilePaths(allMessages || []),
     [allMessages],
   );
-  const displayName = rawPath ? getDisplayPath(rawPath, allPaths) : "";
+  // Extract only the filename (not the directory path) since full path is shown in line 2
+  const displayName = rawPath ? rawPath.split('/').pop() || rawPath : "";
 
   // write_to_file on a new file (CREATE) has no before-snapshot, so treat it as a plain open
   const isCreateNew = toolType === "write_to_file" && !fileStatsMap[rawPath];
@@ -198,7 +201,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   }, [conversationId, actionId, isSnapshotLoading, rawPath]);
 
   let codeContent = "";
-  if (toolType === "list_files" || toolType === "search_files") {
+  if (toolType === "list_files") {
     codeContent = toolOutputs?.[actionId]?.output || "";
   }
 
@@ -298,7 +301,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   const isWriteOrEditOnly =
     toolType === "write_to_file" || toolType === "replace_in_file";
   const shouldHideContent =
-    isWriteOrEditOnly && isCompleted && isActionClicked && !isPartial;
+    isWriteOrEditOnly && isCompleted && isActionClicked && !isPartial && !isError;
 
   const prefix =
     toolType === "replace_in_file"
@@ -309,12 +312,10 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           : t("tools.create")
         : toolType === "list_files"
           ? t("tools.list")
-          : toolType === "search_files"
-            ? t("tools.search")
-            : toolType === "grep"
-              ? "GREP"
-              : toolType === "delete_file"
-                ? t("tools.delete")
+          : toolType === "grep"
+            ? "GREP"
+            : toolType === "delete_file"
+              ? t("tools.delete")
                 : toolType === "delete_folder"
                   ? t("tools.delete")
                   : toolType === "move_file"
@@ -343,11 +344,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         display: "flex",
         flexDirection: "column",
         gap: "6px",
-        paddingBottom: isLastItemInList
-          ? isLastMessage
-            ? "0px"
-            : "12px"
-          : "8px",
+        paddingBottom: "4px",
+        marginBottom: "2px",
       }}
     >
       <ToolHeader
@@ -362,7 +360,10 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 fontSize: "12px",
                 color: "var(--vscode-editor-foreground)",
                 cursor: isCompleted ? "pointer" : "default",
+                width: "100%",
               }}
+              onMouseEnter={() => setIsHeaderHovered(true)}
+              onMouseLeave={() => setIsHeaderHovered(false)}
               onClick={
                 isCompleted ? () => setIsGrepCollapsed((v) => !v) : undefined
               }
@@ -390,6 +391,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 const targetPath = folderPath || filePath || "";
                 const isFolder = !!folderPath;
                 if (!targetPath) return null;
+                // Show path for grep even if only 1 segment
+                const segments = targetPath.split('/').filter(Boolean);
+                if (segments.length === 0) return null;
                 return (
                   <>
                     <span style={{ opacity: 0.4, fontSize: "11px" }}>in</span>
@@ -473,6 +477,32 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   style={{ fontSize: "10px", opacity: 0.5, marginLeft: "2px" }}
                 />
               )}
+              {isHeaderHovered && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowRawView(!showRawView);
+                  }}
+                  style={{
+                    marginLeft: "8px",
+                    fontSize: "10px",
+                    opacity: 0.6,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    fontWeight: 500,
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = "1";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "0.6";
+                  }}
+                >
+                  {showRawView ? "Hide raw" : "View raw"}
+                </span>
+              )}
             </div>
           ) : (
             // Original header for non-grep tools
@@ -483,15 +513,35 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 gap: "8px",
                 fontSize: "12px",
                 color: "var(--vscode-editor-foreground)",
+                position: "relative",
+                width: "100%",
               }}
+              onMouseEnter={() => setIsHeaderHovered(true)}
+              onMouseLeave={() => setIsHeaderHovered(false)}
             >
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>{prefix}</span>
+              <span 
+                style={{ 
+                  fontWeight: 600, 
+                  opacity: 0.8,
+                  cursor: "pointer",
+                  transition: "text-decoration 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.textDecoration = "underline";
+                  e.currentTarget.style.textUnderlineOffset = "2px";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.textDecoration = "none";
+                }}
+              >
+                {prefix}
+              </span>
               <FileIcon
                 path={rawPath}
                 isFolder={
                   toolType === "list_files" || !!action.params.folder_path
                 }
-                style={{ width: "16px", height: "16px" }}
+                style={{ width: "16px", height: "16px", cursor: "pointer" }}
               />
               <span
                 style={{
@@ -499,6 +549,15 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   opacity: 0.9,
                   fontFamily: "var(--vscode-editor-font-family, monospace)",
                   fontSize: "11px",
+                  cursor: "pointer",
+                  transition: "text-decoration 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.textDecoration = "underline";
+                  e.currentTarget.style.textUnderlineOffset = "2px";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.textDecoration = "none";
                 }}
               >
                 {displayName}
@@ -641,6 +700,32 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   +{linesCount} lines
                 </span>
               )}
+              {isHeaderHovered && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowRawView(!showRawView);
+                  }}
+                  style={{
+                    marginLeft: "8px",
+                    fontSize: "10px",
+                    opacity: 0.6,
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    fontWeight: 500,
+                    textDecoration: "underline",
+                    textUnderlineOffset: "2px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = "1";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "0.6";
+                  }}
+                >
+                  {showRawView ? "Hide raw" : "View raw"}
+                </span>
+              )}
             </div>
           )
         }
@@ -656,14 +741,29 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         diffStats={undefined}
         isPartial={isPartial}
         onClick={() => {
+          // For replace_in_file: try to open diff if completed, otherwise open file
+          if (toolType === "replace_in_file") {
+            if (isCompleted && !isPartial) {
+              openSnapshotInEditor();
+            } else {
+              setIsCollapsed((v) => !v);
+              if (rawPath) {
+                extensionService.postMessage({
+                  command: "openFile",
+                  path: rawPath,
+                });
+              }
+            }
+            return;
+          }
+
           if (isSnapshotTool && isCompleted && !isPartial) {
             openSnapshotInEditor();
           } else {
             setIsCollapsed((v) => !v);
             if (
               rawPath &&
-              toolType !== "list_files" &&
-              toolType !== "search_files"
+              toolType !== "list_files"
             ) {
               extensionService.postMessage({
                 command: "openFile",
@@ -672,7 +772,38 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             }
           }
         }}
+        path={rawPath}
+        onPathClick={(clickedPath) => {
+          // Always open file when clicking on the path itself
+          extensionService.postMessage({
+            command: "openFile",
+            path: clickedPath,
+          });
+        }}
       />
+
+      {/* Raw tool data viewer - showing raw XML without header */}
+      {!isGrepTool && showRawView && (
+        <div 
+          style={{ 
+            marginTop: "4px", 
+            marginLeft: "29px",
+            padding: "8px 12px",
+            backgroundColor: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+            border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+            borderRadius: "4px",
+            fontFamily: "var(--vscode-editor-font-family, monospace)",
+            fontSize: "11px",
+            lineHeight: "1.5",
+            color: "var(--vscode-editor-foreground)",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-all",
+            overflowX: "auto",
+          }}
+        >
+          {action.rawXml || JSON.stringify(action, null, 2)}
+        </div>
+      )}
 
       {/* Single-line review UI for write_to_file with content crammed into 1 line */}
       {!shouldHideContent &&
@@ -822,7 +953,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         isError &&
         errorMessage &&
         (toolType === "replace_in_file" ? (
-          // Use ErrorBlock for replace_in_file errors
+          // Use ErrorBlock for replace_in_file errors (without header)
           <div style={{ marginTop: "4px" }}>
             <ErrorBlock
               content={errorMessage}
@@ -830,6 +961,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               isPartial={isPartial}
               isLast={isLastItemInList}
               isLastMessage={isLastMessage}
+              showHeader={false}
+              contentPaddingLeft="29px"
             />
           </div>
         ) : (
@@ -873,7 +1006,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         ))}
 
       {!shouldHideContent &&
-        (toolType === "list_files" || toolType === "search_files") &&
+        toolType === "list_files" &&
         codeContent && (
           <>
             {!isCollapsed && (
@@ -933,6 +1066,28 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             isCollapsed={isGrepCollapsed}
             onToggleCollapse={() => setIsGrepCollapsed((v) => !v)}
           />
+          {/* Raw viewer for Grep tool */}
+          {showRawView && (
+            <div 
+              style={{ 
+                marginTop: "4px", 
+                marginLeft: "29px",
+                padding: "8px 12px",
+                backgroundColor: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+                border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+                borderRadius: "4px",
+                fontFamily: "var(--vscode-editor-font-family, monospace)",
+                fontSize: "11px",
+                lineHeight: "1.5",
+                color: "var(--vscode-editor-foreground)",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-all",
+                overflowX: "auto",
+              }}
+            >
+              {action.rawXml || JSON.stringify(action, null, 2)}
+            </div>
+          )}
         </>
       )}
     </div>

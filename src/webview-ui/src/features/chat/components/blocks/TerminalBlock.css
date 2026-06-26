@@ -247,7 +247,6 @@
 .timeline-item {
   position: relative;
   margin-left: 0;
-  padding-bottom: 24px;
   /* No z-index: avoid stacking context that hides ::before line */
 }
 

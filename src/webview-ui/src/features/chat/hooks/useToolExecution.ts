@@ -384,35 +384,6 @@ export const useToolExecution = ({
           );
           break;
         }
-        case "search_files": {
-          const requestId = `search-${Date.now()}-${Math.random()}`;
-          const folderPath = action.params.path || action.params.folder_path;
-          extensionService.postMessage({
-            command: "searchFiles",
-            path: folderPath,
-            regex: action.params.regex,
-            filePattern: action.params.filePattern,
-            requestId,
-            bypassIgnore,
-          });
-          messageDispatcher.register(
-            requestId,
-            (msg) => {
-              if (msg.error) {
-                resolve(
-                  `[search_files for '${folderPath}'] Result: Error - ${msg.error}`,
-                );
-                return;
-              }
-              resolve(
-                `[search_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(msg.results) ? msg.results.join("\n") : String(msg.results)}\n\`\`\``,
-              );
-            },
-            TOOL_TIMEOUT_STANDARD,
-            () => resolve(null),
-          );
-          break;
-        }
         case "run_command": {
           const actionId = (action as any).actionId;
           commandStartTimes.current.set(actionId, Date.now());

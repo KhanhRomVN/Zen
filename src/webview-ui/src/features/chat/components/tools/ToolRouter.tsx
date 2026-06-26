@@ -260,7 +260,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     toolType === "write_to_file" ||
     toolType === "read_file" ||
     toolType === "list_files" ||
-    toolType === "search_files" ||
     toolType === "grep" ||
     toolType === "delete_file" ||
     toolType === "delete_folder" ||

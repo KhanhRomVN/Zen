@@ -249,6 +249,10 @@ const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
         isPartial={isPartial}
         isCollapsed={isCollapsed}
         onClick={handleHeaderClick}
+        path={filePath}
+        onPathClick={() => {
+          if (onFileClick) onFileClick(filePath);
+        }}
       />
 
       {!isCollapsed && diffContent && (

@@ -1270,8 +1270,8 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
         {/* Question Content */}
         <div style={{ padding: "2px 0" }}>{renderQuestionContent()}</div>
 
-        {/* Navigation buttons - always visible except when all questions answered */}
-        {!isAllAnswered && (
+        {/* Navigation buttons - always visible except when in summary mode */}
+        {!isSummaryMode && (
           <div
             style={{
               display: "flex",

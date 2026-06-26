@@ -18,7 +18,6 @@ export interface ToolAction {
     | "write_to_file"
     | "replace_in_file"
     | "list_files"
-    | "search_files"
     | "run_command"
     | "execute_agent_action"
     | "delete_file"
@@ -98,7 +97,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "replace_in_file",
     "run_command",
     "list_files",
-    "search_files",
     "delete_file",
     "delete_folder",
     "move_file",
@@ -327,7 +325,15 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             const openTag = content.substring(qStart, tagEnd + 1);
             const idMatch = openTag.match(/id="([^"]+)"/);
             const typeMatch = openTag.match(/type="([^"]+)"/);
-            const labelMatch = openTag.match(/label="([^"]*)"/);
+            // Support both double quotes and single quotes for label attribute
+            let qLabel = "";
+            const doubleQuoteMatch = openTag.match(/label="([^"]*)"/);
+            const singleQuoteMatch = openTag.match(/label='([^']*)'/);
+            if (doubleQuoteMatch) {
+              qLabel = doubleQuoteMatch[1].trim();
+            } else if (singleQuoteMatch) {
+              qLabel = singleQuoteMatch[1].trim();
+            }
 
             if (!idMatch || !typeMatch) {
               searchIndex = tagEnd + 1;
@@ -338,7 +344,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             const qId = idMatch[1].trim();
             const qType =
               typeMatch[1].trim() as import("../types/message").QuestionType;
-            const qLabel = labelMatch ? labelMatch[1].trim() : "";
+            // qLabel is now set above via double/single quote detection
 
             let qInner = "";
             let closeTagEnd = tagEnd;
@@ -617,9 +623,6 @@ export const formatActionForDisplay = (action: ToolAction): string => {
     case "list_files":
       const type = action.params.type ? ` [${action.params.type}]` : "";
       return `list_files: ${action.params.folder_path || "unknown"}${type}`;
-
-    case "search_files":
-      return `search_files: ${action.params.regex || "unknown"}`;
 
     case "move_file":
       return `move_file: ${action.params.file_path || "unknown"} → ${action.params.target_folder_path || "unknown"}`;

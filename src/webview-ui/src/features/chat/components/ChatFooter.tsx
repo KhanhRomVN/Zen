@@ -107,7 +107,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         backgroundColor: "var(--secondary-bg)",
         zIndex: 100,
         transition: "bottom 0.2s ease",
-        paddingBottom: footerPaddingBottom,
+        paddingBottom: 0,
       }}
     >
       <input

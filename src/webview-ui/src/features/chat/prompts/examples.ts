@@ -130,18 +130,18 @@ Found auth-related files: \`auth/login.ts\`, \`auth/session.ts\`, \`auth/middlew
 \`\`\`xml
 <thinking>
 Pass 1 (Plan): User wants to check ApiService. I will search for it first.
-Pass 2 (Verify): Do not fake results. Just run search_files and STOP. No markdown.
+Pass 2 (Verify): Do not fake results. Just run grep and STOP. No markdown.
 </thinking>
-<search_files><folder_path>src</folder_path><regex>api.*service</regex></search_files>
+<grep><search_term>ApiService</search_term><folder_path>src</folder_path></grep>
 \`\`\`
 
 **Turn 2** — Search 2:
 \`\`\`xml
 <thinking>
 Pass 1 (Plan): First search failed. I will try a second search at root with a broader pattern.
-Pass 2 (Verify): Run search_files and STOP. No markdown.
+Pass 2 (Verify): Run grep and STOP. No markdown.
 </thinking>
-<search_files><folder_path>.</folder_path><regex>ApiService|api_service</regex></search_files>
+<grep><search_term>api service</search_term><folder_path>.</folder_path></grep>
 \`\`\`
 
 **Turn 3** — Ask:
@@ -265,7 +265,7 @@ After reading \`user.service.ts\`, I found that \`createUser\` already uses \`va
 Pass 1 (Plan): Need to find all files that reference UserService before making any changes.
 Pass 2 (Verify): EXPLORE phase. No edits yet. STOP after search.
 </thinking>
-<search_files><folder_path>src</folder_path><regex>UserService</regex></search_files>
+<grep><search_term>UserService</search_term><folder_path>src</folder_path></grep>
 \`\`\`
 
 **Turn 2** — IMPACT-CONFIRM before executing:

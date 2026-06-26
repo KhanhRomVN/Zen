@@ -8,7 +8,7 @@
  *
  * Supported tool types that commonly cause token overflow:
  *   - read_file   → large files or too many files in one response
- *   - search_files → accidentally hitting node_modules or large directories
+ *   - grep → accidentally hitting node_modules or large directories
  *   - list_files  → deep recursive listing of huge folder trees
  */
 
@@ -17,14 +17,14 @@ export interface TokenLimitFileInfo {
   path: string;
   /** Estimated token count for this tool result */
   estimatedTokens: number;
-  /** Total lines in the file (for read_file) or number of matches (for search_files) */
+  /** Total lines in the file (for read_file) or number of matches (for grep) */
   lineCount?: number;
   /** start_line used in the read_file call, if any */
   startLine?: number;
   /** end_line used in the read_file call, if any */
   endLine?: number;
   /** Tool type that produced this result */
-  toolType: "read_file" | "search_files" | "list_files" | "other";
+  toolType: "read_file" | "grep" | "list_files" | "other";
 }
 
 export interface TokenLimitWarningOptions {
@@ -55,9 +55,6 @@ export const buildTokenLimitWarningPrompt = (
 
   // Group files by tool type for a cleaner breakdown
   const readFiles = offendingFiles.filter((f) => f.toolType === "read_file");
-  const searchFiles = offendingFiles.filter(
-    (f) => f.toolType === "search_files",
-  );
   const listFiles = offendingFiles.filter((f) => f.toolType === "list_files");
   const otherFiles = offendingFiles.filter((f) => f.toolType === "other");
 
@@ -85,12 +82,6 @@ export const buildTokenLimitWarningPrompt = (
     prompt += `\n### read_file (${readFiles.length} file${readFiles.length > 1 ? "s" : ""}):\n`;
     prompt += readFiles.map(formatFileEntry).join("\n");
     prompt += `\n\n**Fix**: Use \`start_line\`/\`end_line\` to read only the relevant section of each file, or split into multiple turns and read one file at a time.`;
-  }
-
-  if (searchFiles.length > 0) {
-    prompt += `\n\n### search_files (${searchFiles.length} search${searchFiles.length > 1 ? "es" : ""}):\n`;
-    prompt += searchFiles.map(formatFileEntry).join("\n");
-    prompt += `\n\n**Fix**: Narrow the search path (avoid root \`.\` or paths containing \`node_modules\`), use a more specific regex pattern, or use \`includePattern\`/\`excludePattern\` to filter results.`;
   }
 
   if (listFiles.length > 0) {

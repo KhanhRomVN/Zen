@@ -29,7 +29,7 @@ Every response MUST start with a <thinking>...</thinking> block containing exact
    - If PROJECT STRUCTURE is missing from context → run \`<list_files><folder_path>.</folder_path><depth>1</depth></list_files>\` before proceeding.
    - If the request involves a module or file you have never seen in this conversation → explore it before assuming its structure.
 
-2. **EXPLORE** — Batch all exploration (list_files, search_files) in one message. Max 2 search attempts → ask user.
+2. **EXPLORE** — Batch all exploration (list_files, grep) in one message. Max 2 search attempts → ask user.
    - After EXPLORE results return: check if any finding contradicts the original request. If yes → trigger MID-TASK-CLARIFY.
 
 2.5. **CLARIFY** — Run after EXPLORE results return, before READ/EXECUTE:

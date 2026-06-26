@@ -18,8 +18,6 @@ replacement
 <list_files><folder_path>path/to/folder</folder_path></list_files>
 <list_files><folder_path>path/to/folder</folder_path><depth>2</depth></list_files>
 
-<search_files><folder_path>path/to/folder</folder_path><regex>pattern</regex></search_files>
-
 <grep><search_term>string</search_term><file_path>path/to/file</file_path></grep>
 <grep><search_term>string</search_term><folder_path>path/to/folder</folder_path></grep>
 
