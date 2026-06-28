@@ -1,6 +1,6 @@
 import React from "react";
 import { PlusIcon, SendIcon } from "@/icons/Icon";
-import { X, Zap, ShieldCheck, Eye } from "lucide-react";
+import { X, Zap, ShieldCheck, Eye, Cloud } from "lucide-react";
 import { GitPullRequestArrow } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
@@ -251,6 +251,60 @@ const MemoryButton: React.FC<ToggleButtonProps> = ({
         style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
       >
         Memory
+      </span>
+    </button>
+  );
+};
+
+const CloudButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: isOn
+          ? "1px solid var(--vscode-editorBracketHighlight-foreground4, rgba(249, 115, 22, 0.4))"
+          : "1px solid rgba(128, 128, 128, 0.2)",
+        background: isOn
+          ? isHovered
+            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #f97316) 20%, transparent)"
+            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #f97316) 12%, transparent)"
+          : isHovered
+            ? "rgba(128, 128, 128, 0.2)"
+            : "rgba(128, 128, 128, 0.12)",
+        color: isOn
+          ? "var(--vscode-editorBracketHighlight-foreground4, #f97316)"
+          : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={title}
+    >
+      <Cloud size={11} />
+      <span
+        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+      >
+        Cloud
       </span>
     </button>
   );
@@ -596,8 +650,26 @@ const MessageInput: React.FC<MessageInputProps> = ({
     }
   });
 
+  const [isCloud, setIsCloud] = React.useState(() => {
+    try {
+      return localStorage.getItem("zen-cloud-enabled") === "true";
+    } catch {
+      return false;
+    }
+  });
+
   const [isPlusHovered, setIsPlusHovered] = React.useState(false);
   const [isGitHovered, setIsGitHovered] = React.useState(false);
+
+  const toggleCloud = () => {
+    setIsCloud((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("zen-cloud-enabled", String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   const toggleThinking = () => {
     setIsThinking((prev) => {
@@ -726,6 +798,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
     // Check if model supports memory (is_memory flag)
     const result = currentModel?.is_memory === true;
     return result;
+  }, [currentModel]);
+
+  const showCloudButton = React.useMemo(() => {
+    return currentModel?.providerId === "tabbit";
   }, [currentModel]);
 
   // Sync thinking and search toggles when model changes
@@ -1372,6 +1448,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 isOn={isMemory}
                 onClick={toggleMemory}
                 title="Toggle Memory Reference (Saved memories & chat history)"
+              />
+            )}
+
+            {/* Cloud Toggle (Only for Tabbit) */}
+            {showCloudButton && (
+              <CloudButton
+                isOn={isCloud}
+                onClick={toggleCloud}
+                title="Bật/Tắt chế độ chạy Cloud (Loại bỏ chỉ thị ép buộc viết XML thô)"
               />
             )}
           </div>

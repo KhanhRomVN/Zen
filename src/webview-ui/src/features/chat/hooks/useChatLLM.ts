@@ -719,6 +719,8 @@ let effectiveChatUuid = currentConversationIdRef.current;
           is_search: localStorage.getItem("zen-search-enabled") === "true",
           thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           search: localStorage.getItem("zen-search-enabled") === "true",
+          is_cloud: localStorage.getItem("zen-cloud-enabled") === "true",
+          cloud: localStorage.getItem("zen-cloud-enabled") === "true",
           ...(ref_file_ids.length > 0 ? { ref_file_ids } : {}),
         };
 
