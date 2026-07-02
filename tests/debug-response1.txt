@@ -1,0 +1,22 @@
+<thinking>Pass 1 (Plan):
+- User yêu cầu test response với chỉ có mỗi thẻ <thinking>.
+- Yêu cầu đơn giản: chỉ cần trả về một response bắt đầu bằng <thinking>...</thinking>.
+- Không có file nào cần đọc, chỉnh sửa, hay thực thi lệnh.
+- Đây là test đơn thuần, không có yêu cầu xử lý logic hay code.
+
+Pass 2 (Verify):
+- Không có assumption nào cần kiểm tra.
+- Không có tool nào được gọi → có thể output markdown bình thường.
+- Đảm bảo response chỉ chứa <thinking> block và nội dung bên trong.</thinking>
+
+<markdown>Đã test thành công. Response này chỉ chứa thẻ `<thinking>` với đúng hai section yêu cầu: **Pass 1 (Plan)** và **Pass 2 (Verify)**. Không có nội dung thừa.</markdown>
+
+---
+
+PHÂN TÍCH:
+Dòng "Đảm bảo response chỉ chứa <thinking> block và nội dung bên trong.</thinking>"
+                                  ^^^^^^^^^ TAG THẬT TRONG BACKTICK?
+                                                                      ^^^^^^^^^^^^ ĐÓNG THINKING BLOCK THẬT!
+
+Vấn đề:  `<thinking>` trong backtick NHƯNG `</thinking>` NGOÀI backtick!
+Parser nhầm </thinking> ở cuối dòng là tag đóng thinking block thật!

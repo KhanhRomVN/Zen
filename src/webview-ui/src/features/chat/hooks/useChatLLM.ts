@@ -1094,6 +1094,90 @@ let effectiveChatUuid = currentConversationIdRef.current;
         //  calling onToolRequest here after stream-done would cause a double-trigger.)
         const parsed = parseAIResponse(assistantMessage.content);
 
+        // ✅ EMPTY RESPONSE DETECTION: Check if response only has thinking blocks with no meaningful content
+        const hasOnlyThinking = 
+          parsed.contentBlocks.length > 0 &&
+          parsed.contentBlocks.every((block: any) => block.type === 'thinking') &&
+          parsed.actions.length === 0 &&
+          !parsed.question;
+
+        if (hasOnlyThinking) {
+          // Use message ID as part of retry tracking to prevent duplicate processing
+          const retryKey = `${effectiveChatUuid}-empty-response`;
+          const messageRetryKey = `${assistantMessage.id}-empty-checked`;
+          
+          // Check if we already processed this specific message
+          const alreadyProcessed = emptyResponseRetryCountRef.current[messageRetryKey];
+          
+          if (!alreadyProcessed) {
+            // Mark this message as processed (use 1 as truthy flag, type-compatible with number)
+            emptyResponseRetryCountRef.current[messageRetryKey] = 1;
+            
+            const currentRetryCount = emptyResponseRetryCountRef.current[retryKey] || 0;
+            const MAX_EMPTY_RESPONSE_RETRIES = 2;
+
+            if (currentRetryCount < MAX_EMPTY_RESPONSE_RETRIES) {
+              // Increment retry count
+              const newRetryCount = currentRetryCount + 1;
+              emptyResponseRetryCountRef.current[retryKey] = newRetryCount;
+
+              console.warn(
+                `[Zen] Empty response detected (only thinking blocks, no actions/questions). Silent retry ${newRetryCount}/${MAX_EMPTY_RESPONSE_RETRIES}`,
+                {
+                  convId: effectiveChatUuid,
+                  messageId: assistantMessage.id,
+                  contentBlocksCount: parsed.contentBlocks.length,
+                  actionsCount: parsed.actions.length,
+                  hasQuestion: !!parsed.question,
+                }
+              );
+
+              // ✅ SILENT RETRY: Remove the empty assistant message from UI
+              // User will only see the final successful response
+              setMessages((prev) => {
+                // Remove the last message (the empty response we just got)
+                const filtered = prev.slice(0, -1);
+                return filtered;
+              });
+
+              // Auto-retry with fallback prompt immediately
+              setTimeout(() => {
+                sendMessage(
+                  EMPTY_RESPONSE_FALLBACK,
+                  undefined, // no files
+                  finalModel,
+                  finalAccount,
+                  true, // skipFirstRequestLogic = true (treat as continuation)
+                  undefined, // no actionIds
+                  false, // not hidden
+                  undefined, // no parentMessageId
+                );
+              }, 50); // Shorter delay for seamless experience
+
+              // Don't save - we removed the message
+              setIsProcessingSync(false);
+              return;
+            } else {
+              // Max retries exceeded - mark as error and stop
+              console.error(
+                `[Zen] Empty response retry limit exceeded (${MAX_EMPTY_RESPONSE_RETRIES}). Stopping.`,
+                { convId: effectiveChatUuid, messageId: assistantMessage.id }
+              );
+              assistantMessage.isError = true;
+              assistantMessage.content = `❌ The AI returned only thinking blocks with no meaningful content after ${MAX_EMPTY_RESPONSE_RETRIES} retries. Please try rephrasing your request or starting a new conversation.`;
+
+              // Reset retry counter for this conversation
+              delete emptyResponseRetryCountRef.current[retryKey];
+            }
+          }
+        } else {
+          // Valid response - reset retry counter if any
+          const retryKey = `${effectiveChatUuid}-empty-response`;
+          if (emptyResponseRetryCountRef.current[retryKey]) {
+            delete emptyResponseRetryCountRef.current[retryKey];
+          }
+        }
+
         // Save final conversation state
         saveConversation(
           sessionId,
