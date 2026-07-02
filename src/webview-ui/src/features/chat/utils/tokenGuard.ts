@@ -6,11 +6,7 @@ import {
 } from "../prompts/token-limit-warning";
 
 /** Tools that commonly produce large outputs and should be tracked for token overflow. */
-const OVERFLOW_PRONE_TOOLS = new Set([
-  "read_file",
-  "search_files",
-  "list_files",
-]);
+const OVERFLOW_PRONE_TOOLS = new Set(["read_file", "list_files"]);
 
 /**
  * Default max input token threshold (chars ÷ 4 ≈ tokens).

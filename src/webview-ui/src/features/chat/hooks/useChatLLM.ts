@@ -6,7 +6,8 @@ import {
   PERSISTENT_RULES,
   buildPermissionModeTag,
   buildPermissionModeTagCompact,
-} from "../prompts/persistent-rules";
+  EMPTY_RESPONSE_FALLBACK,
+} from "../prompts";
 import {
   logChatToWorkspace,
   saveConversation,
@@ -113,6 +114,8 @@ export const useChatLLM = ({
   // Qwen: lưu parent_id từ stream metadata để gửi cho request tiếp theo
   // Chỉ dùng cho Qwen — provider khác server sẽ bỏ qua field này
   const qwenParentIdRef = useRef<string | undefined>(undefined);
+  // Track empty response retries to avoid infinite loops
+  const emptyResponseRetryCountRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -719,8 +722,6 @@ let effectiveChatUuid = currentConversationIdRef.current;
           is_search: localStorage.getItem("zen-search-enabled") === "true",
           thinking: localStorage.getItem("zen-thinking-enabled") === "true",
           search: localStorage.getItem("zen-search-enabled") === "true",
-          is_cloud: localStorage.getItem("zen-cloud-enabled") === "true",
-          cloud: localStorage.getItem("zen-cloud-enabled") === "true",
           ...(ref_file_ids.length > 0 ? { ref_file_ids } : {}),
         };
 

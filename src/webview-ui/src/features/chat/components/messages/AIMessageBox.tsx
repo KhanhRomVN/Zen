@@ -208,7 +208,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
   /**
    * Build a map of basename → fullPath from prior tool calls in allMessages.
-   * Scans <file_path> tags from read_file, write_to_file, replace_in_file, search_files, list_files.
+   * Scans <file_path> tags from read_file, write_to_file, replace_in_file, list_files.
    * This lets us resolve plain filenames like "z_ai_auth.json" to their full paths.
    */
   const knownFilePaths = React.useMemo((): Map<string, string> => {

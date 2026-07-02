@@ -259,6 +259,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   return (
     <div
       ref={bodyRef}
+      className="chat-body-scroll"
       style={{
         flex: 1,
         overflowY: "auto",
@@ -504,6 +505,25 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       )}
 
       <div ref={messagesEndRef} />
+      <style>{`
+        .chat-body-scroll::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+        .chat-body-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .chat-body-scroll::-webkit-scrollbar-thumb {
+          background: var(--vscode-scrollbarSlider-background, rgba(128, 128, 128, 0.4));
+          border-radius: 4px;
+        }
+        .chat-body-scroll::-webkit-scrollbar-thumb:hover {
+          background: var(--vscode-scrollbarSlider-hoverBackground, rgba(128, 128, 128, 0.6));
+        }
+        .chat-body-scroll {
+          scrollbar-width: thin;
+        }
+      `}</style>
     </div>
   );
 };

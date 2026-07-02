@@ -11,7 +11,7 @@ export const getPermissionDecision = (
   mode: PermissionMode,
   toolType: string,
 ): "allow" | "prompt" | "deny" => {
-  const readTools = ["read_file", "list_files", "search_files", "grep"];
+  const readTools = ["read_file", "list_files", "grep"];
   switch (mode) {
     case "fullAccess":
       return "allow";

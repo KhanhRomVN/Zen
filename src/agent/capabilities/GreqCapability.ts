@@ -41,11 +41,14 @@ export class grepCapability {
         throw new Error("Provide only one of file_path or folder_path, not both");
       }
 
-      // Normalize search term for pattern matching
-      const pattern = this.createSearchPattern(searchTerm);
-      const regex = new RegExp(pattern, "i");
-
-      logger.debug(`[GREP] Pattern created: ${regex.source}`);
+      // Use search_term as literal regex
+      let regex: RegExp;
+      try {
+        regex = new RegExp(searchTerm, "i");
+        logger.debug(`[GREP] 🔍 Regex mode: pattern="${regex.source}", flags="i"`);
+      } catch (regexError) {
+        throw new Error(`Invalid regex pattern: ${searchTerm} - ${regexError instanceof Error ? regexError.message : String(regexError)}`);
+      }
 
       let filesToSearch: string[] = [];
 
@@ -54,33 +57,38 @@ export class grepCapability {
         const resolvedPath = path.isAbsolute(filePath)
           ? filePath
           : path.resolve(this.workspaceRoot, filePath);
-        logger.debug(`[GREP] Resolved file path: ${resolvedPath}`);
+        logger.debug(`[GREP] 📄 Resolved file path: ${resolvedPath}`);
         if (!fs.existsSync(resolvedPath)) {
           throw new Error(`File not found: ${filePath}`);
         }
         filesToSearch = [resolvedPath];
+        logger.debug(`[GREP] 📄 Searching 1 file: ${resolvedPath}`);
       } else if (folderPath) {
         // Recursive folder search — resolve relative to workspaceRoot
         const resolvedFolder = path.isAbsolute(folderPath)
           ? folderPath
           : path.resolve(this.workspaceRoot, folderPath);
-        logger.debug(`[GREP] Resolved folder path: ${resolvedFolder}`);
+        logger.debug(`[GREP] 📁 Resolved folder path: ${resolvedFolder}`);
         if (!fs.existsSync(resolvedFolder)) {
           throw new Error(`Folder not found: ${folderPath}`);
         }
         filesToSearch = this.getAllFiles(resolvedFolder);
-        logger.debug(`[GREP] Found ${filesToSearch.length} files to search in folder`);
+        logger.debug(`[GREP] 📁 Found ${filesToSearch.length} files to search in folder (excluding node_modules, .git, binary files)`);
       }
 
       const results: Record<string, MatchResult[]> = {};
       let filesWithMatches = 0;
+      let totalLinesScanned = 0;
 
       for (const file of filesToSearch) {
-        const matches = await this.searchInFile(file, regex);
+        const { matches, linesScanned } = await this.searchInFileWithStats(file, regex);
+        totalLinesScanned += linesScanned;
         if (matches.length > 0) {
           results[file] = matches;
           filesWithMatches++;
-          logger.debug(`[GREP] File ${file} has ${matches.length} matches`);
+          logger.debug(`[GREP] ✅ ${file} → ${matches.length} matches (scanned ${linesScanned} lines)`);
+        } else {
+          logger.debug(`[GREP] ❌ ${file} → 0 matches (scanned ${linesScanned} lines)`);
         }
       }
 
@@ -89,7 +97,10 @@ export class grepCapability {
         0,
       );
 
-      logger.info(`[GREP] Search completed: ${filesWithMatches}/${filesToSearch.length} files matched, ${totalMatches} total matches`);
+      logger.info(`[GREP] 🎯 Search completed: ${filesWithMatches}/${filesToSearch.length} files matched, ${totalMatches} total matches, ${totalLinesScanned} lines scanned`);
+      if (filesWithMatches === 0) {
+        logger.warn(`[GREP] ⚠️ No matches found for "${searchTerm}" in ${filesToSearch.length} files`);
+      }
 
       return {
         success: true,
@@ -304,5 +315,37 @@ export class grepCapability {
     }
 
     return matches;
+  }
+
+  /**
+   * Search for pattern in a single file with statistics
+   */
+  private async searchInFileWithStats(
+    filePath: string,
+    regex: RegExp,
+  ): Promise<{ matches: MatchResult[]; linesScanned: number }> {
+    const matches: MatchResult[] = [];
+    let linesScanned = 0;
+
+    try {
+      const content = await fs.promises.readFile(filePath, "utf-8");
+      const lines = content.split(/\r?\n/);
+      linesScanned = lines.length;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (regex.test(line)) {
+          matches.push({
+            lineNumber: i + 1, // 1-indexed line numbers
+            lineContent: line.trim(),
+          });
+        }
+      }
+    } catch (error) {
+      // Skip binary files or files that can't be read
+      console.warn(`Could not read file: ${filePath}`, error);
+    }
+
+    return { matches, linesScanned };
   }
 }

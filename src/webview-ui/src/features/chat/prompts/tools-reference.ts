@@ -35,14 +35,18 @@ replacement
 
 **run_command exit codes**: A non-zero exit code means the command failed. If the output contains "Error - Exit code N", treat the command as failed and diagnose before continuing.
 
-**grep**: Fuzzy search for a string across files.
-- \`search_term\`: The string to search for (case-insensitive, supports diacritic removal, camelCase/snake_case/kebab-case splitting, allows separators like space, underscore, hyphen).
+**grep**: Search for a string across files using **literal regular expressions**.
+- \`search_term\`: The regex pattern to search for (case-insensitive).
+  - Supports full JavaScript regex syntax: \`.*\`, \`[A-Z]\`, \`\\d+\`, \`(foo|bar)\`, etc.
+  - The regex is applied to each line of text files.
+  - Invalid regex patterns will throw an error.
 - Provide EITHER \`file_path\` (single file) OR \`folder_path\` (recursively search all files in folder and subfolders).
 - Returns: For each matching file, a list of matching lines with their line numbers.
 
 Examples:
-- \`<grep><search_term>searchBar</search_term><folder_path>src</folder_path></grep>\` — finds "searchBar", "SEARCHBAR", "search_bar", "search bar", "search-bar"
-- \`<grep><search_term>hello_world</search_term><file_path>src/main.ts</file_path></grep>\` — finds "hello_world", "hello world", "helloWorld", "HELLO_WORLD"
+- \`<grep><search_term>import.*ContextMenu</search_term><folder_path>src/renderer/src</folder_path></grep>\` — finds lines containing "import" followed by "ContextMenu"
+- \`<grep><search_term>^function\\s+\\w+</search_term><folder_path>src</folder_path></grep>\` — finds function declarations
+- \`<grep><search_term>console\\.(log|error|warn)</search_term><file_path>src/main.ts</file_path></grep>\` — finds console methods in a single file
 
 # RESPONSE TAGS
 

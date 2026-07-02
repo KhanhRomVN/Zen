@@ -108,6 +108,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         zIndex: 100,
         transition: "bottom 0.2s ease",
         paddingBottom: 0,
+        overflow: "hidden",
       }}
     >
       <input

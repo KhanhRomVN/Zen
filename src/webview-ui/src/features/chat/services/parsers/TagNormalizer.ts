@@ -143,12 +143,19 @@ const TAG_VARIANTS: Record<string, string[]> = {
     "MOVE_FILE",
   ],
   grep: ["Grep", "GREP"],
-  git_diff: ["gitDiff", "GitDiff", "git-diff", "Git_Diff", "gitdiff", "GIT_DIFF"],
+  git_diff: [
+    "gitDiff",
+    "GitDiff",
+    "git-diff",
+    "Git_Diff",
+    "gitdiff",
+    "GIT_DIFF",
+  ],
 };
 
 /**
  * Normalize all known tag name variants to their canonical forms, and also
- * handle the simple singular-form aliases (search_file → search_files, etc.).
+ * handle the simple singular-form aliases.
  */
 export const normalizeTagVariants = (content: string): string => {
   let result = content;

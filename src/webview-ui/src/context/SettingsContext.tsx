@@ -30,7 +30,6 @@ export const defaultToolPermissions: Record<string, "full_access" | "review"> =
     write_to_file: "full_access",
     replace_in_file: "full_access",
     list_files: "full_access",
-    search_files: "full_access",
     run_command: "full_access",
     move_file: "full_access",
   };
