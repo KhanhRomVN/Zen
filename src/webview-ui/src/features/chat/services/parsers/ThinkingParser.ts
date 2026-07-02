@@ -1,3 +1,5 @@
+import { findClosingTagPosition } from './TagClosingFinder';
+
 export interface ThinkingExtractResult {
   remainingContent: string;
   thinkingBlocks: string[];
@@ -106,61 +108,7 @@ export const extractThinkingBlocks = (
     // Check for <thinking> tag at current position (only at top-level)
     const thinkingOpenTag = '<thinking>';
     if (content.substring(i, i + thinkingOpenTag.length).toLowerCase() === thinkingOpenTag.toLowerCase()) {
-      // Find the REAL closing </thinking> tag (not inside backticks/code blocks)
-      // Strategy: track all backtick sequences using a stack
-      let thinkingEndIndex = -1;
-      let scanPos = i + thinkingOpenTag.length;
-      
-      // Stack to track open backtick contexts
-      const backtickStack: number[] = [];
-      
-      while (scanPos < content.length) {
-        // Skip escaped backticks (\`)
-        if (scanPos > 0 && content[scanPos - 1] === '\\' && content[scanPos] === '`') {
-          scanPos++;
-          continue;
-        }
-        
-        // Check for backtick sequences
-        if (content[scanPos] === '`') {
-          let btCount = 0;
-          let btPos = scanPos;
-          while (btPos < content.length && content[btPos] === '`') {
-            btCount++;
-            btPos++;
-          }
-          
-          // Try to close an existing backtick context with matching count
-          let found = false;
-          for (let si = backtickStack.length - 1; si >= 0; si--) {
-            if (backtickStack[si] === btCount) {
-              // Found matching close - remove from stack
-              backtickStack.splice(si, 1);
-              found = true;
-              break;
-            }
-          }
-          
-          if (!found) {
-            // Opening new backtick context
-            backtickStack.push(btCount);
-          }
-          
-          scanPos = btPos;
-          continue;
-        }
-        
-        // Only check for </thinking> when NO open backtick contexts
-        if (backtickStack.length === 0) {
-          const closingTag = '</thinking>';
-          if (content.substring(scanPos, scanPos + closingTag.length).toLowerCase() === closingTag.toLowerCase()) {
-            thinkingEndIndex = scanPos;
-            break;
-          }
-        }
-        
-        scanPos++;
-      }
+      const thinkingEndIndex = findClosingTagPosition(content, i + thinkingOpenTag.length, '</thinking>');
       
       if (thinkingEndIndex !== -1) {
         // Found complete thinking block

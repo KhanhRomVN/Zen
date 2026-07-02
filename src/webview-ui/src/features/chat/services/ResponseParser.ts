@@ -1,6 +1,7 @@
 import { normalizeTagVariants } from "./parsers/TagNormalizer";
 import { parseToolAction, extractParamValue } from "./parsers/ToolParser";
 import { extractThinkingBlocks } from "./parsers/ThinkingParser";
+import { findClosingTagPosition } from "./parsers/TagClosingFinder";
 
 export interface ParsedResponse {
   followupQuestion: string | null;
@@ -129,39 +130,90 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     let bestTool = "";
     let isClosed = false;
 
-    // 1. Try to find complete (closed) tags first
+    // 1. Try to find complete (closed) tags first using backtick-aware search
     for (const toolName of toolPatterns) {
-      let closingTagPattern = toolName;
-      if (toolName === "read_file") {
-        closingTagPattern = "read_files?";
-      }
-
-      const regex = new RegExp(
-        `<${toolName}(?:\\s+[^>]*)?\\s*(?:>([\\s\\S]*?)<\\/${closingTagPattern}\\s*>|\\/>)`,
-        "i",
-      );
-      const match = regex.exec(str);
-
-      if (match) {
-        if (minIndex === -1 || match.index < minIndex) {
-          minIndex = match.index;
-          bestMatch = match;
+      // Find opening tag
+      const openTag = `<${toolName}`;
+      const openRegex = new RegExp(`<${toolName}(?:\\s+[^>]*)?>`, "i");
+      const openMatch = openRegex.exec(str);
+      
+      if (!openMatch) continue;
+      
+      const openIndex = openMatch.index;
+      const openTagFull = openMatch[0];
+      const startContentPos = openIndex + openTagFull.length;
+      
+      // Check if it's self-closing
+      if (openTagFull.trim().endsWith('/>')) {
+        // Self-closing tag
+        if (minIndex === -1 || openIndex < minIndex) {
+          minIndex = openIndex;
+          bestMatch = [openTagFull, ''];  // No inner content
           bestTool = toolName;
           isClosed = true;
+        }
+        continue;
+      }
+      
+      // Find closing tag using backtick-aware search
+      let closingTagPattern = `</${toolName}>`;
+      if (toolName === "read_file") {
+        // Try both read_file and read_files
+        const closePos1 = findClosingTagPosition(str, startContentPos, '</read_file>');
+        const closePos2 = findClosingTagPosition(str, startContentPos, '</read_files>');
+        
+        let closingPos = -1;
+        if (closePos1 !== -1 && closePos2 !== -1) {
+          closingPos = Math.min(closePos1, closePos2);
+          closingTagPattern = closingPos === closePos1 ? '</read_file>' : '</read_files>';
+        } else if (closePos1 !== -1) {
+          closingPos = closePos1;
+          closingTagPattern = '</read_file>';
+        } else if (closePos2 !== -1) {
+          closingPos = closePos2;
+          closingTagPattern = '</read_files>';
+        }
+        
+        if (closingPos !== -1) {
+          if (minIndex === -1 || openIndex < minIndex) {
+            const innerContent = str.substring(startContentPos, closingPos);
+            const fullMatch = str.substring(openIndex, closingPos + closingTagPattern.length);
+            minIndex = openIndex;
+            bestMatch = [fullMatch, innerContent];
+            bestMatch.index = openIndex;
+            bestTool = toolName;
+            isClosed = true;
+          }
+        }
+      } else {
+        const closingPos = findClosingTagPosition(str, startContentPos, `</${toolName}>`);
+        
+        if (closingPos !== -1) {
+          if (minIndex === -1 || openIndex < minIndex) {
+            const innerContent = str.substring(startContentPos, closingPos);
+            const fullMatch = str.substring(openIndex, closingPos + closingTagPattern.length);
+            minIndex = openIndex;
+            bestMatch = [fullMatch, innerContent];
+            bestMatch.index = openIndex;
+            bestTool = toolName;
+            isClosed = true;
+          }
         }
       }
     }
 
-    // 2. If no closed tag/block found at a closer position, check for unclosed start tags
-    for (const toolName of toolPatterns) {
-      const openRegex = new RegExp(`<${toolName}(?:\\s+[^>]*)?>`, "i");
-      const match = openRegex.exec(str);
-      if (match) {
-        if (minIndex === -1 || match.index < minIndex) {
-          minIndex = match.index;
-          bestMatch = match;
-          bestTool = toolName;
-          isClosed = false;
+    // 2. If no closed tag found, check for unclosed start tags
+    if (minIndex === -1) {
+      for (const toolName of toolPatterns) {
+        const openRegex = new RegExp(`<${toolName}(?:\\s+[^>]*)?>`, "i");
+        const match = openRegex.exec(str);
+        if (match) {
+          if (minIndex === -1 || match.index < minIndex) {
+            minIndex = match.index;
+            bestMatch = match;
+            bestTool = toolName;
+            isClosed = false;
+          }
         }
       }
     }
