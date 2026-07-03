@@ -13,7 +13,6 @@ import {
   saveConversation,
   deleteConversation,
 } from "./services/ConversationService";
-import { HISTORY_CONTEXT_REMINDER } from "./prompts";
 
 import { useChatLLM } from "./hooks/useChatLLM";
 import { useToolExecution } from "./hooks/useToolExecution";
@@ -270,20 +269,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isStoppedRef.current = false;
       }
       setIsRestored(false);
-      let finalContent = content;
-      const isFromHistory =
-        !!(currentChat as any)?.conversationId && !currentChat?.canAccept;
-      if (isFromHistory && !hasAppendedHistoryContext.current) {
-        hasAppendedHistoryContext.current = true;
-        finalContent = content + HISTORY_CONTEXT_REMINDER;
-      }
       const parentMsgId = revertParentMessageIdRef.current || undefined;
       revertParentMessageIdRef.current = null;
       if (parentMsgId && currentConversationId) {
         sessionStorage.removeItem(`zen-revert-parent:${currentConversationId}`);
       }
       return sendMessage(
-        finalContent,
+        content,
         files,
         model,
         account,
@@ -368,7 +360,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setIsLoadingConversation,
     handleRevertConversation,
     handleClearConfirmed,
-    hasAppendedHistoryContext,
   } = useConversationRestore({
     currentChat,
     currentConversationId,

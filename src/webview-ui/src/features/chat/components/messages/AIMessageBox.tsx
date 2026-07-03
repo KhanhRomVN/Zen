@@ -11,7 +11,6 @@ import MarkdownBlock from "../blocks/MarkdownBlock";
 import ErrorBlock from "../blocks/ErrorBlock";
 import "../blocks/TerminalBlock.css";
 import "../blocks/MarkdownBlock.css";
-import { buildRetryPrompt } from "../../prompts";
 import { useI18n } from "../../../../hooks/useI18n";
 import type { I18nKey } from "../../../../i18n";
 
@@ -247,47 +246,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
     return map;
   }, [allMessages]);
-
-  const handleRetry = React.useCallback(() => {
-    if (!onSendMessage) return;
-
-    // Trích xuất các file đã thao tác trong lịch sử tin nhắn
-    const operatedFiles = new Set<string>();
-    if (allMessages) {
-      const filePathRegex = /<file_path>([^<]+)<\/file_path>/gi;
-      const pathRegex = /<path>([^<]+)<\/path>/gi;
-      allMessages.forEach((msg) => {
-        if (msg.content) {
-          let match;
-          filePathRegex.lastIndex = 0;
-          while ((match = filePathRegex.exec(msg.content)) !== null) {
-            operatedFiles.add(match[1].trim());
-          }
-          pathRegex.lastIndex = 0;
-          while ((match = pathRegex.exec(msg.content)) !== null) {
-            operatedFiles.add(match[1].trim());
-          }
-        }
-      });
-    }
-
-    const filesList = Array.from(operatedFiles);
-    const errorText = message.content.replace(/^Error:\s*/i, "");
-
-    // Tạo prompt tiếng Anh thông qua hàm buildRetryPrompt từ file retry.ts riêng biệt
-    const promptText = buildRetryPrompt(errorText, filesList);
-
-    // Gửi message retry ẩn dưới nền (uiHidden = true) tương tự các auto-req khác
-    onSendMessage(
-      promptText,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      true,
-    );
-  }, [message.content, allMessages, onSendMessage]);
 
   return (
     <div

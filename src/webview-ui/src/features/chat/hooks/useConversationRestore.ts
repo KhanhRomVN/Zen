@@ -51,7 +51,6 @@ export const useConversationRestore = ({
     useState<boolean>(true);
   const [isRestored, setIsRestored] = useState<boolean>(false);
   const revertMessageIdRef = useRef<string | null>(null);
-  const hasAppendedHistoryContext = useRef(false);
 
   // Load conversation
   useEffect(() => {
@@ -68,7 +67,6 @@ export const useConversationRestore = ({
       }
       setIsLoadingConversation(true);
       setIsRestored(false);
-      hasAppendedHistoryContext.current = false;
       const convId = (currentChat as any).conversationId;
       if (convId) {
         const cached = ConversationCache.get(convId);
@@ -406,7 +404,6 @@ export const useConversationRestore = ({
     >,
     handleRevertConversation,
     handleClearConfirmed,
-    hasAppendedHistoryContext,
     setRevertInput,
   };
 };

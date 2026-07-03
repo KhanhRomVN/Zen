@@ -9,7 +9,6 @@ import { Message } from "../types/message";
 
 import { parseAIResponse } from "../services/ResponseParser";
 import { useSettings, PermissionMode } from "../../../context/SettingsContext";
-import { applyTokenLimitGuard } from "../utils/tokenGuard";
 import { formatGrepResultCompact } from "../utils/grepFormatter";
 export { getPermissionDecision } from "../utils/permissionUtils";
 import { getPermissionDecision } from "../utils/permissionUtils";
@@ -850,14 +849,9 @@ export const useToolExecution = ({
             (a) => `${message.id}-action-${a._index}`,
           );
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
-            const rawContent = newBuffer.join("\n\n");
-            const guardedContent = applyTokenLimitGuard(
-              rawContent,
-              actions,
-              validResults,
-            );
+            const finalContent = newBuffer.join("\n\n");
             handleSendMessageRef.current(
-              guardedContent,
+              finalContent,
               undefined,
               undefined,
               undefined,
@@ -928,14 +922,8 @@ export const useToolExecution = ({
               finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
             }
 
-            const guardedContent = applyTokenLimitGuard(
-              finalContent,
-              actions,
-              newBuffer,
-            );
-
             handleSendMessageRef.current(
-              guardedContent,
+              finalContent,
               undefined,
               undefined,
               undefined,
@@ -1103,14 +1091,8 @@ export const useToolExecution = ({
                 finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
               }
 
-              const guardedContent = applyTokenLimitGuard(
-                finalContent,
-                parsed.actions || [],
-                newBuffer,
-              );
-
               handleSendMessageRef.current(
-                guardedContent,
+                finalContent,
                 undefined,
                 undefined,
                 undefined,
@@ -1216,14 +1198,8 @@ export const useToolExecution = ({
               finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
             }
 
-            const guardedContent = applyTokenLimitGuard(
-              finalContent,
-              parsed.actions || [],
-              newBuffer,
-            );
-
             handleSendMessageRef.current(
-              guardedContent,
+              finalContent,
               undefined,
               undefined,
               undefined,
@@ -1310,16 +1286,8 @@ export const useToolExecution = ({
               finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${msg.selectedOption}\n\n${finalContent}`;
             }
 
-            // Build actions list from the message for token guard
-            const msgActions = parsed.actions || [];
-            const guardedContent = applyTokenLimitGuard(
-              finalContent,
-              msgActions,
-              buffer,
-            );
-
             handleSendMessageRef.current(
-              guardedContent,
+              finalContent,
               undefined,
               undefined,
               undefined,
