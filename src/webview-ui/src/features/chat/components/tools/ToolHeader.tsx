@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import "../blocks/TerminalBlock.css";
+import "../blocks/run_command/TerminalBlock.css";
 
 interface ToolHeaderProps {
   title: React.ReactNode;
@@ -89,44 +89,45 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
 
   const maxLength = useMemo(() => {
     if (containerWidth === 0) return 35;
-    
+
     // Use actual path container width if available, otherwise estimate
-    const availableWidth = pathContainerWidth > 0 
-      ? pathContainerWidth - 24 // subtract padding (20px left + 4px right)
-      : Math.max(containerWidth - 80, 100); // less conservative estimate
-    
+    const availableWidth =
+      pathContainerWidth > 0
+        ? pathContainerWidth - 24 // subtract padding (20px left + 4px right)
+        : Math.max(containerWidth - 80, 100); // less conservative estimate
+
     // Font size is 10px, monospace ~6px per char
     const chars = Math.floor(availableWidth / 6);
     const result = Math.max(chars, 30);
-    
+
     // Debug logging
-    console.log('[ToolHeader Path Debug]', {
+    console.log("[ToolHeader Path Debug]", {
       containerWidth,
       pathContainerWidth,
       availableWidth,
       calculatedChars: chars,
       maxLength: result,
       pathLength: path?.length || 0,
-      willTruncate: (path?.length || 0) > result
+      willTruncate: (path?.length || 0) > result,
     });
-    
+
     return result;
   }, [containerWidth, pathContainerWidth, path]);
 
   const displayPath = useMemo(() => {
     if (!path) return "";
     const truncated = truncatePath(path, maxLength);
-    
+
     // Debug logging
     if (truncated !== path) {
-      console.log('[ToolHeader Path Truncated]', {
+      console.log("[ToolHeader Path Truncated]", {
         original: path,
         truncated,
         originalLength: path.length,
-        maxLength
+        maxLength,
       });
     }
-    
+
     return truncated;
   }, [path, maxLength]);
 
@@ -211,7 +212,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                 </div>
               )}
             </div>
-            {displayPath && path && path.includes('/') && (
+            {displayPath && path && path.includes("/") && (
               <div
                 ref={pathContainerRef}
                 style={{
@@ -235,8 +236,10 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                     top: "0",
                     width: "16px",
                     height: "12px",
-                    borderLeft: "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
-                    borderBottom: "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                    borderLeft:
+                      "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                    borderBottom:
+                      "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
                   }}
                 />
                 <span

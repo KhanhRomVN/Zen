@@ -1201,7 +1201,6 @@ export class FileHandler {
                   err && err.code === 1 && stdout.trim() === "";
 
                 if (isErrorWithNoOutput || (!hasDiffOutput && !err)) {
-                  // Fallback: read file content directly (like read_file)
                   const absPath = path.isAbsolute(filePath)
                     ? filePath
                     : path.join(cwd, filePath);

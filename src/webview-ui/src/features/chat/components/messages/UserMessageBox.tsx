@@ -14,7 +14,6 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
   const [showRevertModal, setShowRevertModal] = React.useState(false);
 
-  // 🆕 FLEXIBLE FILTER: Regex to find the user message block even if not at the start
   const userMsgRegex =
     /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
   const match = message.content.match(userMsgRegex);
@@ -30,10 +29,7 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   // Fallback cleanup if it didn't match the full block regex but has the header
   if (!match) {
     // Legacy: strip old ``` wrapper if present
-    if (
-      displayContent.startsWith("```") &&
-      displayContent.includes("```", 3)
-    ) {
+    if (displayContent.startsWith("```") && displayContent.includes("```", 3)) {
       displayContent = displayContent.split("```")[1].trim();
     }
     // Strip new zen-user-content wrapper if partially matched
@@ -178,8 +174,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
                   marginBottom: "16px",
                 }}
               >
-                This will restore all modified files to their state before
-                this message. Messages after this point will be removed.
+                This will restore all modified files to their state before this
+                message. Messages after this point will be removed.
               </div>
               <div
                 style={{

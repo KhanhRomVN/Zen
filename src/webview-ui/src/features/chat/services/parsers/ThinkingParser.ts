@@ -1,4 +1,13 @@
-import { findClosingTagPosition } from './TagClosingFinder';
+import { findClosingTagPosition } from '../../utils/TagClosingFinder';
+
+/**
+ * Thinking content is extracted from the tag content.
+ * The thinking blocks are pre-extracted by extractThinkingBlocks
+ * and replaced with placeholders. This parser handles the placeholders.
+ */
+export const parseThinking = (innerContent: string): string => {
+  return innerContent.trim();
+};
 
 export interface ThinkingExtractResult {
   remainingContent: string;
@@ -29,7 +38,7 @@ export const extractThinkingBlocks = (
   const toolTags = [
     'write_to_file', 'replace_in_file', 'read_file', 'run_command',
     'list_files', 'delete_file', 'delete_folder', 'move_file',
-    'execute_agent_action', 'grep', 'git_status', 'commit_message', 'git_diff',
+    'grep', 'git_status', 'commit_message', 'git_diff',
     'code', 'file', 'markdown', 'question'
   ];
 

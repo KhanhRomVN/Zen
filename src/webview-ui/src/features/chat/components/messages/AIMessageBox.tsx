@@ -2,17 +2,16 @@ import React from "react";
 import { Message } from "../../types/message";
 import { ParsedResponse } from "../../services/ResponseParser";
 import ToolActionsList from "../tools/index";
-import QuestionAnswerBlock from "../blocks/QuestionAnswerBlock";
-import HtmlBlock from "../blocks/HtmlBlock";
 import FileIcon from "@/icons/FileIcon";
 import { isDiff, parseDiff } from "../../../../utils/diffUtils";
 import { ToolHeader } from "../tools/ToolHeader";
-import MarkdownBlock from "../blocks/MarkdownBlock";
-import ErrorBlock from "../blocks/ErrorBlock";
-import "../blocks/TerminalBlock.css";
-import "../blocks/MarkdownBlock.css";
+import ErrorBlock from "../blocks/error/ErrorBlock";
+import "../blocks/run_command/TerminalBlock.css";
+import "../blocks/markdown/MarkdownBlock.css";
 import { useI18n } from "../../../../hooks/useI18n";
 import type { I18nKey } from "../../../../i18n";
+import { MarkdownBlock } from "../blocks/markdown/MarkdownBlock";
+import { QuestionBlock } from "../blocks/question/QuestionBlock";
 
 interface AIMessageBoxProps {
   message: Message;
@@ -205,11 +204,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
     return raw;
   };
 
-  /**
-   * Build a map of basename → fullPath from prior tool calls in allMessages.
-   * Scans <file_path> tags from read_file, write_to_file, replace_in_file, list_files.
-   * This lets us resolve plain filenames like "z_ai_auth.json" to their full paths.
-   */
   const knownFilePaths = React.useMemo((): Map<string, string> => {
     const map = new Map<string, string>();
     if (!allMessages) return map;
@@ -278,7 +272,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               key: string;
             }
           | { type: "code"; content: string; language: string; key: string }
-          | { type: "html"; content: string; key: string }
           | { type: "file"; content: string; key: string }
           | { type: "markdown"; content: string; key: string }
           | {
@@ -438,12 +431,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                   language: block.language || "text",
                   key: `code-${groups.length}`,
                 });
-              } else if (block.type === "html") {
-                groups.push({
-                  type: "html",
-                  content: block.content,
-                  key: `html-${groups.length}`,
-                });
               }
             }
           });
@@ -476,7 +463,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           "write_to_file",
           "replace_in_file",
           "run_command",
-          "execute_agent_action",
           "git_status",
         ]);
         const renderGroups = isSimpleMode
@@ -688,8 +674,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 statusColor={statusColor}
               />
             );
-          } else if (group.type === "html") {
-            content = <HtmlBlock content={group.content} />;
           } else if (group.type === "file") {
             content = (
               <div
@@ -829,9 +813,9 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
             // Check if this is the new paginated format (has questions array)
             const hasQuestions = group.questions && group.questions.length > 0;
 
-            // Render QuestionAnswerBlock - it now manages its own summary mode internally
+            // Render QuestionBlock - it now manages its own summary mode internally
             content = (
-              <QuestionAnswerBlock
+              <QuestionBlock
                 questions={hasQuestions ? group.questions : undefined}
                 options={!hasQuestions ? group.options : undefined}
                 title={group.title}
@@ -927,8 +911,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                     ? (type) =>
                         type === "write_to_file" ||
                         type === "replace_in_file" ||
-                        type === "run_command" ||
-                        type === "execute_agent_action"
+                        type === "run_command"
                     : undefined
                 }
                 singleLineReviewActions={singleLineReviewActions}

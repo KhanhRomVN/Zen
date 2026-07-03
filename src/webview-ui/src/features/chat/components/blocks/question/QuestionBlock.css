@@ -1,0 +1,200 @@
+/* QuestionBlock.css - Styles for question/answer blocks */
+
+.question-block-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  width: 100%;
+}
+
+.question-option-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, font-weight 0.15s ease;
+  width: 100%;
+}
+
+.question-option-btn[data-selected="true"] {
+  background-color: color-mix(in srgb, var(--vscode-button-background) 20%, transparent);
+  color: var(--vscode-button-background);
+  border-left: 3px solid var(--vscode-button-background);
+  font-weight: 600;
+}
+
+.question-option-btn[data-selected="false"] {
+  background-color: transparent;
+  color: var(--vscode-foreground);
+  border-left: 3px solid var(--vscode-descriptionForeground);
+  font-weight: 400;
+}
+
+.question-option-btn:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.question-option-btn:not([data-selected="true"]):hover:not(:disabled) {
+  border-left-color: var(--vscode-descriptionForeground);
+  color: var(--vscode-foreground);
+  background: color-mix(in srgb, var(--vscode-descriptionForeground) 10%, transparent);
+}
+
+/* Text input area for questions */
+.question-text-input {
+  width: 100%;
+  min-height: 80px;
+  background-color: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+/* Checkbox styling for multi-choice questions */
+.question-checkbox {
+  accent-color: var(--vscode-button-background);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.question-checkbox:disabled {
+  cursor: default;
+}
+
+/* Navigation and action buttons */
+.question-nav-button {
+  padding: 6px 12px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+
+.question-nav-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
+.question-nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.question-nav-button.secondary {
+  background-color: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+}
+
+.question-nav-button.secondary:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Progress indicator */
+.question-progress {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+}
+
+/* Summary view */
+.question-summary-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+}
+
+.question-summary-item:last-child {
+  border-bottom: none;
+}
+
+.question-summary-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  margin-bottom: 4px;
+}
+
+.question-summary-value {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Confirm button styling */
+.question-confirm-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.question-confirm-button.confirm-yes {
+  background-color: color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent);
+  color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
+  border-color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
+}
+
+.question-confirm-button.confirm-no {
+  background-color: color-mix(in srgb, var(--vscode-gitDecoration-deletedResourceForeground, #f85149) 15%, transparent);
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
+  border-color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
+}
+
+.question-confirm-button:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.question-confirm-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Custom "Khác" input bar for single-choice */
+.question-other-input-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.question-other-input {
+  flex: 1;
+  padding: 0;
+  background-color: transparent;
+  color: var(--vscode-foreground);
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+  min-width: 0;
+}
+
+/* Type label badge */
+.question-type-label {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background-color: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+  opacity: 0.8;
+  font-weight: 600;
+  text-transform: uppercase;
+}

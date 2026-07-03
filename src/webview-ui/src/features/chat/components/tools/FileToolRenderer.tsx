@@ -5,19 +5,16 @@ import { ToolHeader } from "./ToolHeader";
 import { parseDiff } from "../../../../utils/diffUtils";
 import { getFilename, getToolColor } from "../../utils/toolUtils";
 import { getDisplayPath, collectConvFilePaths } from "../../utils/pathUtils";
-import {
-  extensionService,
-  messageDispatcher,
-} from "../../../../services/ExtensionService";
+import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
 import ExecuteButton from "./ExecuteButton";
 import { useI18n } from "../../../../hooks/useI18n";
 import { useSettings } from "../../../../context/SettingsContext";
-import { getPermissionDecision } from "../../hooks/useToolExecution";
-import GrepBlock from "../blocks/GrepBlock";
-import { RichtextBlock } from "../blocks/RichtextBlock";
-import FileStreamingBlock from "../blocks/FileStreamingBlock";
-import ErrorBlock from "../blocks/ErrorBlock";
+import { RichtextBlock } from "../blocks/richtext/RichtextBlock";
+import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
+import ErrorBlock from "../blocks/error/ErrorBlock";
+import { GrepBlock } from "../blocks/grep/GrepBlock";
+import { getPermissionDecision } from "../../utils/permissionUtils";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
 // Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
@@ -150,55 +147,11 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     [allMessages],
   );
   // Extract only the filename (not the directory path) since full path is shown in line 2
-  const displayName = rawPath ? rawPath.split('/').pop() || rawPath : "";
+  const displayName = rawPath ? rawPath.split("/").pop() || rawPath : "";
 
-  // write_to_file on a new file (CREATE) has no before-snapshot, so treat it as a plain open
-  const isCreateNew = toolType === "write_to_file" && !fileStatsMap[rawPath];
-  const isSnapshotTool =
-    (toolType === "write_to_file" || toolType === "replace_in_file") &&
-    !isCreateNew;
+  // Snapshot logic moved to ReplaceInFileRenderer and WriteToFileRenderer
 
-  // Fetch snapshot then open diff tab in VSCode editor
-  const openSnapshotInEditor = React.useCallback(() => {
-    if (!conversationId || !actionId || isSnapshotLoading) return;
-    setIsSnapshotLoading(true);
-    const requestId = `snapshot-${Date.now()}-${Math.random()}`;
-    extensionService.postMessage({
-      command: "getSnapshot",
-      conversationId,
-      actionId,
-      requestId,
-    });
-    messageDispatcher.register(
-      requestId,
-      (msg) => {
-        setIsSnapshotLoading(false);
-        if (!msg.error) {
-          extensionService.postMessage({
-            command: "openSnapshotDiff",
-            filePath: msg.filePath,
-            operation: msg.operation,
-            beforeContent: msg.beforeContent,
-            afterContent: msg.afterContent,
-            actionId,
-          });
-        } else {
-          // Fallback: just open the file
-          if (rawPath)
-            extensionService.postMessage({
-              command: "openFile",
-              path: rawPath,
-            });
-        }
-      },
-      10000,
-      () => {
-        setIsSnapshotLoading(false);
-        if (rawPath)
-          extensionService.postMessage({ command: "openFile", path: rawPath });
-      },
-    );
-  }, [conversationId, actionId, isSnapshotLoading, rawPath]);
+  // Snapshot functionality is now handled by ReplaceInFileRenderer and WriteToFileRenderer
 
   let codeContent = "";
   if (toolType === "list_files") {
@@ -206,9 +159,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   }
 
   let diffStats: { added: number; removed: number } | null = null;
-  if (action.type === "replace_in_file" && action.params.diff) {
-    diffStats = parseDiff(action.params.diff).stats;
-  }
+  // replace_in_file diff stats are now handled by ReplaceInFileRenderer
 
   let linesCount =
     action.type === "write_to_file"
@@ -260,18 +211,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     }
   }, [toolOutputs, actionId]);
 
-  // Count diagnostics from read_file output
   const diagnosticCount = React.useMemo(() => {
-    if (toolType !== "read_file") return 0;
-    const output = toolOutputs?.[actionId]?.output || "";
-    const diagIdx = output.indexOf("⚠️ **Diagnostics Found:**");
-    if (diagIdx === -1) return 0;
-    const diagSection = output
-      .slice(diagIdx + "⚠️ **Diagnostics Found:**".length)
-      .trim();
-    if (!diagSection) return 0;
-    return diagSection.split("\n").filter((l) => l.trim().length > 0).length;
-  }, [toolType, toolOutputs, actionId]);
+    return 0;
+  }, []);
 
   const nextUserMessage = allMessages
     ? allMessages
@@ -280,8 +222,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     : undefined;
 
   const isWriteOrEditTool =
-    toolType === "write_to_file" ||
-    toolType === "replace_in_file" ||
     toolType === "delete_file" ||
     toolType === "delete_folder" ||
     toolType === "move_file";
@@ -298,30 +238,26 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   // ── Auto-hide completed write/edit tools in approval mode ──
   // After user clicks "Accept" or "Reject", the tool is considered done.
   // Hide the content (buttons, code block) but keep the header visible.
-  const isWriteOrEditOnly =
-    toolType === "write_to_file" || toolType === "replace_in_file";
+  const isWriteOrEditOnly = false; // replace_in_file is now handled by ReplaceInFileRenderer
   const shouldHideContent =
-    isWriteOrEditOnly && isCompleted && isActionClicked && !isPartial && !isError;
+    isWriteOrEditOnly &&
+    isCompleted &&
+    isActionClicked &&
+    !isPartial &&
+    !isError;
 
   const prefix =
-    toolType === "replace_in_file"
-      ? t("tools.update")
-      : toolType === "write_to_file"
-        ? fileStatsMap[rawPath]
-          ? t("tools.rewrite")
-          : t("tools.create")
-        : toolType === "list_files"
-          ? t("tools.list")
-          : toolType === "grep"
-            ? "GREP"
-            : toolType === "delete_file"
-              ? t("tools.delete")
-                : toolType === "delete_folder"
-                  ? t("tools.delete")
-                  : toolType === "move_file"
-                    ? "MOVE"
-                    : t("tools.read");
-
+    toolType === "list_files"
+      ? t("tools.list")
+      : toolType === "grep"
+        ? "GREP"
+        : toolType === "delete_file"
+          ? t("tools.delete")
+          : toolType === "delete_folder"
+            ? t("tools.delete")
+            : toolType === "move_file"
+              ? "MOVE"
+              : t("tools.read");
   // For grep tool, we'll render in the main flow with ToolHeader
   const grepCompleted =
     isGrepTool &&
@@ -392,7 +328,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 const isFolder = !!folderPath;
                 if (!targetPath) return null;
                 // Show path for grep even if only 1 segment
-                const segments = targetPath.split('/').filter(Boolean);
+                const segments = targetPath.split("/").filter(Boolean);
                 if (segments.length === 0) return null;
                 return (
                   <>
@@ -519,9 +455,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               onMouseEnter={() => setIsHeaderHovered(true)}
               onMouseLeave={() => setIsHeaderHovered(false)}
             >
-              <span 
-                style={{ 
-                  fontWeight: 600, 
+              <span
+                style={{
+                  fontWeight: 600,
                   opacity: 0.8,
                   cursor: "pointer",
                   transition: "text-decoration 0.15s ease",
@@ -561,68 +497,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 }}
               >
                 {displayName}
-                {toolType === "read_file" &&
-                  (() => {
-                    const sl = action.params.start_line;
-                    const el = action.params.end_line;
-                    const totalLines = fileStatsMap[rawPath]?.lines;
-                    if (sl !== undefined && sl !== null && sl !== "") {
-                      const start = parseInt(String(sl), 10) + 1; // convert 0-based to 1-based
-                      const end =
-                        el !== undefined && el !== null && el !== ""
-                          ? parseInt(String(el), 10) + 1
-                          : totalLines;
-                      return (
-                        <span
-                          style={{
-                            opacity: 0.55,
-                            fontSize: "10px",
-                            marginLeft: "2px",
-                          }}
-                        >
-                          ({start}-{end ?? "?"})
-                        </span>
-                      );
-                    }
-                    if (totalLines) {
-                      return (
-                        <span
-                          style={{
-                            opacity: 0.55,
-                            fontSize: "10px",
-                            marginLeft: "2px",
-                          }}
-                        >
-                          (1-{totalLines})
-                        </span>
-                      );
-                    }
-                    return null;
-                  })()}
-                {toolType === "read_file" && diagnosticCount > 0 && (
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "2px",
-                      marginLeft: "5px",
-                      padding: "0 4px",
-                      backgroundColor:
-                        "color-mix(in srgb, var(--vscode-errorForeground, #f14c4c) 15%, transparent)",
-                      color: "var(--vscode-errorForeground, #f14c4c)",
-                      borderRadius: "3px",
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      lineHeight: "16px",
-                    }}
-                  >
-                    <span
-                      className="codicon codicon-error"
-                      style={{ fontSize: "9px" }}
-                    />
-                    {diagnosticCount}
-                  </span>
-                )}
               </span>
               {isPartial && (
                 <span
@@ -659,35 +533,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   />
                 </span>
               )}
-              {diffStats && (
-                <span
-                  style={{
-                    display: "flex",
-                    gap: "4px",
-                    opacity: 0.7,
-                    fontSize: "11px",
-                    marginLeft: "4px",
-                    fontWeight: 500,
-                  }}
-                >
-                  <span
-                    style={{
-                      color:
-                        "var(--vscode-gitDecoration-addedResourceForeground)",
-                    }}
-                  >
-                    +{diffStats.added}
-                  </span>
-                  <span
-                    style={{
-                      color:
-                        "var(--vscode-gitDecoration-deletedResourceForeground)",
-                    }}
-                  >
-                    -{diffStats.removed}
-                  </span>
-                </span>
-              )}
+              {/* diffStats removed — replace_in_file is now handled by ReplaceInFileRenderer */}
               {linesCount > 0 && (
                 <span
                   style={{
@@ -741,35 +587,13 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         diffStats={undefined}
         isPartial={isPartial}
         onClick={() => {
-          // For replace_in_file: try to open diff if completed, otherwise open file
-          if (toolType === "replace_in_file") {
-            if (isCompleted && !isPartial) {
-              openSnapshotInEditor();
-            } else {
-              setIsCollapsed((v) => !v);
-              if (rawPath) {
-                extensionService.postMessage({
-                  command: "openFile",
-                  path: rawPath,
-                });
-              }
-            }
-            return;
-          }
-
-          if (isSnapshotTool && isCompleted && !isPartial) {
-            openSnapshotInEditor();
-          } else {
-            setIsCollapsed((v) => !v);
-            if (
-              rawPath &&
-              toolType !== "list_files"
-            ) {
-              extensionService.postMessage({
-                command: "openFile",
-                path: rawPath,
-              });
-            }
+          // replace_in_file is now handled by ReplaceInFileRenderer
+          setIsCollapsed((v) => !v);
+          if (rawPath && toolType !== "list_files") {
+            extensionService.postMessage({
+              command: "openFile",
+              path: rawPath,
+            });
           }
         }}
         path={rawPath}
@@ -784,13 +608,15 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
       {/* Raw tool data viewer - showing raw XML without header */}
       {!isGrepTool && showRawView && (
-        <div 
-          style={{ 
-            marginTop: "4px", 
+        <div
+          style={{
+            marginTop: "4px",
             marginLeft: "29px",
             padding: "8px 12px",
-            backgroundColor: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-            border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+            backgroundColor:
+              "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+            border:
+              "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
             borderRadius: "4px",
             fontFamily: "var(--vscode-editor-font-family, monospace)",
             fontSize: "11px",
@@ -949,105 +775,67 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           </div>
         )}
 
-      {!shouldHideContent &&
-        isError &&
-        errorMessage &&
-        (toolType === "replace_in_file" ? (
-          // Use ErrorBlock for replace_in_file errors (without header)
-          <div style={{ marginTop: "4px" }}>
-            <ErrorBlock
-              content={errorMessage}
-              errorCode="REPLACE_IN_FILE"
-              isPartial={isPartial}
-              isLast={isLastItemInList}
-              isLastMessage={isLastMessage}
-              showHeader={false}
-              contentPaddingLeft="29px"
-            />
-          </div>
-        ) : (
-          // Inline error display for other tools
-          <div
+      {!shouldHideContent && isError && errorMessage && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "6px",
+            padding: "5px 8px",
+            marginLeft: "29px",
+            backgroundColor:
+              "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 4%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 20%, transparent)",
+            borderRadius: "4px",
+            marginTop: "2px",
+          }}
+        >
+          <span
+            className="codicon codicon-error"
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "6px",
-              padding: "5px 8px",
-              backgroundColor:
-                "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 4%, transparent)",
-              border:
-                "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 20%, transparent)",
-              borderRadius: "4px",
-              marginTop: "2px",
+              fontSize: "11px",
+              color: "var(--vscode-errorForeground, #f44336)",
+              opacity: 0.7,
+              marginTop: "1px",
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--vscode-errorForeground, #f44336)",
+              opacity: 0.85,
+              fontFamily: "var(--vscode-editor-font-family, monospace)",
+              wordBreak: "break-word",
             }}
           >
-            <span
-              className="codicon codicon-error"
-              style={{
-                fontSize: "11px",
-                color: "var(--vscode-errorForeground, #f44336)",
-                opacity: 0.7,
-                marginTop: "1px",
-                flexShrink: 0,
-              }}
+            {errorMessage}
+          </span>
+        </div>
+      )}
+
+      {!shouldHideContent && toolType === "list_files" && codeContent && (
+        <>
+          {!isCollapsed && (
+            <RichtextBlock
+              content={codeContent}
+              showHeader={false}
+              maxHeight={300}
+              defaultCollapsed={false}
+              isFilePathList={true}
+              basePath={action.params.path || action.params.folder_path || ""}
+              onFileClick={(fullPath) =>
+                extensionService.postMessage({
+                  command: "openFile",
+                  path: fullPath,
+                })
+              }
             />
-            <span
-              style={{
-                fontSize: "11px",
-                color: "var(--vscode-errorForeground, #f44336)",
-                opacity: 0.85,
-                fontFamily: "var(--vscode-editor-font-family, monospace)",
-                wordBreak: "break-word",
-              }}
-            >
-              {errorMessage}
-            </span>
-          </div>
-        ))}
-
-      {!shouldHideContent &&
-        toolType === "list_files" &&
-        codeContent && (
-          <>
-            {!isCollapsed && (
-              <RichtextBlock
-                content={codeContent}
-                showHeader={false}
-                maxHeight={300}
-                defaultCollapsed={false}
-                isFilePathList={true}
-                basePath={action.params.path || action.params.folder_path || ""}
-                onFileClick={(fullPath) =>
-                  extensionService.postMessage({
-                    command: "openFile",
-                    path: fullPath,
-                  })
-                }
-              />
-            )}
-          </>
-        )}
-      {/* Streaming preview — visible while AI is still writing the file OR waiting for approval */}
-      {!shouldHideContent &&
-        (isPartial ||
-          ((toolType === "write_to_file" || toolType === "replace_in_file") &&
-            !isCompleted &&
-            isActiveGroup)) &&
-        (() => {
-          const streamContent =
-            toolType === "write_to_file"
-              ? action.params.content || ""
-              : action.params.diff || "";
-          if (!streamContent) return null;
-
-          const isWaitingForApproval =
-            !isPartial &&
-            (toolType === "write_to_file" || toolType === "replace_in_file") &&
-            !isCompleted &&
-            isActiveGroup;
-
-          return <FileStreamingBlock content={streamContent} maxHeight={200} />;
-        })()}
+          )}
+        </>
+      )}
+      {/* Streaming preview — replace_in_file is now handled by ReplaceInFileRenderer */}
 
       {/* Grep tool results — rendered inside the main flow with ToolHeader */}
       {isGrepTool && (
@@ -1068,13 +856,15 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           />
           {/* Raw viewer for Grep tool */}
           {showRawView && (
-            <div 
-              style={{ 
-                marginTop: "4px", 
+            <div
+              style={{
+                marginTop: "4px",
                 marginLeft: "29px",
                 padding: "8px 12px",
-                backgroundColor: "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-                border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+                backgroundColor:
+                  "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+                border:
+                  "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
                 borderRadius: "4px",
                 fontFamily: "var(--vscode-editor-font-family, monospace)",
                 fontSize: "11px",

@@ -7,20 +7,15 @@ import React, {
 } from "react";
 import { useSettings } from "../../context/SettingsContext";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
-
 import { extensionService } from "../../services/ExtensionService";
-import {
-  saveConversation,
-  deleteConversation,
-} from "./services/ConversationService";
-
-import { useChatLLM } from "./hooks/useChatLLM";
-import { useToolExecution } from "./hooks/useToolExecution";
-import { useWorkspaceData } from "./hooks/useWorkspaceData";
-import { useGitOperations } from "./hooks/useGitOperations";
-import { useConversationRestore } from "./hooks/useConversationRestore";
+import { saveConversation } from "./services/ConversationService";
+import { useChatLLM } from "./hooks/llm/useChatLLM";
+import { useToolExecution } from "./hooks/tools/useToolExecution";
+import { useWorkspaceData } from "./hooks/workspace/useWorkspaceData";
+import { useGitOperations } from "./hooks/workspace/useGitOperations";
+import { useConversationRestore } from "./hooks/conversation/useConversationRestore";
 import { useFileHandling } from "../../hooks/useFileHandling";
-import { useMentionSystem } from "./hooks/useMentionSystem";
+import { useMentionSystem } from "./hooks/ui/useMentionSystem";
 import { ChatSession } from "./types/chat";
 import { Message } from "./types/message";
 import { ConversationCache } from "./services/ConversationCache";
@@ -29,16 +24,9 @@ import ChatBody from "./components/ChatBody";
 import ChatFooter from "./components/ChatFooter";
 import { ChatErrorBoundary } from "./components/ChatErrorBoundary";
 import { parseAIResponse } from "./services/ResponseParser";
-import { useTerminalPolling } from "./hooks/useTerminalPolling";
-import { useBrowserSession } from "./hooks/useBrowserSession";
-import { useDraftManagement } from "./hooks/useDraftManagement";
-
-
-// Shared components
-import MessageInput from "@/components/MessageInput";
-import FilesPreviews from "@/components/MessageInput/FilesPreviews";
-import GitStatusBlock from "./components/blocks/GitStatusBlock";
-import { RichtextBlock } from "./components/blocks/RichtextBlock";
+import { useTerminalPolling } from "./hooks/tools/useTerminalPolling";
+import { useBrowserSession } from "./hooks/llm/useBrowserSession";
+import { useDraftManagement } from "./hooks/conversation/useDraftManagement";
 
 interface ChatPanelProps {
   currentChat: ChatSession | null;
@@ -68,7 +56,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
   const [isApiUrlReady, setIsApiUrlReady] = useState(false);
   const [providers, setProviders] = useState<any[]>([]);
-  
+
   const { activeTerminalIds, attachedTerminalIds } = useTerminalPolling();
   const [currentModel, setCurrentModel] = useState<any>(() => {
     if (initialMessageData?.model) return initialMessageData.model;
@@ -133,7 +121,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const { apiUrl: backendApiUrl } = useBackendConnection();
 
   // Revert state — owned by component so useDraftManagement can access it
-  const [revertInput, setRevertInput] = useState<{ value: string; nonce: number } | null>(null);
+  const [revertInput, setRevertInput] = useState<{
+    value: string;
+    nonce: number;
+  } | null>(null);
   const revertParentMessageIdRef = useRef<string | null>(null);
 
   // --- Hooks ---
@@ -302,13 +293,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     messagesRef: messagesRef,
     isStoppedRef: isStoppedRef,
     sendMessage: (
-      content,
-      files,
-      model,
-      account,
-      skipLogic,
-      actionIds,
-      uiHidden,
+      content: string,
+      files: any[] | undefined,
+      model: any,
+      account: any,
+      skipLogic: boolean | undefined,
+      actionIds: string[] | undefined,
+      uiHidden: boolean | undefined,
     ) =>
       wrappedSendMessage(
         content,
@@ -721,7 +712,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     isStoppedRef.current = true;
     stopGeneration();
     setIsProcessing(false);
-    setMessages((prev) => {
+    setMessages((prev: any) => {
       const lastAssistantIdx = [...prev].reduceRight(
         (found, m, i) =>
           found === -1 && m.role === "assistant" && !m.isCancelled ? i : found,

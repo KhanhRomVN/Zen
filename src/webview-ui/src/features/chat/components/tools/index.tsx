@@ -44,6 +44,7 @@ interface ToolActionsListProps {
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
 }
+
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
   message,
   items,

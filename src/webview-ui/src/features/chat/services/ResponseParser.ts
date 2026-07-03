@@ -1,7 +1,22 @@
-import { normalizeTagVariants } from "./parsers/TagNormalizer";
-import { parseToolAction, extractParamValue } from "./parsers/ToolParser";
+import { normalizeTagVariants } from "../utils/TagNormalizer";
+import { parseToolAction } from "../utils/ToolParser";
+// Tag parsers
+import { parseReadFile } from "./parsers/ReadFileParser";
+import { parseWriteToFile } from "./parsers/WriteToFileParser";
+import { parseReplaceInFile } from "./parsers/ReplaceInFileParser";
+import { parseListFiles } from "./parsers/ListFilesParser";
+import { parseGrep } from "./parsers/GrepParser";
+import { parseDeleteFile } from "./parsers/DeleteFileParser";
+import { parseDeleteFolder } from "./parsers/DeleteFolderParser";
+import { parseMoveFile } from "./parsers/MoveFileParser";
+import { parseRunCommand } from "./parsers/RunCommandParser";
+import { parseGitStatus } from "./parsers/GitStatusParser";
+import { parseGitDiff } from "./parsers/GitDiffParser";
+import { parseCommitMessage } from "./parsers/CommitMessageParser";
+import { parseMarkdown } from "./parsers/MarkdownParser";
+import { parseCode } from "./parsers/CodeParser";
 import { extractThinkingBlocks } from "./parsers/ThinkingParser";
-import { findClosingTagPosition } from "./parsers/TagClosingFinder";
+import { findClosingTagPosition } from "../utils/TagClosingFinder";
 
 export interface ParsedResponse {
   followupQuestion: string | null;
@@ -20,7 +35,6 @@ export interface ToolAction {
     | "replace_in_file"
     | "list_files"
     | "run_command"
-    | "execute_agent_action"
     | "delete_file"
     | "delete_folder"
     | "move_file"
@@ -35,7 +49,6 @@ export interface ToolAction {
 
 export type ContentBlock =
   | { type: "code"; content: string; language?: string }
-  | { type: "html"; content: string }
   | { type: "file"; content: string }
   | { type: "markdown"; content: string }
   | {
@@ -101,7 +114,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "delete_file",
     "delete_folder",
     "move_file",
-    "execute_agent_action",
     "grep",
     "git_status",
     "commit_message",
@@ -136,68 +148,45 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       const openTag = `<${toolName}`;
       const openRegex = new RegExp(`<${toolName}(?:\\s+[^>]*)?>`, "i");
       const openMatch = openRegex.exec(str);
-      
+
       if (!openMatch) continue;
-      
+
       const openIndex = openMatch.index;
       const openTagFull = openMatch[0];
       const startContentPos = openIndex + openTagFull.length;
-      
+
       // Check if it's self-closing
-      if (openTagFull.trim().endsWith('/>')) {
+      if (openTagFull.trim().endsWith("/>")) {
         // Self-closing tag
         if (minIndex === -1 || openIndex < minIndex) {
           minIndex = openIndex;
-          bestMatch = [openTagFull, ''];  // No inner content
+          bestMatch = [openTagFull, ""]; // No inner content
           bestTool = toolName;
           isClosed = true;
         }
         continue;
       }
-      
+
       // Find closing tag using backtick-aware search
-      let closingTagPattern = `</${toolName}>`;
-      if (toolName === "read_file") {
-        // Try both read_file and read_files
-        const closePos1 = findClosingTagPosition(str, startContentPos, '</read_file>');
-        const closePos2 = findClosingTagPosition(str, startContentPos, '</read_files>');
-        
-        let closingPos = -1;
-        if (closePos1 !== -1 && closePos2 !== -1) {
-          closingPos = Math.min(closePos1, closePos2);
-          closingTagPattern = closingPos === closePos1 ? '</read_file>' : '</read_files>';
-        } else if (closePos1 !== -1) {
-          closingPos = closePos1;
-          closingTagPattern = '</read_file>';
-        } else if (closePos2 !== -1) {
-          closingPos = closePos2;
-          closingTagPattern = '</read_files>';
-        }
-        
-        if (closingPos !== -1) {
-          if (minIndex === -1 || openIndex < minIndex) {
-            const innerContent = str.substring(startContentPos, closingPos);
-            const fullMatch = str.substring(openIndex, closingPos + closingTagPattern.length);
-            minIndex = openIndex;
-            bestMatch = [fullMatch, innerContent];
-            bestMatch.index = openIndex;
-            bestTool = toolName;
-            isClosed = true;
-          }
-        }
-      } else {
-        const closingPos = findClosingTagPosition(str, startContentPos, `</${toolName}>`);
-        
-        if (closingPos !== -1) {
-          if (minIndex === -1 || openIndex < minIndex) {
-            const innerContent = str.substring(startContentPos, closingPos);
-            const fullMatch = str.substring(openIndex, closingPos + closingTagPattern.length);
-            minIndex = openIndex;
-            bestMatch = [fullMatch, innerContent];
-            bestMatch.index = openIndex;
-            bestTool = toolName;
-            isClosed = true;
-          }
+      const closingTagPattern = `</${toolName}>`;
+      const closingPos = findClosingTagPosition(
+        str,
+        startContentPos,
+        closingTagPattern,
+      );
+
+      if (closingPos !== -1) {
+        if (minIndex === -1 || openIndex < minIndex) {
+          const innerContent = str.substring(startContentPos, closingPos);
+          const fullMatch = str.substring(
+            openIndex,
+            closingPos + closingTagPattern.length,
+          );
+          minIndex = openIndex;
+          bestMatch = [fullMatch, innerContent];
+          bestMatch.index = openIndex;
+          bestTool = toolName;
+          isClosed = true;
         }
       }
     }
@@ -285,15 +274,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         const innerContent = match[1];
 
         if (toolName === "code") {
-          // Explicit <code> tag
-          const languageFn = extractParamValue(innerContent || "", "language");
-          const contentFn = extractParamValue(innerContent || "", "content");
-
-          if (contentFn) {
+          // Explicit <code> tag - use CodeParser
+          const codeData = parseCode(innerContent || "");
+          if (codeData.content) {
             result.contentBlocks.push({
               type: "code",
-              content: contentFn,
-              language: languageFn || "text",
+              content: codeData.content,
+              language: codeData.language || "text",
             });
           }
         } else if (toolName === "file") {
@@ -305,9 +292,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             });
           }
         } else if (toolName === "markdown") {
-          // Explicit <markdown> tag
-          if (innerContent && innerContent.trim()) {
-            pushTextOrCodeBlocks("markdown", innerContent.trim());
+          // Explicit <markdown> tag - use MarkdownParser
+          const content = parseMarkdown(innerContent || "");
+          if (content) {
+            pushTextOrCodeBlocks("markdown", content);
           }
         } else if (toolName === "question") {
           // Explicit <question> tag - supports both legacy and new schema
@@ -485,9 +473,75 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             result.followupOptions = options;
           }
         } else {
-          // It's a tool
+          // It's a tool - delegate to individual tag parsers
           const actionIndex = result.actions.length;
-          const action = parseToolAction(toolName, innerContent || "", rawXml);
+          let action: ToolAction;
+
+          switch (toolName) {
+            case "read_file": {
+              const params = parseReadFile(innerContent || "");
+              action = { type: "read_file" as const, params, rawXml };
+              break;
+            }
+            case "write_to_file": {
+              const params = parseWriteToFile(innerContent || "");
+              action = { type: "write_to_file" as const, params, rawXml };
+              break;
+            }
+            case "replace_in_file": {
+              const params = parseReplaceInFile(innerContent || "");
+              action = { type: "replace_in_file" as const, params, rawXml };
+              break;
+            }
+            case "list_files": {
+              const params = parseListFiles(innerContent || "");
+              action = { type: "list_files" as const, params, rawXml };
+              break;
+            }
+            case "grep": {
+              const params = parseGrep(innerContent || "");
+              action = { type: "grep" as const, params, rawXml };
+              break;
+            }
+            case "delete_file": {
+              const params = parseDeleteFile(innerContent || "");
+              action = { type: "delete_file" as const, params, rawXml };
+              break;
+            }
+            case "delete_folder": {
+              const params = parseDeleteFolder(innerContent || "");
+              action = { type: "delete_folder" as const, params, rawXml };
+              break;
+            }
+            case "move_file": {
+              const params = parseMoveFile(innerContent || "");
+              action = { type: "move_file" as const, params, rawXml };
+              break;
+            }
+            case "run_command": {
+              const params = parseRunCommand(innerContent || "");
+              action = { type: "run_command" as const, params, rawXml };
+              break;
+            }
+            case "git_status": {
+              const params = parseGitStatus(innerContent || "");
+              action = { type: "git_status" as const, params, rawXml };
+              break;
+            }
+            case "git_diff": {
+              const params = parseGitDiff(innerContent || "");
+              action = { type: "git_diff" as const, params, rawXml };
+              break;
+            }
+            case "commit_message": {
+              const params = parseCommitMessage(innerContent || "");
+              action = { type: "commit_message" as const, params, rawXml };
+              break;
+            }
+            default:
+              // Fallback to ToolParser for any unhandled tools
+              action = parseToolAction(toolName, innerContent || "", rawXml);
+          }
           result.contentBlocks.push({ type: "tool", action, actionIndex });
           result.actions.push(action); // Populate legacy actions array
         }
@@ -514,7 +568,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           // It's a tool, let it stream!
           const actionIndex = result.actions.length;
 
-          // Auto-recovery for read_file: if file_path is complete, synthesize the closing tag
           if (toolName === "read_file") {
             const filePathRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
             const filePathMatch = (innerContent || "").match(filePathRegex);
@@ -669,8 +722,6 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "run_command":
       return `Run: ${action.params.command || ""}`;
-    case "execute_agent_action":
-      return `Agent: ${action.params.action || "Execute"}`;
 
     case "list_files":
       const type = action.params.type ? ` [${action.params.type}]` : "";

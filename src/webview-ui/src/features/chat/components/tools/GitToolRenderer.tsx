@@ -1,10 +1,11 @@
 import React, { useMemo } from "react";
 import { ToolHeader } from "./ToolHeader";
 import { ToolAction } from "../../services/ResponseParser";
-import GitStatusBlock, { GitStatusItem } from "../blocks/GitStatusBlock";
-import "../blocks/TerminalBlock.css";
+import "../blocks/run_command/TerminalBlock.css";
 import { getToolColor } from "../../utils/toolUtils";
-import { parseGitStatusOutput } from "../../utils/parseGitStatus";
+import { parseGitStatusOutput } from "../../utils/gitUtils";
+import { GitStatusBlock } from "../blocks/git_status/GitStatusBlock";
+import { GitStatusItem } from "../../types/tool-types";
 
 interface GitToolRendererProps {
   action: ToolAction;

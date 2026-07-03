@@ -5,15 +5,15 @@ import {
   ToolAction,
 } from "../services/ResponseParser";
 import { useSettings } from "../../../context/SettingsContext";
-import { useCollapseSections } from "../hooks/useCollapseSections";
-import { useToolActions } from "../hooks/useToolActions";
-import { useScrollBehavior } from "../hooks/useScrollBehavior";
-import { getPermissionDecision } from "../hooks/useToolExecution";
+import { useCollapseSections } from "../hooks/ui/useCollapseSections";
+import { useToolActions } from "../hooks/tools/useToolActions";
+import { useScrollBehavior } from "../hooks/ui/useScrollBehavior";
 import { Message } from "../types/message";
 import ProcessingIndicator from "./messages/ProcessingIndicator";
 import MessageBox from "./messages/MessageBox";
 import SearchBar from "./SearchBar";
 import { ChatErrorBoundary } from "./ChatErrorBoundary";
+import { getPermissionDecision } from "../utils/permissionUtils";
 
 interface ChatBodyProps {
   messages: Message[];
@@ -195,12 +195,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     if (!firstPendingAction) return false;
     const isVisible =
       !isSimpleMode ||
-      [
-        "write_to_file",
-        "replace_in_file",
-        "run_command",
-        "execute_agent_action",
-      ].includes(firstPendingAction.type);
+      ["write_to_file", "replace_in_file", "run_command"].includes(
+        firstPendingAction.type,
+      );
     if (isVisible) return false;
     const decision = getPermissionDecision(
       permissionMode,
@@ -245,7 +242,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           case "mixed_content":
             return b.segments.length > 0;
           case "code":
-          case "html":
           case "file":
           case "markdown":
             return b.content.trim().length > 0;

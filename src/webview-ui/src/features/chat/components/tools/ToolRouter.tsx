@@ -10,7 +10,7 @@ import FileToolRenderer from "./FileToolRenderer";
 import TerminalToolRenderer from "./TerminalToolRenderer";
 import GitToolRenderer from "./GitToolRenderer";
 import { ToolHeader } from "./ToolHeader";
-import GitDiffBlock from "../blocks/GitDiffBlock";
+import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
 
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
@@ -264,6 +264,58 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     toolType === "delete_file" ||
     toolType === "delete_folder" ||
     toolType === "move_file";
+
+  if (toolType === "write_to_file") {
+    const action = firstAction;
+    const actionIndex = group[0].index;
+    return (
+      <FileToolRenderer
+        key={actionIndex}
+        action={action}
+        actionIndex={actionIndex}
+        messageId={messageId}
+        isActionClicked={clickedActions.has(
+          `${messageId}-action-${actionIndex}`,
+        )}
+        isActiveGroup={isActiveGroup}
+        isLastMessage={isLastMessage}
+        isLastItemInList={isLastItemInList}
+        toolOutputs={toolOutputs}
+        allMessages={allMessages}
+        fileStatsMap={fileStatsMap}
+        onToolClick={onToolClick}
+        conversationId={conversationId}
+        singleLineReviewActions={singleLineReviewActions}
+        onConfirmSingleLineAction={onConfirmSingleLineAction}
+        onRejectSingleLineAction={onRejectSingleLineAction}
+      />
+    );
+  }
+
+  if (toolType === "replace_in_file") {
+    const action = firstAction;
+    const actionIndex = group[0].index;
+    return (
+      <FileToolRenderer
+        key={actionIndex}
+        action={action}
+        actionIndex={actionIndex}
+        messageId={messageId}
+        isActionClicked={clickedActions.has(
+          `${messageId}-action-${actionIndex}`,
+        )}
+        isActiveGroup={isActiveGroup}
+        isLastMessage={isLastMessage}
+        isLastItemInList={isLastItemInList}
+        toolOutputs={toolOutputs}
+        allMessages={allMessages}
+        fileStatsMap={fileStatsMap}
+        onToolClick={onToolClick}
+        conversationId={conversationId}
+        mergedItems={group}
+      />
+    );
+  }
 
   if (isFileTool) {
     const MERGE_TYPES = new Set(["write_to_file", "replace_in_file"]);
@@ -716,7 +768,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             statusColor={diffColor}
             isPartial={true}
             branch={gitStatusBranch}
-            onFileClick={(path) => {
+            onFileClick={(path: any) => {
               const vscodeApi = (window as any).vscodeApi;
               if (vscodeApi) {
                 vscodeApi.postMessage({
@@ -748,7 +800,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
           statusColor={diffColor}
           isPartial={!hasOutput && isActiveGroup}
           branch={gitStatusBranch}
-          onFileClick={(path) => {
+          onFileClick={(path: any) => {
             const vscodeApi = (window as any).vscodeApi;
             if (vscodeApi) {
               vscodeApi.postMessage({
