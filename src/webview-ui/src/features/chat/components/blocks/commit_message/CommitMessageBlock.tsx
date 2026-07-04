@@ -1,7 +1,6 @@
 import React from "react";
 import { Check, X } from "lucide-react";
 import "./CommitMessageBlock.css";
-import { useI18n } from "../../../../../hooks/useI18n";
 
 export interface CommitMessageBlockProps {
   message: string;
@@ -20,9 +19,11 @@ const CommitMessageBlock: React.FC<CommitMessageBlockProps> = ({
   onReject,
   isProcessing = false,
 }) => {
-  const { t } = useI18n();
   return (
-    <div className="commit-message-block" style={{ padding: "0px 12px 12px 29px" }}>
+    <div
+      className="commit-message-block"
+      style={{ padding: "0px 12px 12px 29px" }}
+    >
       <div className="commit-message-body">
         <pre className="commit-message-content">{message}</pre>
       </div>
@@ -44,7 +45,7 @@ const CommitMessageBlock: React.FC<CommitMessageBlockProps> = ({
           }}
         >
           <Check size={14} strokeWidth={2.5} />
-          <span>{isProcessing ? t("chat.processing") : t("toolActions.accept")}</span>
+          <span>{isProcessing ? "Processing" : "Accept"}</span>
         </button>
         <button
           className="commit-message-btn commit-message-btn-reject"
@@ -63,7 +64,7 @@ const CommitMessageBlock: React.FC<CommitMessageBlockProps> = ({
           }}
         >
           <X size={14} strokeWidth={2.5} />
-          <span>{t("toolActions.reject")}</span>
+          <span>Reject</span>
         </button>
       </div>
     </div>

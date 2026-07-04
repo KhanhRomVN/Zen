@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { LanguageSelector, LANGUAGES } from "./components/LanguageSelector";
+import { LANGUAGES } from "./components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
-import { useI18n } from "../../hooks/useI18n";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -24,21 +23,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
   const {
     apiUrl,
     setApiUrl,
-    language,
-    setLanguage,
     aiLanguage,
     setAiLanguage,
     commitMessageLanguage,
     setCommitMessageLanguage,
-    isSimpleMode,
-    setIsSimpleMode,
   } = useSettings();
-  const { t } = useI18n();
   const [closeHover, setCloseHover] = useState(false);
-
-  const toggleSimpleMode = () => {
-    setIsSimpleMode(!isSimpleMode);
-  };
 
   if (!isOpen) return null;
 
@@ -114,7 +104,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
                 marginBottom: "3px",
               }}
             >
-              {t("settings.title")}
+              Settings
             </span>
             <p
               style={{
@@ -125,7 +115,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
                 lineHeight: 1.4,
               }}
             >
-              {t("settings.desc")}
+              Configure Zen preferences and behavior
             </p>
           </div>
         </div>
@@ -191,7 +181,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               color: "var(--primary-text)",
             }}
           >
-            {t("settings.backendApiUrl")}
+            Backend API URL
           </label>
           <input
             type="text"
@@ -199,24 +189,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             onChange={(e) => setApiUrl(e.target.value)}
             placeholder="http://localhost:8888"
             style={inputStyle}
-          />
-        </div>
-
-        {/* UI Language */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            {t("settings.language")}
-          </label>
-          <LanguageSelector
-            value={language}
-            onChange={(v) => setLanguage(v === "vi" ? "vi" : "en")}
-            className="w-full"
           />
         </div>
 
@@ -229,7 +201,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               color: "var(--primary-text)",
             }}
           >
-            {t("settings.aiLanguage")}
+            AI Response Language
           </label>
           <select
             value={aiLanguage}
@@ -253,11 +225,13 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               color: "var(--primary-text)",
             }}
           >
-            Ngôn ngữ commit message
+            Commit Message Language
           </label>
           <select
             value={commitMessageLanguage}
-            onChange={(e) => setCommitMessageLanguage(e.target.value as "en" | "vi")}
+            onChange={(e) =>
+              setCommitMessageLanguage(e.target.value as "en" | "vi")
+            }
             style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}
           >
             <option value="en">🇬🇧 English</option>
@@ -271,69 +245,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               marginTop: "2px",
             }}
           >
-            Ngôn ngữ sử dụng để tạo commit message từ git status
+            Language used to generate commit messages from git status
           </div>
-        </div>
-
-        {/* Simple Mode Toggle */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: "14px",
-                fontWeight: 600,
-                color: "var(--primary-text)",
-                marginBottom: "3px",
-              }}
-            >
-              {t("settings.simpleMode")}
-            </div>
-            <div
-              style={{
-                fontSize: "11px",
-                color: "var(--secondary-text)",
-                opacity: 0.7,
-              }}
-            >
-              {t("settings.simpleModeDesc")}
-            </div>
-          </div>
-          <button
-            onClick={toggleSimpleMode}
-            style={{
-              flexShrink: 0,
-              width: "40px",
-              height: "22px",
-              borderRadius: "11px",
-              border: "none",
-              cursor: "pointer",
-              position: "relative",
-              backgroundColor: isSimpleMode
-                ? "var(--vscode-button-background, #0e639c)"
-                : "rgba(128,128,128,0.3)",
-              transition: "background-color 0.2s ease",
-            }}
-          >
-            <span
-              style={{
-                position: "absolute",
-                top: "3px",
-                left: isSimpleMode ? "21px" : "3px",
-                width: "16px",
-                height: "16px",
-                borderRadius: "50%",
-                backgroundColor: "#fff",
-                transition: "left 0.2s ease",
-              }}
-            />
-          </button>
         </div>
       </div>
     </div>

@@ -1,0 +1,49 @@
+.context-compression-block {
+  margin: 8px 0;
+  font-family: var(--vscode-font-family, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif);
+}
+
+.context-compression-body {
+  padding: 8px 0;
+  border-left: 2px solid var(--vscode-editorBracketHighlight-foreground2, #10b981);
+  padding-left: 12px;
+  margin: 4px 0;
+}
+
+.context-compression-content {
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
+  font-size: 13px;
+  color: var(--vscode-foreground, #cccccc);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  padding: 0;
+  line-height: 1.6;
+}
+
+.context-compression-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 0 4px 0;
+  justify-content: flex-end;
+  background: transparent;
+}
+
+.context-compression-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  border: 1px solid transparent;
+}
+
+.context-compression-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

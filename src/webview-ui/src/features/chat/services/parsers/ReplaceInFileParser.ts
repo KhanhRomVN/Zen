@@ -4,6 +4,7 @@ export interface ReplaceInFileParams {
   file_path: string;
   old_str: string;
   new_str: string;
+  diff: string;
 }
 
 export const parseReplaceInFile = (
@@ -13,9 +14,19 @@ export const parseReplaceInFile = (
   const oldStr = extractParamValue(innerContent, "old_str");
   const newStr = extractParamValue(innerContent, "new_str");
 
+  // Construct diff in SEARCH/REPLACE format for the extension
+  const diff = [
+    '<<<<<<< SEARCH',
+    oldStr || '',
+    '=======',
+    newStr || '',
+    '>>>>>>> REPLACE'
+  ].join('\n');
+
   return {
     file_path: filePath || "",
     old_str: oldStr || "",
     new_str: newStr || "",
+    diff: diff.trim(),
   };
 };

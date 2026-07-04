@@ -8,17 +8,16 @@ import ModelDistributionCard from "./components/ModelDistributionCard";
 import DailyUsageChart from "./components/DailyUsageChart";
 import { ConversationItem } from "../history/types";
 import { extensionService } from "../../services/ExtensionService";
-import { useI18n } from "../../hooks/useI18n";
 import { useSettings } from "../../context/SettingsContext";
 import { useFileHandling } from "../../hooks/useFileHandling";
 
-const SLOGANS_KEYS = [
-  "home.slogan0",
-  "home.slogan1",
-  "home.slogan2",
-  "home.slogan3",
-  "home.slogan4",
-  "home.slogan5",
+const SLOGANS = [
+  "Code smarter, not harder",
+  "Your AI coding companion",
+  "Boost your productivity",
+  "Where ideas meet implementation",
+  "Ship faster with confidence",
+  "Your partner in development",
 ] as const;
 
 interface HomePanelProps {
@@ -42,7 +41,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
   initialValue,
 }) => {
   const imagesUri = (window as any).__zenImagesUri;
-  const { t } = useI18n();
   const { apiUrl } = useSettings();
 
   const folderPath = (window as any).__zenWorkspaceFolderPath as
@@ -171,7 +169,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
   // Rotate slogans
   useEffect(() => {
     const timer = setInterval(() => {
-      setSloganIndex((prev) => (prev + 1) % SLOGANS_KEYS.length);
+      setSloganIndex((prev) => (prev + 1) % SLOGANS.length);
     }, 3000);
     return () => clearInterval(timer);
   }, []);
@@ -313,7 +311,11 @@ const HomePanel: React.FC<HomePanelProps> = ({
                 <img
                   src={`${imagesUri}/icon.png`}
                   alt="Zen Logo"
-                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
                 />
               </div>
               <h1
@@ -352,7 +354,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
                   whiteSpace: "nowrap",
                 }}
               >
-                {t(SLOGANS_KEYS[sloganIndex])}
+                {SLOGANS[sloganIndex]}
               </div>
             </div>
 
@@ -389,9 +391,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
                     color: "var(--vscode-editorWarning-foreground, #eab308)",
                   }}
                 >
-                  {t("home.prerequisiteLabel")}
+                  Prerequisite:
                 </strong>{" "}
-                {t("home.prerequisiteText")}{" "}
+                Zen requires{" "}
                 <a
                   href="https://elara-home.vercel.app/"
                   target="_blank"
@@ -403,7 +405,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
                 >
                   Elara
                 </a>{" "}
-                {t("home.prerequisiteEnsure")}
+                backend running. Make sure Elara is installed and running before using Zen.
               </div>
             </div>
           </div>
@@ -427,11 +429,11 @@ const HomePanel: React.FC<HomePanelProps> = ({
             <ModelDistributionCard
               modelDistribution={modelDistribution}
               providerFavicons={providerFavicons}
-              title={t("home.aiModelDistribution")}
-              emptyText={t("home.loadingHistory")}
+              title="AI Model Distribution"
+              emptyText="Loading history..."
             />
 
-            <DailyUsageChart usage={dailyUsage} title={t("home.dailyUsage")} />
+            <DailyUsageChart usage={dailyUsage} title="Daily Usage" />
 
             <RecentActivity
               conversations={sortedConversations}

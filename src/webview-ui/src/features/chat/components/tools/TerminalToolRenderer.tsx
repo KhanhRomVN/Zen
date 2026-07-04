@@ -6,7 +6,6 @@ import { getToolColor } from "../../utils/toolUtils";
 import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
 import ExecuteButton from "./ExecuteButton";
-import { useI18n } from "../../../../hooks/useI18n";
 import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "../../utils/permissionUtils";
 
@@ -51,7 +50,6 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isRejectedLocal, setIsRejectedLocal] = React.useState(false);
-  const { t } = useI18n();
   const { permissionMode } = useSettings();
   const actionId = `${messageId}-action-${actionIndex}`;
   const outputData = toolOutputs?.[actionId];
@@ -167,7 +165,7 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
               flexShrink: 0,
             }}
           >
-            {t("tools.execute")}
+            Execute
           </span>
         </div>
 
@@ -224,7 +222,7 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
               >
                 <rect x="6" y="6" width="12" height="12" />
               </svg>
-              {t("tools.finalize")}
+              Finalize
             </button>
           )}
         </div>

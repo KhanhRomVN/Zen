@@ -1,13 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
-import type { LanguageCode } from "../i18n";
 import { getConfigurableTools } from "../features/chat/constants/tool-registry";
 
 export type PermissionMode = "fullAccess" | "approval" | "readOnly";
 
 interface SettingsContextType {
-  language: LanguageCode;
-  setLanguage: (lang: LanguageCode) => void;
   aiLanguage: string;
   setAiLanguage: (lang: string) => void;
   commitMessageLanguage: "en" | "vi";
@@ -19,8 +16,6 @@ interface SettingsContextType {
   setAllToolPermissions: (value: "full_access" | "review") => void;
   permissionMode: PermissionMode;
   setPermissionMode: (mode: PermissionMode) => void;
-  isSimpleMode: boolean;
-  setIsSimpleMode: (value: boolean) => void;
   liveWritePreview: boolean;
   setLiveWritePreview: (value: boolean) => void;
 }
@@ -41,13 +36,6 @@ const SettingsContext = createContext<SettingsContextType | undefined>(
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [language, setLanguageState] = useState<LanguageCode>(() => {
-    try {
-      const saved = localStorage.getItem("zen_preferred_language");
-      if (saved === "vi" || saved === "en") return saved;
-    } catch (e) {}
-    return "en";
-  });
   const [aiLanguage, setAiLanguageState] = useState<string>(() => {
     try {
       const saved = localStorage.getItem("zen_ai_language");
@@ -62,11 +50,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       const saved = localStorage.getItem("zen_commit_message_language");
       if (saved === "vi" || saved === "en") return saved;
     } catch (e) {}
-    // Default: use UI language as fallback
-    try {
-      const uiLang = localStorage.getItem("zen_preferred_language");
-      if (uiLang === "vi") return "vi";
-    } catch (e) {}
     return "en";
   });
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
@@ -75,16 +58,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [toolPermissionsState, setToolPermissionsState] = useState<
     Record<string, "full_access" | "review">
   >(defaultToolPermissions);
-  const [isSimpleMode, setIsSimpleModeState] = useState<boolean>(true);
   const [liveWritePreview, setLiveWritePreviewState] = useState<boolean>(true);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("zen-simple-mode");
-      if (saved !== null) {
-        setIsSimpleModeState(saved !== "false");
-      }
-    } catch (e) {}
     const storage = extensionService.getStorage();
 
     storage.get("backend-api-url").then((res: any) => {
@@ -121,15 +97,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     });
   }, []);
-
-  const setLanguage = (lang: LanguageCode) => {
-    setLanguageState(lang === "vi" ? "vi" : "en");
-    try {
-      localStorage.setItem("zen_preferred_language", lang);
-    } catch (e) {}
-    const storage = extensionService.getStorage();
-    storage.set("zen_preferred_language", lang);
-  };
 
   const setAiLanguage = (lang: string) => {
     setAiLanguageState(lang);
@@ -182,13 +149,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_tool_permissions", JSON.stringify(next));
   };
 
-  const setIsSimpleMode = (value: boolean) => {
-    setIsSimpleModeState(value);
-    try {
-      localStorage.setItem("zen-simple-mode", String(value));
-    } catch (e) {}
-  };
-
   const setLiveWritePreview = (value: boolean) => {
     setLiveWritePreviewState(value);
     try {
@@ -199,8 +159,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   return (
     <SettingsContext.Provider
       value={{
-        language,
-        setLanguage,
         aiLanguage,
         setAiLanguage,
         commitMessageLanguage,
@@ -212,8 +170,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setAllToolPermissions,
         permissionMode: permissionModeState,
         setPermissionMode,
-        isSimpleMode,
-        setIsSimpleMode,
         liveWritePreview,
         setLiveWritePreview,
       }}

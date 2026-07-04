@@ -2,7 +2,6 @@ import React, { useCallback, useState } from "react";
 import HistoryCard from "./components/HistoryCard";
 import { FolderOpen, Loader2, Search } from "lucide-react";
 import { useConversationHistory } from "./hooks/useConversationHistory";
-import { useI18n } from "../../hooks/useI18n";
 
 interface HistoryPanelProps {
   isOpen: boolean;
@@ -34,7 +33,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
   const [closeHover, setCloseHover] = useState(false);
   const [trashHover, setTrashHover] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const { t } = useI18n();
 
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
@@ -157,7 +155,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 lineHeight: 1.4,
               }}
             >
-              {t("history.desc")}
+              Restore and manage conversation history
             </p>
           </div>
         </div>
@@ -318,7 +316,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 color: "var(--primary-text)",
               }}
             >
-              {t("history.clearAllTitle")}
+              Clear All History
             </p>
             <p
               style={{
@@ -328,7 +326,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 opacity: 0.8,
               }}
             >
-              {t("history.clearAllDesc")}
+              This will permanently delete all saved conversations.
             </p>
             <div
               style={{
@@ -349,7 +347,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   cursor: "pointer",
                 }}
               >
-                {t("common.cancel")}
+                Cancel
               </button>
               <button
                 onClick={() => {
@@ -366,7 +364,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   cursor: "pointer",
                 }}
               >
-                {t("common.delete")}
+                Delete
               </button>
             </div>
           </div>
@@ -396,7 +394,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               }}
             />
             <span style={{ fontSize: "var(--font-size-xs)" }}>
-              {t("history.loading")}
+              Loading history...
             </span>
           </div>
         ) : conversations.length === 0 ? (
@@ -424,9 +422,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   opacity: 0.7,
                 }}
               >
-                {searchQuery
-                  ? t("history.noResults")
-                  : t("history.noConversations")}
+                {searchQuery ? "No results found" : "No conversations yet"}
               </h3>
               <p
                 style={{
@@ -437,8 +433,8 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 }}
               >
                 {searchQuery
-                  ? t("history.noResultsHint")
-                  : t("history.noConversationsHint")}
+                  ? "Try a different search term"
+                  : "Start a new conversation to see it here"}
               </p>
             </div>
           </div>

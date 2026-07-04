@@ -1,6 +1,5 @@
 import React from "react";
 import { Check, X } from "lucide-react";
-import { useI18n } from "../../../../hooks/useI18n";
 
 export interface ExecuteButtonProps {
   isCompleted: boolean;
@@ -32,7 +31,6 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   showText,
   labelText,
 }) => {
-  const { t } = useI18n();
   const iconColor = isCompleted
     ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
     : isFailed
@@ -106,7 +104,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
               letterSpacing: "0.5px",
             }}
           >
-            {labelText || (isCompleted ? t("tools.done") : t("tools.run"))}
+            {labelText || (isCompleted ? "Done" : "Run")}
           </span>
         )}
       </button>
@@ -129,14 +127,14 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
           type: "accept_once" as const,
           color: toolColor,
           icon: <Check size={14} strokeWidth={2.5} />,
-          label: t("toolActions.accept"),
+          label: "Accept",
           title: "Accept Once",
         },
         {
           type: "reject" as const,
           color: "var(--vscode-errorForeground, #ff4d4d)",
           icon: <X size={14} strokeWidth={2.5} />,
-          label: t("toolActions.reject"),
+          label: "Reject",
           title: "Reject this tool call",
         },
       ].map(({ type, color, icon, label, title: btnTitle }) => (

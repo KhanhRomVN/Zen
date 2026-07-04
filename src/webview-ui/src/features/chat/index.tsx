@@ -25,6 +25,7 @@ import ChatFooter from "./components/ChatFooter";
 import { ChatErrorBoundary } from "./components/ChatErrorBoundary";
 import { parseAIResponse } from "./services/ResponseParser";
 import { useTerminalPolling } from "./hooks/tools/useTerminalPolling";
+import { CONTEXT_COMPRESSION_THRESHOLD } from "./constants/constants";
 import { useBrowserSession } from "./hooks/llm/useBrowserSession";
 import { useDraftManagement } from "./hooks/conversation/useDraftManagement";
 
@@ -99,7 +100,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, [currentAccount]);
 
-  const { isSimpleMode, commitMessageLanguage } = useSettings();
+  const { commitMessageLanguage } = useSettings();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -431,6 +432,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return null;
   }, [parsedMessages]);
 
+  // Trigger context compression when conversation exceeds threshold
+  const triggerContextCompression = useCallback(() => {
+    if (contextUsage.total < CONTEXT_COMPRESSION_THRESHOLD) {
+      console.warn(`[Zen] Context compression triggered but below ${CONTEXT_COMPRESSION_THRESHOLD} tokens`);
+      return;
+    }
+    
+    // Import CONTEXT_COMPRESSION_PROMPT
+    import("./prompts/context-compression").then(({ CONTEXT_COMPRESSION_PROMPT }) => {
+      wrappedSendMessage(
+        CONTEXT_COMPRESSION_PROMPT,
+        undefined,
+        undefined,
+        undefined,
+        false, // Not skipFirstRequestLogic
+        undefined,
+        true, // uiHidden - hide this internal request from user
+      );
+    });
+  }, [contextUsage.total, wrappedSendMessage]);
+
+  const shouldShowCompressionButton = contextUsage.total >= CONTEXT_COMPRESSION_THRESHOLD;
+
   // --- Effects ---
   useEffect(() => {
     const storage = extensionService.getStorage();
@@ -694,11 +718,43 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           path: message.uri,
           type: isFolder ? "folder" : "file",
         });
+      } else if (message.command === "createConversationWithSummary") {
+        // Create new conversation with summary as context
+        const summary = message.summary;
+        if (summary) {
+          // Clear current messages and start fresh with summary
+          const summaryMessage: Message = {
+            id: `summary-${Date.now()}`,
+            role: "user",
+            content: `📝 **Context từ conversation trước** (tự động tóm tắt do vượt quá 100K tokens):\n\n---\n\n${summary}\n\n---\n\n*Conversation mới bắt đầu từ đây với context đã được nén.*`,
+            timestamp: Date.now(),
+            conversationId: currentConversationId || "",
+            token_usage: 0,
+          };
+          
+          // Update messages to only have the summary
+          setMessages([summaryMessage]);
+          
+          // Save to conversation
+          const sessionId = currentChat?.sessionId || -1;
+          const folderPath = currentChat?.folderPath || null;
+          saveConversation(
+            sessionId,
+            folderPath,
+            [summaryMessage],
+            currentConversationId || undefined,
+            currentChat || undefined,
+          );
+
+          // Notify user
+          console.log("[Chat] Conversation compressed successfully with summary");
+        }
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, []);
+  }, [currentChat, currentConversationId, setMessages]);
+
 
   // --- Handlers ---
   const handleClearChat = useCallback(() => {
@@ -793,7 +849,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           isContinuing={isContinuing}
           incompleteHasPartialTool={incompleteHasPartialTool}
           incompletePartialToolType={incompletePartialToolType}
-          isSimpleMode={isSimpleMode}
           onSendToolRequest={(actions, msg, isAuto, type) =>
             handleToolRequest(
               actions,
@@ -886,6 +941,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         handleExternalFileInputChange={handleExternalFileInputChange}
         handleFileInputChange={handleFileInputChange}
         footerPaddingBottom={footerPaddingBottom}
+        shouldShowCompressionButton={shouldShowCompressionButton}
+        onTriggerCompression={triggerContextCompression}
+        contextTokens={contextUsage.total}
       />
     </div>
   );

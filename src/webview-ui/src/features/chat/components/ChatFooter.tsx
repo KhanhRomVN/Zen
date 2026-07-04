@@ -1,6 +1,7 @@
 import React from "react";
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
+import { CONTEXT_COMPRESSION_THRESHOLD } from "../constants/constants";
 
 interface ChatFooterProps {
   message: string;
@@ -46,6 +47,9 @@ interface ChatFooterProps {
   handleExternalFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   footerPaddingBottom: string;
+  shouldShowCompressionButton?: boolean;
+  onTriggerCompression?: () => void;
+  contextTokens?: number;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -92,6 +96,9 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   handleExternalFileInputChange,
   handleFileInputChange,
   footerPaddingBottom,
+  shouldShowCompressionButton = false,
+  onTriggerCompression,
+  contextTokens = 0,
 }) => {
   return (
     <div
@@ -155,6 +162,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         }}
       />
 
+      
+
       <div style={{ position: "relative" }}>
         <MessageInput
           message={message}
@@ -192,6 +201,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           onGitPullRequest={onGitPullRequest}
           isGitLoading={gitLoading}
           isGitStatusVisible={isGitStatusVisible}
+          showCompressButton={shouldShowCompressionButton}
+          onCompress={onTriggerCompression}
         />
       </div>
     </div>

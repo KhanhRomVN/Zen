@@ -157,3 +157,15 @@ export interface QuestionBlock {
   optional?: boolean;
   questions?: any[]; // Avoid circular dependency with message types
 }
+
+// ===== CONTEXT COMPRESSION =====
+export interface ContextCompressionParams {
+  summary?: string;
+}
+
+export interface ContextCompressionBlockProps {
+  summary: string;
+  onAccept: () => void;
+  onReject: () => void;
+  isProcessing?: boolean;
+}

@@ -6,7 +6,6 @@ import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
-import { useI18n } from "@/hooks/useI18n";
 
 export interface UploadedFile {
   id: string;
@@ -85,6 +84,27 @@ const MemoryIcon = () => (
     <ellipse cx="12" cy="5" rx="9" ry="3" />
     <path d="M3 12a9 3 0 0 0 18 0" />
     <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+  </svg>
+);
+
+const SummaryIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="lucide lucide-summary-icon lucide-summary"
+  >
+    <path d="M15 4H7" />
+    <path d="m18 16 3 3-3 3" />
+    <path d="M3 4v13a2 2 0 0 0 2 2h16" />
+    <path d="M7 14h7" />
+    <path d="M7 9h12" />
   </svg>
 );
 
@@ -256,9 +276,58 @@ const MemoryButton: React.FC<ToggleButtonProps> = ({
   );
 };
 
+interface CompressButtonProps {
+  onClick: () => void;
+  title: string;
+}
+
+const CompressButton: React.FC<CompressButtonProps> = ({
+  onClick,
+  title,
+}) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: "1px solid var(--vscode-editorBracketHighlight-foreground2, rgba(16, 185, 129, 0.4))",
+        background: isHovered
+          ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 20%, transparent)"
+          : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 12%, transparent)",
+        color: "var(--vscode-editorBracketHighlight-foreground2, #10b981)",
+        opacity: isHovered ? 0.9 : 0.8,
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={title}
+    >
+      <SummaryIcon />
+      <span
+        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+      >
+        Compress
+      </span>
+    </button>
+  );
+};
+
 const GlobalPermissionButton: React.FC = () => {
   const { permissionMode, setPermissionMode } = useSettings();
-  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = React.useState(false);
@@ -291,20 +360,20 @@ const GlobalPermissionButton: React.FC = () => {
     { label: string; desc: string; icon: React.ReactNode; color: string }
   > = {
     fullAccess: {
-      label: t("permission.fullAccess"),
-      desc: t("settings.fullAccessDesc"),
+      label: "Full Access",
+      desc: "AI has unrestricted access to all project files and tools",
       icon: <Zap size={11} />,
       color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)",
     },
     approval: {
-      label: t("permission.approval"),
-      desc: t("settings.approvalDesc"),
+      label: "Approval Required",
+      desc: "AI must request explicit approval before accessing files or running commands",
       icon: <ShieldCheck size={11} />,
       color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
     },
     readOnly: {
-      label: t("permission.readOnly"),
-      desc: t("settings.readOnlyDesc"),
+      label: "Read Only",
+      desc: "AI can only read project files, cannot modify them or run commands",
       icon: <Eye size={11} />,
       color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
     },
@@ -513,6 +582,9 @@ interface MessageInputProps {
   onGitPullRequest?: () => void;
   isGitLoading?: boolean;
   isGitStatusVisible?: boolean;
+  // 🆕 Context Compression Button
+  showCompressButton?: boolean;
+  onCompress?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -551,12 +623,13 @@ const MessageInput: React.FC<MessageInputProps> = ({
   onGitPullRequest,
   isGitLoading = false,
   isGitStatusVisible = false,
+  showCompressButton = false,
+  onCompress,
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
   const [isLoadingCache, setIsLoadingCache] = React.useState(true);
-  const { language: preferredLanguage } = useSettings();
-  const { t } = useI18n();
+  const { aiLanguage: preferredLanguage } = useSettings();
   const pendingAccountIdRef = React.useRef<string | null>(null);
   const [showModelDrawer, setShowModelDrawer] = React.useState(false);
 
@@ -1206,14 +1279,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
             }}
             placeholder={
               isHistoryMode
-                ? t("chat.inputHistoryMode")
+                ? "History mode - enter a search query"
                 : !isConnected
-                  ? t("chat.connectionErrorPlaceholder")
+                  ? "Connecting to backend..."
                   : isLoadingCache
-                    ? t("chat.inputLoadingCache")
+                    ? "Loading cache..."
                     : isProcessing
-                      ? t("chat.inputProcessing")
-                      : t("chat.inputMentionHint")
+                      ? "Processing..."
+                      : "Message @agent (Alt+@)"
             }
             disabled={false}
             rows={1}
@@ -1313,11 +1386,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
                   width: "22px",
                   boxSizing: "border-box",
                   borderRadius: "4px",
-                  cursor: isGitLoading || isProcessing || isGitStatusVisible ? "default" : "pointer",
+                  cursor:
+                    isGitLoading || isProcessing || isGitStatusVisible
+                      ? "default"
+                      : "pointer",
                   transition: "all 0.2s ease-in-out",
                   border: "1px solid rgba(128, 128, 128, 0.2)",
                   background:
-                    isGitHovered && !isGitLoading && !isProcessing && !isGitStatusVisible
+                    isGitHovered &&
+                    !isGitLoading &&
+                    !isProcessing &&
+                    !isGitStatusVisible
                       ? "rgba(128, 128, 128, 0.2)"
                       : "rgba(128, 128, 128, 0.12)",
                   color:
@@ -1325,7 +1404,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
                       ? "var(--vscode-descriptionForeground, #8c8c8c)"
                       : "var(--vscode-foreground)",
                   opacity:
-                    isGitHovered && !isGitLoading && !isProcessing && !isGitStatusVisible
+                    isGitHovered &&
+                    !isGitLoading &&
+                    !isProcessing &&
+                    !isGitStatusVisible
                       ? 0.9
                       : isGitLoading || isProcessing || isGitStatusVisible
                         ? 0.5
@@ -1372,6 +1454,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 isOn={isMemory}
                 onClick={toggleMemory}
                 title="Toggle Memory Reference (Saved memories & chat history)"
+              />
+            )}
+
+            {/* Compress Button */}
+            {showCompressButton && (
+              <CompressButton
+                onClick={onCompress || (() => {})}
+                title="Compress conversation context (vượt quá 100K tokens)"
               />
             )}
           </div>

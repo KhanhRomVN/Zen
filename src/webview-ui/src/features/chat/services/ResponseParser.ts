@@ -20,6 +20,7 @@ import { parseCommitMessage } from "./parsers/CommitMessageParser";
 import { parseMarkdown } from "./parsers/MarkdownParser";
 import { parseCode } from "./parsers/CodeParser";
 import { extractThinkingBlocks } from "./parsers/ThinkingParser";
+import { parseContextCompression } from "./parsers/ContextCompressionParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
 
 export interface ParsedResponse {
@@ -33,7 +34,7 @@ export interface ParsedResponse {
 }
 
 export interface ToolAction {
-  type: ExecutableToolType;
+  type: ExecutableToolType | "context_compression" | "thinking" | "question";
   params: Record<string, any>;
   rawXml: string;
   isPartial?: boolean;
@@ -607,6 +608,20 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             case "commit_message": {
               const params = parseCommitMessage(innerContent || "");
               action = { type: "commit_message" as const, params, rawXml };
+              break;
+            }
+            case "context_compression": {
+              const params = parseContextCompression(rawXml);
+              if (params) {
+                action = { type: "context_compression" as const, params, rawXml };
+              } else {
+                // Fallback if parsing fails
+                action = { 
+                  type: "context_compression" as const, 
+                  params: { summary: "" }, 
+                  rawXml 
+                };
+              }
               break;
             }
             default:

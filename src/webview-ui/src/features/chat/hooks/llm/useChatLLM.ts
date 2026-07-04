@@ -71,7 +71,6 @@ export const useChatLLM = ({
   onToolRequest,
 }: UseChatLLMProps) => {
   const {
-    language: preferredLanguage,
     aiLanguage,
     permissionMode,
   } = useSettings();
@@ -325,7 +324,7 @@ export const useChatLLM = ({
           shell: "unknown",
           homeDir: "~",
           cwd: ".",
-          language: aiLanguage || preferredLanguage,
+          language: aiLanguage || aiLanguage,
         };
 
         try {
@@ -334,12 +333,12 @@ export const useChatLLM = ({
             systemInfo = {
               ...systemInfo,
               ...fetchedInfo.data,
-              language: aiLanguage || preferredLanguage,
+              language: aiLanguage || aiLanguage,
             };
           }
         } catch (e) {}
 
-        const effectiveLang = aiLanguage || preferredLanguage;
+        const effectiveLang = aiLanguage || aiLanguage;
         systemPrompt = getDefaultPrompt(effectiveLang);
         // Use real system info if we managed to fetch it, override the default
         if (systemInfo.os !== "Unknown OS") {

@@ -34,7 +34,6 @@ interface MessageBoxProps {
   conversationId?: string;
   previousAssistantMessage?: Message;
   isGenerating?: boolean;
-  isSimpleMode?: boolean;
   onSendMessage?: (
     content: string,
     files?: any[],

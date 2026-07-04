@@ -8,7 +8,6 @@ import { getDisplayPath, collectConvFilePaths } from "../../utils/pathUtils";
 import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
 import ExecuteButton from "./ExecuteButton";
-import { useI18n } from "../../../../hooks/useI18n";
 import { useSettings } from "../../../../context/SettingsContext";
 import { RichtextBlock } from "../blocks/richtext/RichtextBlock";
 import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
@@ -130,7 +129,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   const [isSnapshotLoading, setIsSnapshotLoading] = React.useState(false);
   const [showRawView, setShowRawView] = React.useState(false);
   const [isHeaderHovered, setIsHeaderHovered] = React.useState(false);
-  const { t } = useI18n();
   const { permissionMode } = useSettings();
   const toolType = action.type;
   const toolColor = getToolColor(toolType);
@@ -248,18 +246,18 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
   const prefix =
     toolType === "list_files"
-      ? t("tools.list")
+      ? "LIST"
       : toolType === "grep"
         ? "GREP"
         : toolType === "delete_file"
-          ? t("tools.delete")
+          ? "DELETE"
           : toolType === "delete_folder"
-            ? t("tools.delete")
+            ? "DELETE"
             : toolType === "move_file"
               ? "MOVE"
               : toolType === "replace_in_file"
                 ? "REPLACE"
-                : t("tools.read");
+                : "READ";
   // For grep tool, we'll render in the main flow with ToolHeader
   const grepCompleted =
     isGrepTool &&
@@ -769,7 +767,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               isLoading={false}
               toolColor={toolColor}
               title="Approve action"
-              labelText={t("tools.approve")}
+              labelText="Approve"
               onExecute={(e, type) => {
                 onToolClick(action, messageId, actionIndex, type);
               }}

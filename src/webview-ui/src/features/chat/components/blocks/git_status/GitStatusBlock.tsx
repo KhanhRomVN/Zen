@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import FileIcon from "@/icons/FileIcon";
 import "./GitStatusBlock.css";
-import { useI18n } from "../../../../../hooks/useI18n";
 
 export interface GitStatusItem {
   status: string;
@@ -35,7 +34,6 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
   onCancel,
   isProcessing = false,
 }) => {
-  const { t } = useI18n();
   const handleRowClick = (path: string) => {
     // Send message to extension to show git diff
     const vscodeApi = (window as any).vscodeApi;
@@ -157,7 +155,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
                   "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)",
               }}
             >
-              📤 Chưa push ({unpushedCommits.length})
+              📤 Unpushed ({unpushedCommits.length})
             </div>
             {unpushedCommits.map((item, index) => {
               const commitMsg = item.path;
@@ -237,10 +235,10 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
                 color: "var(--vscode-editorWarning-foreground, #d4a72c)",
               }}
             >
-              ⚠️ Chưa có file nào được staged
+              ⚠️ No files staged
             </div>
             <div style={{ fontSize: "12px", opacity: 0.8 }}>
-              Hãy chạy{" "}
+              Run{" "}
               <code
                 style={{
                   background: "var(--vscode-textCodeBlock-background)",
@@ -251,16 +249,14 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
               >
                 git add {"<file>"}
               </code>{" "}
-              để thêm file vào staging area
+              to add files to staging area
             </div>
           </div>
         )}
 
         {stagedItems.length > 0 && (
           <div className="git-status-section">
-            <div className="git-status-section-title">
-              {t("git.stagedChanges")}
-            </div>
+            <div className="git-status-section-title">Staged Changes</div>
             {stagedItems.map((item, index) => renderItem(item, index))}
           </div>
         )}
@@ -275,10 +271,10 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
           disabled={isProcessing || stagedItems.length === 0}
           title={
             stagedItems.length === 0 && unpushedCommits.length > 0
-              ? "Đã có commit chưa push. Không có thay đổi mới để commit."
+              ? "There are unpushed commits. No new changes to commit."
               : stagedItems.length === 0
-                ? "Chưa có file nào được staged. Hãy chạy git add trước."
-                : "Tạo commit message từ các file đã staged"
+                ? "No files staged. Run git add first."
+                : "Create commit message from staged files"
           }
           style={{
             background: `color-mix(in srgb, ${buttonColor} 15%, transparent)`,
@@ -302,9 +298,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
           }}
         >
           <Check size={14} strokeWidth={2.5} />
-          <span>
-            {isProcessing ? t("chat.processing") : t("git.createCommitMessage")}
-          </span>
+          <span>{isProcessing ? "Processing" : "Create Commit Message"}</span>
         </button>
         <button
           className="git-status-btn git-status-btn-cancel"
@@ -325,7 +319,7 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
           }}
         >
           <X size={14} strokeWidth={2.5} />
-          <span>{t("git.cancel")}</span>
+          <span>Cancel</span>
         </button>
       </div>
     </div>

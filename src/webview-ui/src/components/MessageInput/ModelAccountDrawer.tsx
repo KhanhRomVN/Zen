@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Search, ChevronRight, X, ChevronLeft } from "lucide-react";
-import { useI18n } from "@/hooks/useI18n";
 
 interface Provider {
   provider_id: string;
@@ -168,7 +167,6 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
   apiUrl,
   onSelect,
 }) => {
-  const { t } = useI18n();
   const [step, setStep] = useState<"model" | "account">("model");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState<any | null>(null);
@@ -429,9 +427,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                 letterSpacing: "0.05em",
               }}
             >
-              {step === "model"
-                ? t("home.quickSwitchTitle")
-                : t("home.selectAccount")}
+              {step === "model" ? "Quick Switch" : "Select Account"}
             </span>
           </div>
 
@@ -867,16 +863,25 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                             fontSize: "11px",
                             padding: "2px 6px",
                             borderRadius: "4px",
-                            backgroundColor: acc.usage.includes("5/5") || acc.usage.toLowerCase().includes("limit") || acc.usage.toLowerCase().includes("unknown")
-                              ? "rgba(239, 68, 68, 0.12)"
-                              : "rgba(34, 197, 94, 0.12)",
-                            color: acc.usage.includes("5/5") || acc.usage.toLowerCase().includes("limit") || acc.usage.toLowerCase().includes("unknown")
-                              ? "#f87171"
-                              : "#4ade80",
+                            backgroundColor:
+                              acc.usage.includes("5/5") ||
+                              acc.usage.toLowerCase().includes("limit") ||
+                              acc.usage.toLowerCase().includes("unknown")
+                                ? "rgba(239, 68, 68, 0.12)"
+                                : "rgba(34, 197, 94, 0.12)",
+                            color:
+                              acc.usage.includes("5/5") ||
+                              acc.usage.toLowerCase().includes("limit") ||
+                              acc.usage.toLowerCase().includes("unknown")
+                                ? "#f87171"
+                                : "#4ade80",
                             fontWeight: 500,
-                            border: acc.usage.includes("5/5") || acc.usage.toLowerCase().includes("limit") || acc.usage.toLowerCase().includes("unknown")
-                              ? "1px solid rgba(239, 68, 68, 0.2)"
-                              : "1px solid rgba(34, 197, 94, 0.2)",
+                            border:
+                              acc.usage.includes("5/5") ||
+                              acc.usage.toLowerCase().includes("limit") ||
+                              acc.usage.toLowerCase().includes("unknown")
+                                ? "1px solid rgba(239, 68, 68, 0.2)"
+                                : "1px solid rgba(34, 197, 94, 0.2)",
                           }}
                         >
                           {acc.usage}

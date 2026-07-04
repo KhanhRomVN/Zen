@@ -80,7 +80,6 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
   previousAssistantMessage?: Message;
-  isSimpleMode?: boolean;
   isRestored?: boolean;
   onContinue?: () => void;
   hasInitialMessage?: boolean;
@@ -111,7 +110,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   conversationId,
   onToolAction,
   onSelectOption,
-  isSimpleMode = true,
   isRestored = false,
   isContinuing = false,
   incompleteHasPartialTool = false,
@@ -205,24 +203,14 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       },
     );
     if (!firstPendingAction) return false;
-    const isVisible =
-      !isSimpleMode ||
-      ["write_to_file", "replace_in_file", "run_command"].includes(
-        firstPendingAction.type,
-      );
-    if (isVisible) return false;
-    const decision = getPermissionDecision(
-      permissionMode,
-      firstPendingAction.type,
-    );
-    return decision === "allow";
+    // Complex mode: always show all tools, never auto-approve
+    return false;
   }, [
     messages,
     isRestored,
     toolOutputs,
     permissionMode,
     clickedActions,
-    isSimpleMode,
   ]);
 
   const visibleMessages = useMemo(() => {
@@ -387,7 +375,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
                 previousAssistantMessage={previousAssistantMessage}
                 onSendMessage={onSendMessage}
                 onSelectOption={onSelectOption}
-                isSimpleMode={isSimpleMode}
                 onRevertConversation={onRevertConversation}
                 singleLineReviewActions={singleLineReviewActions}
                 onConfirmSingleLineAction={onConfirmSingleLineAction}

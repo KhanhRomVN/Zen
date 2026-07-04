@@ -308,6 +308,9 @@ export class ChatController {
         case "rejectCommitMessage":
           await this.systemHandler.handleRejectCommitMessage(message);
           break;
+        case "acceptContextCompression":
+          await this.systemHandler.handleAcceptContextCompression(message, webviewView);
+          break;
         case "requestContext":
           await this.projectContextHandler.handleRequestContext(
             message,

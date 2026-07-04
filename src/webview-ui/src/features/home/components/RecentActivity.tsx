@@ -2,7 +2,6 @@ import React from "react";
 import { Loader2 } from "lucide-react";
 import { ConversationItem } from "../../history/types";
 import HistoryCard from "../../history/components/HistoryCard";
-import { useI18n } from "../../../hooks/useI18n";
 
 interface RecentActivityProps {
   conversations: ConversationItem[];
@@ -19,8 +18,6 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
   isLoading,
   onLoadConversation,
 }) => {
-  const { t } = useI18n();
-
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const vscodeApi = (window as any).vscodeApi;
@@ -40,8 +37,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
     <div
       style={{
         backgroundColor: "var(--vscode-sideBar-background, rgba(0,0,0,0.15))",
-        border:
-          "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
+        border: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
         borderRadius: "8px",
         padding: "14px",
         boxSizing: "border-box",
@@ -65,7 +61,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
             opacity: 0.8,
           }}
         >
-          {t("home.recentActivities")}
+          Recent Activities
         </span>
       </div>
 
@@ -81,20 +77,22 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
             }}
           >
             <Loader2 size={12} className="spin-animation" />
-            <span style={{ fontSize: "11px" }}>{t("home.loadingHistory")}</span>
+            <span style={{ fontSize: "11px" }}>Loading history...</span>
           </div>
         ) : conversations.length > 0 ? (
-          conversations.slice(0, 10).map((item) => (
-            <HistoryCard
-              key={item.id}
-              item={item}
-              onClick={() =>
-                onLoadConversation?.(item.id, item.tabId, item.folderPath)
-              }
-              onDelete={handleDelete}
-              formatDate={formatDate}
-            />
-          ))
+          conversations
+            .slice(0, 10)
+            .map((item) => (
+              <HistoryCard
+                key={item.id}
+                item={item}
+                onClick={() =>
+                  onLoadConversation?.(item.id, item.tabId, item.folderPath)
+                }
+                onDelete={handleDelete}
+                formatDate={formatDate}
+              />
+            ))
         ) : (
           <div
             style={{
@@ -104,7 +102,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
               fontStyle: "italic",
             }}
           >
-            {t("home.noRecentChats")}
+            No recent chats
           </div>
         )}
       </div>

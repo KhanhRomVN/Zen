@@ -1,6 +1,5 @@
 import React from "react";
 import { MessageSquare, Zap, Brain, Users } from "lucide-react";
-import { useI18n } from "../../../hooks/useI18n";
 
 interface StatsGridProps {
   todayTokens: number;
@@ -15,15 +14,13 @@ const StatsGrid: React.FC<StatsGridProps> = ({
   favoriteModel,
   totalAccounts,
 }) => {
-  const { t } = useI18n();
-
   const cards = [
     {
       icon: <MessageSquare size={16} />,
       iconBg: "rgba(59, 130, 246, 0.12)",
       iconColor: "var(--vscode-textLink-foreground, #3b82f6)",
       value: todayTokens.toLocaleString(),
-      label: t("home.statTotalChats"),
+      label: "Total Tokens",
       valueStyle: { fontSize: "16px", fontWeight: 700 } as React.CSSProperties,
     },
     {
@@ -31,7 +28,7 @@ const StatsGrid: React.FC<StatsGridProps> = ({
       iconBg: "rgba(16, 185, 129, 0.12)",
       iconColor: "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
       value: String(todayRequests),
-      label: t("home.statToolsExecuted"),
+      label: "API Requests",
       valueStyle: { fontSize: "16px", fontWeight: 700 } as React.CSSProperties,
     },
     {
@@ -39,7 +36,7 @@ const StatsGrid: React.FC<StatsGridProps> = ({
       iconBg: "rgba(245, 158, 11, 0.12)",
       iconColor: "var(--vscode-editorWarning-foreground, #f59e0b)",
       value: favoriteModel,
-      label: t("home.statEstimatedSavings"),
+      label: "Favorite Model",
       valueStyle: {
         fontSize: "13px",
         fontWeight: 700,
@@ -52,7 +49,7 @@ const StatsGrid: React.FC<StatsGridProps> = ({
       iconBg: "rgba(139, 92, 246, 0.12)",
       iconColor: "var(--vscode-symbolIcon-namespaceForeground, #8b5cf6)",
       value: String(totalAccounts),
-      label: t("home.statSuccessRate"),
+      label: "Total Accounts",
       valueStyle: { fontSize: "16px", fontWeight: 700 } as React.CSSProperties,
     },
   ];

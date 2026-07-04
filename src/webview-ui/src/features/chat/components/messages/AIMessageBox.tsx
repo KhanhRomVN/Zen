@@ -8,8 +8,6 @@ import { ToolHeader } from "../tools/ToolHeader";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import "../blocks/run_command/TerminalBlock.css";
 import "../blocks/markdown/MarkdownBlock.css";
-import { useI18n } from "../../../../hooks/useI18n";
-import type { I18nKey } from "../../../../i18n";
 import { MarkdownBlock } from "../blocks/markdown/MarkdownBlock";
 import { QuestionBlock } from "../blocks/question/QuestionBlock";
 
@@ -40,7 +38,6 @@ interface AIMessageBoxProps {
   conversationId?: string;
   previousAssistantMessage?: Message;
   isGenerating?: boolean;
-  isSimpleMode?: boolean;
   onSendMessage?: (
     content: string,
     files?: any[],
@@ -158,7 +155,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   isGenerating,
   onSendMessage,
   onSelectOption,
-  isSimpleMode = true,
   singleLineReviewActions,
   onConfirmSingleLineAction,
   onRejectSingleLineAction,
@@ -169,38 +165,41 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   isGitProcessing,
   isGitStatusVisible = true,
 }) => {
-  const { t } = useI18n();
-
   /**
-   * Map known hardcoded error strings to i18n keys.
-   * Falls back to the original message if no mapping found.
+   * Map known hardcoded error strings to English messages.
    */
   const translateError = (raw: string): string => {
+    // Simple hardcoded English error messages
     const normalized = raw.trim().toLowerCase();
-    const errorMap: Array<[RegExp, I18nKey]> = [
-      [/provider returned empty response/i, "errors.providerEmptyResponse"],
-      [/no response body/i, "errors.noResponseBody"],
-      [/no workspace/i, "errors.noWorkspace"],
-      [/path.*argument.*string|path.*required/i, "errors.pathRequired"],
-      [/file.*path.*required|missing file path/i, "errors.filePathRequired"],
-      [/folder.*path.*required/i, "errors.folderPathRequired"],
-      [/security validation failed/i, "errors.securityValidationFailed"],
-      [/out of scope.*ignored/i, "errors.pathOutOfScope"],
-      [/invalid diff format/i, "errors.invalidDiffFormat"],
-      [/search text not found/i, "errors.searchTextNotFound"],
-      [/no change made/i, "errors.noChangesMade"],
-      [/command validation failed/i, "errors.commandValidationFailed"],
-      [
-        /unknown upload error|upload.*failed|upload api returned/i,
-        "errors.uploadFailed",
-      ],
-      [/no active account|no.*account.*selected/i, "errors.noAccountSelected"],
-      [/file not found/i, "errors.fileNotFound"],
-      [/invalid conversation log format/i, "errors.invalidConversationFormat"],
-    ];
-    for (const [pattern, key] of errorMap) {
-      if (pattern.test(raw)) return t(key);
-    }
+    if (/provider returned empty response/i.test(normalized))
+      return "Provider returned empty response";
+    if (/no response body/i.test(normalized)) return "No response body";
+    if (/no workspace/i.test(normalized))
+      return "No workspace folder is open. Open a folder to use file operations.";
+    if (/path.*argument.*string|path.*required/i.test(normalized))
+      return "Path argument must be a string and is required.";
+    if (/file.*path.*required|missing file path/i.test(normalized))
+      return "File path is required.";
+    if (/folder.*path.*required/i.test(normalized))
+      return "Folder path is required.";
+    if (/security validation failed/i.test(normalized))
+      return "Security validation failed: path is outside workspace.";
+    if (/out of scope.*ignored/i.test(normalized))
+      return "Path is out of scope and will be ignored.";
+    if (/invalid diff format/i.test(normalized))
+      return "Invalid diff format.";
+    if (/search text not found/i.test(normalized))
+      return "Search text not found in file.";
+    if (/no change made/i.test(normalized)) return "No changes were made.";
+    if (/command validation failed/i.test(normalized))
+      return "Command validation failed.";
+    if (/unknown upload error|upload.*failed|upload api returned/i.test(normalized))
+      return "File upload failed.";
+    if (/no active account|no.*account.*selected/i.test(normalized))
+      return "No active account. Please select an account first.";
+    if (/file not found/i.test(normalized)) return "File not found.";
+    if (/invalid conversation log format/i.test(normalized))
+      return "Invalid conversation log format.";
     return raw;
   };
 
@@ -459,21 +458,8 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
         let isInteractionBlocked = false;
 
         // In simple mode, filter out tool groups where all items are invisible
-        const SIMPLE_MODE_VISIBLE = new Set([
-          "write_to_file",
-          "replace_in_file",
-          "run_command",
-          "git_status",
-        ]);
-        const renderGroups = isSimpleMode
-          ? groups.filter(
-              (g) =>
-                g.type !== "tools" ||
-                (g as any).items.some((item: any) =>
-                  SIMPLE_MODE_VISIBLE.has(item.action.type),
-                ),
-            )
-          : groups;
+        // Complex mode: always show all groups
+        const renderGroups = groups;
 
         return renderGroups.map((group, index) => {
           const isLast = index === renderGroups.length - 1 && isLastMessage;
@@ -906,14 +892,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 conversationId={conversationId}
                 allActions={parsedContent.actions}
                 isBlockedByPrecedingInteraction={isInteractionBlocked}
-                isVisibleTool={
-                  isSimpleMode
-                    ? (type) =>
-                        type === "write_to_file" ||
-                        type === "replace_in_file" ||
-                        type === "run_command"
-                    : undefined
-                }
+                isVisibleTool={undefined}
                 singleLineReviewActions={singleLineReviewActions}
                 onConfirmSingleLineAction={onConfirmSingleLineAction}
                 onRejectSingleLineAction={onRejectSingleLineAction}

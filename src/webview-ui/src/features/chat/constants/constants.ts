@@ -15,7 +15,8 @@ export type ToolType =
   | "code"
   | "markdown"
   | "thinking"
-  | "question";
+  | "question"
+  | "context_compression";
 
 // ===== TOOL VARIANTS =====
 export const TOOL_VARIANTS: Record<string, string[]> = {
@@ -147,6 +148,7 @@ export const TOOL_LABELS: Record<string, string> = {
   markdown: "Markdown",
   thinking: "Thinking",
   question: "Question",
+  context_compression: "Context Summary",
   default: "Zen",
 };
 
@@ -168,6 +170,8 @@ export const TOOL_COLORS: Record<string, string> = {
   markdown: "var(--vscode-foreground)",
   thinking: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
   question: "var(--vscode-button-background, #007acc)",
+  context_compression:
+    "var(--vscode-editorBracketHighlight-foreground2, #10b981)",
   default: "var(--vscode-descriptionForeground, #6b7280)",
 };
 
@@ -217,6 +221,9 @@ export const TOOL_TIMEOUTS: Record<string, number> = {
   run_command: 30000,
   git_diff: 30000,
 };
+
+// ===== CONTEXT COMPRESSION =====
+export const CONTEXT_COMPRESSION_THRESHOLD = 10000;
 
 // Whitelist of allowed file extensions for external files
 export const ALLOWED_FILE_EXTENSIONS = [

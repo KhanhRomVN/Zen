@@ -339,6 +339,19 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     timeout: 0,
     tags: ["ui", "interaction"],
   },
+
+  context_compression: {
+    type: "context_compression",
+    variants: ["contextCompression", "ContextCompression", "context_Compression"],
+    label: "Context Summary",
+    color: "var(--vscode-editorBracketHighlight-foreground2, #10b981)",
+    category: "ui",
+    requiresConfirmation: false,
+    isClickable: false,
+    defaultPermission: "allow",
+    timeout: 0,
+    tags: ["ui", "system", "compression"],
+  },
 };
 
 // ============= HELPER FUNCTIONS =============

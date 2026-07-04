@@ -557,4 +557,32 @@ export class SystemHandler {
   }
 
   public async handleRejectCommitMessage(message: any) {}
+
+  /**
+   * Handle context compression acceptance
+   * Create a new conversation with the summary as the first user request
+   */
+  public async handleAcceptContextCompression(
+    message: any,
+    webviewView?: vscode.WebviewView,
+  ) {
+    const summary = message.summary;
+    if (!summary) {
+      console.error("[SystemHandler] acceptContextCompression: No summary provided");
+      return;
+    }
+
+    try {
+      // Send message to webview to create new conversation with summary
+      if (webviewView?.webview) {
+        webviewView.webview.postMessage({
+          command: "createConversationWithSummary",
+          summary: summary,
+          timestamp: Date.now(),
+        });
+      }
+    } catch (error) {
+      console.error("[SystemHandler] acceptContextCompression error:", error);
+    }
+  }
 }

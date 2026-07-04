@@ -704,6 +704,212 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     );
   }
 
+  if (toolType === "context_compression") {
+    const summary = firstAction.params?.summary || "";
+    const actionIndex = group[0].index;
+    const actionId = `${messageId}-action-${actionIndex}`;
+    const compressionColor = getToolColor("context_compression");
+    const isRejected = rejectedActions?.has(actionId) || false;
+    const [isAccepted, setIsAccepted] = React.useState(false);
+    const statusColor = isRejected
+      ? "var(--vscode-errorForeground, #ff4d4d)"
+      : isAccepted
+        ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+        : compressionColor;
+
+    return (
+      <div
+        className="timeline-item"
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+        }}
+      >
+        <div
+          className="terminal-block context-compression-tool"
+          style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
+        >
+          <ToolHeader
+            title={
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  color: "var(--vscode-editor-foreground)",
+                }}
+              >
+                <span style={{ fontWeight: 600, opacity: 0.8 }}>
+                  CONTEXT SUMMARY
+                </span>
+                <span style={{ fontSize: "14px" }}>🗜️</span>
+                {isRejected && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      color: "var(--vscode-errorForeground, #ff4d4d)",
+                      background:
+                        "color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)",
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      marginLeft: "4px",
+                    }}
+                  >
+                    REJECTED
+                  </span>
+                )}
+                {isAccepted && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      color:
+                        "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+                      background:
+                        "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent)",
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      marginLeft: "4px",
+                    }}
+                  >
+                    ✓ NEW CONVERSATION CREATED
+                  </span>
+                )}
+              </div>
+            }
+            statusColor={statusColor}
+            isPartial={false}
+          />
+          <div style={{ padding: "4px 12px 12px 29px" }}>
+            <div
+              style={{
+                padding: "12px 14px",
+                background: "var(--vscode-editor-background, #1e1e1e)",
+                borderRadius: "6px",
+                border: "1px solid var(--vscode-widget-border, #454545)",
+                fontFamily: "var(--vscode-editor-font-family, monospace)",
+                fontSize: "13px",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                color: "var(--vscode-foreground, #cccccc)",
+                maxHeight: "auto",
+                overflowY: "visible",
+                lineHeight: "1.6",
+              }}
+            >
+              {summary}
+            </div>
+            {!isAccepted && !isRejected && (
+              <div
+                style={{
+                  display: "flex",
+                  gap: "6px",
+                  padding: "8px 0 4px 0",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <button
+                  onClick={() => {
+                    setIsAccepted(true);
+                    // TODO: Trigger create new conversation with this summary
+                    const vscodeApi = (window as any).vscodeApi;
+                    if (vscodeApi) {
+                      vscodeApi.postMessage({
+                        command: "acceptContextCompression",
+                        summary: summary,
+                      });
+                    }
+                  }}
+                  style={{
+                    background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 15%, transparent)`,
+                    color:
+                      "var(--vscode-editorBracketHighlight-foreground2, #10b981)",
+                    border: `1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 30%, transparent)`,
+                    padding: "4px 10px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    height: "24px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 25%, transparent)`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 15%, transparent)`;
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  Xác nhận & Tạo conversation mới
+                </button>
+                <button
+                  onClick={() => {
+                    onToolClick(firstAction, messageId, actionIndex, "reject");
+                  }}
+                  style={{
+                    background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
+                    color: "var(--vscode-errorForeground, #ff4d4d)",
+                    border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
+                    padding: "4px 10px",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    height: "24px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`;
+                  }}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                  Hủy
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (toolType === "git_diff") {
     const filePath = firstAction.params.file_path || "";
     const diffColor = getToolColor("git_diff");
