@@ -73,39 +73,19 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   const legacyAnswered = !!selectedOptionProp;
 
   // Sync initialAnswers to answers state when it changes (for history load)
-  // ✅ FIX: Giống TerminalBlock - chỉ restore 1 lần, track bằng ref
   useEffect(() => {
     const initialAnswersKeys = Object.keys(initialAnswers);
     const hasInitialAnswers = isPaginated && initialAnswersKeys.length > 0;
 
-    console.log(`${logPrefix.current} useEffect[initialAnswers]`, {
-      hasInitialAnswers,
-      initialAnswersKeys,
-      hasRestoredRef: hasRestoredRef.current,
-      isSummaryModeRef: isSummaryModeRef.current,
-      questionsLength: questions.length,
-    });
-
     if (hasInitialAnswers) {
-      // ✅ FIX: Nếu đã restore rồi, không restore lại (tránh re-initialization)
       if (hasRestoredRef.current) {
-        console.log(
-          `${logPrefix.current} Already restored, skipping re-initialization`,
-        );
         return;
       }
 
-      // ✅ Mark as restored (track state giống TerminalBlock track writtenCharsRef)
       hasRestoredRef.current = true;
-
-      // ✅ FIX: Khi có initialAnswers, tự động chuyển sang summaryMode
-      // (giống TerminalBlock tự động hiển thị output khi có logs)
       const totalQuestions = questions.length;
       const answeredCount = initialAnswersKeys.length;
       if (answeredCount === totalQuestions) {
-        console.log(
-          `${logPrefix.current} All questions answered (${answeredCount}/${totalQuestions}), switching to summaryMode`,
-        );
         setIsSummaryMode(true);
       }
 
@@ -128,17 +108,8 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
         }
         // For text, the value is stored in answers, textInputs will be populated from answers when rendering
       });
-
-      console.log(`${logPrefix.current} Restored answers:`, {
-        answers: initialAnswers,
-        isSummaryMode: isSummaryModeRef.current,
-      });
     } else {
-      // ✅ Reset hasRestoredRef when no initialAnswers (new question)
       hasRestoredRef.current = false;
-      console.log(
-        `${logPrefix.current} No initialAnswers, reset hasRestoredRef`,
-      );
     }
   }, [initialAnswers, isPaginated, questions]);
 
@@ -272,7 +243,6 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   const wrapperStyle = {
     display: "flex",
     flexDirection: "column" as const,
-    gap: "6px",
     paddingBottom: "12px",
     width: "100%",
   };
@@ -610,48 +580,37 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     // Use component-level state for multi-choice custom value
     const multiCustomValue = multiCustomValues[q.id] || "";
 
-    // Get options and ensure "Khác" is always included as a system option
+    // Get options - do NOT auto-add "Khác" (we'll render it separately as input bar)
     const originalOptions = q.options || [];
-    const hasOther = originalOptions.some(
-      (opt) =>
-        opt.toLowerCase().includes("khác") ||
-        opt.toLowerCase().includes("other"),
-    );
-
-    // If "Khác" is not present, add it as the last option
-    const options = hasOther ? originalOptions : [...originalOptions, "Khác"];
-    const otherOptionText = "Khác";
-    const hasOtherOption = true; // Always true because we ensure "Khác" exists
-
-    // Only log when user interacts - remove verbose render logging
 
     const handleMultiCustomChange = (value: string) => {
       setMultiCustomValues((prev) => ({ ...prev, [q.id]: value }));
       // Only update selectedOptions with the custom value, do NOT auto-save answers
       if (value.trim()) {
         const fullValue = `Khác: ${value.trim()}`;
-        // Remove all previous "Khác" entries (both the placeholder and any previous custom values)
+        // Remove all previous "Khác" entries
         const newSelected = selected.filter(
-          (opt) => opt !== otherOptionText && !opt.startsWith("Khác:"),
+          (opt) => !opt.startsWith("Khác:"),
         );
         newSelected.push(fullValue);
         setSelectedOptions({ ...selectedOptions, [q.id]: newSelected });
-        // Do NOT call setAnswers or onAnswerProp here - answer will be saved via navigation buttons
       } else {
-        // If empty, just select "Khác" without custom text
-        if (!selected.includes(otherOptionText)) {
-          const newSelected = [...selected, otherOptionText];
-          setSelectedOptions({ ...selectedOptions, [q.id]: newSelected });
-          // Do NOT call setAnswers or onAnswerProp here - answer will be saved via navigation buttons
-        }
+        // If empty, remove "Khác:" entries
+        const newSelected = selected.filter(
+          (opt) => !opt.startsWith("Khác:"),
+        );
+        setSelectedOptions({ ...selectedOptions, [q.id]: newSelected });
       }
     };
 
+    // Check if "Khác:" is selected
+    const hasKhacSelected = selected.some((opt) => opt.startsWith("Khác:"));
+
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-        {options.map((option) => {
+        {/* Regular options */}
+        {originalOptions.map((option) => {
           const isSelected = selected.includes(option);
-          const isOther = hasOtherOption && option === otherOptionText;
           return (
             <div key={option}>
               <div
@@ -670,36 +629,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                 <input
                   type="checkbox"
                   checked={isSelected}
-                  onChange={() => {
-                    if (isOther) {
-                      // Toggle "Khác" selection - just like other options
-                      if (selected.includes(option)) {
-                        // Unselect "Khác"
-                        const newSelected = selected.filter(
-                          (opt) => opt !== option,
-                        );
-                        setSelectedOptions({
-                          ...selectedOptions,
-                          [q.id]: newSelected,
-                        });
-                        // Clear custom value when unselecting
-                        setMultiCustomValues((prev) => ({
-                          ...prev,
-                          [q.id]: "",
-                        }));
-                      } else {
-                        // Select "Khác"
-                        const newSelected = [...selected, option];
-                        setSelectedOptions({
-                          ...selectedOptions,
-                          [q.id]: newSelected,
-                        });
-                      }
-                    } else {
-                      // Regular option toggle
-                      handleMultiToggle(option);
-                    }
-                  }}
+                  onChange={() => handleMultiToggle(option)}
                   disabled={isDisabled}
                   style={{
                     accentColor: isSelected
@@ -711,43 +641,87 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                     opacity: isSelected ? 1 : 0.4,
                   }}
                 />
-                {isOther ? (
-                  // For "Khác" option: show label + inline input bar (like oneChoice)
-                  <>
-                    <input
-                      type="text"
-                      value={multiCustomValue}
-                      onChange={(e) => {
-                        setMultiCustomValues((prev) => ({
-                          ...prev,
-                          [q.id]: e.target.value,
-                        }));
-                        // Only update selectedOptions, do NOT auto-save answers
-                        handleMultiCustomChange(e.target.value);
-                      }}
-                      placeholder="Khác (ý kiến của bạn)"
-                      disabled={isDisabled}
-                      style={{
-                        flex: 1,
-                        padding: "2px 8px",
-                        backgroundColor: "transparent",
-                        color: "var(--vscode-foreground)",
-                        border: "none",
-                        outline: "none",
-                        fontSize: "13px",
-                        fontFamily: "inherit",
-                        minWidth: "60px",
-                      }}
-                      onFocus={(e) => e.target.select()}
-                    />
-                  </>
-                ) : (
-                  <span style={{ fontSize: "13px" }}>{option}</span>
-                )}
+                <span style={{ fontSize: "13px" }}>{option}</span>
               </div>
             </div>
           );
         })}
+        
+        {/* "Khác" option with checkbox and input - always at the end */}
+        <div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "8px 6px",
+              cursor: isDisabled || isAnswered ? "default" : "pointer",
+              opacity: isAnswered && !hasKhacSelected ? 0.5 : 1,
+              transition: "all 0.15s ease",
+              borderLeft: "none",
+              backgroundColor: "transparent",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={hasKhacSelected}
+              onChange={() => {
+                if (hasKhacSelected) {
+                  // Uncheck - clear custom value
+                  setMultiCustomValues((prev) => ({
+                    ...prev,
+                    [q.id]: "",
+                  }));
+                  const newSelected = selected.filter(
+                    (opt) => !opt.startsWith("Khác:"),
+                  );
+                  setSelectedOptions({
+                    ...selectedOptions,
+                    [q.id]: newSelected,
+                  });
+                } else {
+                  // Check - focus input
+                  // Input onChange will handle adding to selectedOptions
+                }
+              }}
+              disabled={isDisabled}
+              style={{
+                accentColor: hasKhacSelected
+                  ? "var(--vscode-button-background)"
+                  : "var(--vscode-descriptionForeground)",
+                width: "16px",
+                height: "16px",
+                cursor: isDisabled || isAnswered ? "default" : "pointer",
+                opacity: hasKhacSelected ? 1 : 0.4,
+              }}
+            />
+            <input
+              type="text"
+              value={multiCustomValue}
+              onChange={(e) => {
+                setMultiCustomValues((prev) => ({
+                  ...prev,
+                  [q.id]: e.target.value,
+                }));
+                handleMultiCustomChange(e.target.value);
+              }}
+              onFocus={(e) => e.target.select()}
+              placeholder="Khác (ý kiến của bạn)"
+              disabled={isDisabled}
+              style={{
+                flex: 1,
+                padding: "2px 8px",
+                backgroundColor: "transparent",
+                color: "var(--vscode-foreground)",
+                border: "none",
+                outline: "none",
+                fontSize: "13px",
+                fontFamily: "inherit",
+                minWidth: "60px",
+              }}
+            />
+          </div>
+        </div>
       </div>
     );
   };
@@ -798,24 +772,11 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     const customValue = customValues[q.id] || "";
 
     const updateCustomSelection = (value: string) => {
+      // Only update local customValues state, do NOT auto-save to answers
       setCustomValues((prev) => ({ ...prev, [q.id]: value }));
-      if (value.trim()) {
-        const fullValue = `Ý kiến: ${value.trim()}`;
-        const answer: QuestionAnswer = { questionId: q.id, value: fullValue };
-        setAnswers((prev) => ({ ...prev, [q.id]: answer }));
-        // Clear confirm selection so "Có"/"Không" become unselected
-        setConfirmValues((prev) => {
-          const newState = { ...prev };
-          delete newState[q.id];
-          return newState;
-        });
-        onAnswerProp?.(q.id, fullValue);
-      } else {
-        setAnswers((prev) => {
-          const newState = { ...prev };
-          delete newState[q.id];
-          return newState;
-        });
+
+      // Clear confirm selection when user starts typing custom input
+      if (value.trim() && selected !== undefined) {
         setConfirmValues((prev) => {
           const newState = { ...prev };
           delete newState[q.id];
@@ -1109,7 +1070,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             />
           }
         />
-        <div style={{ paddingLeft: "36px", marginTop: "8px" }}>
+        <div style={{ paddingLeft: "36px" }}>
           {title && (
             <div
               style={{
@@ -1205,6 +1166,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
 
   // If in summary mode, render summary view
   const willRenderSummary = isSummaryMode && isPaginated;
+
   if (willRenderSummary) {
     return renderSummary();
   }
@@ -1281,89 +1243,241 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             style={{
               display: "flex",
               justifyContent: "flex-end",
+              alignItems: "center",
               gap: "8px",
-              marginTop: "8px",
+              marginTop: "12px",
             }}
           >
+            {/* Skip button - ghost variant with underline on hover */}
+            <button
+              onClick={() => {
+                // Bỏ qua câu hỏi hiện tại - không cần trả lời
+                if (currentIndex < totalQuestions - 1) {
+                  setCurrentIndex(currentIndex + 1);
+                } else {
+                  // Câu cuối - chuyển sang summary mode
+                  setIsSummaryMode(true);
+                  onAllAnsweredProp?.(answers);
+                }
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "6px 12px",
+                backgroundColor: "transparent",
+                color: "var(--vscode-descriptionForeground)",
+                border: "none",
+                borderRadius: "4px",
+                fontSize: "11px",
+                cursor: "pointer",
+                opacity: 0.7,
+                transition: "all 0.15s ease",
+                textDecoration: "none",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "1";
+                e.currentTarget.style.textDecoration = "underline";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = "0.7";
+                e.currentTarget.style.textDecoration = "none";
+              }}
+            >
+              <span
+                className="codicon codicon-chevron-right"
+                style={{ fontSize: "12px" }}
+              />
+              <span>Bỏ qua</span>
+            </button>
+
+            {/* Previous button - soft variant with solid hover (using descriptionForeground color) */}
             <button
               onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
               disabled={currentIndex === 0}
               style={{
-                padding: "4px 12px",
-                backgroundColor: "transparent",
-                color: "var(--vscode-foreground)",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "6px 12px",
+                backgroundColor:
+                  currentIndex === 0
+                    ? "transparent"
+                    : "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
+                color: "var(--vscode-descriptionForeground)",
                 border: "none",
+                borderRadius: "4px",
                 fontSize: "11px",
-                cursor: currentIndex === 0 ? "default" : "pointer",
-                opacity: currentIndex === 0 ? 0.3 : 0.7,
+                lineHeight: "1",
+                cursor: currentIndex === 0 ? "not-allowed" : "pointer",
+                opacity: currentIndex === 0 ? 0.4 : 1,
+                transition: "all 0.15s ease",
+                minHeight: "0",
+              }}
+              onMouseEnter={(e) => {
+                if (currentIndex !== 0) {
+                  e.currentTarget.style.backgroundColor =
+                    "color-mix(in srgb, var(--vscode-descriptionForeground) 25%, transparent)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (currentIndex !== 0) {
+                  e.currentTarget.style.backgroundColor =
+                    "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)";
+                }
               }}
             >
-              ← Trước
+              <span
+                className="codicon codicon-arrow-left"
+                style={{
+                  fontSize: "11px",
+                  lineHeight: "1",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              />
+              <span
+                style={{
+                  lineHeight: "1",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                Trước
+              </span>
             </button>
+
+            {/* Next/Complete button - different variants based on isLastQuestion */}
             <button
               onClick={() => {
                 let allAnswers = answers;
+
                 // For multi-choice, save selected options as answer before proceeding
                 if (currentQuestion?.type === "multi") {
                   const selected =
                     (selectedOptions[currentQuestion.id] as string[]) || [];
-                  if (selected.length === 0) return; // Must select at least one
-                  const answer: QuestionAnswer = {
-                    questionId: currentQuestion.id,
-                    value: selected,
-                  };
-                  allAnswers = {
-                    ...answers,
-                    [currentQuestion.id]: answer,
-                  };
-                  setAnswers(allAnswers);
-                  onAnswerProp?.(currentQuestion.id, selected);
+                  // Removed validation - allow moving forward even without selection
+                  if (selected.length > 0) {
+                    const answer: QuestionAnswer = {
+                      questionId: currentQuestion.id,
+                      value: selected,
+                    };
+                    allAnswers = {
+                      ...answers,
+                      [currentQuestion.id]: answer,
+                    };
+                    setAnswers(allAnswers);
+                    onAnswerProp?.(currentQuestion.id, selected);
+                  }
                 }
 
                 // For text, save the text input as answer before proceeding
                 if (currentQuestion?.type === "text") {
                   const value = textInputs[currentQuestion.id] || "";
-                  if (value.trim().length === 0) return; // Must have content
-                  const answer: QuestionAnswer = {
-                    questionId: currentQuestion.id,
-                    value: value.trim(),
-                  };
-                  allAnswers = {
-                    ...answers,
-                    [currentQuestion.id]: answer,
-                  };
-                  setAnswers(allAnswers);
-                  onAnswerProp?.(currentQuestion.id, value.trim());
-                }
-
-                if (isCurrentAnswered()) {
-                  if (currentIndex < totalQuestions - 1) {
-                    setCurrentIndex(currentIndex + 1);
-                  } else {
-                    // All questions answered - trigger onAllAnswered with the latest answers
-                    setIsSummaryMode(true);
-                    onAllAnsweredProp?.(allAnswers);
+                  // Removed validation - allow moving forward even without text
+                  if (value.trim().length > 0) {
+                    const answer: QuestionAnswer = {
+                      questionId: currentQuestion.id,
+                      value: value.trim(),
+                    };
+                    allAnswers = {
+                      ...answers,
+                      [currentQuestion.id]: answer,
+                    };
+                    setAnswers(allAnswers);
+                    onAnswerProp?.(currentQuestion.id, value.trim());
                   }
                 }
+
+                // For confirm, save custom input if exists
+                if (currentQuestion?.type === "confirm") {
+                  const customValue = customValues[currentQuestion.id] || "";
+                  if (customValue.trim().length > 0) {
+                    const fullValue = `Ý kiến: ${customValue.trim()}`;
+                    const answer: QuestionAnswer = {
+                      questionId: currentQuestion.id,
+                      value: fullValue,
+                    };
+                    allAnswers = {
+                      ...answers,
+                      [currentQuestion.id]: answer,
+                    };
+                    setAnswers(allAnswers);
+                    onAnswerProp?.(currentQuestion.id, fullValue);
+                  }
+                }
+
+                // Always allow navigation - removed isCurrentAnswered() check
+                if (currentIndex < totalQuestions - 1) {
+                  setCurrentIndex(currentIndex + 1);
+                } else {
+                  // All questions completed - trigger onAllAnswered with the latest answers
+                  setIsSummaryMode(true);
+                  onAllAnsweredProp?.(allAnswers);
+                }
               }}
-              disabled={!isCurrentAnswered()}
               style={{
-                padding: "4px 12px",
-                backgroundColor: isCurrentAnswered()
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "6px 14px",
+                backgroundColor: isLastQuestion
+                  ? "color-mix(in srgb, var(--vscode-button-background) 20%, transparent)"
+                  : "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
+                color: isLastQuestion
                   ? "var(--vscode-button-background)"
-                  : "transparent",
-                color: isCurrentAnswered()
-                  ? "var(--vscode-button-foreground)"
-                  : "var(--vscode-foreground)",
+                  : "var(--vscode-descriptionForeground)",
                 border: "none",
                 borderRadius: "4px",
                 fontSize: "11px",
                 fontWeight: 500,
-                cursor: isCurrentAnswered() ? "pointer" : "default",
-                opacity: isCurrentAnswered() ? 1 : 0.3,
+                lineHeight: "1",
+                cursor: "pointer",
+                opacity: 1,
+                transition: "all 0.15s ease",
+                minHeight: "0",
+              }}
+              onMouseEnter={(e) => {
+                if (isLastQuestion) {
+                  e.currentTarget.style.backgroundColor =
+                    "var(--vscode-button-background)";
+                  e.currentTarget.style.color =
+                    "var(--vscode-button-foreground)";
+                } else {
+                  e.currentTarget.style.backgroundColor =
+                    "color-mix(in srgb, var(--vscode-descriptionForeground) 25%, transparent)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (isLastQuestion) {
+                  e.currentTarget.style.backgroundColor =
+                    "color-mix(in srgb, var(--vscode-button-background) 20%, transparent)";
+                  e.currentTarget.style.color =
+                    "var(--vscode-button-background)";
+                } else {
+                  e.currentTarget.style.backgroundColor =
+                    "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)";
+                }
               }}
             >
-              {isLastQuestion ? "Hoàn tất →" : "Tiếp theo →"}
+              <span
+                style={{
+                  lineHeight: "1",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {isLastQuestion ? "Hoàn tất" : "Tiếp theo"}
+              </span>
+              <span
+                className="codicon codicon-arrow-right"
+                style={{
+                  fontSize: "11px",
+                  lineHeight: "1",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              />
             </button>
           </div>
         )}

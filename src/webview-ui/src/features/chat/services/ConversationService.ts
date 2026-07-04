@@ -76,7 +76,6 @@ export const saveConversation = async (
   >,
   questionAnswers?: Record<string, Record<string, any>>,
 ): Promise<string> => {
-  
   try {
     const storage = (window as any).storage;
     if (!storage) return "";
@@ -116,7 +115,11 @@ export const saveConversation = async (
       existingSingleLineReviewActions = cached.singleLineReviewActions;
       existingBackendConversationId = cached.backendConversationId;
       // Also get questionAnswers from cache
-      if (!existingQuestionAnswers && cached.questionAnswers && Object.keys(cached.questionAnswers).length > 0) {
+      if (
+        !existingQuestionAnswers &&
+        cached.questionAnswers &&
+        Object.keys(cached.questionAnswers).length > 0
+      ) {
         existingQuestionAnswers = cached.questionAnswers;
       }
     }
@@ -146,7 +149,10 @@ export const saveConversation = async (
           existingSingleLineReviewActions = parsed.singleLineReviewActions;
         }
         // Also read questionAnswers from storage
-        if (parsed.questionAnswers && Object.keys(parsed.questionAnswers).length > 0) {
+        if (
+          parsed.questionAnswers &&
+          Object.keys(parsed.questionAnswers).length > 0
+        ) {
           existingQuestionAnswers = parsed.questionAnswers;
         }
       }
@@ -182,18 +188,24 @@ export const saveConversation = async (
 
     // Merge with existing questionAnswers from cached data and parameter
     // Always try to get questionAnswers from cache first (check again in case cache was updated)
-    const cachedQuestionAnswers = ConversationCache.get(convId)?.questionAnswers;
+    const cachedQuestionAnswers =
+      ConversationCache.get(convId)?.questionAnswers;
     // Also check the global store
-    const storeQuestionAnswers = (ConversationCache as any).getQuestionAnswers?.(convId);
+    const storeQuestionAnswers = (
+      ConversationCache as any
+    ).getQuestionAnswers?.(convId);
     let bestExisting = existingQuestionAnswers;
-    if (cachedQuestionAnswers && Object.keys(cachedQuestionAnswers).length > 0) {
+    if (
+      cachedQuestionAnswers &&
+      Object.keys(cachedQuestionAnswers).length > 0
+    ) {
       bestExisting = cachedQuestionAnswers;
     }
     if (storeQuestionAnswers && Object.keys(storeQuestionAnswers).length > 0) {
       bestExisting = storeQuestionAnswers;
     }
     existingQuestionAnswers = bestExisting;
-    
+
     try {
       const existingData = await storage.get(key, false);
       if (existingData && existingData.value) {
@@ -207,18 +219,27 @@ export const saveConversation = async (
       }
     } catch (error) {}
 
-// Merge: parameter > extracted from messages > existing
+    // Merge: parameter > extracted from messages > existing
     // ALWAYS preserve existingQuestionAnswers if no new data is provided
-    const paramHasData = questionAnswers && Object.keys(questionAnswers).length > 0;
-    const extractedHasData = extractedQuestionAnswers && Object.keys(extractedQuestionAnswers).length > 0;
-    const existingHasData = existingQuestionAnswers && Object.keys(existingQuestionAnswers).length > 0;
+    const paramHasData =
+      questionAnswers && Object.keys(questionAnswers).length > 0;
+    const extractedHasData =
+      extractedQuestionAnswers &&
+      Object.keys(extractedQuestionAnswers).length > 0;
+    const existingHasData =
+      existingQuestionAnswers &&
+      Object.keys(existingQuestionAnswers).length > 0;
 
-    let mergedQuestionAnswers: Record<string, Record<string, any>> | undefined = existingQuestionAnswers || {};
+    let mergedQuestionAnswers: Record<string, Record<string, any>> | undefined =
+      existingQuestionAnswers || {};
     if (paramHasData) {
       mergedQuestionAnswers = { ...mergedQuestionAnswers, ...questionAnswers };
     }
     if (extractedHasData) {
-      mergedQuestionAnswers = { ...mergedQuestionAnswers, ...extractedQuestionAnswers };
+      mergedQuestionAnswers = {
+        ...mergedQuestionAnswers,
+        ...extractedQuestionAnswers,
+      };
     }
     // If no data at all, set to undefined to avoid storing empty objects
     if (Object.keys(mergedQuestionAnswers).length === 0) {
@@ -227,7 +248,7 @@ export const saveConversation = async (
     // Use mergedQuestionAnswers or existingQuestionAnswers for storage write
     // This ensures questionAnswers are not lost when mergedQuestionAnswers is undefined
     const finalQAForStorage = mergedQuestionAnswers || existingQuestionAnswers;
-    
+
     const data = {
       messages: messagesWithoutQA,
       conversationId: convId,
@@ -255,33 +276,30 @@ export const saveConversation = async (
       } as ChatMetadata,
     };
 
-    // ✅ DEBUG: Log before saving to storage
-    console.log("[ConversationService] saveConversation - data to save:", {
-      convId,
-      hasQuestionAnswers: !!finalQAForStorage,
-      questionAnswersKeys: finalQAForStorage ? Object.keys(finalQAForStorage) : [],
-      questionAnswersData: finalQAForStorage,
-      paramQuestionAnswers: questionAnswers,
-      extractedQuestionAnswers,
-      existingQuestionAnswers,
-      mergedQuestionAnswers,
-    });
-
     await storage.set(key, JSON.stringify(data), false);
 
     // Always store mergedQuestionAnswers in global store if it has data
-    if (mergedQuestionAnswers && Object.keys(mergedQuestionAnswers).length > 0) {
-      (ConversationCache as any).setQuestionAnswers?.(convId, mergedQuestionAnswers);
+    if (
+      mergedQuestionAnswers &&
+      Object.keys(mergedQuestionAnswers).length > 0
+    ) {
+      (ConversationCache as any).setQuestionAnswers?.(
+        convId,
+        mergedQuestionAnswers,
+      );
     }
-    
+
     // Only update cache if mergedQuestionAnswers has data, or if we're explicitly clearing it
     // This prevents overwriting existing questionAnswers with undefined
     const existingCache = ConversationCache.get(convId);
-    
+
     // Always preserve questionAnswers from global store if available
-    const globalStoreQA = (ConversationCache as any).getQuestionAnswers?.(convId);
-    const finalQuestionAnswers = mergedQuestionAnswers || globalStoreQA || existingCache?.questionAnswers;
-    
+    const globalStoreQA = (ConversationCache as any).getQuestionAnswers?.(
+      convId,
+    );
+    const finalQuestionAnswers =
+      mergedQuestionAnswers || globalStoreQA || existingCache?.questionAnswers;
+
     // Update cache with finalQuestionAnswers (preserved from global store if needed)
     const cacheData = {
       messages: messagesWithoutQA,

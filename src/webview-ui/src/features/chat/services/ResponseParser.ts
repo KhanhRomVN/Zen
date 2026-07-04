@@ -1,5 +1,9 @@
 import { normalizeTagVariants } from "../utils/TagNormalizer";
 import { parseToolAction } from "../utils/ToolParser";
+import {
+  getAllToolTypes,
+  type ExecutableToolType,
+} from "../constants/tool-registry";
 // Tag parsers
 import { parseReadFile } from "./parsers/ReadFileParser";
 import { parseWriteToFile } from "./parsers/WriteToFileParser";
@@ -29,19 +33,7 @@ export interface ParsedResponse {
 }
 
 export interface ToolAction {
-  type:
-    | "read_file"
-    | "write_to_file"
-    | "replace_in_file"
-    | "list_files"
-    | "run_command"
-    | "delete_file"
-    | "delete_folder"
-    | "move_file"
-    | "grep"
-    | "git_status"
-    | "commit_message"
-    | "git_diff";
+  type: ExecutableToolType;
   params: Record<string, any>;
   rawXml: string;
   isPartial?: boolean;
@@ -73,7 +65,17 @@ export type ContentBlock =
  * Parse AI response to extract tool actions
  * Supports interleaved text and tool calls
  */
+// Enable debug logs via localStorage
+const DEBUG_PARSER =
+  typeof window !== "undefined" &&
+  window.localStorage?.getItem("zen_debug_parser") === "true";
+
 export const parseAIResponse = (content: string): ParsedResponse => {
+  // Track parsing sequence for debugging
+  const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
+    [];
+  let sequenceCounter = 0;
+
   const result: ParsedResponse = {
     followupQuestion: null,
     followupOptions: null,
@@ -85,6 +87,14 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   };
 
   let remainingContent = content;
+
+  // 🔍 DEBUG: Log initial content
+  if (DEBUG_PARSER) {
+    console.log("[Zen][Parser] 📥 Parsing content:", {
+      length: content.length,
+      preview: content.substring(0, 100),
+    });
+  }
 
   // Hide </no_response> markers
   remainingContent = remainingContent.replace(/<\/no_response\s*>/gi, "");
@@ -101,27 +111,39 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   } = extractThinkingBlocks(remainingContent);
   remainingContent = contentAfterThinking;
 
+  // 🔍 DEBUG: Log after thinking extraction
+  if (DEBUG_PARSER) {
+    console.log("[Zen][Parser] 🧠 After thinking extraction:", {
+      thinkingBlocksCount: thinkingBlocks.length,
+      unclosedThinking: unclosedThinkingContent !== null,
+      remainingLength: remainingContent.length,
+      remainingPreview: remainingContent.substring(0, 100),
+    });
+  }
+  
+  // 🔍 ALWAYS log if content is stripped completely
+  // BUT skip if this is likely a streaming intermediate state
+  const isLikelyStreaming = remainingContent.trim().length === 0 && 
+                             content.trim().length > 0 && 
+                             content.trim().length < 2000 && // Small content, likely incomplete
+                             !content.includes('</thinking>'); // No closing tag yet
+  
+  if (remainingContent.trim().length === 0 && content.trim().length > 100 && !isLikelyStreaming) {
+    console.warn("[Zen][Parser] ⚠️ All content consumed by thinking extraction!", {
+      originalLength: content.length,
+      thinkingBlocks: thinkingBlocks.length,
+    });
+  }
+
   // Scan for tools and text blocks
   // Note: "thinking" is intentionally excluded — thinking blocks are pre-extracted
   // above and stored in thinkingBlocks[]. Placeholders __THINKING_N__ in markdown
   // text will be restored after the main scan loop.
+
+  // Auto-generated from Tool Registry - includes all tools plus special tags
   const toolPatterns = [
-    "read_file",
-    "write_to_file",
-    "replace_in_file",
-    "run_command",
-    "list_files",
-    "delete_file",
-    "delete_folder",
-    "move_file",
-    "grep",
-    "git_status",
-    "commit_message",
-    "git_diff",
-    "code",
-    "file",
-    "markdown",
-    "question",
+    ...getAllToolTypes().filter((t) => t !== "thinking"), // Exclude thinking (pre-extracted)
+    "file", // Special display tag not in registry
   ];
 
   // Fix missing opening bracket for the first tool call due to prefix/prefill stripping.
@@ -256,8 +278,26 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   let scanStr = remainingContent;
 
+  // 🔍 DEBUG: Log scan loop start
+  if (DEBUG_PARSER) {
+    console.log("[Zen][Parser] 🔍 Starting scan loop:", {
+      scanLength: scanStr.length,
+      toolPatterns: toolPatterns.length,
+    });
+  }
+
   while (scanStr.length > 0) {
     const { index, match, toolName, isClosed } = findNextTag(scanStr);
+
+    // 🔍 DEBUG: Log each iteration
+    if (DEBUG_PARSER && index !== -1) {
+      console.log("[Zen][Parser] 🏷️ Found tag:", {
+        toolName,
+        index,
+        isClosed,
+        matchPreview: match[0]?.substring(0, 50),
+      });
+    }
 
     if (index !== -1 && match) {
       // Found a tag
@@ -272,6 +312,37 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
       if (isClosed) {
         const innerContent = match[1];
+
+        // Extract sub-tags for debugging
+        const extractSubTags = (content: string): string[] => {
+          const subTagRegex =
+            /<([a-zA-Z_][a-zA-Z0-9_]*?)(?:\s+[^>]*)?>[\s\S]*?<\/\1>/g;
+          const selfClosingRegex =
+            /<([a-zA-Z_][a-zA-Z0-9_]*?)(?:\s+[^>]*)?\/>/g;
+          const subTags = new Set<string>();
+
+          let match;
+          while ((match = subTagRegex.exec(content)) !== null) {
+            subTags.add(match[1]);
+          }
+          while ((match = selfClosingRegex.exec(content)) !== null) {
+            subTags.add(match[1]);
+          }
+
+          return Array.from(subTags);
+        };
+
+        const subTags = extractSubTags(innerContent || "");
+        parsingSequence.push({
+          index: ++sequenceCounter,
+          tag: toolName,
+          ...(subTags.length > 0 ? { subTags } : {}),
+        });
+
+        if (DEBUG_PARSER) {
+          const subTagInfo =
+            subTags.length > 0 ? ` (${subTags.join(", ")})` : "";
+        }
 
         if (toolName === "code") {
           // Explicit <code> tag - use CodeParser
@@ -544,6 +615,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           }
           result.contentBlocks.push({ type: "tool", action, actionIndex });
           result.actions.push(action); // Populate legacy actions array
+
+          if (DEBUG_PARSER) {
+          }
         }
 
         // 3. Advance scanStr
@@ -551,7 +625,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       } else {
         // Handle unclosed tags: capture content until EOF
         const innerContent = scanStr.substring(index + rawXml.length);
-
         if (toolName === "markdown") {
           // For <markdown> we show content even if unclosed
           if (innerContent.trim()) {
@@ -587,6 +660,27 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
           }
 
+          // Recovery for list_files
+          if (toolName === "list_files") {
+            const folderPathRegex = /<folder_path>([\s\S]*?)<\/folder_path>/i;
+            const folderPathMatch = (innerContent || "").match(folderPathRegex);
+            if (folderPathMatch && folderPathMatch[1].trim() !== "") {
+              // Recovery condition met: build a fully-closed XML and parse normally
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</list_files>";
+              const params = parseListFiles(innerContent || "");
+              const action = {
+                type: "list_files" as const,
+                params,
+                rawXml: recoveredRawXml,
+              };
+              // action.isPartial is intentionally NOT set
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
           const action = parseToolAction(toolName, innerContent || "", rawXml);
           action.isPartial = true;
           result.contentBlocks.push({ type: "tool", action, actionIndex });
@@ -597,13 +691,14 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         break; // Stop scanning as we've consumed or hidden till end
       }
     } else {
-      // No more tags, but check for partial tag prefix at the very end (e.g., "<tex")
+      // No more tags, but check for partial tag prefix at the very end (e.g., "<tex", "<thinking")
       const partialTagMatch = /<[\/]?[a-zA-Z0-9_]*$/.exec(scanStr);
       if (partialTagMatch) {
         const textBeforePartial = scanStr.substring(0, partialTagMatch.index);
         if (textBeforePartial.trim()) {
           pushTextOrCodeBlocks("markdown", textBeforePartial);
         }
+        // Don't show the partial tag itself - it will be completed in next stream chunk
       } else {
         if (scanStr.trim()) {
           pushTextOrCodeBlocks("markdown", scanStr);
@@ -697,6 +792,29 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       type: "thinking",
       content: unclosedThinkingContent,
     });
+  }
+
+  // 🔍 DEBUG: Log final result
+  if (DEBUG_PARSER) {
+    console.log("[Zen][Parser] ✅ Parse complete:", {
+      contentBlocks: result.contentBlocks.length,
+      actions: result.actions.length,
+      blockTypes: result.contentBlocks.map(b => b.type),
+    });
+  }
+
+  // 🔍 ALWAYS log if contentBlocks is empty (potential bug)
+  // BUT skip warning if content is just a partial opening tag (streaming case)
+  const isPartialTag = /^<[\/]?[a-zA-Z0-9_]*$/.test(content.trim());
+  if (result.contentBlocks.length === 0 && content.trim().length > 0 && !isPartialTag) {
+    console.warn(
+      "[Zen][Parser] ⚠️ No contentBlocks generated!",
+      {
+        contentLength: content.length,
+        contentPreview: content.substring(0, 200),
+        remainingAfterThinking: remainingContent.substring(0, 100),
+      },
+    );
   }
 
   return result;

@@ -143,12 +143,24 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
 
   const parsedMessages = useMemo(() => {
     const cache = parseCacheRef.current;
-    return messages.map((msg) => {
-      if (!cache.has(msg.content)) {
-        cache.set(msg.content, parseAIResponse(msg.content));
+    const result = messages.map((msg) => {
+      // Always re-parse if content changed (for streaming)
+      const cached = cache.get(msg.content);
+      if (!cached || cached === undefined) {
+        const parsed = parseAIResponse(msg.content);
+        // 🔍 Only log if something went wrong
+        if (parsed.contentBlocks.length === 0 && msg.content.trim().length > 50) {
+          console.warn("[Zen][ChatBody] No blocks generated for message:", {
+            messageId: msg.id,
+            contentLength: msg.content.length,
+            contentPreview: msg.content.substring(0, 100),
+          });
+        }
+        cache.set(msg.content, parsed);
       }
       return { ...msg, parsed: cache.get(msg.content)! };
     });
+    return result;
   }, [messages]);
 
   const { collapsedSections, toggleCollapse } = useCollapseSections();
@@ -214,7 +226,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   ]);
 
   const visibleMessages = useMemo(() => {
-    return messages.filter((msg) => !msg.uiHidden && !msg.isCancelled);
+    const filtered = messages.filter(
+      (msg) => !msg.uiHidden && !msg.isCancelled,
+    );
+    return filtered;
   }, [messages, firstRequestMessageId]);
 
   const lastAssistantIndex = useMemo(() => {
@@ -327,6 +342,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           );
           if (!parsedMessage) return null;
           const parsedContent = parsedMessage.parsed;
+
           const nextUserMessage = messages
             .slice(messages.findIndex((m) => m.id === message.id) + 1)
             .find((m) => m.role === "user");

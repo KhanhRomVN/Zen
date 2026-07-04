@@ -22,7 +22,10 @@ const cacheKeys: string[] = [];
 const cache: Record<string, CachedConversation> = {};
 
 // Global persistent store for questionAnswers (bypasses cache overwrite issues)
-const questionAnswersStore: Record<string, Record<string, Record<string, any>>> = {};
+const questionAnswersStore: Record<
+  string,
+  Record<string, Record<string, any>>
+> = {};
 
 export const ConversationCache = {
   get: (conversationId: string): CachedConversation | undefined => {
@@ -49,17 +52,17 @@ export const ConversationCache = {
     }
     cache[conversationId] = data;
   },
-  getQuestionAnswers: (conversationId: string): Record<string, Record<string, any>> | undefined => {
+  getQuestionAnswers: (
+    conversationId: string,
+  ): Record<string, Record<string, any>> | undefined => {
     return questionAnswersStore[conversationId];
   },
   delete: (conversationId: string) => {
-    console.log(`[Zen][Cache] 🗑️ DELETE ${conversationId}`);
     const idx = cacheKeys.indexOf(conversationId);
     if (idx !== -1) cacheKeys.splice(idx, 1);
     delete cache[conversationId];
   },
   clear: () => {
-    console.log(`[Zen][Cache] 🗑️ CLEAR all (${cacheKeys.length} items)`);
     cacheKeys.length = 0;
     Object.keys(cache).forEach((k) => delete cache[k]);
   },

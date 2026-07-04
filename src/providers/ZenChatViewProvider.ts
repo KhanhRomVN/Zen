@@ -196,6 +196,14 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     const imagesUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, "images"),
     );
+    
+    // Escape HTML entities in URI to prevent decoding issues with special characters like &
+    const escapedImagesUri = imagesUri.toString()
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
 
     const nonce = this.getNonce();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -211,7 +219,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
  <title>Zen Chat</title>
  <script nonce="${nonce}">
  window.__zenWorkspaceFolderPath = ${JSON.stringify(folderPath)};
- window.__zenImagesUri = "${imagesUri}";
+ window.__zenImagesUri = "${escapedImagesUri}";
  </script>
  <style>
  :root {

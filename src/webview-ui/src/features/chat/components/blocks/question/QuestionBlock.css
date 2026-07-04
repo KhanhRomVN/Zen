@@ -3,7 +3,6 @@
 .question-block-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   padding-bottom: 12px;
   width: 100%;
 }
@@ -15,12 +14,20 @@
   cursor: pointer;
   font-size: 13px;
   text-align: left;
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, font-weight 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    font-weight 0.15s ease;
   width: 100%;
 }
 
 .question-option-btn[data-selected="true"] {
-  background-color: color-mix(in srgb, var(--vscode-button-background) 20%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--vscode-button-background) 20%,
+    transparent
+  );
   color: var(--vscode-button-background);
   border-left: 3px solid var(--vscode-button-background);
   font-weight: 600;
@@ -41,7 +48,11 @@
 .question-option-btn:not([data-selected="true"]):hover:not(:disabled) {
   border-left-color: var(--vscode-descriptionForeground);
   color: var(--vscode-foreground);
-  background: color-mix(in srgb, var(--vscode-descriptionForeground) 10%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--vscode-descriptionForeground) 10%,
+    transparent
+  );
 }
 
 /* Text input area for questions */
@@ -146,13 +157,21 @@
 }
 
 .question-confirm-button.confirm-yes {
-  background-color: color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%,
+    transparent
+  );
   color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
   border-color: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
 }
 
 .question-confirm-button.confirm-no {
-  background-color: color-mix(in srgb, var(--vscode-gitDecoration-deletedResourceForeground, #f85149) 15%, transparent);
+  background-color: color-mix(
+    in srgb,
+    var(--vscode-gitDecoration-deletedResourceForeground, #f85149) 15%,
+    transparent
+  );
   color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
   border-color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
 }

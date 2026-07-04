@@ -3,9 +3,9 @@ import { Message } from "../../types/message";
 import { ToolAction, parseAIResponse } from "../../services/ResponseParser";
 import { getDefaultPrompt, combinePrompts } from "../../prompts";
 import {
-  PERSISTENT_RULES,
+  CHECKPOINT_REMINDER,
+  CHECKPOINT_INTERVAL,
   buildPermissionModeTag,
-  buildPermissionModeTagCompact,
 } from "../../prompts";
 import {
   logChatToWorkspace,
@@ -113,6 +113,8 @@ export const useChatLLM = ({
   // Qwen: lưu parent_id từ stream metadata để gửi cho request tiếp theo
   // Chỉ dùng cho Qwen — provider khác server sẽ bỏ qua field này
   const qwenParentIdRef = useRef<string | undefined>(undefined);
+  // Track user request count for checkpoint reminder injection
+  const userRequestCountRef = useRef<number>(0);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -222,6 +224,7 @@ export const useChatLLM = ({
     lastUsedModelRef.current = null;
     lastUsedAccountRef.current = null;
     qwenParentIdRef.current = undefined;
+    userRequestCountRef.current = 0; // Reset checkpoint counter
     setCurrentConversationId("");
     setMessages([]);
     setIsProcessingSync(false);
@@ -245,6 +248,7 @@ export const useChatLLM = ({
         deleteConversation(chatId);
         setCurrentConversationId("");
         setMessages([]);
+        userRequestCountRef.current = 0; // Reset checkpoint counter
       }
     }
 
@@ -482,15 +486,6 @@ export const useChatLLM = ({
                 Object.keys(parsed.questionAnswers).length > 0
               ) {
                 preservedQuestionAnswers = parsed.questionAnswers;
-                console.log(
-                  "[useChatLLM] sendMessage - Preserved questionAnswers for auto-triggered request:",
-                  {
-                    convId: effectiveChatUuid,
-                    questionAnswersKeys: Object.keys(
-                      preservedQuestionAnswers ?? {},
-                    ),
-                  },
-                );
               }
             }
           }
@@ -533,14 +528,21 @@ export const useChatLLM = ({
         }
       }
 
-      // Full mode tag (with all 4 mode descriptions) only for user-initiated requests.
-      // Auto/tool-flush requests get a compact tag with just the active mode name.
-      const permissionModeTag = skipFirstRequestLogic
-        ? buildPermissionModeTagCompact(permissionMode)
-        : buildPermissionModeTag(permissionMode);
+      // Permission mode tag for all requests
+      const permissionModeTag = buildPermissionModeTag(permissionMode);
+
+      // Inject checkpoint reminder every N user requests (not for auto/tool requests)
+      let checkpointReminder = "";
+      if (!skipFirstRequestLogic) {
+        userRequestCountRef.current += 1;
+        if (userRequestCountRef.current % CHECKPOINT_INTERVAL === 0) {
+          checkpointReminder = `\n\n${CHECKPOINT_REMINDER}`;
+        }
+      }
+
       const promptPayload = isReq1
-        ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${PERSISTENT_RULES}\n\n${permissionModeTag}\n\n${fullContent}`
-        : `${attachedContextStr}\n\n${PERSISTENT_RULES}\n\n${permissionModeTag}\n\n${fullContent}`;
+        ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}\n\n${fullContent}`
+        : `${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}\n\n${fullContent}`;
 
       // In the new schema, req1 content includes system prompt
       const finalContent = promptPayload;
@@ -1097,12 +1099,28 @@ export const useChatLLM = ({
         setIncompletePartialToolType(null);
         abortControllerRef.current = null;
 
+        // 🔍 LOG: Full response content after stream completion (before parsing)
+        console.log("[Zen][Stream Complete] Full raw content:", assistantMessage.content);
+        console.log("[Zen][Stream Complete] Content stats:", {
+          length: assistantMessage.content.length,
+          hasThinking: assistantMessage.content.includes("<thinking>"),
+          hasReadFile: assistantMessage.content.includes("<read_file>"),
+          last200chars: assistantMessage.content.substring(assistantMessage.content.length - 200),
+        });
+
         // Parse for metadata logging only.
         // NOTE: Do NOT call onToolRequest here. Auto-triggering is handled exclusively
         // by useToolActions.ts via parsedMessages useEffect to avoid duplicate triggers.
         // (RES1 may still be streaming when useToolActions triggers tools mid-stream;
         //  calling onToolRequest here after stream-done would cause a double-trigger.)
         const parsed = parseAIResponse(assistantMessage.content);
+        
+        // 🔍 LOG: Parse result
+        console.log("[Zen][useChatLLM] Parsed result:", {
+          blocks: parsed.contentBlocks.length,
+          actions: parsed.actions.length,
+          blockTypes: parsed.contentBlocks.map(b => b.type),
+        });
 
         // Save final conversation state
         saveConversation(
@@ -1254,17 +1272,6 @@ export const useChatLLM = ({
         const answersToSave = parsedPayload?.answers
           ? { [messageId]: parsedPayload.answers }
           : undefined;
-
-        // ✅ DEBUG: Log questionAnswers before save
-        console.log(
-          "[useChatLLM] handleSelectOption - Saving questionAnswers:",
-          {
-            messageId,
-            parsedPayload,
-            answersToSave,
-            convId,
-          },
-        );
 
         // Log the message state after update
         const sessionId = selectedTab?.sessionId || -1;

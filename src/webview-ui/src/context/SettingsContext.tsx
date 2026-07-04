@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
 import type { LanguageCode } from "../i18n";
+import { getConfigurableTools } from "../features/chat/constants/tool-registry";
 
 export type PermissionMode = "fullAccess" | "approval" | "readOnly";
 
@@ -24,15 +25,14 @@ interface SettingsContextType {
   setLiveWritePreview: (value: boolean) => void;
 }
 
+/**
+ * Generate default tool permissions from Tool Registry.
+ * All configurable tools (non-git, non-ui) default to "full_access".
+ */
 export const defaultToolPermissions: Record<string, "full_access" | "review"> =
-  {
-    read_file: "full_access",
-    write_to_file: "full_access",
-    replace_in_file: "full_access",
-    list_files: "full_access",
-    run_command: "full_access",
-    move_file: "full_access",
-  };
+  Object.fromEntries(
+    getConfigurableTools().map(tool => [tool, "full_access"])
+  );
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
   undefined,

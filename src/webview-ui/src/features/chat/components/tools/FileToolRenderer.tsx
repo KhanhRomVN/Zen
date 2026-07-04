@@ -257,7 +257,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             ? t("tools.delete")
             : toolType === "move_file"
               ? "MOVE"
-              : t("tools.read");
+              : toolType === "replace_in_file"
+                ? "REPLACE"
+                : t("tools.read");
   // For grep tool, we'll render in the main flow with ToolHeader
   const grepCompleted =
     isGrepTool &&

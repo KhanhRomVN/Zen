@@ -963,7 +963,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
             if (hasUnclickedOrBusyAction) isInteractionBlocked = true;
           }
 
-          if (group.type === "tools") {
+          if (group.type === "tools" || group.type === "question") {
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           }
 

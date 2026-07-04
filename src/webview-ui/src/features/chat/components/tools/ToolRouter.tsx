@@ -3,6 +3,11 @@ import { ToolAction } from "../../services/ResponseParser";
 import { formatActionForDisplay } from "../../services/ResponseParser";
 import { getToolColor } from "../../utils/toolUtils";
 import { CLICKABLE_TOOLS } from "../../constants/constants";
+import { 
+  isFileTool as checkIsFileTool,
+  shouldShowFileStats,
+  shouldValidateFuzzyMatch,
+} from "../../constants/tool-registry";
 import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
 import { useProject } from "../../../../context/ProjectContext";
@@ -174,7 +179,8 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
       const { action, index } = item;
       const actionId = `${messageId}-action-${index}`;
 
-      if (action.type === "replace_in_file" && action.params.diff) {
+      // Check if tool needs fuzzy match validation
+      if (shouldValidateFuzzyMatch(action.type) && action.params.diff) {
         const validationId = `${messageId}-${index}-validate`;
         if (processedActions.current.has(validationId)) return;
 
@@ -205,8 +211,9 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
         });
       }
 
+      // Check if tool needs file stats
       if (
-        (action.type === "read_file" || action.type === "write_to_file") &&
+        shouldShowFileStats(action.type) &&
         (action.params.path || action.params.file_path)
       ) {
         const path = action.params.path || action.params.file_path;
@@ -255,15 +262,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   const toolType = firstAction.type;
   const toolColor = getToolColor(toolType);
   const clickableTools = CLICKABLE_TOOLS;
-  const isFileTool =
-    toolType === "replace_in_file" ||
-    toolType === "write_to_file" ||
-    toolType === "read_file" ||
-    toolType === "list_files" ||
-    toolType === "grep" ||
-    toolType === "delete_file" ||
-    toolType === "delete_folder" ||
-    toolType === "move_file";
+  const isFileTool = checkIsFileTool(toolType);
 
   if (toolType === "write_to_file") {
     const action = firstAction;

@@ -14,14 +14,17 @@ const decodeHtmlEntities = (text: string): string => {
 // Re-export so ToolParser can import from one place without duplicating.
 export { decodeHtmlEntities };
 
-// Import tool variants from constants
-import { TOOL_VARIANTS } from "../constants/constants";
+// Import tool registry to get variants
+import { TOOL_REGISTRY } from "../constants/tool-registry";
 
 /**
- * Maps every known AI-generated variant of a tool tag name to its canonical
- * form. Each tag manages its own variants in its respective folder.
+ * Get all tool variants from registry (auto-generated)
  */
-const TAG_VARIANTS = TOOL_VARIANTS;
+const getToolVariants = (): Record<string, string[]> => {
+  return Object.fromEntries(
+    Object.values(TOOL_REGISTRY).map(def => [def.type, def.variants])
+  );
+};
 
 /**
  * Normalize all known tag name variants to their canonical forms, and also
@@ -36,8 +39,11 @@ export const normalizeTagVariants = (content: string): string => {
     .replace(/<(\/?)list_file>/gi, "<$1list_files>")
     .replace(/<(\/?)read_files>/gi, "<$1read_file>");
 
-  // Explicit variant normalization via TAG_VARIANTS map
+  // Explicit variant normalization via registry variants
+  const TAG_VARIANTS = getToolVariants();
   for (const [canonical, variants] of Object.entries(TAG_VARIANTS)) {
+    if (variants.length === 0) continue; // Skip tools with no variants
+    
     const escaped = variants.map((v) =>
       v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     );

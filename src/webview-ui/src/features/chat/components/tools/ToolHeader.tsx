@@ -100,34 +100,12 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
     const chars = Math.floor(availableWidth / 6);
     const result = Math.max(chars, 30);
 
-    // Debug logging
-    console.log("[ToolHeader Path Debug]", {
-      containerWidth,
-      pathContainerWidth,
-      availableWidth,
-      calculatedChars: chars,
-      maxLength: result,
-      pathLength: path?.length || 0,
-      willTruncate: (path?.length || 0) > result,
-    });
-
     return result;
   }, [containerWidth, pathContainerWidth, path]);
 
   const displayPath = useMemo(() => {
     if (!path) return "";
     const truncated = truncatePath(path, maxLength);
-
-    // Debug logging
-    if (truncated !== path) {
-      console.log("[ToolHeader Path Truncated]", {
-        original: path,
-        truncated,
-        originalLength: path.length,
-        maxLength,
-      });
-    }
-
     return truncated;
   }, [path, maxLength]);
 

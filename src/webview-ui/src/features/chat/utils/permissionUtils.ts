@@ -1,5 +1,6 @@
 // src/webview-ui/src/features/chat/utils/permissionUtils.ts
 import type { PermissionMode } from "../../../context/SettingsContext";
+import { isReadTool } from "../constants/tool-registry";
 
 /**
  * Returns the permission decision for a given tool type and permission mode.
@@ -11,14 +12,13 @@ export const getPermissionDecision = (
   mode: PermissionMode,
   toolType: string,
 ): "allow" | "prompt" | "deny" => {
-  const readTools = ["read_file", "list_files", "grep"];
   switch (mode) {
     case "fullAccess":
       return "allow";
     case "approval":
-      return readTools.includes(toolType) ? "allow" : "prompt";
+      return isReadTool(toolType) ? "allow" : "prompt";
     case "readOnly":
-      return readTools.includes(toolType) ? "allow" : "deny";
+      return isReadTool(toolType) ? "allow" : "deny";
     default:
       return "prompt";
   }

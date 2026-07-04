@@ -63,7 +63,55 @@ function createSSEStreamChunks(completeResponse, options = {}) {
 }
 
 // Mock complete AI response with various tool tags
-const mockCompleteResponse = `<thinking>Pass 1 (Plan):- The grep command failed because I accidentally used 'undefined' as the search term instead of the actual pattern.- I need to search for \`func AutoMigrate\` properly.- The error is from my own malformed tool call. I'll correct it now.Pass 2 (Verify):- I will run a proper grep with the correct search term.- No markdown in tool turn.</thinking><grep><search_term>func AutoMigrate</search_term><folder_path>server/internal/database</folder_path></grep>`;
+const mockCompleteResponse = `<thinking>Pass 1 (Plan):- The file content is exactly as I saw before. The SEARCH block I used should match.- The error "Cannot read properties of undefined (reading 'match')" might indicate the tool expects a different XML structure or there's a parsing issue with the \`<diff>\` block.- I'll try a different approach: instead of a diff, I'll use \`write_to_file\` to replace the entire file content with the fixed version.- This avoids the diff parsing issues.Pass 2 (Verify):- I have the full file content. I'll create a new version without the \`defer m.Close()\` line.- I'll use \`write_to_file\` to rewrite the entire file.- No markdown in tool turn.</thinking><write_to_file><file_path>server/internal/database/migrate.go</file_path><content>package database
+
+import (
+\t"database/sql"
+\t"embed"
+\t"fmt"
+\t"io/fs"
+
+\t"github.com/golang-migrate/migrate/v4"
+\t"github.com/golang-migrate/migrate/v4/database/sqlite3"
+\t"github.com/golang-migrate/migrate/v4/source/iofs"
+)
+
+//go:embed migrations/*.sql
+var migrationFiles embed.FS
+
+// AutoMigrate runs database migrations automatically on startup
+func AutoMigrate(db *sql.DB) error {
+\t// Create migrations directory in memory
+\tmigrationFS, err := fs.Sub(migrationFiles, "migrations")
+\tif err != nil {
+\t\treturn fmt.Errorf("failed to get migrations sub-fs: %w", err)
+\t}
+
+\t// Create source driver from embedded files
+\tsourceDriver, err := iofs.New(migrationFS, ".")
+\tif err != nil {
+\t\treturn fmt.Errorf("failed to create source driver: %w", err)
+\t}
+
+\t// Create database driver
+\tdbDriver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+\tif err != nil {
+\t\treturn fmt.Errorf("failed to create database driver: %w", err)
+\t}
+
+\t// Create migrate instance
+\tm, err := migrate.NewWithInstance("iofs", sourceDriver, "sqlite3", dbDriver)
+\tif err != nil {
+\t\treturn fmt.Errorf("failed to create migrate instance: %w", err)
+\t}
+
+\t// Run migrations
+\tif err := m.Up(); err != nil && err != migrate.ErrNoChange {
+\t\treturn fmt.Errorf("failed to run migrations: %w", err)
+\t}
+
+\treturn nil
+}</content></write_to_file>`;
 
 // Generate realistic SSE chunks
 const streamChunks = createSSEStreamChunks(mockCompleteResponse, {
@@ -82,9 +130,11 @@ console.log(`Chunk sizes: ${streamChunks.map(c => c.length).join(", ")}\n`);
 let accumulatedContent = "";
 const toolPatterns = [
   "thinking",
+  "write_to_file",
+  "list_files",
   "grep",
   "read_file",
-  "write_to_file",
+  "replace_in_file",
 ];
 
 streamChunks.forEach((chunk, index) => {
@@ -130,6 +180,8 @@ console.log("=".repeat(80));
 function parseStreamingContent(content) {
   const result = {
     thinking: { open: false, closed: false, content: null, partial: false },
+    write_to_file: { open: false, closed: false, params: {}, partial: false },
+    list_files: { open: false, closed: false, params: {}, partial: false },
     grep: { open: false, closed: false, params: {}, partial: false },
     errors: []
   };
@@ -154,7 +206,85 @@ function parseStreamingContent(content) {
     }
   }
   
-  // Check for grep tag
+  // Check for write_to_file tag
+  const writeToFileOpenMatch = content.match(/<write_to_file>/i);
+  const writeToFileCloseMatch = content.match(/<\/write_to_file>/i);
+  
+  if (writeToFileOpenMatch) {
+    result.write_to_file.open = true;
+    if (writeToFileCloseMatch) {
+      result.write_to_file.closed = true;
+      
+      // Extract parameters
+      const filePathMatch = content.match(/<file_path>([\s\S]*?)<\/file_path>/i);
+      const contentMatch = content.match(/<content>([\s\S]*?)<\/content>/i);
+      
+      if (filePathMatch) {
+        result.write_to_file.params.file_path = filePathMatch[1];
+      } else {
+        result.errors.push("Missing or incomplete <file_path> in write_to_file");
+      }
+      
+      if (contentMatch) {
+        result.write_to_file.params.content = contentMatch[1];
+      } else {
+        result.errors.push("Missing or incomplete <content> in write_to_file");
+      }
+    } else {
+      result.write_to_file.partial = true;
+      
+      // Try to extract what we have so far
+      const filePathMatch = content.match(/<file_path>([\s\S]*?)(?:<\/file_path>)?/i);
+      const contentMatch = content.match(/<content>([\s\S]*?)(?:<\/content>)?/i);
+      
+      if (filePathMatch) {
+        result.write_to_file.params.file_path = filePathMatch[1];
+      }
+      if (contentMatch) {
+        result.write_to_file.params.content = contentMatch[1];
+      }
+    }
+  }
+  
+  // Check for list_files tag (keep existing logic)
+  const listFilesOpenMatch = content.match(/<list_files>/i);
+  const listFilesCloseMatch = content.match(/<\/list_files>/i);
+  
+  if (listFilesOpenMatch) {
+    result.list_files.open = true;
+    if (listFilesCloseMatch) {
+      result.list_files.closed = true;
+      
+      // Extract parameters
+      const folderPathMatch = content.match(/<folder_path>([\s\S]*?)<\/folder_path>/i);
+      const typeMatch = content.match(/<type>([\s\S]*?)<\/type>/i);
+      
+      if (folderPathMatch) {
+        result.list_files.params.folder_path = folderPathMatch[1];
+      } else {
+        result.errors.push("Missing or incomplete <folder_path> in list_files");
+      }
+      
+      if (typeMatch) {
+        result.list_files.params.type = typeMatch[1];
+      }
+    } else {
+      result.list_files.partial = true;
+      
+      // Try to extract what we have so far
+      const folderPathMatch = content.match(/<folder_path>([\s\S]*?)(?:<\/folder_path>)?/i);
+      const typeMatch = content.match(/<type>([\s\S]*?)(?:<\/type>)?/i);
+      
+      if (folderPathMatch) {
+        result.list_files.params.folder_path = folderPathMatch[1];
+      }
+      if (typeMatch) {
+        result.list_files.params.type = typeMatch[1];
+      }
+    }
+  }
+  
+  // Check for grep tag (keep existing logic)
   const grepOpenMatch = content.match(/<grep>/i);
   const grepCloseMatch = content.match(/<\/grep>/i);
   
@@ -235,7 +365,24 @@ keyFrames.forEach(frame => {
   
   console.log(`\nChunk ${state.chunkIndex} (${state.accumulated} chars):`);
   console.log(`  Thinking: ${state.parseResult.thinking.open ? (state.parseResult.thinking.closed ? "✅ closed" : "⏳ open") : "❌ not found"}`);
+  console.log(`  Write To File: ${state.parseResult.write_to_file.open ? (state.parseResult.write_to_file.closed ? "✅ closed" : "⏳ open") : "❌ not found"}`);
+  console.log(`  List Files: ${state.parseResult.list_files.open ? (state.parseResult.list_files.closed ? "✅ closed" : "⏳ open") : "❌ not found"}`);
   console.log(`  Grep: ${state.parseResult.grep.open ? (state.parseResult.grep.closed ? "✅ closed" : "⏳ open") : "❌ not found"}`);
+  
+  if (state.parseResult.write_to_file.closed) {
+    console.log(`    └─ file_path: "${state.parseResult.write_to_file.params.file_path || "missing"}"`);
+    if (state.parseResult.write_to_file.params.content) {
+      const contentLen = state.parseResult.write_to_file.params.content.length;
+      console.log(`    └─ content: ${contentLen} chars`);
+    }
+  }
+  
+  if (state.parseResult.list_files.closed) {
+    console.log(`    └─ folder_path: "${state.parseResult.list_files.params.folder_path || "missing"}"`);
+    if (state.parseResult.list_files.params.type) {
+      console.log(`    └─ type: "${state.parseResult.list_files.params.type}"`);
+    }
+  }
   
   if (state.parseResult.grep.closed) {
     console.log(`    └─ search_term: "${state.parseResult.grep.params.search_term || "missing"}"`);
@@ -262,6 +409,24 @@ if (finalParse.thinking.content) {
   console.log(`  Length: ${finalParse.thinking.content.length} chars`);
 }
 
+console.log("\n🎯 Write To File Tool Call:");
+console.log(`  Status: ${finalParse.write_to_file.closed ? "✅ Complete" : "❌ Incomplete"}`);
+if (finalParse.write_to_file.closed) {
+  console.log(`  Parameters:`);
+  console.log(`    file_path: "${finalParse.write_to_file.params.file_path || "MISSING"}"`);
+  if (finalParse.write_to_file.params.content) {
+    console.log(`    content: ${finalParse.write_to_file.params.content.length} chars`);
+  }
+}
+
+console.log("\n🎯 List Files Tool Call:");
+console.log(`  Status: ${finalParse.list_files.closed ? "✅ Complete" : "❌ Incomplete"}`);
+console.log(`  Parameters:`);
+console.log(`    folder_path: "${finalParse.list_files.params.folder_path || "MISSING"}"`);
+if (finalParse.list_files.params.type) {
+  console.log(`    type: "${finalParse.list_files.params.type}"`);
+}
+
 console.log("\n🎯 Grep Tool Call:");
 console.log(`  Status: ${finalParse.grep.closed ? "✅ Complete" : "❌ Incomplete"}`);
 console.log(`  Parameters:`);
@@ -280,11 +445,19 @@ console.log("\n✅ Test 2: Partial Tag Handling");
 console.log("-".repeat(80));
 
 const partialCases = [
+  { content: "Some text <list_fi", expected: "partial tag '<list_fi'" },
+  { content: "Some text <list_files", expected: "partial tag '<list_files'" },
+  { content: "Some text <list_files>", expected: "open tag without close" },
+  { content: "Some text <list_files><folder", expected: "nested partial parameter tag" },
+  { content: "Some text <list_files><folder_path>test", expected: "open param tag without close" },
   { content: "Some text <gre", expected: "partial tag '<gre'" },
   { content: "Some text <grep", expected: "partial tag '<grep'" },
   { content: "Some text <grep>", expected: "open tag without close" },
   { content: "Some text <grep><search", expected: "nested partial parameter tag" },
   { content: "Some text <grep><search_term>test", expected: "open param tag without close" },
+  { content: "<thinking", expected: "partial thinking tag '<thinking'" },
+  { content: "<thi", expected: "partial tag '<thi'" },
+  { content: "<think", expected: "partial tag '<think'" },
 ];
 
 partialCases.forEach((testCase, index) => {
@@ -301,6 +474,12 @@ partialCases.forEach((testCase, index) => {
   }
   
   // Check for unclosed tags
+  const listFilesOpenMatch = testCase.content.match(/<list_files(?:\s+[^>]*)?>/ );
+  const listFilesCloseMatch = testCase.content.match(/<\/list_files>/);
+  if (listFilesOpenMatch && !listFilesCloseMatch) {
+    console.log(`   ⚠️ Unclosed <list_files> tag detected`);
+  }
+  
   const grepOpenMatch = testCase.content.match(/<grep(?:\s+[^>]*)?>/ );
   const grepCloseMatch = testCase.content.match(/<\/grep>/);
   if (grepOpenMatch && !grepCloseMatch) {
@@ -313,6 +492,26 @@ console.log("\n✅ Test 3: Special Characters in Content");
 console.log("-".repeat(80));
 
 const specialCharCases = [
+  {
+    name: "Grep with search_term (AI variant)",
+    content: '<grep><search_term>AutoMigrate</search_term><folder_path>server/internal/database</folder_path></grep>',
+  },
+  {
+    name: "Grep with pattern (standard)",
+    content: '<grep><pattern>func AutoMigrate</pattern><folder_path>server/internal/database</folder_path></grep>',
+  },
+  {
+    name: "List files with path",
+    content: '<list_files><folder_path>server/internal/database/migrations</folder_path></list_files>',
+  },
+  {
+    name: "List files with type",
+    content: '<list_files><folder_path>src</folder_path><type>recursive</type></list_files>',
+  },
+  {
+    name: "Unclosed list_files (RECOVERY TEST)",
+    content: '<list_files><folder_path>server/internal/startup</folder_path>',
+  },
   {
     name: "Regex with escaped characters",
     content: '<grep><search_term>extractParam\\([^)]+\\)\\s*\\?\\?</search_term></grep>',
@@ -335,18 +534,50 @@ specialCharCases.forEach((testCase) => {
   console.log(`\n${testCase.name}:`);
   console.log(`   Content: ${testCase.content.substring(0, 80)}${testCase.content.length > 80 ? "..." : ""}`);
   
+  // Check for grep with both pattern and search_term
   const grepMatch = testCase.content.match(/<grep>([\s\S]*?)<\/grep>/i);
   if (grepMatch) {
     const innerContent = grepMatch[1];
+    const patternMatch = innerContent.match(/<pattern>([\s\S]*?)<\/pattern>/i);
     const searchTermMatch = innerContent.match(/<search_term>([\s\S]*?)<\/search_term>/i);
+    const folderPathMatch = innerContent.match(/<folder_path>([\s\S]*?)<\/folder_path>/i);
     
     if (searchTermMatch) {
-      console.log(`   ✅ Successfully extracted search_term: "${searchTermMatch[1]}"`);
+      console.log(`   ✅ Extracted search_term: "${searchTermMatch[1]}"`);
+    } else if (patternMatch) {
+      console.log(`   ✅ Extracted pattern: "${patternMatch[1]}"`);
     } else {
-      console.log(`   ❌ Failed to extract search_term`);
+      console.log(`   ❌ No pattern or search_term found`);
     }
-  } else {
-    console.log(`   ❌ Failed to match <grep> tag`);
+    
+    if (folderPathMatch) {
+      console.log(`   ✅ Extracted folder_path: "${folderPathMatch[1]}"`);
+    }
+  }
+  
+  // Check for list_files
+  const listFilesMatch = testCase.content.match(/<list_files>([\s\S]*?)(?:<\/list_files>|$)/i);
+  if (listFilesMatch) {
+    const innerContent = listFilesMatch[1];
+    const folderPathMatch = innerContent.match(/<folder_path>([\s\S]*?)<\/folder_path>/i);
+    const typeMatch = innerContent.match(/<type>([\s\S]*?)<\/type>/i);
+    
+    const isClosed = testCase.content.includes('</list_files>');
+    console.log(`   ✅ Detected list_files tag (${isClosed ? 'closed' : 'UNCLOSED - recovery needed'})`);
+    
+    if (folderPathMatch) {
+      console.log(`      ✅ folder_path: "${folderPathMatch[1]}"`);
+    } else {
+      console.log(`      ❌ Missing folder_path`);
+    }
+    
+    if (typeMatch) {
+      console.log(`      ✅ type: "${typeMatch[1]}"`);
+    }
+    
+    if (!isClosed && folderPathMatch) {
+      console.log(`      🔧 RECOVERY: Can auto-close with existing folder_path`);
+    }
   }
 });
 
@@ -357,12 +588,17 @@ console.log("-".repeat(80));
 const orderingCases = [
   {
     name: "Correct order",
-    content: "<thinking>Analysis</thinking><grep><search_term>test</search_term></grep>",
+    content: "<thinking>Analysis</thinking><list_files><folder_path>test</folder_path></list_files>",
     shouldWork: true,
   },
   {
-    name: "Nested thinking inside grep (should ignore thinking)",
-    content: "<grep><thinking>This should be ignored</thinking><search_term>test</search_term></grep>",
+    name: "Multiple list_files (real-world case)",
+    content: "<thinking>Plan</thinking><list_files><folder_path>server/internal/database/migrations</folder_path></list_files><list_files><folder_path>server/internal/startup</folder_path></list_files>",
+    shouldWork: true,
+  },
+  {
+    name: "Nested thinking inside list_files (should ignore thinking)",
+    content: "<list_files><thinking>This should be ignored</thinking><folder_path>test</folder_path></list_files>",
     shouldWork: true,
   },
   {
@@ -382,13 +618,18 @@ orderingCases.forEach((testCase) => {
   console.log(`   Expected: ${testCase.shouldWork ? "✅ Should work" : "⚠️ May have issues"}`);
   
   const thinkingMatches = (testCase.content.match(/<thinking>/gi) || []).length;
+  const listFilesMatches = (testCase.content.match(/<list_files>/gi) || []).length;
   const grepMatches = (testCase.content.match(/<grep>/gi) || []).length;
   const thinkingCloses = (testCase.content.match(/<\/thinking>/gi) || []).length;
+  const listFilesCloses = (testCase.content.match(/<\/list_files>/gi) || []).length;
   const grepCloses = (testCase.content.match(/<\/grep>/gi) || []).length;
   
-  console.log(`   Tags: thinking(${thinkingMatches}/${thinkingCloses}) grep(${grepMatches}/${grepCloses})`);
+  console.log(`   Tags: thinking(${thinkingMatches}/${thinkingCloses}) list_files(${listFilesMatches}/${listFilesCloses}) grep(${grepMatches}/${grepCloses})`);
   
-  const allClosed = thinkingMatches === thinkingCloses && grepMatches === grepCloses;
+  const allClosed = 
+    thinkingMatches === thinkingCloses && 
+    listFilesMatches === listFilesCloses && 
+    grepMatches === grepCloses;
   console.log(`   Status: ${allClosed ? "✅ All tags closed" : "⚠️ Unclosed tags detected"}`);
 });
 

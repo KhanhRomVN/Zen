@@ -16,10 +16,10 @@ export { EXAMPLES } from "./examples";
 export { CONSTRAINTS } from "./constraints";
 export { buildAccessModePrompt } from "./access-mode";
 export {
-  PERSISTENT_RULES,
+  CHECKPOINT_REMINDER,
+  CHECKPOINT_INTERVAL,
   buildPermissionModeTag,
-  buildPermissionModeTagCompact,
-} from "./persistent-rules";
+} from "./reminder";
 
 interface PromptConfig {
   language: string;

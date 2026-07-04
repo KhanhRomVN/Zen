@@ -1,4 +1,5 @@
 import { findClosingTagPosition } from '../../utils/TagClosingFinder';
+import { getAllToolTypes } from '../../constants/tool-registry';
 
 /**
  * Thinking content is extracted from the tag content.
@@ -34,12 +35,23 @@ export const extractThinkingBlocks = (
 ): ThinkingExtractResult => {
   const thinkingBlocks: string[] = [];
   
+  // Debug flag
+  const DEBUG_THINKING = 
+    typeof window !== "undefined" &&
+    window.localStorage?.getItem("zen_debug_parser") === "true";
+  
+  if (DEBUG_THINKING) {
+    console.log("[Zen][ThinkingParser] 📥 Input:", {
+      length: content.length,
+      preview: content.substring(0, 100),
+    });
+  }
+  
   // Tool tags that should NOT have their content scanned for thinking blocks
+  // Auto-generated from Tool Registry (exclude thinking itself, add special tags)
   const toolTags = [
-    'write_to_file', 'replace_in_file', 'read_file', 'run_command',
-    'list_files', 'delete_file', 'delete_folder', 'move_file',
-    'grep', 'git_status', 'commit_message', 'git_diff',
-    'code', 'file', 'markdown', 'question'
+    ...getAllToolTypes().filter(t => t !== 'thinking'), // All tools except thinking
+    'file', // Special display tag not in registry
   ];
 
   // Build processed content manually by scanning through
@@ -88,6 +100,13 @@ export const extractThinkingBlocks = (
     for (const toolTag of toolTags) {
       const openTag = `<${toolTag}`;
       if (content.substring(i, i + openTag.length).toLowerCase() === openTag.toLowerCase()) {
+        // Must be followed by > or space or / (not part of a longer tag name)
+        const nextChar = content[i + openTag.length];
+        if (nextChar !== '>' && nextChar !== ' ' && nextChar !== '/') {
+          // This is part of a longer tag name (e.g., <thinking> vs <think>), skip
+          continue;
+        }
+        
         // Find the closing tag for this tool
         const closingTag = `</${toolTag}>`;
         const closingIndex = content.toLowerCase().indexOf(closingTag.toLowerCase(), i);
@@ -116,6 +135,7 @@ export const extractThinkingBlocks = (
     
     // Check for <thinking> tag at current position (only at top-level)
     const thinkingOpenTag = '<thinking>';
+    
     if (content.substring(i, i + thinkingOpenTag.length).toLowerCase() === thinkingOpenTag.toLowerCase()) {
       const thinkingEndIndex = findClosingTagPosition(content, i + thinkingOpenTag.length, '</thinking>');
       
@@ -126,10 +146,24 @@ export const extractThinkingBlocks = (
         thinkingBlocks.push(thinkingContent);
         processed += `__THINKING_${idx}__`;
         i = thinkingEndIndex + '</thinking>'.length;
+        
+        if (DEBUG_THINKING) {
+          console.log("[Zen][ThinkingParser] ✅ Extracted thinking block:", {
+            index: idx,
+            contentLength: thinkingContent.length,
+          });
+        }
         continue;
       } else {
         // Unclosed thinking at the end (streaming case)
         const unclosedContent = content.substring(i + thinkingOpenTag.length);
+        
+        if (DEBUG_THINKING) {
+          console.log("[Zen][ThinkingParser] ⏳ Unclosed thinking at end:", {
+            unclosedLength: unclosedContent.length,
+          });
+        }
+        
         return {
           remainingContent: processed,
           thinkingBlocks,
@@ -138,9 +172,38 @@ export const extractThinkingBlocks = (
       }
     }
     
+    // Check for partial <thinking tag at the very end (streaming incomplete opening tag)
+    // e.g., "<thi", "<think", "<thinking" without the closing >
+    const remainingContent = content.substring(i);
+    const partialThinkingMatch = remainingContent.match(/^<thinking?$/i);
+    if (partialThinkingMatch && i + remainingContent.length === content.length) {
+      // This is a partial opening tag at the end - don't include it
+      // It will be completed in the next streaming chunk
+      
+      if (DEBUG_THINKING) {
+        console.log("[Zen][ThinkingParser] 🔖 Partial thinking tag at end:", {
+          partial: partialThinkingMatch[0],
+        });
+      }
+      
+      return {
+        remainingContent: processed,
+        thinkingBlocks,
+        unclosedThinkingContent: null
+      };
+    }
+    
     // Regular character, just copy it
     processed += content[i];
     i++;
+  }
+
+  if (DEBUG_THINKING) {
+    console.log("[Zen][ThinkingParser] 📤 Output:", {
+      thinkingBlocks: thinkingBlocks.length,
+      remainingLength: processed.length,
+      remainingPreview: processed.substring(0, 100),
+    });
   }
 
   return {

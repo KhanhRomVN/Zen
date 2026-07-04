@@ -74,19 +74,11 @@ export const useConversationRestore = ({
             cached.questionAnswers &&
             Object.keys(cached.questionAnswers).length > 0
           ) {
-            console.log(
-              "[useConversationRestore] Restoring questionAnswers from CACHE:",
-              cached.questionAnswers,
-            );
             messagesToRestore = cached.messages.map((msg) => ({
               ...msg,
               questionAnswers:
                 cached.questionAnswers![msg.id] || msg.questionAnswers,
             }));
-            console.log(
-              "[useConversationRestore] Messages after cache questionAnswers restore:",
-              messagesToRestore.filter((m) => m.questionAnswers),
-            );
           }
 
           setMessages(messagesToRestore);
@@ -161,22 +153,12 @@ export const useConversationRestore = ({
             data.data.questionAnswers &&
             Object.keys(data.data.questionAnswers).length > 0
           ) {
-            console.log(
-              "[useConversationRestore] Restoring questionAnswers to messages:",
-              data.data.questionAnswers,
-            );
             restoredMessages = restoredMessages.map(
               (msg: { id: string | number; questionAnswers: any }) => ({
                 ...msg,
                 questionAnswers:
                   data.data.questionAnswers[msg.id] || msg.questionAnswers,
               }),
-            );
-            console.log(
-              "[useConversationRestore] Messages after questionAnswers restore:",
-              restoredMessages.filter(
-                (m: { questionAnswers: any }) => m.questionAnswers,
-              ),
             );
           }
 
