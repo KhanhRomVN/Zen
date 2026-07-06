@@ -35,6 +35,15 @@ interface ToolHeaderProps {
     matchCount?: number;
     fileCount?: number;
   };
+  /** Diagnostics for the file (errors and warnings) */
+  diagnostics?: Array<{
+    severity: string;
+    message: string;
+    line: number;
+    column: number;
+    source?: string;
+    code?: string | number;
+  }>;
 }
 
 // Truncate path to prevent line wrapping
@@ -77,6 +86,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   isError,
   toolType,
   tooltipMeta,
+  diagnostics,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pathContainerRef = useRef<HTMLDivElement>(null);
@@ -140,6 +150,46 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
     const truncated = truncatePath(path, maxLength);
     return truncated;
   }, [path, maxLength]);
+
+  // Calculate error and warning counts from diagnostics
+  const diagnosticCounts = useMemo(() => {
+    console.log(`[ToolHeader] 📊 Calculating diagnostic counts:`, {
+      toolType,
+      path,
+      hasDiagnostics: !!diagnostics,
+      diagnosticsLength: diagnostics?.length || 0,
+      diagnostics: diagnostics,
+      sample: diagnostics?.slice(0, 3)
+    });
+    
+    if (!diagnostics || diagnostics.length === 0) {
+      return { errors: 0, warnings: 0 };
+    }
+    
+    const errors = diagnostics.filter(d => d.severity === "Error").length;
+    const warnings = diagnostics.filter(d => d.severity === "Warning").length;
+    
+    console.log(`[ToolHeader] 📊 Diagnostic counts result:`, {
+      toolType,
+      path,
+      errors,
+      warnings,
+      allSeverities: diagnostics.map(d => d.severity)
+    });
+    
+    return { errors, warnings };
+  }, [diagnostics, toolType, path]);
+
+  // Determine path color based on diagnostics
+  const pathColor = useMemo(() => {
+    if (diagnosticCounts.errors > 0) {
+      return "var(--vscode-errorForeground, #ff4d4d)";
+    }
+    if (diagnosticCounts.warnings > 0) {
+      return "var(--vscode-editorWarning-foreground, #cca700)";
+    }
+    return "var(--vscode-descriptionForeground)";
+  }, [diagnosticCounts]);
 
   // Generate tooltip text based on status
   const getStatusTooltip = useMemo(() => {
@@ -350,7 +400,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                   style={{
                     fontSize: "10px",
                     opacity: 0.6,
-                    color: "var(--vscode-descriptionForeground)",
+                    color: pathColor,
                     fontFamily: "var(--vscode-editor-font-family, monospace)",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -361,6 +411,9 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                     transition: "text-decoration 0.15s ease",
                     cursor: "default",
                     textDecoration: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
                   }}
                   title={path}
                   onClick={(e) => {
@@ -381,7 +434,33 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                     e.currentTarget.style.cursor = "default";
                   }}
                 >
-                  {displayPath}
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {displayPath}
+                  </span>
+                  {diagnosticCounts.errors > 0 && (
+                    <span
+                      style={{
+                        color: "var(--vscode-errorForeground, #ff4d4d)",
+                        fontWeight: 600,
+                        fontSize: "10px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      [{diagnosticCounts.errors}]
+                    </span>
+                  )}
+                  {diagnosticCounts.errors === 0 && diagnosticCounts.warnings > 0 && (
+                    <span
+                      style={{
+                        color: "var(--vscode-editorWarning-foreground, #cca700)",
+                        fontWeight: 600,
+                        fontSize: "10px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      [{diagnosticCounts.warnings}]
+                    </span>
+                  )}
                 </span>
               </div>
             )}

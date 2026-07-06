@@ -756,16 +756,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             if (filePathValue && filePathValue.length > 0) {
               const recoveredRawXml =
                 rawXml + (innerContent || "") + "</write_to_file>";
-              const action = parseToolAction(
-                "write_to_file",
-                innerContent || "",
-                recoveredRawXml,
-              );
-              // Only allow auto-execution if we also have content tag started
-              const hasContent = /<content>/i.test(innerContent || "");
-              if (!hasContent) {
-                action.isPartial = true;
-              }
+              const params = parseWriteToFile(innerContent || "");
+              const action = {
+                type: "write_to_file" as const,
+                params,
+                rawXml: recoveredRawXml,
+                isPartial: true // Always partial during streaming
+              };
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
               break;
@@ -788,17 +785,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             if (filePathValue && filePathValue.length > 0) {
               const recoveredRawXml =
                 rawXml + (innerContent || "") + "</replace_in_file>";
-              const action = parseToolAction(
-                "replace_in_file",
-                innerContent || "",
-                recoveredRawXml,
-              );
-              // Only allow auto-execution if we have both old_content and new_content started
-              const hasOldContent = /<old_content>/i.test(innerContent || "");
-              const hasNewContent = /<new_content>/i.test(innerContent || "");
-              if (!hasOldContent || !hasNewContent) {
-                action.isPartial = true;
-              }
+              const params = parseReplaceInFile(innerContent || "");
+              const action = {
+                type: "replace_in_file" as const,
+                params,
+                rawXml: recoveredRawXml,
+                isPartial: true // Always partial during streaming
+              };
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
               break;

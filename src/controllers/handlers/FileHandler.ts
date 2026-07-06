@@ -81,38 +81,27 @@ export class FileHandler {
     code?: string | number;
   }> {
     const diagnostics = vscode.languages.getDiagnostics(uri);
-    console.log(`[FileHandler][getDiagnosticsForFile] 🔍 Getting diagnostics for: ${uri.fsPath}`, {
-      totalDiagnostics: diagnostics.length,
-      diagnostics: diagnostics.map(d => ({
-        severity: d.severity === vscode.DiagnosticSeverity.Error ? 'error' : 
-                  d.severity === vscode.DiagnosticSeverity.Warning ? 'warning' :
-                  d.severity === vscode.DiagnosticSeverity.Information ? 'info' : 'hint',
-        message: d.message,
-        line: d.range.start.line + 1,
-        source: d.source
-      }))
-    });
-    
+
     const filtered = diagnostics
-      .filter((d) => 
-        d.severity === vscode.DiagnosticSeverity.Error || 
-        d.severity === vscode.DiagnosticSeverity.Warning
+      .filter(
+        (d) =>
+          d.severity === vscode.DiagnosticSeverity.Error ||
+          d.severity === vscode.DiagnosticSeverity.Warning,
       )
       .map((d) => ({
-        severity: d.severity === vscode.DiagnosticSeverity.Error ? 'error' : 'warning',
+        severity:
+          d.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning",
         message: d.message,
         line: d.range.start.line + 1, // 1-indexed for display
         column: d.range.start.character + 1, // 1-indexed for display
         source: d.source,
-        code: d.code ? (typeof d.code === 'object' ? d.code.value : d.code) : undefined,
+        code: d.code
+          ? typeof d.code === "object"
+            ? d.code.value
+            : d.code
+          : undefined,
       }));
-    
-    console.log(`[FileHandler][getDiagnosticsForFile] ✅ Filtered diagnostics:`, {
-      errorCount: filtered.filter(d => d.severity === 'error').length,
-      warningCount: filtered.filter(d => d.severity === 'warning').length,
-      filtered
-    });
-    
+
     return filtered;
   }
 
@@ -177,13 +166,16 @@ export class FileHandler {
         content = lines.slice(message.startLine || 0, end).join("\n");
       }
       const diagnostics = this.getDiagnosticsForFile(absPath);
-      console.log(`[FileHandler][handleReadFile] 📤 Sending response with diagnostics:`, {
-        path: pathValue,
-        contentLength: content.length,
-        diagnosticsCount: diagnostics.length,
-        hasDiagnostics: diagnostics.length > 0
-      });
-      
+      console.log(
+        `[FileHandler][handleReadFile] 📤 Sending response with diagnostics:`,
+        {
+          path: pathValue,
+          contentLength: content.length,
+          diagnosticsCount: diagnostics.length,
+          hasDiagnostics: diagnostics.length > 0,
+        },
+      );
+
       webviewView.webview.postMessage({
         command: "fileContent",
         requestId: message.requestId,
@@ -288,7 +280,37 @@ export class FileHandler {
         try {
           await vscode.workspace.openTextDocument(absolutePath);
         } catch {}
-        await new Promise((r) => setTimeout(r, 1500));
+
+        // Wait for diagnostics from language server with event-based approach
+        await new Promise<void>((resolve) => {
+          const maxTimeout = 3000; // 3 seconds maximum wait
+          const minTimeout = 500; // Minimum 500ms wait for language server to start
+
+          const timeoutHandle = setTimeout(() => {
+            disposable?.dispose();
+            resolve();
+          }, maxTimeout);
+
+          // Also resolve after minimum timeout if no diagnostics appear
+          const minTimeoutHandle = setTimeout(() => {
+            const currentDiagnostics = this.getDiagnosticsForFile(absolutePath);
+            if (currentDiagnostics.length > 0) {
+              clearTimeout(timeoutHandle);
+              disposable?.dispose();
+              resolve();
+            }
+          }, minTimeout);
+
+          const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
+            if (e.uris.some((uri) => uri.fsPath === absolutePath.fsPath)) {
+              clearTimeout(timeoutHandle);
+              clearTimeout(minTimeoutHandle);
+              disposable.dispose();
+              resolve();
+            }
+          });
+        });
+
         const diagnostics = this.getDiagnosticsForFile(absolutePath);
         if (diagnostics.length) {
           logger.warn(`[write_to_file] Diagnostics found`, {
@@ -412,7 +434,7 @@ export class FileHandler {
           text.replace(/^```[a-zA-Z]*$/gm, "").trim();
         searchArgs = clean(message.old_str);
         replaceArgs = clean(message.new_str);
-        
+
         logger.debug(`[replace_in_file] Using new schema (old_str/new_str)`, {
           path: pathValue,
           searchLength: searchArgs.length,
@@ -514,7 +536,37 @@ export class FileHandler {
       try {
         await vscode.workspace.openTextDocument(absPath);
       } catch {}
-      await new Promise((r) => setTimeout(r, 1500));
+
+      // Wait for diagnostics from language server with event-based approach
+      await new Promise<void>((resolve) => {
+        const maxTimeout = 3000; // 3 seconds maximum wait
+        const minTimeout = 500; // Minimum 500ms wait for language server to start
+
+        const timeoutHandle = setTimeout(() => {
+          disposable?.dispose();
+          resolve();
+        }, maxTimeout);
+
+        // Also resolve after minimum timeout if no diagnostics appear
+        const minTimeoutHandle = setTimeout(() => {
+          const currentDiagnostics = this.getDiagnosticsForFile(absPath);
+          if (currentDiagnostics.length > 0) {
+            clearTimeout(timeoutHandle);
+            disposable?.dispose();
+            resolve();
+          }
+        }, minTimeout);
+
+        const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
+          if (e.uris.some((uri) => uri.fsPath === absPath.fsPath)) {
+            clearTimeout(timeoutHandle);
+            clearTimeout(minTimeoutHandle);
+            disposable.dispose();
+            resolve();
+          }
+        });
+      });
+
       const diagnostics = this.getDiagnosticsForFile(absPath);
       if (diagnostics.length) {
         logger.warn(`[replace_in_file] Diagnostics found`, {
@@ -832,6 +884,48 @@ export class FileHandler {
         requestId: message.requestId,
         id: message.id,
         path: message.path,
+        error: e.message,
+      });
+    }
+  }
+
+  public async handleGetDiagnostics(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        webviewView.webview.postMessage({
+          command: "getDiagnosticsResult",
+          requestId: message.requestId,
+          path: message.path,
+          diagnostics: [],
+        });
+        return;
+      }
+
+      const uri = await this.resolveWorkspacePathWithFallback(
+        workspaceFolder,
+        message.path,
+      );
+
+      // Get diagnostics for the file
+      const diagnostics = this.getDiagnosticsForFile(uri);
+
+      webviewView.webview.postMessage({
+        command: "getDiagnosticsResult",
+        requestId: message.requestId,
+        path: message.path,
+        diagnostics: diagnostics,
+      });
+    } catch (e: any) {
+      // If file doesn't exist or error, return empty diagnostics
+      webviewView.webview.postMessage({
+        command: "getDiagnosticsResult",
+        requestId: message.requestId,
+        path: message.path,
+        diagnostics: [],
         error: e.message,
       });
     }
@@ -1380,27 +1474,34 @@ export class FileHandler {
 
       // Use VSCode's findFiles API with glob patterns
       const results: { fileName: string; matches: string[] }[] = [];
-      
+
       for (const fileName of fileNames) {
         // Create glob pattern: **/{fileName}
         const globPattern = `**/${fileName}`;
-        console.log(`[FileHandler][handleFindFiles] Searching with pattern: ${globPattern}`);
-        
+        console.log(
+          `[FileHandler][handleFindFiles] Searching with pattern: ${globPattern}`,
+        );
+
         try {
           const files = await vscode.workspace.findFiles(
             globPattern,
-            '**/node_modules/**' // Exclude node_modules by default
+            "**/node_modules/**", // Exclude node_modules by default
           );
-          
-          const matches = files.map(f => vscode.workspace.asRelativePath(f));
+
+          const matches = files.map((f) => vscode.workspace.asRelativePath(f));
           results.push({
             fileName,
             matches,
           });
-          
-          console.log(`[FileHandler][handleFindFiles] Found ${matches.length} matches for '${fileName}'`);
+
+          console.log(
+            `[FileHandler][handleFindFiles] Found ${matches.length} matches for '${fileName}'`,
+          );
         } catch (error: any) {
-          console.error(`[FileHandler][handleFindFiles] Error searching for '${fileName}':`, error);
+          console.error(
+            `[FileHandler][handleFindFiles] Error searching for '${fileName}':`,
+            error,
+          );
           results.push({
             fileName,
             matches: [],
@@ -1409,7 +1510,10 @@ export class FileHandler {
       }
 
       // Calculate total matches
-      const totalMatches = results.reduce((sum, r) => sum + r.matches.length, 0);
+      const totalMatches = results.reduce(
+        (sum, r) => sum + r.matches.length,
+        0,
+      );
 
       console.log(`[FileHandler][handleFindFiles] 📤 Sending response:`, {
         requestId: message.requestId,

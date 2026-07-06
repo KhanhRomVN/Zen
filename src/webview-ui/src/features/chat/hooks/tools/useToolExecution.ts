@@ -295,7 +295,7 @@ export const useToolExecution = ({
                 );
               } else {
                 const content = msg.content || "";
-                let output = `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}`;
+                let output = `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}\n\`\`\``;
 
                 // Add diagnostics section if there are any warnings or errors
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
@@ -304,38 +304,37 @@ export const useToolExecution = ({
                   );
 
                   const errorCount = msg.diagnostics.filter(
-                    (d: any) => d.severity === "error",
+                    (d: any) => d.severity === "Error" || d.severity === "error",
                   ).length;
                   const warningCount = msg.diagnostics.filter(
-                    (d: any) => d.severity === "warning",
+                    (d: any) => d.severity === "Warning" || d.severity === "warning",
                   ).length;
 
-                  // Add diagnostics inside the code block
-                  output += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)\n\n`;
+                  // Add diagnostics OUTSIDE the code block
+                  output += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)`;
 
                   // Get file content lines for context
                   const contentLines = content.split("\n");
 
                   // Group by severity
                   const errors = msg.diagnostics.filter(
-                    (d: any) => d.severity === "error",
+                    (d: any) => d.severity === "error" || d.severity === "Error",
                   );
                   const warnings = msg.diagnostics.filter(
-                    (d: any) => d.severity === "warning",
+                    (d: any) => d.severity === "warning" || d.severity === "Warning",
                   );
 
                   if (errors.length > 0) {
-                    output += `### Errors (${errors.length})\n`;
+                    output += `\n\n### Errors (${errors.length})\n`;
                     errors.forEach((d: any, index: number) => {
                       const lineContent = contentLines[d.line - 1] || "";
                       const trimmedLine = lineContent.trim();
                       output += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
                     });
-                    output += "\n";
                   }
 
                   if (warnings.length > 0) {
-                    output += `### Warnings (${warnings.length})\n`;
+                    output += `\n### Warnings (${warnings.length})\n`;
                     warnings.forEach((d: any, index: number) => {
                       const lineContent = contentLines[d.line - 1] || "";
                       const trimmedLine = lineContent.trim();
@@ -347,9 +346,6 @@ export const useToolExecution = ({
                     `[useToolExecution][read_file] ℹ️ No diagnostics found for ${filePath}`,
                   );
                 }
-
-                // Close the code block
-                output += `\`\`\``;
 
                 // Store output AND diagnostics in toolOutputs
                 setToolOutputs((prev) => ({
@@ -419,26 +415,33 @@ export const useToolExecution = ({
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
                   console.log(`[write_to_file] ✅ Processing ${msg.diagnostics.length} diagnostics`);
                   
-                  const errorCount = msg.diagnostics.filter((d: any) => d.severity === 'error').length;
-                  const warningCount = msg.diagnostics.filter((d: any) => d.severity === 'warning').length;
+                  const errorCount = msg.diagnostics.filter((d: any) => d.severity === 'Error' || d.severity === 'error').length;
+                  const warningCount = msg.diagnostics.filter((d: any) => d.severity === 'Warning' || d.severity === 'warning').length;
                   
-                  result += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)\n\n`;
+                  // Add summary
+                  result += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)`;
                   
-                  const errors = msg.diagnostics.filter((d: any) => d.severity === 'error');
-                  const warnings = msg.diagnostics.filter((d: any) => d.severity === 'warning');
+                  const errors = msg.diagnostics.filter((d: any) => d.severity === 'Error' || d.severity === 'error');
+                  const warnings = msg.diagnostics.filter((d: any) => d.severity === 'Warning' || d.severity === 'warning');
+                  
+                  // Get file content lines to show line content
+                  const contentLines = action.params.content.split('\n');
                   
                   if (errors.length > 0) {
-                    result += `### Errors (${errors.length})\n`;
+                    result += `\n\n### Errors (${errors.length})\n`;
                     errors.forEach((d: any, index: number) => {
-                      result += `${index + 1}. **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
+                      const lineContent = contentLines[d.line - 1] || '';
+                      const trimmedLine = lineContent.trim();
+                      result += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
                     });
-                    result += '\n';
                   }
                   
                   if (warnings.length > 0) {
-                    result += `### Warnings (${warnings.length})\n`;
+                    result += `\n### Warnings (${warnings.length})\n`;
                     warnings.forEach((d: any, index: number) => {
-                      result += `${index + 1}. **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
+                      const lineContent = contentLines[d.line - 1] || '';
+                      const trimmedLine = lineContent.trim();
+                      result += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
                     });
                   }
                 } else {
@@ -496,26 +499,33 @@ export const useToolExecution = ({
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
                   console.log(`[replace_in_file] ✅ Processing ${msg.diagnostics.length} diagnostics`);
                   
-                  const errorCount = msg.diagnostics.filter((d: any) => d.severity === 'error').length;
-                  const warningCount = msg.diagnostics.filter((d: any) => d.severity === 'warning').length;
+                  const errorCount = msg.diagnostics.filter((d: any) => d.severity === 'Error' || d.severity === 'error').length;
+                  const warningCount = msg.diagnostics.filter((d: any) => d.severity === 'Warning' || d.severity === 'warning').length;
                   
-                  result += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)\n\n`;
+                  // Add summary
+                  result += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)`;
                   
-                  const errors = msg.diagnostics.filter((d: any) => d.severity === 'error');
-                  const warnings = msg.diagnostics.filter((d: any) => d.severity === 'warning');
+                  const errors = msg.diagnostics.filter((d: any) => d.severity === 'Error' || d.severity === 'error');
+                  const warnings = msg.diagnostics.filter((d: any) => d.severity === 'Warning' || d.severity === 'warning');
+                  
+                  // Get file content lines to show line content (use msg.content if available, otherwise use new_str)
+                  const contentLines = (msg.content || action.params.new_str || '').split('\n');
                   
                   if (errors.length > 0) {
-                    result += `### Errors (${errors.length})\n`;
+                    result += `\n\n### Errors (${errors.length})\n`;
                     errors.forEach((d: any, index: number) => {
-                      result += `${index + 1}. **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
+                      const lineContent = contentLines[d.line - 1] || '';
+                      const trimmedLine = lineContent.trim();
+                      result += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
                     });
-                    result += '\n';
                   }
                   
                   if (warnings.length > 0) {
-                    result += `### Warnings (${warnings.length})\n`;
+                    result += `\n### Warnings (${warnings.length})\n`;
                     warnings.forEach((d: any, index: number) => {
-                      result += `${index + 1}. **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
+                      const lineContent = contentLines[d.line - 1] || '';
+                      const trimmedLine = lineContent.trim();
+                      result += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
                     });
                   }
                 } else {

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import FileIcon from "@/icons/FileIcon";
-import './TreeBlock.css';
+import "./TreeBlock.css";
 
 interface FileNode {
   name: string;
-  type: 'file' | 'folder';
+  type: "file" | "folder";
   path: string;
   children?: FileNode[];
   size?: number;
@@ -26,13 +26,13 @@ const TreeNode: React.FC<{
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (node.type === 'folder') {
+    if (node.type === "folder") {
       setIsExpanded(!isExpanded);
     }
   };
 
   const handleClick = () => {
-    if (node.type === 'file' && onFileClick) {
+    if (node.type === "file" && onFileClick) {
       onFileClick(node.path);
     }
   };
@@ -42,30 +42,30 @@ const TreeNode: React.FC<{
   return (
     <div className="tree-node">
       <div
-        className={`tree-node-content ${node.type === 'file' ? 'clickable' : ''}`}
+        className={`tree-node-content ${node.type === "file" ? "clickable" : ""}`}
         style={{ paddingLeft: `${level * 16}px` }}
         onClick={handleClick}
       >
-        {node.type === 'folder' && hasChildren && (
+        {node.type === "folder" && hasChildren && (
           <span
-            className={`codicon codicon-chevron-${isExpanded ? 'down' : 'right'} tree-chevron`}
+            className={`codicon codicon-chevron-${isExpanded ? "down" : "right"} tree-chevron`}
             onClick={handleToggle}
           />
         )}
-        {node.type === 'folder' && !hasChildren && (
+        {node.type === "folder" && !hasChildren && (
           <span className="tree-chevron-placeholder" />
         )}
         <FileIcon
           path={node.path}
-          isFolder={node.type === 'folder'}
+          isFolder={node.type === "folder"}
           style={{ width: "14px", height: "14px", marginRight: "6px" }}
         />
         <span className="tree-node-name">{node.name}</span>
-        {node.type === 'file' && node.lines !== undefined && (
+        {node.type === "file" && node.lines !== undefined && (
           <span className="tree-node-meta">{node.lines} lines</span>
         )}
       </div>
-      {node.type === 'folder' && isExpanded && hasChildren && (
+      {node.type === "folder" && isExpanded && hasChildren && (
         <div className="tree-node-children">
           {node.children!.map((child, index) => (
             <TreeNode

@@ -131,6 +131,14 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   const [isSnapshotLoading, setIsSnapshotLoading] = React.useState(false);
   const [showRawView, setShowRawView] = React.useState(false);
   const [isHeaderHovered, setIsHeaderHovered] = React.useState(false);
+  const [cachedDiagnostics, setCachedDiagnostics] = React.useState<Array<{
+    severity: string;
+    message: string;
+    line: number;
+    column: number;
+    source?: string;
+    code?: string | number;
+  }> | null>(null);
   const { permissionMode } = useSettings();
   const toolType = action.type;
   const toolColor = getToolColor(toolType);
@@ -156,15 +164,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   let codeContent = "";
   if (toolType === "list_files" || toolType === "find_files") {
     codeContent = toolOutputs?.[actionId]?.output || "";
-    
-    if (toolType === "find_files") {
-      console.log('[find_files] codeContent loaded:', {
-        actionId,
-        hasOutput: !!toolOutputs?.[actionId]?.output,
-        contentLength: codeContent.length,
-        firstChars: codeContent.substring(0, 200)
-      });
-    }
   }
 
   let diffStats: { added: number; removed: number } | null = null;
@@ -175,15 +174,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     if (action.params.diff) {
       const stats = parseDiff(action.params.diff).stats;
       diffStats = { added: stats.added, removed: stats.removed };
-
-      console.log(
-        `[FileToolRenderer][${actionId}] 📊 Calculated diffStats from diff field:`,
-        {
-          actionId,
-          diff: action.params.diff?.substring(0, 100) + "...",
-          diffStats,
-        },
-      );
     }
     // Otherwise calculate from old_str and new_str
     else if (action.params.old_str && action.params.new_str) {
@@ -194,26 +184,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         added: newLines.length,
         removed: oldLines.length,
       };
-
-      console.log(
-        `[FileToolRenderer][${actionId}] 📊 Calculated diffStats from old_str/new_str:`,
-        {
-          actionId,
-          oldStr: action.params.old_str?.substring(0, 100) + "...",
-          newStr: action.params.new_str?.substring(0, 100) + "...",
-          oldLines: oldLines.length,
-          newLines: newLines.length,
-          diffStats,
-        },
-      );
-    } else {
-      console.warn(
-        `[FileToolRenderer][${actionId}] ⚠️ replace_in_file missing both diff and old_str/new_str:`,
-        {
-          actionId,
-          params: action.params,
-        },
-      );
     }
   }
 
@@ -254,16 +224,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     const fileMatches = codeContent.match(/<file\s+/g);
     const folderMatches = codeContent.match(/<folder\s+/g);
     fileCount = (fileMatches?.length || 0) + (folderMatches?.length || 0);
-
-    console.log(
-      `[FileToolRenderer][${actionId}] 📊 Calculated file count for list_files:`,
-      {
-        actionId,
-        fileCount,
-        files: fileMatches?.length || 0,
-        folders: folderMatches?.length || 0,
-      },
-    );
   }
 
   // Calculate match count for find_files
@@ -273,16 +233,12 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
       const match = codeContent.match(/Found (\d+) file\(s\)/);
       if (match) {
         fileCount = parseInt(match[1], 10);
-        console.log(
-          `[FileToolRenderer][${actionId}] 📊 Calculated file count for find_files:`,
-          {
-            actionId,
-            fileCount,
-          },
-        );
       }
     } catch (err) {
-      console.error(`[FileToolRenderer][${actionId}] Error parsing find_files output:`, err);
+      console.error(
+        `[FileToolRenderer][${actionId}] Error parsing find_files output:`,
+        err,
+      );
     }
   }
 
@@ -309,10 +265,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     }
   }, [toolOutputs, actionId]);
 
-  const diagnosticCount = React.useMemo(() => {
-    return 0;
-  }, []);
-
   const nextUserMessage = allMessages
     ? allMessages
         .slice(allMessages.findIndex((m) => m.id === messageId) + 1)
@@ -333,8 +285,124 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         ? !!toolOutputs?.[actionId] || !!nextUserMessage
         : isFindFilesTool
           ? !!toolOutputs?.[actionId] || !!nextUserMessage
-          : (codeContent && codeContent.trim().length > 0) || !!nextUserMessage)),
+          : (codeContent && codeContent.trim().length > 0) ||
+            !!nextUserMessage)),
   );
+
+  // Merge diagnostics from toolOutputs and cachedDiagnostics
+  const mergedDiagnostics = React.useMemo(() => {
+    const shouldMergeDiagnostics = 
+      (toolType === "read_file" || toolType === "write_to_file" || toolType === "replace_in_file") &&
+      isCompleted &&
+      !isPartial;
+
+    if (!shouldMergeDiagnostics) return undefined;
+
+    // Get diagnostics from toolOutputs
+    const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics || [];
+    
+    // Get diagnostics from cache
+    const cacheDiagnosticsArray = cachedDiagnostics || [];
+    
+    // Merge and normalize severity to match ToolHeader expectations (capital first letter)
+    const normalized = [...toolOutputDiagnostics, ...cacheDiagnosticsArray].map(d => {
+      // Normalize severity: "error" -> "Error", "warning" -> "Warning", or keep as-is if already correct
+      const normalizedSeverity = 
+        d.severity.toLowerCase() === "error" ? "Error" :
+        d.severity.toLowerCase() === "warning" ? "Warning" :
+        d.severity; // Keep as-is if already correct (e.g., "Error" or "Warning")
+      
+      return {
+        ...d,
+        severity: normalizedSeverity
+      };
+    });
+    
+    // Remove duplicates based on line, column, and message
+    const uniqueDiagnostics = normalized.filter((d, index, self) =>
+      index === self.findIndex(t => (
+        t.line === d.line &&
+        t.column === d.column &&
+        t.message === d.message &&
+        t.severity === d.severity
+      ))
+    );
+    
+    console.log(`[FileToolRenderer][${actionId}] 🔄 Merged diagnostics:`, {
+      toolOutputCount: toolOutputDiagnostics.length,
+      cacheCount: cacheDiagnosticsArray.length,
+      uniqueCount: uniqueDiagnostics.length,
+      diagnostics: uniqueDiagnostics,
+      sample: uniqueDiagnostics.slice(0, 3), // Show first 3 for debugging
+      severities: uniqueDiagnostics.map(d => d.severity)
+    });
+    
+    return uniqueDiagnostics.length > 0 ? uniqueDiagnostics : undefined;
+  }, [toolOutputs, actionId, cachedDiagnostics, toolType, isCompleted, isPartial]);
+
+  // Fetch diagnostics directly from extension for read_file, write_to_file, replace_in_file
+  React.useEffect(() => {
+    const shouldFetchDiagnostics = 
+      (toolType === "read_file" || toolType === "write_to_file" || toolType === "replace_in_file") &&
+      rawPath && 
+      isCompleted &&
+      !isPartial;
+
+    if (!shouldFetchDiagnostics) return;
+
+    const baseRequestId = `diagnostics-${actionId}`;
+    let retryCount = 0;
+    const maxRetries = 2;
+    const retryDelay = 300; // ms between retries
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    
+    const handleMessage = (event: MessageEvent) => {
+      const msg = event.data;
+      // Match both base request and retry requests
+      if (msg.command === "getDiagnosticsResult" && msg.requestId?.startsWith(baseRequestId)) {
+        if (msg.diagnostics && Array.isArray(msg.diagnostics)) {
+          // If we got diagnostics, use them
+          if (msg.diagnostics.length > 0) {
+            setCachedDiagnostics(msg.diagnostics);
+            window.removeEventListener("message", handleMessage);
+            if (timeoutId !== null) clearTimeout(timeoutId);
+          } else {
+            // If no diagnostics but we haven't exhausted retries, try again
+            if (retryCount < maxRetries) {
+              retryCount++;
+              timeoutId = setTimeout(() => {
+                extensionService.postMessage({
+                  command: "getDiagnostics",
+                  path: rawPath,
+                  requestId: `${baseRequestId}-retry-${retryCount}`,
+                });
+              }, retryDelay * retryCount);
+            } else {
+              // No more retries, accept empty result
+              setCachedDiagnostics([]);
+              window.removeEventListener("message", handleMessage);
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    
+    // Initial request with slight delay to allow language server to process
+    timeoutId = setTimeout(() => {
+      extensionService.postMessage({
+        command: "getDiagnostics",
+        path: rawPath,
+        requestId: baseRequestId,
+      });
+    }, 200);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if (timeoutId !== null) clearTimeout(timeoutId);
+    };
+  }, [toolType, rawPath, isCompleted, isPartial, actionId]);
 
   // Calculate lineRangeText after isCompleted is defined
   if (toolType === "read_file") {
@@ -593,7 +661,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               }
             >
               {/* First row: FIND keyword and status */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <span style={{ fontWeight: 600, opacity: 0.8 }}>FIND</span>
                 {isPartial && !isCompleted && (
                   <span
@@ -656,25 +726,28 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   </span>
                 )}
               </div>
-              
+
               {/* Second row: file names with icons */}
               {(() => {
-                const searchFileNames = action.params.file_names || action.params.file_name;
-                const fileNamesArray = Array.isArray(searchFileNames) 
-                  ? searchFileNames 
-                  : searchFileNames 
+                const searchFileNames =
+                  action.params.file_names || action.params.file_name;
+                const fileNamesArray = Array.isArray(searchFileNames)
+                  ? searchFileNames
+                  : searchFileNames
                     ? [searchFileNames]
                     : [];
-                
+
                 if (fileNamesArray.length > 0) {
                   return (
-                    <div style={{ 
-                      display: "flex", 
-                      flexWrap: "wrap", 
-                      gap: "6px",
-                      alignItems: "center",
-                      marginLeft: "2px"
-                    }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "6px",
+                        alignItems: "center",
+                        marginLeft: "2px",
+                      }}
+                    >
                       {fileNamesArray.map((fileName, idx) => (
                         <div
                           key={idx}
@@ -685,7 +758,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                           }}
                         >
                           {idx > 0 && (
-                            <span style={{ opacity: 0.3, fontSize: "11px" }}>|</span>
+                            <span style={{ opacity: 0.3, fontSize: "11px" }}>
+                              |
+                            </span>
                           )}
                           <FileIcon
                             path={fileName}
@@ -694,7 +769,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                           />
                           <span
                             style={{
-                              fontFamily: "var(--vscode-editor-font-family, monospace)",
+                              fontFamily:
+                                "var(--vscode-editor-font-family, monospace)",
                               fontSize: "11px",
                               fontWeight: 500,
                               opacity: 0.9,
@@ -766,7 +842,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   e.currentTarget.style.textDecoration = "none";
                 }}
               >
-                {displayName}
+                {displayName || (isPartial && !rawPath ? "..." : "")}
               </span>
               {/* Show line range for read_file inline */}
               {lineRangeText && toolType === "read_file" && (
@@ -945,6 +1021,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         }
         diffStats={undefined}
         isPartial={isPartial}
+        diagnostics={mergedDiagnostics}
         onClick={
           // grep and find_files handle onClick in their custom title div
           isGrepTool || isFindFilesTool
@@ -1065,11 +1142,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                     ? "var(--vscode-errorForeground, #ff4d4d)"
                     : "var(--vscode-editorWarning-foreground, #ffa500)";
                   const severityIcon = isError ? "error" : "warning";
-
-                  console.log(
-                    `[FileToolRenderer][${actionId}] 🔍 Rendering diagnostic ${idx}:`,
-                    diagnostic,
-                  );
 
                   return (
                     <div
@@ -1379,22 +1451,13 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
       {/* find_files results rendering */}
       {(() => {
-        const shouldRender = !shouldHideContent &&
+        const shouldRender =
+          !shouldHideContent &&
           toolType === "find_files" &&
           codeContent &&
           !isError &&
           !isCollapsed;
-          
-        console.log('[find_files] Render condition check:', {
-          shouldRender,
-          shouldHideContent,
-          toolType,
-          hasCodeContent: !!codeContent,
-          codeContentLength: codeContent.length,
-          isError,
-          isCollapsed
-        });
-        
+
         return shouldRender ? (
           <div
             style={{
@@ -1406,12 +1469,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               // Parse file paths from output
               const lines = codeContent.split("\n");
               const filePaths: string[] = [];
-              
-              console.log('[find_files] Parsing output:', { 
-                totalLines: lines.length,
-                firstFewLines: lines.slice(0, 5)
-              });
-              
+
               for (const line of lines) {
                 // Match file path like "- src/components/file.tsx"
                 if (line.startsWith("- ")) {
@@ -1421,11 +1479,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   }
                 }
               }
-
-              console.log('[find_files] Parsed file paths:', { 
-                count: filePaths.length,
-                paths: filePaths
-              });
 
               if (filePaths.length === 0) {
                 return (
@@ -1451,37 +1504,39 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               // Convert flat list to tree structure
               interface FileNode {
                 name: string;
-                type: 'file' | 'folder';
+                type: "file" | "folder";
                 path: string;
                 children?: FileNode[];
               }
 
               const buildTree = (paths: string[]): FileNode[] => {
                 const root: FileNode = {
-                  name: '',
-                  type: 'folder',
-                  path: '',
+                  name: "",
+                  type: "folder",
+                  path: "",
                   children: [],
                 };
 
                 for (const fullPath of paths) {
-                  const segments = fullPath.split('/').filter(Boolean);
+                  const segments = fullPath.split("/").filter(Boolean);
                   let currentNode = root;
 
                   segments.forEach((segment, index) => {
                     const isFile = index === segments.length - 1;
-                    
+
                     if (!currentNode.children) {
                       currentNode.children = [];
                     }
 
-                    let childNode = currentNode.children.find(child => child.name === segment);
-                    
+                    let childNode = currentNode.children.find(
+                      (child) => child.name === segment,
+                    );
+
                     if (!childNode) {
-                      const pathSoFar = segments.slice(0, index + 1).join('/');
+                      const pathSoFar = segments.slice(0, index + 1).join("/");
                       childNode = {
                         name: segment,
-                        type: isFile ? 'file' : 'folder',
+                        type: isFile ? "file" : "folder",
                         path: pathSoFar,
                         children: isFile ? undefined : [],
                       };
@@ -1498,11 +1553,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               };
 
               const treeData = buildTree(filePaths);
-              
-              console.log('[find_files] Built tree:', { 
-                rootNodeCount: treeData.length,
-                tree: JSON.stringify(treeData, null, 2)
-              });
 
               return (
                 <div
@@ -1520,7 +1570,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   <TreeBlock
                     files={treeData}
                     onFileClick={(path) => {
-                      console.log('[find_files] File clicked:', path);
                       extensionService.postMessage({
                         command: "openFile",
                         path,
@@ -1534,17 +1583,31 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         ) : null;
       })()}
       {/* Streaming preview for write_to_file and replace_in_file */}
-      {!shouldHideContent &&
-        !isGrepTool &&
-        isPartial &&
-        (toolType === "write_to_file" || toolType === "replace_in_file") &&
-        (() => {
-          const streamingContent =
-            toolType === "write_to_file"
-              ? action.params.content || ""
-              : toolType === "replace_in_file"
-                ? action.params.diff || action.params.old_str || ""
-                : "";
+      {(() => {
+        if (
+          !shouldHideContent &&
+          !isGrepTool &&
+          isPartial &&
+          (toolType === "write_to_file" || toolType === "replace_in_file")
+        ) {
+          let streamingContent = "";
+
+          if (toolType === "write_to_file") {
+            streamingContent = action.params.content || "";
+          } else if (toolType === "replace_in_file") {
+            // For replace_in_file, show both old_str and new_str for streaming effect
+            const oldStr = action.params.old_str || "";
+            const newStr = action.params.new_str || "";
+            const diff = action.params.diff || "";
+
+            if (oldStr || newStr) {
+              // Show diff-like format with old and new content
+              streamingContent = `<<<<<<< OLD\n${oldStr}\n=======\n${newStr}\n>>>>>>> NEW`;
+            } else if (diff) {
+              // Fallback to legacy diff format
+              streamingContent = diff;
+            }
+          }
 
           // Only show if there's actual content streaming
           if (!streamingContent || streamingContent.trim().length === 0) {
@@ -1552,14 +1615,17 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           }
 
           return (
-            <div style={{ marginTop: "8px", marginLeft: "29px" }}>
+            <div style={{ marginLeft: "29px" }}>
               <FileStreamingBlock
                 content={streamingContent}
                 maxHeight={STREAM_BOX_HEIGHT}
               />
             </div>
           );
-        })()}
+        }
+
+        return null;
+      })()}
 
       {/* Grep tool results — rendered inside the main flow with ToolHeader */}
       {isGrepTool && (
