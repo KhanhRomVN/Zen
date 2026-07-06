@@ -156,6 +156,9 @@ export class ChatController {
         case "listFiles":
           await this.fileHandler.handleListFiles(message, webviewView);
           break;
+        case "findFiles":
+          await this.fileHandler.handleFindFiles(message, webviewView);
+          break;
         case "searchContent":
           // removed
           break;

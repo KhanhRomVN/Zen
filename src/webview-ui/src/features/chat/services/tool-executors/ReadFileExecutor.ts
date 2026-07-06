@@ -1,4 +1,7 @@
-import { extensionService, messageDispatcher } from "@/services/ExtensionService";
+import {
+  extensionService,
+  messageDispatcher,
+} from "@/services/ExtensionService";
 import { TOOL_TIMEOUTS } from "../../constants/constants";
 import { ReadFileParams } from "../../types/tool-types";
 
@@ -10,9 +13,9 @@ const READ_FILE_TIMEOUT_MS = TOOL_TIMEOUTS.read_file || 10000;
  */
 export async function executeReadFile(
   params: ReadFileParams,
-  bypassIgnore: boolean = false
-): Promise<{ 
-  output: string; 
+  bypassIgnore: boolean = false,
+): Promise<{
+  output: string;
   diagnostics?: Array<{
     severity: string;
     message: string;
@@ -38,14 +41,75 @@ export async function executeReadFile(
     messageDispatcher.register(
       requestId,
       (msg) => {
+        console.log(`[ReadFileExecutor] 📥 Received message for ${filePath}:`, {
+          hasError: !!msg.error,
+          hasDiagnostics: !!msg.diagnostics,
+          diagnosticsCount: msg.diagnostics?.length || 0,
+          diagnostics: msg.diagnostics,
+        });
+
         if (msg.error) {
           resolve({
             output: `[read_file for '${filePath}'] Result: Error - ${msg.error}`,
           });
         } else {
           const content = msg.content || "";
-          const output = `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}\n\`\`\``;
-          
+          let output = `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}`;
+
+          // Add diagnostics section if there are any warnings or errors
+          if (msg.diagnostics && msg.diagnostics.length > 0) {
+            console.log(
+              `[ReadFileExecutor] ✅ Processing ${msg.diagnostics.length} diagnostics`,
+            );
+
+            const errorCount = msg.diagnostics.filter(
+              (d: any) => d.severity === "error",
+            ).length;
+            const warningCount = msg.diagnostics.filter(
+              (d: any) => d.severity === "warning",
+            ).length;
+
+            // Add diagnostics inside the code block
+            output += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)\n\n`;
+
+            // Get file content lines for context
+            const contentLines = content.split("\n");
+
+            // Group by severity
+            const errors = msg.diagnostics.filter(
+              (d: any) => d.severity === "error",
+            );
+            const warnings = msg.diagnostics.filter(
+              (d: any) => d.severity === "warning",
+            );
+
+            if (errors.length > 0) {
+              output += `### Errors (${errors.length})\n`;
+              errors.forEach((d: any, index: number) => {
+                const lineContent = contentLines[d.line - 1] || "";
+                const trimmedLine = lineContent.trim();
+                output += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
+              });
+              output += "\n";
+            }
+
+            if (warnings.length > 0) {
+              output += `### Warnings (${warnings.length})\n`;
+              warnings.forEach((d: any, index: number) => {
+                const lineContent = contentLines[d.line - 1] || "";
+                const trimmedLine = lineContent.trim();
+                output += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
+              });
+            }
+          } else {
+            console.log(
+              `[ReadFileExecutor] ℹ️ No diagnostics found for ${filePath}`,
+            );
+          }
+
+          // Close the code block
+          output += `\`\`\``;
+
           resolve({
             output,
             diagnostics: msg.diagnostics || undefined,

@@ -1,0 +1,85 @@
+.tree-block {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  padding: 8px 0;
+  user-select: none;
+}
+
+.tree-node {
+  position: relative;
+}
+
+.tree-node-content {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  transition: background-color 0.15s ease;
+  cursor: default;
+}
+
+.tree-node-content.clickable {
+  cursor: pointer;
+}
+
+.tree-node-content.clickable:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.tree-chevron {
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--vscode-icon-foreground);
+  flex-shrink: 0;
+  width: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-chevron:hover {
+  color: var(--vscode-foreground);
+}
+
+.tree-chevron-placeholder {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.tree-icon {
+  font-size: 16px;
+  color: var(--vscode-icon-foreground);
+  flex-shrink: 0;
+}
+
+.tree-node-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-node-meta {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tree-node-children {
+  /* No additional styling needed, handled by padding */
+}
+
+/* Folder icon color */
+.tree-icon.codicon-folder,
+.tree-icon.codicon-folder-opened {
+  color: var(--vscode-icon-foreground);
+}
+
+/* File icon color */
+.tree-icon.codicon-file {
+  color: var(--vscode-symbolIcon-fileForeground, var(--vscode-icon-foreground));
+}

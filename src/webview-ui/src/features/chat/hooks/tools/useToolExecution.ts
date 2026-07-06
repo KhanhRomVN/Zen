@@ -64,19 +64,22 @@ export const useToolExecution = ({
   }>({ total: 0, completed: 0, status: "idle" });
 
   const [toolOutputs, setToolOutputs] = useState<
-    Record<string, { 
-      output: string; 
-      isError: boolean; 
-      terminalId?: string;
-      diagnostics?: Array<{
-        severity: string;
-        message: string;
-        line: number;
-        column: number;
-        source?: string;
-        code?: string | number;
-      }>;
-    }>
+    Record<
+      string,
+      {
+        output: string;
+        isError: boolean;
+        terminalId?: string;
+        diagnostics?: Array<{
+          severity: string;
+          message: string;
+          line: number;
+          column: number;
+          source?: string;
+          code?: string | number;
+        }>;
+      }
+    >
   >({});
 
   const [terminalStatus, setTerminalStatus] = useState<
@@ -245,13 +248,16 @@ export const useToolExecution = ({
           const requestId = `read-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
           const actionId = (action as any).actionId;
-          
-          console.log(`[useToolExecution][read_file] 📖 Sending readFile request:`, {
-            actionId,
-            filePath,
-            requestId,
-          });
-          
+
+          console.log(
+            `[useToolExecution][read_file] 📖 Sending readFile request:`,
+            {
+              actionId,
+              filePath,
+              requestId,
+            },
+          );
+
           extensionService.postMessage({
             command: "readFile",
             path: filePath,
@@ -263,15 +269,18 @@ export const useToolExecution = ({
           messageDispatcher.register(
             requestId,
             (msg) => {
-              console.log(`[useToolExecution][read_file] 📥 Received response:`, {
-                actionId,
-                filePath,
-                requestId,
-                hasError: !!msg.error,
-                hasDiagnostics: !!msg.diagnostics,
-                diagnosticsCount: msg.diagnostics?.length || 0,
-              });
-              
+              console.log(
+                `[useToolExecution][read_file] 📥 Received response:`,
+                {
+                  actionId,
+                  filePath,
+                  requestId,
+                  hasError: !!msg.error,
+                  hasDiagnostics: !!msg.diagnostics,
+                  diagnosticsCount: msg.diagnostics?.length || 0,
+                },
+              );
+
               if (msg.error) {
                 // Store error in toolOutputs without diagnostics
                 setToolOutputs((prev) => ({
@@ -286,7 +295,62 @@ export const useToolExecution = ({
                 );
               } else {
                 const content = msg.content || "";
-                
+                let output = `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}`;
+
+                // Add diagnostics section if there are any warnings or errors
+                if (msg.diagnostics && msg.diagnostics.length > 0) {
+                  console.log(
+                    `[useToolExecution][read_file] ✅ Processing ${msg.diagnostics.length} diagnostics`,
+                  );
+
+                  const errorCount = msg.diagnostics.filter(
+                    (d: any) => d.severity === "error",
+                  ).length;
+                  const warningCount = msg.diagnostics.filter(
+                    (d: any) => d.severity === "warning",
+                  ).length;
+
+                  // Add diagnostics inside the code block
+                  output += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)\n\n`;
+
+                  // Get file content lines for context
+                  const contentLines = content.split("\n");
+
+                  // Group by severity
+                  const errors = msg.diagnostics.filter(
+                    (d: any) => d.severity === "error",
+                  );
+                  const warnings = msg.diagnostics.filter(
+                    (d: any) => d.severity === "warning",
+                  );
+
+                  if (errors.length > 0) {
+                    output += `### Errors (${errors.length})\n`;
+                    errors.forEach((d: any, index: number) => {
+                      const lineContent = contentLines[d.line - 1] || "";
+                      const trimmedLine = lineContent.trim();
+                      output += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
+                    });
+                    output += "\n";
+                  }
+
+                  if (warnings.length > 0) {
+                    output += `### Warnings (${warnings.length})\n`;
+                    warnings.forEach((d: any, index: number) => {
+                      const lineContent = contentLines[d.line - 1] || "";
+                      const trimmedLine = lineContent.trim();
+                      output += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
+                    });
+                  }
+                } else {
+                  console.log(
+                    `[useToolExecution][read_file] ℹ️ No diagnostics found for ${filePath}`,
+                  );
+                }
+
+                // Close the code block
+                output += `\`\`\``;
+
                 // Store output AND diagnostics in toolOutputs
                 setToolOutputs((prev) => ({
                   ...prev,
@@ -296,16 +360,17 @@ export const useToolExecution = ({
                     diagnostics: msg.diagnostics || undefined,
                   },
                 }));
-                
-                console.log(`[useToolExecution][read_file] 💾 Stored in toolOutputs:`, {
-                  actionId,
-                  outputLength: content.length,
-                  diagnosticsCount: msg.diagnostics?.length || 0,
-                });
-                
-                resolve(
-                  `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}\n\`\`\``,
+
+                console.log(
+                  `[useToolExecution][read_file] 💾 Stored in toolOutputs:`,
+                  {
+                    actionId,
+                    outputLength: output.length,
+                    diagnosticsCount: msg.diagnostics?.length || 0,
+                  },
                 );
+
+                resolve(output);
               }
             },
             TOOL_TIMEOUT_STANDARD,
@@ -342,9 +407,44 @@ export const useToolExecution = ({
                   `[write_to_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
+                console.log(`[write_to_file] 📥 Received response:`, {
+                  filePath,
+                  hasDiagnostics: !!msg.diagnostics,
+                  diagnosticsCount: msg.diagnostics?.length || 0,
+                });
+                
                 let result = `[write_to_file for '${filePath}'] Result: File written successfully`;
-                if (msg.diagnostics?.length > 0)
-                  result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
+                
+                // Add diagnostics if any
+                if (msg.diagnostics && msg.diagnostics.length > 0) {
+                  console.log(`[write_to_file] ✅ Processing ${msg.diagnostics.length} diagnostics`);
+                  
+                  const errorCount = msg.diagnostics.filter((d: any) => d.severity === 'error').length;
+                  const warningCount = msg.diagnostics.filter((d: any) => d.severity === 'warning').length;
+                  
+                  result += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)\n\n`;
+                  
+                  const errors = msg.diagnostics.filter((d: any) => d.severity === 'error');
+                  const warnings = msg.diagnostics.filter((d: any) => d.severity === 'warning');
+                  
+                  if (errors.length > 0) {
+                    result += `### Errors (${errors.length})\n`;
+                    errors.forEach((d: any, index: number) => {
+                      result += `${index + 1}. **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
+                    });
+                    result += '\n';
+                  }
+                  
+                  if (warnings.length > 0) {
+                    result += `### Warnings (${warnings.length})\n`;
+                    warnings.forEach((d: any, index: number) => {
+                      result += `${index + 1}. **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
+                    });
+                  }
+                } else {
+                  console.log(`[write_to_file] ℹ️ No diagnostics found for ${filePath}`);
+                }
+                
                 resolve(result);
               }
             },
@@ -384,9 +484,44 @@ export const useToolExecution = ({
                   `[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
+                console.log(`[replace_in_file] 📥 Received response:`, {
+                  filePath,
+                  hasDiagnostics: !!msg.diagnostics,
+                  diagnosticsCount: msg.diagnostics?.length || 0,
+                });
+                
                 let result = `[replace_in_file for '${filePath}'] Result: File updated successfully`;
-                if (msg.diagnostics?.length > 0)
-                  result += `\n\n⚠️ **Diagnostics Found:**\n${msg.diagnostics.join("\n")}`;
+                
+                // Add diagnostics if any
+                if (msg.diagnostics && msg.diagnostics.length > 0) {
+                  console.log(`[replace_in_file] ✅ Processing ${msg.diagnostics.length} diagnostics`);
+                  
+                  const errorCount = msg.diagnostics.filter((d: any) => d.severity === 'error').length;
+                  const warningCount = msg.diagnostics.filter((d: any) => d.severity === 'warning').length;
+                  
+                  result += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)\n\n`;
+                  
+                  const errors = msg.diagnostics.filter((d: any) => d.severity === 'error');
+                  const warnings = msg.diagnostics.filter((d: any) => d.severity === 'warning');
+                  
+                  if (errors.length > 0) {
+                    result += `### Errors (${errors.length})\n`;
+                    errors.forEach((d: any, index: number) => {
+                      result += `${index + 1}. **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
+                    });
+                    result += '\n';
+                  }
+                  
+                  if (warnings.length > 0) {
+                    result += `### Warnings (${warnings.length})\n`;
+                    warnings.forEach((d: any, index: number) => {
+                      result += `${index + 1}. **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ''}]` : ''}: ${d.message}\n`;
+                    });
+                  }
+                } else {
+                  console.log(`[replace_in_file] ℹ️ No diagnostics found for ${filePath}`);
+                }
+                
                 resolve(result);
               }
             },
@@ -429,6 +564,65 @@ export const useToolExecution = ({
             },
             TOOL_TIMEOUT_STANDARD,
             () => resolve(null),
+          );
+          break;
+        }
+        case "find_files": {
+          const requestId = `find-${Date.now()}-${Math.random()}`;
+          const fileNames = action.params.file_names || [];
+          
+          console.log(`[useToolExecution][find_files] 🔍 Sending findFiles request:`, {
+            fileNames,
+            requestId,
+          });
+          
+          extensionService.postMessage({
+            command: "findFiles",
+            fileNames,
+            requestId,
+          });
+          
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              console.log(`[useToolExecution][find_files] 📥 Received response:`, {
+                hasError: !!msg.error,
+                totalMatches: msg.totalMatches,
+              });
+              
+              if (msg.error) {
+                resolve(
+                  `[find_files] Result: Error - ${msg.error}`,
+                );
+                return;
+              }
+              
+              const results = msg.results || [];
+              const totalMatches = msg.totalMatches || 0;
+              
+              let output = `[find_files] Found ${totalMatches} file(s)\n\n`;
+              
+              if (totalMatches === 0) {
+                output += "No files found matching the search criteria.";
+              } else {
+                results.forEach((result: any) => {
+                  if (result.matches.length > 0) {
+                    output += `### ${result.fileName} (${result.matches.length} match${result.matches.length === 1 ? '' : 'es'})\n`;
+                    result.matches.forEach((match: string) => {
+                      output += `- ${match}\n`;
+                    });
+                    output += '\n';
+                  }
+                });
+              }
+              
+              resolve(output);
+            },
+            TOOL_TIMEOUT_STANDARD,
+            () => {
+              console.warn(`[find_files] Timeout`, { requestId, fileNames });
+              resolve(null);
+            },
           );
           break;
         }

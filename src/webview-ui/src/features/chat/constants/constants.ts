@@ -4,6 +4,7 @@ export type ToolType =
   | "write_to_file"
   | "replace_in_file"
   | "list_files"
+  | "find_files"
   | "grep"
   | "delete_file"
   | "delete_folder"
@@ -72,6 +73,16 @@ export const TOOL_VARIANTS: Record<string, string[]> = {
     "listFile",
     "LIST_FILES",
   ],
+  find_files: [
+    "findFiles",
+    "FindFiles",
+    "find_Files",
+    "findfiles",
+    "FINDFILES",
+    "Find_Files",
+    "Findfiles",
+    "FIND_FILES",
+  ],
   grep: ["Grep", "GREP"],
   delete_file: [
     "deleteFile",
@@ -136,6 +147,7 @@ export const TOOL_LABELS: Record<string, string> = {
   write_to_file: "Write",
   replace_in_file: "Replace",
   list_files: "List",
+  find_files: "Find",
   grep: "Grep",
   delete_file: "Delete",
   delete_folder: "Delete",
@@ -158,6 +170,7 @@ export const TOOL_COLORS: Record<string, string> = {
   write_to_file: "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
   replace_in_file: "var(--vscode-editorWarning-foreground, #d4a72c)",
   list_files: "var(--vscode-textLink-foreground, #3b82f6)",
+  find_files: "var(--vscode-textLink-foreground, #3b82f6)",
   grep: "var(--vscode-textLink-foreground, #3b82f6)",
   delete_file: "var(--vscode-errorForeground, #ef4444)",
   delete_folder: "var(--vscode-errorForeground, #ef4444)",
@@ -214,6 +227,7 @@ export const TOOL_TIMEOUTS: Record<string, number> = {
   write_to_file: 10000,
   replace_in_file: 10000,
   list_files: 10000,
+  find_files: 30000,
   grep: 30000,
   delete_file: 10000,
   delete_folder: 10000,

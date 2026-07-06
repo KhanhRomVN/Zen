@@ -81,7 +81,19 @@ export class FileHandler {
     code?: string | number;
   }> {
     const diagnostics = vscode.languages.getDiagnostics(uri);
-    return diagnostics
+    console.log(`[FileHandler][getDiagnosticsForFile] 🔍 Getting diagnostics for: ${uri.fsPath}`, {
+      totalDiagnostics: diagnostics.length,
+      diagnostics: diagnostics.map(d => ({
+        severity: d.severity === vscode.DiagnosticSeverity.Error ? 'error' : 
+                  d.severity === vscode.DiagnosticSeverity.Warning ? 'warning' :
+                  d.severity === vscode.DiagnosticSeverity.Information ? 'info' : 'hint',
+        message: d.message,
+        line: d.range.start.line + 1,
+        source: d.source
+      }))
+    });
+    
+    const filtered = diagnostics
       .filter((d) => 
         d.severity === vscode.DiagnosticSeverity.Error || 
         d.severity === vscode.DiagnosticSeverity.Warning
@@ -94,6 +106,14 @@ export class FileHandler {
         source: d.source,
         code: d.code ? (typeof d.code === 'object' ? d.code.value : d.code) : undefined,
       }));
+    
+    console.log(`[FileHandler][getDiagnosticsForFile] ✅ Filtered diagnostics:`, {
+      errorCount: filtered.filter(d => d.severity === 'error').length,
+      warningCount: filtered.filter(d => d.severity === 'warning').length,
+      filtered
+    });
+    
+    return filtered;
   }
 
   public async handleReadFile(message: any, webviewView: vscode.WebviewView) {
@@ -157,6 +177,13 @@ export class FileHandler {
         content = lines.slice(message.startLine || 0, end).join("\n");
       }
       const diagnostics = this.getDiagnosticsForFile(absPath);
+      console.log(`[FileHandler][handleReadFile] 📤 Sending response with diagnostics:`, {
+        path: pathValue,
+        contentLength: content.length,
+        diagnosticsCount: diagnostics.length,
+        hasDiagnostics: diagnostics.length > 0
+      });
+      
       webviewView.webview.postMessage({
         command: "fileContent",
         requestId: message.requestId,
@@ -1328,6 +1355,78 @@ export class FileHandler {
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "getSnapshotResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  public async handleFindFiles(message: any, webviewView: vscode.WebviewView) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        throw new Error("No workspace folder found");
+      }
+
+      const fileNames: string[] = message.fileNames || message.file_names || [];
+      if (!fileNames || fileNames.length === 0) {
+        throw new Error("No file names provided");
+      }
+
+      console.log(`[FileHandler][handleFindFiles] 🔍 Searching for files:`, {
+        fileNames,
+        requestId: message.requestId,
+      });
+
+      // Use VSCode's findFiles API with glob patterns
+      const results: { fileName: string; matches: string[] }[] = [];
+      
+      for (const fileName of fileNames) {
+        // Create glob pattern: **/{fileName}
+        const globPattern = `**/${fileName}`;
+        console.log(`[FileHandler][handleFindFiles] Searching with pattern: ${globPattern}`);
+        
+        try {
+          const files = await vscode.workspace.findFiles(
+            globPattern,
+            '**/node_modules/**' // Exclude node_modules by default
+          );
+          
+          const matches = files.map(f => vscode.workspace.asRelativePath(f));
+          results.push({
+            fileName,
+            matches,
+          });
+          
+          console.log(`[FileHandler][handleFindFiles] Found ${matches.length} matches for '${fileName}'`);
+        } catch (error: any) {
+          console.error(`[FileHandler][handleFindFiles] Error searching for '${fileName}':`, error);
+          results.push({
+            fileName,
+            matches: [],
+          });
+        }
+      }
+
+      // Calculate total matches
+      const totalMatches = results.reduce((sum, r) => sum + r.matches.length, 0);
+
+      console.log(`[FileHandler][handleFindFiles] 📤 Sending response:`, {
+        requestId: message.requestId,
+        totalMatches,
+        resultsCount: results.length,
+      });
+
+      webviewView.webview.postMessage({
+        command: "findFilesResult",
+        requestId: message.requestId,
+        results,
+        totalMatches,
+      });
+    } catch (e: any) {
+      console.error(`[FileHandler][handleFindFiles] ❌ Error:`, e);
+      webviewView.webview.postMessage({
+        command: "findFilesResult",
         requestId: message.requestId,
         error: e.message,
       });

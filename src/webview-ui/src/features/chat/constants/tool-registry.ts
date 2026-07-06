@@ -59,7 +59,14 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
       showFileStats: true, // Show line count in UI
     },
     attributeAliases: {
-      path: ["filePath", "file_path", "FilePath", "File_Path", "FILE_PATH", "filepath"],
+      path: [
+        "filePath",
+        "file_path",
+        "FilePath",
+        "File_Path",
+        "FILE_PATH",
+        "filepath",
+      ],
     },
   },
 
@@ -92,7 +99,14 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
       showFileStats: true, // Show line count in UI
     },
     attributeAliases: {
-      path: ["filePath", "file_path", "FilePath", "File_Path", "FILE_PATH", "filepath"],
+      path: [
+        "filePath",
+        "file_path",
+        "FilePath",
+        "File_Path",
+        "FILE_PATH",
+        "filepath",
+      ],
     },
   },
 
@@ -125,7 +139,14 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
       validateFuzzyMatch: true, // Validate diff before apply
     },
     attributeAliases: {
-      path: ["filePath", "file_path", "FilePath", "File_Path", "FILE_PATH", "filepath"],
+      path: [
+        "filePath",
+        "file_path",
+        "FilePath",
+        "File_Path",
+        "FILE_PATH",
+        "filepath",
+      ],
     },
   },
 
@@ -152,8 +173,38 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     timeout: 10000,
     tags: ["file", "directory"],
     attributeAliases: {
-      path: ["dirPath", "dir_path", "DirPath", "Dir_Path", "DIR_PATH", "directoryPath", "directory_path"],
+      path: [
+        "dirPath",
+        "dir_path",
+        "DirPath",
+        "Dir_Path",
+        "DIR_PATH",
+        "directoryPath",
+        "directory_path",
+      ],
     },
+  },
+
+  find_files: {
+    type: "find_files",
+    variants: [
+      "findFiles",
+      "FindFiles",
+      "find_Files",
+      "findfiles",
+      "FINDFILES",
+      "Find_Files",
+      "Findfiles",
+      "FIND_FILES",
+    ],
+    label: "Find",
+    color: "var(--vscode-textLink-foreground, #3b82f6)",
+    category: "read",
+    requiresConfirmation: false,
+    isClickable: true,
+    defaultPermission: "prompt",
+    timeout: 30000,
+    tags: ["file", "search"],
   },
 
   grep: {
@@ -190,7 +241,14 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     timeout: 10000,
     tags: ["file", "destructive"],
     attributeAliases: {
-      path: ["filePath", "file_path", "FilePath", "File_Path", "FILE_PATH", "filepath"],
+      path: [
+        "filePath",
+        "file_path",
+        "FilePath",
+        "File_Path",
+        "FILE_PATH",
+        "filepath",
+      ],
     },
   },
 
@@ -215,7 +273,15 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     timeout: 10000,
     tags: ["directory", "destructive"],
     attributeAliases: {
-      path: ["folderPath", "folder_path", "FolderPath", "Folder_Path", "FOLDER_PATH", "directoryPath", "directory_path"],
+      path: [
+        "folderPath",
+        "folder_path",
+        "FolderPath",
+        "Folder_Path",
+        "FOLDER_PATH",
+        "directoryPath",
+        "directory_path",
+      ],
     },
   },
 
@@ -240,8 +306,26 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     timeout: 10000,
     tags: ["file", "io"],
     attributeAliases: {
-      source: ["sourcePath", "source_path", "SourcePath", "Source_Path", "SOURCE_PATH", "from", "oldPath", "old_path"],
-      destination: ["destPath", "dest_path", "DestPath", "Dest_Path", "DEST_PATH", "to", "newPath", "new_path"],
+      source: [
+        "sourcePath",
+        "source_path",
+        "SourcePath",
+        "Source_Path",
+        "SOURCE_PATH",
+        "from",
+        "oldPath",
+        "old_path",
+      ],
+      destination: [
+        "destPath",
+        "dest_path",
+        "DestPath",
+        "Dest_Path",
+        "DEST_PATH",
+        "to",
+        "newPath",
+        "new_path",
+      ],
     },
   },
 
@@ -370,7 +454,11 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   context_compression: {
     type: "context_compression",
-    variants: ["contextCompression", "ContextCompression", "context_Compression"],
+    variants: [
+      "contextCompression",
+      "ContextCompression",
+      "context_Compression",
+    ],
     label: "Context Summary",
     color: "var(--vscode-editorBracketHighlight-foreground2, #10b981)",
     category: "ui",
@@ -505,6 +593,7 @@ export type ExecutableToolType =
   | "write_to_file"
   | "replace_in_file"
   | "list_files"
+  | "find_files"
   | "run_command"
   | "delete_file"
   | "delete_folder"

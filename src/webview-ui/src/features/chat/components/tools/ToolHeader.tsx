@@ -144,15 +144,16 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   // Generate tooltip text based on status
   const getStatusTooltip = useMemo(() => {
     if (statusTooltip) return statusTooltip;
-    
+
     if (isError) return "Error - Action failed";
     if (isPartial) return "In progress...";
     if (isWaitingApproval) return "Waiting for approval";
-    
+
     // Check if completed based on color
-    const isCompleted = statusColor?.includes("gitDecoration-addedResourceForeground") || 
-                       statusColor?.includes("#3fb950");
-    
+    const isCompleted =
+      statusColor?.includes("gitDecoration-addedResourceForeground") ||
+      statusColor?.includes("#3fb950");
+
     if (isCompleted && toolType) {
       // Context-specific tooltips for completed actions
       switch (toolType) {
@@ -161,65 +162,77 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
             return `✓ File created (+${tooltipMeta.lineCount} lines)`;
           }
           return "✓ File created successfully";
-        
+
         case "replace_in_file":
           if (diffStats) {
             return `✓ File updated (+${diffStats.added} -${diffStats.removed} lines)`;
           }
           return "✓ File updated successfully";
-        
+
         case "read_file":
           if (tooltipMeta?.lineRange) {
             return `✓ Read lines ${tooltipMeta.lineRange}`;
           }
           return "✓ File read successfully";
-        
+
         case "list_files":
           if (tooltipMeta?.fileCount) {
-            return `✓ Listed ${tooltipMeta.fileCount} ${tooltipMeta.fileCount === 1 ? 'item' : 'items'}`;
+            return `✓ Listed ${tooltipMeta.fileCount} ${tooltipMeta.fileCount === 1 ? "item" : "items"}`;
           }
           return "✓ Directory listed successfully";
-        
+
         case "grep":
-          if (tooltipMeta?.matchCount !== undefined && tooltipMeta?.fileCount !== undefined) {
-            return `✓ Found ${tooltipMeta.matchCount} ${tooltipMeta.matchCount === 1 ? 'match' : 'matches'} in ${tooltipMeta.fileCount} ${tooltipMeta.fileCount === 1 ? 'file' : 'files'}`;
+          if (
+            tooltipMeta?.matchCount !== undefined &&
+            tooltipMeta?.fileCount !== undefined
+          ) {
+            return `✓ Found ${tooltipMeta.matchCount} ${tooltipMeta.matchCount === 1 ? "match" : "matches"} in ${tooltipMeta.fileCount} ${tooltipMeta.fileCount === 1 ? "file" : "files"}`;
           }
           return "✓ Search completed";
-        
+
         case "delete_file":
           return "✓ File deleted successfully";
-        
+
         case "delete_folder":
           return "✓ Folder deleted successfully";
-        
+
         case "move_file":
           return "✓ File moved successfully";
-        
+
         case "run_command":
           return "✓ Command executed successfully";
-        
+
         case "git_status":
           return "✓ Git status retrieved";
-        
+
         case "commit_message":
           return "✓ Commit created successfully";
-        
+
         default:
           return "✓ Completed successfully";
       }
     }
-    
+
     if (isCompleted) {
       return "✓ Completed successfully";
     }
-    
+
     // Default for gray/description color (not started or waiting)
     if (statusColor?.includes("descriptionForeground")) {
       return isWaitingApproval ? "Waiting for approval" : "Not started yet";
     }
-    
+
     return "Status";
-  }, [statusTooltip, isError, isPartial, isWaitingApproval, statusColor, toolType, diffStats, tooltipMeta]);
+  }, [
+    statusTooltip,
+    isError,
+    isPartial,
+    isWaitingApproval,
+    statusColor,
+    toolType,
+    diffStats,
+    tooltipMeta,
+  ]);
 
   return (
     <div

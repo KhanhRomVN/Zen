@@ -9,6 +9,7 @@ import { parseReadFile } from "./parsers/ReadFileParser";
 import { parseWriteToFile } from "./parsers/WriteToFileParser";
 import { parseReplaceInFile } from "./parsers/ReplaceInFileParser";
 import { parseListFiles } from "./parsers/ListFilesParser";
+import { parseFindFiles } from "./parsers/FindFilesParser";
 import { parseGrep } from "./parsers/GrepParser";
 import { parseDeleteFile } from "./parsers/DeleteFileParser";
 import { parseDeleteFolder } from "./parsers/DeleteFolderParser";
@@ -578,6 +579,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               action = { type: "list_files" as const, params, rawXml };
               break;
             }
+            case "find_files": {
+              const params = parseFindFiles(innerContent || "");
+              action = { type: "find_files" as const, params, rawXml };
+              break;
+            }
             case "grep": {
               const params = parseGrep(innerContent || "");
               action = { type: "grep" as const, params, rawXml };
@@ -1113,6 +1119,10 @@ export const formatActionForDisplay = (action: ToolAction): string => {
     case "list_files":
       const type = action.params.type ? ` [${action.params.type}]` : "";
       return `list_files: ${action.params.folder_path || "unknown"}${type}`;
+
+    case "find_files":
+      const fileCount = action.params.file_names?.length || 0;
+      return `find_files: ${fileCount} file name${fileCount === 1 ? '' : 's'}`;
 
     case "move_file":
       return `move_file: ${action.params.file_path || "unknown"} → ${action.params.target_folder_path || "unknown"}`;

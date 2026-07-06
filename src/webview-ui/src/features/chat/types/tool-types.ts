@@ -42,6 +42,22 @@ export interface GrepParams {
   folderPath?: string;
 }
 
+// ===== FIND FILES =====
+export interface FindFilesParams {
+  file_names?: string[];
+}
+
+export interface FindFilesResult {
+  fileName: string;
+  matches: string[];
+}
+
+export interface FindFilesResponse {
+  output: string;
+  results?: FindFilesResult[];
+  totalMatches?: number;
+}
+
 // ===== DELETE FILE =====
 export interface DeleteFileParams extends BaseToolParams {}
 

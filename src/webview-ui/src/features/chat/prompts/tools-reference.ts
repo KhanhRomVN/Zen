@@ -10,6 +10,7 @@ Use XML tags for all tool calls:
 </replace_in_file>
 <list_files><folder_path>path/to/folder</folder_path></list_files>
 <list_files><folder_path>path/to/folder</folder_path><depth>2</depth></list_files>
+<find_files><file_name>filename.ts</file_name><file_name>another.js</file_name></find_files>
 <grep><search_term>string</search_term><file_path>path/to/file</file_path></grep>
 <grep><search_term>string</search_term><folder_path>path/to/folder</folder_path></grep>
 <delete_file><file_path>path/to/file</file_path></delete_file>
@@ -17,6 +18,12 @@ Use XML tags for all tool calls:
 <move_file><file_path>path/to/source/file.ts</file_path><target_folder_path>path/to/destination/folder</target_folder_path></move_file>
 <move_file><file_path>path/to/source/file.ts</file_path><target_folder_path>path/to/destination/folder</target_folder_path><target_file_name>new-name.ts</target_file_name></move_file>
 <run_command><command>your command here</command></run_command>
+**find_files**: Search for files by name across the entire workspace (respects .gitignore).
+- Multiple \`file_name\` tags can be provided to search for multiple files at once.
+- Returns: For each file name, a list of all matching file paths found in the workspace.
+- Examples:
+  - \`<find_files><file_name>config.json</file_name></find_files>\` — finds all files named "config.json"
+  - \`<find_files><file_name>*.test.ts</file_name><file_name>utils.ts</file_name></find_files>\` — finds test files and utils.ts
 **move_file**: \`target_file_name\` is optional — omit it to keep the original filename while moving, or provide it to rename during the move (including renaming in place by using the same folder as the source). // [OPT#8] thêm khả năng rename qua move_file
 **run_command stdin/prompt rules**: stdin is a pipe (not a TTY). "read -p" suppresses its prompt when stdin is not a TTY. To show a prompt to the user, use "printf ... >&2" before "read":
   - broken: read -p "Enter value: " x
