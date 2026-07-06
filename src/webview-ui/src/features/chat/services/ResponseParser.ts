@@ -121,19 +121,27 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       remainingPreview: remainingContent.substring(0, 100),
     });
   }
-  
+
   // 🔍 ALWAYS log if content is stripped completely
   // BUT skip if this is likely a streaming intermediate state
-  const isLikelyStreaming = remainingContent.trim().length === 0 && 
-                             content.trim().length > 0 && 
-                             content.trim().length < 2000 && // Small content, likely incomplete
-                             !content.includes('</thinking>'); // No closing tag yet
-  
-  if (remainingContent.trim().length === 0 && content.trim().length > 100 && !isLikelyStreaming) {
-    console.warn("[Zen][Parser] ⚠️ All content consumed by thinking extraction!", {
-      originalLength: content.length,
-      thinkingBlocks: thinkingBlocks.length,
-    });
+  const isLikelyStreaming =
+    remainingContent.trim().length === 0 &&
+    content.trim().length > 0 &&
+    content.trim().length < 2000 && // Small content, likely incomplete
+    !content.includes("</thinking>"); // No closing tag yet
+
+  if (
+    remainingContent.trim().length === 0 &&
+    content.trim().length > 100 &&
+    !isLikelyStreaming
+  ) {
+    console.warn(
+      "[Zen][Parser] ⚠️ All content consumed by thinking extraction!",
+      {
+        originalLength: content.length,
+        thinkingBlocks: thinkingBlocks.length,
+      },
+    );
   }
 
   // Scan for tools and text blocks
@@ -613,13 +621,17 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             case "context_compression": {
               const params = parseContextCompression(rawXml);
               if (params) {
-                action = { type: "context_compression" as const, params, rawXml };
+                action = {
+                  type: "context_compression" as const,
+                  params,
+                  rawXml,
+                };
               } else {
                 // Fallback if parsing fails
-                action = { 
-                  type: "context_compression" as const, 
-                  params: { summary: "" }, 
-                  rawXml 
+                action = {
+                  type: "context_compression" as const,
+                  params: { summary: "" },
+                  rawXml,
                 };
               }
               break;
@@ -656,11 +668,23 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           // It's a tool, let it stream!
           const actionIndex = result.actions.length;
 
+          // Enhanced recovery logic for read_file
           if (toolName === "read_file") {
-            const filePathRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
-            const filePathMatch = (innerContent || "").match(filePathRegex);
-            if (filePathMatch && filePathMatch[1].trim() !== "") {
-              // Recovery condition met: build a fully-closed XML and parse normally
+            // Try to extract file_path - support both closed and unclosed tags
+            const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
+            const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(filePathClosedRegex);
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(filePathUnclosedRegex)
+              : null;
+
+            const filePathValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (filePathValue && filePathValue.length > 0) {
+              // Recovery condition met: we have a valid file path
+              // Build a fully-closed XML with whatever content we have
               const recoveredRawXml =
                 rawXml + (innerContent || "") + "</read_file>";
               const action = parseToolAction(
@@ -668,19 +692,32 @@ export const parseAIResponse = (content: string): ParsedResponse => {
                 innerContent || "",
                 recoveredRawXml,
               );
-              // action.isPartial is intentionally NOT set
+              // action.isPartial is intentionally NOT set - allow auto-execution
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
               break;
             }
           }
 
-          // Recovery for list_files
+          // Enhanced recovery logic for list_files
           if (toolName === "list_files") {
-            const folderPathRegex = /<folder_path>([\s\S]*?)<\/folder_path>/i;
-            const folderPathMatch = (innerContent || "").match(folderPathRegex);
-            if (folderPathMatch && folderPathMatch[1].trim() !== "") {
-              // Recovery condition met: build a fully-closed XML and parse normally
+            // Try to extract folder_path - support both closed and unclosed tags
+            const folderPathClosedRegex =
+              /<folder_path>([\s\S]*?)<\/folder_path>/i;
+            const folderPathUnclosedRegex = /<folder_path>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(
+              folderPathClosedRegex,
+            );
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(folderPathUnclosedRegex)
+              : null;
+
+            const folderPathValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (folderPathValue && folderPathValue.length > 0) {
+              // Recovery condition met: we have a valid folder path
               const recoveredRawXml =
                 rawXml + (innerContent || "") + "</list_files>";
               const params = parseListFiles(innerContent || "");
@@ -689,13 +726,229 @@ export const parseAIResponse = (content: string): ParsedResponse => {
                 params,
                 rawXml: recoveredRawXml,
               };
-              // action.isPartial is intentionally NOT set
+              // action.isPartial is intentionally NOT set - allow auto-execution
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
               break;
             }
           }
 
+          // Enhanced recovery logic for other common tools
+          // write_to_file: requires file_path
+          if (toolName === "write_to_file") {
+            const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
+            const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(filePathClosedRegex);
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(filePathUnclosedRegex)
+              : null;
+
+            const filePathValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (filePathValue && filePathValue.length > 0) {
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</write_to_file>";
+              const action = parseToolAction(
+                "write_to_file",
+                innerContent || "",
+                recoveredRawXml,
+              );
+              // Only allow auto-execution if we also have content tag started
+              const hasContent = /<content>/i.test(innerContent || "");
+              if (!hasContent) {
+                action.isPartial = true;
+              }
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
+          // replace_in_file: requires file_path
+          if (toolName === "replace_in_file") {
+            const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
+            const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(filePathClosedRegex);
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(filePathUnclosedRegex)
+              : null;
+
+            const filePathValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (filePathValue && filePathValue.length > 0) {
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</replace_in_file>";
+              const action = parseToolAction(
+                "replace_in_file",
+                innerContent || "",
+                recoveredRawXml,
+              );
+              // Only allow auto-execution if we have both old_content and new_content started
+              const hasOldContent = /<old_content>/i.test(innerContent || "");
+              const hasNewContent = /<new_content>/i.test(innerContent || "");
+              if (!hasOldContent || !hasNewContent) {
+                action.isPartial = true;
+              }
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
+          // run_command: requires command
+          if (toolName === "run_command") {
+            const commandClosedRegex = /<command>([\s\S]*?)<\/command>/i;
+            const commandUnclosedRegex = /<command>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(commandClosedRegex);
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(commandUnclosedRegex)
+              : null;
+
+            const commandValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (commandValue && commandValue.length > 0) {
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</run_command>";
+              const action = parseToolAction(
+                "run_command",
+                innerContent || "",
+                recoveredRawXml,
+              );
+              // action.isPartial is intentionally NOT set - allow auto-execution
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
+          // grep: requires pattern
+          if (toolName === "grep") {
+            const patternClosedRegex = /<pattern>([\s\S]*?)<\/pattern>/i;
+            const patternUnclosedRegex = /<pattern>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(patternClosedRegex);
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(patternUnclosedRegex)
+              : null;
+
+            const patternValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (patternValue && patternValue.length > 0) {
+              const recoveredRawXml = rawXml + (innerContent || "") + "</grep>";
+              const action = parseToolAction(
+                "grep",
+                innerContent || "",
+                recoveredRawXml,
+              );
+              // action.isPartial is intentionally NOT set - allow auto-execution
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
+          // delete_file: requires file_path
+          if (toolName === "delete_file") {
+            const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
+            const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(filePathClosedRegex);
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(filePathUnclosedRegex)
+              : null;
+
+            const filePathValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (filePathValue && filePathValue.length > 0) {
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</delete_file>";
+              const action = parseToolAction(
+                "delete_file",
+                innerContent || "",
+                recoveredRawXml,
+              );
+              // action.isPartial is intentionally NOT set - allow auto-execution
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
+          // delete_folder: requires folder_path
+          if (toolName === "delete_folder") {
+            const folderPathClosedRegex =
+              /<folder_path>([\s\S]*?)<\/folder_path>/i;
+            const folderPathUnclosedRegex = /<folder_path>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(
+              folderPathClosedRegex,
+            );
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(folderPathUnclosedRegex)
+              : null;
+
+            const folderPathValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (folderPathValue && folderPathValue.length > 0) {
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</delete_folder>";
+              const action = parseToolAction(
+                "delete_folder",
+                innerContent || "",
+                recoveredRawXml,
+              );
+              // action.isPartial is intentionally NOT set - allow auto-execution
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
+          // move_file: requires source_path and dest_path
+          if (toolName === "move_file") {
+            const sourcePathClosedRegex =
+              /<source_path>([\s\S]*?)<\/source_path>/i;
+            const sourcePathUnclosedRegex = /<source_path>([^\<]*?)$/i;
+
+            const closedMatch = (innerContent || "").match(
+              sourcePathClosedRegex,
+            );
+            const unclosedMatch = !closedMatch
+              ? (innerContent || "").match(sourcePathUnclosedRegex)
+              : null;
+
+            const sourcePathValue =
+              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+
+            if (sourcePathValue && sourcePathValue.length > 0) {
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</move_file>";
+              const action = parseToolAction(
+                "move_file",
+                innerContent || "",
+                recoveredRawXml,
+              );
+              // Only allow auto-execution if we also have dest_path started
+              const hasDestPath = /<dest_path>/i.test(innerContent || "");
+              if (!hasDestPath) {
+                action.isPartial = true;
+              }
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+          }
+
+          // Fallback: tool doesn't meet recovery conditions - mark as partial
           const action = parseToolAction(toolName, innerContent || "", rawXml);
           action.isPartial = true;
           result.contentBlocks.push({ type: "tool", action, actionIndex });
@@ -814,22 +1067,23 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     console.log("[Zen][Parser] ✅ Parse complete:", {
       contentBlocks: result.contentBlocks.length,
       actions: result.actions.length,
-      blockTypes: result.contentBlocks.map(b => b.type),
+      blockTypes: result.contentBlocks.map((b) => b.type),
     });
   }
 
   // 🔍 ALWAYS log if contentBlocks is empty (potential bug)
   // BUT skip warning if content is just a partial opening tag (streaming case)
   const isPartialTag = /^<[\/]?[a-zA-Z0-9_]*$/.test(content.trim());
-  if (result.contentBlocks.length === 0 && content.trim().length > 0 && !isPartialTag) {
-    console.warn(
-      "[Zen][Parser] ⚠️ No contentBlocks generated!",
-      {
-        contentLength: content.length,
-        contentPreview: content.substring(0, 200),
-        remainingAfterThinking: remainingContent.substring(0, 100),
-      },
-    );
+  if (
+    result.contentBlocks.length === 0 &&
+    content.trim().length > 0 &&
+    !isPartialTag
+  ) {
+    console.warn("[Zen][Parser] ⚠️ No contentBlocks generated!", {
+      contentLength: content.length,
+      contentPreview: content.substring(0, 200),
+      remainingAfterThinking: remainingContent.substring(0, 100),
+    });
   }
 
   return result;

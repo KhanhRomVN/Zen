@@ -136,7 +136,6 @@ export const useToolActions = ({
       type: "accept_all" | "accept_once" | "reject" = "accept_once",
     ) => {
       if (!onSendToolRequest) {
-        console.warn('[useToolActions] onSendToolRequest is undefined, cannot handle click');
         return;
       }
 
@@ -209,7 +208,6 @@ export const useToolActions = ({
       const contentBlocks = lastMessage.parsed.contentBlocks || [];
       const selectedOption = lastMessage.selectedOption;
 
-
       lastMessage.parsed.actions.forEach((action: ToolAction, idx: number) => {
         const actionId = `${lastMessage.id}-action-${idx}`;
 
@@ -270,7 +268,6 @@ export const useToolActions = ({
 
       if (actionsToRun.length > 0) {
         onSendToolRequest(actionsToRun as any, lastMessage, true);
-      } else {
       }
     }
   }, [

@@ -18,7 +18,9 @@ export interface WriteToFileParams extends BaseToolParams {
 
 // ===== REPLACE IN FILE =====
 export interface ReplaceInFileParams extends BaseToolParams {
-  diff?: string;
+  old_str?: string;
+  new_str?: string;
+  diff?: string; // Legacy support
 }
 
 // ===== LIST FILES =====

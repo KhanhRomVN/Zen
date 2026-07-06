@@ -247,7 +247,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
         display: "flex",
         flexDirection: "column",
         gap: "0px",
-        marginBottom: "var(--spacing-md)",
+        marginBottom: "4px",
         paddingLeft: "0px",
         position: "relative",
         opacity: message.isCancelled ? 0.4 : 1,

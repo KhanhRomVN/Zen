@@ -20,6 +20,21 @@ interface ToolHeaderProps {
   path?: string;
   /** Callback when path is clicked (separate from header click) */
   onPathClick?: (path: string) => void;
+  /** Optional custom tooltip text for the status dot */
+  statusTooltip?: string;
+  /** Whether this action is waiting for approval */
+  isWaitingApproval?: boolean;
+  /** Whether this action has an error */
+  isError?: boolean;
+  /** Tool type for context-specific tooltips */
+  toolType?: string;
+  /** Additional metadata for tooltip (e.g., line count, match count) */
+  tooltipMeta?: {
+    lineCount?: number;
+    lineRange?: string;
+    matchCount?: number;
+    fileCount?: number;
+  };
 }
 
 // Truncate path to prevent line wrapping
@@ -57,11 +72,28 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   isPartial,
   path,
   onPathClick,
+  statusTooltip,
+  isWaitingApproval,
+  isError,
+  toolType,
+  tooltipMeta,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pathContainerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [pathContainerWidth, setPathContainerWidth] = useState<number>(0);
+
+  // 🔍 DEBUG: Log when ToolHeader receives diffStats
+  useEffect(() => {
+    if (diffStats) {
+      console.log(`[ToolHeader] 📊 Received diffStats:`, {
+        toolType,
+        path,
+        diffStats,
+        subTitle,
+      });
+    }
+  }, [diffStats, toolType, path, subTitle]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -109,6 +141,86 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
     return truncated;
   }, [path, maxLength]);
 
+  // Generate tooltip text based on status
+  const getStatusTooltip = useMemo(() => {
+    if (statusTooltip) return statusTooltip;
+    
+    if (isError) return "Error - Action failed";
+    if (isPartial) return "In progress...";
+    if (isWaitingApproval) return "Waiting for approval";
+    
+    // Check if completed based on color
+    const isCompleted = statusColor?.includes("gitDecoration-addedResourceForeground") || 
+                       statusColor?.includes("#3fb950");
+    
+    if (isCompleted && toolType) {
+      // Context-specific tooltips for completed actions
+      switch (toolType) {
+        case "write_to_file":
+          if (tooltipMeta?.lineCount) {
+            return `✓ File created (+${tooltipMeta.lineCount} lines)`;
+          }
+          return "✓ File created successfully";
+        
+        case "replace_in_file":
+          if (diffStats) {
+            return `✓ File updated (+${diffStats.added} -${diffStats.removed} lines)`;
+          }
+          return "✓ File updated successfully";
+        
+        case "read_file":
+          if (tooltipMeta?.lineRange) {
+            return `✓ Read lines ${tooltipMeta.lineRange}`;
+          }
+          return "✓ File read successfully";
+        
+        case "list_files":
+          if (tooltipMeta?.fileCount) {
+            return `✓ Listed ${tooltipMeta.fileCount} ${tooltipMeta.fileCount === 1 ? 'item' : 'items'}`;
+          }
+          return "✓ Directory listed successfully";
+        
+        case "grep":
+          if (tooltipMeta?.matchCount !== undefined && tooltipMeta?.fileCount !== undefined) {
+            return `✓ Found ${tooltipMeta.matchCount} ${tooltipMeta.matchCount === 1 ? 'match' : 'matches'} in ${tooltipMeta.fileCount} ${tooltipMeta.fileCount === 1 ? 'file' : 'files'}`;
+          }
+          return "✓ Search completed";
+        
+        case "delete_file":
+          return "✓ File deleted successfully";
+        
+        case "delete_folder":
+          return "✓ Folder deleted successfully";
+        
+        case "move_file":
+          return "✓ File moved successfully";
+        
+        case "run_command":
+          return "✓ Command executed successfully";
+        
+        case "git_status":
+          return "✓ Git status retrieved";
+        
+        case "commit_message":
+          return "✓ Commit created successfully";
+        
+        default:
+          return "✓ Completed successfully";
+      }
+    }
+    
+    if (isCompleted) {
+      return "✓ Completed successfully";
+    }
+    
+    // Default for gray/description color (not started or waiting)
+    if (statusColor?.includes("descriptionForeground")) {
+      return isWaitingApproval ? "Waiting for approval" : "Not started yet";
+    }
+    
+    return "Status";
+  }, [statusTooltip, isError, isPartial, isWaitingApproval, statusColor, toolType, diffStats, tooltipMeta]);
+
   return (
     <div
       ref={containerRef}
@@ -135,6 +247,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                 transform: "translateX(-50%)",
                 boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${statusColor} 50%, transparent)`,
               }}
+              title={getStatusTooltip}
             />
           )}
           {isPartial && (
@@ -266,31 +379,44 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
             className={`terminal-sub-info${subTitleClassName ? ` ${subTitleClassName}` : ""}`}
           >
             {diffStats ? (
-              <span
-                style={{
-                  display: "flex",
-                  gap: "6px",
-                  alignItems: "center",
-                }}
-              >
+              <>
+                {/* 🔍 DEBUG: Log before rendering diffStats */}
+                {(() => {
+                  console.log(`[ToolHeader] 🎨 Rendering diffStats:`, {
+                    toolType,
+                    path,
+                    diffStats,
+                    added: diffStats.added,
+                    removed: diffStats.removed,
+                  });
+                  return null;
+                })()}
                 <span
                   style={{
-                    color:
-                      "var(--vscode-gitDecoration-addedResourceForeground)",
+                    display: "flex",
+                    gap: "6px",
+                    alignItems: "center",
                   }}
                 >
-                  +{diffStats.added}
+                  <span
+                    style={{
+                      color:
+                        "var(--vscode-gitDecoration-addedResourceForeground)",
+                    }}
+                  >
+                    +{diffStats.added}
+                  </span>
+                  <span
+                    style={{
+                      color:
+                        "var(--vscode-gitDecoration-deletedResourceForeground)",
+                    }}
+                  >
+                    -{diffStats.removed}
+                  </span>
+                  <span>lines</span>
                 </span>
-                <span
-                  style={{
-                    color:
-                      "var(--vscode-gitDecoration-deletedResourceForeground)",
-                  }}
-                >
-                  -{diffStats.removed}
-                </span>
-                <span>lines</span>
-              </span>
+              </>
             ) : (
               subTitle
             )}

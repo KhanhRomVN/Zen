@@ -21,7 +21,9 @@ export async function executeReplaceInFile(
     extensionService.postMessage({
       command: "replaceInFile",
       path: filePath,
-      diff: params.diff || "",
+      old_str: params.old_str,
+      new_str: params.new_str,
+      diff: params.diff, // Legacy support
       requestId,
       skipDiagnostics,
       bypassIgnore,

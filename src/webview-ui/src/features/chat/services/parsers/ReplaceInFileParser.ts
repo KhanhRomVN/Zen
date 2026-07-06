@@ -1,32 +1,34 @@
-import { extractParamValue } from "../../utils/ToolParser";
+import { extractParam, extractParamValue } from "../../utils/ToolParser";
 
 export interface ReplaceInFileParams {
   file_path: string;
   old_str: string;
   new_str: string;
-  diff: string;
+  // Legacy diff field for backward compatibility
+  diff?: string;
 }
 
 export const parseReplaceInFile = (
   innerContent: string,
 ): ReplaceInFileParams => {
-  const filePath = extractParamValue(innerContent, "file_path");
-  const oldStr = extractParamValue(innerContent, "old_str");
-  const newStr = extractParamValue(innerContent, "new_str");
-
-  // Construct diff in SEARCH/REPLACE format for the extension
-  const diff = [
-    '<<<<<<< SEARCH',
-    oldStr || '',
-    '=======',
-    newStr || '',
-    '>>>>>>> REPLACE'
-  ].join('\n');
+  // Try canonical name first (after normalization), then fallback to variants
+  const filePath = extractParam(innerContent, "path", "file_path", "filePath", "filepath");
+  
+  // Try new schema first: <old_content> and <new_content>
+  let oldStr = extractParamValue(innerContent, "old_content");
+  let newStr = extractParamValue(innerContent, "new_content");
+  
+  // Fallback to legacy schema: <old_str> and <new_str>
+  if (!oldStr) {
+    oldStr = extractParamValue(innerContent, "old_str");
+  }
+  if (!newStr) {
+    newStr = extractParamValue(innerContent, "new_str");
+  }
 
   return {
     file_path: filePath || "",
     old_str: oldStr || "",
     new_str: newStr || "",
-    diff: diff.trim(),
   };
 };

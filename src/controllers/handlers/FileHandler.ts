@@ -72,14 +72,28 @@ export class FileHandler {
     return path.join(this.getContextRoot(), "projects", hash);
   }
 
-  private getDiagnosticsForFile(uri: vscode.Uri): string[] {
+  private getDiagnosticsForFile(uri: vscode.Uri): Array<{
+    severity: string;
+    message: string;
+    line: number;
+    column: number;
+    source?: string;
+    code?: string | number;
+  }> {
     const diagnostics = vscode.languages.getDiagnostics(uri);
     return diagnostics
-      .filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
-      .map(
-        (d) =>
-          `[${d.source || "Error"}] ${d.message} (Line ${d.range.start.line + 1})`,
-      );
+      .filter((d) => 
+        d.severity === vscode.DiagnosticSeverity.Error || 
+        d.severity === vscode.DiagnosticSeverity.Warning
+      )
+      .map((d) => ({
+        severity: d.severity === vscode.DiagnosticSeverity.Error ? 'error' : 'warning',
+        message: d.message,
+        line: d.range.start.line + 1, // 1-indexed for display
+        column: d.range.start.character + 1, // 1-indexed for display
+        source: d.source,
+        code: d.code ? (typeof d.code === 'object' ? d.code.value : d.code) : undefined,
+      }));
   }
 
   public async handleReadFile(message: any, webviewView: vscode.WebviewView) {
@@ -303,7 +317,9 @@ export class FileHandler {
 
     logger.info(`[replace_in_file] Start`, {
       path: pathValue,
-      diffLength: message.diff?.length,
+      hasOldStr: !!message.old_str,
+      hasNewStr: !!message.new_str,
+      hasDiff: !!message.diff,
       requestId: message.requestId,
     });
 
@@ -359,27 +375,55 @@ export class FileHandler {
         }
       }
 
-      const match = message.diff.match(
-        /<<<<<<< SEARCH\s*\n([\s\S]*?)\n\s*=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
-      );
-      if (!match) {
-        logger.error(`[replace_in_file] Invalid diff format`, {
+      // Support both new schema (old_str/new_str) and legacy schema (diff)
+      let searchArgs: string;
+      let replaceArgs: string;
+
+      if (message.old_str !== undefined && message.new_str !== undefined) {
+        // New schema: direct old_str and new_str
+        const clean = (text: string) =>
+          text.replace(/^```[a-zA-Z]*$/gm, "").trim();
+        searchArgs = clean(message.old_str);
+        replaceArgs = clean(message.new_str);
+        
+        logger.debug(`[replace_in_file] Using new schema (old_str/new_str)`, {
           path: pathValue,
-          diff: message.diff?.substring(0, 200),
+          searchLength: searchArgs.length,
+          replaceLength: replaceArgs.length,
         });
-        throw new Error("Invalid diff format");
+      } else if (message.diff !== undefined && message.diff !== null) {
+        // Legacy schema: parse diff format
+        const match = message.diff.match(
+          /<<<<<<< SEARCH\s*\n([\s\S]*?)\s*=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
+        );
+        if (!match) {
+          logger.error(`[replace_in_file] Invalid diff format`, {
+            path: pathValue,
+            diff: message.diff?.substring(0, 200),
+          });
+          throw new Error("Invalid diff format");
+        }
+
+        const clean = (text: string) =>
+          text.replace(/^```[a-zA-Z]*$/gm, "").trim();
+        searchArgs = clean(match[1]);
+        replaceArgs = clean(match[2]);
+
+        logger.debug(`[replace_in_file] Using legacy schema (diff)`, {
+          path: pathValue,
+          searchLength: searchArgs.length,
+          replaceLength: replaceArgs.length,
+        });
+      } else {
+        logger.error(`[replace_in_file] Missing required parameters`, {
+          path: pathValue,
+          hasOldStr: message.old_str !== undefined,
+          hasNewStr: message.new_str !== undefined,
+          hasDiff: message.diff !== undefined,
+          messageKeys: Object.keys(message),
+        });
+        throw new Error("Missing old_str/new_str or diff parameter");
       }
-
-      const clean = (text: string) =>
-        text.replace(/^```[a-zA-Z]*$/gm, "").trim();
-      const searchArgs = clean(match[1]);
-      const replaceArgs = clean(match[2]);
-
-      logger.debug(`[replace_in_file] Parsed diff`, {
-        path: pathValue,
-        searchLength: searchArgs.length,
-        replaceLength: replaceArgs.length,
-      });
 
       let target = searchArgs;
       if (content.indexOf(searchArgs) === -1) {

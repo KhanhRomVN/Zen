@@ -6,6 +6,7 @@ import type { SystemInfo } from "./system-context";
 import { EXAMPLES } from "./examples";
 import { CONSTRAINTS } from "./constraints";
 import { buildAccessModePrompt } from "./access-mode";
+import { TOOL_VALIDATION } from "./tool-validation";
 
 export { buildIdentityPrompt } from "./identity";
 export { WORKFLOW } from "./workflow";
@@ -21,6 +22,7 @@ export {
   buildPermissionModeTag,
 } from "./reminder";
 export { CONTEXT_COMPRESSION_PROMPT } from "./context-compression";
+export { TOOL_VALIDATION } from "./tool-validation";
 
 interface PromptConfig {
   language: string;
@@ -35,10 +37,11 @@ export const combinePrompts = (config: PromptConfig): string => {
     buildIdentityPrompt(language), // 1. Who I am + top-level rules
     WORKFLOW, // 2. How I work
     CONSTRAINTS, // 3. Critical constraints
-    TOOLS_REFERENCE, // 4. What tools exist + tag usage
-    buildSystemContext(systemInfo), // 5. Environment context
-    ...(permissionMode ? [buildAccessModePrompt(permissionMode)] : []), // 6. Active permission mode
-    EXAMPLES, // 7. Reference patterns
+    TOOL_VALIDATION, // 4. Tool validation & error prevention
+    TOOLS_REFERENCE, // 5. What tools exist + tag usage
+    buildSystemContext(systemInfo), // 6. Environment context
+    ...(permissionMode ? [buildAccessModePrompt(permissionMode)] : []), // 7. Active permission mode
+    EXAMPLES, // 8. Reference patterns
   ];
 
   return sections.join("\n\n---\n\n");

@@ -14,6 +14,7 @@ import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { GrepBlock } from "../blocks/grep/GrepBlock";
 import { getPermissionDecision } from "../../utils/permissionUtils";
+import { ToolOutputs } from "../../types/tool-outputs";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
 // Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
@@ -87,7 +88,7 @@ interface FileToolRendererProps {
   isActiveGroup?: boolean;
   isLastMessage?: boolean;
   isLastItemInList?: boolean;
-  toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  toolOutputs?: ToolOutputs;
   allMessages?: Message[];
   fileStatsMap: Record<string, { lines: number; loading: boolean }>;
   onToolClick: (
@@ -157,12 +158,53 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   }
 
   let diffStats: { added: number; removed: number } | null = null;
-  // replace_in_file diff stats are now handled by ReplaceInFileRenderer
+
+  // Calculate diff stats for replace_in_file
+  if (toolType === "replace_in_file") {
+    // Try legacy diff field first
+    if (action.params.diff) {
+      const stats = parseDiff(action.params.diff).stats;
+      diffStats = { added: stats.added, removed: stats.removed };
+      
+      console.log(`[FileToolRenderer][${actionId}] 📊 Calculated diffStats from diff field:`, {
+        actionId,
+        diff: action.params.diff?.substring(0, 100) + '...',
+        diffStats,
+      });
+    } 
+    // Otherwise calculate from old_str and new_str
+    else if (action.params.old_str && action.params.new_str) {
+      const oldLines = (action.params.old_str || '').split('\n');
+      const newLines = (action.params.new_str || '').split('\n');
+      
+      diffStats = {
+        added: newLines.length,
+        removed: oldLines.length,
+      };
+      
+      console.log(`[FileToolRenderer][${actionId}] 📊 Calculated diffStats from old_str/new_str:`, {
+        actionId,
+        oldStr: action.params.old_str?.substring(0, 100) + '...',
+        newStr: action.params.new_str?.substring(0, 100) + '...',
+        oldLines: oldLines.length,
+        newLines: newLines.length,
+        diffStats,
+      });
+    } else {
+      console.warn(`[FileToolRenderer][${actionId}] ⚠️ replace_in_file missing both diff and old_str/new_str:`, {
+        actionId,
+        params: action.params,
+      });
+    }
+  }
 
   let linesCount =
     action.type === "write_to_file"
       ? action.params.content?.split("\n").length || 0
       : 0;
+
+  // Extract line range info for read_file - will be calculated after isCompleted
+  let lineRangeText: string | null = null;
 
   if (mergedItems && mergedItems.length > 1) {
     let totalAdded = 0,
@@ -185,6 +227,22 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   const isPartial = action.isPartial;
   const isError = !!toolOutputs?.[actionId]?.isError;
   const errorMessage = isError ? toolOutputs?.[actionId]?.output || "" : "";
+
+  // Calculate file count for list_files (must be after isError declaration)
+  let fileCount = 0;
+  if (toolType === "list_files" && codeContent && !isError) {
+    // Parse XML to count files
+    const fileMatches = codeContent.match(/<file\s+/g);
+    const folderMatches = codeContent.match(/<folder\s+/g);
+    fileCount = (fileMatches?.length || 0) + (folderMatches?.length || 0);
+    
+    console.log(`[FileToolRenderer][${actionId}] 📊 Calculated file count for list_files:`, {
+      actionId,
+      fileCount,
+      files: fileMatches?.length || 0,
+      folders: folderMatches?.length || 0,
+    });
+  }
 
   // ─── Thinking content ───────────────────────────────────────────────────────
   // Extract <thinking>...</thinking> or unclosed <thinking>... from the current
@@ -233,6 +291,33 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         : (codeContent && codeContent.trim().length > 0) || !!nextUserMessage)),
   );
 
+  // Calculate lineRangeText after isCompleted is defined
+  if (toolType === "read_file") {
+    const startLine = action.params.start_line || action.params.startLine;
+    const endLine = action.params.end_line || action.params.endLine;
+
+    // Priority 1: If start_line and end_line are specified, show range
+    if (
+      startLine !== undefined &&
+      endLine !== undefined &&
+      startLine > 0 &&
+      endLine > 0
+    ) {
+      lineRangeText = `${startLine} - ${endLine}`;
+    } else if (startLine !== undefined && startLine > 0) {
+      lineRangeText = `${startLine}+`;
+    } else if (endLine !== undefined && endLine > 0) {
+      lineRangeText = `1 - ${endLine}`;
+    } else if (isCompleted) {
+      // Priority 2: If no range specified but tool completed, show "0 - max_line"
+      const output = toolOutputs?.[actionId]?.output || "";
+      if (output && output.trim()) {
+        const outputLineCount = output.split("\n").length;
+        lineRangeText = `0 - ${outputLineCount}`;
+      }
+    }
+  }
+
   // ── Auto-hide completed write/edit tools in approval mode ──
   // After user clicks "Accept" or "Reject", the tool is considered done.
   // Hide the content (buttons, code block) but keep the header visible.
@@ -257,7 +342,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               ? "MOVE"
               : toolType === "replace_in_file"
                 ? "REPLACE"
-                : "READ";
+                : toolType === "write_to_file"
+                  ? "WRITE"
+                  : "READ";
   // For grep tool, we'll render in the main flow with ToolHeader
   const grepCompleted =
     isGrepTool &&
@@ -498,6 +585,65 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               >
                 {displayName}
               </span>
+              {/* Show line range for read_file inline */}
+              {lineRangeText && toolType === "read_file" && (
+                <span
+                  style={{
+                    opacity: 0.5,
+                    fontSize: "10px",
+                    marginLeft: "6px",
+                    fontFamily: "var(--vscode-editor-font-family, monospace)",
+                    color: "var(--vscode-descriptionForeground)",
+                  }}
+                >
+                  {lineRangeText}
+                </span>
+              )}
+              {/* Show diff stats for replace_in_file inline */}
+              {diffStats &&
+                toolType === "replace_in_file" &&
+                (diffStats.added > 0 || diffStats.removed > 0) && (
+                  <span
+                    style={{
+                      display: "flex",
+                      gap: "6px",
+                      alignItems: "center",
+                      fontSize: "11px",
+                      fontWeight: 500,
+                      marginLeft: "6px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color:
+                          "var(--vscode-gitDecoration-addedResourceForeground)",
+                      }}
+                    >
+                      +{diffStats.added}
+                    </span>
+                    <span
+                      style={{
+                        color:
+                          "var(--vscode-gitDecoration-deletedResourceForeground)",
+                      }}
+                    >
+                      -{diffStats.removed}
+                    </span>
+                  </span>
+                )}
+              {/* Show line count for write_to_file inline */}
+              {linesCount > 0 && toolType === "write_to_file" && (
+                <span
+                  style={{
+                    opacity: 0.7,
+                    fontSize: "11px",
+                    marginLeft: "6px",
+                    fontWeight: 500,
+                  }}
+                >
+                  +{linesCount} {linesCount === 1 ? "line" : "lines"}
+                </span>
+              )}
               {isPartial && (
                 <span
                   style={{
@@ -533,19 +679,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   />
                 </span>
               )}
-              {/* diffStats removed — replace_in_file is now handled by ReplaceInFileRenderer */}
-              {linesCount > 0 && (
-                <span
-                  style={{
-                    opacity: 0.7,
-                    fontSize: "11px",
-                    marginLeft: "4px",
-                    fontWeight: 500,
-                  }}
-                >
-                  +{linesCount} lines
-                </span>
-              )}
+
               {isHeaderHovered && (
                 <span
                   onClick={(e) => {
@@ -583,6 +717,48 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               : !!isActiveGroup
                 ? "var(--vscode-descriptionForeground)" // chờ approve → xám, giống chưa tới lượt
                 : "var(--vscode-descriptionForeground)"
+        }
+        isError={isError}
+        isWaitingApproval={!!isActiveGroup && !isCompleted}
+        toolType={toolType}
+        tooltipMeta={(() => {
+          const meta: {
+            lineCount?: number;
+            lineRange?: string;
+            matchCount?: number;
+            fileCount?: number;
+          } = {};
+
+          // Add line count for write_to_file
+          if (linesCount > 0) meta.lineCount = linesCount;
+
+          // Add line range for read_file
+          if (lineRangeText) meta.lineRange = lineRangeText;
+
+          // Add file count for list_files
+          if (toolType === "list_files" && fileCount > 0) {
+            meta.fileCount = fileCount;
+          }
+
+          // Add match/file count for grep
+          if (isGrepTool && isCompleted) {
+            const output = toolOutputs?.[actionId]?.output || "";
+            try {
+              const matchResult = output.match(/total_matches="(\d+)"/);
+              if (matchResult) meta.matchCount = parseInt(matchResult[1], 10);
+              const fileResult = output.match(/files="(\d+)"/);
+              if (fileResult) meta.fileCount = parseInt(fileResult[1], 10);
+            } catch {}
+          }
+
+          return meta;
+        })()}
+        subTitle={
+          toolType === "list_files" && fileCount > 0 && !isError ? (
+            <span>
+              {fileCount} {fileCount === 1 ? "item" : "items"}
+            </span>
+          ) : undefined
         }
         diffStats={undefined}
         isPartial={isPartial}
@@ -628,6 +804,166 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           }}
         >
           {action.rawXml || JSON.stringify(action, null, 2)}
+        </div>
+      )}
+
+      {/* Diagnostics display for read_file */}
+      {toolType === "read_file" && 
+       !isError &&
+       isCompleted && 
+       toolOutputs?.[actionId]?.diagnostics && 
+       toolOutputs[actionId].diagnostics!.length > 0 && (
+        <div
+          style={{
+            marginTop: "8px",
+            marginLeft: "29px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              color: "var(--vscode-editorWarning-foreground, #ffa500)",
+              marginBottom: "4px",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <span className="codicon codicon-warning" style={{ fontSize: "14px" }} />
+            <span>
+              {toolOutputs[actionId].diagnostics!.length}{" "}
+              {toolOutputs[actionId].diagnostics!.length === 1 ? "Problem" : "Problems"} Found
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "2px",
+              maxHeight: "300px",
+              overflowY: "auto",
+              padding: "8px",
+              backgroundColor:
+                "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+              border:
+                "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+              borderRadius: "4px",
+            }}
+          >
+            {toolOutputs[actionId].diagnostics!.map((diagnostic: {
+              severity: string;
+              message: string;
+              line: number;
+              column: number;
+              source?: string;
+              code?: string | number;
+            }, idx: number) => {
+              const isError = diagnostic.severity === "Error";
+              const severityColor = isError
+                ? "var(--vscode-errorForeground, #ff4d4d)"
+                : "var(--vscode-editorWarning-foreground, #ffa500)";
+              const severityIcon = isError ? "error" : "warning";
+              
+              console.log(`[FileToolRenderer][${actionId}] 🔍 Rendering diagnostic ${idx}:`, diagnostic);
+              
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    padding: "6px 8px",
+                    backgroundColor:
+                      "color-mix(in srgb, var(--vscode-editor-background) 50%, transparent)",
+                    borderRadius: "4px",
+                    borderLeft: `3px solid ${severityColor}`,
+                  }}
+                >
+                  <span
+                    className={`codicon codicon-${severityIcon}`}
+                    style={{
+                      fontSize: "14px",
+                      color: severityColor,
+                      marginTop: "2px",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "3px",
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        fontSize: "11px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily:
+                            "var(--vscode-editor-font-family, monospace)",
+                          color: "var(--vscode-descriptionForeground)",
+                          opacity: 0.8,
+                        }}
+                      >
+                        Line {diagnostic.line}:{diagnostic.column}
+                      </span>
+                      {diagnostic.source && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            color: "var(--vscode-descriptionForeground)",
+                            opacity: 0.6,
+                            backgroundColor:
+                              "var(--vscode-badge-background)",
+                            padding: "2px 6px",
+                            borderRadius: "3px",
+                          }}
+                        >
+                          {diagnostic.source}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "var(--vscode-editor-foreground)",
+                        lineHeight: "1.5",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {diagnostic.message}
+                    </div>
+                    {diagnostic.code && (
+                      <div
+                        style={{
+                          fontSize: "10px",
+                          color: "var(--vscode-descriptionForeground)",
+                          opacity: 0.6,
+                          fontFamily:
+                            "var(--vscode-editor-font-family, monospace)",
+                        }}
+                      >
+                        Code: {diagnostic.code}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -815,7 +1151,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         </div>
       )}
 
-      {!shouldHideContent && toolType === "list_files" && codeContent && (
+      {!shouldHideContent && toolType === "list_files" && codeContent && !isError && (
         <>
           {!isCollapsed && (
             <RichtextBlock
@@ -835,7 +1171,33 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           )}
         </>
       )}
-      {/* Streaming preview — replace_in_file is now handled by ReplaceInFileRenderer */}
+      {/* Streaming preview for write_to_file and replace_in_file */}
+      {!shouldHideContent &&
+        !isGrepTool &&
+        isPartial &&
+        (toolType === "write_to_file" || toolType === "replace_in_file") &&
+        (() => {
+          const streamingContent =
+            toolType === "write_to_file"
+              ? action.params.content || ""
+              : toolType === "replace_in_file"
+                ? action.params.diff || action.params.old_str || ""
+                : "";
+
+          // Only show if there's actual content streaming
+          if (!streamingContent || streamingContent.trim().length === 0) {
+            return null;
+          }
+
+          return (
+            <div style={{ marginTop: "8px", marginLeft: "29px" }}>
+              <FileStreamingBlock
+                content={streamingContent}
+                maxHeight={STREAM_BOX_HEIGHT}
+              />
+            </div>
+          );
+        })()}
 
       {/* Grep tool results — rendered inside the main flow with ToolHeader */}
       {isGrepTool && (

@@ -64,7 +64,19 @@ export const useToolExecution = ({
   }>({ total: 0, completed: 0, status: "idle" });
 
   const [toolOutputs, setToolOutputs] = useState<
-    Record<string, { output: string; isError: boolean; terminalId?: string }>
+    Record<string, { 
+      output: string; 
+      isError: boolean; 
+      terminalId?: string;
+      diagnostics?: Array<{
+        severity: string;
+        message: string;
+        line: number;
+        column: number;
+        source?: string;
+        code?: string | number;
+      }>;
+    }>
   >({});
 
   const [terminalStatus, setTerminalStatus] = useState<
@@ -232,6 +244,14 @@ export const useToolExecution = ({
         case "read_file": {
           const requestId = `read-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
+          const actionId = (action as any).actionId;
+          
+          console.log(`[useToolExecution][read_file] 📖 Sending readFile request:`, {
+            actionId,
+            filePath,
+            requestId,
+          });
+          
           extensionService.postMessage({
             command: "readFile",
             path: filePath,
@@ -243,12 +263,46 @@ export const useToolExecution = ({
           messageDispatcher.register(
             requestId,
             (msg) => {
+              console.log(`[useToolExecution][read_file] 📥 Received response:`, {
+                actionId,
+                filePath,
+                requestId,
+                hasError: !!msg.error,
+                hasDiagnostics: !!msg.diagnostics,
+                diagnosticsCount: msg.diagnostics?.length || 0,
+              });
+              
               if (msg.error) {
+                // Store error in toolOutputs without diagnostics
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: `Error - ${msg.error}`,
+                    isError: true,
+                  },
+                }));
                 resolve(
                   `[read_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
                 const content = msg.content || "";
+                
+                // Store output AND diagnostics in toolOutputs
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: content,
+                    isError: false,
+                    diagnostics: msg.diagnostics || undefined,
+                  },
+                }));
+                
+                console.log(`[useToolExecution][read_file] 💾 Stored in toolOutputs:`, {
+                  actionId,
+                  outputLength: content.length,
+                  diagnosticsCount: msg.diagnostics?.length || 0,
+                });
+                
                 resolve(
                   `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}\n\`\`\``,
                 );
@@ -308,7 +362,9 @@ export const useToolExecution = ({
           extensionService.postMessage({
             command: "replaceInFile",
             path: filePath,
-            diff: action.params.diff,
+            old_str: action.params.old_str,
+            new_str: action.params.new_str,
+            diff: action.params.diff, // Legacy support
             requestId,
             skipDiagnostics,
             bypassIgnore,

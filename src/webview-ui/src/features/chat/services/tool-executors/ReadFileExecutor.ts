@@ -11,7 +11,17 @@ const READ_FILE_TIMEOUT_MS = TOOL_TIMEOUTS.read_file || 10000;
 export async function executeReadFile(
   params: ReadFileParams,
   bypassIgnore: boolean = false
-): Promise<string | null> {
+): Promise<{ 
+  output: string; 
+  diagnostics?: Array<{
+    severity: string;
+    message: string;
+    line: number;
+    column: number;
+    source?: string;
+    code?: string | number;
+  }>;
+} | null> {
   return new Promise((resolve) => {
     const requestId = `read-${Date.now()}-${Math.random()}`;
     const filePath = params.path || params.file_path || "";
@@ -29,14 +39,17 @@ export async function executeReadFile(
       requestId,
       (msg) => {
         if (msg.error) {
-          resolve(
-            `[read_file for '${filePath}'] Result: Error - ${msg.error}`,
-          );
+          resolve({
+            output: `[read_file for '${filePath}'] Result: Error - ${msg.error}`,
+          });
         } else {
           const content = msg.content || "";
-          resolve(
-            `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}\n\`\`\``,
-          );
+          const output = `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}\n\`\`\``;
+          
+          resolve({
+            output,
+            diagnostics: msg.diagnostics || undefined,
+          });
         }
       },
       READ_FILE_TIMEOUT_MS,

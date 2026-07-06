@@ -27,8 +27,50 @@ const getToolVariants = (): Record<string, string[]> => {
 };
 
 /**
+ * Get attribute aliases for a specific tool type
+ */
+const getAttributeAliases = (toolType: string): Record<string, string[]> => {
+  return TOOL_REGISTRY[toolType]?.attributeAliases ?? {};
+};
+
+/**
+ * Normalize attribute names within a tool tag's content
+ * Example: <filePath>test.ts</filePath> → <path>test.ts</path>
+ */
+const normalizeAttributesInToolContent = (toolType: string, content: string): string => {
+  const aliases = getAttributeAliases(toolType);
+  if (Object.keys(aliases).length === 0) return content;
+
+  let result = content;
+  
+  for (const [canonical, variants] of Object.entries(aliases)) {
+    if (variants.length === 0) continue;
+    
+    // Escape special regex characters in variants
+    const escaped = variants.map(v => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    
+    // Match opening and closing tags: <variant> and </variant>
+    const pattern = new RegExp(
+      `<(\\/?)(${escaped.join("|")})(\\s[^>]*)?\\s*>`,
+      "gi"
+    );
+    
+    result = result.replace(
+      pattern,
+      (_match, slash: string, _attrName: string, attrs: string | undefined) =>
+        `<${slash}${canonical}${attrs ?? ""}>`
+    );
+  }
+  
+  return result;
+};
+
+/**
  * Normalize all known tag name variants to their canonical forms, and also
  * handle the simple singular-form aliases.
+ * 
+ * CRITICAL: Also normalizes attribute names within tool tags to ensure
+ * parsers can find the expected attribute names (e.g., <filePath> → <path>)
  */
 export const normalizeTagVariants = (content: string): string => {
   let result = content;
@@ -56,6 +98,25 @@ export const normalizeTagVariants = (content: string): string => {
       (_m, slash: string, _tag: string, attrs: string | undefined) =>
         `<${slash}${canonical}${attrs ?? ""}>`,
     );
+  }
+
+  // CRITICAL: Normalize attributes within each tool tag
+  // Process each tool type that has attribute aliases
+  for (const [toolType, def] of Object.entries(TOOL_REGISTRY)) {
+    if (!def.attributeAliases || Object.keys(def.attributeAliases).length === 0) {
+      continue;
+    }
+    
+    // Find all instances of this tool tag and normalize their content
+    const toolPattern = new RegExp(
+      `<${toolType}>([\\s\\S]*?)<\\/${toolType}>`,
+      "gi"
+    );
+    
+    result = result.replace(toolPattern, (match, innerContent: string) => {
+      const normalized = normalizeAttributesInToolContent(toolType, innerContent);
+      return `<${toolType}>${normalized}</${toolType}>`;
+    });
   }
 
   return result;

@@ -1,5 +1,5 @@
 import { findClosingTagPosition } from '../../utils/TagClosingFinder';
-import { getAllToolTypes } from '../../constants/tool-registry';
+import { getExecutableToolTypes } from '../../constants/tool-registry';
 
 /**
  * Thinking content is extracted from the tag content.
@@ -48,11 +48,16 @@ export const extractThinkingBlocks = (
   }
   
   // Tool tags that should NOT have their content scanned for thinking blocks
-  // Auto-generated from Tool Registry (exclude thinking itself, add special tags)
+  // Use EXECUTABLE tools only (excludes UI category: markdown, question, code, thinking)
+  // These are real tool calls that might contain literal <thinking> in their content
   const toolTags = [
-    ...getAllToolTypes().filter(t => t !== 'thinking'), // All tools except thinking
+    ...getExecutableToolTypes().filter(t => t !== 'thinking'), 
     'file', // Special display tag not in registry
   ];
+  
+  if (DEBUG_THINKING) {
+    console.log("[Zen][ThinkingParser] 🔧 Tool tags to skip:", toolTags);
+  }
 
   // Build processed content manually by scanning through
   let processed = '';
@@ -137,7 +142,18 @@ export const extractThinkingBlocks = (
     const thinkingOpenTag = '<thinking>';
     
     if (content.substring(i, i + thinkingOpenTag.length).toLowerCase() === thinkingOpenTag.toLowerCase()) {
-      const thinkingEndIndex = findClosingTagPosition(content, i + thinkingOpenTag.length, '</thinking>');
+      let thinkingEndIndex = findClosingTagPosition(content, i + thinkingOpenTag.length, '</thinking>');
+      
+      // Fallback: if backtick-aware search failed but </thinking> exists, use simple search
+      if (thinkingEndIndex === -1) {
+        const simpleEndIndex = content.toLowerCase().indexOf('</thinking>', i + thinkingOpenTag.length);
+        if (simpleEndIndex !== -1) {
+          if (DEBUG_THINKING) {
+            console.warn("[Zen][ThinkingParser] Fallback to simple indexOf for </thinking>");
+          }
+          thinkingEndIndex = simpleEndIndex;
+        }
+      }
       
       if (thinkingEndIndex !== -1) {
         // Found complete thinking block

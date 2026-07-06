@@ -16,6 +16,7 @@ import TerminalToolRenderer from "./TerminalToolRenderer";
 import GitToolRenderer from "./GitToolRenderer";
 import { ToolHeader } from "./ToolHeader";
 import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
+import { ToolOutputs } from "../../types/tool-outputs";
 
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];

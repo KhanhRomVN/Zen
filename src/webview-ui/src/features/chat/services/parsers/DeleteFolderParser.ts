@@ -1,11 +1,12 @@
-import { extractParamValue } from "../../utils/ToolParser";
+import { extractParam } from "../../utils/ToolParser";
 
 export interface DeleteFolderParams {
   folder_path: string;
 }
 
 export const parseDeleteFolder = (innerContent: string): DeleteFolderParams => {
-  const folderPath = extractParamValue(innerContent, "folder_path");
+  // Try canonical name first (after normalization), then fallback to variants
+  const folderPath = extractParam(innerContent, "path", "folder_path", "folderPath", "directoryPath", "directory_path");
 
   return {
     folder_path: folderPath || "",

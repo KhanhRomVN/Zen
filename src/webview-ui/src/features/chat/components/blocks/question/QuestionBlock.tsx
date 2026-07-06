@@ -61,12 +61,27 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   // Ref to track if we've restored from initialAnswers (prevent re-initialization)
   const hasRestoredRef = useRef(false);
   const logPrefix = useRef(`[Zen][QuestionAnswerBlock]`);
+  
+  // Refs for auto-resizing textareas
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
 
   // Wrapper to keep state and ref in sync
   const setIsSummaryMode = (value: boolean) => {
     isSummaryModeRef.current = value;
     setIsSummaryModeState(value);
   };
+
+  // Auto-resize textareas: expand up to maxHeight (10 lines ~= 240px), shrink when content is deleted
+  useEffect(() => {
+    Object.entries(textareaRefs.current).forEach(([key, el]) => {
+      if (!el) return;
+      // Reset to auto so scrollHeight reflects actual content height
+      el.style.height = "auto";
+      const maxHeight = 240; // px, ~10 lines with 13px font + padding
+      el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+      el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+    });
+  }, [customValues, multiCustomValues, textInputs]);
 
   // Legacy mode: single question with options
   const isLegacyMode = !isPaginated && legacyOptions.length > 0;
@@ -391,6 +406,29 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
       }
     };
 
+    // Handle blur event to save the final value (avoid updating on every keystroke)
+    const handleCustomInputBlur = (value: string) => {
+      if (value.trim()) {
+        const fullValue = `Khác: ${value.trim()}`;
+        const answer: QuestionAnswer = { questionId: q.id, value: fullValue };
+        setAnswers((prev) => ({ ...prev, [q.id]: answer }));
+        setSelectedOptions((prev) => ({ ...prev, [q.id]: fullValue }));
+        onAnswerProp?.(q.id, fullValue);
+      } else {
+        // Clear if empty
+        setAnswers((prev) => {
+          const newState = { ...prev };
+          delete newState[q.id];
+          return newState;
+        });
+        setSelectedOptions((prev) => {
+          const newState = { ...prev };
+          delete newState[q.id];
+          return newState;
+        });
+      }
+    };
+
     // Render the "Khác" input bar (used both for AI-provided and auto-added)
     const renderOtherInput = (
       isSelected: boolean,
@@ -451,16 +489,23 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             }
           }}
         >
-          <input
-            type="text"
+          <textarea
+            ref={(el) => {
+              textareaRefs.current[`single-other-${q.id}`] = el;
+            }}
             value={customValue}
             onChange={(e) => {
+              // Only update local state, do NOT trigger answer updates
               setCustomValues((prev) => ({ ...prev, [q.id]: e.target.value }));
-              updateCustomSelection(e.target.value);
+            }}
+            onBlur={(e) => {
+              // Save answer when user finishes typing (blur)
+              handleCustomInputBlur(e.target.value);
             }}
             onFocus={(e) => e.target.select()}
             placeholder={placeholder}
             disabled={isDisabled}
+            rows={1}
             style={{
               flex: 1,
               padding: "0px",
@@ -472,6 +517,9 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
               fontWeight: isSelected ? 600 : 400,
               fontFamily: "inherit",
               minWidth: "0px",
+              resize: "none",
+              overflowY: "hidden",
+              lineHeight: "1.5",
             }}
           />
         </div>
@@ -584,8 +632,12 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     const originalOptions = q.options || [];
 
     const handleMultiCustomChange = (value: string) => {
+      // Only update local state, do NOT trigger answer updates on every keystroke
       setMultiCustomValues((prev) => ({ ...prev, [q.id]: value }));
-      // Only update selectedOptions with the custom value, do NOT auto-save answers
+    };
+
+    // Handle blur to save the final multi-choice custom value
+    const handleMultiCustomBlur = (value: string) => {
       if (value.trim()) {
         const fullValue = `Khác: ${value.trim()}`;
         // Remove all previous "Khác" entries
@@ -695,19 +747,23 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                 opacity: hasKhacSelected ? 1 : 0.4,
               }}
             />
-            <input
-              type="text"
+            <textarea
+              ref={(el) => {
+                textareaRefs.current[`multi-other-${q.id}`] = el;
+              }}
               value={multiCustomValue}
               onChange={(e) => {
-                setMultiCustomValues((prev) => ({
-                  ...prev,
-                  [q.id]: e.target.value,
-                }));
+                // Only update local state
                 handleMultiCustomChange(e.target.value);
+              }}
+              onBlur={(e) => {
+                // Save to selectedOptions when user finishes typing
+                handleMultiCustomBlur(e.target.value);
               }}
               onFocus={(e) => e.target.select()}
               placeholder="Khác (ý kiến của bạn)"
               disabled={isDisabled}
+              rows={1}
               style={{
                 flex: 1,
                 padding: "2px 8px",
@@ -718,6 +774,9 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                 fontSize: "13px",
                 fontFamily: "inherit",
                 minWidth: "60px",
+                resize: "none",
+                overflowY: "hidden",
+                lineHeight: "1.5",
               }}
             />
           </div>
@@ -734,6 +793,9 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         <textarea
+          ref={(el) => {
+            textareaRefs.current[`text-${q.id}`] = el;
+          }}
           value={value}
           onChange={(e) =>
             setTextInputs({ ...textInputs, [q.id]: e.target.value })
@@ -741,9 +803,11 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
           onKeyDown={handleKeyDown}
           placeholder="Nhập câu trả lời của bạn..."
           disabled={isDisabled || isAnswered}
+          rows={3}
           style={{
             width: "100%",
-            minHeight: "80px",
+            minHeight: "60px",
+            maxHeight: "240px",
             backgroundColor: "var(--vscode-input-background)",
             color: "var(--vscode-input-foreground)",
             border: "1px solid var(--vscode-input-border)",
@@ -751,8 +815,10 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             padding: "8px",
             fontSize: "13px",
             fontFamily: "inherit",
-            resize: "vertical",
+            resize: "none",
             outline: "none",
+            overflowY: "auto",
+            lineHeight: "1.5",
           }}
         />
         {/* No submit button - use Enter key or navigation buttons to submit */}
@@ -888,16 +954,19 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             }
           }}
         >
-          <input
-            type="text"
+          <textarea
+            ref={(el) => {
+              textareaRefs.current[`confirm-other-${q.id}`] = el;
+            }}
             value={customValue}
             onChange={(e) => {
-              setCustomValues((prev) => ({ ...prev, [q.id]: e.target.value }));
+              // Only update local state
               updateCustomSelection(e.target.value);
             }}
             onFocus={(e) => e.target.select()}
             placeholder="Ý kiến khác..."
             disabled={isDisabled}
+            rows={1}
             style={{
               flex: 1,
               padding: "0px",
@@ -909,6 +978,9 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
               fontWeight: customValue.trim() ? 600 : 400,
               fontFamily: "inherit",
               minWidth: "0px",
+              resize: "none",
+              overflowY: "hidden",
+              lineHeight: "1.5",
             }}
           />
         </div>

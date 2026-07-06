@@ -28,6 +28,9 @@ export interface ToolDefinition<TParams = any> {
     showFileStats?: boolean; // Show line count for file operations
     validateFuzzyMatch?: boolean; // Validate diff before apply
   };
+
+  // Attribute normalization (NEW)
+  attributeAliases?: Record<string, string[]>; // Map canonical name -> variants
 }
 
 // ============= TOOL REGISTRY =============
@@ -54,6 +57,9 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     tags: ["file", "io"],
     features: {
       showFileStats: true, // Show line count in UI
+    },
+    attributeAliases: {
+      path: ["filePath", "file_path", "FilePath", "File_Path", "FILE_PATH", "filepath"],
     },
   },
 
@@ -85,6 +91,9 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     features: {
       showFileStats: true, // Show line count in UI
     },
+    attributeAliases: {
+      path: ["filePath", "file_path", "FilePath", "File_Path", "FILE_PATH", "filepath"],
+    },
   },
 
   replace_in_file: {
@@ -115,6 +124,9 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     features: {
       validateFuzzyMatch: true, // Validate diff before apply
     },
+    attributeAliases: {
+      path: ["filePath", "file_path", "FilePath", "File_Path", "FILE_PATH", "filepath"],
+    },
   },
 
   list_files: {
@@ -139,6 +151,9 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     defaultPermission: "prompt",
     timeout: 10000,
     tags: ["file", "directory"],
+    attributeAliases: {
+      path: ["dirPath", "dir_path", "DirPath", "Dir_Path", "DIR_PATH", "directoryPath", "directory_path"],
+    },
   },
 
   grep: {
@@ -174,6 +189,9 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     defaultPermission: "prompt",
     timeout: 10000,
     tags: ["file", "destructive"],
+    attributeAliases: {
+      path: ["filePath", "file_path", "FilePath", "File_Path", "FILE_PATH", "filepath"],
+    },
   },
 
   delete_folder: {
@@ -196,6 +214,9 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     defaultPermission: "prompt",
     timeout: 10000,
     tags: ["directory", "destructive"],
+    attributeAliases: {
+      path: ["folderPath", "folder_path", "FolderPath", "Folder_Path", "FOLDER_PATH", "directoryPath", "directory_path"],
+    },
   },
 
   move_file: {
@@ -218,6 +239,10 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     defaultPermission: "prompt",
     timeout: 10000,
     tags: ["file", "io"],
+    attributeAliases: {
+      source: ["sourcePath", "source_path", "SourcePath", "Source_Path", "SOURCE_PATH", "from", "oldPath", "old_path"],
+      destination: ["destPath", "dest_path", "DestPath", "Dest_Path", "DEST_PATH", "to", "newPath", "new_path"],
+    },
   },
 
   run_command: {
@@ -240,6 +265,9 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     defaultPermission: "prompt",
     timeout: 30000,
     tags: ["command", "shell"],
+    attributeAliases: {
+      command: ["cmd", "Command", "CMD", "commandText", "command_text"],
+    },
   },
 
   git_status: {
