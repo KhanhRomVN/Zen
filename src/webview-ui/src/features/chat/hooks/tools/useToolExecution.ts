@@ -346,6 +346,7 @@ export const useToolExecution = ({
         case "write_to_file": {
           const requestId = `write-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
+          const actionId = action.actionId;
           extensionService.postMessage({
             command: "writeFile",
             path: filePath,
@@ -354,7 +355,7 @@ export const useToolExecution = ({
             skipDiagnostics,
             bypassIgnore,
             conversationId: conversationIdRef?.current,
-            actionId: action.actionId,
+            actionId: actionId,
           });
           messageDispatcher.register(
             requestId,
@@ -365,6 +366,14 @@ export const useToolExecution = ({
                   filePath,
                   error: msg.error,
                 });
+                // Store error in toolOutputs
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: `Error - ${msg.error}`,
+                    isError: true,
+                  },
+                }));
                 resolve(
                   `[write_to_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
@@ -373,10 +382,6 @@ export const useToolExecution = ({
 
                 // Add diagnostics if any
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
-                  console.log(
-                    `[write_to_file] ✅ Processing ${msg.diagnostics.length} diagnostics`,
-                  );
-
                   const errorCount = msg.diagnostics.filter(
                     (d: any) =>
                       d.severity === "Error" || d.severity === "error",
@@ -385,6 +390,13 @@ export const useToolExecution = ({
                     (d: any) =>
                       d.severity === "Warning" || d.severity === "warning",
                   ).length;
+                  
+                  // Use setTimeout to ensure console.log doesn't get batched/throttled in parallel calls
+                  setTimeout(() => {
+                    console.log(
+                      `[write_to_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
+                    );
+                  }, 0);
 
                   // Change format: move summary inline with success message
                   result = `[write_to_file for '${filePath}'] Result: File written successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
@@ -419,10 +431,22 @@ export const useToolExecution = ({
                     });
                   }
                 } else {
-                  console.log(
-                    `[write_to_file] ℹ️ No diagnostics found for ${filePath}`,
-                  );
+                  setTimeout(() => {
+                    console.log(
+                      `[write_to_file] ℹ️ No diagnostics found for ${filePath}`,
+                    );
+                  }, 0);
                 }
+
+                // Store output AND diagnostics in toolOutputs (same as read_file)
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: action.params.content,
+                    isError: false,
+                    diagnostics: msg.diagnostics || undefined,
+                  },
+                }));
 
                 resolve(result);
               }
@@ -438,6 +462,7 @@ export const useToolExecution = ({
         case "replace_in_file": {
           const requestId = `replace-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
+          const actionId = action.actionId;
           extensionService.postMessage({
             command: "replaceInFile",
             path: filePath,
@@ -448,7 +473,7 @@ export const useToolExecution = ({
             skipDiagnostics,
             bypassIgnore,
             conversationId: conversationIdRef?.current,
-            actionId: action.actionId,
+            actionId: actionId,
           });
           messageDispatcher.register(
             requestId,
@@ -459,6 +484,14 @@ export const useToolExecution = ({
                   filePath,
                   error: msg.error,
                 });
+                // Store error in toolOutputs
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: `Error - ${msg.error}`,
+                    isError: true,
+                  },
+                }));
                 resolve(
                   `[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
@@ -467,10 +500,6 @@ export const useToolExecution = ({
 
                 // Add diagnostics if any
                 if (msg.diagnostics && msg.diagnostics.length > 0) {
-                  console.log(
-                    `[replace_in_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
-                  );
-
                   const errorCount = msg.diagnostics.filter(
                     (d: any) =>
                       d.severity === "Error" || d.severity === "error",
@@ -479,6 +508,13 @@ export const useToolExecution = ({
                     (d: any) =>
                       d.severity === "Warning" || d.severity === "warning",
                   ).length;
+                  
+                  // Use setTimeout to ensure console.log doesn't get batched/throttled in parallel calls
+                  setTimeout(() => {
+                    console.log(
+                      `[replace_in_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
+                    );
+                  }, 0);
 
                   // Change format: move summary inline with success message
                   result = `[replace_in_file for '${filePath}'] Result: File updated successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
@@ -518,15 +554,29 @@ export const useToolExecution = ({
                   }
                 } else if (msg.diagnostics !== undefined) {
                   // diagnostics field exists but is empty array
-                  console.log(
-                    `[replace_in_file] ℹ️ No diagnostics found for ${filePath} (checked: ${msg.diagnostics.length} items)`,
-                  );
+                  setTimeout(() => {
+                    console.log(
+                      `[replace_in_file] ℹ️ No diagnostics found for ${filePath} (checked: ${msg.diagnostics.length} items)`,
+                    );
+                  }, 0);
                 } else {
                   // diagnostics field doesn't exist
-                  console.log(
-                    `[replace_in_file] ⚠️ No diagnostics field in response for ${filePath}`,
-                  );
+                  setTimeout(() => {
+                    console.log(
+                      `[replace_in_file] ⚠️ No diagnostics field in response for ${filePath}`,
+                    );
+                  }, 0);
                 }
+
+                // Store output AND diagnostics in toolOutputs (same as read_file)
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: msg.content || action.params.new_str || "",
+                    isError: false,
+                    diagnostics: msg.diagnostics || undefined,
+                  },
+                }));
 
                 resolve(result);
               }

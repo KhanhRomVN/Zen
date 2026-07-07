@@ -300,26 +300,26 @@ export class FileHandler {
 
         // Wait for diagnostics from language server with event-based approach
         await new Promise<void>((resolve) => {
-          const maxTimeout = 10000; // 10 seconds maximum wait
-          const minTimeout = 1500; // Increased from 500ms to 1.5s for batch operations
+          const maxTimeout = 30000; // 30 seconds safety timeout
           const stableWaitTime = 800; // Wait 800ms of no new diagnostic events before considering "stable"
           const startTime = Date.now();
           
           let lastDiagnosticEventTime = Date.now();
           let diagnosticStableTimeout: NodeJS.Timeout | null = null;
+          let hasReceivedEvent = false; // Track if we've received at least one event
 
-          logger.info(`[write_to_file] ⏳ Starting diagnostics wait`, {
+          logger.info(`[write_to_file] ⏳ Starting diagnostics wait (event-driven)`, {
             path: pathValue,
             maxTimeout,
-            minTimeout,
             stableWaitTime,
           });
 
           const timeoutHandle = setTimeout(() => {
             const elapsedTime = Date.now() - startTime;
-            logger.warn(`[write_to_file] ⏱️ Max timeout reached`, {
+            logger.warn(`[write_to_file] ⏱️ Safety timeout reached`, {
               path: pathValue,
               elapsedTime,
+              hasReceivedEvent,
             });
             if (diagnosticStableTimeout) {
               clearTimeout(diagnosticStableTimeout);
@@ -328,30 +328,6 @@ export class FileHandler {
             resolve();
           }, maxTimeout);
 
-          // Resolve after minimum timeout if we have diagnostics
-          const minTimeoutHandle = setTimeout(() => {
-            const currentDiagnostics = this.getDiagnosticsForFile(absolutePath);
-            const elapsedTime = Date.now() - startTime;
-            logger.info(`[write_to_file] 🕐 Min timeout check`, {
-              path: pathValue,
-              elapsedTime,
-              diagnosticsCount: currentDiagnostics.length,
-            });
-            if (currentDiagnostics.length > 0) {
-              clearTimeout(timeoutHandle);
-              if (diagnosticStableTimeout) {
-                clearTimeout(diagnosticStableTimeout);
-              }
-              disposable?.dispose();
-              logger.info(`[write_to_file] ✅ Early resolve with diagnostics`, {
-                path: pathValue,
-                elapsedTime,
-                diagnosticsCount: currentDiagnostics.length,
-              });
-              resolve();
-            }
-          }, minTimeout);
-
           const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
             const affectedPaths = e.uris.map(uri => uri.fsPath);
             const isOurFile = e.uris.some((uri) => uri.fsPath === absolutePath.fsPath);
@@ -359,6 +335,7 @@ export class FileHandler {
             if (isOurFile) {
               const elapsedTime = Date.now() - startTime;
               lastDiagnosticEventTime = Date.now();
+              hasReceivedEvent = true;
               
               // Clear any existing stable timeout
               if (diagnosticStableTimeout) {
@@ -378,7 +355,6 @@ export class FileHandler {
                 const finalDiagnostics = this.getDiagnosticsForFile(absolutePath);
                 const finalElapsedTime = Date.now() - startTime;
                 clearTimeout(timeoutHandle);
-                clearTimeout(minTimeoutHandle);
                 disposable.dispose();
                 logger.info(`[write_to_file] ✅ Diagnostics stable, resolving`, {
                   path: pathValue,
@@ -635,26 +611,26 @@ export class FileHandler {
 
       // Wait for diagnostics from language server with event-based approach
       await new Promise<void>((resolve) => {
-        const maxTimeout = 10000; // 10 seconds maximum wait
-        const minTimeout = 1500; // Increased from 500ms to 1.5s for batch operations
+        const maxTimeout = 30000; // 30 seconds safety timeout
         const stableWaitTime = 800; // Wait 800ms of no new diagnostic events before considering "stable"
         const startTime = Date.now();
         
         let lastDiagnosticEventTime = Date.now();
         let diagnosticStableTimeout: NodeJS.Timeout | null = null;
+        let hasReceivedEvent = false; // Track if we've received at least one event
 
-        logger.info(`[replace_in_file] ⏳ Starting diagnostics wait`, {
+        logger.info(`[replace_in_file] ⏳ Starting diagnostics wait (event-driven)`, {
           path: pathValue,
           maxTimeout,
-          minTimeout,
           stableWaitTime,
         });
 
         const timeoutHandle = setTimeout(() => {
           const elapsedTime = Date.now() - startTime;
-          logger.warn(`[replace_in_file] ⏱️ Max timeout reached`, {
+          logger.warn(`[replace_in_file] ⏱️ Safety timeout reached`, {
             path: pathValue,
             elapsedTime,
+            hasReceivedEvent,
           });
           if (diagnosticStableTimeout) {
             clearTimeout(diagnosticStableTimeout);
@@ -663,30 +639,6 @@ export class FileHandler {
           resolve();
         }, maxTimeout);
 
-        // Resolve after minimum timeout if we have diagnostics
-        const minTimeoutHandle = setTimeout(() => {
-          const currentDiagnostics = this.getDiagnosticsForFile(absPath);
-          const elapsedTime = Date.now() - startTime;
-          logger.info(`[replace_in_file] 🕐 Min timeout check`, {
-            path: pathValue,
-            elapsedTime,
-            diagnosticsCount: currentDiagnostics.length,
-          });
-          if (currentDiagnostics.length > 0) {
-            clearTimeout(timeoutHandle);
-            if (diagnosticStableTimeout) {
-              clearTimeout(diagnosticStableTimeout);
-            }
-            disposable?.dispose();
-            logger.info(`[replace_in_file] ✅ Early resolve with diagnostics`, {
-              path: pathValue,
-              elapsedTime,
-              diagnosticsCount: currentDiagnostics.length,
-            });
-            resolve();
-          }
-        }, minTimeout);
-
         const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
           const affectedPaths = e.uris.map(uri => uri.fsPath);
           const isOurFile = e.uris.some((uri) => uri.fsPath === absPath.fsPath);
@@ -694,6 +646,7 @@ export class FileHandler {
           if (isOurFile) {
             const elapsedTime = Date.now() - startTime;
             lastDiagnosticEventTime = Date.now();
+            hasReceivedEvent = true;
             
             // Clear any existing stable timeout
             if (diagnosticStableTimeout) {
@@ -713,7 +666,6 @@ export class FileHandler {
               const finalDiagnostics = this.getDiagnosticsForFile(absPath);
               const finalElapsedTime = Date.now() - startTime;
               clearTimeout(timeoutHandle);
-              clearTimeout(minTimeoutHandle);
               disposable.dispose();
               logger.info(`[replace_in_file] ✅ Diagnostics stable, resolving`, {
                 path: pathValue,
