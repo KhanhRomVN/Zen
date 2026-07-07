@@ -147,6 +147,14 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
 
     const errors = diagnostics.filter((d) => d.severity === "Error").length;
     const warnings = diagnostics.filter((d) => d.severity === "Warning").length;
+    
+    // Debug log to check what ToolHeader received
+    if (diagnostics.length > 0) {
+      setTimeout(() => {
+        console.log(`[ToolHeader][${path}] 📊 Received ${diagnostics.length} diagnostics, counted ${errors} errors, ${warnings} warnings`);
+      }, 0);
+    }
+    
     return { errors, warnings };
   }, [diagnostics, toolType, path]);
 

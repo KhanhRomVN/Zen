@@ -295,7 +295,12 @@ export class FileHandler {
 
       if (!message.skipDiagnostics) {
         try {
-          await vscode.workspace.openTextDocument(absolutePath);
+          const doc = await vscode.workspace.openTextDocument(absolutePath);
+          // Show document in editor to trigger language server analysis
+          await vscode.window.showTextDocument(doc, {
+            preview: false,
+            preserveFocus: true, // Don't steal focus from webview
+          });
         } catch {}
 
         // Wait for diagnostics from language server with event-based approach

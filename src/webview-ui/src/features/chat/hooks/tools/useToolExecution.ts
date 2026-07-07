@@ -569,14 +569,27 @@ export const useToolExecution = ({
                 }
 
                 // Store output AND diagnostics in toolOutputs (same as read_file)
-                setToolOutputs((prev) => ({
-                  ...prev,
-                  [actionId]: {
+                setToolOutputs((prev) => {
+                  const newOutput = {
                     output: msg.content || action.params.new_str || "",
                     isError: false,
                     diagnostics: msg.diagnostics || undefined,
-                  },
-                }));
+                  };
+                  
+                  // Debug log
+                  setTimeout(() => {
+                    console.log(`[replace_in_file] 💾 Saving to toolOutputs[${actionId}]:`, {
+                      hasDiagnostics: !!newOutput.diagnostics,
+                      diagnosticsCount: newOutput.diagnostics?.length || 0,
+                      diagnostics: newOutput.diagnostics,
+                    });
+                  }, 0);
+                  
+                  return {
+                    ...prev,
+                    [actionId]: newOutput,
+                  };
+                });
 
                 resolve(result);
               }
@@ -1059,14 +1072,19 @@ export const useToolExecution = ({
           // because the Raw Terminal Logs are already being updated in real-time by terminalOutput/commandExecuted events.
           // Overwriting here would inject the "Output: [run_command...]" header and backticks into the TerminalBlock UI.
           if (action.type !== "run_command") {
-            setToolOutputs((prev) => ({
-              ...prev,
-              [actionId]: {
-                output: cleanOutput,
-                isError,
-                terminalId: (action as any).params?.terminal_id,
-              },
-            }));
+            setToolOutputs((prev) => {
+              const existing = prev[actionId];
+              return {
+                ...prev,
+                [actionId]: {
+                  output: cleanOutput,
+                  isError,
+                  terminalId: (action as any).params?.terminal_id,
+                  // CRITICAL: Preserve diagnostics if they were set earlier
+                  diagnostics: existing?.diagnostics,
+                },
+              };
+            });
           } else {
           }
 

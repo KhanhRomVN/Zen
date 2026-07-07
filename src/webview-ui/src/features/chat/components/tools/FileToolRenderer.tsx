@@ -299,6 +299,19 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
       isCompleted &&
       !isPartial;
 
+    // Debug: log condition check
+    setTimeout(() => {
+      console.log(`[FileToolRenderer][${rawPath}] 🔍 Diagnostic check:`, {
+        toolType,
+        isCompleted,
+        isPartial,
+        shouldGetDiagnostics,
+        hasToolOutputs: !!toolOutputs,
+        actionId,
+        diagnosticsInToolOutputs: toolOutputs?.[actionId]?.diagnostics,
+      });
+    }, 0);
+
     if (!shouldGetDiagnostics) return undefined;
 
     // Get diagnostics from toolOutputs - this is the ONLY source
@@ -306,7 +319,14 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
     // If toolOutputs doesn't have diagnostics field at all, return undefined
     // (meaning backend hasn't sent diagnostics yet or tool doesn't support it)
-    if (!toolOutputDiagnostics) return undefined;
+    if (!toolOutputDiagnostics) {
+      setTimeout(() => {
+        console.log(`[FileToolRenderer][${rawPath}] ⚠️ No diagnostics in toolOutputs for actionId: ${actionId}`);
+        console.log(`[FileToolRenderer][${rawPath}] 🔎 toolOutputs keys:`, Object.keys(toolOutputs || {}));
+        console.log(`[FileToolRenderer][${rawPath}] 🔎 toolOutputs[${actionId}]:`, toolOutputs?.[actionId]);
+      }, 0);
+      return undefined;
+    }
 
     // Normalize severity to match ToolHeader expectations (capital first letter)
     const normalized = toolOutputDiagnostics.map((d) => {
@@ -323,8 +343,14 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
       };
     });
 
-    return normalized.length > 0 ? normalized : undefined;
-  }, [toolOutputs, actionId, toolType, isCompleted, isPartial]);
+    // Debug log to check what's being passed to ToolHeader
+    setTimeout(() => {
+      console.log(`[FileToolRenderer][${rawPath}] 🎯 Passing ${normalized.length} diagnostics to ToolHeader:`, normalized);
+    }, 0);
+
+    // Always return normalized array, even if empty (empty array means no diagnostics, undefined means not loaded yet)
+    return normalized;
+  }, [toolOutputs, actionId, toolType, isCompleted, isPartial, rawPath]);
 
   // Fetch diagnostics directly from extension for read_file, write_to_file, replace_in_file
   React.useEffect(() => {
@@ -1063,174 +1089,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         </div>
       )}
 
-      {/* Diagnostics display for read_file */}
-      {toolType === "read_file" &&
-        !isError &&
-        isCompleted &&
-        toolOutputs?.[actionId]?.diagnostics &&
-        toolOutputs[actionId].diagnostics!.length > 0 && (
-          <div
-            style={{
-              marginTop: "8px",
-              marginLeft: "29px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "4px",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "11px",
-                fontWeight: 600,
-                color: "var(--vscode-editorWarning-foreground, #ffa500)",
-                marginBottom: "4px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-              }}
-            >
-              <span
-                className="codicon codicon-warning"
-                style={{ fontSize: "14px" }}
-              />
-              <span>
-                {toolOutputs[actionId].diagnostics!.length}{" "}
-                {toolOutputs[actionId].diagnostics!.length === 1
-                  ? "Problem"
-                  : "Problems"}{" "}
-                Found
-              </span>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "2px",
-                maxHeight: "300px",
-                overflowY: "auto",
-                padding: "8px",
-                backgroundColor:
-                  "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-                border:
-                  "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-                borderRadius: "4px",
-              }}
-            >
-              {toolOutputs[actionId].diagnostics!.map(
-                (
-                  diagnostic: {
-                    severity: string;
-                    message: string;
-                    line: number;
-                    column: number;
-                    source?: string;
-                    code?: string | number;
-                  },
-                  idx: number,
-                ) => {
-                  const isError = diagnostic.severity === "Error";
-                  const severityColor = isError
-                    ? "var(--vscode-errorForeground, #ff4d4d)"
-                    : "var(--vscode-editorWarning-foreground, #ffa500)";
-                  const severityIcon = isError ? "error" : "warning";
 
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: "8px",
-                        padding: "6px 8px",
-                        backgroundColor:
-                          "color-mix(in srgb, var(--vscode-editor-background) 50%, transparent)",
-                        borderRadius: "4px",
-                        borderLeft: `3px solid ${severityColor}`,
-                      }}
-                    >
-                      <span
-                        className={`codicon codicon-${severityIcon}`}
-                        style={{
-                          fontSize: "14px",
-                          color: severityColor,
-                          marginTop: "2px",
-                          flexShrink: 0,
-                        }}
-                      />
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "3px",
-                          flex: 1,
-                          minWidth: 0,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            fontSize: "11px",
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontFamily:
-                                "var(--vscode-editor-font-family, monospace)",
-                              color: "var(--vscode-descriptionForeground)",
-                              opacity: 0.8,
-                            }}
-                          >
-                            Line {diagnostic.line}:{diagnostic.column}
-                          </span>
-                          {diagnostic.source && (
-                            <span
-                              style={{
-                                fontSize: "10px",
-                                color: "var(--vscode-descriptionForeground)",
-                                opacity: 0.6,
-                                backgroundColor:
-                                  "var(--vscode-badge-background)",
-                                padding: "2px 6px",
-                                borderRadius: "3px",
-                              }}
-                            >
-                              {diagnostic.source}
-                            </span>
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--vscode-editor-foreground)",
-                            lineHeight: "1.5",
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          {diagnostic.message}
-                        </div>
-                        {diagnostic.code && (
-                          <div
-                            style={{
-                              fontSize: "10px",
-                              color: "var(--vscode-descriptionForeground)",
-                              opacity: 0.6,
-                              fontFamily:
-                                "var(--vscode-editor-font-family, monospace)",
-                            }}
-                          >
-                            Code: {diagnostic.code}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                },
-              )}
-            </div>
-          </div>
-        )}
 
       {/* Single-line review UI for write_to_file with content crammed into 1 line */}
       {!shouldHideContent &&
