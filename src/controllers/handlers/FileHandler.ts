@@ -105,6 +105,23 @@ export class FileHandler {
     return filtered;
   }
 
+  private getDiagnosticCountForFile(uri: vscode.Uri): {
+    errorCount: number;
+    warningCount: number;
+  } {
+    const diagnostics = vscode.languages.getDiagnostics(uri);
+
+    const errorCount = diagnostics.filter(
+      (d) => d.severity === vscode.DiagnosticSeverity.Error,
+    ).length;
+
+    const warningCount = diagnostics.filter(
+      (d) => d.severity === vscode.DiagnosticSeverity.Warning,
+    ).length;
+
+    return { errorCount, warningCount };
+  }
+
   public async handleReadFile(message: any, webviewView: vscode.WebviewView) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -283,54 +300,133 @@ export class FileHandler {
 
         // Wait for diagnostics from language server with event-based approach
         await new Promise<void>((resolve) => {
-          const maxTimeout = 3000; // 3 seconds maximum wait
-          const minTimeout = 500; // Minimum 500ms wait for language server to start
+          const maxTimeout = 10000; // 10 seconds maximum wait
+          const minTimeout = 1500; // Increased from 500ms to 1.5s for batch operations
+          const stableWaitTime = 800; // Wait 800ms of no new diagnostic events before considering "stable"
+          const startTime = Date.now();
+          
+          let lastDiagnosticEventTime = Date.now();
+          let diagnosticStableTimeout: NodeJS.Timeout | null = null;
+
+          logger.info(`[write_to_file] ⏳ Starting diagnostics wait`, {
+            path: pathValue,
+            maxTimeout,
+            minTimeout,
+            stableWaitTime,
+          });
 
           const timeoutHandle = setTimeout(() => {
+            const elapsedTime = Date.now() - startTime;
+            logger.warn(`[write_to_file] ⏱️ Max timeout reached`, {
+              path: pathValue,
+              elapsedTime,
+            });
+            if (diagnosticStableTimeout) {
+              clearTimeout(diagnosticStableTimeout);
+            }
             disposable?.dispose();
             resolve();
           }, maxTimeout);
 
-          // Also resolve after minimum timeout if no diagnostics appear
+          // Resolve after minimum timeout if we have diagnostics
           const minTimeoutHandle = setTimeout(() => {
             const currentDiagnostics = this.getDiagnosticsForFile(absolutePath);
+            const elapsedTime = Date.now() - startTime;
+            logger.info(`[write_to_file] 🕐 Min timeout check`, {
+              path: pathValue,
+              elapsedTime,
+              diagnosticsCount: currentDiagnostics.length,
+            });
             if (currentDiagnostics.length > 0) {
               clearTimeout(timeoutHandle);
+              if (diagnosticStableTimeout) {
+                clearTimeout(diagnosticStableTimeout);
+              }
               disposable?.dispose();
+              logger.info(`[write_to_file] ✅ Early resolve with diagnostics`, {
+                path: pathValue,
+                elapsedTime,
+                diagnosticsCount: currentDiagnostics.length,
+              });
               resolve();
             }
           }, minTimeout);
 
           const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-            if (e.uris.some((uri) => uri.fsPath === absolutePath.fsPath)) {
-              clearTimeout(timeoutHandle);
-              clearTimeout(minTimeoutHandle);
-              disposable.dispose();
-              resolve();
+            const affectedPaths = e.uris.map(uri => uri.fsPath);
+            const isOurFile = e.uris.some((uri) => uri.fsPath === absolutePath.fsPath);
+            
+            if (isOurFile) {
+              const elapsedTime = Date.now() - startTime;
+              lastDiagnosticEventTime = Date.now();
+              
+              // Clear any existing stable timeout
+              if (diagnosticStableTimeout) {
+                clearTimeout(diagnosticStableTimeout);
+              }
+              
+              const currentDiagnostics = this.getDiagnosticsForFile(absolutePath);
+              logger.info(`[write_to_file] 🔔 Diagnostics event received`, {
+                path: pathValue,
+                elapsedTime,
+                diagnosticsCount: currentDiagnostics.length,
+                affectedPaths,
+              });
+              
+              // Wait for diagnostics to become stable (no new events for stableWaitTime)
+              diagnosticStableTimeout = setTimeout(() => {
+                const finalDiagnostics = this.getDiagnosticsForFile(absolutePath);
+                const finalElapsedTime = Date.now() - startTime;
+                clearTimeout(timeoutHandle);
+                clearTimeout(minTimeoutHandle);
+                disposable.dispose();
+                logger.info(`[write_to_file] ✅ Diagnostics stable, resolving`, {
+                  path: pathValue,
+                  elapsedTime: finalElapsedTime,
+                  diagnosticsCount: finalDiagnostics.length,
+                  timeSinceLastEvent: Date.now() - lastDiagnosticEventTime,
+                });
+                resolve();
+              }, stableWaitTime);
             }
           });
         });
 
         const diagnostics = this.getDiagnosticsForFile(absolutePath);
+        logger.info(`[write_to_file] 📊 Final diagnostics collection`, {
+          path: pathValue,
+          diagnosticsCount: diagnostics.length,
+          hasDiagnostics: diagnostics.length > 0,
+        });
+        
         if (diagnostics.length) {
           logger.warn(`[write_to_file] Diagnostics found`, {
             path: pathValue,
             count: diagnostics.length,
+            diagnostics: diagnostics.map(d => ({
+              severity: d.severity,
+              line: d.line,
+              message: d.message.substring(0, 100),
+            })),
           });
         }
+        
+        // ALWAYS send diagnostics field (even if empty) for consistency
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,
           path: pathValue,
           success: true,
-          diagnostics: diagnostics.length ? diagnostics : undefined,
+          diagnostics: diagnostics, // Always include, even if empty array
         });
       } else {
+        // When skipping diagnostics, send empty array to indicate "no diagnostics checked"
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,
           path: pathValue,
           success: true,
+          diagnostics: [], // Empty array = diagnostics not checked
         });
       }
     } catch (e: any) {
@@ -539,55 +635,134 @@ export class FileHandler {
 
       // Wait for diagnostics from language server with event-based approach
       await new Promise<void>((resolve) => {
-        const maxTimeout = 3000; // 3 seconds maximum wait
-        const minTimeout = 500; // Minimum 500ms wait for language server to start
+        const maxTimeout = 10000; // 10 seconds maximum wait
+        const minTimeout = 1500; // Increased from 500ms to 1.5s for batch operations
+        const stableWaitTime = 800; // Wait 800ms of no new diagnostic events before considering "stable"
+        const startTime = Date.now();
+        
+        let lastDiagnosticEventTime = Date.now();
+        let diagnosticStableTimeout: NodeJS.Timeout | null = null;
+
+        logger.info(`[replace_in_file] ⏳ Starting diagnostics wait`, {
+          path: pathValue,
+          maxTimeout,
+          minTimeout,
+          stableWaitTime,
+        });
 
         const timeoutHandle = setTimeout(() => {
+          const elapsedTime = Date.now() - startTime;
+          logger.warn(`[replace_in_file] ⏱️ Max timeout reached`, {
+            path: pathValue,
+            elapsedTime,
+          });
+          if (diagnosticStableTimeout) {
+            clearTimeout(diagnosticStableTimeout);
+          }
           disposable?.dispose();
           resolve();
         }, maxTimeout);
 
-        // Also resolve after minimum timeout if no diagnostics appear
+        // Resolve after minimum timeout if we have diagnostics
         const minTimeoutHandle = setTimeout(() => {
           const currentDiagnostics = this.getDiagnosticsForFile(absPath);
+          const elapsedTime = Date.now() - startTime;
+          logger.info(`[replace_in_file] 🕐 Min timeout check`, {
+            path: pathValue,
+            elapsedTime,
+            diagnosticsCount: currentDiagnostics.length,
+          });
           if (currentDiagnostics.length > 0) {
             clearTimeout(timeoutHandle);
+            if (diagnosticStableTimeout) {
+              clearTimeout(diagnosticStableTimeout);
+            }
             disposable?.dispose();
+            logger.info(`[replace_in_file] ✅ Early resolve with diagnostics`, {
+              path: pathValue,
+              elapsedTime,
+              diagnosticsCount: currentDiagnostics.length,
+            });
             resolve();
           }
         }, minTimeout);
 
         const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-          if (e.uris.some((uri) => uri.fsPath === absPath.fsPath)) {
-            clearTimeout(timeoutHandle);
-            clearTimeout(minTimeoutHandle);
-            disposable.dispose();
-            resolve();
+          const affectedPaths = e.uris.map(uri => uri.fsPath);
+          const isOurFile = e.uris.some((uri) => uri.fsPath === absPath.fsPath);
+          
+          if (isOurFile) {
+            const elapsedTime = Date.now() - startTime;
+            lastDiagnosticEventTime = Date.now();
+            
+            // Clear any existing stable timeout
+            if (diagnosticStableTimeout) {
+              clearTimeout(diagnosticStableTimeout);
+            }
+            
+            const currentDiagnostics = this.getDiagnosticsForFile(absPath);
+            logger.info(`[replace_in_file] 🔔 Diagnostics event received`, {
+              path: pathValue,
+              elapsedTime,
+              diagnosticsCount: currentDiagnostics.length,
+              affectedPaths,
+            });
+            
+            // Wait for diagnostics to become stable (no new events for stableWaitTime)
+            diagnosticStableTimeout = setTimeout(() => {
+              const finalDiagnostics = this.getDiagnosticsForFile(absPath);
+              const finalElapsedTime = Date.now() - startTime;
+              clearTimeout(timeoutHandle);
+              clearTimeout(minTimeoutHandle);
+              disposable.dispose();
+              logger.info(`[replace_in_file] ✅ Diagnostics stable, resolving`, {
+                path: pathValue,
+                elapsedTime: finalElapsedTime,
+                diagnosticsCount: finalDiagnostics.length,
+                timeSinceLastEvent: Date.now() - lastDiagnosticEventTime,
+              });
+              resolve();
+            }, stableWaitTime);
           }
         });
       });
 
       const diagnostics = this.getDiagnosticsForFile(absPath);
+      logger.info(`[replace_in_file] 📊 Final diagnostics collection`, {
+        path: pathValue,
+        diagnosticsCount: diagnostics.length,
+        hasDiagnostics: diagnostics.length > 0,
+      });
+      
       if (diagnostics.length) {
         logger.warn(`[replace_in_file] Diagnostics found`, {
           path: pathValue,
           count: diagnostics.length,
+          diagnostics: diagnostics.map(d => ({
+            severity: d.severity,
+            line: d.line,
+            message: d.message.substring(0, 100),
+          })),
         });
       }
+      
+      // ALWAYS send diagnostics field (even if empty) for consistency
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
         requestId: message.requestId,
         path: message.path,
         success: true,
-        diagnostics: diagnostics.length ? diagnostics : undefined,
+        diagnostics: diagnostics, // Always include, even if empty array
         content: newContent,
       });
     } else {
+      // When skipping diagnostics, send empty array to indicate "no diagnostics checked"
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
         requestId: message.requestId,
         path: message.path,
         success: true,
+        diagnostics: [], // Empty array = diagnostics not checked
       });
     }
   }
@@ -1473,7 +1648,14 @@ export class FileHandler {
       });
 
       // Use VSCode's findFiles API with glob patterns
-      const results: { fileName: string; matches: string[] }[] = [];
+      const results: {
+        fileName: string;
+        matches: Array<{
+          path: string;
+          errorCount?: number;
+          warningCount?: number;
+        }>;
+      }[] = [];
 
       for (const fileName of fileNames) {
         // Create glob pattern: **/{fileName}
@@ -1488,7 +1670,16 @@ export class FileHandler {
             "**/node_modules/**", // Exclude node_modules by default
           );
 
-          const matches = files.map((f) => vscode.workspace.asRelativePath(f));
+          const matches = files.map((fileUri) => {
+            const relativePath = vscode.workspace.asRelativePath(fileUri);
+            const diagnosticCount = this.getDiagnosticCountForFile(fileUri);
+            return {
+              path: relativePath,
+              errorCount: diagnosticCount.errorCount,
+              warningCount: diagnosticCount.warningCount,
+            };
+          });
+
           results.push({
             fileName,
             matches,

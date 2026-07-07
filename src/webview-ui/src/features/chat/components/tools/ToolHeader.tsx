@@ -93,18 +93,6 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [pathContainerWidth, setPathContainerWidth] = useState<number>(0);
 
-  // 🔍 DEBUG: Log when ToolHeader receives diffStats
-  useEffect(() => {
-    if (diffStats) {
-      console.log(`[ToolHeader] 📊 Received diffStats:`, {
-        toolType,
-        path,
-        diffStats,
-        subTitle,
-      });
-    }
-  }, [diffStats, toolType, path, subTitle]);
-
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
@@ -153,30 +141,12 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
 
   // Calculate error and warning counts from diagnostics
   const diagnosticCounts = useMemo(() => {
-    console.log(`[ToolHeader] 📊 Calculating diagnostic counts:`, {
-      toolType,
-      path,
-      hasDiagnostics: !!diagnostics,
-      diagnosticsLength: diagnostics?.length || 0,
-      diagnostics: diagnostics,
-      sample: diagnostics?.slice(0, 3)
-    });
-    
     if (!diagnostics || diagnostics.length === 0) {
       return { errors: 0, warnings: 0 };
     }
-    
-    const errors = diagnostics.filter(d => d.severity === "Error").length;
-    const warnings = diagnostics.filter(d => d.severity === "Warning").length;
-    
-    console.log(`[ToolHeader] 📊 Diagnostic counts result:`, {
-      toolType,
-      path,
-      errors,
-      warnings,
-      allSeverities: diagnostics.map(d => d.severity)
-    });
-    
+
+    const errors = diagnostics.filter((d) => d.severity === "Error").length;
+    const warnings = diagnostics.filter((d) => d.severity === "Warning").length;
     return { errors, warnings };
   }, [diagnostics, toolType, path]);
 
@@ -434,7 +404,13 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                     e.currentTarget.style.cursor = "default";
                   }}
                 >
-                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span
+                    style={{
+                      flex: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
                     {displayPath}
                   </span>
                   {diagnosticCounts.errors > 0 && (
@@ -449,18 +425,20 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                       [{diagnosticCounts.errors}]
                     </span>
                   )}
-                  {diagnosticCounts.errors === 0 && diagnosticCounts.warnings > 0 && (
-                    <span
-                      style={{
-                        color: "var(--vscode-editorWarning-foreground, #cca700)",
-                        fontWeight: 600,
-                        fontSize: "10px",
-                        flexShrink: 0,
-                      }}
-                    >
-                      [{diagnosticCounts.warnings}]
-                    </span>
-                  )}
+                  {diagnosticCounts.errors === 0 &&
+                    diagnosticCounts.warnings > 0 && (
+                      <span
+                        style={{
+                          color:
+                            "var(--vscode-editorWarning-foreground, #cca700)",
+                          fontWeight: 600,
+                          fontSize: "10px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        [{diagnosticCounts.warnings}]
+                      </span>
+                    )}
                 </span>
               </div>
             )}
@@ -472,17 +450,6 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
           >
             {diffStats ? (
               <>
-                {/* 🔍 DEBUG: Log before rendering diffStats */}
-                {(() => {
-                  console.log(`[ToolHeader] 🎨 Rendering diffStats:`, {
-                    toolType,
-                    path,
-                    diffStats,
-                    added: diffStats.added,
-                    removed: diffStats.removed,
-                  });
-                  return null;
-                })()}
                 <span
                   style={{
                     display: "flex",

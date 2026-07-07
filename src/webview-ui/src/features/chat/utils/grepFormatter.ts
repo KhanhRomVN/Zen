@@ -2,7 +2,15 @@
 
 export interface GrepResultData {
   searchTerm: string;
-  results: Record<string, { lineNumber: number; lineContent: string }[]>;
+  results: Record<
+    string,
+    | { lineNumber: number; lineContent: string }[]
+    | {
+        matches: { lineNumber: number; lineContent: string }[];
+        errorCount: number;
+        warningCount: number;
+      }
+  >;
   totalFilesSearched: number;
   totalMatches: number;
 }
@@ -13,7 +21,7 @@ export interface GrepResultData {
  *
  * Example output:
  * <grep_results search="foo" total_matches="12" files="3">
- * <file path="src/a.ts" matches="2">
+ * <file path="src/a.ts" matches="2" errors="1" warnings="2">
  *   3: const foo = 1
  *  17: foo.init()
  * </file>
@@ -34,9 +42,37 @@ export const formatGrepResultCompact = (data: GrepResultData): string => {
   );
 
   for (const filePath of filePaths) {
-    const matches = results[filePath];
-    // Use full path for accurate file opening; display shortening is done in UI
-    lines.push(`<file path="${filePath}" matches="${matches.length}">`);
+    const fileResult = results[filePath];
+    
+    // Handle both old format (array) and new format (object with matches + diagnostics)
+    let matches: { lineNumber: number; lineContent: string }[];
+    let errorCount = 0;
+    let warningCount = 0;
+    
+    if (Array.isArray(fileResult)) {
+      // Old format: array of matches
+      matches = fileResult;
+    } else {
+      // New format: object with matches and diagnostic counts
+      matches = fileResult.matches;
+      errorCount = fileResult.errorCount;
+      warningCount = fileResult.warningCount;
+    }
+    
+    // Build file tag attributes
+    let fileTag = `<file path="${filePath}" matches="${matches.length}"`;
+    if (errorCount > 0 || warningCount > 0) {
+      if (errorCount > 0) {
+        fileTag += ` errors="${errorCount}"`;
+      }
+      if (warningCount > 0) {
+        fileTag += ` warnings="${warningCount}"`;
+      }
+    }
+    fileTag += `>`;
+    
+    lines.push(fileTag);
+    
     for (const match of matches) {
       // Right-align line number in 5 chars, then content (trimmed to 120 chars)
       const lineNum = String(match.lineNumber).padStart(5);

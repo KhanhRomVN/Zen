@@ -70,10 +70,7 @@ export const useChatLLM = ({
   onConversationIdChange,
   onToolRequest,
 }: UseChatLLMProps) => {
-  const {
-    aiLanguage,
-    permissionMode,
-  } = useSettings();
+  const { aiLanguage, permissionMode } = useSettings();
   const { workspace, treeView } = useProject();
   const { uploadFiles } = useFileUpload(apiUrl);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1099,13 +1096,10 @@ export const useChatLLM = ({
         abortControllerRef.current = null;
 
         // 🔍 LOG: Full response content after stream completion (before parsing)
-        console.log("[Zen][Stream Complete] Full raw content:", assistantMessage.content);
-        console.log("[Zen][Stream Complete] Content stats:", {
-          length: assistantMessage.content.length,
-          hasThinking: assistantMessage.content.includes("<thinking>"),
-          hasReadFile: assistantMessage.content.includes("<read_file>"),
-          last200chars: assistantMessage.content.substring(assistantMessage.content.length - 200),
-        });
+        console.log(
+          "[Zen][Stream Complete] Full raw content:",
+          assistantMessage.content,
+        );
 
         // Parse for metadata logging only.
         // NOTE: Do NOT call onToolRequest here. Auto-triggering is handled exclusively
@@ -1113,13 +1107,6 @@ export const useChatLLM = ({
         // (RES1 may still be streaming when useToolActions triggers tools mid-stream;
         //  calling onToolRequest here after stream-done would cause a double-trigger.)
         const parsed = parseAIResponse(assistantMessage.content);
-        
-        // 🔍 LOG: Parse result
-        console.log("[Zen][useChatLLM] Parsed result:", {
-          blocks: parsed.contentBlocks.length,
-          actions: parsed.actions.length,
-          blockTypes: parsed.contentBlocks.map(b => b.type),
-        });
 
         // Save final conversation state
         saveConversation(

@@ -1,3 +1,4 @@
+import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
@@ -6,6 +7,12 @@ import { LoggerService } from "../../services/LoggerService";
 interface MatchResult {
   lineNumber: number;
   lineContent: string;
+}
+
+interface FileMatchResult {
+  matches: MatchResult[];
+  errorCount: number;
+  warningCount: number;
 }
 
 export class grepCapability {
@@ -76,15 +83,21 @@ export class grepCapability {
         logger.debug(`[GREP] 📁 Found ${filesToSearch.length} files to search in folder (excluding node_modules, .git, binary files)`);
       }
 
-      const results: Record<string, MatchResult[]> = {};
+      const results: Record<string, FileMatchResult> = {};
       let filesWithMatches = 0;
       let totalLinesScanned = 0;
 
       for (const file of filesToSearch) {
         const { matches, linesScanned } = await this.searchInFileWithStats(file, regex);
+        const diagnosticCount = this.getDiagnosticCountForFile(file);
+        
         totalLinesScanned += linesScanned;
         if (matches.length > 0) {
-          results[file] = matches;
+          results[file] = {
+            matches,
+            errorCount: diagnosticCount.errorCount,
+            warningCount: diagnosticCount.warningCount,
+          };
           filesWithMatches++;
           logger.debug(`[GREP] ✅ ${file} → ${matches.length} matches (scanned ${linesScanned} lines)`);
         } else {
@@ -93,7 +106,7 @@ export class grepCapability {
       }
 
       const totalMatches = Object.values(results).reduce(
-        (sum, matches) => sum + matches.length,
+        (sum, fileResult) => sum + fileResult.matches.length,
         0,
       );
 
@@ -121,6 +134,31 @@ export class grepCapability {
         error: errorMsg,
         timestamp: Date.now(),
       };
+    }
+  }
+
+  /**
+   * Get diagnostic count for a file
+   */
+  private getDiagnosticCountForFile(filePath: string): {
+    errorCount: number;
+    warningCount: number;
+  } {
+    try {
+      const uri = vscode.Uri.file(filePath);
+      const diagnostics = vscode.languages.getDiagnostics(uri);
+
+      const errorCount = diagnostics.filter(
+        (d) => d.severity === vscode.DiagnosticSeverity.Error,
+      ).length;
+
+      const warningCount = diagnostics.filter(
+        (d) => d.severity === vscode.DiagnosticSeverity.Warning,
+      ).length;
+
+      return { errorCount, warningCount };
+    } catch (e) {
+      return { errorCount: 0, warningCount: 0 };
     }
   }
 

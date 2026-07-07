@@ -289,62 +289,50 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             !!nextUserMessage)),
   );
 
-  // Merge diagnostics from toolOutputs and cachedDiagnostics
+  // Get diagnostics from toolOutputs ONLY (single source of truth)
+  // No cache, no merge - prioritize consistency over performance
   const mergedDiagnostics = React.useMemo(() => {
-    const shouldMergeDiagnostics = 
-      (toolType === "read_file" || toolType === "write_to_file" || toolType === "replace_in_file") &&
+    const shouldGetDiagnostics =
+      (toolType === "read_file" ||
+        toolType === "write_to_file" ||
+        toolType === "replace_in_file") &&
       isCompleted &&
       !isPartial;
 
-    if (!shouldMergeDiagnostics) return undefined;
+    if (!shouldGetDiagnostics) return undefined;
 
-    // Get diagnostics from toolOutputs
-    const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics || [];
-    
-    // Get diagnostics from cache
-    const cacheDiagnosticsArray = cachedDiagnostics || [];
-    
-    // Merge and normalize severity to match ToolHeader expectations (capital first letter)
-    const normalized = [...toolOutputDiagnostics, ...cacheDiagnosticsArray].map(d => {
-      // Normalize severity: "error" -> "Error", "warning" -> "Warning", or keep as-is if already correct
-      const normalizedSeverity = 
-        d.severity.toLowerCase() === "error" ? "Error" :
-        d.severity.toLowerCase() === "warning" ? "Warning" :
-        d.severity; // Keep as-is if already correct (e.g., "Error" or "Warning")
-      
+    // Get diagnostics from toolOutputs - this is the ONLY source
+    const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics;
+
+    // If toolOutputs doesn't have diagnostics field at all, return undefined
+    // (meaning backend hasn't sent diagnostics yet or tool doesn't support it)
+    if (!toolOutputDiagnostics) return undefined;
+
+    // Normalize severity to match ToolHeader expectations (capital first letter)
+    const normalized = toolOutputDiagnostics.map((d) => {
+      const normalizedSeverity =
+        d.severity.toLowerCase() === "error"
+          ? "Error"
+          : d.severity.toLowerCase() === "warning"
+            ? "Warning"
+            : d.severity;
+
       return {
         ...d,
-        severity: normalizedSeverity
+        severity: normalizedSeverity,
       };
     });
-    
-    // Remove duplicates based on line, column, and message
-    const uniqueDiagnostics = normalized.filter((d, index, self) =>
-      index === self.findIndex(t => (
-        t.line === d.line &&
-        t.column === d.column &&
-        t.message === d.message &&
-        t.severity === d.severity
-      ))
-    );
-    
-    console.log(`[FileToolRenderer][${actionId}] 🔄 Merged diagnostics:`, {
-      toolOutputCount: toolOutputDiagnostics.length,
-      cacheCount: cacheDiagnosticsArray.length,
-      uniqueCount: uniqueDiagnostics.length,
-      diagnostics: uniqueDiagnostics,
-      sample: uniqueDiagnostics.slice(0, 3), // Show first 3 for debugging
-      severities: uniqueDiagnostics.map(d => d.severity)
-    });
-    
-    return uniqueDiagnostics.length > 0 ? uniqueDiagnostics : undefined;
-  }, [toolOutputs, actionId, cachedDiagnostics, toolType, isCompleted, isPartial]);
+
+    return normalized.length > 0 ? normalized : undefined;
+  }, [toolOutputs, actionId, toolType, isCompleted, isPartial]);
 
   // Fetch diagnostics directly from extension for read_file, write_to_file, replace_in_file
   React.useEffect(() => {
-    const shouldFetchDiagnostics = 
-      (toolType === "read_file" || toolType === "write_to_file" || toolType === "replace_in_file") &&
-      rawPath && 
+    const shouldFetchDiagnostics =
+      (toolType === "read_file" ||
+        toolType === "write_to_file" ||
+        toolType === "replace_in_file") &&
+      rawPath &&
       isCompleted &&
       !isPartial;
 
@@ -355,11 +343,14 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     const maxRetries = 2;
     const retryDelay = 300; // ms between retries
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    
+
     const handleMessage = (event: MessageEvent) => {
       const msg = event.data;
       // Match both base request and retry requests
-      if (msg.command === "getDiagnosticsResult" && msg.requestId?.startsWith(baseRequestId)) {
+      if (
+        msg.command === "getDiagnosticsResult" &&
+        msg.requestId?.startsWith(baseRequestId)
+      ) {
         if (msg.diagnostics && Array.isArray(msg.diagnostics)) {
           // If we got diagnostics, use them
           if (msg.diagnostics.length > 0) {
@@ -388,7 +379,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     };
 
     window.addEventListener("message", handleMessage);
-    
+
     // Initial request with slight delay to allow language server to process
     timeoutId = setTimeout(() => {
       extensionService.postMessage({

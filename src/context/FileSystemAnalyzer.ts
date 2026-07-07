@@ -11,6 +11,8 @@ export interface FileNode {
   type: "file" | "directory";
   path: string;
   lines?: number;
+  errorCount?: number;
+  warningCount?: number;
   children?: FileNode[];
 }
 
@@ -236,14 +238,24 @@ export class FileSystemAnalyzer {
 
         let child = currentNode.children.find((c) => c.name === part);
         if (!child) {
-          const lines = isFile
-            ? await this.getFileLineCount(currentPath)
-            : undefined;
+          let lines: number | undefined;
+          let errorCount: number | undefined;
+          let warningCount: number | undefined;
+          
+          if (isFile) {
+            lines = await this.getFileLineCount(currentPath);
+            const diagnosticCount = this.getDiagnosticCountForFile(currentPath);
+            errorCount = diagnosticCount.errorCount;
+            warningCount = diagnosticCount.warningCount;
+          }
+          
           child = {
             name: part,
             type: isFile ? "file" : "directory",
             path: currentPath,
             lines,
+            errorCount,
+            warningCount,
             children: isFile ? undefined : [],
           };
           currentNode.children.push(child);
@@ -286,11 +298,14 @@ export class FileSystemAnalyzer {
 
     if (stats.isFile()) {
       const lines = await this.getFileLineCount(dirPath);
+      const diagnosticCount = this.getDiagnosticCountForFile(dirPath);
       return {
         name,
         type: "file",
         path: dirPath,
         lines,
+        errorCount: diagnosticCount.errorCount,
+        warningCount: diagnosticCount.warningCount,
       };
     }
 
@@ -358,11 +373,43 @@ export class FileSystemAnalyzer {
     if (depth >= 0) {
       const indent = "  ".repeat(depth);
       const suffix = node.type === "directory" ? "/" : "";
-      const lineCount =
-        node.type === "file" && node.lines !== undefined
-          ? ` (${node.lines} lines)`
-          : "";
-      result += `${indent}${node.name}${suffix}${lineCount}\n`;
+      
+      let extraInfo = "";
+      if (node.type === "file") {
+        // Add line count if available
+        if (node.lines !== undefined) {
+          extraInfo += ` (${node.lines} lines`;
+        }
+        
+        // Add diagnostic count if there are errors or warnings
+        if (node.errorCount !== undefined || node.warningCount !== undefined) {
+          const errorCount = node.errorCount || 0;
+          const warningCount = node.warningCount || 0;
+          
+          if (errorCount > 0 || warningCount > 0) {
+            if (extraInfo) {
+              extraInfo += ", ";
+            } else {
+              extraInfo += " (";
+            }
+            
+            const parts: string[] = [];
+            if (errorCount > 0) {
+              parts.push(`${errorCount} error${errorCount > 1 ? "s" : ""}`);
+            }
+            if (warningCount > 0) {
+              parts.push(`${warningCount} warning${warningCount > 1 ? "s" : ""}`);
+            }
+            extraInfo += parts.join(", ");
+          }
+        }
+        
+        if (extraInfo) {
+          extraInfo += ")";
+        }
+      }
+      
+      result += `${indent}${node.name}${suffix}${extraInfo}\n`;
     }
 
     if (node.children && node.children.length > 0) {
@@ -625,6 +672,31 @@ export class FileSystemAnalyzer {
       return content.split("\n").length;
     } catch (e) {
       return 0;
+    }
+  }
+
+  /**
+   * Get diagnostic count for a file
+   */
+  public getDiagnosticCountForFile(filePath: string): {
+    errorCount: number;
+    warningCount: number;
+  } {
+    try {
+      const uri = vscode.Uri.file(filePath);
+      const diagnostics = vscode.languages.getDiagnostics(uri);
+
+      const errorCount = diagnostics.filter(
+        (d) => d.severity === vscode.DiagnosticSeverity.Error,
+      ).length;
+
+      const warningCount = diagnostics.filter(
+        (d) => d.severity === vscode.DiagnosticSeverity.Warning,
+      ).length;
+
+      return { errorCount, warningCount };
+    } catch (e) {
+      return { errorCount: 0, warningCount: 0 };
     }
   }
 

@@ -447,6 +447,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             const idMatch = openTag.match(/id="([^"]+)"/);
             const typeMatch = openTag.match(/type="([^"]+)"/);
             // Support both double quotes and single quotes for label attribute
+            // Handle HTML entities and decode them
             let qLabel = "";
             const doubleQuoteMatch = openTag.match(/label="([^"]*)"/);
             const singleQuoteMatch = openTag.match(/label='([^']*)'/);
@@ -454,6 +455,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               qLabel = doubleQuoteMatch[1].trim();
             } else if (singleQuoteMatch) {
               qLabel = singleQuoteMatch[1].trim();
+            }
+            
+            // Decode HTML entities if present
+            if (qLabel) {
+              const textarea = document.createElement('textarea');
+              textarea.innerHTML = qLabel;
+              qLabel = textarea.value;
             }
 
             if (!idMatch || !typeMatch) {

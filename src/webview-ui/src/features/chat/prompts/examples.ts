@@ -523,4 +523,34 @@ Need a bit more information before finding the right place to fix CORS.
   <q id="2" type="text" label="What is the frontend origin/URL that needs to be allowed?" />
 </question>
 \`\`\`
+
+---
+
+## Ex 18: IMPORT-PATH-DEPTH-VERIFY — Error appears right after AI's own path edit ✅
+
+**Turn N** — replace_in_file returns a ts:2307 error right after the path was changed:
+\`\`\`xml
+<thinking>
+Pass 1 (Plan): Tool result shows "Cannot find module '../../../components/ui/Table'" pointing exactly at the line I just edited. Per CONTRADICTION-CLARIFY, an error appearing immediately after my own edit makes that edit the prime suspect — not IDE cache, not a stale TS server.
+Pass 2 (Verify): Per IMPORT-PATH-DEPTH-VERIFY, I must NOT rely on list_files confirming "ui/Table exists somewhere" as proof the path is correct. I must count segments explicitly:
+  - Editing file: src/renderer/src/features/Setting/components/Database/DataTable.tsx
+  - Its folder: src/renderer/src/features/Setting/components/Database/
+  - Import has 3x "../" → step up 3 times from Database/:
+      1x "../" → Setting/components/
+      2x "../" → Setting/
+      3x "../" → features/
+  - So "../../../components/ui/Table" resolves to: features/components/ui/Table
+  - Required target is: src/renderer/src/components/ui/Table
+  - These do NOT match → the 3-segment path is wrong. Correct depth is 4x "../" to reach src/renderer/src/.
+  Conclusion: the ts:2307 error is accurate, not a caching artifact. Revert to the 4-segment path.
+</thinking>
+<markdown>
+Đếm lại số cấp thư mục cho thấy \`../../../components/ui/Table\` (3 cấp) chỉ trỏ tới \`features/components/ui/Table\`, không phải \`src/renderer/src/components/ui/Table\` như cần — thiếu 1 cấp. Lỗi TS là chính xác. Sẽ revert lại path đúng (4 cấp).
+</markdown>
+<replace_in_file>
+<file_path>src/renderer/src/features/Setting/components/Database/DataTable.tsx</file_path>
+<old_content>} from '../../../components/ui/Table';</old_content>
+<new_content>} from '../../../../components/ui/Table';</new_content>
+</replace_in_file>
+\`\`\`
 `;

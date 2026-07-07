@@ -66,7 +66,14 @@ export const parseQuestion = (innerContent: string): {
     hasNewSchema = true;
     const qId = idMatch[1].trim();
     const qType = typeMatch[1].trim() as "single" | "multi" | "text" | "confirm";
-    const qLabel = doubleQuoteMatch ? doubleQuoteMatch[1].trim() : singleQuoteMatch ? singleQuoteMatch[1].trim() : `Question ${questions.length + 1}`;
+    
+    // Extract and decode HTML entities in label
+    let qLabel = doubleQuoteMatch ? doubleQuoteMatch[1].trim() : singleQuoteMatch ? singleQuoteMatch[1].trim() : `Question ${questions.length + 1}`;
+    if (qLabel && qLabel !== `Question ${questions.length + 1}`) {
+      const textarea = document.createElement('textarea');
+      textarea.innerHTML = qLabel;
+      qLabel = textarea.value;
+    }
 
     let qInner = "";
     let closeTagEnd = tagEnd;
