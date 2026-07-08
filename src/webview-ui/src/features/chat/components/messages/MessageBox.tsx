@@ -25,6 +25,7 @@ interface MessageBoxProps {
     status: "idle" | "running" | "error" | "done";
   };
   isLastMessage?: boolean;
+  hasNextAssistantMessage?: boolean;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;

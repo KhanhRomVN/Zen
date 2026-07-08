@@ -29,6 +29,7 @@ interface AIMessageBoxProps {
     status: "idle" | "running" | "error" | "done";
   };
   isLastMessage?: boolean;
+  hasNextAssistantMessage?: boolean;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
@@ -145,6 +146,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   onToolClick,
   executionState,
   isLastMessage,
+  hasNextAssistantMessage = false,
   toolOutputs,
   terminalStatus,
   nextUserMessage,
@@ -244,7 +246,9 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
   return (
     <div
-      className={`assistant-message-container ${message.isError ? "is-error" : ""}`}
+      className={`assistant-message-container ${message.isError ? "is-error" : ""} ${
+        hasNextAssistantMessage === false && message.role === "assistant" ? "is-last-assistant" : ""
+      }`}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -463,9 +467,25 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
         // Complex mode: always show all groups
         const renderGroups = groups;
 
+        // Pre-calculate which groups will render with timeline-item wrapper
+        const groupsWithTimeline = renderGroups.map((group) => 
+          group.type !== "tools" && group.type !== "question"
+        );
+
+        // Find the last group that will have a timeline-item wrapper
+        let lastTimelineIndex = -1;
+        for (let i = renderGroups.length - 1; i >= 0; i--) {
+          if (groupsWithTimeline[i]) {
+            lastTimelineIndex = i;
+            break;
+          }
+        }
+
         return renderGroups.map((group, index) => {
-          const isLast = index === renderGroups.length - 1 && isLastMessage;
-          const timelineClass = `timeline-item ${isLast ? "last" : ""}`;
+          // Only mark as "last" if: it's the last timeline group AND (isLastMessage OR hasNextAssistantMessage)
+          // This prevents timeline line when followed by user message
+          const shouldMarkAsLast = index === lastTimelineIndex && isLastMessage;
+          const timelineClass = `timeline-item ${shouldMarkAsLast ? "last" : ""}`;
 
           let content = null;
 
@@ -868,7 +888,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               <ErrorBlock
                 content={translatedMessage}
                 errorCode={errorCode || undefined}
-                isLast={isLast}
+                isLast={shouldMarkAsLast}
                 isLastMessage={isLastMessage}
               />
             );

@@ -280,6 +280,11 @@
   display: none;
 }
 
+/* Hide line when assistant message is followed by user message */
+.assistant-message-container.is-last-assistant .timeline-item:not(.last):last-of-type::before {
+  display: none;
+}
+
 .timeline-dot {
   position: absolute;
   left: var(--timeline-axis);

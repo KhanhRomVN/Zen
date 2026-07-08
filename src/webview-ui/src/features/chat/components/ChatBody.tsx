@@ -343,6 +343,11 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             )
             .reverse()
             .find((m) => m.role === "assistant");
+          
+          // Check if next visible message is assistant (for timeline line logic)
+          const nextVisibleMessage = visibleMessages[index + 1];
+          const hasNextAssistantMessage = nextVisibleMessage?.role === "assistant";
+          
           return (
             <ChatErrorBoundary key={message.id}>
               <MessageBox
@@ -365,9 +370,12 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
                 onToolClick={handleToolClick}
                 executionState={executionState}
                 isLastMessage={
-                  index === visibleMessages.length - 1 ||
-                  index === lastAssistantIndex
+                  message.role === "assistant" &&
+                  (index === visibleMessages.length - 1 ||
+                   index === lastAssistantIndex) &&
+                  hasNextAssistantMessage === false
                 }
+                hasNextAssistantMessage={hasNextAssistantMessage}
                 toolOutputs={toolOutputs}
                 terminalStatus={terminalStatus}
                 allMessages={messages}
