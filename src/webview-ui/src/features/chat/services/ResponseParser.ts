@@ -777,8 +777,34 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
           }
 
-          // replace_in_file: requires file_path
+          // replace_in_file: auto-recover missing closing tag
+          // If we have both old_content and new_content (or old_str/new_str), treat as complete
           if (toolName === "replace_in_file") {
+            // Check if we have both required content tags
+            const hasOldContent = 
+              /<old_content>[\s\S]*?<\/old_content>/i.test(innerContent || "") ||
+              /<old_str>[\s\S]*?<\/old_str>/i.test(innerContent || "");
+            const hasNewContent = 
+              /<new_content>[\s\S]*?<\/new_content>/i.test(innerContent || "") ||
+              /<new_str>[\s\S]*?<\/new_str>/i.test(innerContent || "");
+            
+            // If we have both content blocks, auto-complete the tag
+            if (hasOldContent && hasNewContent) {
+              const recoveredRawXml =
+                rawXml + (innerContent || "") + "</replace_in_file>";
+              const params = parseReplaceInFile(innerContent || "");
+              const action = {
+                type: "replace_in_file" as const,
+                params,
+                rawXml: recoveredRawXml,
+                isPartial: false // Mark as complete since we have all required content
+              };
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              result.actions.push(action);
+              break;
+            }
+            
+            // Otherwise, check for file_path for partial streaming recovery
             const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
             const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
 

@@ -46,6 +46,12 @@
   background-color: transparent;
 }
 
+/* Context compression tool: remove border-bottom from header */
+.terminal-block.context-compression-tool .terminal-block-header {
+  border-bottom: none;
+  background-color: transparent;
+}
+
 .terminal-info {
   display: flex;
   flex-direction: column;

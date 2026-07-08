@@ -66,6 +66,7 @@ interface ChatBodyProps {
   gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
+  onBackToHome?: (summary: string) => void;
 }
 
 export interface ExtendedChatBodyProps extends ChatBodyProps {
@@ -132,6 +133,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   gitStatusBranch,
   isGitProcessing,
   isGitStatusVisible = true,
+  onBackToHome,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -385,6 +387,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
                 gitStatusBranch={gitStatusBranch}
                 isGitProcessing={isGitProcessing}
                 isGitStatusVisible={isGitStatusVisible}
+                onBackToHome={onBackToHome}
               />
             </ChatErrorBoundary>
           );

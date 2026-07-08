@@ -25,11 +25,13 @@ You are helping compress a long conversation that has exceeded 100K tokens. Your
 
 6. **Known Issues/Blockers**: Any problems encountered, workarounds applied, or limitations discovered.
 
-## Format
+## CRITICAL FORMAT REQUIREMENT
 
-Structure your summary in clear sections using markdown:
+You MUST wrap your entire summary inside <conversation_compress></conversation_compress> XML tags.
 
-\`\`\`markdown
+Structure your summary in clear sections using markdown INSIDE the tags:
+
+<conversation_compress>
 # Task Summary
 
 ## Objective
@@ -55,7 +57,7 @@ Structure your summary in clear sections using markdown:
 
 ## Important Notes
 [Any critical information, decisions, or constraints]
-\`\`\`
+</conversation_compress>
 
 ## Guidelines
 
@@ -65,6 +67,7 @@ Structure your summary in clear sections using markdown:
 - Preserve exact file names, paths, and technical terms
 - Include code patterns/conventions if relevant
 - Do NOT include greetings or meta-commentary
+- **MUST use <conversation_compress> tags to wrap the summary**
 
 Generate the summary now:
 </context_compression_request>`;

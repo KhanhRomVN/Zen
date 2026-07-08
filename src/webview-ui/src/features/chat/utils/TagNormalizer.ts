@@ -79,7 +79,8 @@ export const normalizeTagVariants = (content: string): string => {
   result = result
     .replace(/<(\/?)search_file>/gi, "<$1search_files>")
     .replace(/<(\/?)list_file>/gi, "<$1list_files>")
-    .replace(/<(\/?)read_files>/gi, "<$1read_file>");
+    .replace(/<(\/?)read_files>/gi, "<$1read_file>")
+    .replace(/<(\/?)conversation_compress>/gi, "<$1context_compression>");
 
   // Explicit variant normalization via registry variants
   const TAG_VARIANTS = getToolVariants();

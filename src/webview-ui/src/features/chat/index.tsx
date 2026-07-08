@@ -432,13 +432,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return null;
   }, [parsedMessages]);
 
-  // Trigger context compression when conversation exceeds threshold
+  // Trigger context compression
   const triggerContextCompression = useCallback(() => {
-    if (contextUsage.total < CONTEXT_COMPRESSION_THRESHOLD) {
-      console.warn(`[Zen] Context compression triggered but below ${CONTEXT_COMPRESSION_THRESHOLD} tokens`);
-      return;
-    }
-    
     // Import CONTEXT_COMPRESSION_PROMPT
     import("./prompts/context-compression").then(({ CONTEXT_COMPRESSION_PROMPT }) => {
       wrappedSendMessage(
@@ -451,9 +446,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         true, // uiHidden - hide this internal request from user
       );
     });
-  }, [contextUsage.total, wrappedSendMessage]);
+  }, [wrappedSendMessage]);
 
-  const shouldShowCompressionButton = contextUsage.total >= CONTEXT_COMPRESSION_THRESHOLD;
+  const shouldShowCompressionButton = true; // Always show button
 
   // --- Effects ---
   useEffect(() => {
@@ -800,6 +795,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     currentConversationId,
   ]);
 
+  const handleBackToHome = useCallback((summary: string) => {
+    // Navigate back to Home and pass the summary to auto-paste into MessageInput
+    onBack(summary);
+  }, [onBack]);
+
   // Listen for AI response containing commit message - using hook's detector
   useEffect(() => {
     handleGitCommitMessageDetected(messages);
@@ -893,6 +893,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           gitStatusBranch={gitStatus?.branch || ""}
           isGitProcessing={gitCommitLoading}
           isGitStatusVisible={showGitStatusBlock}
+          onBackToHome={handleBackToHome}
         />
       </ChatErrorBoundary>
 
@@ -943,7 +944,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         footerPaddingBottom={footerPaddingBottom}
         shouldShowCompressionButton={shouldShowCompressionButton}
         onTriggerCompression={triggerContextCompression}
-        contextTokens={contextUsage.total}
       />
     </div>
   );

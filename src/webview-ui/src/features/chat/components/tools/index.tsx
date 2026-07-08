@@ -43,6 +43,7 @@ interface ToolActionsListProps {
   gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
+  onBackToHome?: (summary: string) => void;
 }
 
 const ToolActionsList: React.FC<ToolActionsListProps> = ({
@@ -73,6 +74,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   gitStatusBranch,
   isGitProcessing,
   isGitStatusVisible = true,
+  onBackToHome,
 }) => {
   // Filter out invisible tools immediately
   const visibleItems = useMemo(() => {
@@ -292,6 +294,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             gitStatusBranch={gitStatusBranch}
             isGitProcessing={isGitProcessing}
             isGitStatusVisible={isGitStatusVisible}
+            onBackToHome={onBackToHome}
           />
         </React.Fragment>
       );

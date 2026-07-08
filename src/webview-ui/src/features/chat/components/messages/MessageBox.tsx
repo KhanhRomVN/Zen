@@ -57,6 +57,7 @@ interface MessageBoxProps {
   gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
+  onBackToHome?: (summary: string) => void;
 }
 
 const MessageBox: React.FC<MessageBoxProps> = (props) => {

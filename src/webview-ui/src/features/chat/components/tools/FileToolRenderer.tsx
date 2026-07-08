@@ -289,6 +289,14 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             !!nextUserMessage)),
   );
 
+  // Track previous state to avoid redundant logs
+  const prevDiagnosticStateRef = React.useRef<{
+    isCompleted: boolean;
+    isPartial: boolean | undefined;
+    hasDiagnostics: boolean;
+    diagnosticsCount: number;
+  }>({ isCompleted: false, isPartial: true, hasDiagnostics: false, diagnosticsCount: 0 });
+
   // Get diagnostics from toolOutputs ONLY (single source of truth)
   // No cache, no merge - prioritize consistency over performance
   const mergedDiagnostics = React.useMemo(() => {
@@ -299,8 +307,27 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
       isCompleted &&
       !isPartial;
 
-    // Debug: log condition check
-    setTimeout(() => {
+    // Get diagnostics from toolOutputs - this is the ONLY source
+    const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics;
+    const hasDiagnostics = !!toolOutputDiagnostics;
+    const diagnosticsCount = toolOutputDiagnostics?.length || 0;
+
+    // Current state
+    const currentState: typeof prevDiagnosticStateRef.current = {
+      isCompleted,
+      isPartial,
+      hasDiagnostics,
+      diagnosticsCount,
+    };
+
+    // Only log when state actually changes (not on every render)
+    const stateChanged = 
+      prevDiagnosticStateRef.current.isCompleted !== currentState.isCompleted ||
+      prevDiagnosticStateRef.current.isPartial !== currentState.isPartial ||
+      prevDiagnosticStateRef.current.hasDiagnostics !== currentState.hasDiagnostics ||
+      prevDiagnosticStateRef.current.diagnosticsCount !== currentState.diagnosticsCount;
+
+    if (stateChanged && shouldGetDiagnostics) {
       console.log(`[FileToolRenderer][${rawPath}] 🔍 Diagnostic check:`, {
         toolType,
         isCompleted,
@@ -308,23 +335,31 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         shouldGetDiagnostics,
         hasToolOutputs: !!toolOutputs,
         actionId,
-        diagnosticsInToolOutputs: toolOutputs?.[actionId]?.diagnostics,
+        diagnosticsInToolOutputs: toolOutputDiagnostics,
       });
-    }, 0);
+      
+      // Update previous state
+      prevDiagnosticStateRef.current = currentState;
+    }
 
     if (!shouldGetDiagnostics) return undefined;
-
-    // Get diagnostics from toolOutputs - this is the ONLY source
-    const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics;
 
     // If toolOutputs doesn't have diagnostics field at all, return undefined
     // (meaning backend hasn't sent diagnostics yet or tool doesn't support it)
     if (!toolOutputDiagnostics) {
-      setTimeout(() => {
-        console.log(`[FileToolRenderer][${rawPath}] ⚠️ No diagnostics in toolOutputs for actionId: ${actionId}`);
-        console.log(`[FileToolRenderer][${rawPath}] 🔎 toolOutputs keys:`, Object.keys(toolOutputs || {}));
-        console.log(`[FileToolRenderer][${rawPath}] 🔎 toolOutputs[${actionId}]:`, toolOutputs?.[actionId]);
-      }, 0);
+      if (stateChanged) {
+        console.log(
+          `[FileToolRenderer][${rawPath}] ⚠️ No diagnostics in toolOutputs for actionId: ${actionId}`,
+        );
+        console.log(
+          `[FileToolRenderer][${rawPath}] 🔎 toolOutputs keys:`,
+          Object.keys(toolOutputs || {}),
+        );
+        console.log(
+          `[FileToolRenderer][${rawPath}] 🔎 toolOutputs[${actionId}]:`,
+          toolOutputs?.[actionId],
+        );
+      }
       return undefined;
     }
 
@@ -343,10 +378,13 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
       };
     });
 
-    // Debug log to check what's being passed to ToolHeader
-    setTimeout(() => {
-      console.log(`[FileToolRenderer][${rawPath}] 🎯 Passing ${normalized.length} diagnostics to ToolHeader:`, normalized);
-    }, 0);
+    // Debug log to check what's being passed to ToolHeader (only when state changes)
+    if (stateChanged) {
+      console.log(
+        `[FileToolRenderer][${rawPath}] 🎯 Passing ${normalized.length} diagnostics to ToolHeader:`,
+        normalized,
+      );
+    }
 
     // Always return normalized array, even if empty (empty array means no diagnostics, undefined means not loaded yet)
     return normalized;
@@ -920,6 +958,70 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   +{linesCount} {linesCount === 1 ? "line" : "lines"}
                 </span>
               )}
+              {/* Show depth, folder count, file count for list_files inline */}
+              {toolType === "list_files" &&
+                isCompleted &&
+                !isError &&
+                (() => {
+                  const depth = action.params.depth;
+                  // Count folders and files from codeContent XML
+                  const folderCount = (codeContent.match(/<folder\s+/g) || [])
+                    .length;
+                  const fileCountFromXml = (
+                    codeContent.match(/<file\s+/g) || []
+                  ).length;
+                  const totalCount = folderCount + fileCountFromXml;
+
+                  if (totalCount === 0) return null; // Don't show for empty folders
+
+                  return (
+                    <>
+                      {depth !== undefined && (
+                        <span
+                          style={{
+                            opacity: 0.5,
+                            fontSize: "10px",
+                            color: "var(--vscode-descriptionForeground)",
+                          }}
+                        >
+                          depth: {depth}
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          opacity: 0.5,
+                          fontSize: "10px",
+                          color: "var(--vscode-descriptionForeground)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <span
+                          className="codicon codicon-folder"
+                          style={{ fontSize: "10px" }}
+                        />
+                        {folderCount}
+                      </span>
+                      <span
+                        style={{
+                          opacity: 0.5,
+                          fontSize: "10px",
+                          color: "var(--vscode-descriptionForeground)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <span
+                          className="codicon codicon-file"
+                          style={{ fontSize: "10px" }}
+                        />
+                        {fileCountFromXml}
+                      </span>
+                    </>
+                  );
+                })()}
               {isPartial && (
                 <span
                   style={{
@@ -1088,8 +1190,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           {action.rawXml || JSON.stringify(action, null, 2)}
         </div>
       )}
-
-
 
       {/* Single-line review UI for write_to_file with content crammed into 1 line */}
       {!shouldHideContent &&
@@ -1280,22 +1380,132 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         codeContent &&
         !isError && (
           <>
-            {!isCollapsed && (
-              <RichtextBlock
-                content={codeContent}
-                showHeader={false}
-                maxHeight={300}
-                defaultCollapsed={false}
-                isFilePathList={true}
-                basePath={action.params.path || action.params.folder_path || ""}
-                onFileClick={(fullPath) =>
-                  extensionService.postMessage({
-                    command: "openFile",
-                    path: fullPath,
-                  })
+            {!isCollapsed &&
+              (() => {
+                // Check if folder is empty (codeContent contains the empty folder message)
+                const isEmpty = codeContent.includes(
+                  "is empty (no files or folders inside)",
+                );
+
+                if (isEmpty) {
+                  // Extract folder path from codeContent
+                  const folderPath =
+                    action.params.path || action.params.folder_path || "";
+                  return (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        marginLeft: "29px",
+                        padding: "8px 12px",
+                        backgroundColor:
+                          "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+                        border:
+                          "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        color: "var(--vscode-descriptionForeground)",
+                        fontStyle: "italic",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      <span
+                        className="codicon codicon-info"
+                        style={{ fontSize: "12px" }}
+                      />
+                      <span>
+                        The folder{" "}
+                        <code
+                          style={{
+                            padding: "1px 4px",
+                            backgroundColor:
+                              "var(--vscode-textCodeBlock-background)",
+                            borderRadius: "2px",
+                            fontFamily:
+                              "var(--vscode-editor-font-family, monospace)",
+                          }}
+                        >
+                          {folderPath}
+                        </code>{" "}
+                        is empty (no files or folders inside).
+                      </span>
+                    </div>
+                  );
                 }
-              />
-            )}
+
+                // Use TreeBlock for non-empty folders
+                // Parse codeContent to extract file paths
+                const lines = codeContent.split("\n").filter(Boolean);
+                const filePaths = lines
+                  .map((line) => line.trim())
+                  .filter((line) => line && !line.startsWith("//"));
+
+                // Build tree structure
+                interface FileNode {
+                  name: string;
+                  type: "file" | "folder";
+                  path: string;
+                  children?: FileNode[];
+                }
+
+                const buildTree = (paths: string[]): FileNode[] => {
+                  const root: FileNode = {
+                    name: "",
+                    type: "folder",
+                    path: "",
+                    children: [],
+                  };
+
+                  for (const fullPath of paths) {
+                    const segments = fullPath.split("/").filter(Boolean);
+                    let currentNode = root;
+
+                    segments.forEach((segment, index) => {
+                      const isFile = index === segments.length - 1;
+
+                      if (!currentNode.children) {
+                        currentNode.children = [];
+                      }
+
+                      let childNode = currentNode.children.find(
+                        (child) => child.name === segment,
+                      );
+
+                      if (!childNode) {
+                        const pathSoFar = segments.slice(0, index + 1).join("/");
+                        childNode = {
+                          name: segment,
+                          type: isFile ? "file" : "folder",
+                          path: pathSoFar,
+                          children: isFile ? undefined : [],
+                        };
+                        currentNode.children.push(childNode);
+                      }
+
+                      if (!isFile) {
+                        currentNode = childNode;
+                      }
+                    });
+                  }
+
+                  return root.children || [];
+                };
+
+                const treeData = buildTree(filePaths);
+
+                return (
+                  <TreeBlock
+                    files={treeData}
+                    onFileClick={(fullPath) =>
+                      extensionService.postMessage({
+                        command: "openFile",
+                        path: fullPath,
+                      })
+                    }
+                  />
+                );
+              })()}
           </>
         )}
 

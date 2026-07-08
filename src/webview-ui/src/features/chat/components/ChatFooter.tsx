@@ -49,7 +49,6 @@ interface ChatFooterProps {
   footerPaddingBottom: string;
   shouldShowCompressionButton?: boolean;
   onTriggerCompression?: () => void;
-  contextTokens?: number;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -98,7 +97,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   footerPaddingBottom,
   shouldShowCompressionButton = false,
   onTriggerCompression,
-  contextTokens = 0,
 }) => {
   return (
     <div

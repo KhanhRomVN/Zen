@@ -139,9 +139,7 @@ const ThinkingButton: React.FC<ToggleButtonProps> = ({
         fontWeight: 600,
         letterSpacing: "0.3px",
         transition: "all 0.2s ease-in-out",
-        border: isOn
-          ? "1px solid var(--vscode-editorBracketHighlight-foreground2, rgba(168, 85, 247, 0.4))"
-          : "1px solid rgba(128, 128, 128, 0.2)",
+        border: "none", // Removed border
         background: isOn
           ? isHovered
             ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, transparent)"
@@ -193,9 +191,7 @@ const SearchButton: React.FC<ToggleButtonProps> = ({
         fontWeight: 600,
         letterSpacing: "0.3px",
         transition: "all 0.2s ease-in-out",
-        border: isOn
-          ? "1px solid var(--vscode-editorBracketHighlight-foreground1, rgba(14, 165, 233, 0.4))"
-          : "1px solid rgba(128, 128, 128, 0.2)",
+        border: "none", // Removed border
         background: isOn
           ? isHovered
             ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 20%, transparent)"
@@ -288,41 +284,31 @@ const CompressButton: React.FC<CompressButtonProps> = ({
   const [isHovered, setIsHovered] = React.useState(false);
 
   return (
-    <button
+    <div
       onClick={onClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "4px",
-        padding: "0 8px",
+        justifyContent: "center",
         height: "22px",
+        width: "22px",
         boxSizing: "border-box",
         borderRadius: "4px",
         cursor: "pointer",
-        fontSize: "11px",
-        fontWeight: 600,
-        letterSpacing: "0.3px",
         transition: "all 0.2s ease-in-out",
-        border: "1px solid var(--vscode-editorBracketHighlight-foreground2, rgba(16, 185, 129, 0.4))",
+        border: "1px solid rgba(128, 128, 128, 0.2)",
         background: isHovered
-          ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 20%, transparent)"
-          : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 12%, transparent)",
-        color: "var(--vscode-editorBracketHighlight-foreground2, #10b981)",
-        opacity: isHovered ? 0.9 : 0.8,
-        lineHeight: 1,
-        verticalAlign: "middle",
+          ? "rgba(128, 128, 128, 0.2)"
+          : "rgba(128, 128, 128, 0.12)",
+        color: "var(--vscode-foreground)",
+        opacity: isHovered ? 0.9 : 0.7,
       }}
       title={title}
     >
       <SummaryIcon />
-      <span
-        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
-      >
-        Compress
-      </span>
-    </button>
+    </div>
   );
 };
 
@@ -1427,6 +1413,14 @@ const MessageInput: React.FC<MessageInputProps> = ({
               </div>
             )}
 
+            {/* Context Compression Button */}
+            {showCompressButton && (
+              <CompressButton
+                onClick={onCompress || (() => {})}
+                title="Context Compression - Compress conversation history"
+              />
+            )}
+
             {/* Global Tool Permission */}
             <GlobalPermissionButton />
 
@@ -1454,14 +1448,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 isOn={isMemory}
                 onClick={toggleMemory}
                 title="Toggle Memory Reference (Saved memories & chat history)"
-              />
-            )}
-
-            {/* Compress Button */}
-            {showCompressButton && (
-              <CompressButton
-                onClick={onCompress || (() => {})}
-                title="Compress conversation context (vượt quá 100K tokens)"
               />
             )}
           </div>

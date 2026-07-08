@@ -3,7 +3,7 @@ import { ToolAction } from "../../services/ResponseParser";
 import { formatActionForDisplay } from "../../services/ResponseParser";
 import { getToolColor } from "../../utils/toolUtils";
 import { CLICKABLE_TOOLS } from "../../constants/constants";
-import { 
+import {
   isFileTool as checkIsFileTool,
   shouldShowFileStats,
   shouldValidateFuzzyMatch,
@@ -17,6 +17,7 @@ import GitToolRenderer from "./GitToolRenderer";
 import { ToolHeader } from "./ToolHeader";
 import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
 import { ToolOutputs } from "../../types/tool-outputs";
+import ContextCompressionBlock from "../blocks/context_compression/ContextCompressionBlock";
 
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
@@ -61,6 +62,7 @@ interface ToolRouterProps {
   gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
+  onBackToHome?: (summary: string) => void;
 }
 
 const ToolRouter: React.FC<ToolRouterProps> = ({
@@ -91,6 +93,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   gitStatusBranch,
   isGitProcessing,
   isGitStatusVisible = true,
+  onBackToHome,
 }) => {
   const { rootPath } = useProject();
 
@@ -717,6 +720,8 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
       : isAccepted
         ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
         : compressionColor;
+    
+    const isStreaming = firstAction.isPartial;
 
     return (
       <div
@@ -741,12 +746,20 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                   gap: "8px",
                   fontSize: "12px",
                   color: "var(--vscode-editor-foreground)",
+                  position: "relative",
+                  width: "100%",
                 }}
               >
-                <span style={{ fontWeight: 600, opacity: 0.8 }}>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    opacity: 0.8,
+                    cursor: "pointer",
+                    transition: "text-decoration 0.15s",
+                  }}
+                >
                   CONTEXT SUMMARY
                 </span>
-                <span style={{ fontSize: "14px" }}>🗜️</span>
                 {isRejected && (
                   <span
                     style={{
@@ -777,135 +790,61 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                       marginLeft: "4px",
                     }}
                   >
-                    ✓ NEW CONVERSATION CREATED
+                    ✓ CONFIRMED
+                  </span>
+                )}
+                {isStreaming && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      opacity: 0.55,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <span
+                      className="codicon codicon-loading codicon-modifier-spin"
+                      style={{ fontSize: "10px" }}
+                    />
+                    Generating...
                   </span>
                 )}
               </div>
             }
             statusColor={statusColor}
-            isPartial={false}
+            isPartial={isStreaming}
+            statusTooltip={
+              isRejected
+                ? "Rejected"
+                : isAccepted
+                  ? "✓ Confirmed"
+                  : isStreaming
+                    ? "Generating context summary..."
+                    : "Context summary ready"
+            }
           />
-          <div style={{ padding: "4px 12px 12px 29px" }}>
-            <div
-              style={{
-                padding: "12px 14px",
-                background: "var(--vscode-editor-background, #1e1e1e)",
-                borderRadius: "6px",
-                border: "1px solid var(--vscode-widget-border, #454545)",
-                fontFamily: "var(--vscode-editor-font-family, monospace)",
-                fontSize: "13px",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                color: "var(--vscode-foreground, #cccccc)",
-                maxHeight: "auto",
-                overflowY: "visible",
-                lineHeight: "1.6",
-              }}
-            >
-              {summary}
-            </div>
-            {!isAccepted && !isRejected && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "6px",
-                  padding: "8px 0 4px 0",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <button
-                  onClick={() => {
-                    setIsAccepted(true);
-                    // TODO: Trigger create new conversation with this summary
-                    const vscodeApi = (window as any).vscodeApi;
-                    if (vscodeApi) {
-                      vscodeApi.postMessage({
-                        command: "acceptContextCompression",
-                        summary: summary,
-                      });
-                    }
-                  }}
-                  style={{
-                    background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 15%, transparent)`,
-                    color:
-                      "var(--vscode-editorBracketHighlight-foreground2, #10b981)",
-                    border: `1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 30%, transparent)`,
-                    padding: "4px 10px",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    height: "24px",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 25%, transparent)`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 15%, transparent)`;
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                  Xác nhận & Tạo conversation mới
-                </button>
-                <button
-                  onClick={() => {
-                    onToolClick(firstAction, messageId, actionIndex, "reject");
-                  }}
-                  style={{
-                    background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
-                    color: "var(--vscode-errorForeground, #ff4d4d)",
-                    border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
-                    padding: "4px 10px",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    height: "24px",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`;
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                  Hủy
-                </button>
-              </div>
-            )}
-          </div>
+          
+          <ContextCompressionBlock
+            summary={summary}
+            isStreaming={isStreaming}
+            isAccepted={isAccepted}
+            isRejected={isRejected}
+            onConfirm={(summaryText) => {
+              setIsAccepted(true);
+              // Send message to extension to navigate home with summary
+              const vscodeApi = (window as any).vscodeApi;
+              if (vscodeApi) {
+                vscodeApi.postMessage({
+                  command: "acceptContextCompression",
+                  summary: summaryText,
+                });
+              }
+            }}
+            onReject={() => {
+              onToolClick(firstAction, messageId, actionIndex, "reject");
+            }}
+          />
         </div>
       </div>
     );

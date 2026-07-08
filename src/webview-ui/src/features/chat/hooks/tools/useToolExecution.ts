@@ -391,12 +391,10 @@ export const useToolExecution = ({
                       d.severity === "Warning" || d.severity === "warning",
                   ).length;
                   
-                  // Use setTimeout to ensure console.log doesn't get batched/throttled in parallel calls
-                  setTimeout(() => {
-                    console.log(
-                      `[write_to_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
-                    );
-                  }, 0);
+                  // Log once when diagnostics are processed
+                  console.log(
+                    `[write_to_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
+                  );
 
                   // Change format: move summary inline with success message
                   result = `[write_to_file for '${filePath}'] Result: File written successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
@@ -431,11 +429,9 @@ export const useToolExecution = ({
                     });
                   }
                 } else {
-                  setTimeout(() => {
-                    console.log(
-                      `[write_to_file] ℹ️ No diagnostics found for ${filePath}`,
-                    );
-                  }, 0);
+                  console.log(
+                    `[write_to_file] ℹ️ No diagnostics found for ${filePath}`,
+                  );
                 }
 
                 // Store output AND diagnostics in toolOutputs (same as read_file)
@@ -509,12 +505,10 @@ export const useToolExecution = ({
                       d.severity === "Warning" || d.severity === "warning",
                   ).length;
                   
-                  // Use setTimeout to ensure console.log doesn't get batched/throttled in parallel calls
-                  setTimeout(() => {
-                    console.log(
-                      `[replace_in_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
-                    );
-                  }, 0);
+                  // Log once when diagnostics are processed
+                  console.log(
+                    `[replace_in_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
+                  );
 
                   // Change format: move summary inline with success message
                   result = `[replace_in_file for '${filePath}'] Result: File updated successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
@@ -627,6 +621,15 @@ export const useToolExecution = ({
                 return;
               }
               const listResults = msg.files || msg.results;
+              
+              // Check if folder is empty
+              if (!listResults || (typeof listResults === 'string' && listResults.trim() === '')) {
+                resolve(
+                  `[list_files for '${folderPath}'] Result: The folder '${folderPath}' is empty (no files or folders inside).`,
+                );
+                return;
+              }
+              
               resolve(
                 `[list_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(listResults) ? JSON.stringify(listResults, null, 2) : String(listResults)}\n\`\`\``,
               );

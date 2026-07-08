@@ -60,6 +60,7 @@ interface AIMessageBoxProps {
   gitStatusBranch?: string;
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
+  onBackToHome?: (summary: string) => void;
 }
 
 const MessageBoxCodeBlock: React.FC<{
@@ -164,6 +165,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   gitStatusBranch,
   isGitProcessing,
   isGitStatusVisible = true,
+  onBackToHome,
 }) => {
   /**
    * Map known hardcoded error strings to English messages.
@@ -902,6 +904,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 gitStatusBranch={gitStatusBranch}
                 isGitProcessing={isGitProcessing}
                 isGitStatusVisible={isGitStatusVisible}
+                onBackToHome={onBackToHome}
               />
             );
 
