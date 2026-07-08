@@ -122,6 +122,49 @@ export class FileHandler {
     return { errorCount, warningCount };
   }
 
+  /**
+   * Ensures file is opened in VS Code to trigger language server analysis.
+   * Does not close the file - keeps it open for diagnostics cache.
+   */
+  private async ensureFileOpened(uri: vscode.Uri): Promise<void> {
+    const logger = LoggerService.getInstance();
+    try {
+      // Check if file is already open (in workspace, not just visible)
+      const isAlreadyOpen = vscode.workspace.textDocuments.some(
+        (doc) => doc.uri.fsPath === uri.fsPath
+      );
+
+      if (isAlreadyOpen) {
+        // File already open, nothing to do
+        logger.info('[ensureFileOpened] File already open, skipping', {
+          file: uri.fsPath
+        });
+        return;
+      }
+
+      logger.info('[ensureFileOpened] Opening file for the first time', {
+        file: uri.fsPath
+      });
+
+      // Open the document and show it to trigger language server
+      const doc = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(doc, {
+        preview: true,
+        viewColumn: vscode.ViewColumn.Active
+      });
+      
+      logger.info('[ensureFileOpened] File opened successfully', {
+        file: uri.fsPath
+      });
+    } catch (e) {
+      // Silently ignore errors - file might not exist yet or other issues
+      logger.error('[ensureFileOpened] Error opening file', {
+        file: uri.fsPath,
+        error: e
+      });
+    }
+  }
+
   public async handleReadFile(message: any, webviewView: vscode.WebviewView) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -161,6 +204,77 @@ export class FileHandler {
         throw new Error(
           `Path '${pathValue}' is out of scope (ignored by .gitignore or project settings).`,
         );
+      }
+
+      // Ensure file is opened to trigger language server (BEFORE reading content)
+      if (!message.skipDiagnostics) {
+        await this.ensureFileOpened(absPath);
+        
+        // Wait for diagnostics from language server with event-based approach
+        const logger = LoggerService.getInstance();
+        await new Promise<void>((resolve) => {
+          const maxTimeout = 300000; // 5 minutes maximum (for extremely large files)
+          const stableWaitTime = 800; // Wait 800ms of no new diagnostic events before considering "stable"
+          const startTime = Date.now();
+          
+          let lastDiagnosticEventTime = Date.now();
+          let diagnosticStableTimeout: NodeJS.Timeout | null = null;
+          let hasReceivedEvent = false;
+
+          logger.info(`[read_file] ⏳ Starting diagnostics wait (event-driven)`, {
+            path: pathValue,
+            maxTimeout,
+            stableWaitTime,
+          });
+
+          const timeoutHandle = setTimeout(() => {
+            const elapsedTime = Date.now() - startTime;
+            logger.warn(`[read_file] ⏱️ Safety timeout reached`, {
+              path: pathValue,
+              elapsedTime,
+              hasReceivedEvent,
+            });
+            if (diagnosticStableTimeout) {
+              clearTimeout(diagnosticStableTimeout);
+            }
+            disposable?.dispose();
+            resolve();
+          }, maxTimeout);
+
+          const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
+            const isOurFile = e.uris.some((uri) => uri.fsPath === absPath.fsPath);
+            
+            if (isOurFile) {
+              const elapsedTime = Date.now() - startTime;
+              lastDiagnosticEventTime = Date.now();
+              hasReceivedEvent = true;
+              
+              if (diagnosticStableTimeout) {
+                clearTimeout(diagnosticStableTimeout);
+              }
+              
+              const currentDiagnostics = this.getDiagnosticsForFile(absPath);
+              logger.info(`[read_file] 🔔 Diagnostics event received`, {
+                path: pathValue,
+                elapsedTime,
+                diagnosticsCount: currentDiagnostics.length,
+              });
+              
+              diagnosticStableTimeout = setTimeout(() => {
+                const finalDiagnostics = this.getDiagnosticsForFile(absPath);
+                const finalElapsedTime = Date.now() - startTime;
+                clearTimeout(timeoutHandle);
+                disposable.dispose();
+                logger.info(`[read_file] ✅ Diagnostics stable, resolving`, {
+                  path: pathValue,
+                  elapsedTime: finalElapsedTime,
+                  diagnosticsCount: finalDiagnostics.length,
+                });
+                resolve();
+              }, stableWaitTime);
+            }
+          });
+        });
       }
 
       let content = "";
@@ -474,6 +588,11 @@ export class FileHandler {
         error: securityCheck.reason || "Security validation failed",
       });
       return;
+    }
+
+    // Ensure file is opened to trigger language server (BEFORE replacing)
+    if (!message.skipDiagnostics) {
+      await this.ensureFileOpened(absPath);
     }
 
     if (message.conversationId) {
