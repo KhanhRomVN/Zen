@@ -18,6 +18,11 @@ export class FileHandler {
   private _lastCacheUpdate: number = 0;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+  // Sequential queuing for file operations to prevent race conditions
+  private _readFileQueue: Promise<void> = Promise.resolve();
+  private _writeFileQueue: Promise<void> = Promise.resolve();
+  private _replaceFileQueue: Promise<void> = Promise.resolve();
+
   constructor(
     private contextManager: ContextManager,
     private fileLockManager: FileLockManager,
@@ -70,6 +75,57 @@ export class FileHandler {
       .update(workspaceFolderPath)
       .digest("hex");
     return path.join(this.getContextRoot(), "projects", hash);
+  }
+
+  /**
+   * Enqueues a function to execute sequentially for read operations.
+   * Prevents concurrent file opening/diagnostics collection which causes race conditions.
+   */
+  private enqueueReadOperation<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const logger = LoggerService.getInstance();
+    this._readFileQueue = this._readFileQueue.then(() => operation()).catch((err) => {
+      logger.error("[enqueueReadOperation] Error in queued operation", {
+        error: err.message,
+      });
+      throw err;
+    }) as Promise<void>;
+    return this._readFileQueue as Promise<T>;
+  }
+
+  /**
+   * Enqueues a function to execute sequentially for write operations.
+   * Prevents concurrent file opening/diagnostics collection which causes race conditions.
+   */
+  private enqueueWriteOperation<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const logger = LoggerService.getInstance();
+    this._writeFileQueue = this._writeFileQueue.then(() => operation()).catch((err) => {
+      logger.error("[enqueueWriteOperation] Error in queued operation", {
+        error: err.message,
+      });
+      throw err;
+    }) as Promise<void>;
+    return this._writeFileQueue as Promise<T>;
+  }
+
+  /**
+   * Enqueues a function to execute sequentially for replace operations.
+   * Prevents concurrent file opening/diagnostics collection which causes race conditions.
+   */
+  private enqueueReplaceOperation<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const logger = LoggerService.getInstance();
+    this._replaceFileQueue = this._replaceFileQueue.then(() => operation()).catch((err) => {
+      logger.error("[enqueueReplaceOperation] Error in queued operation", {
+        error: err.message,
+      });
+      throw err;
+    }) as Promise<void>;
+    return this._replaceFileQueue as Promise<T>;
   }
 
   private getDiagnosticsForFile(uri: vscode.Uri): Array<{
@@ -166,6 +222,30 @@ export class FileHandler {
   }
 
   public async handleReadFile(message: any, webviewView: vscode.WebviewView) {
+    const logger = LoggerService.getInstance();
+    logger.info(`[handleReadFile] 📥 Enqueuing read operation`, {
+      path: message.path || message.filePath || message.file_path,
+      requestId: message.requestId,
+    });
+
+    try {
+      // Enqueue this operation to prevent concurrent language server overload
+      await this.enqueueReadOperation(async () => {
+        await this._handleReadFileInternal(message, webviewView);
+      });
+    } catch (e: any) {
+      logger.error(`[handleReadFile] Failed to complete queued operation`, {
+        path: message.path || message.filePath || message.file_path,
+        error: e.message,
+      });
+      // Error response already sent by _handleReadFileInternal
+    }
+  }
+
+  private async _handleReadFileInternal(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
@@ -221,7 +301,7 @@ export class FileHandler {
           let diagnosticStableTimeout: NodeJS.Timeout | null = null;
           let hasReceivedEvent = false;
 
-          logger.info(`[read_file] ⏳ Starting diagnostics wait (event-driven)`, {
+          logger.info(`[_handleReadFileInternal] ⏳ Starting diagnostics wait (event-driven)`, {
             path: pathValue,
             maxTimeout,
             stableWaitTime,
@@ -229,7 +309,7 @@ export class FileHandler {
 
           const timeoutHandle = setTimeout(() => {
             const elapsedTime = Date.now() - startTime;
-            logger.warn(`[read_file] ⏱️ Safety timeout reached`, {
+            logger.warn(`[_handleReadFileInternal] ⏱️ Safety timeout reached`, {
               path: pathValue,
               elapsedTime,
               hasReceivedEvent,
@@ -254,7 +334,7 @@ export class FileHandler {
               }
               
               const currentDiagnostics = this.getDiagnosticsForFile(absPath);
-              logger.info(`[read_file] 🔔 Diagnostics event received`, {
+              logger.info(`[_handleReadFileInternal] 🔔 Diagnostics event received`, {
                 path: pathValue,
                 elapsedTime,
                 diagnosticsCount: currentDiagnostics.length,
@@ -265,7 +345,7 @@ export class FileHandler {
                 const finalElapsedTime = Date.now() - startTime;
                 clearTimeout(timeoutHandle);
                 disposable.dispose();
-                logger.info(`[read_file] ✅ Diagnostics stable, resolving`, {
+                logger.info(`[_handleReadFileInternal] ✅ Diagnostics stable, resolving`, {
                   path: pathValue,
                   elapsedTime: finalElapsedTime,
                   diagnosticsCount: finalDiagnostics.length,
@@ -298,7 +378,7 @@ export class FileHandler {
       }
       const diagnostics = this.getDiagnosticsForFile(absPath);
       console.log(
-        `[FileHandler][handleReadFile] 📤 Sending response with diagnostics:`,
+        `[FileHandler][_handleReadFileInternal] 📤 Sending response with diagnostics:`,
         {
           path: pathValue,
           contentLength: content.length,
@@ -325,6 +405,30 @@ export class FileHandler {
 
   public async handleWriteFile(message: any, webviewView: vscode.WebviewView) {
     const logger = LoggerService.getInstance();
+    logger.info(`[handleWriteFile] 📥 Enqueuing write operation`, {
+      path: message.path || message.filePath || message.file_path,
+      requestId: message.requestId,
+    });
+
+    try {
+      // Enqueue this operation to prevent concurrent language server overload
+      await this.enqueueWriteOperation(async () => {
+        await this._handleWriteFileInternal(message, webviewView);
+      });
+    } catch (e: any) {
+      logger.error(`[handleWriteFile] Failed to complete queued operation`, {
+        path: message.path || message.filePath || message.file_path,
+        error: e.message,
+      });
+      // Error response already sent by _handleWriteFileInternal
+    }
+  }
+
+  private async _handleWriteFileInternal(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    const logger = LoggerService.getInstance();
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
@@ -332,7 +436,7 @@ export class FileHandler {
       if (!pathValue)
         throw new Error("The 'path' argument must be of type string.");
 
-      logger.info(`[write_to_file] Start`, {
+      logger.info(`[_handleWriteFileInternal] Start`, {
         path: pathValue,
         contentLength: message.content?.length,
         requestId: message.requestId,
@@ -389,7 +493,7 @@ export class FileHandler {
           absolutePath,
           Buffer.from(message.content, "utf8"),
         );
-        logger.info(`[write_to_file] File written successfully`, {
+        logger.info(`[_handleWriteFileInternal] File written successfully`, {
           path: pathValue,
         });
 
@@ -427,7 +531,7 @@ export class FileHandler {
           let diagnosticStableTimeout: NodeJS.Timeout | null = null;
           let hasReceivedEvent = false; // Track if we've received at least one event
 
-          logger.info(`[write_to_file] ⏳ Starting diagnostics wait (event-driven)`, {
+          logger.info(`[_handleWriteFileInternal] ⏳ Starting diagnostics wait (event-driven)`, {
             path: pathValue,
             maxTimeout,
             stableWaitTime,
@@ -435,7 +539,7 @@ export class FileHandler {
 
           const timeoutHandle = setTimeout(() => {
             const elapsedTime = Date.now() - startTime;
-            logger.warn(`[write_to_file] ⏱️ Safety timeout reached`, {
+            logger.warn(`[_handleWriteFileInternal] ⏱️ Safety timeout reached`, {
               path: pathValue,
               elapsedTime,
               hasReceivedEvent,
@@ -462,7 +566,7 @@ export class FileHandler {
               }
               
               const currentDiagnostics = this.getDiagnosticsForFile(absolutePath);
-              logger.info(`[write_to_file] 🔔 Diagnostics event received`, {
+              logger.info(`[_handleWriteFileInternal] 🔔 Diagnostics event received`, {
                 path: pathValue,
                 elapsedTime,
                 diagnosticsCount: currentDiagnostics.length,
@@ -475,7 +579,7 @@ export class FileHandler {
                 const finalElapsedTime = Date.now() - startTime;
                 clearTimeout(timeoutHandle);
                 disposable.dispose();
-                logger.info(`[write_to_file] ✅ Diagnostics stable, resolving`, {
+                logger.info(`[_handleWriteFileInternal] ✅ Diagnostics stable, resolving`, {
                   path: pathValue,
                   elapsedTime: finalElapsedTime,
                   diagnosticsCount: finalDiagnostics.length,
@@ -488,14 +592,14 @@ export class FileHandler {
         });
 
         const diagnostics = this.getDiagnosticsForFile(absolutePath);
-        logger.info(`[write_to_file] 📊 Final diagnostics collection`, {
+        logger.info(`[_handleWriteFileInternal] 📊 Final diagnostics collection`, {
           path: pathValue,
           diagnosticsCount: diagnostics.length,
           hasDiagnostics: diagnostics.length > 0,
         });
         
         if (diagnostics.length) {
-          logger.warn(`[write_to_file] Diagnostics found`, {
+          logger.warn(`[_handleWriteFileInternal] Diagnostics found`, {
             path: pathValue,
             count: diagnostics.length,
             diagnostics: diagnostics.map(d => ({
@@ -525,7 +629,7 @@ export class FileHandler {
         });
       }
     } catch (e: any) {
-      logger.error(`[write_to_file] Error`, {
+      logger.error(`[_handleWriteFileInternal] Error`, {
         path: message.path || message.filePath || message.file_path,
         error: e.message,
       });
@@ -543,6 +647,30 @@ export class FileHandler {
     webviewView: vscode.WebviewView,
   ) {
     const logger = LoggerService.getInstance();
+    logger.info(`[handleReplaceInFile] 📥 Enqueuing replace operation`, {
+      path: message.path || message.filePath || message.file_path,
+      requestId: message.requestId,
+    });
+
+    try {
+      // Enqueue this operation to prevent concurrent language server overload
+      await this.enqueueReplaceOperation(async () => {
+        await this._handleReplaceInFileInternal(message, webviewView);
+      });
+    } catch (e: any) {
+      logger.error(`[handleReplaceInFile] Failed to complete queued operation`, {
+        path: message.path || message.filePath || message.file_path,
+        error: e.message,
+      });
+      // Error response already sent by _handleReplaceInFileInternal
+    }
+  }
+
+  private async _handleReplaceInFileInternal(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    const logger = LoggerService.getInstance();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
     const pathValue = message.path || message.filePath || message.file_path;
@@ -555,7 +683,7 @@ export class FileHandler {
       return;
     }
 
-    logger.info(`[replace_in_file] Start`, {
+    logger.info(`[_handleReplaceInFileInternal] Start`, {
       path: pathValue,
       hasOldStr: !!message.old_str,
       hasNewStr: !!message.new_str,
@@ -631,18 +759,21 @@ export class FileHandler {
         searchArgs = clean(message.old_str);
         replaceArgs = clean(message.new_str);
 
-        logger.debug(`[replace_in_file] Using new schema (old_str/new_str)`, {
-          path: pathValue,
-          searchLength: searchArgs.length,
-          replaceLength: replaceArgs.length,
-        });
+        logger.debug(
+          `[_handleReplaceInFileInternal] Using new schema (old_str/new_str)`,
+          {
+            path: pathValue,
+            searchLength: searchArgs.length,
+            replaceLength: replaceArgs.length,
+          }
+        );
       } else if (message.diff !== undefined && message.diff !== null) {
         // Legacy schema: parse diff format
         const match = message.diff.match(
           /<<<<<<< SEARCH\s*\n([\s\S]*?)\s*=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
         );
         if (!match) {
-          logger.error(`[replace_in_file] Invalid diff format`, {
+          logger.error(`[_handleReplaceInFileInternal] Invalid diff format`, {
             path: pathValue,
             diff: message.diff?.substring(0, 200),
           });
@@ -654,13 +785,16 @@ export class FileHandler {
         searchArgs = clean(match[1]);
         replaceArgs = clean(match[2]);
 
-        logger.debug(`[replace_in_file] Using legacy schema (diff)`, {
-          path: pathValue,
-          searchLength: searchArgs.length,
-          replaceLength: replaceArgs.length,
-        });
+        logger.debug(
+          `[_handleReplaceInFileInternal] Using legacy schema (diff)`,
+          {
+            path: pathValue,
+            searchLength: searchArgs.length,
+            replaceLength: replaceArgs.length,
+          }
+        );
       } else {
-        logger.error(`[replace_in_file] Missing required parameters`, {
+        logger.error(`[_handleReplaceInFileInternal] Missing required parameters`, {
           path: pathValue,
           hasOldStr: message.old_str !== undefined,
           hasNewStr: message.new_str !== undefined,
@@ -672,23 +806,23 @@ export class FileHandler {
 
       let target = searchArgs;
       if (content.indexOf(searchArgs) === -1) {
-        logger.warn(`[replace_in_file] Exact match not found, trying fuzzy`, {
+        logger.warn(`[_handleReplaceInFileInternal] Exact match not found, trying fuzzy`, {
           path: pathValue,
         });
         const fuzzy = FuzzyMatcher.findMatch(content, searchArgs);
         if (!fuzzy || fuzzy.score <= 1e-9) {
-          logger.error(`[replace_in_file] Search text not found`, {
+          logger.error(`[_handleReplaceInFileInternal] Search text not found`, {
             path: pathValue,
           });
           throw new Error("Search text not found");
         }
-        logger.info(`[replace_in_file] Fuzzy match found`, {
+        logger.info(`[_handleReplaceInFileInternal] Fuzzy match found`, {
           path: pathValue,
           score: fuzzy.score,
         });
         target = fuzzy.originalText;
       } else {
-        logger.debug(`[replace_in_file] Exact match found`, {
+        logger.debug(`[_handleReplaceInFileInternal] Exact match found`, {
           path: pathValue,
         });
       }
@@ -699,7 +833,7 @@ export class FileHandler {
         absPath,
         Buffer.from(newContent, "utf8"),
       );
-      logger.info(`[replace_in_file] File updated successfully`, {
+      logger.info(`[_handleReplaceInFileInternal] File updated successfully`, {
         path: pathValue,
       });
 
@@ -714,7 +848,7 @@ export class FileHandler {
         );
       }
     } catch (e: any) {
-      logger.error(`[replace_in_file] Error during replace`, {
+      logger.error(`[_handleReplaceInFileInternal] Error during replace`, {
         path: pathValue,
         error: e.message,
       });
@@ -743,7 +877,7 @@ export class FileHandler {
         let diagnosticStableTimeout: NodeJS.Timeout | null = null;
         let hasReceivedEvent = false; // Track if we've received at least one event
 
-        logger.info(`[replace_in_file] ⏳ Starting diagnostics wait (event-driven)`, {
+        logger.info(`[_handleReplaceInFileInternal] ⏳ Starting diagnostics wait (event-driven)`, {
           path: pathValue,
           maxTimeout,
           stableWaitTime,
@@ -751,7 +885,7 @@ export class FileHandler {
 
         const timeoutHandle = setTimeout(() => {
           const elapsedTime = Date.now() - startTime;
-          logger.warn(`[replace_in_file] ⏱️ Safety timeout reached`, {
+          logger.warn(`[_handleReplaceInFileInternal] ⏱️ Safety timeout reached`, {
             path: pathValue,
             elapsedTime,
             hasReceivedEvent,
@@ -778,7 +912,7 @@ export class FileHandler {
             }
             
             const currentDiagnostics = this.getDiagnosticsForFile(absPath);
-            logger.info(`[replace_in_file] 🔔 Diagnostics event received`, {
+            logger.info(`[_handleReplaceInFileInternal] 🔔 Diagnostics event received`, {
               path: pathValue,
               elapsedTime,
               diagnosticsCount: currentDiagnostics.length,
@@ -791,7 +925,7 @@ export class FileHandler {
               const finalElapsedTime = Date.now() - startTime;
               clearTimeout(timeoutHandle);
               disposable.dispose();
-              logger.info(`[replace_in_file] ✅ Diagnostics stable, resolving`, {
+              logger.info(`[_handleReplaceInFileInternal] ✅ Diagnostics stable, resolving`, {
                 path: pathValue,
                 elapsedTime: finalElapsedTime,
                 diagnosticsCount: finalDiagnostics.length,
@@ -804,14 +938,14 @@ export class FileHandler {
       });
 
       const diagnostics = this.getDiagnosticsForFile(absPath);
-      logger.info(`[replace_in_file] 📊 Final diagnostics collection`, {
+      logger.info(`[_handleReplaceInFileInternal] 📊 Final diagnostics collection`, {
         path: pathValue,
         diagnosticsCount: diagnostics.length,
         hasDiagnostics: diagnostics.length > 0,
       });
       
       if (diagnostics.length) {
-        logger.warn(`[replace_in_file] Diagnostics found`, {
+        logger.warn(`[_handleReplaceInFileInternal] Diagnostics found`, {
           path: pathValue,
           count: diagnostics.length,
           diagnostics: diagnostics.map(d => ({

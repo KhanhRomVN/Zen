@@ -311,6 +311,17 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics;
     const hasDiagnostics = !!toolOutputDiagnostics;
     const diagnosticsCount = toolOutputDiagnostics?.length || 0;
+    
+    // DEBUG: Log when diagnostics are available to trigger auto-request
+    if (shouldGetDiagnostics && toolOutputDiagnostics && diagnosticsCount > 0) {
+      console.log(`[FileToolRenderer][${actionId}] 🎯 DIAGNOSTICS READY - Should trigger auto-request`, {
+        toolType,
+        diagnosticsCount,
+        actionId,
+        hasWarnings: toolOutputDiagnostics.some(d => d.severity === 'Warning'),
+        hasErrors: toolOutputDiagnostics.some(d => d.severity === 'Error'),
+      });
+    }
 
     // Current state
     const currentState: typeof prevDiagnosticStateRef.current = {
@@ -1730,6 +1741,23 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           )}
         </>
       )}
+      
+      {/* DEBUG: Log final state */}
+      {React.useMemo(() => {
+        if ((toolType === "read_file" || toolType === "write_to_file" || toolType === "replace_in_file") && 
+            isCompleted && !isPartial && mergedDiagnostics) {
+          console.log(`[FileToolRenderer][${actionId}] ✅ FINAL STATE - Ready for auto-request`, {
+            toolType,
+            isCompleted,
+            isPartial,
+            diagnosticCount: mergedDiagnostics.length,
+            hasWarnings: mergedDiagnostics.some(d => d.severity === 'Warning'),
+            hasErrors: mergedDiagnostics.some(d => d.severity === 'Error'),
+            shouldAutoRequest: mergedDiagnostics.length > 0,
+          });
+        }
+        return null;
+      }, [mergedDiagnostics, isCompleted, isPartial, toolType, actionId])}
     </div>
   );
 };
