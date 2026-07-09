@@ -280,6 +280,25 @@
   display: none;
 }
 
+/* Hide line for response number item (no dot) */
+.timeline-item.no-timeline-line::before {
+  display: none !important;
+}
+
+/* Response number item: has line but no dot */
+.timeline-item.response-number-item::before {
+  display: block !important; /* Keep the line */
+}
+
+.timeline-item.response-number-item .timeline-dot {
+  display: none; /* Hide the dot */
+}
+
+/* Hide line of item immediately before response number */
+.timeline-item:has(+ .no-timeline-line)::before {
+  display: none !important;
+}
+
 /* Hide line when assistant message is followed by user message */
 .assistant-message-container.is-last-assistant .timeline-item:not(.last):last-of-type::before {
   display: none;

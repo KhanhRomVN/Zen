@@ -63,6 +63,7 @@ interface AIMessageBoxProps {
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
+  responseNumber?: number | null;
 }
 
 const AIMessageBox: React.FC<AIMessageBoxProps> = ({
@@ -96,6 +97,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   isGitProcessing,
   isGitStatusVisible = true,
   onBackToHome,
+  responseNumber,
 }) => {
   /**
    * Map known hardcoded error strings to English messages.
@@ -230,7 +232,21 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               content: string;
               key: string;
             }
+          | {
+              type: "response_number";
+              content: string;
+              key: string;
+            }
         > = [];
+
+        // Add response number at the beginning if provided
+        if (responseNumber !== null && responseNumber !== undefined) {
+          groups.push({
+            type: "response_number",
+            content: `[${responseNumber}]`,
+            key: "response-number",
+          });
+        }
 
         // --- 🆕 METADATA DOT CHECK ---
         // Skip metadata dot for commit messages (they should continue the timeline without a new dot)
@@ -411,11 +427,35 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           // Only mark as "last" if: it's the last timeline group AND (isLastMessage OR hasNextAssistantMessage)
           // This prevents timeline line when followed by user message
           const shouldMarkAsLast = index === lastTimelineIndex && isLastMessage;
+          
           const timelineClass = `timeline-item ${shouldMarkAsLast ? "last" : ""}`;
 
           let content = null;
 
-          if (group.type === "metadata") {
+          if (group.type === "response_number") {
+            content = (
+              <div>
+                {/* No timeline dot, just the line continues through */}
+                <div
+                  style={{
+                    paddingLeft: "29px",
+                    paddingTop: "4px",
+                    paddingBottom: "4px",
+                    fontSize: "11px",
+                    color: "var(--vscode-descriptionForeground)",
+                    fontFamily: "var(--vscode-editor-font-family, monospace)",
+                    lineHeight: 1.6,
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    opacity: 0.7,
+                    userSelect: "none",
+                  }}
+                >
+                  {group.content}
+                </div>
+              </div>
+            );
+          } else if (group.type === "metadata") {
             content = (
               <div style={{ paddingBottom: "8px" }}>
                 <div
@@ -777,6 +817,15 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
           if (group.type === "tools" || group.type === "question") {
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
+          }
+
+          // Response number gets special timeline class (has line, no dot)
+          if (group.type === "response_number") {
+            return (
+              <div key={group.key} className={`${timelineClass} response-number-item`}>
+                {content}
+              </div>
+            );
           }
 
           return (

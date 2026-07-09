@@ -107,6 +107,9 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
     console.log('[DiffSummaryBar Debug] Total messages:', messages.length);
     const fileChanges = new Map<string, { additions: number; deletions: number }>();
     
+    // Count assistant responses for STT
+    let assistantResponseCount = 0;
+    
     messages.forEach((msg, idx) => {
       console.log(`[DiffSummaryBar Debug] Message ${idx}:`, {
         role: msg.role,
@@ -114,6 +117,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       });
       
       if (msg.role === 'assistant' && msg.content) {
+        assistantResponseCount++;
+        
         // Parse tool actions from message content - new format: <write_to_file>, <str_replace>, etc.
         
         // Match write_to_file: <write_to_file><file_path>...</file_path><content>...</content></write_to_file>
@@ -180,6 +185,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       totalFiles,
       totalAdditions,
       totalDeletions,
+      assistantResponseCount,
       fileChanges: Array.from(fileChanges.entries()),
     });
     
@@ -187,6 +193,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       totalFiles,
       totalAdditions,
       totalDeletions,
+      responseNumber: assistantResponseCount,
     };
   }, [messages]);
 
