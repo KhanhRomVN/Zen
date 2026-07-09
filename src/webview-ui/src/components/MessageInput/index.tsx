@@ -6,6 +6,7 @@ import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
+import DiffSummaryBar from "./DiffSummaryBar";
 
 export interface UploadedFile {
   id: string;
@@ -571,6 +572,14 @@ interface MessageInputProps {
   // 🆕 Context Compression Button
   showCompressButton?: boolean;
   onCompress?: () => void;
+  // 🆕 Git Status for DiffSummaryBar
+  gitStatus?: { items?: any[]; branch?: string } | null;
+  onOpenGitStatus?: () => void;
+  conversationFileStats?: {
+    totalFiles: number;
+    totalAdditions: number;
+    totalDeletions: number;
+  };
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -611,6 +620,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isGitStatusVisible = false,
   showCompressButton = false,
   onCompress,
+  gitStatus,
+  onOpenGitStatus,
+  conversationFileStats,
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
@@ -999,12 +1011,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
           borderRadius: "var(--border-radius)",
           border: !isConnected
             ? "1px solid var(--vscode-errorForeground, #f44336)"
-            : "1px solid transparent",
+            : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
           transition: "border 0.3s ease",
           marginTop:
-            !isConversationStarted || (isConnected && isElaraMismatch)
+            !isConversationStarted || (isConnected && isElaraMismatch) || isConversationStarted
               ? "24px"
-              : "0px", // Space for badges sticking up
+              : "0px", // Space for badges/DiffSummaryBar sticking up
         }}
       >
         {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
@@ -1091,6 +1103,27 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 Select Model
               </>
             )}
+          </div>
+        )}
+        
+        {/* 🆕 CHAT PANEL DIFF SUMMARY BAR (Stuck to Border) - Only when isConversationStarted */}
+        {isConversationStarted && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "98%",
+              zIndex: 20,
+            }}
+          >
+            <DiffSummaryBar
+              totalChanges={conversationFileStats?.totalFiles || 0}
+              addedLines={conversationFileStats?.totalAdditions || 0}
+              removedLines={conversationFileStats?.totalDeletions || 0}
+              onClick={onOpenGitStatus}
+            />
           </div>
         )}
         {showModelDrawer && (

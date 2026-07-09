@@ -945,6 +945,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         footerPaddingBottom={footerPaddingBottom}
         shouldShowCompressionButton={shouldShowCompressionButton}
         onTriggerCompression={triggerContextCompression}
+        gitStatus={gitStatus}
+        onOpenGitStatus={() => setShowGitStatusBlock(true)}
       />
     </div>
   );

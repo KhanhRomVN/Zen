@@ -10,6 +10,7 @@ import "../blocks/run_command/TerminalBlock.css";
 import "../blocks/markdown/MarkdownBlock.css";
 import { MarkdownBlock } from "../blocks/markdown/MarkdownBlock";
 import { QuestionBlock } from "../blocks/question/QuestionBlock";
+import { CodeBlock } from "../blocks/code/CodeBlock";
 
 interface AIMessageBoxProps {
   message: Message;
@@ -63,79 +64,6 @@ interface AIMessageBoxProps {
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
 }
-
-const MessageBoxCodeBlock: React.FC<{
-  code: string;
-  language?: string;
-  diffStats?: { added: number; removed: number };
-  isDiffBlock: boolean;
-  prefix?: string;
-  statusColor?: string;
-}> = ({ code, language, diffStats, isDiffBlock, prefix, statusColor }) => {
-  const [isCollapsed, setIsCollapsed] = React.useState(isDiffBlock);
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        marginBottom: "8px",
-      }}
-    >
-      <ToolHeader
-        title={prefix || language || "code"}
-        statusColor={statusColor}
-        diffStats={diffStats}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={
-          isDiffBlock ? () => setIsCollapsed(!isCollapsed) : undefined
-        }
-        headerActions={
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigator.clipboard.writeText(code);
-            }}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--vscode-foreground)",
-              cursor: "pointer",
-              opacity: 0.7,
-              display: "flex",
-              alignItems: "center",
-              padding: "2px",
-            }}
-            title="Copy Code"
-          >
-            <div
-              className="codicon codicon-copy"
-              style={{ fontSize: "14px" }}
-            />
-          </button>
-        }
-      />
-      {!isCollapsed && (
-        <div style={{ paddingLeft: "29px" }}>
-          <pre
-            style={{
-              margin: 0,
-              padding: "8px",
-              overflow: "auto",
-              fontFamily: "var(--vscode-editor-font-family, monospace)",
-              fontSize: "12px",
-              background: "var(--vscode-editor-background)",
-              borderRadius: "4px",
-            }}
-          >
-            <code style={{ background: "none", padding: 0 }}>{code}</code>
-          </pre>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   message,
@@ -570,7 +498,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
             }
 
             content = (
-              <MessageBoxCodeBlock
+              <CodeBlock
                 code={displayCode}
                 language={isDiffBlock ? "python" : group.language}
                 diffStats={diffStats}
@@ -658,27 +586,12 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                   {group.segments.map((seg: any, i: number) => {
                     if (seg.type === "code") {
                       return (
-                        <div
+                        <CodeBlock
                           key={i}
-                          style={{ marginBottom: "8px", marginTop: "4px" }}
-                        >
-                          <pre
-                            style={{
-                              margin: 0,
-                              padding: "8px",
-                              overflow: "auto",
-                              fontFamily:
-                                "var(--vscode-editor-font-family, monospace)",
-                              fontSize: "12px",
-                              background: "var(--vscode-editor-background)",
-                              borderRadius: "4px",
-                            }}
-                          >
-                            <code style={{ background: "none", padding: 0 }}>
-                              {seg.content}
-                            </code>
-                          </pre>
-                        </div>
+                          code={seg.content}
+                          language={seg.language}
+                          enableWordWrap={false}
+                        />
                       );
                     } else if (seg.type === "markdown") {
                       return (

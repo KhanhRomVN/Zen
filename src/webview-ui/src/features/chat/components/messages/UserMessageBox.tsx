@@ -78,6 +78,7 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           gap: "var(--spacing-xs)",
           borderRadius: "var(--border-radius)",
           backgroundColor: "var(--input-bg)",
+          border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
           padding: "var(--spacing-md)",
           marginLeft: "0px", // Align with left edge since there is no dot
           position: "relative",

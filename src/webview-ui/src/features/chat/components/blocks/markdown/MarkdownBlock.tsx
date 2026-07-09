@@ -175,8 +175,9 @@ const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(
     const resolvedMap = knownFilePaths || new Map<string, string>();
 
     const reactNodes = React.useMemo(() => {
+      console.log('[MarkdownBlock] Rendering markdown content (length):', content.length);
+      
       // 1. Render markdown → sanitized HTML
-      // Strict DOMPurify config: strip event handlers and dangerous protocols
       const rawHtml = marked.parse(content) as string;
       const sanitized = DOMPurify.sanitize(rawHtml, {
         USE_PROFILES: { html: true },

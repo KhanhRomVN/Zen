@@ -49,6 +49,8 @@ interface ChatFooterProps {
   footerPaddingBottom: string;
   shouldShowCompressionButton?: boolean;
   onTriggerCompression?: () => void;
+  gitStatus?: { items?: any[]; branch?: string } | null;
+  onOpenGitStatus?: () => void;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -97,7 +99,97 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   footerPaddingBottom,
   shouldShowCompressionButton = false,
   onTriggerCompression,
+  gitStatus,
+  onOpenGitStatus,
 }) => {
+  // Calculate file changes from conversation messages
+  const conversationFileStats = React.useMemo(() => {
+    console.log('[DiffSummaryBar Debug] Total messages:', messages.length);
+    const fileChanges = new Map<string, { additions: number; deletions: number }>();
+    
+    messages.forEach((msg, idx) => {
+      console.log(`[DiffSummaryBar Debug] Message ${idx}:`, {
+        role: msg.role,
+        contentPreview: msg.content?.substring(0, 200),
+      });
+      
+      if (msg.role === 'assistant' && msg.content) {
+        // Parse tool actions from message content - new format: <write_to_file>, <str_replace>, etc.
+        
+        // Match write_to_file: <write_to_file><file_path>...</file_path><content>...</content></write_to_file>
+        const writeMatches = msg.content.matchAll(/<write_to_file>\s*<file_path>([^<]+)<\/file_path>\s*<content>([\s\S]*?)<\/content>\s*<\/write_to_file>/g);
+        
+        let matchCount = 0;
+        for (const match of writeMatches) {
+          matchCount++;
+          const filePath = match[1];
+          const content = match[2];
+          
+          console.log(`[DiffSummaryBar Debug] Found write_to_file match ${matchCount} in message ${idx}:`, { filePath });
+          
+          if (filePath) {
+            if (!fileChanges.has(filePath)) {
+              fileChanges.set(filePath, { additions: 0, deletions: 0 });
+            }
+            
+            const stats = fileChanges.get(filePath)!;
+            const lines = content.split('\n').length;
+            stats.additions += lines;
+            console.log(`[DiffSummaryBar Debug] Added ${lines} lines to ${filePath}`);
+          }
+        }
+        
+        // Match str_replace: <str_replace><file_path>...</file_path><old_str>...</old_str><new_str>...</new_str></str_replace>
+        const replaceMatches = msg.content.matchAll(/<str_replace>\s*<file_path>([^<]+)<\/file_path>\s*<old_str>([\s\S]*?)<\/old_str>\s*<new_str>([\s\S]*?)<\/new_str>\s*<\/str_replace>/g);
+        
+        for (const match of replaceMatches) {
+          matchCount++;
+          const filePath = match[1];
+          const oldStr = match[2];
+          const newStr = match[3];
+          
+          console.log(`[DiffSummaryBar Debug] Found str_replace match ${matchCount} in message ${idx}:`, { filePath });
+          
+          if (filePath) {
+            if (!fileChanges.has(filePath)) {
+              fileChanges.set(filePath, { additions: 0, deletions: 0 });
+            }
+            
+            const stats = fileChanges.get(filePath)!;
+            const oldLines = oldStr.split('\n').length;
+            const newLines = newStr.split('\n').length;
+            
+            stats.deletions += oldLines;
+            stats.additions += newLines;
+            
+            console.log(`[DiffSummaryBar Debug] Replaced in ${filePath}: -${oldLines} +${newLines}`);
+          }
+        }
+        
+        if (matchCount === 0) {
+          console.log(`[DiffSummaryBar Debug] No tool matches found in message ${idx}`);
+        }
+      }
+    });
+    
+    const totalFiles = fileChanges.size;
+    const totalAdditions = Array.from(fileChanges.values()).reduce((sum, stat) => sum + stat.additions, 0);
+    const totalDeletions = Array.from(fileChanges.values()).reduce((sum, stat) => sum + stat.deletions, 0);
+    
+    console.log('[DiffSummaryBar Debug] Final stats:', {
+      totalFiles,
+      totalAdditions,
+      totalDeletions,
+      fileChanges: Array.from(fileChanges.entries()),
+    });
+    
+    return {
+      totalFiles,
+      totalAdditions,
+      totalDeletions,
+    };
+  }, [messages]);
+
   return (
     <div
       id="chat-footer-container"
@@ -113,7 +205,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         zIndex: 100,
         transition: "bottom 0.2s ease",
         paddingBottom: 0,
-        overflow: "hidden",
+        overflow: "visible",
       }}
     >
       <input
@@ -201,6 +293,15 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           isGitStatusVisible={isGitStatusVisible}
           showCompressButton={shouldShowCompressionButton}
           onCompress={onTriggerCompression}
+          gitStatus={{
+            items: Array.from({ length: conversationFileStats.totalFiles }, (_, i) => ({
+              path: `file-${i}`,
+              additions: 0,
+              deletions: 0,
+            })),
+          }}
+          conversationFileStats={conversationFileStats}
+          onOpenGitStatus={onOpenGitStatus}
         />
       </div>
     </div>
