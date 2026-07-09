@@ -42,7 +42,8 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
           opacity: 0.75,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
-          maxHeight: typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight,
+          maxHeight:
+            typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight,
           overflowY: "hidden",
           padding: 0,
           border: "none",

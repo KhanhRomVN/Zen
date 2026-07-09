@@ -162,8 +162,30 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   // Snapshot functionality is now handled by ReplaceInFileRenderer and WriteToFileRenderer
 
   let codeContent = "";
+  let rawTreeData: any = null; // For list_files JSON tree data
+
   if (toolType === "list_files" || toolType === "find_files") {
-    codeContent = toolOutputs?.[actionId]?.output || "";
+    const output = toolOutputs?.[actionId]?.output;
+    
+    console.log('[FileToolRenderer] list_files output:', {
+      actionId,
+      outputType: typeof output,
+      isArray: Array.isArray(output),
+      outputPreview: typeof output === 'string' ? output.substring(0, 100) : output,
+      fullOutput: output
+    });
+
+    // For list_files, check if we have raw JSON array (new format)
+    if (toolType === "list_files" && Array.isArray(output)) {
+      console.log('[FileToolRenderer] Using rawTreeData (array format)');
+      rawTreeData = output; // Store raw JSON for TreeBlock
+      // Convert to string format for agent display (backward compatibility)
+      codeContent = JSON.stringify(output, null, 2);
+    } else {
+      console.log('[FileToolRenderer] Falling back to string format parsing');
+      // Fallback to string format (old behavior or find_files)
+      codeContent = typeof output === "string" ? output : "";
+    }
   }
 
   let diffStats: { added: number; removed: number } | null = null;
@@ -219,11 +241,49 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
   // Calculate file count for list_files (must be after isError declaration)
   let fileCount = 0;
-  if (toolType === "list_files" && codeContent && !isError) {
-    // Parse XML to count files
-    const fileMatches = codeContent.match(/<file\s+/g);
-    const folderMatches = codeContent.match(/<folder\s+/g);
-    fileCount = (fileMatches?.length || 0) + (folderMatches?.length || 0);
+  let folderCount = 0;
+  let fileCountFromListFiles = 0;
+
+  if (toolType === "list_files" && !isError) {
+    // Priority 1: Count from raw JSON tree data (new format)
+    if (rawTreeData && Array.isArray(rawTreeData)) {
+      const countNodes = (nodes: any[]): { files: number; folders: number } => {
+        let files = 0;
+        let folders = 0;
+        for (const node of nodes) {
+          if (node.type === "file") {
+            files++;
+          } else if (node.type === "folder" || node.type === "directory") {
+            folders++;
+            if (node.children && Array.isArray(node.children)) {
+              const childCounts = countNodes(node.children);
+              files += childCounts.files;
+              folders += childCounts.folders;
+            }
+          }
+        }
+        return { files, folders };
+      };
+
+      const counts = countNodes(rawTreeData);
+      fileCountFromListFiles = counts.files;
+      folderCount = counts.folders;
+      fileCount = fileCountFromListFiles + folderCount;
+    }
+    // Fallback: Parse plain text format (legacy)
+    else if (codeContent) {
+      const lines = codeContent.split("\n").filter((line) => line.trim());
+
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        if (trimmed.endsWith("/")) {
+          folderCount++;
+        } else if (trimmed && !trimmed.startsWith("//")) {
+          fileCountFromListFiles++;
+        }
+      });
+      fileCount = fileCountFromListFiles + folderCount;
+    }
   }
 
   // Calculate match count for find_files
@@ -234,12 +294,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
       if (match) {
         fileCount = parseInt(match[1], 10);
       }
-    } catch (err) {
-      console.error(
-        `[FileToolRenderer][${actionId}] Error parsing find_files output:`,
-        err,
-      );
-    }
+    } catch (err) {}
   }
 
   // ─── Thinking content ───────────────────────────────────────────────────────
@@ -646,32 +701,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   style={{ fontSize: "10px", opacity: 0.5, marginLeft: "2px" }}
                 />
               )}
-              {isHeaderHovered && (
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowRawView(!showRawView);
-                  }}
-                  style={{
-                    marginLeft: "8px",
-                    fontSize: "10px",
-                    opacity: 0.6,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                    fontWeight: 500,
-                    textDecoration: "underline",
-                    textUnderlineOffset: "2px",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = "1";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "0.6";
-                  }}
-                >
-                  {showRawView ? "Hide raw" : "View raw"}
-                </span>
-              )}
             </div>
           ) : isFindFilesTool ? (
             // Find Files-specific header
@@ -729,32 +758,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                       {fileCount} {fileCount === 1 ? "file" : "files"}
                     </span>
                   </>
-                )}
-                {isHeaderHovered && (
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowRawView(!showRawView);
-                    }}
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: "10px",
-                      opacity: 0.6,
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                      fontWeight: 500,
-                      textDecoration: "underline",
-                      textUnderlineOffset: "2px",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = "1";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = "0.6";
-                    }}
-                  >
-                    {showRawView ? "Hide raw" : "View raw"}
-                  </span>
                 )}
               </div>
 
@@ -938,64 +941,59 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               {toolType === "list_files" &&
                 isCompleted &&
                 !isError &&
+                codeContent &&
                 (() => {
                   const depth = action.params.depth;
-                  // Count folders and files from codeContent XML
-                  const folderCount = (codeContent.match(/<folder\s+/g) || [])
-                    .length;
-                  const fileCountFromXml = (
-                    codeContent.match(/<file\s+/g) || []
-                  ).length;
-                  const totalCount = folderCount + fileCountFromXml;
+
+                  // Count folders and files from plain text format
+                  // Folders end with /, files don't
+                  const lines = codeContent
+                    .split("\n")
+                    .filter((line) => line.trim());
+                  let folderCountInline = 0;
+                  let fileCountInline = 0;
+
+                  lines.forEach((line) => {
+                    const trimmed = line.trim();
+                    if (trimmed.endsWith("/")) {
+                      folderCountInline++;
+                    } else if (trimmed && !trimmed.startsWith("//")) {
+                      fileCountInline++;
+                    }
+                  });
+
+                  const totalCount = folderCountInline + fileCountInline;
 
                   if (totalCount === 0) return null; // Don't show for empty folders
 
+                  // Build combined text: "depth: 2 • 9 folders • 3 files"
+                  const parts = [];
+
+                  // Always show depth if specified
+                  if (depth !== undefined && depth !== null) {
+                    parts.push(`depth: ${depth}`);
+                  }
+
+                  // Always show folder count (even if 0)
+                  parts.push(
+                    `${folderCountInline} ${folderCountInline === 1 ? "folder" : "folders"}`,
+                  );
+
+                  // Always show file count (even if 0)
+                  parts.push(
+                    `${fileCountInline} ${fileCountInline === 1 ? "file" : "files"}`,
+                  );
+
                   return (
-                    <>
-                      {depth !== undefined && (
-                        <span
-                          style={{
-                            opacity: 0.5,
-                            fontSize: "10px",
-                            color: "var(--vscode-descriptionForeground)",
-                          }}
-                        >
-                          depth: {depth}
-                        </span>
-                      )}
-                      <span
-                        style={{
-                          opacity: 0.5,
-                          fontSize: "10px",
-                          color: "var(--vscode-descriptionForeground)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <span
-                          className="codicon codicon-folder"
-                          style={{ fontSize: "10px" }}
-                        />
-                        {folderCount}
-                      </span>
-                      <span
-                        style={{
-                          opacity: 0.5,
-                          fontSize: "10px",
-                          color: "var(--vscode-descriptionForeground)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        <span
-                          className="codicon codicon-file"
-                          style={{ fontSize: "10px" }}
-                        />
-                        {fileCountFromXml}
-                      </span>
-                    </>
+                    <span
+                      style={{
+                        opacity: 0.5,
+                        fontSize: "10px",
+                        color: "var(--vscode-descriptionForeground)",
+                      }}
+                    >
+                      {parts.join(" • ")}
+                    </span>
                   );
                 })()}
               {isPartial && (
@@ -1031,33 +1029,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                     className="codicon codicon-loading codicon-modifier-spin"
                     style={{ fontSize: "10px" }}
                   />
-                </span>
-              )}
-
-              {isHeaderHovered && (
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowRawView(!showRawView);
-                  }}
-                  style={{
-                    marginLeft: "8px",
-                    fontSize: "10px",
-                    opacity: 0.6,
-                    cursor: "pointer",
-                    transition: "all 0.15s ease",
-                    fontWeight: 500,
-                    textDecoration: "underline",
-                    textUnderlineOffset: "2px",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = "1";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "0.6";
-                  }}
-                >
-                  {showRawView ? "Hide raw" : "View raw"}
                 </span>
               )}
             </div>
@@ -1107,13 +1078,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
           return meta;
         })()}
-        subTitle={
-          toolType === "list_files" && fileCount > 0 && !isError ? (
-            <span>
-              {fileCount} {fileCount === 1 ? "file" : "files"}
-            </span>
-          ) : undefined
-        }
+        subTitle={undefined}
         diffStats={undefined}
         isPartial={isPartial}
         diagnostics={mergedDiagnostics}
@@ -1139,6 +1104,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             command: "openFile",
             path: clickedPath,
           });
+        }}
+        onDotClick={() => {
+          setShowRawView(!showRawView);
         }}
       />
 
@@ -1311,7 +1279,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           </div>
         )}
 
-      {!shouldHideContent && isError && errorMessage && (
+      {!shouldHideContent && isError && errorMessage && !isGrepTool && (
         <div
           style={{
             display: "flex",
@@ -1411,11 +1379,43 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 }
 
                 // Use TreeBlock for non-empty folders
-                // Parse codeContent to extract file paths
+                // If we have raw JSON tree data, use it directly
+                if (rawTreeData && Array.isArray(rawTreeData)) {
+                  console.log('[FileToolRenderer] Using rawTreeData for TreeBlock:', {
+                    dataType: 'raw JSON array',
+                    itemCount: rawTreeData.length,
+                    firstItem: rawTreeData[0]
+                  });
+                  return (
+                    <TreeBlock
+                      files={rawTreeData}
+                      onFileClick={(fullPath) =>
+                        extensionService.postMessage({
+                          command: "openFile",
+                          path: fullPath,
+                        })
+                      }
+                    />
+                  );
+                }
+
+                // Fallback: Parse codeContent to extract file paths (legacy string format)
+                console.log('[FileToolRenderer] Parsing codeContent for TreeBlock:', {
+                  dataType: 'string',
+                  contentLength: codeContent.length,
+                  contentPreview: codeContent.substring(0, 200)
+                });
+                
                 const lines = codeContent.split("\n").filter(Boolean);
                 const filePaths = lines
                   .map((line) => line.trim())
                   .filter((line) => line && !line.startsWith("//"));
+
+                console.log('[FileToolRenderer] Extracted file paths:', {
+                  totalLines: lines.length,
+                  filteredPaths: filePaths.length,
+                  paths: filePaths
+                });
 
                 // Build tree structure
                 interface FileNode {
@@ -1438,7 +1438,11 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                     let currentNode = root;
 
                     segments.forEach((segment, index) => {
-                      const isFile = index === segments.length - 1;
+                      // Determine if this is a file by checking if it has an extension
+                      // Also check if it's the last segment
+                      const isLastSegment = index === segments.length - 1;
+                      const hasExtension = segment.includes(".");
+                      const isFile = isLastSegment && hasExtension;
 
                       if (!currentNode.children) {
                         currentNode.children = [];
@@ -1471,6 +1475,11 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 };
 
                 const treeData = buildTree(filePaths);
+                
+                console.log('[FileToolRenderer] Built tree data:', {
+                  treeNodeCount: treeData.length,
+                  treeStructure: treeData
+                });
 
                 return (
                   <TreeBlock

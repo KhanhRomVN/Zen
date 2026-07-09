@@ -35,9 +35,9 @@ export async function executeListFiles(
           return;
         }
         const listResults = msg.files || msg.results;
-        resolve(
-          `[list_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(listResults) ? JSON.stringify(listResults, null, 2) : String(listResults)}\n\`\`\``,
-        );
+        
+        // Return raw JSON array - let the UI format it
+        resolve(listResults);
       },
       LIST_FILES_TIMEOUT_MS,
       () => resolve(null),

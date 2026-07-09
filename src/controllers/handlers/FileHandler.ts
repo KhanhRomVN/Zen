@@ -274,6 +274,16 @@ export class FileHandler {
         throw new Error(securityCheck.reason || "Security validation failed");
       }
 
+      // File existence check (early detection before waiting for diagnostics)
+      if (!pathValue.endsWith("workspace.md")) {
+        const fileExists = fs.existsSync(absPath.fsPath);
+        if (!fileExists) {
+          throw new Error(
+            `File not found: ${pathValue}`,
+          );
+        }
+      }
+
       const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
       const ignoreCheck = await fsAnalyzer.isIgnored(absPath.fsPath);
       if (
@@ -1259,11 +1269,23 @@ export class FileHandler {
           `Path '${dirPath}' is out of scope (ignored by .gitignore or project settings).`,
         );
       }
-      const tree = await fsAnalyzer.getFileTree(
+      
+      // Get tree as JSON structure instead of string
+      const treeNode = await fsAnalyzer.getFileTreeJson(
         maxDepth,
         absolutePath.fsPath,
         true,
       );
+      
+      // Convert to format expected by TreeBlock (array of children)
+      // Also convert type from "directory" to "folder" for TreeBlock compatibility
+      const convertType = (node: any): any => ({
+        ...node,
+        type: node.type === "directory" ? "folder" : node.type,
+        children: node.children?.map(convertType),
+      });
+      
+      const tree = (treeNode.children || []).map(convertType);
 
       webviewView.webview.postMessage({
         command: "listFilesResult",

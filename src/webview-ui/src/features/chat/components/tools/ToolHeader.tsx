@@ -44,6 +44,8 @@ interface ToolHeaderProps {
     source?: string;
     code?: string | number;
   }>;
+  /** Callback when dot is clicked (for raw view toggle, etc.) */
+  onDotClick?: () => void;
 }
 
 // Truncate path to prevent line wrapping
@@ -87,6 +89,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   toolType,
   tooltipMeta,
   diagnostics,
+  onDotClick,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pathContainerRef = useRef<HTMLDivElement>(null);
@@ -306,8 +309,15 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                 left: "15px",
                 transform: "translateX(-50%)",
                 boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${statusColor} 50%, transparent)`,
+                cursor: onDotClick ? "pointer" : "default",
               }}
               title={getStatusTooltip}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDotClick) {
+                  onDotClick();
+                }
+              }}
             />
           )}
           {isPartial && (

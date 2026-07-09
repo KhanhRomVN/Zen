@@ -152,6 +152,36 @@ export class FileSystemAnalyzer {
   }
 
   /**
+   * Lấy cấu trúc file tree dưới dạng JSON object (for TreeBlock UI)
+   */
+  public async getFileTreeJson(
+    maxDepth: number = 20,
+    customRootPath?: string,
+    forListing: boolean = false,
+  ): Promise<FileNode> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (
+      (!workspaceFolders || workspaceFolders.length === 0) &&
+      !customRootPath
+    ) {
+      return {
+        name: "No workspace",
+        type: "directory",
+        path: "",
+        children: [],
+      };
+    }
+
+    const rootPath = customRootPath || workspaceFolders![0].uri.fsPath;
+
+    try {
+      return await this.buildFileTreeWithRg(rootPath, maxDepth, true, forListing);
+    } catch (error) {
+      return await this.buildFileTree(rootPath, 0, maxDepth, true, forListing);
+    }
+  }
+
+  /**
    * Build file tree using ripgrep
    */
   private async buildFileTreeWithRg(
@@ -206,11 +236,13 @@ export class FileSystemAnalyzer {
     } catch (e) {
     }
 
-    // 2. Chạy Ripgrep để quét sâu hơn
+    // 2. Chạy Ripgrep để quét sâu hơn - use maxDepth * 2 to ensure we get everything within depth
     // When listing, use --no-ignore-vcs to include files rg would normally skip,
     // but still respect our listing ignore patterns applied manually above.
     const rgExtraFlags = forListing ? `${extraFlags}--no-ignore ` : extraFlags;
-    const cmd = `"${rgPath}" ${rgExtraFlags}--files --max-depth ${maxDepth}`;
+    // Use maxDepth for ripgrep to avoid scanning too deep
+    const rgMaxDepth = Math.max(maxDepth, 1); // At least 1 level
+    const cmd = `"${rgPath}" ${rgExtraFlags}--files --max-depth ${rgMaxDepth}`;
     const { stdout } = await execAsync(cmd, {
       cwd: rootPath,
       maxBuffer: 1024 * 1024 * 10,
@@ -222,6 +254,14 @@ export class FileSystemAnalyzer {
 
       // Skip if any path component matches the ignore filter
       if (parts.some((part) => shouldIgnoreFn(part))) {
+        continue;
+      }
+
+      // Skip files that exceed maxDepth
+      // For a file, depth is parts.length (e.g., "a/b/c.txt" has 3 parts, depth = 3)
+      // For maxDepth=1, we only want files directly in root (1 part)
+      // For maxDepth=2, we want files in root or 1 level down (up to 2 parts)
+      if (parts.length > maxDepth) {
         continue;
       }
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath, getFolderIconPath } from "@/utils/fileIconMapper";
 import "./TreeBlock.css";
 
 interface FileNode {
@@ -24,6 +24,16 @@ const TreeNode: React.FC<{
   // Expand all folders by default for find_files to show all results
   const [isExpanded, setIsExpanded] = useState(true);
 
+  // Debug log for each node
+  console.log(`[TreeNode] Rendering:`, {
+    name: node.name,
+    type: node.type,
+    level: level,
+    hasChildren: !!node.children,
+    childrenCount: node.children?.length || 0,
+    path: node.path
+  });
+
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (node.type === "folder") {
@@ -38,6 +48,10 @@ const TreeNode: React.FC<{
   };
 
   const hasChildren = node.children && node.children.length > 0;
+  const iconPath =
+    node.type === "folder"
+      ? getFolderIconPath(node.name, isExpanded)
+      : getFileIconPath(node.path);
 
   return (
     <div className="tree-node">
@@ -55,10 +69,24 @@ const TreeNode: React.FC<{
         {node.type === "folder" && !hasChildren && (
           <span className="tree-chevron-placeholder" />
         )}
-        <FileIcon
-          path={node.path}
-          isFolder={node.type === "folder"}
-          style={{ width: "14px", height: "14px", marginRight: "6px" }}
+        {node.type === "file" && (
+          <span className="tree-chevron-placeholder" />
+        )}
+        <img
+          src={iconPath}
+          alt={`${node.type} icon`}
+          style={{ width: "14px", height: "14px", marginRight: "6px", flexShrink: 0 }}
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+            const parent = e.currentTarget.parentElement;
+            if (parent) {
+              const fallback = document.createElement("span");
+              fallback.className = `codicon codicon-${node.type === "folder" ? "folder" : "file"}`;
+              fallback.style.cssText =
+                "font-size: 12px; color: var(--vscode-descriptionForeground); opacity: 0.7; margin-right: 6px; flex-shrink: 0;";
+              parent.insertBefore(fallback, e.currentTarget);
+            }
+          }}
         />
         <span className="tree-node-name">{node.name}</span>
         {node.type === "file" && node.lines !== undefined && (
@@ -67,14 +95,17 @@ const TreeNode: React.FC<{
       </div>
       {node.type === "folder" && isExpanded && hasChildren && (
         <div className="tree-node-children">
-          {node.children!.map((child, index) => (
-            <TreeNode
-              key={`${child.path}-${index}`}
-              node={child}
-              level={level + 1}
-              onFileClick={onFileClick}
-            />
-          ))}
+          {node.children!.map((child, index) => {
+            console.log(`[TreeNode] Child ${index} of ${node.name}:`, child.name);
+            return (
+              <TreeNode
+                key={`${child.path}-${index}`}
+                node={child}
+                level={level + 1}
+                onFileClick={onFileClick}
+              />
+            );
+          })}
         </div>
       )}
     </div>
@@ -82,16 +113,76 @@ const TreeNode: React.FC<{
 };
 
 export const TreeBlock: React.FC<TreeBlockProps> = ({ files, onFileClick }) => {
+  // Debug logging with alert for visibility
+  React.useEffect(() => {
+    const debugInfo = {
+      filesCount: files?.length || 0,
+      filesType: Array.isArray(files) ? 'array' : typeof files,
+      firstFile: files?.[0] ? {
+        name: files[0].name,
+        type: files[0].type,
+        path: files[0].path,
+        hasChildren: !!files[0].children,
+        childrenCount: files[0].children?.length || 0
+      } : 'no files',
+      rawData: files
+    };
+    
+    console.log('[TreeBlock] Received files data:', debugInfo);
+    
+    // Show alert for first render to debug
+    if (files && files.length > 0) {
+      console.log('[TreeBlock] Full tree structure:', JSON.stringify(files, null, 2));
+    }
+  }, [files]);
+
+  // Validate data structure
+  if (!Array.isArray(files)) {
+    console.error('[TreeBlock] Invalid files data - not an array:', files);
+    return (
+      <div style={{ padding: '8px', color: 'var(--vscode-errorForeground)' }}>
+        Error: Invalid tree data format (not array)
+      </div>
+    );
+  }
+
+  if (files.length === 0) {
+    return (
+      <div style={{ padding: '8px', opacity: 0.6 }}>
+        No files to display
+      </div>
+    );
+  }
+
   return (
-    <div className="tree-block">
-      {files.map((file, index) => (
-        <TreeNode
-          key={`${file.path}-${index}`}
-          node={file}
-          level={0}
-          onFileClick={onFileClick}
-        />
-      ))}
+    <div
+      style={{
+        marginTop: "4px",
+        marginLeft: "29px",
+        backgroundColor:
+          "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+        border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+        borderRadius: "4px",
+        overflow: "hidden",
+      }}
+    >
+      <div className="tree-block">
+        {files.map((file, index) => {
+          console.log(`[TreeBlock] Rendering node ${index}:`, {
+            name: file.name,
+            type: file.type,
+            childrenCount: file.children?.length || 0
+          });
+          return (
+            <TreeNode
+              key={`${file.path}-${index}`}
+              node={file}
+              level={0}
+              onFileClick={onFileClick}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 };

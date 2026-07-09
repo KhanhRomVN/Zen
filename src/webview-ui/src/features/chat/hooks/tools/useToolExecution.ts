@@ -565,6 +565,8 @@ export const useToolExecution = ({
         case "list_files": {
           const requestId = `list-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.path || action.params.folder_path;
+          const actionId = (action as any).actionId;
+          
           extensionService.postMessage({
             command: "listFiles",
             path: folderPath,
@@ -588,7 +590,8 @@ export const useToolExecution = ({
               // Check if folder is empty
               if (
                 !listResults ||
-                (typeof listResults === "string" && listResults.trim() === "")
+                (typeof listResults === "string" && listResults.trim() === "") ||
+                (Array.isArray(listResults) && listResults.length === 0)
               ) {
                 resolve(
                   `[list_files for '${folderPath}'] Result: The folder '${folderPath}' is empty (no files or folders inside).`,
@@ -596,9 +599,62 @@ export const useToolExecution = ({
                 return;
               }
 
-              resolve(
-                `[list_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(listResults) ? JSON.stringify(listResults, null, 2) : String(listResults)}\n\`\`\``,
-              );
+              // Store the raw JSON tree data in toolOutputs for TreeBlock to consume
+              if (Array.isArray(listResults) && actionId) {
+                console.log('[useToolExecution] Storing raw JSON array to toolOutputs:', {
+                  actionId,
+                  arrayLength: listResults.length,
+                  firstItem: listResults[0]
+                });
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: listResults, // Store raw JSON array for UI
+                    isError: false,
+                  },
+                }));
+                
+                // Format as readable tree for agent (no emojis, no tree lines)
+                const formatTree = (nodes: any[], indent: string = ''): string => {
+                  let result = '';
+                  nodes.forEach((node) => {
+                    // Node line (no tree characters, just indentation)
+                    if (node.type === 'folder') {
+                      result += `${indent}${node.name}/`;
+                      if (node.children && node.children.length > 0) {
+                        result += ` (${node.children.length} items)`;
+                      }
+                      result += '\n';
+                      if (node.children && node.children.length > 0) {
+                        result += formatTree(node.children, indent + '  ');
+                      }
+                    } else {
+                      result += `${indent}${node.name}`;
+                      if (node.lines !== undefined) {
+                        result += ` (${node.lines} lines)`;
+                      }
+                      result += '\n';
+                    }
+                  });
+                  return result;
+                };
+                
+                const formattedOutput = formatTree(listResults);
+                resolve(
+                  `[list_files for '${folderPath}'] Result:\n${formattedOutput}`,
+                );
+              } else {
+                console.log('[useToolExecution] NOT array or no actionId:', {
+                  isArray: Array.isArray(listResults),
+                  hasActionId: !!actionId,
+                  actionId
+                });
+                // Fallback
+                const outputStr = typeof listResults === 'string' ? listResults : String(listResults);
+                resolve(
+                  `[list_files for '${folderPath}'] Result:\n${outputStr}`,
+                );
+              }
             },
             TOOL_TIMEOUT_STANDARD,
             () => resolve(null),
@@ -1040,7 +1096,8 @@ export const useToolExecution = ({
           // CRITICAL: For run_command, we do NOT overwrite toolOutputs with the formatted 'result'
           // because the Raw Terminal Logs are already being updated in real-time by terminalOutput/commandExecuted events.
           // Overwriting here would inject the "Output: [run_command...]" header and backticks into the TerminalBlock UI.
-          if (action.type !== "run_command") {
+          // ALSO: For list_files, preserve raw JSON array that was already set
+          if (action.type !== "run_command" && action.type !== "list_files") {
             setToolOutputs((prev) => {
               const existing = prev[actionId];
               return {
