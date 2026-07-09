@@ -25,11 +25,6 @@ export async function executeFindFiles(params: FindFilesParams): Promise<{
     const requestId = `find-${Date.now()}-${Math.random()}`;
     const fileNames = params.file_names || [];
 
-    console.log(`[FindFilesExecutor] 🔍 Searching for files:`, {
-      fileNames,
-      requestId,
-    });
-
     extensionService.postMessage({
       command: "findFiles",
       fileNames,
@@ -63,11 +58,6 @@ export async function executeFindFiles(params: FindFilesParams): Promise<{
               }
             });
           }
-
-          console.log(`[FindFilesExecutor] ✅ Formatted output:`, {
-            outputLength: output.length,
-            totalMatches,
-          });
 
           resolve({
             output,

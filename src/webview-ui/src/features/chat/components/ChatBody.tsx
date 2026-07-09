@@ -10,6 +10,7 @@ import { useToolActions } from "../hooks/tools/useToolActions";
 import { useScrollBehavior } from "../hooks/ui/useScrollBehavior";
 import { Message } from "../types/message";
 import ProcessingIndicator from "./messages/ProcessingIndicator";
+import { ThinkingRenderer } from "./blocks/thinking/ThinkingBlock";
 import MessageBox from "./messages/MessageBox";
 import SearchBar from "./SearchBar";
 import { ChatErrorBoundary } from "./ChatErrorBoundary";
@@ -149,7 +150,10 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       if (!cached || cached === undefined) {
         const parsed = parseAIResponse(msg.content);
         // 🔍 Only log if something went wrong
-        if (parsed.contentBlocks.length === 0 && msg.content.trim().length > 50) {
+        if (
+          parsed.contentBlocks.length === 0 &&
+          msg.content.trim().length > 50
+        ) {
           console.warn("[Zen][ChatBody] No blocks generated for message:", {
             messageId: msg.id,
             contentLength: msg.content.length,
@@ -207,13 +211,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     if (!firstPendingAction) return false;
     // Complex mode: always show all tools, never auto-approve
     return false;
-  }, [
-    messages,
-    isRestored,
-    toolOutputs,
-    permissionMode,
-    clickedActions,
-  ]);
+  }, [messages, isRestored, toolOutputs, permissionMode, clickedActions]);
 
   const visibleMessages = useMemo(() => {
     const filtered = messages.filter(
@@ -236,25 +234,61 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
     const parsedMessage = parsedMessages.find((pm) => pm.id === lastMessage.id);
     if (!parsedMessage) return false;
     const parsed = parsedMessage.parsed;
+
+    // Hide ProcessingIndicator nếu có bất kỳ content nào (kể cả thinking blocks)
+    // Kiểm tra message.thinking (SSE stream)
+    if (lastMessage.thinking && lastMessage.thinking.trim().length > 0) {
+      return false; // Ẩn ProcessingIndicator (đã có thinking)
+    }
+
+    // Kiểm tra thinking blocks trong contentBlocks
+    const hasThinkingBlock =
+      parsed.contentBlocks &&
+      parsed.contentBlocks.some((b) => b.type === "thinking");
+    if (hasThinkingBlock) {
+      return false; // Ẩn ProcessingIndicator (đã có thinking blocks)
+    }
+
+    // Kiểm tra text content
     const hasText = parsed.displayText && parsed.displayText.trim().length > 0;
+    if (hasText) {
+      return false; // Ẩn ProcessingIndicator (đã có text)
+    }
+
+    // Kiểm tra actions
     const hasActions = parsed.actions && parsed.actions.length > 0;
+    if (hasActions) {
+      return false; // Ẩn ProcessingIndicator (đã có actions)
+    }
+
+    // Kiểm tra other blocks (code, file, markdown, mixed_content) - skip thinking
     const hasOtherBlocks =
       parsed.contentBlocks &&
       parsed.contentBlocks.some((b) => {
+        // Skip thinking blocks - they're rendered separately
+        if (b.type === "thinking") {
+          return false;
+        }
         switch (b.type) {
           case "tool":
-            return true;
-          case "mixed_content":
-            return b.segments.length > 0;
+            return true; // Tools count as content
           case "code":
           case "file":
           case "markdown":
-            return b.content.trim().length > 0;
+            return (b as any).content?.trim().length > 0;
+          case "mixed_content":
+            return (b as any).segments?.length > 0;
           default:
             return false;
         }
       });
-    return !!(hasText || hasActions || hasOtherBlocks);
+
+    if (hasOtherBlocks) {
+      return false; // Ẩn ProcessingIndicator (đã có content blocks)
+    }
+
+    // Show ProcessingIndicator chỉ khi chưa có content nào
+    return true;
   }, [isProcessing, visibleMessages, parsedMessages]);
 
   return (
@@ -325,6 +359,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           </button>
         </div>
       )}
+
       <div className="chat-timeline-wrapper">
         {visibleMessages.map((message, index) => {
           const parsedMessage = parsedMessages.find(
@@ -343,11 +378,12 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             )
             .reverse()
             .find((m) => m.role === "assistant");
-          
+
           // Check if next visible message is assistant (for timeline line logic)
           const nextVisibleMessage = visibleMessages[index + 1];
-          const hasNextAssistantMessage = nextVisibleMessage?.role === "assistant";
-          
+          const hasNextAssistantMessage =
+            nextVisibleMessage?.role === "assistant";
+
           return (
             <ChatErrorBoundary key={message.id}>
               <MessageBox
@@ -372,7 +408,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
                 isLastMessage={
                   message.role === "assistant" &&
                   (index === visibleMessages.length - 1 ||
-                   index === lastAssistantIndex) &&
+                    index === lastAssistantIndex) &&
                   hasNextAssistantMessage === false
                 }
                 hasNextAssistantMessage={hasNextAssistantMessage}
@@ -401,6 +437,60 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           );
         })}
       </div>
+
+      {/* Thinking Block - render after timeline wrapper, before ProcessingIndicator */}
+      {(() => {
+        const lastMessage = visibleMessages[visibleMessages.length - 1];
+        const isRenderingThinking =
+          lastMessage && lastMessage.role === "assistant" && isProcessing;
+
+        if (!isRenderingThinking) {
+          return null;
+        }
+
+        // Check for thinking from SSE stream (unclosed thinking)
+        const hasSSEThinking =
+          lastMessage.thinking && lastMessage.thinking.trim();
+
+        if (hasSSEThinking) {
+          return (
+            <ThinkingRenderer
+              content={lastMessage.thinking!}
+              maxHeight={240}
+              isStreaming={true}
+            />
+          );
+        }
+
+        // Check for unclosed thinking blocks in parsed content
+        const parsedMessage = parsedMessages.find(
+          (pm) => pm.id === lastMessage.id,
+        );
+        if (!parsedMessage) {
+          return null;
+        }
+
+        // Look for UNCLOSED thinking block (still streaming)
+        const contentBlocks = parsedMessage.parsed.contentBlocks || [];
+        const lastBlock = contentBlocks[contentBlocks.length - 1];
+        const isLastBlockUnclosedThinking =
+          lastBlock &&
+          lastBlock.type === "thinking" &&
+          lastBlock.content?.trim();
+
+        // Only render if the LAST block is a thinking block (means thinking is still open/unclosed)
+        if (isLastBlockUnclosedThinking) {
+          return (
+            <ThinkingRenderer
+              content={lastBlock.content!}
+              maxHeight={240}
+              isStreaming={true}
+            />
+          );
+        }
+
+        return null;
+      })()}
 
       {hasUnexecutedAutoActions && onContinue && (
         <div

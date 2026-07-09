@@ -90,14 +90,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   let remainingContent = content;
 
-  // 🔍 DEBUG: Log initial content
-  if (DEBUG_PARSER) {
-    console.log("[Zen][Parser] 📥 Parsing content:", {
-      length: content.length,
-      preview: content.substring(0, 100),
-    });
-  }
-
   // Hide </no_response> markers
   remainingContent = remainingContent.replace(/<\/no_response\s*>/gi, "");
 
@@ -112,16 +104,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     unclosedThinkingContent,
   } = extractThinkingBlocks(remainingContent);
   remainingContent = contentAfterThinking;
-
-  // 🔍 DEBUG: Log after thinking extraction
-  if (DEBUG_PARSER) {
-    console.log("[Zen][Parser] 🧠 After thinking extraction:", {
-      thinkingBlocksCount: thinkingBlocks.length,
-      unclosedThinking: unclosedThinkingContent !== null,
-      remainingLength: remainingContent.length,
-      remainingPreview: remainingContent.substring(0, 100),
-    });
-  }
 
   // 🔍 ALWAYS log if content is stripped completely
   // BUT skip if this is likely a streaming intermediate state
@@ -288,26 +270,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   let scanStr = remainingContent;
 
-  // 🔍 DEBUG: Log scan loop start
-  if (DEBUG_PARSER) {
-    console.log("[Zen][Parser] 🔍 Starting scan loop:", {
-      scanLength: scanStr.length,
-      toolPatterns: toolPatterns.length,
-    });
-  }
-
   while (scanStr.length > 0) {
     const { index, match, toolName, isClosed } = findNextTag(scanStr);
-
-    // 🔍 DEBUG: Log each iteration
-    if (DEBUG_PARSER && index !== -1) {
-      console.log("[Zen][Parser] 🏷️ Found tag:", {
-        toolName,
-        index,
-        isClosed,
-        matchPreview: match[0]?.substring(0, 50),
-      });
-    }
 
     if (index !== -1 && match) {
       // Found a tag
@@ -456,10 +420,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             } else if (singleQuoteMatch) {
               qLabel = singleQuoteMatch[1].trim();
             }
-            
+
             // Decode HTML entities if present
             if (qLabel) {
-              const textarea = document.createElement('textarea');
+              const textarea = document.createElement("textarea");
               textarea.innerHTML = qLabel;
               qLabel = textarea.value;
             }
@@ -769,7 +733,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
                 type: "write_to_file" as const,
                 params,
                 rawXml: recoveredRawXml,
-                isPartial: true // Always partial during streaming
+                isPartial: true, // Always partial during streaming
               };
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
@@ -781,13 +745,15 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           // If we have both old_content and new_content (or old_str/new_str), treat as complete
           if (toolName === "replace_in_file") {
             // Check if we have both required content tags
-            const hasOldContent = 
-              /<old_content>[\s\S]*?<\/old_content>/i.test(innerContent || "") ||
-              /<old_str>[\s\S]*?<\/old_str>/i.test(innerContent || "");
-            const hasNewContent = 
-              /<new_content>[\s\S]*?<\/new_content>/i.test(innerContent || "") ||
-              /<new_str>[\s\S]*?<\/new_str>/i.test(innerContent || "");
-            
+            const hasOldContent =
+              /<old_content>[\s\S]*?<\/old_content>/i.test(
+                innerContent || "",
+              ) || /<old_str>[\s\S]*?<\/old_str>/i.test(innerContent || "");
+            const hasNewContent =
+              /<new_content>[\s\S]*?<\/new_content>/i.test(
+                innerContent || "",
+              ) || /<new_str>[\s\S]*?<\/new_str>/i.test(innerContent || "");
+
             // If we have both content blocks, auto-complete the tag
             if (hasOldContent && hasNewContent) {
               const recoveredRawXml =
@@ -797,13 +763,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
                 type: "replace_in_file" as const,
                 params,
                 rawXml: recoveredRawXml,
-                isPartial: false // Mark as complete since we have all required content
+                isPartial: false, // Mark as complete since we have all required content
               };
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
               break;
             }
-            
+
             // Otherwise, check for file_path for partial streaming recovery
             const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
             const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
@@ -824,7 +790,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
                 type: "replace_in_file" as const,
                 params,
                 rawXml: recoveredRawXml,
-                isPartial: true // Always partial during streaming
+                isPartial: true, // Always partial during streaming
               };
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
@@ -1095,15 +1061,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     });
   }
 
-  // 🔍 DEBUG: Log final result
-  if (DEBUG_PARSER) {
-    console.log("[Zen][Parser] ✅ Parse complete:", {
-      contentBlocks: result.contentBlocks.length,
-      actions: result.actions.length,
-      blockTypes: result.contentBlocks.map((b) => b.type),
-    });
-  }
-
   // 🔍 ALWAYS log if contentBlocks is empty (potential bug)
   // BUT skip warning if content is just a partial opening tag (streaming case)
   const isPartialTag = /^<[\/]?[a-zA-Z0-9_]*$/.test(content.trim());
@@ -1149,7 +1106,7 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "find_files":
       const fileCount = action.params.file_names?.length || 0;
-      return `find_files: ${fileCount} file name${fileCount === 1 ? '' : 's'}`;
+      return `find_files: ${fileCount} file name${fileCount === 1 ? "" : "s"}`;
 
     case "move_file":
       return `move_file: ${action.params.file_path || "unknown"} → ${action.params.target_folder_path || "unknown"}`;

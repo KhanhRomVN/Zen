@@ -140,10 +140,14 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   }, [path, maxLength]);
 
   // Track previous diagnostic counts to avoid redundant logs
-  const prevDiagnosticCountsRef = useRef<{ total: number; errors: number; warnings: number }>({ 
-    total: 0, 
-    errors: 0, 
-    warnings: 0 
+  const prevDiagnosticCountsRef = useRef<{
+    total: number;
+    errors: number;
+    warnings: number;
+  }>({
+    total: 0,
+    errors: 0,
+    warnings: 0,
   });
 
   // Calculate error and warning counts from diagnostics
@@ -154,24 +158,22 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
 
     const errors = diagnostics.filter((d) => d.severity === "Error").length;
     const warnings = diagnostics.filter((d) => d.severity === "Warning").length;
-    
+
     // Only log when counts actually change
-    const countsChanged = 
+    const countsChanged =
       prevDiagnosticCountsRef.current.total !== diagnostics.length ||
       prevDiagnosticCountsRef.current.errors !== errors ||
       prevDiagnosticCountsRef.current.warnings !== warnings;
-    
+
     if (countsChanged && diagnostics.length > 0) {
-      console.log(`[ToolHeader][${path}] 📊 Received ${diagnostics.length} diagnostics, counted ${errors} errors, ${warnings} warnings`);
-      
       // Update previous counts
-      prevDiagnosticCountsRef.current = { 
-        total: diagnostics.length, 
-        errors, 
-        warnings 
+      prevDiagnosticCountsRef.current = {
+        total: diagnostics.length,
+        errors,
+        warnings,
       };
     }
-    
+
     return { errors, warnings };
   }, [diagnostics, toolType, path]);
 

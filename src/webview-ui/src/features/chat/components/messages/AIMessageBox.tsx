@@ -302,11 +302,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               content: string;
               key: string;
             }
-          | {
-              type: "thinking";
-              content: string;
-              key: string;
-            }
         > = [];
 
         // --- 🆕 METADATA DOT CHECK ---
@@ -353,19 +348,19 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           });
         }
 
-        // ------------------------------
-        if (message.thinking && message.thinking.trim()) {
-          groups.push({
-            type: "thinking",
-            content: message.thinking,
-            key: "thinking-block",
-          });
-        }
+        // Only show message.thinking while generating, auto-hide when done
+        // NOTE: message.thinking is now rendered in ChatBody outside of timeline
+        // So we don't render it here anymore
 
         let currentToolGroup: { action: any; index: number }[] = [];
 
         // Use contentBlocks from parser
         const blocks = parsedContent.contentBlocks || [];
+        
+        // Track if we've already added thinking from message.thinking
+        // Only count as "added" if we're still generating (thinking will be hidden when done)
+        // NOTE: message.thinking is now rendered outside in ChatBody, so skip here
+        const hasAddedThinking = false;
 
         // Helper to flush tool group
         const flushTools = () => {
@@ -408,6 +403,9 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 content: block.content,
                 key: `markdown-${idx}`,
               });
+            } else if (block.type === "thinking") {
+              // Skip - thinking blocks are rendered in ChatBody outside timeline
+              // Do nothing here
             } else if (block.type === "question") {
               flushTools();
               groups.push({
@@ -550,107 +548,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                   }}
                 >
                   {group.content}
-                </div>
-              </div>
-            );
-          } else if (group.type === "thinking") {
-            content = (
-              <div style={{ paddingBottom: "8px" }}>
-                <div
-                  className="timeline-dot"
-                  style={{
-                    backgroundColor: "transparent",
-                    top: "10px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: "none",
-                  }}
-                >
-                  {/* Animated circle-dot — purple */}
-                  <span
-                    style={{
-                      position: "relative",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "12px",
-                      height: "12px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        position: "absolute",
-                        width: "12px",
-                        height: "12px",
-                        borderRadius: "50%",
-                        background:
-                          "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
-                        opacity: 0.25,
-                      }}
-                    />
-                    <span
-                      style={{
-                        width: "6px",
-                        height: "6px",
-                        borderRadius: "50%",
-                        background:
-                          "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
-                        flexShrink: 0,
-                      }}
-                    />
-                  </span>
-                </div>
-                <div style={{ paddingLeft: "29px", paddingTop: "4px" }}>
-                  {/* THINKING label */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      marginBottom: "6px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "10px",
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color:
-                          "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
-                        opacity: 0.85,
-                      }}
-                    >
-                      Thinking
-                    </span>
-                  </div>
-                  {/* Plain content block */}
-                  <div
-                    style={{
-                      padding: "6px 10px",
-                      background:
-                        "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-                      borderRadius: "4px",
-                      border:
-                        "1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, var(--vscode-widget-border, rgba(255,255,255,0.08)))",
-                      fontFamily: "var(--vscode-editor-font-family, monospace)",
-                      fontSize: "11px",
-                      lineHeight: "1.5",
-                      color:
-                        "var(--vscode-descriptionForeground, var(--vscode-editor-foreground))",
-                      opacity: 0.85,
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      maxHeight: "240px",
-                      overflowY: "auto",
-                      scrollbarWidth: "thin",
-                      scrollbarColor:
-                        "var(--vscode-scrollbarSlider-background) transparent",
-                    }}
-                  >
-                    {group.content}
-                  </div>
                 </div>
               </div>
             );

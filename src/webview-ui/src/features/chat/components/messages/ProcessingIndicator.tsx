@@ -16,7 +16,9 @@ const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  if (isResponding) {
+  // isResponding = true means waiting (should show)
+  // isResponding = false means has content (should hide)
+  if (!isResponding) {
     return null;
   }
 

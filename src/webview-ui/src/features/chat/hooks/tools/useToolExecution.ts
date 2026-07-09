@@ -390,11 +390,6 @@ export const useToolExecution = ({
                     (d: any) =>
                       d.severity === "Warning" || d.severity === "warning",
                   ).length;
-                  
-                  // Log once when diagnostics are processed
-                  console.log(
-                    `[write_to_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
-                  );
 
                   // Change format: move summary inline with success message
                   result = `[write_to_file for '${filePath}'] Result: File written successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
@@ -428,10 +423,6 @@ export const useToolExecution = ({
                       result += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
                     });
                   }
-                } else {
-                  console.log(
-                    `[write_to_file] ℹ️ No diagnostics found for ${filePath}`,
-                  );
                 }
 
                 // Store output AND diagnostics in toolOutputs (same as read_file)
@@ -504,11 +495,6 @@ export const useToolExecution = ({
                     (d: any) =>
                       d.severity === "Warning" || d.severity === "warning",
                   ).length;
-                  
-                  // Log once when diagnostics are processed
-                  console.log(
-                    `[replace_in_file] ✅ Processing ${msg.diagnostics.length} diagnostics for ${filePath}`,
-                  );
 
                   // Change format: move summary inline with success message
                   result = `[replace_in_file for '${filePath}'] Result: File updated successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
@@ -546,20 +532,6 @@ export const useToolExecution = ({
                       result += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
                     });
                   }
-                } else if (msg.diagnostics !== undefined) {
-                  // diagnostics field exists but is empty array
-                  setTimeout(() => {
-                    console.log(
-                      `[replace_in_file] ℹ️ No diagnostics found for ${filePath} (checked: ${msg.diagnostics.length} items)`,
-                    );
-                  }, 0);
-                } else {
-                  // diagnostics field doesn't exist
-                  setTimeout(() => {
-                    console.log(
-                      `[replace_in_file] ⚠️ No diagnostics field in response for ${filePath}`,
-                    );
-                  }, 0);
                 }
 
                 // Store output AND diagnostics in toolOutputs (same as read_file)
@@ -569,16 +541,7 @@ export const useToolExecution = ({
                     isError: false,
                     diagnostics: msg.diagnostics || undefined,
                   };
-                  
-                  // Debug log
-                  setTimeout(() => {
-                    console.log(`[replace_in_file] 💾 Saving to toolOutputs[${actionId}]:`, {
-                      hasDiagnostics: !!newOutput.diagnostics,
-                      diagnosticsCount: newOutput.diagnostics?.length || 0,
-                      diagnostics: newOutput.diagnostics,
-                    });
-                  }, 0);
-                  
+
                   return {
                     ...prev,
                     [actionId]: newOutput,
@@ -621,15 +584,18 @@ export const useToolExecution = ({
                 return;
               }
               const listResults = msg.files || msg.results;
-              
+
               // Check if folder is empty
-              if (!listResults || (typeof listResults === 'string' && listResults.trim() === '')) {
+              if (
+                !listResults ||
+                (typeof listResults === "string" && listResults.trim() === "")
+              ) {
                 resolve(
                   `[list_files for '${folderPath}'] Result: The folder '${folderPath}' is empty (no files or folders inside).`,
                 );
                 return;
               }
-              
+
               resolve(
                 `[list_files for '${folderPath}'] Result:\n\`\`\`\n${Array.isArray(listResults) ? JSON.stringify(listResults, null, 2) : String(listResults)}\n\`\`\``,
               );

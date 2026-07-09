@@ -435,17 +435,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Trigger context compression
   const triggerContextCompression = useCallback(() => {
     // Import CONTEXT_COMPRESSION_PROMPT
-    import("./prompts/context-compression").then(({ CONTEXT_COMPRESSION_PROMPT }) => {
-      wrappedSendMessage(
-        CONTEXT_COMPRESSION_PROMPT,
-        undefined,
-        undefined,
-        undefined,
-        false, // Not skipFirstRequestLogic
-        undefined,
-        true, // uiHidden - hide this internal request from user
-      );
-    });
+    import("./prompts/context-compression").then(
+      ({ CONTEXT_COMPRESSION_PROMPT }) => {
+        wrappedSendMessage(
+          CONTEXT_COMPRESSION_PROMPT,
+          undefined,
+          undefined,
+          undefined,
+          false, // Not skipFirstRequestLogic
+          undefined,
+          true, // uiHidden - hide this internal request from user
+        );
+      },
+    );
   }, [wrappedSendMessage]);
 
   const shouldShowCompressionButton = true; // Always show button
@@ -726,10 +728,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             conversationId: currentConversationId || "",
             token_usage: 0,
           };
-          
+
           // Update messages to only have the summary
           setMessages([summaryMessage]);
-          
+
           // Save to conversation
           const sessionId = currentChat?.sessionId || -1;
           const folderPath = currentChat?.folderPath || null;
@@ -740,16 +742,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             currentConversationId || undefined,
             currentChat || undefined,
           );
-
-          // Notify user
-          console.log("[Chat] Conversation compressed successfully with summary");
         }
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [currentChat, currentConversationId, setMessages]);
-
 
   // --- Handlers ---
   const handleClearChat = useCallback(() => {
@@ -795,10 +793,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     currentConversationId,
   ]);
 
-  const handleBackToHome = useCallback((summary: string) => {
-    // Navigate back to Home and pass the summary to auto-paste into MessageInput
-    onBack(summary);
-  }, [onBack]);
+  const handleBackToHome = useCallback(
+    (summary: string) => {
+      // Navigate back to Home and pass the summary to auto-paste into MessageInput
+      onBack(summary);
+    },
+    [onBack],
+  );
 
   // Listen for AI response containing commit message - using hook's detector
   useEffect(() => {

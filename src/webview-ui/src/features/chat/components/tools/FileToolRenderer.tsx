@@ -295,7 +295,12 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     isPartial: boolean | undefined;
     hasDiagnostics: boolean;
     diagnosticsCount: number;
-  }>({ isCompleted: false, isPartial: true, hasDiagnostics: false, diagnosticsCount: 0 });
+  }>({
+    isCompleted: false,
+    isPartial: true,
+    hasDiagnostics: false,
+    diagnosticsCount: 0,
+  });
 
   // Get diagnostics from toolOutputs ONLY (single source of truth)
   // No cache, no merge - prioritize consistency over performance
@@ -311,17 +316,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics;
     const hasDiagnostics = !!toolOutputDiagnostics;
     const diagnosticsCount = toolOutputDiagnostics?.length || 0;
-    
-    // DEBUG: Log when diagnostics are available to trigger auto-request
-    if (shouldGetDiagnostics && toolOutputDiagnostics && diagnosticsCount > 0) {
-      console.log(`[FileToolRenderer][${actionId}] 🎯 DIAGNOSTICS READY - Should trigger auto-request`, {
-        toolType,
-        diagnosticsCount,
-        actionId,
-        hasWarnings: toolOutputDiagnostics.some(d => d.severity === 'Warning'),
-        hasErrors: toolOutputDiagnostics.some(d => d.severity === 'Error'),
-      });
-    }
 
     // Current state
     const currentState: typeof prevDiagnosticStateRef.current = {
@@ -332,23 +326,15 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     };
 
     // Only log when state actually changes (not on every render)
-    const stateChanged = 
+    const stateChanged =
       prevDiagnosticStateRef.current.isCompleted !== currentState.isCompleted ||
       prevDiagnosticStateRef.current.isPartial !== currentState.isPartial ||
-      prevDiagnosticStateRef.current.hasDiagnostics !== currentState.hasDiagnostics ||
-      prevDiagnosticStateRef.current.diagnosticsCount !== currentState.diagnosticsCount;
+      prevDiagnosticStateRef.current.hasDiagnostics !==
+        currentState.hasDiagnostics ||
+      prevDiagnosticStateRef.current.diagnosticsCount !==
+        currentState.diagnosticsCount;
 
     if (stateChanged && shouldGetDiagnostics) {
-      console.log(`[FileToolRenderer][${rawPath}] 🔍 Diagnostic check:`, {
-        toolType,
-        isCompleted,
-        isPartial,
-        shouldGetDiagnostics,
-        hasToolOutputs: !!toolOutputs,
-        actionId,
-        diagnosticsInToolOutputs: toolOutputDiagnostics,
-      });
-      
       // Update previous state
       prevDiagnosticStateRef.current = currentState;
     }
@@ -358,19 +344,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     // If toolOutputs doesn't have diagnostics field at all, return undefined
     // (meaning backend hasn't sent diagnostics yet or tool doesn't support it)
     if (!toolOutputDiagnostics) {
-      if (stateChanged) {
-        console.log(
-          `[FileToolRenderer][${rawPath}] ⚠️ No diagnostics in toolOutputs for actionId: ${actionId}`,
-        );
-        console.log(
-          `[FileToolRenderer][${rawPath}] 🔎 toolOutputs keys:`,
-          Object.keys(toolOutputs || {}),
-        );
-        console.log(
-          `[FileToolRenderer][${rawPath}] 🔎 toolOutputs[${actionId}]:`,
-          toolOutputs?.[actionId],
-        );
-      }
       return undefined;
     }
 
@@ -388,14 +361,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         severity: normalizedSeverity,
       };
     });
-
-    // Debug log to check what's being passed to ToolHeader (only when state changes)
-    if (stateChanged) {
-      console.log(
-        `[FileToolRenderer][${rawPath}] 🎯 Passing ${normalized.length} diagnostics to ToolHeader:`,
-        normalized,
-      );
-    }
 
     // Always return normalized array, even if empty (empty array means no diagnostics, undefined means not loaded yet)
     return normalized;
@@ -1484,7 +1449,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                       );
 
                       if (!childNode) {
-                        const pathSoFar = segments.slice(0, index + 1).join("/");
+                        const pathSoFar = segments
+                          .slice(0, index + 1)
+                          .join("/");
                         childNode = {
                           name: segment,
                           type: isFile ? "file" : "folder",
@@ -1741,20 +1708,17 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           )}
         </>
       )}
-      
+
       {/* DEBUG: Log final state */}
       {React.useMemo(() => {
-        if ((toolType === "read_file" || toolType === "write_to_file" || toolType === "replace_in_file") && 
-            isCompleted && !isPartial && mergedDiagnostics) {
-          console.log(`[FileToolRenderer][${actionId}] ✅ FINAL STATE - Ready for auto-request`, {
-            toolType,
-            isCompleted,
-            isPartial,
-            diagnosticCount: mergedDiagnostics.length,
-            hasWarnings: mergedDiagnostics.some(d => d.severity === 'Warning'),
-            hasErrors: mergedDiagnostics.some(d => d.severity === 'Error'),
-            shouldAutoRequest: mergedDiagnostics.length > 0,
-          });
+        if (
+          (toolType === "read_file" ||
+            toolType === "write_to_file" ||
+            toolType === "replace_in_file") &&
+          isCompleted &&
+          !isPartial &&
+          mergedDiagnostics
+        ) {
         }
         return null;
       }, [mergedDiagnostics, isCompleted, isPartial, toolType, actionId])}

@@ -41,13 +41,6 @@ export async function executeReadFile(
     messageDispatcher.register(
       requestId,
       (msg) => {
-        console.log(`[ReadFileExecutor] 📥 Received message for ${filePath}:`, {
-          hasError: !!msg.error,
-          hasDiagnostics: !!msg.diagnostics,
-          diagnosticsCount: msg.diagnostics?.length || 0,
-          diagnostics: msg.diagnostics,
-        });
-
         if (msg.error) {
           resolve({
             output: `[read_file for '${filePath}'] Result: Error - ${msg.error}`,
@@ -58,10 +51,6 @@ export async function executeReadFile(
 
           // Add diagnostics section if there are any warnings or errors
           if (msg.diagnostics && msg.diagnostics.length > 0) {
-            console.log(
-              `[ReadFileExecutor] ✅ Processing ${msg.diagnostics.length} diagnostics`,
-            );
-
             const errorCount = msg.diagnostics.filter(
               (d: any) => d.severity === "error",
             ).length;
@@ -101,10 +90,6 @@ export async function executeReadFile(
                 output += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
               });
             }
-          } else {
-            console.log(
-              `[ReadFileExecutor] ℹ️ No diagnostics found for ${filePath}`,
-            );
           }
 
           // Close the code block
