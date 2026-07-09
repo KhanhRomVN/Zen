@@ -438,6 +438,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 {/* No timeline dot, just the line continues through */}
                 <div
                   style={{
+                    position: "relative",
                     paddingLeft: "29px",
                     paddingTop: "4px",
                     paddingBottom: "4px",
@@ -451,7 +452,9 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                     userSelect: "none",
                   }}
                 >
-                  {group.content}
+                  <span style={{ position: "relative", zIndex: 1 }}>
+                    {group.content}
+                  </span>
                 </div>
               </div>
             );

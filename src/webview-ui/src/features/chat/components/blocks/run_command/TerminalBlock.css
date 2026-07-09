@@ -271,7 +271,7 @@
   width: 2px;
   background-color: var(--vscode-textBlockQuote-border, var(--vscode-editorLineNumber-foreground));
   /* No z-index: paint naturally in stacking context */
-  opacity: 0.5;
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -292,6 +292,11 @@
 
 .timeline-item.response-number-item .timeline-dot {
   display: none; /* Hide the dot */
+}
+
+/* Item immediately before response-number: hide its line (response-number will draw the line) */
+.timeline-item:has(+ .response-number-item)::before {
+  display: none !important;
 }
 
 /* Hide line of item immediately before response number */
