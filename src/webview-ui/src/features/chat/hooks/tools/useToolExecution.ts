@@ -566,7 +566,7 @@ export const useToolExecution = ({
           const requestId = `list-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.path || action.params.folder_path;
           const actionId = (action as any).actionId;
-          
+
           extensionService.postMessage({
             command: "listFiles",
             path: folderPath,
@@ -590,7 +590,8 @@ export const useToolExecution = ({
               // Check if folder is empty
               if (
                 !listResults ||
-                (typeof listResults === "string" && listResults.trim() === "") ||
+                (typeof listResults === "string" &&
+                  listResults.trim() === "") ||
                 (Array.isArray(listResults) && listResults.length === 0)
               ) {
                 resolve(
@@ -601,11 +602,6 @@ export const useToolExecution = ({
 
               // Store the raw JSON tree data in toolOutputs for TreeBlock to consume
               if (Array.isArray(listResults) && actionId) {
-                console.log('[useToolExecution] Storing raw JSON array to toolOutputs:', {
-                  actionId,
-                  arrayLength: listResults.length,
-                  firstItem: listResults[0]
-                });
                 setToolOutputs((prev) => ({
                   ...prev,
                   [actionId]: {
@@ -613,44 +609,45 @@ export const useToolExecution = ({
                     isError: false,
                   },
                 }));
-                
+
                 // Format as readable tree for agent (no emojis, no tree lines)
-                const formatTree = (nodes: any[], indent: string = ''): string => {
-                  let result = '';
+                const formatTree = (
+                  nodes: any[],
+                  indent: string = "",
+                ): string => {
+                  let result = "";
                   nodes.forEach((node) => {
                     // Node line (no tree characters, just indentation)
-                    if (node.type === 'folder') {
+                    if (node.type === "folder") {
                       result += `${indent}${node.name}/`;
                       if (node.children && node.children.length > 0) {
-                        result += ` (${node.children.length} items)`;
+                        result += ` (${node.children.length} files)`;
                       }
-                      result += '\n';
+                      result += "\n";
                       if (node.children && node.children.length > 0) {
-                        result += formatTree(node.children, indent + '  ');
+                        result += formatTree(node.children, indent + "  ");
                       }
                     } else {
                       result += `${indent}${node.name}`;
                       if (node.lines !== undefined) {
                         result += ` (${node.lines} lines)`;
                       }
-                      result += '\n';
+                      result += "\n";
                     }
                   });
                   return result;
                 };
-                
+
                 const formattedOutput = formatTree(listResults);
                 resolve(
                   `[list_files for '${folderPath}'] Result:\n${formattedOutput}`,
                 );
               } else {
-                console.log('[useToolExecution] NOT array or no actionId:', {
-                  isArray: Array.isArray(listResults),
-                  hasActionId: !!actionId,
-                  actionId
-                });
                 // Fallback
-                const outputStr = typeof listResults === 'string' ? listResults : String(listResults);
+                const outputStr =
+                  typeof listResults === "string"
+                    ? listResults
+                    : String(listResults);
                 resolve(
                   `[list_files for '${folderPath}'] Result:\n${outputStr}`,
                 );

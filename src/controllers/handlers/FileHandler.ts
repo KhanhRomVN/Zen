@@ -1256,7 +1256,12 @@ export class FileHandler {
 
       let maxDepth = 1;
       if (message.depth !== undefined && message.depth !== null) {
-        maxDepth = parseInt(String(message.depth), 10) || 1;
+        // Handle "max" as unlimited depth (use 999 as practical maximum)
+        if (String(message.depth).toLowerCase() === "max") {
+          maxDepth = 999;
+        } else {
+          maxDepth = parseInt(String(message.depth), 10) || 1;
+        }
       } else if (recursiveParam === "true" || recursiveParam === true)
         maxDepth = 20;
       else if (recursiveParam)

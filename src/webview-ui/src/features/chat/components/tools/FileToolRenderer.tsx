@@ -166,23 +166,13 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
   if (toolType === "list_files" || toolType === "find_files") {
     const output = toolOutputs?.[actionId]?.output;
-    
-    console.log('[FileToolRenderer] list_files output:', {
-      actionId,
-      outputType: typeof output,
-      isArray: Array.isArray(output),
-      outputPreview: typeof output === 'string' ? output.substring(0, 100) : output,
-      fullOutput: output
-    });
 
     // For list_files, check if we have raw JSON array (new format)
     if (toolType === "list_files" && Array.isArray(output)) {
-      console.log('[FileToolRenderer] Using rawTreeData (array format)');
       rawTreeData = output; // Store raw JSON for TreeBlock
       // Convert to string format for agent display (backward compatibility)
       codeContent = JSON.stringify(output, null, 2);
     } else {
-      console.log('[FileToolRenderer] Falling back to string format parsing');
       // Fallback to string format (old behavior or find_files)
       codeContent = typeof output === "string" ? output : "";
     }
@@ -941,27 +931,12 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               {toolType === "list_files" &&
                 isCompleted &&
                 !isError &&
-                codeContent &&
                 (() => {
                   const depth = action.params.depth;
 
-                  // Count folders and files from plain text format
-                  // Folders end with /, files don't
-                  const lines = codeContent
-                    .split("\n")
-                    .filter((line) => line.trim());
-                  let folderCountInline = 0;
-                  let fileCountInline = 0;
-
-                  lines.forEach((line) => {
-                    const trimmed = line.trim();
-                    if (trimmed.endsWith("/")) {
-                      folderCountInline++;
-                    } else if (trimmed && !trimmed.startsWith("//")) {
-                      fileCountInline++;
-                    }
-                  });
-
+                  // Use pre-counted values from rawTreeData (already calculated above)
+                  const folderCountInline = folderCount;
+                  const fileCountInline = fileCountFromListFiles;
                   const totalCount = folderCountInline + fileCountInline;
 
                   if (totalCount === 0) return null; // Don't show for empty folders
@@ -1381,11 +1356,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 // Use TreeBlock for non-empty folders
                 // If we have raw JSON tree data, use it directly
                 if (rawTreeData && Array.isArray(rawTreeData)) {
-                  console.log('[FileToolRenderer] Using rawTreeData for TreeBlock:', {
-                    dataType: 'raw JSON array',
-                    itemCount: rawTreeData.length,
-                    firstItem: rawTreeData[0]
-                  });
                   return (
                     <TreeBlock
                       files={rawTreeData}
@@ -1399,23 +1369,10 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   );
                 }
 
-                // Fallback: Parse codeContent to extract file paths (legacy string format)
-                console.log('[FileToolRenderer] Parsing codeContent for TreeBlock:', {
-                  dataType: 'string',
-                  contentLength: codeContent.length,
-                  contentPreview: codeContent.substring(0, 200)
-                });
-                
                 const lines = codeContent.split("\n").filter(Boolean);
                 const filePaths = lines
                   .map((line) => line.trim())
                   .filter((line) => line && !line.startsWith("//"));
-
-                console.log('[FileToolRenderer] Extracted file paths:', {
-                  totalLines: lines.length,
-                  filteredPaths: filePaths.length,
-                  paths: filePaths
-                });
 
                 // Build tree structure
                 interface FileNode {
@@ -1475,11 +1432,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 };
 
                 const treeData = buildTree(filePaths);
-                
-                console.log('[FileToolRenderer] Built tree data:', {
-                  treeNodeCount: treeData.length,
-                  treeStructure: treeData
-                });
 
                 return (
                   <TreeBlock

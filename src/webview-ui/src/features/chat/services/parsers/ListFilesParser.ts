@@ -3,7 +3,7 @@ import { extractParam, extractParamValue } from "../../utils/ToolParser";
 export interface ListFilesParams {
   folder_path: string;
   type?: string;
-  depth?: number;
+  depth?: number | "max";
 }
 
 export const parseListFiles = (innerContent: string): ListFilesParams => {
@@ -11,11 +11,20 @@ export const parseListFiles = (innerContent: string): ListFilesParams => {
   const folderPath = extractParam(innerContent, "path", "folder_path", "folderPath", "dirPath", "dir_path", "directoryPath", "directory_path");
   const type = extractParamValue(innerContent, "type");
   const depthStr = extractParamValue(innerContent, "depth");
-  const depth = depthStr ? parseInt(depthStr, 10) : undefined;
+  
+  let depth: number | "max" | undefined;
+  if (depthStr) {
+    if (depthStr.toLowerCase() === "max") {
+      depth = "max";
+    } else {
+      const parsed = parseInt(depthStr, 10);
+      depth = !isNaN(parsed) ? parsed : undefined;
+    }
+  }
 
   return {
     folder_path: folderPath || "",
     type: type || undefined,
-    depth: depth !== undefined && !isNaN(depth) ? depth : undefined,
+    depth,
   };
 };

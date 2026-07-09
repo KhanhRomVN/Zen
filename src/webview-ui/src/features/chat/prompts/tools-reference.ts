@@ -10,6 +10,7 @@ Use XML tags for all tool calls:
 </replace_in_file>
 <list_files><folder_path>path/to/folder</folder_path></list_files>
 <list_files><folder_path>path/to/folder</folder_path><depth>2</depth></list_files>
+<list_files><folder_path>path/to/folder</folder_path><depth>max</depth></list_files>
 <find_files><file_name>filename.ts</file_name><file_name>another.js</file_name></find_files>
 <grep><search_term>string</search_term><file_path>path/to/file</file_path></grep>
 <grep><search_term>string</search_term><folder_path>path/to/folder</folder_path></grep>
