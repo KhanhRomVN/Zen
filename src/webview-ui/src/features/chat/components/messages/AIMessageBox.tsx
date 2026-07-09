@@ -120,14 +120,17 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
       return "Security validation failed: path is outside workspace.";
     if (/out of scope.*ignored/i.test(normalized))
       return "Path is out of scope and will be ignored.";
-    if (/invalid diff format/i.test(normalized))
-      return "Invalid diff format.";
+    if (/invalid diff format/i.test(normalized)) return "Invalid diff format.";
     if (/search text not found/i.test(normalized))
       return "Search text not found in file.";
     if (/no change made/i.test(normalized)) return "No changes were made.";
     if (/command validation failed/i.test(normalized))
       return "Command validation failed.";
-    if (/unknown upload error|upload.*failed|upload api returned/i.test(normalized))
+    if (
+      /unknown upload error|upload.*failed|upload api returned/i.test(
+        normalized,
+      )
+    )
       return "File upload failed.";
     if (/no active account|no.*account.*selected/i.test(normalized))
       return "No active account. Please select an account first.";
@@ -177,7 +180,9 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   return (
     <div
       className={`assistant-message-container ${message.isError ? "is-error" : ""} ${
-        hasNextAssistantMessage === false && message.role === "assistant" ? "is-last-assistant" : ""
+        hasNextAssistantMessage === false && message.role === "assistant"
+          ? "is-last-assistant"
+          : ""
       }`}
       style={{
         display: "flex",
@@ -300,7 +305,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
         // Use contentBlocks from parser
         const blocks = parsedContent.contentBlocks || [];
-        
+
         // Track if we've already added thinking from message.thinking
         // Only count as "added" if we're still generating (thinking will be hidden when done)
         // NOTE: message.thinking is now rendered outside in ChatBody, so skip here
@@ -410,8 +415,8 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
         const renderGroups = groups;
 
         // Pre-calculate which groups will render with timeline-item wrapper
-        const groupsWithTimeline = renderGroups.map((group) => 
-          group.type !== "tools" && group.type !== "question"
+        const groupsWithTimeline = renderGroups.map(
+          (group) => group.type !== "tools" && group.type !== "question",
         );
 
         // Find the last group that will have a timeline-item wrapper
@@ -427,7 +432,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           // Only mark as "last" if: it's the last timeline group AND (isLastMessage OR hasNextAssistantMessage)
           // This prevents timeline line when followed by user message
           const shouldMarkAsLast = index === lastTimelineIndex && isLastMessage;
-          
+
           const timelineClass = `timeline-item ${shouldMarkAsLast ? "last" : ""}`;
 
           let content = null;
@@ -825,7 +830,10 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           // Response number gets special timeline class (has line, no dot)
           if (group.type === "response_number") {
             return (
-              <div key={group.key} className={`${timelineClass} response-number-item`}>
+              <div
+                key={group.key}
+                className={`${timelineClass} response-number-item`}
+              >
                 {content}
               </div>
             );

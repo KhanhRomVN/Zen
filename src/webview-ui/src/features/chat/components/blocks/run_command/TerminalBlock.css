@@ -115,8 +115,16 @@
   top: -8px; /* Connect to vertical timeline line */
   width: 10px;
   height: 16px;
-  border-left: 2px solid var(--vscode-panel-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.3)));
-  border-bottom: 2px solid var(--vscode-panel-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.3)));
+  border-left: 2px solid
+    var(
+      --vscode-panel-border,
+      var(--vscode-widget-border, rgba(128, 128, 128, 0.3))
+    );
+  border-bottom: 2px solid
+    var(
+      --vscode-panel-border,
+      var(--vscode-widget-border, rgba(128, 128, 128, 0.3))
+    );
   border-bottom-left-radius: 4px;
   transform: translateX(-1px); /* Align with 2px line center */
 }
@@ -139,7 +147,11 @@
 
 .execute-button-minimal:hover {
   color: var(--vscode-button-hoverBackground) !important;
-  background-color: color-mix(in srgb, var(--vscode-foreground) 10%, transparent) !important;
+  background-color: color-mix(
+    in srgb,
+    var(--vscode-foreground) 10%,
+    transparent
+  ) !important;
 }
 
 /* ── Copy button visibility ──────────────────────────────────────────────── */
@@ -174,11 +186,19 @@
   overflow-y: auto;
   background-color: var(--vscode-terminal-background);
   scrollbar-width: thin;
-  scrollbar-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4)) transparent;
+  scrollbar-color: var(
+      --vscode-scrollbarSlider-background,
+      rgba(121, 121, 121, 0.4)
+    )
+    transparent;
 }
 
 .terminal-content-wrapper:hover {
-  scrollbar-color: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7)) transparent;
+  scrollbar-color: var(
+      --vscode-scrollbarSlider-hoverBackground,
+      rgba(100, 100, 100, 0.7)
+    )
+    transparent;
 }
 
 .terminal-richtext-fallback {
@@ -269,7 +289,10 @@
   top: 14px; /* Start exactly at dot center (dot is at top:10px, size 8px -> center is 14px) */
   bottom: -24px; /* Extend through 24px padding gap to connect to next item */
   width: 2px;
-  background-color: var(--vscode-textBlockQuote-border, var(--vscode-editorLineNumber-foreground));
+  background-color: var(
+    --vscode-textBlockQuote-border,
+    var(--vscode-editorLineNumber-foreground)
+  );
   /* No z-index: paint naturally in stacking context */
   opacity: 1;
   pointer-events: none;
@@ -305,7 +328,8 @@
 }
 
 /* Hide line when assistant message is followed by user message */
-.assistant-message-container.is-last-assistant .timeline-item:not(.last):last-of-type::before {
+.assistant-message-container.is-last-assistant
+  .timeline-item:not(.last):last-of-type::before {
   display: none;
 }
 
@@ -319,7 +343,13 @@
   border-radius: 50%;
   z-index: 10;
   background-color: var(--vscode-descriptionForeground);
-  box-shadow: 0 0 0 2px var(--vscode-editor-background), 0 0 0 3px var(--vscode-textBlockQuote-border, var(--vscode-editorLineNumber-foreground));
+  box-shadow:
+    0 0 0 2px var(--vscode-editor-background),
+    0 0 0 3px
+      var(
+        --vscode-textBlockQuote-border,
+        var(--vscode-editorLineNumber-foreground)
+      );
   transition: all 0.2s ease;
   animation: timeline-dot-fade-in 0.25s ease-out both;
 }
@@ -369,15 +399,24 @@
   right: 8px;
   opacity: 0;
   pointer-events: none;
-  background: color-mix(in srgb, var(--input-bg) 60%, var(--vscode-editor-background));
-  border: 1px solid color-mix(in srgb, var(--input-bg) 40%, var(--vscode-editor-background));
+  background: color-mix(
+    in srgb,
+    var(--input-bg) 60%,
+    var(--vscode-editor-background)
+  );
+  border: 1px solid
+    color-mix(in srgb, var(--input-bg) 40%, var(--vscode-editor-background));
   border-radius: 4px;
   width: 28px;
   height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: color-mix(in srgb, var(--primary-text) 90%, var(--vscode-editor-foreground));
+  color: color-mix(
+    in srgb,
+    var(--primary-text) 90%,
+    var(--vscode-editor-foreground)
+  );
   cursor: pointer;
   transition: opacity 0.15s ease;
   z-index: 10;
@@ -389,7 +428,11 @@
 }
 
 .user-message-undo-btn:hover {
-  background: color-mix(in srgb, var(--input-bg) 40%, var(--vscode-editor-background));
+  background: color-mix(
+    in srgb,
+    var(--input-bg) 40%,
+    var(--vscode-editor-background)
+  );
   color: var(--vscode-terminal-foreground);
 }
 
