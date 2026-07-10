@@ -45,7 +45,7 @@ const ContextCompressionBlock: React.FC<ContextCompressionBlockProps> = ({
   };
 
   return (
-    <div style={{ padding: "4px 12px 12px 29px" }}>
+    <div style={{ padding: "4px 12px 12px 0" }}>
       <div
         ref={containerRef}
         style={{

@@ -175,14 +175,29 @@ const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(
     const resolvedMap = knownFilePaths || new Map<string, string>();
 
     const reactNodes = React.useMemo(() => {
-      console.log('[MarkdownBlock] Rendering markdown content (length):', content.length);
-      
       // 1. Render markdown → sanitized HTML
       const rawHtml = marked.parse(content) as string;
       const sanitized = DOMPurify.sanitize(rawHtml, {
         USE_PROFILES: { html: true },
-        FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus", "onblur", "onchange", "onsubmit"],
-        FORBID_TAGS: ["script", "style", "iframe", "object", "embed", "form", "input"],
+        FORBID_ATTR: [
+          "onerror",
+          "onload",
+          "onclick",
+          "onmouseover",
+          "onfocus",
+          "onblur",
+          "onchange",
+          "onsubmit",
+        ],
+        FORBID_TAGS: [
+          "script",
+          "style",
+          "iframe",
+          "object",
+          "embed",
+          "form",
+          "input",
+        ],
         ALLOW_DATA_ATTR: false,
       });
 

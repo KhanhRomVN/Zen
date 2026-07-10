@@ -553,7 +553,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
   return (
     <div
-      className="timeline-item"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -574,7 +573,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 fontSize: "12px",
                 color: "var(--vscode-editor-foreground)",
                 cursor: isCompleted ? "pointer" : "default",
-                width: "100%",
               }}
               onMouseEnter={() => setIsHeaderHovered(true)}
               onMouseLeave={() => setIsHeaderHovered(false)}
@@ -702,7 +700,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 fontSize: "12px",
                 color: "var(--vscode-editor-foreground)",
                 cursor: isCompleted ? "pointer" : "default",
-                width: "100%",
               }}
               onMouseEnter={() => setIsHeaderHovered(true)}
               onMouseLeave={() => setIsHeaderHovered(false)}
@@ -820,7 +817,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 fontSize: "12px",
                 color: "var(--vscode-editor-foreground)",
                 position: "relative",
-                width: "100%",
               }}
               onMouseEnter={() => setIsHeaderHovered(true)}
               onMouseLeave={() => setIsHeaderHovered(false)}
@@ -831,6 +827,20 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   opacity: 0.8,
                   cursor: "pointer",
                   transition: "text-decoration 0.15s ease",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // For replace_in_file, show diff view
+                  if (toolType === "replace_in_file" && rawPath) {
+                    const oldContent = action.params.old_content || action.params.old_str || "";
+                    const newContent = action.params.new_content || action.params.new_str || "";
+                    extensionService.postMessage({
+                      command: "openReplaceInFileDiff",
+                      filePath: rawPath,
+                      oldContent,
+                      newContent,
+                    });
+                  }
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.textDecoration = "underline";
@@ -857,6 +867,20 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   fontSize: "11px",
                   cursor: "pointer",
                   transition: "text-decoration 0.15s ease",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // For replace_in_file, show diff view
+                  if (toolType === "replace_in_file" && rawPath) {
+                    const oldContent = action.params.old_content || action.params.old_str || "";
+                    const newContent = action.params.new_content || action.params.new_str || "";
+                    extensionService.postMessage({
+                      command: "openReplaceInFileDiff",
+                      filePath: rawPath,
+                      oldContent,
+                      newContent,
+                    });
+                  }
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.textDecoration = "underline";
@@ -1090,7 +1114,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         <div
           style={{
             marginTop: "4px",
-            marginLeft: "29px",
             padding: "8px 12px",
             backgroundColor:
               "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
@@ -1261,7 +1284,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             alignItems: "flex-start",
             gap: "6px",
             padding: "5px 8px",
-            marginLeft: "29px",
             backgroundColor:
               "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 4%, transparent)",
             border:
@@ -1314,7 +1336,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                     <div
                       style={{
                         marginTop: "8px",
-                        marginLeft: "29px",
                         padding: "8px 12px",
                         backgroundColor:
                           "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
@@ -1461,7 +1482,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           <div
             style={{
               marginTop: "8px",
-              marginLeft: "29px",
             }}
           >
             {(() => {
@@ -1614,7 +1634,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           }
 
           return (
-            <div style={{ marginLeft: "29px" }}>
+            <div style={{}}>
               <FileStreamingBlock
                 content={streamingContent}
                 maxHeight={STREAM_BOX_HEIGHT}
@@ -1648,7 +1668,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             <div
               style={{
                 marginTop: "4px",
-                marginLeft: "29px",
                 padding: "8px 12px",
                 backgroundColor:
                   "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",

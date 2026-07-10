@@ -221,6 +221,137 @@ export class FileHandler {
     }
   }
 
+  /**
+   * Determines if a file should skip diagnostics based on its extension.
+   * Non-code files (markdown, text, config files, etc.) don't have language servers.
+   */
+  private isNonCodeFile(pathValue: string): boolean {
+    const nonCodeExtensions = [
+      '.md', '.txt', '.log', '.csv', '.xml', '.html', '.css', 
+      '.json', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf',
+      '.env', '.gitignore', '.dockerignore', '.editorconfig',
+      '.properties', '.lock', '.sum', '.mod'
+    ];
+    
+    return nonCodeExtensions.some(ext => 
+      pathValue.toLowerCase().endsWith(ext)
+    );
+  }
+
+  /**
+   * Waits for diagnostics with a hybrid approach:
+   * - Returns immediately if no diagnostic events after 2 seconds (fallback)
+   * - Waits for stable diagnostics if events are received
+   * - Has a safety timeout of 30 seconds (write/replace) or 5 minutes (read)
+   */
+  private async waitForDiagnosticsWithFallback(
+    uri: vscode.Uri,
+    pathValue: string,
+    maxTimeoutMs: number = 30000,
+  ): Promise<void> {
+    const logger = LoggerService.getInstance();
+    
+    return new Promise<void>((resolve) => {
+      const fallbackTimeout = 2000; // 2 seconds - give up if no events
+      const stableWaitTime = 800; // Wait 800ms of stability
+      const startTime = Date.now();
+
+      let diagnosticStableTimeout: NodeJS.Timeout | null = null;
+      let hasReceivedEvent = false;
+
+      logger.info(
+        `[waitForDiagnosticsWithFallback] ⏳ Starting diagnostics wait (with fallback)`,
+        {
+          path: pathValue,
+          fallbackTimeout,
+          maxTimeout: maxTimeoutMs,
+        },
+      );
+
+      // Fallback: If no event after 2 seconds, give up
+      const fallbackHandle = setTimeout(() => {
+        if (!hasReceivedEvent) {
+          const elapsedTime = Date.now() - startTime;
+          logger.info(
+            `[waitForDiagnosticsWithFallback] ⚡ No diagnostic events, proceeding (fallback)`,
+            {
+              path: pathValue,
+              elapsedTime,
+            },
+          );
+          clearTimeout(timeoutHandle);
+          if (diagnosticStableTimeout) {
+            clearTimeout(diagnosticStableTimeout);
+          }
+          disposable?.dispose();
+          resolve();
+        }
+      }, fallbackTimeout);
+
+      // Safety timeout
+      const timeoutHandle = setTimeout(() => {
+        const elapsedTime = Date.now() - startTime;
+        logger.warn(`[waitForDiagnosticsWithFallback] ⏱️ Safety timeout reached`, {
+          path: pathValue,
+          elapsedTime,
+          hasReceivedEvent,
+        });
+        clearTimeout(fallbackHandle);
+        if (diagnosticStableTimeout) {
+          clearTimeout(diagnosticStableTimeout);
+        }
+        disposable?.dispose();
+        resolve();
+      }, maxTimeoutMs);
+
+      const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
+        const isOurFile = e.uris.some(
+          (targetUri) => targetUri.fsPath === uri.fsPath,
+        );
+
+        if (isOurFile) {
+          const elapsedTime = Date.now() - startTime;
+          
+          if (!hasReceivedEvent) {
+            // First event received - clear fallback
+            hasReceivedEvent = true;
+            clearTimeout(fallbackHandle);
+            logger.info(
+              `[waitForDiagnosticsWithFallback] 🔔 First diagnostic event received`,
+              {
+                path: pathValue,
+                elapsedTime,
+              },
+            );
+          }
+
+          if (diagnosticStableTimeout) {
+            clearTimeout(diagnosticStableTimeout);
+          }
+
+          const currentDiagnostics = this.getDiagnosticsForFile(uri);
+
+          diagnosticStableTimeout = setTimeout(() => {
+            const finalDiagnostics = this.getDiagnosticsForFile(uri);
+            const finalElapsedTime = Date.now() - startTime;
+            clearTimeout(timeoutHandle);
+            clearTimeout(fallbackHandle);
+            disposable.dispose();
+            logger.info(
+              `[waitForDiagnosticsWithFallback] ✅ Diagnostics stable, resolving`,
+              {
+                path: pathValue,
+                elapsedTime: finalElapsedTime,
+                diagnosticsCount: finalDiagnostics.length,
+              },
+            );
+            resolve();
+          }, stableWaitTime);
+        }
+      });
+    });
+  }
+
   public async handleReadFile(message: any, webviewView: vscode.WebviewView) {
     const logger = LoggerService.getInstance();
     logger.info(`[handleReadFile] 📥 Enqueuing read operation`, {
@@ -296,86 +427,24 @@ export class FileHandler {
         );
       }
 
-      // Ensure file is opened to trigger language server (BEFORE reading content)
-      if (!message.skipDiagnostics) {
+      // Hybrid approach: Skip diagnostics for non-code files, use fallback for code files
+      const logger = LoggerService.getInstance();
+      const isNonCodeFile = this.isNonCodeFile(pathValue);
+      const shouldSkipDiagnostics = message.skipDiagnostics || isNonCodeFile;
+
+      if (!shouldSkipDiagnostics) {
+        // Code files: Wait for diagnostics with fallback (5 minutes max for read)
         await this.ensureFileOpened(absPath);
-
-        // Wait for diagnostics from language server with event-based approach
-        const logger = LoggerService.getInstance();
-        await new Promise<void>((resolve) => {
-          const maxTimeout = 300000; // 5 minutes maximum (for extremely large files)
-          const stableWaitTime = 800; // Wait 800ms of no new diagnostic events before considering "stable"
-          const startTime = Date.now();
-
-          let lastDiagnosticEventTime = Date.now();
-          let diagnosticStableTimeout: NodeJS.Timeout | null = null;
-          let hasReceivedEvent = false;
-
-          logger.info(
-            `[_handleReadFileInternal] ⏳ Starting diagnostics wait (event-driven)`,
-            {
-              path: pathValue,
-              maxTimeout,
-              stableWaitTime,
-            },
-          );
-
-          const timeoutHandle = setTimeout(() => {
-            const elapsedTime = Date.now() - startTime;
-            logger.warn(`[_handleReadFileInternal] ⏱️ Safety timeout reached`, {
-              path: pathValue,
-              elapsedTime,
-              hasReceivedEvent,
-            });
-            if (diagnosticStableTimeout) {
-              clearTimeout(diagnosticStableTimeout);
-            }
-            disposable?.dispose();
-            resolve();
-          }, maxTimeout);
-
-          const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-            const isOurFile = e.uris.some(
-              (uri) => uri.fsPath === absPath.fsPath,
-            );
-
-            if (isOurFile) {
-              const elapsedTime = Date.now() - startTime;
-              lastDiagnosticEventTime = Date.now();
-              hasReceivedEvent = true;
-
-              if (diagnosticStableTimeout) {
-                clearTimeout(diagnosticStableTimeout);
-              }
-
-              const currentDiagnostics = this.getDiagnosticsForFile(absPath);
-              logger.info(
-                `[_handleReadFileInternal] 🔔 Diagnostics event received`,
-                {
-                  path: pathValue,
-                  elapsedTime,
-                  diagnosticsCount: currentDiagnostics.length,
-                },
-              );
-
-              diagnosticStableTimeout = setTimeout(() => {
-                const finalDiagnostics = this.getDiagnosticsForFile(absPath);
-                const finalElapsedTime = Date.now() - startTime;
-                clearTimeout(timeoutHandle);
-                disposable.dispose();
-                logger.info(
-                  `[_handleReadFileInternal] ✅ Diagnostics stable, resolving`,
-                  {
-                    path: pathValue,
-                    elapsedTime: finalElapsedTime,
-                    diagnosticsCount: finalDiagnostics.length,
-                  },
-                );
-                resolve();
-              }, stableWaitTime);
-            }
-          });
-        });
+        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 300000);
+      } else {
+        logger.info(
+          `[_handleReadFileInternal] ⚡ Skipping diagnostics (non-code file)`,
+          {
+            path: pathValue,
+            isNonCodeFile,
+            skipDiagnosticsFlag: message.skipDiagnostics,
+          },
+        );
       }
 
       let content = "";
@@ -524,100 +593,27 @@ export class FileHandler {
       }
 
       if (!message.skipDiagnostics) {
-        try {
-          const doc = await vscode.workspace.openTextDocument(absolutePath);
-          // Show document in editor to trigger language server analysis
-          await vscode.window.showTextDocument(doc, {
-            preview: false,
-            preserveFocus: true, // Don't steal focus from webview
-          });
-        } catch {}
+        const isNonCodeFile = this.isNonCodeFile(pathValue);
+        
+        if (!isNonCodeFile) {
+          try {
+            const doc = await vscode.workspace.openTextDocument(absolutePath);
+            await vscode.window.showTextDocument(doc, {
+              preview: false,
+              preserveFocus: true,
+            });
+          } catch {}
 
-        // Wait for diagnostics from language server with event-based approach
-        await new Promise<void>((resolve) => {
-          const maxTimeout = 30000; // 30 seconds safety timeout
-          const stableWaitTime = 800; // Wait 800ms of no new diagnostic events before considering "stable"
-          const startTime = Date.now();
-
-          let lastDiagnosticEventTime = Date.now();
-          let diagnosticStableTimeout: NodeJS.Timeout | null = null;
-          let hasReceivedEvent = false; // Track if we've received at least one event
-
+          // Wait for diagnostics with fallback (30 seconds max for write)
+          await this.waitForDiagnosticsWithFallback(absolutePath, pathValue, 30000);
+        } else {
           logger.info(
-            `[_handleWriteFileInternal] ⏳ Starting diagnostics wait (event-driven)`,
+            `[_handleWriteFileInternal] ⚡ Skipping diagnostics (non-code file)`,
             {
               path: pathValue,
-              maxTimeout,
-              stableWaitTime,
             },
           );
-
-          const timeoutHandle = setTimeout(() => {
-            const elapsedTime = Date.now() - startTime;
-            logger.warn(
-              `[_handleWriteFileInternal] ⏱️ Safety timeout reached`,
-              {
-                path: pathValue,
-                elapsedTime,
-                hasReceivedEvent,
-              },
-            );
-            if (diagnosticStableTimeout) {
-              clearTimeout(diagnosticStableTimeout);
-            }
-            disposable?.dispose();
-            resolve();
-          }, maxTimeout);
-
-          const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-            const affectedPaths = e.uris.map((uri) => uri.fsPath);
-            const isOurFile = e.uris.some(
-              (uri) => uri.fsPath === absolutePath.fsPath,
-            );
-
-            if (isOurFile) {
-              const elapsedTime = Date.now() - startTime;
-              lastDiagnosticEventTime = Date.now();
-              hasReceivedEvent = true;
-
-              // Clear any existing stable timeout
-              if (diagnosticStableTimeout) {
-                clearTimeout(diagnosticStableTimeout);
-              }
-
-              const currentDiagnostics =
-                this.getDiagnosticsForFile(absolutePath);
-              logger.info(
-                `[_handleWriteFileInternal] 🔔 Diagnostics event received`,
-                {
-                  path: pathValue,
-                  elapsedTime,
-                  diagnosticsCount: currentDiagnostics.length,
-                  affectedPaths,
-                },
-              );
-
-              // Wait for diagnostics to become stable (no new events for stableWaitTime)
-              diagnosticStableTimeout = setTimeout(() => {
-                const finalDiagnostics =
-                  this.getDiagnosticsForFile(absolutePath);
-                const finalElapsedTime = Date.now() - startTime;
-                clearTimeout(timeoutHandle);
-                disposable.dispose();
-                logger.info(
-                  `[_handleWriteFileInternal] ✅ Diagnostics stable, resolving`,
-                  {
-                    path: pathValue,
-                    elapsedTime: finalElapsedTime,
-                    diagnosticsCount: finalDiagnostics.length,
-                    timeSinceLastEvent: Date.now() - lastDiagnosticEventTime,
-                  },
-                );
-                resolve();
-              }, stableWaitTime);
-            }
-          });
-        });
+        }
 
         const diagnostics = this.getDiagnosticsForFile(absolutePath);
         logger.info(
@@ -903,91 +899,23 @@ export class FileHandler {
     release();
 
     if (!message.skipDiagnostics) {
-      try {
-        await vscode.workspace.openTextDocument(absPath);
-      } catch {}
+      const isNonCodeFile = this.isNonCodeFile(pathValue);
+      
+      if (!isNonCodeFile) {
+        try {
+          await vscode.workspace.openTextDocument(absPath);
+        } catch {}
 
-      // Wait for diagnostics from language server with event-based approach
-      await new Promise<void>((resolve) => {
-        const maxTimeout = 30000; // 30 seconds safety timeout
-        const stableWaitTime = 800; // Wait 800ms of no new diagnostic events before considering "stable"
-        const startTime = Date.now();
-
-        let lastDiagnosticEventTime = Date.now();
-        let diagnosticStableTimeout: NodeJS.Timeout | null = null;
-        let hasReceivedEvent = false; // Track if we've received at least one event
-
+        // Wait for diagnostics with fallback (30 seconds max for replace)
+        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 30000);
+      } else {
         logger.info(
-          `[_handleReplaceInFileInternal] ⏳ Starting diagnostics wait (event-driven)`,
+          `[_handleReplaceInFileInternal] ⚡ Skipping diagnostics (non-code file)`,
           {
             path: pathValue,
-            maxTimeout,
-            stableWaitTime,
           },
         );
-
-        const timeoutHandle = setTimeout(() => {
-          const elapsedTime = Date.now() - startTime;
-          logger.warn(
-            `[_handleReplaceInFileInternal] ⏱️ Safety timeout reached`,
-            {
-              path: pathValue,
-              elapsedTime,
-              hasReceivedEvent,
-            },
-          );
-          if (diagnosticStableTimeout) {
-            clearTimeout(diagnosticStableTimeout);
-          }
-          disposable?.dispose();
-          resolve();
-        }, maxTimeout);
-
-        const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-          const affectedPaths = e.uris.map((uri) => uri.fsPath);
-          const isOurFile = e.uris.some((uri) => uri.fsPath === absPath.fsPath);
-
-          if (isOurFile) {
-            const elapsedTime = Date.now() - startTime;
-            lastDiagnosticEventTime = Date.now();
-            hasReceivedEvent = true;
-
-            // Clear any existing stable timeout
-            if (diagnosticStableTimeout) {
-              clearTimeout(diagnosticStableTimeout);
-            }
-
-            const currentDiagnostics = this.getDiagnosticsForFile(absPath);
-            logger.info(
-              `[_handleReplaceInFileInternal] 🔔 Diagnostics event received`,
-              {
-                path: pathValue,
-                elapsedTime,
-                diagnosticsCount: currentDiagnostics.length,
-                affectedPaths,
-              },
-            );
-
-            // Wait for diagnostics to become stable (no new events for stableWaitTime)
-            diagnosticStableTimeout = setTimeout(() => {
-              const finalDiagnostics = this.getDiagnosticsForFile(absPath);
-              const finalElapsedTime = Date.now() - startTime;
-              clearTimeout(timeoutHandle);
-              disposable.dispose();
-              logger.info(
-                `[_handleReplaceInFileInternal] ✅ Diagnostics stable, resolving`,
-                {
-                  path: pathValue,
-                  elapsedTime: finalElapsedTime,
-                  diagnosticsCount: finalDiagnostics.length,
-                  timeSinceLastEvent: Date.now() - lastDiagnosticEventTime,
-                },
-              );
-              resolve();
-            }, stableWaitTime);
-          }
-        });
-      });
+      }
 
       const diagnostics = this.getDiagnosticsForFile(absPath);
       logger.info(

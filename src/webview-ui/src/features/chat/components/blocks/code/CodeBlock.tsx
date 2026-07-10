@@ -94,8 +94,8 @@ const CodeBlockHeader: React.FC<CodeBlockHeaderProps> = ({
         style={{
           background: "transparent",
           border: "none",
-          color: showCopied 
-            ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)" 
+          color: showCopied
+            ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
             : "var(--vscode-foreground)",
           cursor: "pointer",
           opacity: isHovered || showCopied ? 1 : 0,
@@ -159,20 +159,10 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   isDiffBlock = false,
   prefix,
   statusColor,
-  enableWordWrap = false,
+  enableWordWrap = true,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(isDiffBlock);
   const [isCopied, setIsCopied] = useState(false);
-
-  console.log('[CodeBlock] Rendering with props:', {
-    language,
-    codeLength: code.length,
-    isDiffBlock,
-    prefix,
-    diffStats,
-    enableWordWrap,
-    codePreview: code.substring(0, 50) + '...'
-  });
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -182,14 +172,6 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
   // Use simple CodeBlockHeader when language is available and no diff/prefix
   const useSimpleHeader = language && !isDiffBlock && !prefix && !diffStats;
-  
-  console.log('[CodeBlock] Header decision:', {
-    useSimpleHeader,
-    hasLanguage: !!language,
-    isDiffBlock,
-    hasPrefix: !!prefix,
-    hasDiffStats: !!diffStats
-  });
 
   return (
     <div
@@ -205,13 +187,11 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     >
       {useSimpleHeader ? (
         <>
-          {console.log('[CodeBlock] Using CodeBlockHeader')}
           <CodeBlockHeader language={language} onCopy={handleCopy} />
         </>
       ) : (
         language && (
           <>
-            {console.log('[CodeBlock] Using ToolHeader')}
             <ToolHeader
               title={prefix || language || "code"}
               statusColor={statusColor}
@@ -249,7 +229,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         )
       )}
       {!isCollapsed && (
-        <div style={{ paddingLeft: useSimpleHeader ? "0" : "29px" }}>
+        <div style={{ paddingLeft: useSimpleHeader ? "0" : "0" }}>
           <pre
             style={{
               margin: 0,
@@ -261,6 +241,9 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
               borderRadius: "0",
               whiteSpace: enableWordWrap ? "pre-wrap" : "pre",
               wordWrap: enableWordWrap ? "break-word" : "normal",
+              wordBreak: enableWordWrap ? "break-word" : "normal",
+              overflowWrap: enableWordWrap ? "break-word" : "normal",
+              overflowX: enableWordWrap ? "hidden" : "auto",
             }}
           >
             <code style={{ background: "none", padding: 0 }}>{code}</code>
@@ -276,7 +259,7 @@ export const CodeRenderer: React.FC<{
   content: string;
   language?: string;
 }> = ({ content, language = "text" }) => {
-  return <CodeBlock code={content} language={language} enableWordWrap={false} />;
+  return <CodeBlock code={content} language={language} enableWordWrap={true} />;
 };
 
 export default CodeBlock;

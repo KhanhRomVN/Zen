@@ -283,6 +283,93 @@ export class SystemHandler {
     );
   }
 
+  public async handleOpenReplaceInFileDiff(message: any) {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+    
+    const filePath = message.filePath;
+    const basename = path.basename(filePath || "file");
+    
+    // Build absolute path
+    const absPath = path.isAbsolute(filePath)
+      ? filePath
+      : path.join(workspaceFolder.uri.fsPath, filePath);
+    
+    try {
+      // Read CURRENT file content (might be already replaced)
+      const currentContent = await fs.promises.readFile(absPath, "utf8");
+      
+      const oldStr = message.oldContent || "";
+      const newStr = message.newContent || "";
+      
+      let beforeContent: string;
+      let afterContent: string;
+      
+      // Check if file still has old_str (not replaced yet)
+      if (oldStr && currentContent.includes(oldStr)) {
+        // File not replaced yet - current is "before", calculate "after"
+        beforeContent = currentContent;
+        const index = currentContent.indexOf(oldStr);
+        afterContent = currentContent.substring(0, index) + newStr + currentContent.substring(index + oldStr.length);
+        
+        console.log(`[handleOpenReplaceInFileDiff] File not replaced yet, showing preview`);
+      }
+      // Check if file has new_str (already replaced)
+      else if (newStr && currentContent.includes(newStr)) {
+        // File already replaced - reverse to get "before"
+        afterContent = currentContent;
+        const index = currentContent.indexOf(newStr);
+        beforeContent = currentContent.substring(0, index) + oldStr + currentContent.substring(index + newStr.length);
+        
+        console.log(`[handleOpenReplaceInFileDiff] File already replaced, reconstructing before content`);
+      }
+      else {
+        // Cannot find either old or new - show error
+        console.error(`[handleOpenReplaceInFileDiff] Cannot find old_str or new_str in file`, {
+          filePath,
+          oldStrPreview: oldStr.substring(0, 100),
+          newStrPreview: newStr.substring(0, 100),
+          currentContentPreview: currentContent.substring(0, 200),
+        });
+        vscode.window.showErrorMessage(
+          `Cannot create diff: neither old nor new content found in file`
+        );
+        return;
+      }
+      
+      // Verify we have different content
+      if (beforeContent === afterContent) {
+        console.warn(`[handleOpenReplaceInFileDiff] Before and after content are identical`);
+        vscode.window.showWarningMessage(
+          `Diff view: before and after content are identical`
+        );
+      }
+      
+      // Use ZenDiffProvider for virtual documents (no diagnostics!)
+      const safeId = `replace_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      
+      const beforeKey = `${safeId}_before`;
+      const afterKey = `${safeId}_after`;
+      
+      ZenDiffProvider.instance.store(beforeKey, beforeContent);
+      ZenDiffProvider.instance.store(afterKey, afterContent);
+      
+      const beforeUri = ZenDiffProvider.toUri(beforeKey, basename);
+      const afterUri = ZenDiffProvider.toUri(afterKey, basename);
+      
+      // Open diff view
+      await vscode.commands.executeCommand(
+        "vscode.diff",
+        beforeUri,
+        afterUri,
+        `${basename} (Before ↔ After)`,
+      );
+    } catch (error) {
+      console.error("[SystemHandler] handleOpenReplaceInFileDiff error:", error);
+      vscode.window.showErrorMessage(`Failed to open diff: ${error}`);
+    }
+  }
+
   public async handleOpenSnapshotDiff(message: any) {
     const { filePath, operation, beforeContent, afterContent, actionId } =
       message;

@@ -274,7 +274,6 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
       <div
         style={{
           marginTop: "4px",
-          marginLeft: "29px",
           padding: "8px 12px 8px 12px",
           backgroundColor:
             "color-mix(in srgb, var(--vscode-editor-background) 50%, transparent)",
@@ -300,7 +299,6 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
         maxHeight: "320px",
         overflowY: "auto",
         marginTop: "2px",
-        marginLeft: "29px",
         paddingLeft: "12px",
         paddingRight: "10px",
         paddingTop: "6px",

@@ -253,8 +253,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           });
         }
 
-        // --- 🆕 METADATA DOT CHECK ---
-        // Skip metadata dot for commit messages (they should continue the timeline without a new dot)
         const isCommitMessage =
           message.content?.includes("[COMMIT_MESSAGE_REQUEST]") ||
           message.content?.includes("<commit_message>");
@@ -297,8 +295,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           });
         }
 
-        // Only show message.thinking while generating, auto-hide when done
-        // NOTE: message.thinking is now rendered in ChatBody outside of timeline
+        // NOTE: message.thinking is now rendered in ChatBody
         // So we don't render it here anymore
 
         let currentToolGroup: { action: any; index: number }[] = [];
@@ -353,7 +350,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 key: `markdown-${idx}`,
               });
             } else if (block.type === "thinking") {
-              // Skip - thinking blocks are rendered in ChatBody outside timeline
+              // Skip - thinking blocks are rendered in ChatBody
               // Do nothing here
             } else if (block.type === "question") {
               flushTools();
@@ -410,71 +407,46 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
         let isInteractionBlocked = false;
 
-        // In simple mode, filter out tool groups where all items are invisible
-        // Complex mode: always show all groups
         const renderGroups = groups;
 
-        // Pre-calculate which groups will render with timeline-item wrapper
-        const groupsWithTimeline = renderGroups.map(
-          (group) => group.type !== "tools" && group.type !== "question",
-        );
-
-        // Find the last group that will have a timeline-item wrapper
-        let lastTimelineIndex = -1;
-        for (let i = renderGroups.length - 1; i >= 0; i--) {
-          if (groupsWithTimeline[i]) {
-            lastTimelineIndex = i;
-            break;
-          }
-        }
-
         return renderGroups.map((group, index) => {
-          // Only mark as "last" if: it's the last timeline group AND (isLastMessage OR hasNextAssistantMessage)
-          // This prevents timeline line when followed by user message
-          const shouldMarkAsLast = index === lastTimelineIndex && isLastMessage;
-
-          const timelineClass = `timeline-item ${shouldMarkAsLast ? "last" : ""}`;
-
           let content = null;
 
           if (group.type === "response_number") {
             content = (
-              <div>
-                {/* No timeline dot, just the line continues through */}
-                <div
-                  style={{
-                    position: "relative",
-                    paddingLeft: "29px",
-                    paddingTop: "4px",
-                    paddingBottom: "4px",
-                    fontSize: "11px",
-                    color: "var(--vscode-descriptionForeground)",
-                    fontFamily: "var(--vscode-editor-font-family, monospace)",
-                    lineHeight: 1.6,
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    opacity: 0.7,
-                    userSelect: "none",
-                  }}
-                >
-                  <span style={{ position: "relative", zIndex: 1 }}>
-                    {group.content}
-                  </span>
-                </div>
+              <div
+                style={{
+                  position: "relative",
+                  paddingTop: "4px",
+                  paddingBottom: "4px",
+                  fontSize: "11px",
+                  color: "var(--vscode-descriptionForeground)",
+                  fontFamily: "var(--vscode-editor-font-family, monospace)",
+                  lineHeight: 1.6,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  opacity: 0.7,
+                  userSelect: "none",
+                }}
+              >
+                <span style={{ position: "relative", zIndex: 1 }}>
+                  {group.content}
+                </span>
               </div>
             );
           } else if (group.type === "metadata") {
             content = (
               <div style={{ paddingBottom: "8px" }}>
                 <div
-                  className="timeline-dot"
                   style={{
-                    backgroundColor: "transparent",
-                    top: "10px",
+                    paddingTop: "4px",
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--vscode-descriptionForeground)",
+                    lineHeight: 1.6,
+                    fontStyle: "italic",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    border: "none",
+                    gap: "6px",
                   }}
                 >
                   {group.faviconUrl ? (
@@ -509,20 +481,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                       }}
                     />
                   )}
-                </div>
-                <div
-                  style={{
-                    paddingLeft: "29px",
-                    paddingTop: "4px",
-                    fontSize: "var(--font-size-sm)",
-                    color: "var(--vscode-descriptionForeground)",
-                    lineHeight: 1.6,
-                    fontStyle: "italic",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}
-                >
                   {group.content}
                 </div>
               </div>
@@ -568,7 +526,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                   color: "var(--vscode-badge-foreground)",
                   fontSize: "12px",
                   cursor: "pointer",
-                  marginLeft: "29px",
                 }}
                 onClick={() => {
                   const vscodeApi = (window as any).vscodeApi;
@@ -588,80 +545,53 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "markdown") {
-            const dotColor = message.isError
-              ? "var(--vscode-errorForeground, #ff4d4f)"
-              : "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
             content = (
-              <div>
-                <div
-                  className="timeline-dot"
-                  style={{
-                    backgroundColor: dotColor,
-                    boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
-                    top: "10px",
-                  }}
+              <div
+                style={{
+                  paddingTop: "4px",
+                  fontSize: "var(--font-size-sm)",
+                  color: "var(--primary-text)",
+                }}
+              >
+                <MarkdownBlock
+                  content={group.content}
+                  knownFilePaths={knownFilePaths}
                 />
-                <div
-                  style={{
-                    paddingLeft: "29px",
-                    paddingTop: "4px",
-                    fontSize: "var(--font-size-sm)",
-                    color: "var(--primary-text)",
-                  }}
-                >
-                  <MarkdownBlock
-                    content={group.content}
-                    knownFilePaths={knownFilePaths}
-                  />
-                </div>
               </div>
             );
           } else if (group.type === "mixed_content") {
-            const dotColor = message.isError
-              ? "var(--vscode-errorForeground, #ff4d4f)"
-              : "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
             content = (
-              <div>
-                <div
-                  className="timeline-dot"
-                  style={{
-                    backgroundColor: dotColor,
-                    boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
-                    top: "10px",
-                  }}
-                />
-                <div style={{ paddingLeft: "29px", paddingTop: "4px" }}>
-                  {group.segments.map((seg: any, i: number) => {
-                    if (seg.type === "code") {
-                      return (
-                        <CodeBlock
-                          key={i}
-                          code={seg.content}
-                          language={seg.language}
-                          enableWordWrap={false}
-                        />
-                      );
-                    } else if (seg.type === "markdown") {
-                      return (
-                        <MarkdownBlock
-                          key={i}
-                          content={seg.content}
-                          className="markdown-content-inline"
-                          knownFilePaths={knownFilePaths}
-                        />
-                      );
-                    } else {
-                      return (
-                        <MarkdownBlock
-                          key={i}
-                          content={seg.content}
-                          className="markdown-content-inline"
-                          knownFilePaths={knownFilePaths}
-                        />
-                      );
-                    }
-                  })}
-                </div>
+              <div style={{ paddingTop: "4px" }}>
+                {group.segments.map((seg: any, i: number) => {
+                  if (seg.type === "code") {
+                    return (
+                      <CodeBlock
+                        key={i}
+                        code={seg.content}
+                        language={seg.language}
+                        enableWordWrap={true}
+                      />
+                    );
+                  } else if (seg.type === "markdown") {
+                    return (
+                      <MarkdownBlock
+                        key={i}
+                        content={seg.content}
+                        className="markdown-content-inline"
+                        knownFilePaths={knownFilePaths}
+                      />
+                    );
+                  } else {
+                    return (
+                      <MarkdownBlock
+                        key={i}
+                        content={seg.content}
+                        className="markdown-content-inline"
+                        knownFilePaths={knownFilePaths}
+                      />
+                    );
+                  }
+                })}
               </div>
             );
           } else if (group.type === "question") {
@@ -746,11 +676,10 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               <ErrorBlock
                 content={translatedMessage}
                 errorCode={errorCode || undefined}
-                isLast={shouldMarkAsLast}
+                isLast={false}
                 isLastMessage={isLastMessage}
               />
             );
-            // Error renders its own timeline-item wrapper like tool groups
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           } else {
             content = (
@@ -827,23 +756,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           }
 
-          // Response number gets special timeline class (has line, no dot)
-          if (group.type === "response_number") {
-            return (
-              <div
-                key={group.key}
-                className={`${timelineClass} response-number-item`}
-              >
-                {content}
-              </div>
-            );
-          }
-
-          return (
-            <div key={group.key} className={timelineClass}>
-              {content}
-            </div>
-          );
+          return <React.Fragment key={group.key}>{content}</React.Fragment>;
         });
       })()}
     </div>

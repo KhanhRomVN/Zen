@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 2px 12px 0px 29px;
+  padding: 2px 12px 0px 0;
   background-color: transparent;
   border-bottom: none;
   user-select: none;
@@ -86,7 +86,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-left: 29px;
+  padding-left: 0;
   position: relative;
   display: flex;
   align-items: center;
@@ -111,8 +111,8 @@
 .terminal-sub-info::before {
   content: "";
   position: absolute;
-  left: var(--timeline-axis);
-  top: -8px; /* Connect to vertical timeline line */
+  left: 15px;
+  top: -8px;
   width: 10px;
   height: 16px;
   border-left: 2px solid
@@ -248,144 +248,7 @@
   );
 }
 
-/* Timeline Styles */
-:root {
-  --timeline-axis: 15px;
-  --timeline-dot-size: 8px;
-}
-
-.chat-timeline-wrapper {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-
-/* No global line - line is drawn per timeline-item */
-.chat-timeline-wrapper::before {
-  display: none;
-}
-
-/* assistant-message-container scopes the timeline */
-.assistant-message-container {
-  position: relative;
-}
-
-.timeline-item {
-  position: relative;
-  margin-left: 0;
-  /* No z-index: avoid stacking context that hides ::before line */
-}
-
-.timeline-item:last-child {
-  padding-bottom: 0;
-}
-
-/* Each non-last item draws a connecting line from its dot down to next item */
-.assistant-message-container .timeline-item:not(.last)::before {
-  content: "";
-  position: absolute;
-  left: var(--timeline-axis);
-  transform: translateX(-50%);
-  top: 14px; /* Start exactly at dot center (dot is at top:10px, size 8px -> center is 14px) */
-  bottom: -24px; /* Extend through 24px padding gap to connect to next item */
-  width: 2px;
-  background-color: var(
-    --vscode-textBlockQuote-border,
-    var(--vscode-editorLineNumber-foreground)
-  );
-  /* No z-index: paint naturally in stacking context */
-  opacity: 1;
-  pointer-events: none;
-}
-
-/* Final dot: explicitly no line below */
-.timeline-item.last::before {
-  display: none;
-}
-
-/* Hide line for response number item (no dot) */
-.timeline-item.no-timeline-line::before {
-  display: none !important;
-}
-
-/* Response number item: has line but no dot */
-.timeline-item.response-number-item::before {
-  display: block !important; /* Keep the line */
-}
-
-.timeline-item.response-number-item .timeline-dot {
-  display: none; /* Hide the dot */
-}
-
-/* Item immediately before response-number: hide its line (response-number will draw the line) */
-.timeline-item:has(+ .response-number-item)::before {
-  display: none !important;
-}
-
-/* Hide line of item immediately before response number */
-.timeline-item:has(+ .no-timeline-line)::before {
-  display: none !important;
-}
-
-/* Hide line when assistant message is followed by user message */
-.assistant-message-container.is-last-assistant
-  .timeline-item:not(.last):last-of-type::before {
-  display: none;
-}
-
-.timeline-dot {
-  position: absolute;
-  left: var(--timeline-axis);
-  transform: translateX(-50%);
-  top: 22px;
-  width: var(--timeline-dot-size);
-  height: var(--timeline-dot-size);
-  border-radius: 50%;
-  z-index: 10;
-  background-color: var(--vscode-descriptionForeground);
-  box-shadow:
-    0 0 0 2px var(--vscode-editor-background),
-    0 0 0 3px
-      var(
-        --vscode-textBlockQuote-border,
-        var(--vscode-editorLineNumber-foreground)
-      );
-  transition: all 0.2s ease;
-  animation: timeline-dot-fade-in 0.25s ease-out both;
-}
-
-@keyframes timeline-dot-fade-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) scale(0.5);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-  }
-}
-
-/* Mask to hide the global timeline axis for specific sections */
-.timeline-mask {
-  position: relative;
-}
-
-.timeline-mask::after {
-  content: "";
-  position: absolute;
-  left: var(--timeline-axis);
-  transform: translateX(-50%);
-  top: -24px;
-  bottom: 0;
-  width: 4px;
-  background-color: var(--secondary-bg);
-  z-index: 1;
-  pointer-events: none;
-}
-
-.timeline-content {
-  padding-left: 29px; /* Offset for timeline area */
-}
+/* Timeline Styles - REMOVED */
 
 /* User message container for hover trigger */
 .user-message-container {

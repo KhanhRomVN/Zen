@@ -266,7 +266,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   if (isLegacyMode) {
     const legacySelected = selectedOptionProp || null;
     return (
-      <div className="timeline-item" style={wrapperStyle}>
+      <div style={wrapperStyle}>
         <ToolHeader
           title="QUESTION"
           statusColor={
@@ -1109,7 +1109,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     };
 
     return (
-      <div className="timeline-item" style={wrapperStyle}>
+      <div style={wrapperStyle}>
         <ToolHeader
           title={
             <div
@@ -1244,7 +1244,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   }
 
   return (
-    <div className="timeline-item" style={wrapperStyle}>
+    <div style={wrapperStyle}>
       <ToolHeader
         title={
           <div

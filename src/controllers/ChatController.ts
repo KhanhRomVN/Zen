@@ -216,6 +216,9 @@ export class ChatController {
         case "openDiff":
           await this.systemHandler.handleOpenDiff(message);
           break;
+        case "openReplaceInFileDiff":
+          await this.systemHandler.handleOpenReplaceInFileDiff(message);
+          break;
         case "openSnapshotDiff":
           await this.systemHandler.handleOpenSnapshotDiff(message);
           break;

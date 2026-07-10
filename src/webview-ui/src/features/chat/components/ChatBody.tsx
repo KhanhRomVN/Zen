@@ -298,7 +298,9 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       style={{
         flex: 1,
         overflowY: "auto",
+        overflowX: "hidden",
         padding: "var(--spacing-lg)",
+        paddingLeft: "24px",
         backgroundColor: "var(--secondary-bg)",
         paddingBottom:
           visibleMessages.length > 0 ? "200px" : "var(--spacing-lg)",
@@ -360,96 +362,92 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         </div>
       )}
 
-      <div className="chat-timeline-wrapper">
-        {(() => {
-          let assistantResponseCount = 0;
-          return visibleMessages.map((message, index) => {
-            const parsedMessage = parsedMessages.find(
-              (pm) => pm.id === message.id,
-            );
-            if (!parsedMessage) return null;
-            const parsedContent = parsedMessage.parsed;
+      {(() => {
+        let assistantResponseCount = 0;
+        return visibleMessages.map((message, index) => {
+          const parsedMessage = parsedMessages.find(
+            (pm) => pm.id === message.id,
+          );
+          if (!parsedMessage) return null;
+          const parsedContent = parsedMessage.parsed;
 
-            // Track assistant response number
-            if (message.role === "assistant") {
-              assistantResponseCount++;
-            }
-            const currentResponseNumber = message.role === "assistant" ? assistantResponseCount : null;
+          // Track assistant response number
+          if (message.role === "assistant") {
+            assistantResponseCount++;
+          }
+          const currentResponseNumber = message.role === "assistant" ? assistantResponseCount : null;
 
-            const nextUserMessage = messages
-              .slice(messages.findIndex((m) => m.id === message.id) + 1)
-              .find((m) => m.role === "user");
-            const previousAssistantMessage = messages
-              .slice(
-                0,
-                messages.findIndex((m) => m.id === message.id),
-              )
-              .reverse()
-              .find((m) => m.role === "assistant");
+          const nextUserMessage = messages
+            .slice(messages.findIndex((m) => m.id === message.id) + 1)
+            .find((m) => m.role === "user");
+          const previousAssistantMessage = messages
+            .slice(
+              0,
+              messages.findIndex((m) => m.id === message.id),
+            )
+            .reverse()
+            .find((m) => m.role === "assistant");
 
-            // Check if next visible message is assistant (for timeline line logic)
-            const nextVisibleMessage = visibleMessages[index + 1];
-            const hasNextAssistantMessage =
-              nextVisibleMessage?.role === "assistant";
+          const nextVisibleMessage = visibleMessages[index + 1];
+          const hasNextAssistantMessage =
+            nextVisibleMessage?.role === "assistant";
 
-            return (
-              <ChatErrorBoundary key={message.id}>
-                {/* Response Number Display moved inside AIMessageBox */}
-                <MessageBox
-                  key={message.id}
-                  message={message}
-                  parsedContent={parsedContent}
-                  nextUserMessage={nextUserMessage}
-                  responseNumber={currentResponseNumber}
-                  isGenerating={
-                    isProcessing && index === visibleMessages.length - 1
-                  }
-                  isCollapsed={
-                    message.role === "user"
-                      ? collapsedSections.has(`prompt-${message.id}`)
-                      : false
-                  }
-                  onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
-                  clickedActions={clickedActions}
-                  failedActions={failedActions}
-                  rejectedActions={rejectedActions}
-                  onToolClick={handleToolClick}
-                  executionState={executionState}
-                  isLastMessage={
-                    message.role === "assistant" &&
-                    (index === visibleMessages.length - 1 ||
-                      index === lastAssistantIndex) &&
-                    hasNextAssistantMessage === false
-                  }
-                  hasNextAssistantMessage={hasNextAssistantMessage}
-                  toolOutputs={toolOutputs}
-                  terminalStatus={terminalStatus}
-                  allMessages={messages}
-                  activeTerminalIds={activeTerminalIds}
-                  attachedTerminalIds={attachedTerminalIds}
-                  conversationId={conversationId}
-                  previousAssistantMessage={previousAssistantMessage}
-                  onSendMessage={onSendMessage}
-                  onSelectOption={onSelectOption}
-                  onRevertConversation={onRevertConversation}
-                  singleLineReviewActions={singleLineReviewActions}
-                  onConfirmSingleLineAction={onConfirmSingleLineAction}
-                  onRejectSingleLineAction={onRejectSingleLineAction}
-                  onGitConfirm={onGitConfirm}
-                  onGitCancel={onGitCancel}
-                  gitStatusItems={gitStatusItems}
-                  gitStatusBranch={gitStatusBranch}
-                  isGitProcessing={isGitProcessing}
-                  isGitStatusVisible={isGitStatusVisible}
-                  onBackToHome={onBackToHome}
-                />
-              </ChatErrorBoundary>
-            );
-          });
-        })()}
-      </div>
+          return (
+            <ChatErrorBoundary key={message.id}>
+              <MessageBox
+                key={message.id}
+                message={message}
+                parsedContent={parsedContent}
+                nextUserMessage={nextUserMessage}
+                responseNumber={currentResponseNumber}
+                isGenerating={
+                  isProcessing && index === visibleMessages.length - 1
+                }
+                isCollapsed={
+                  message.role === "user"
+                    ? collapsedSections.has(`prompt-${message.id}`)
+                    : false
+                }
+                onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
+                clickedActions={clickedActions}
+                failedActions={failedActions}
+                rejectedActions={rejectedActions}
+                onToolClick={handleToolClick}
+                executionState={executionState}
+                isLastMessage={
+                  message.role === "assistant" &&
+                  (index === visibleMessages.length - 1 ||
+                    index === lastAssistantIndex) &&
+                  hasNextAssistantMessage === false
+                }
+                hasNextAssistantMessage={hasNextAssistantMessage}
+                toolOutputs={toolOutputs}
+                terminalStatus={terminalStatus}
+                allMessages={messages}
+                activeTerminalIds={activeTerminalIds}
+                attachedTerminalIds={attachedTerminalIds}
+                conversationId={conversationId}
+                previousAssistantMessage={previousAssistantMessage}
+                onSendMessage={onSendMessage}
+                onSelectOption={onSelectOption}
+                onRevertConversation={onRevertConversation}
+                singleLineReviewActions={singleLineReviewActions}
+                onConfirmSingleLineAction={onConfirmSingleLineAction}
+                onRejectSingleLineAction={onRejectSingleLineAction}
+                onGitConfirm={onGitConfirm}
+                onGitCancel={onGitCancel}
+                gitStatusItems={gitStatusItems}
+                gitStatusBranch={gitStatusBranch}
+                isGitProcessing={isGitProcessing}
+                isGitStatusVisible={isGitStatusVisible}
+                onBackToHome={onBackToHome}
+              />
+            </ChatErrorBoundary>
+          );
+        });
+      })()}
 
-      {/* Thinking Block - render after timeline wrapper, before ProcessingIndicator */}
+      {/* Thinking Block - render before ProcessingIndicator */}
       {(() => {
         const lastMessage = visibleMessages[visibleMessages.length - 1];
         const isRenderingThinking =
@@ -506,7 +504,6 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       {hasUnexecutedAutoActions && onContinue && (
         <div
           style={{
-            paddingLeft: "29px",
             marginTop: "12px",
             marginBottom: "12px",
             display: "flex",

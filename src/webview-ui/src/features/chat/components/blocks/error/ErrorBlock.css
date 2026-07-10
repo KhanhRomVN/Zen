@@ -25,7 +25,7 @@
   border: 1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 40%, transparent);
   border-radius: 6px;
   background: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 6%, transparent);
-  margin: 4px 12px 8px 29px;
+  margin: 4px 12px 8px 0;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 50%, transparent) transparent;
 }

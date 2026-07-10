@@ -143,7 +143,6 @@ export const TreeBlock: React.FC<TreeBlockProps> = ({ files, onFileClick }) => {
     <div
       style={{
         marginTop: "4px",
-        marginLeft: "29px",
         backgroundColor:
           "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
         border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",

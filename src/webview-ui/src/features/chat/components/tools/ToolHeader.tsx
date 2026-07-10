@@ -96,6 +96,22 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
   const [containerWidth, setContainerWidth] = useState<number>(0);
   const [pathContainerWidth, setPathContainerWidth] = useState<number>(0);
 
+  // Inject spin animation for loading circle ring
+  useEffect(() => {
+    const styleId = "circle-ring-spin-animation";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = `
+        @keyframes circle-ring-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current) return;
     const observer = new ResizeObserver((entries) => {
@@ -300,39 +316,6 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
     >
       <div className="terminal-info" style={{ flex: 1, minWidth: 0 }}>
         <div className="terminal-header-top">
-          {statusColor && (
-            <div
-              className={`terminal-status-dot timeline-dot ${isPartial ? "streaming-pulse" : ""}`}
-              style={{
-                backgroundColor: statusColor,
-                top: "10px",
-                left: "15px",
-                transform: "translateX(-50%)",
-                boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${statusColor} 50%, transparent)`,
-                cursor: onDotClick ? "pointer" : "default",
-              }}
-              title={getStatusTooltip}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onDotClick) {
-                  onDotClick();
-                }
-              }}
-            />
-          )}
-          {isPartial && (
-            <style>{`
-              @keyframes pulse {
-                0% { box-shadow: 0 0 0 0 var(--pulse-color); }
-                70% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); }
-                100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
-              }
-              .streaming-pulse {
-                animation: pulse 2s infinite;
-                --pulse-color: ${statusColor}60;
-              }
-            `}</style>
-          )}
           <div
             style={{
               marginTop: "1px",
@@ -349,136 +332,199 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                flexWrap: "wrap",
+                alignItems: "flex-start",
+                gap: "8px",
+                flexWrap: "nowrap",
               }}
             >
-              {onToggleCollapse && (
-                <span
-                  className={`collapse-icon codicon codicon-chevron-${isCollapsed ? "right" : "down"}`}
-                  style={{ fontSize: "12px", marginRight: "4px" }}
-                />
-              )}
-              {icon && (
-                <span style={{ display: "flex", alignItems: "center" }}>
-                  {icon}
-                </span>
-              )}
-              {typeof title === "string" ? (
-                <span className="terminal-name">{title}</span>
-              ) : (
-                <div className="terminal-name" style={{ display: "contents" }}>
-                  {title}
-                </div>
-              )}
-            </div>
-            {displayPath && path && path.includes("/") && (
-              <div
-                ref={pathContainerRef}
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  alignItems: "center",
-                  paddingRight: "4px",
-                  paddingTop: "4px",
-                  marginTop: "2px",
-                  position: "relative",
-                  width: "100%",
-                  maxWidth: "100%",
-                  overflow: "hidden",
-                }}
-              >
-                {/* Corner line: vertical + horizontal L-shape */}
+              {/* Left column: CircleDot + CircleRing */}
+              {statusColor && (
                 <div
                   style={{
-                    position: "absolute",
-                    left: "0",
-                    top: "0",
+                    position: "relative",
                     width: "16px",
-                    height: "12px",
-                    borderLeft:
-                      "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
-                    borderBottom:
-                      "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                    height: "16px",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: onDotClick ? "pointer" : "default",
+                    marginTop: "2px", // Align with text baseline
                   }}
-                />
-                <span
+                  title={getStatusTooltip}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onDotClick) {
+                      onDotClick();
+                    }
+                  }}
+                >
+                  {/* CircleRing */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      width: "16px",
+                      height: "16px",
+                      borderRadius: "50%",
+                      border: `2px solid ${statusColor}`,
+                      opacity: 0.4,
+                      ...(isPartial && {
+                        animation: "circle-ring-spin 1s linear infinite",
+                        borderTopColor: "transparent",
+                        opacity: 0.8,
+                      }),
+                    }}
+                  />
+                  {/* CircleDot */}
+                  <div
+                    style={{
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: statusColor,
+                    }}
+                  />
+                </div>
+              )}
+              
+              {/* Right column: All other content */}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "2px", marginTop: "2px" }}>
+                <div
                   style={{
-                    fontSize: "10px",
-                    opacity: 0.6,
-                    color: pathColor,
-                    fontFamily: "var(--vscode-editor-font-family, monospace)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    width: "100%",
-                    padding: "0 4px 0 20px",
-                    borderRadius: "2px",
-                    transition: "text-decoration 0.15s ease",
-                    cursor: "default",
-                    textDecoration: "none",
                     display: "flex",
                     alignItems: "center",
                     gap: "6px",
-                  }}
-                  title={path}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onPathClick && path) {
-                      onPathClick(path);
-                    }
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.textDecoration = "underline";
-                    e.currentTarget.style.textDecorationColor =
-                      "var(--vscode-focusBorder, rgba(0, 122, 204, 0.6))";
-                    e.currentTarget.style.textUnderlineOffset = "2px";
-                    e.currentTarget.style.cursor = "pointer";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.textDecoration = "none";
-                    e.currentTarget.style.cursor = "default";
+                    flexWrap: "wrap",
                   }}
                 >
-                  <span
-                    style={{
-                      flex: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {displayPath}
-                  </span>
-                  {diagnosticCounts.errors > 0 && (
+                  {onToggleCollapse && (
                     <span
-                      style={{
-                        color: "var(--vscode-errorForeground, #ff4d4d)",
-                        fontWeight: 600,
-                        fontSize: "10px",
-                        flexShrink: 0,
-                      }}
-                    >
-                      [{diagnosticCounts.errors}]
+                      className={`collapse-icon codicon codicon-chevron-${isCollapsed ? "right" : "down"}`}
+                      style={{ fontSize: "12px", marginRight: "4px" }}
+                    />
+                  )}
+                  {icon && (
+                    <span style={{ display: "flex", alignItems: "center" }}>
+                      {icon}
                     </span>
                   )}
-                  {diagnosticCounts.errors === 0 &&
-                    diagnosticCounts.warnings > 0 && (
+                  {typeof title === "string" ? (
+                    <span className="terminal-name">{title}</span>
+                  ) : (
+                    <div className="terminal-name" style={{ display: "contents" }}>
+                      {title}
+                    </div>
+                  )}
+                </div>
+                
+                {displayPath && path && path.includes("/") && (
+                  <div
+                    ref={pathContainerRef}
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      alignItems: "center",
+                      paddingRight: "4px",
+                      paddingTop: "4px",
+                      marginTop: "2px",
+                      position: "relative",
+                      width: "100%",
+                      maxWidth: "100%",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {/* Corner line: vertical + horizontal L-shape */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: "0",
+                        top: "0",
+                        width: "16px",
+                        height: "12px",
+                        borderLeft:
+                          "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                        borderBottom:
+                          "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        opacity: 0.6,
+                        color: pathColor,
+                        fontFamily: "var(--vscode-editor-font-family, monospace)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        width: "100%",
+                        padding: "0 4px 0 20px",
+                        borderRadius: "2px",
+                        transition: "text-decoration 0.15s ease",
+                        cursor: "default",
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                      title={path}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onPathClick && path) {
+                          onPathClick(path);
+                        }
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.textDecoration = "underline";
+                        e.currentTarget.style.textDecorationColor =
+                          "var(--vscode-focusBorder, rgba(0, 122, 204, 0.6))";
+                        e.currentTarget.style.textUnderlineOffset = "2px";
+                        e.currentTarget.style.cursor = "pointer";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.textDecoration = "none";
+                        e.currentTarget.style.cursor = "default";
+                      }}
+                    >
                       <span
                         style={{
-                          color:
-                            "var(--vscode-editorWarning-foreground, #cca700)",
-                          fontWeight: 600,
-                          fontSize: "10px",
-                          flexShrink: 0,
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
-                        [{diagnosticCounts.warnings}]
+                        {displayPath}
                       </span>
-                    )}
-                </span>
+                      {diagnosticCounts.errors > 0 && (
+                        <span
+                          style={{
+                            color: "var(--vscode-errorForeground, #ff4d4d)",
+                            fontWeight: 600,
+                            fontSize: "10px",
+                            flexShrink: 0,
+                          }}
+                        >
+                          [{diagnosticCounts.errors}]
+                        </span>
+                      )}
+                      {diagnosticCounts.errors === 0 &&
+                        diagnosticCounts.warnings > 0 && (
+                          <span
+                            style={{
+                              color:
+                                "var(--vscode-editorWarning-foreground, #cca700)",
+                              fontWeight: 600,
+                              fontSize: "10px",
+                              flexShrink: 0,
+                            }}
+                          >
+                            [{diagnosticCounts.warnings}]
+                          </span>
+                        )}
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
         {(subTitle || diffStats) && (
