@@ -128,17 +128,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
 
   // Initialize state from questionAnswersProp when it changes (after user submits)
   useEffect(() => {
-    console.log("[Zen][QuestionBlock] questionAnswersProp changed:", {
-      hasAnswers: !!questionAnswersProp,
-      answersCount: questionAnswersProp
-        ? Object.keys(questionAnswersProp).length
-        : 0,
-      answers: questionAnswersProp,
-      questionsCount: questions.length,
-    });
-
     if (questionAnswersProp && Object.keys(questionAnswersProp).length > 0) {
-      console.log("[Zen][QuestionBlock] Pre-filling answers...");
       // Pre-fill answers state
       setAnswers(questionAnswersProp);
 
@@ -189,11 +179,6 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
       setConfirmValues(newConfirmValues);
       setCustomValues(newCustomValues);
       setMultiCustomValues(newMultiCustomValues);
-
-      console.log(
-        "[Zen][QuestionBlock] Answers pre-filled, switching to summary mode",
-      );
-      // Switch to summary mode immediately
       setIsSummaryMode(true);
     }
   }, [questionAnswersProp, questions]);

@@ -3,6 +3,7 @@ import { Message } from "../../types/message";
 import { ParsedResponse } from "../../services/ResponseParser";
 import UserMessageBox from "./UserMessageBox";
 import AIMessageBox from "./AIMessageBox";
+import { ModelUsageInfo } from "../ModelUsageInfo";
 
 interface MessageBoxProps {
   message: Message;
@@ -64,15 +65,13 @@ interface MessageBoxProps {
 
 const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
   const { message, onRevertConversation } = props;
-
-  console.log('[Zen][MessageBox] Rendering message:', {
-    messageId: message.id.substring(0, 20),
-    role: message.role,
-    contentLength: message.content?.length || 0,
-  });
-
   if (message.role === "user") {
-    return <UserMessageBox message={message} onRevertConversation={onRevertConversation} />;
+    return (
+      <UserMessageBox
+        message={message}
+        onRevertConversation={onRevertConversation}
+      />
+    );
   }
 
   // Handle system messages (e.g., model switch)
@@ -82,10 +81,7 @@ const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
       try {
         const dataStr = message.content.replace("__MODEL_SWITCH__::", "");
         const data = JSON.parse(dataStr);
-        
-        // Import ModelUsageInfo dynamically
-        const ModelUsageInfo = require("../ModelUsageInfo").ModelUsageInfo;
-        
+
         return (
           <div style={{ padding: "12px 0" }}>
             <ModelUsageInfo
@@ -101,7 +97,7 @@ const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
         return null;
       }
     }
-    
+
     // Other system messages
     return null;
   }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, RefObject, useCallback } from "react";
 
 export const useScrollBehavior = (
   messagesEndRef: RefObject<HTMLDivElement>,
-  dependencies: any[]
+  dependencies: any[],
 ) => {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
@@ -14,7 +14,6 @@ export const useScrollBehavior = (
   // effect caused by rapid successive smooth-scroll calls conflicting with
   // continuously-growing DOM height.
   useEffect(() => {
-    console.log('[Zen][useScrollBehavior] Scroll effect triggered, autoScrollPaused:', autoScrollPaused);
     if (autoScrollPaused) return;
 
     // Cancel any pending frame to throttle to one scroll per render cycle
@@ -23,12 +22,13 @@ export const useScrollBehavior = (
     }
 
     autoScrollRafRef.current = requestAnimationFrame(() => {
-      console.log('[Zen][useScrollBehavior] Executing scroll to bottom');
       autoScrollRafRef.current = null;
       isProgrammaticScrollRef.current = true;
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
       // Reset flag after a short delay so user-scroll detection still works
-      setTimeout(() => { isProgrammaticScrollRef.current = false; }, 100);
+      setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 100);
     });
   }, dependencies);
 
@@ -66,7 +66,9 @@ export const useScrollBehavior = (
     isProgrammaticScrollRef.current = true;
     // Manual scroll-to-bottom uses smooth for nice UX
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    setTimeout(() => { isProgrammaticScrollRef.current = false; }, 600);
+    setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 600);
   }, [messagesEndRef]);
 
   return {

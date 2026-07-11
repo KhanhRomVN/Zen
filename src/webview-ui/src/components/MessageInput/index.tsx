@@ -309,7 +309,10 @@ const CompressButton: React.FC<CompressButtonProps> = ({
       return;
     }
     const handler = (e: MouseEvent) => {
-      if (tooltipRef.current && !tooltipRef.current.contains(e.target as Node)) {
+      if (
+        tooltipRef.current &&
+        !tooltipRef.current.contains(e.target as Node)
+      ) {
         setShowTooltip(false);
       }
     };
@@ -355,7 +358,8 @@ const CompressButton: React.FC<CompressButtonProps> = ({
             bottom: "calc(100% + 8px)",
             left: "0",
             zIndex: 10000,
-            backgroundColor: "color-mix(in srgb, var(--input-bg) 100%, black 15%)",
+            backgroundColor:
+              "color-mix(in srgb, var(--input-bg) 100%, black 15%)",
             border: isTooltipHovered
               ? "1px solid var(--vscode-focusBorder, #007acc)"
               : "1px solid var(--vscode-widget-border)",
@@ -367,13 +371,8 @@ const CompressButton: React.FC<CompressButtonProps> = ({
         >
           <button
             onClick={() => {
-              console.log('[Zen][CompressButton] "Continue with current model" clicked');
-              console.log('[Zen][CompressButton] Current model:', currentModel);
-              console.log('[Zen][CompressButton] Current account:', currentAccount);
-              console.log('[Zen][CompressButton] Calling onClick (triggerContextCompression)...');
               setShowTooltip(false);
               onClick(); // Use current model+account - trigger context compression
-              console.log('[Zen][CompressButton] onClick called');
             }}
             style={{
               display: "flex",
@@ -391,7 +390,8 @@ const CompressButton: React.FC<CompressButtonProps> = ({
               borderBottom: "1px solid var(--vscode-widget-border)",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--vscode-list-hoverBackground)";
+              e.currentTarget.style.background =
+                "var(--vscode-list-hoverBackground)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "transparent";
@@ -429,7 +429,8 @@ const CompressButton: React.FC<CompressButtonProps> = ({
               color: "var(--vscode-foreground)",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--vscode-list-hoverBackground)";
+              e.currentTarget.style.background =
+                "var(--vscode-list-hoverBackground)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = "transparent";
@@ -723,23 +724,30 @@ interface MessageInputProps {
     start: number;
     end: number;
     isCurrent: boolean;
-    fileChanges: Map<string, { 
-      additions: number; 
-      deletions: number;
-      toolType?: "write_to_file" | "replace_in_file";
-      content?: string;
-      oldContent?: string;
-      newContent?: string;
-    }>;
+    fileChanges: Map<
+      string,
+      {
+        additions: number;
+        deletions: number;
+        toolType?: "write_to_file" | "replace_in_file";
+        content?: string;
+        oldContent?: string;
+        newContent?: string;
+      }
+    >;
   }>;
   // 🆕 Model Switch Handler
   onModelSwitch?: (
     newModel: any,
     newAccount: any,
     contextData: {
-      fileChanges: Array<{ path: string; additions: number; deletions: number }>;
+      fileChanges: Array<{
+        path: string;
+        additions: number;
+        deletions: number;
+      }>;
       userMessages: Array<{ content: string; responseNumber: number }>;
-    }
+    },
   ) => void;
 }
 
@@ -840,7 +848,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     model: any;
     account: any;
   } | null>(null);
-  
+
   // Track if ModelAccountDrawer is opened for model switch (vs normal selection)
   const [isModelSwitchMode, setIsModelSwitchMode] = React.useState(false);
 
@@ -1188,7 +1196,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
             : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
           transition: "border 0.3s ease",
           marginTop:
-            !isConversationStarted || (isConnected && isElaraMismatch) || isConversationStarted
+            !isConversationStarted ||
+            (isConnected && isElaraMismatch) ||
+            isConversationStarted
               ? "24px"
               : "0px", // Space for badges/DiffSummaryBar sticking up
         }}
@@ -1279,7 +1289,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             )}
           </div>
         )}
-        
+
         {/* 🆕 CHAT PANEL DIFF SUMMARY BAR (Stuck to Border) - Only when isConversationStarted */}
         {isConversationStarted && (
           <div
@@ -1333,7 +1343,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 is_upload: modelObj?.is_upload ?? false,
                 is_memory: modelObj?.is_memory ?? prov?.is_memory ?? false,
               };
-              
+
               const newAccount = {
                 id: selected.accountId,
                 email: selected.email,
@@ -1377,7 +1387,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             }}
           />
         )}
-        
+
         {/* Model Switch Confirmation Dialog */}
         {pendingModelSwitch && (
           <div
@@ -1435,7 +1445,10 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     fontFamily: "var(--vscode-editor-font-family, monospace)",
                   }}
                 >
-                  <strong>{pendingModelSwitch.model.providerId}/{pendingModelSwitch.model.id}</strong>
+                  <strong>
+                    {pendingModelSwitch.model.providerId}/
+                    {pendingModelSwitch.model.id}
+                  </strong>
                   {pendingModelSwitch.account.email && (
                     <div style={{ marginTop: "4px", opacity: 0.8 }}>
                       {pendingModelSwitch.account.email}
@@ -1462,7 +1475,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     cursor: "pointer",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--vscode-list-hoverBackground)";
+                    e.currentTarget.style.backgroundColor =
+                      "var(--vscode-list-hoverBackground)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = "transparent";
@@ -1473,10 +1487,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 <button
                   onClick={() => {
                     // Prepare context data from current range
-                    const currentRange = responseRanges.find((r) => r.isCurrent);
-                    
+                    const currentRange = responseRanges.find(
+                      (r) => r.isCurrent,
+                    );
+
                     // Extract user messages from current range
-                    const userMessagesInRange: Array<{ content: string; responseNumber: number }> = [];
+                    const userMessagesInRange: Array<{
+                      content: string;
+                      responseNumber: number;
+                    }> = [];
                     if (currentRange) {
                       // Find user messages in the current response range
                       let responseCount = 0;
@@ -1496,7 +1515,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                         }
                       }
                     }
-                    
+
                     const contextData = {
                       fileChanges: currentRange
                         ? Array.from(currentRange.fileChanges.entries()).map(
@@ -1522,7 +1541,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     // Apply model switch
                     setCurrentModel(pendingModelSwitch.model);
                     setCurrentAccount(pendingModelSwitch.account);
-                    
+
                     // Clear pending
                     setPendingModelSwitch(null);
                   }}
@@ -1537,10 +1556,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     cursor: "pointer",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--vscode-button-hoverBackground)";
+                    e.currentTarget.style.backgroundColor =
+                      "var(--vscode-button-hoverBackground)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "var(--vscode-button-background)";
+                    e.currentTarget.style.backgroundColor =
+                      "var(--vscode-button-background)";
                   }}
                 >
                   Confirm Switch

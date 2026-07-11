@@ -448,9 +448,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     if (
       loadedConversationFileStats &&
       messages.length > 0 &&
-      messages.every((m) => !m.content?.includes("<write_to_file>") && !m.content?.includes("<str_replace>"))
+      messages.every(
+        (m) =>
+          !m.content?.includes("<write_to_file>") &&
+          !m.content?.includes("<str_replace>"),
+      )
     ) {
-      console.log('[Zen][ChatPanel][conversationFileStats] Using loaded stats from history');
       return loadedConversationFileStats;
     }
 
@@ -517,8 +520,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       0,
     );
 
-    console.log('[Zen][ChatPanel][conversationFileStats] Computed stats:', { totalFiles, totalAdditions, totalDeletions });
-
     return {
       totalFiles,
       totalAdditions,
@@ -528,14 +529,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Trigger context compression
   const triggerContextCompression = useCallback(() => {
-    console.log('[Zen][ContextCompression] Triggering compression...');
-    
     // Prevent multiple compression requests
     if (isProcessing) {
-      console.warn('[Zen][ContextCompression] Already processing - ignoring request');
+      console.warn(
+        "[Zen][ContextCompression] Already processing - ignoring request",
+      );
       return;
     }
-    
+
     try {
       // Inline CONTEXT_COMPRESSION_PROMPT to avoid dynamic import blocking
       const CONTEXT_COMPRESSION_PROMPT = `<context_compression_request>
@@ -611,29 +612,20 @@ Structure your summary in clear sections using markdown INSIDE the tags:
 Generate the summary now:
 </context_compression_request>`;
 
-      console.log('[Zen][ContextCompression] Sending compression request...');
-      console.log('[Zen][ContextCompression] Current model:', currentModelRef.current);
-      console.log('[Zen][ContextCompression] Current account:', currentAccountRef.current);
-      
       // CRITICAL FIX: Use setTimeout to break out of the current call stack
       // This prevents UI freeze by allowing the browser to process pending updates
       setTimeout(() => {
-        console.log('[Zen][ContextCompression] Executing sendMessage in next tick...');
-        
         // Check if conversation exists
-        const hasConversation = currentConversationIdRef.current && messages.length > 0;
-        
+        const hasConversation =
+          currentConversationIdRef.current && messages.length > 0;
+
         if (!hasConversation) {
-          console.warn('[Zen][ContextCompression] No active conversation - compression not possible');
+          console.warn(
+            "[Zen][ContextCompression] No active conversation - compression not possible",
+          );
           return;
         }
-        
-        console.log('[Zen][ContextCompression] Conversation info:', {
-          conversationId: currentConversationIdRef.current,
-          messageCount: messages.length,
-          messagesSize: JSON.stringify(messages).length,
-        });
-        
+
         // Use sendMessage directly instead of wrappedSendMessage to avoid ref issues
         // Use skipFirstRequestLogic=true since this is an internal request for existing conversation
         sendMessage(
@@ -645,12 +637,12 @@ Generate the summary now:
           undefined,
           true, // uiHidden=true - hide internal compression request
         );
-        console.log('[Zen][ContextCompression] sendMessage called');
       }, 0);
-      
-      console.log('[Zen][ContextCompression] Request scheduled');
     } catch (error) {
-      console.error('[Zen][ContextCompression] Error triggering compression:', error);
+      console.error(
+        "[Zen][ContextCompression] Error triggering compression:",
+        error,
+      );
     }
   }, [sendMessage, isProcessing]); // Add isProcessing dependency
 
@@ -662,20 +654,27 @@ Generate the summary now:
       newModel: any,
       newAccount: any,
       contextData: {
-        fileChanges: Array<{ path: string; additions: number; deletions: number }>;
+        fileChanges: Array<{
+          path: string;
+          additions: number;
+          deletions: number;
+        }>;
         userMessages: Array<{ content: string; responseNumber: number }>;
       },
     ) => {
       // Extract user messages from current range
-      const currentRange = messages.reduce((acc, msg, idx) => {
-        if (msg.role === "user" && !msg.uiHidden) {
-          acc.push({
-            content: msg.content,
-            index: idx,
-          });
-        }
-        return acc;
-      }, [] as Array<{ content: string; index: number }>);
+      const currentRange = messages.reduce(
+        (acc, msg, idx) => {
+          if (msg.role === "user" && !msg.uiHidden) {
+            acc.push({
+              content: msg.content,
+              index: idx,
+            });
+          }
+          return acc;
+        },
+        [] as Array<{ content: string; index: number }>,
+      );
 
       // Get last few user messages (e.g., last 3)
       const recentUserMessages = currentRange.slice(-3).map((m, i) => ({
@@ -694,8 +693,9 @@ Generate the summary now:
           providerId: newModel.providerId,
           modelId: newModel.id,
           email: newAccount.email,
-          websiteUrl: providers.find((p: any) => p.provider_id === newModel.providerId)
-            ?.website,
+          websiteUrl: providers.find(
+            (p: any) => p.provider_id === newModel.providerId,
+          )?.website,
         })}`,
         timestamp: Date.now(),
         conversationId: currentConversationId || "",
@@ -717,13 +717,7 @@ Generate the summary now:
         true,
       );
     },
-    [
-      messages,
-      currentConversationId,
-      currentChat,
-      providers,
-      setMessages,
-    ],
+    [messages, currentConversationId, currentChat, providers, setMessages],
   );
 
   // --- Effects ---
@@ -795,9 +789,7 @@ Generate the summary now:
 
   // Update ConversationCache
   useEffect(() => {
-    console.log('[Zen][ChatPanel][ConversationCache] Update effect triggered');
     if (currentConversationId && messages.length > 0) {
-      console.log('[Zen][ChatPanel][ConversationCache] Updating cache for:', currentConversationId, 'messages:', messages.length);
       const existing = ConversationCache.get(currentConversationId);
       ConversationCache.set(currentConversationId, {
         messages,
@@ -827,7 +819,6 @@ Generate the summary now:
   // Persist toolOutputs
   useEffect(() => {
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
-    console.log('[Zen][ChatPanel][Persist] Persisting toolOutputs, count:', Object.keys(toolOutputs).length);
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
     saveConversation(
@@ -868,10 +859,7 @@ Generate the summary now:
 
   // Persist conversationFileStats
   useEffect(() => {
-    if (
-      !currentConversationId ||
-      conversationFileStats.totalFiles === 0
-    )
+    if (!currentConversationId || conversationFileStats.totalFiles === 0)
       return;
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
@@ -1056,7 +1044,7 @@ Generate the summary now:
             currentChat || undefined,
             true,
           );
-          
+
           // Don't auto-send empty message - wait for user input
           // The hidden summary will be included in context when user sends next message
         }

@@ -74,8 +74,6 @@ const DEBUG_PARSER =
 
 export const parseAIResponse = (content: string): ParsedResponse => {
   const startTime = performance.now();
-  console.log('[Zen][ResponseParser] Starting parse, content length:', content.length);
-  
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -1085,17 +1083,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   const endTime = performance.now();
   const duration = endTime - startTime;
-  console.log('[Zen][ResponseParser] Parse completed:', {
-    duration: duration.toFixed(2) + 'ms',
-    contentBlocks: result.contentBlocks.length,
-    actions: result.actions.length,
-    hasQuestion: !!result.question,
-  });
 
   // Warn if parsing took too long
   if (duration > 100) {
-    console.warn('[Zen][ResponseParser] SLOW PARSE detected:', {
-      duration: duration.toFixed(2) + 'ms',
+    console.warn("[Zen][ResponseParser] SLOW PARSE detected:", {
+      duration: duration.toFixed(2) + "ms",
       contentLength: content.length,
       blocksCount: result.contentBlocks.length,
     });
