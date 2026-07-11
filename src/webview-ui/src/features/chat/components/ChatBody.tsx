@@ -15,6 +15,8 @@ import MessageBox from "./messages/MessageBox";
 import SearchBar from "./SearchBar";
 import { ChatErrorBoundary } from "./ChatErrorBoundary";
 import { getPermissionDecision } from "../utils/permissionUtils";
+import ChatBodySkeleton from "./ChatBodySkeleton";
+import { WarningBlock } from "./blocks/warning/WarningBlock";
 
 interface ChatBodyProps {
   messages: Message[];
@@ -68,6 +70,8 @@ interface ChatBodyProps {
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
+  /** Loading state when restoring conversation from history */
+  isLoadingConversation?: boolean;
 }
 
 export interface ExtendedChatBodyProps extends ChatBodyProps {
@@ -135,6 +139,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   isGitProcessing,
   isGitStatusVisible = true,
   onBackToHome,
+  isLoadingConversation = false,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -311,14 +316,19 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         position: "relative",
       }}
     >
-      {isSearchOpen && (
-        <SearchBar
-          searchQuery={searchQuery}
-          onSearchQueryChange={onSearchQueryChange}
-          onCloseSearch={onCloseSearch}
-          bodyRef={bodyRef}
-        />
-      )}
+      {/* Show skeleton when loading conversation */}
+      {isLoadingConversation ? (
+        <ChatBodySkeleton />
+      ) : (
+        <>
+          {isSearchOpen && (
+            <SearchBar
+              searchQuery={searchQuery}
+              onSearchQueryChange={onSearchQueryChange}
+              onCloseSearch={onCloseSearch}
+              bodyRef={bodyRef}
+            />
+          )}
 
       {/* ── New messages indicator ─────────────────────────────────────── */}
       {autoScrollPaused && isProcessing && (
@@ -560,52 +570,15 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       )}
 
       {isContinuing && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "10px",
-            padding: "8px 14px",
-            marginBottom: "4px",
-            marginTop: "4px",
-            background:
-              "color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 8%, transparent)",
-            border:
-              "1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 25%, transparent)",
-            borderRadius: "8px",
-            color: "var(--vscode-editor-foreground)",
-            fontSize: "12px",
-          }}
-        >
-          <span
-            style={{
-              flexShrink: 0,
-              marginTop: "2px",
-              display: "inline-block",
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              background: "var(--vscode-editorWarning-foreground, #cca700)",
-              animation: "zen-pulse 1.2s ease-in-out infinite",
-            }}
-          />
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <span style={{ fontWeight: 600, opacity: 0.9 }}>
-              Response bị ngắt — đang tiếp tục…
-            </span>
-            <span style={{ opacity: 0.7, lineHeight: "1.4" }}>
-              {incompleteHasPartialTool
-                ? `AI tự động ngắt response dài. Đang ghép phần còn lại của \`${incompletePartialToolType ?? "tool"}\` trước khi thực thi.`
-                : "AI tự động ngắt response dài. Đang lấy phần còn lại…"}
-            </span>
-          </div>
-          <style>{`
-            @keyframes zen-pulse {
-              0%, 100% { opacity: 1; transform: scale(1); }
-              50% { opacity: 0.4; transform: scale(0.75); }
-            }
-          `}</style>
-        </div>
+        <WarningBlock
+          label="CONTINUING RESPONSE"
+          message={
+            incompleteHasPartialTool
+              ? `AI response was interrupted. Assembling remaining parts of \`${incompletePartialToolType ?? "tool"}\` before execution.`
+              : "AI response was interrupted. Fetching the remaining content…"
+          }
+          isPulsing={true}
+        />
       )}
 
       {(isProcessing || hasInitialMessage) && (
@@ -632,6 +605,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           scrollbar-width: thin;
         }
       `}</style>
+        </>
+      )}
     </div>
   );
 };

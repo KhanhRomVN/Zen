@@ -286,87 +286,168 @@ export class SystemHandler {
   public async handleOpenReplaceInFileDiff(message: any) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
-    
+
     const filePath = message.filePath;
     const basename = path.basename(filePath || "file");
-    
+
     // Build absolute path
     const absPath = path.isAbsolute(filePath)
       ? filePath
       : path.join(workspaceFolder.uri.fsPath, filePath);
-    
+
     try {
-      // Read CURRENT file content (might be already replaced)
-      const currentContent = await fs.promises.readFile(absPath, "utf8");
-      
       const oldStr = message.oldContent || "";
       const newStr = message.newContent || "";
-      
+
       let beforeContent: string;
       let afterContent: string;
-      
-      // Check if file still has old_str (not replaced yet)
-      if (oldStr && currentContent.includes(oldStr)) {
-        // File not replaced yet - current is "before", calculate "after"
-        beforeContent = currentContent;
-        const index = currentContent.indexOf(oldStr);
-        afterContent = currentContent.substring(0, index) + newStr + currentContent.substring(index + oldStr.length);
-        
-        console.log(`[handleOpenReplaceInFileDiff] File not replaced yet, showing preview`);
+
+      // Try to read CURRENT file content (might be already replaced, or might not exist)
+      let currentContent: string | null = null;
+      try {
+        currentContent = await fs.promises.readFile(absPath, "utf8");
+      } catch (readError: any) {
+        if (readError.code === "ENOENT") {
+        } else {
+          throw readError; // Re-throw non-ENOENT errors
+        }
       }
-      // Check if file has new_str (already replaced)
-      else if (newStr && currentContent.includes(newStr)) {
-        // File already replaced - reverse to get "before"
-        afterContent = currentContent;
-        const index = currentContent.indexOf(newStr);
-        beforeContent = currentContent.substring(0, index) + oldStr + currentContent.substring(index + newStr.length);
-        
-        console.log(`[handleOpenReplaceInFileDiff] File already replaced, reconstructing before content`);
+
+      if (currentContent) {
+        // File exists - check if file still has old_str (not replaced yet)
+        if (oldStr && currentContent.includes(oldStr)) {
+          // File not replaced yet - current is "before", calculate "after"
+          beforeContent = currentContent;
+          const index = currentContent.indexOf(oldStr);
+          afterContent =
+            currentContent.substring(0, index) +
+            newStr +
+            currentContent.substring(index + oldStr.length);
+        }
+        // Check if file has new_str (already replaced)
+        else if (newStr && currentContent.includes(newStr)) {
+          // File already replaced - reverse to get "before"
+          afterContent = currentContent;
+          const index = currentContent.indexOf(newStr);
+          beforeContent =
+            currentContent.substring(0, index) +
+            oldStr +
+            currentContent.substring(index + newStr.length);
+        } else {
+          // Cannot find either old or new - show error
+          console.error(
+            `[handleOpenReplaceInFileDiff] Cannot find old_str or new_str in file`,
+            {
+              filePath,
+              oldStrPreview: oldStr.substring(0, 100),
+              newStrPreview: newStr.substring(0, 100),
+              currentContentPreview: currentContent.substring(0, 200),
+            },
+          );
+          vscode.window.showErrorMessage(
+            `Cannot create diff: neither old nor new content found in file`,
+          );
+          return;
+        }
+      } else {
+        // File doesn't exist - use message content directly
+        beforeContent = oldStr;
+        afterContent = newStr;
       }
-      else {
-        // Cannot find either old or new - show error
-        console.error(`[handleOpenReplaceInFileDiff] Cannot find old_str or new_str in file`, {
-          filePath,
-          oldStrPreview: oldStr.substring(0, 100),
-          newStrPreview: newStr.substring(0, 100),
-          currentContentPreview: currentContent.substring(0, 200),
-        });
-        vscode.window.showErrorMessage(
-          `Cannot create diff: neither old nor new content found in file`
-        );
-        return;
-      }
-      
+
       // Verify we have different content
       if (beforeContent === afterContent) {
-        console.warn(`[handleOpenReplaceInFileDiff] Before and after content are identical`);
+        console.warn(
+          `[handleOpenReplaceInFileDiff] Before and after content are identical`,
+        );
         vscode.window.showWarningMessage(
-          `Diff view: before and after content are identical`
+          `Diff view: before and after content are identical`,
         );
       }
-      
-      // Use ZenDiffProvider for virtual documents (no diagnostics!)
-      const safeId = `replace_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      
-      const beforeKey = `${safeId}_before`;
-      const afterKey = `${safeId}_after`;
-      
+
+      // Add _TEMP to basename before extension
+      const ext = path.extname(basename);
+      const nameWithoutExt = path.basename(basename, ext);
+      const tempBasename = `${nameWithoutExt}_TEMP${ext}`;
+
+      // Use stable keys based on filePath to prevent duplicate tabs
+      // CRITICAL: VSCode lowercases URI authority, so we must lowercase the key
+      const stableId = `replace_${Buffer.from(filePath).toString("base64").replace(/[/+=]/g, "_").toLowerCase()}`;
+      const beforeKey = `${stableId}_before`;
+      const afterKey = `${stableId}_after`;
+
+      // Store content (will overwrite if keys already exist)
       ZenDiffProvider.instance.store(beforeKey, beforeContent);
       ZenDiffProvider.instance.store(afterKey, afterContent);
-      
-      const beforeUri = ZenDiffProvider.toUri(beforeKey, basename);
-      const afterUri = ZenDiffProvider.toUri(afterKey, basename);
-      
+
+      const beforeUri = ZenDiffProvider.toUri(beforeKey, tempBasename);
+      const afterUri = ZenDiffProvider.toUri(afterKey, tempBasename);
+
+      // Don't close existing tabs - just let VSCode reuse them or create new ones
+      const diffTitle = `${tempBasename} (Before ↔ After)`;
+
       // Open diff view
       await vscode.commands.executeCommand(
         "vscode.diff",
         beforeUri,
         afterUri,
-        `${basename} (Before ↔ After)`,
+        diffTitle,
       );
     } catch (error) {
-      console.error("[SystemHandler] handleOpenReplaceInFileDiff error:", error);
+      console.error(
+        "[SystemHandler] handleOpenReplaceInFileDiff error:",
+        error,
+      );
       vscode.window.showErrorMessage(`Failed to open diff: ${error}`);
+    }
+  }
+
+  public async handleOpenWriteToFile(message: any) {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+
+    const filePath = message.filePath;
+    const basename = path.basename(filePath || "file");
+    const content = message.content || "";
+
+    try {
+      // Add _TEMP to basename before extension
+      const ext = path.extname(basename);
+      const nameWithoutExt = path.basename(basename, ext);
+      const tempBasename = `${nameWithoutExt}_TEMP${ext}`;
+
+      // Use stable key based on filePath to prevent duplicate tabs
+      // CRITICAL: VSCode lowercases URI authority, so we must lowercase the key
+      const stableId = `write_${Buffer.from(filePath).toString("base64").replace(/[/+=]/g, "_").toLowerCase()}`;
+
+      // CRITICAL: Store content FIRST
+      ZenDiffProvider.instance.store(stableId, content);
+
+      const uri = ZenDiffProvider.toUri(stableId, tempBasename);
+
+      // Check if this document is already open - if so, just focus it
+      for (const tabGroup of vscode.window.tabGroups.all) {
+        for (const tab of tabGroup.tabs) {
+          const input = tab.input as any;
+          if (input?.uri?.toString() === uri.toString()) {
+            // Document already open, just focus it
+            await vscode.window.showTextDocument(uri, {
+              preview: false,
+              preserveFocus: false,
+            });
+            return;
+          }
+        }
+      }
+
+      // Open the virtual document (not already open)
+      await vscode.window.showTextDocument(uri, {
+        preview: false,
+        preserveFocus: false,
+      });
+    } catch (error) {
+      console.error("[SystemHandler] handleOpenWriteToFile error:", error);
+      vscode.window.showErrorMessage(`Failed to open file: ${error}`);
     }
   }
 
@@ -655,7 +736,9 @@ export class SystemHandler {
   ) {
     const summary = message.summary;
     if (!summary) {
-      console.error("[SystemHandler] acceptContextCompression: No summary provided");
+      console.error(
+        "[SystemHandler] acceptContextCompression: No summary provided",
+      );
       return;
     }
 

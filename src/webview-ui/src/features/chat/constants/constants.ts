@@ -178,7 +178,7 @@ export const TOOL_COLORS: Record<string, string> = {
   run_command: "var(--vscode-editorWarning-foreground, #f59e0b)",
   git_status: "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)",
   commit_message: "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
-  git_diff: "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)",
+  git_diff: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
   code: "var(--vscode-textLink-foreground, #3b82f6)",
   markdown: "var(--vscode-foreground)",
   thinking: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",

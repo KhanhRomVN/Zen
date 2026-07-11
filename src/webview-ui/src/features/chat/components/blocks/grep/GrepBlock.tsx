@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { extensionService } from "@/services/ExtensionService";
 import { getFileIconPath } from "@/utils/fileIconMapper";
+import ErrorBlock from "../error/ErrorBlock";
 
 interface GrepBlockProps {
   action: any;
@@ -144,6 +145,9 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
   const folderPath =
     action.params.folder_path || action.params.folderPath || "";
   const filePath = action.params.file_path || action.params.filePath || "";
+  
+  // Check for validation error from parser
+  const validationError = action.params._validationError;
 
   const parseGrepResult = (): GrepResultData | null => {
     const output = toolOutputs?.[actionId]?.output;
@@ -194,6 +198,16 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
       extensionService.postMessage({ command: "openFile", path: fullPath });
     }, 200);
   };
+  
+  // Validation error state: show error message immediately
+  if (validationError && !toolOutputs?.[actionId]) {
+    return (
+      <ErrorBlock 
+        content={`Invalid Search Pattern: ${validationError}\nPattern: ${searchTerm}`} 
+        compact={true} 
+      />
+    );
+  }
 
   // Loading state: show spinner placeholder
   if (isPartial && !isCompleted) {
@@ -221,43 +235,7 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
 
   // Error state: show error message
   if (isError && errorMessage) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "6px",
-          padding: "5px 8px",
-          backgroundColor:
-            "color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)",
-          border:
-            "1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)",
-          borderRadius: "4px",
-        }}
-      >
-        <span
-          className="codicon codicon-error"
-          style={{
-            fontSize: "11px",
-            color: "var(--vscode-errorForeground)",
-            opacity: 0.7,
-            marginTop: "1px",
-            flexShrink: 0,
-          }}
-        />
-        <span
-          style={{
-            fontSize: "11px",
-            color: "var(--vscode-errorForeground)",
-            opacity: 0.85,
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            wordBreak: "break-word",
-          }}
-        >
-          {errorMessage}
-        </span>
-      </div>
-    );
+    return <ErrorBlock content={errorMessage} compact={true} />;
   }
 
   if (!grepResult || !isCompleted) return null;

@@ -537,11 +537,13 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                     ? "WRITE"
                     : "READ";
   // For grep tool, we'll render in the main flow with ToolHeader
+  const grepValidationError = isGrepTool ? action.params._validationError : null;
   const grepCompleted =
     isGrepTool &&
-    !isPartial &&
+    (!isPartial || !!grepValidationError) && // Consider completed if validation failed
     (isActionClicked ||
       isError ||
+      !!grepValidationError ||
       !!toolOutputs?.[actionId] ||
       !!nextUserMessage);
   const grepErrorMsg =
@@ -841,6 +843,15 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                       newContent,
                     });
                   }
+                  // For write_to_file, open virtual document
+                  else if (toolType === "write_to_file" && rawPath) {
+                    const content = action.params.content || "";
+                    extensionService.postMessage({
+                      command: "openWriteToFile",
+                      filePath: rawPath,
+                      content,
+                    });
+                  }
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.textDecoration = "underline";
@@ -852,13 +863,40 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               >
                 {prefix}
               </span>
-              <FileIcon
-                path={rawPath}
-                isFolder={
-                  toolType === "list_files" || !!action.params.folder_path
-                }
-                style={{ width: "16px", height: "16px", cursor: "pointer" }}
-              />
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // For replace_in_file, show diff view
+                  if (toolType === "replace_in_file" && rawPath) {
+                    const oldContent = action.params.old_content || action.params.old_str || "";
+                    const newContent = action.params.new_content || action.params.new_str || "";
+                    extensionService.postMessage({
+                      command: "openReplaceInFileDiff",
+                      filePath: rawPath,
+                      oldContent,
+                      newContent,
+                    });
+                  }
+                  // For write_to_file, open virtual document
+                  else if (toolType === "write_to_file" && rawPath) {
+                    const content = action.params.content || "";
+                    extensionService.postMessage({
+                      command: "openWriteToFile",
+                      filePath: rawPath,
+                      content,
+                    });
+                  }
+                }}
+                style={{ display: "flex", alignItems: "center" }}
+              >
+                <FileIcon
+                  path={rawPath}
+                  isFolder={
+                    toolType === "list_files" || !!action.params.folder_path
+                  }
+                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                />
+              </span>
               <span
                 style={{
                   fontWeight: 500,
@@ -879,6 +917,15 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                       filePath: rawPath,
                       oldContent,
                       newContent,
+                    });
+                  }
+                  // For write_to_file, open virtual document
+                  else if (toolType === "write_to_file" && rawPath) {
+                    const content = action.params.content || "";
+                    extensionService.postMessage({
+                      command: "openWriteToFile",
+                      filePath: rawPath,
+                      content,
                     });
                   }
                 }}
@@ -1098,7 +1145,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         }
         path={rawPath}
         onPathClick={(clickedPath) => {
-          // Always open file when clicking on the path itself
+          // When clicking on path (line 2), always open the actual file in editor
+          // regardless of tool type (REPLACE, WRITE, READ, etc.)
           extensionService.postMessage({
             command: "openFile",
             path: clickedPath,
@@ -1278,42 +1326,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         )}
 
       {!shouldHideContent && isError && errorMessage && !isGrepTool && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            gap: "6px",
-            padding: "5px 8px",
-            backgroundColor:
-              "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 4%, transparent)",
-            border:
-              "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 20%, transparent)",
-            borderRadius: "4px",
-            marginTop: "2px",
-          }}
-        >
-          <span
-            className="codicon codicon-error"
-            style={{
-              fontSize: "11px",
-              color: "var(--vscode-errorForeground, #f44336)",
-              opacity: 0.7,
-              marginTop: "1px",
-              flexShrink: 0,
-            }}
-          />
-          <span
-            style={{
-              fontSize: "11px",
-              color: "var(--vscode-errorForeground, #f44336)",
-              opacity: 0.85,
-              fontFamily: "var(--vscode-editor-font-family, monospace)",
-              wordBreak: "break-word",
-            }}
-          >
-            {errorMessage}
-          </span>
-        </div>
+        <ErrorBlock content={errorMessage} compact={true} />
       )}
 
       {!shouldHideContent &&

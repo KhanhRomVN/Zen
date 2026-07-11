@@ -53,6 +53,11 @@ interface ChatFooterProps {
   onTriggerCompression?: () => void;
   gitStatus?: { items?: any[]; branch?: string } | null;
   onOpenGitStatus?: () => void;
+  loadedConversationFileStats?: {
+    totalFiles: number;
+    totalAdditions: number;
+    totalDeletions: number;
+  } | null;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -103,9 +108,220 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   onTriggerCompression,
   gitStatus,
   onOpenGitStatus,
+  loadedConversationFileStats,
 }) => {
+  // Calculate response range - count all assistant responses in the conversation
+  const responseRange = React.useMemo(() => {
+    // Count all assistant responses
+    const assistantResponses = messages.filter((m) => m.role === "assistant");
+    const totalResponses = assistantResponses.length;
+
+    if (totalResponses === 0) return null;
+
+    return { start: 1, end: totalResponses };
+  }, [messages]);
+
+  // Calculate response ranges per manual user message
+  const responseRanges = React.useMemo(() => {
+    const ranges: Array<{
+      start: number;
+      end: number;
+      isCurrent: boolean;
+      fileChanges: Map<
+        string,
+        {
+          additions: number;
+          deletions: number;
+          toolType?: "write_to_file" | "replace_in_file";
+          content?: string;
+          oldContent?: string;
+          newContent?: string;
+        }
+      >;
+    }> = [];
+
+    let currentRangeStart = 1;
+    let assistantCount = 0;
+
+    messages.forEach((msg, idx) => {
+      if (msg.role === "assistant") {
+        assistantCount++;
+      }
+
+      // Check if this is a manual user message (not auto request)
+      if (msg.role === "user") {
+        const isManual = !msg.actionIds || msg.actionIds.length === 0;
+        if (isManual) {
+          // Find the end of this range (last assistant response before next user message or end)
+          let rangeEnd = assistantCount;
+
+          // Look ahead to find next manual user message
+          for (let i = idx + 1; i < messages.length; i++) {
+            if (messages[i].role === "assistant") {
+              rangeEnd++;
+            } else if (
+              messages[i].role === "user" &&
+              (!messages[i].actionIds || messages[i].actionIds.length === 0)
+            ) {
+              break;
+            }
+          }
+
+          if (rangeEnd >= currentRangeStart) {
+            // Calculate file changes for this range
+            const fileChanges = new Map<
+              string,
+              {
+                additions: number;
+                deletions: number;
+                toolType?: "write_to_file" | "replace_in_file";
+                content?: string;
+                oldContent?: string;
+                newContent?: string;
+              }
+            >();
+
+            for (let i = 0; i < messages.length; i++) {
+              const m = messages[i];
+              if (m.role !== "assistant" || !m.content) continue;
+
+              // Count which response number this is
+              let responseNum = 0;
+              for (let j = 0; j <= i; j++) {
+                if (messages[j].role === "assistant") responseNum++;
+              }
+
+              // Only include if in current range
+              if (responseNum < currentRangeStart || responseNum > rangeEnd)
+                continue;
+
+              // Parse file changes from this message
+              const writeMatches = m.content.matchAll(
+                /<write_to_file[^>]*?>[\s\S]*?<file_path[^>]*?>(.*?)<\/file_path>[\s\S]*?<content[^>]*?>([\s\S]*?)<\/content>[\s\S]*?<\/write_to_file>/gi,
+              );
+
+              for (const match of writeMatches) {
+                const filePath = match[1]?.trim();
+                const content = match[2] || "";
+
+                if (filePath) {
+                  if (!fileChanges.has(filePath)) {
+                    fileChanges.set(filePath, {
+                      additions: 0,
+                      deletions: 0,
+                      toolType: "write_to_file",
+                      content: content,
+                    });
+                  } else {
+                    // Update existing entry
+                    const stats = fileChanges.get(filePath)!;
+                    stats.toolType = "write_to_file";
+                    stats.content = content;
+                  }
+
+                  const stats = fileChanges.get(filePath)!;
+                  const lines = content.split("\n").length;
+                  stats.additions += lines;
+                }
+              }
+
+              const replaceMatches1 = m.content.matchAll(
+                /<replace_in_file[^>]*?>[\s\S]*?<file_path[^>]*?>(.*?)<\/file_path>[\s\S]*?<old_content[^>]*?>([\s\S]*?)<\/old_content>[\s\S]*?<new_content[^>]*?>([\s\S]*?)<\/new_content>[\s\S]*?<\/replace_in_file>/gi,
+              );
+
+              for (const match of replaceMatches1) {
+                const filePath = match[1]?.trim();
+                const oldContent = match[2] || "";
+                const newContent = match[3] || "";
+
+                if (filePath) {
+                  if (!fileChanges.has(filePath)) {
+                    fileChanges.set(filePath, {
+                      additions: 0,
+                      deletions: 0,
+                      toolType: "replace_in_file",
+                      oldContent: oldContent,
+                      newContent: newContent,
+                    });
+                  } else {
+                    // Update existing entry
+                    const stats = fileChanges.get(filePath)!;
+                    stats.toolType = "replace_in_file";
+                    stats.oldContent = oldContent;
+                    stats.newContent = newContent;
+                  }
+
+                  const stats = fileChanges.get(filePath)!;
+                  const oldLines = oldContent.split("\n").length;
+                  const newLines = newContent.split("\n").length;
+
+                  stats.deletions += oldLines;
+                  stats.additions += newLines;
+                }
+              }
+
+              const replaceMatches2 = m.content.matchAll(
+                /<replace_in_file[^>]*?>[\s\S]*?<file_path[^>]*?>(.*?)<\/file_path>[\s\S]*?<old_str[^>]*?>([\s\S]*?)<\/old_str>[\s\S]*?<new_str[^>]*?>([\s\S]*?)<\/new_str>[\s\S]*?<\/replace_in_file>/gi,
+              );
+
+              for (const match of replaceMatches2) {
+                const filePath = match[1]?.trim();
+                const oldStr = match[2] || "";
+                const newStr = match[3] || "";
+
+                if (filePath) {
+                  if (!fileChanges.has(filePath)) {
+                    fileChanges.set(filePath, {
+                      additions: 0,
+                      deletions: 0,
+                      toolType: "replace_in_file",
+                      oldContent: oldStr,
+                      newContent: newStr,
+                    });
+                  } else {
+                    // Update existing entry
+                    const stats = fileChanges.get(filePath)!;
+                    stats.toolType = "replace_in_file";
+                    stats.oldContent = oldStr;
+                    stats.newContent = newStr;
+                  }
+
+                  const stats = fileChanges.get(filePath)!;
+                  const oldLines = oldStr.split("\n").length;
+                  const newLines = newStr.split("\n").length;
+
+                  stats.deletions += oldLines;
+                  stats.additions += newLines;
+                }
+              }
+            }
+
+            ranges.push({
+              start: currentRangeStart,
+              end: rangeEnd,
+              isCurrent: false, // Will mark the last one as current later
+              fileChanges,
+            });
+
+            currentRangeStart = rangeEnd + 1;
+          }
+        }
+      }
+    });
+
+    // Mark the last range as current
+    if (ranges.length > 0) {
+      ranges[ranges.length - 1].isCurrent = true;
+    }
+
+    // Reverse to show current first
+    const reversedRanges = [...ranges].reverse();
+
+    return reversedRanges;
+  }, [messages]);
+
   // Calculate file changes from conversation messages
-  const conversationFileStats = React.useMemo(() => {
+  const { conversationFileStats, fileChangesMap } = React.useMemo(() => {
     const fileChanges = new Map<
       string,
       { additions: number; deletions: number }
@@ -118,18 +334,14 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       if (msg.role === "assistant" && msg.content) {
         assistantResponseCount++;
 
-        // Parse tool actions from message content - new format: <write_to_file>, <str_replace>, etc.
-
         // Match write_to_file: <write_to_file><file_path>...</file_path><content>...</content></write_to_file>
         const writeMatches = msg.content.matchAll(
-          /<write_to_file>\s*<file_path>([^<]+)<\/file_path>\s*<content>([\s\S]*?)<\/content>\s*<\/write_to_file>/g,
+          /<write_to_file[^>]*?>[\s\S]*?<file_path[^>]*?>(.*?)<\/file_path>[\s\S]*?<content[^>]*?>([\s\S]*?)<\/content>[\s\S]*?<\/write_to_file>/gi,
         );
 
-        let matchCount = 0;
         for (const match of writeMatches) {
-          matchCount++;
-          const filePath = match[1];
-          const content = match[2];
+          const filePath = match[1]?.trim();
+          const content = match[2] || "";
 
           if (filePath) {
             if (!fileChanges.has(filePath)) {
@@ -142,16 +354,39 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           }
         }
 
-        // Match str_replace: <str_replace><file_path>...</file_path><old_str>...</old_str><new_str>...</new_str></str_replace>
-        const replaceMatches = msg.content.matchAll(
-          /<str_replace>\s*<file_path>([^<]+)<\/file_path>\s*<old_str>([\s\S]*?)<\/old_str>\s*<new_str>([\s\S]*?)<\/new_str>\s*<\/str_replace>/g,
+        // Match replace_in_file with old_content/new_content
+        const replaceMatches1 = msg.content.matchAll(
+          /<replace_in_file[^>]*?>[\s\S]*?<file_path[^>]*?>(.*?)<\/file_path>[\s\S]*?<old_content[^>]*?>([\s\S]*?)<\/old_content>[\s\S]*?<new_content[^>]*?>([\s\S]*?)<\/new_content>[\s\S]*?<\/replace_in_file>/gi,
         );
 
-        for (const match of replaceMatches) {
-          matchCount++;
-          const filePath = match[1];
-          const oldStr = match[2];
-          const newStr = match[3];
+        for (const match of replaceMatches1) {
+          const filePath = match[1]?.trim();
+          const oldContent = match[2] || "";
+          const newContent = match[3] || "";
+
+          if (filePath) {
+            if (!fileChanges.has(filePath)) {
+              fileChanges.set(filePath, { additions: 0, deletions: 0 });
+            }
+
+            const stats = fileChanges.get(filePath)!;
+            const oldLines = oldContent.split("\n").length;
+            const newLines = newContent.split("\n").length;
+
+            stats.deletions += oldLines;
+            stats.additions += newLines;
+          }
+        }
+
+        // Match replace_in_file with old_str/new_str (legacy format)
+        const replaceMatches2 = msg.content.matchAll(
+          /<replace_in_file[^>]*?>[\s\S]*?<file_path[^>]*?>(.*?)<\/file_path>[\s\S]*?<old_str[^>]*?>([\s\S]*?)<\/old_str>[\s\S]*?<new_str[^>]*?>([\s\S]*?)<\/new_str>[\s\S]*?<\/replace_in_file>/gi,
+        );
+
+        for (const match of replaceMatches2) {
+          const filePath = match[1]?.trim();
+          const oldStr = match[2] || "";
+          const newStr = match[3] || "";
 
           if (filePath) {
             if (!fileChanges.has(filePath)) {
@@ -169,23 +404,43 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       }
     });
 
-    const totalFiles = fileChanges.size;
-    const totalAdditions = Array.from(fileChanges.values()).reduce(
-      (sum, stat) => sum + stat.additions,
-      0,
-    );
-    const totalDeletions = Array.from(fileChanges.values()).reduce(
-      (sum, stat) => sum + stat.deletions,
-      0,
-    );
+    // Use loaded stats if available, otherwise calculate
+    const totalFiles =
+      loadedConversationFileStats?.totalFiles ?? fileChanges.size;
+    const totalAdditions =
+      loadedConversationFileStats?.totalAdditions ??
+      Array.from(fileChanges.values()).reduce(
+        (sum, stat) => sum + stat.additions,
+        0,
+      );
+    const totalDeletions =
+      loadedConversationFileStats?.totalDeletions ??
+      Array.from(fileChanges.values()).reduce(
+        (sum, stat) => sum + stat.deletions,
+        0,
+      );
 
     return {
-      totalFiles,
-      totalAdditions,
-      totalDeletions,
-      responseNumber: assistantResponseCount,
+      conversationFileStats: {
+        totalFiles,
+        totalAdditions,
+        totalDeletions,
+        responseNumber: assistantResponseCount,
+      },
+      fileChangesMap: fileChanges,
     };
-  }, [messages]);
+  }, [messages, loadedConversationFileStats]);
+
+  // Prepare data for review drawer
+  const fileChangesList = React.useMemo(() => {
+    return Array.from(fileChangesMap.entries()).map(
+      ([path, stats]: [string, { additions: number; deletions: number }]) => ({
+        path,
+        additions: stats.additions,
+        deletions: stats.deletions,
+      }),
+    );
+  }, [fileChangesMap]);
 
   return (
     <div
@@ -295,6 +550,9 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           }}
           conversationFileStats={conversationFileStats}
           onOpenGitStatus={onOpenGitStatus}
+          onReviewClick={() => {}}
+          responseRange={responseRange}
+          responseRanges={responseRanges}
         />
       </div>
     </div>

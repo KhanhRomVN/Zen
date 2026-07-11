@@ -48,25 +48,9 @@ interface ToolHeaderProps {
   onDotClick?: () => void;
 }
 
-// Truncate path to prevent line wrapping
-// Keep beginning (root folder) and end (filename + a few parent folders)
+// Display full path without truncation
 const truncatePath = (fullPath: string, maxLength: number = 35): string => {
-  if (!fullPath) return "";
-  if (fullPath.length <= maxLength) return fullPath;
-
-  const parts = fullPath.split("/");
-  if (parts.length <= 2) return fullPath;
-
-  let keepEnd = 2;
-  if (maxLength > 50) keepEnd = 3;
-  if (maxLength > 70) keepEnd = 4;
-  if (maxLength > 90) keepEnd = 5;
-
-  const first = parts[0];
-  const lastParts = parts.slice(-keepEnd);
-  const middle = "...";
-
-  return `${first}/${middle}/${lastParts.join("/")}`;
+  return fullPath || "";
 };
 
 export const ToolHeader: React.FC<ToolHeaderProps> = ({
@@ -417,7 +401,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                   )}
                 </div>
                 
-                {displayPath && path && path.includes("/") && (
+                {displayPath && path && (
                   <div
                     ref={pathContainerRef}
                     style={{

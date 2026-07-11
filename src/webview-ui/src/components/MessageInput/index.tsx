@@ -91,8 +91,8 @@ const MemoryIcon = () => (
 const SummaryIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="11"
-    height="11"
+    width="16"
+    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -579,7 +579,24 @@ interface MessageInputProps {
     totalFiles: number;
     totalAdditions: number;
     totalDeletions: number;
+    responseNumber?: number;
   };
+  // 🆕 Review Drawer
+  onReviewClick?: () => void;
+  responseRange?: { start: number; end: number } | null;
+  responseRanges?: Array<{
+    start: number;
+    end: number;
+    isCurrent: boolean;
+    fileChanges: Map<string, { 
+      additions: number; 
+      deletions: number;
+      toolType?: "write_to_file" | "replace_in_file";
+      content?: string;
+      oldContent?: string;
+      newContent?: string;
+    }>;
+  }>;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -623,6 +640,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   gitStatus,
   onOpenGitStatus,
   conversationFileStats,
+  onReviewClick,
+  responseRange,
+  responseRanges = [],
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
@@ -1123,6 +1143,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
               addedLines={conversationFileStats?.totalAdditions || 0}
               removedLines={conversationFileStats?.totalDeletions || 0}
               onClick={onOpenGitStatus}
+              onReviewClick={onReviewClick}
+              responseRange={responseRange}
+              responseRanges={responseRanges}
             />
           </div>
         )}

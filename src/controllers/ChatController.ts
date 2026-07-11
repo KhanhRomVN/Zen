@@ -143,6 +143,9 @@ export class ChatController {
             webviewView,
           );
           break;
+        case "saveConversationState":
+          await this.conversationHandler.handleSaveConversationState(message);
+          break;
         // File Operations
         case "readFile":
           await this.fileHandler.handleReadFile(message, webviewView);
@@ -218,6 +221,9 @@ export class ChatController {
           break;
         case "openReplaceInFileDiff":
           await this.systemHandler.handleOpenReplaceInFileDiff(message);
+          break;
+        case "openWriteToFile":
+          await this.systemHandler.handleOpenWriteToFile(message);
           break;
         case "openSnapshotDiff":
           await this.systemHandler.handleOpenSnapshotDiff(message);

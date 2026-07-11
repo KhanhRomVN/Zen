@@ -1185,15 +1185,11 @@ export const useToolExecution = ({
           (m) => m.id === message.id,
         );
         const selectedOption = currentMessage?.selectedOption;
-        const questionAnswers = currentMessage?.questionAnswers;
         const parsed = parseAIResponse(message.content);
         const hasQuestion = !!parsed.question;
-        // Check if question is answered: either legacy selectedOption or new questionAnswers
+        // Check if question is answered: legacy selectedOption only
         const isQuestionAnswered = hasQuestion
-          ? !!(
-              selectedOption ||
-              (questionAnswers && Object.keys(questionAnswers).length > 0)
-            )
+          ? !!selectedOption
           : true;
 
         const allActionIds = parsed.actions.map(
@@ -1212,28 +1208,8 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(message.id);
             let finalContent = newBuffer.join("\n\n");
-            // Handle question answers - both legacy and new
-            if (questionAnswers && Object.keys(questionAnswers).length > 0) {
-              // New paginated format: send all answers
-              const answerLines = Object.entries(questionAnswers).map(
-                ([qId, answer]) => {
-                  const q = (parsed.question as any)?.questions?.find(
-                    (q: any) => q.id === qId,
-                  );
-                  const label = q?.label || qId;
-                  let valueStr = answer.value;
-                  if (Array.isArray(valueStr)) {
-                    valueStr = valueStr.join(", ");
-                  } else if (typeof valueStr === "boolean") {
-                    valueStr = valueStr ? "Yes" : "No";
-                  }
-                  return `[question: "${label}"] Answer: ${valueStr}`;
-                },
-              );
-              if (answerLines.length > 0) {
-                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
-              }
-            } else if (selectedOption) {
+            // Handle question answer - legacy format only
+            if (selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title
@@ -1347,13 +1323,9 @@ export const useToolExecution = ({
             (m) => m.id === messageObj.id,
           );
           const selectedOption = currentMessage?.selectedOption;
-          const questionAnswers = currentMessage?.questionAnswers;
           const hasQuestion = !!parsed.question;
           const isQuestionAnswered = hasQuestion
-            ? !!(
-                selectedOption ||
-                (questionAnswers && Object.keys(questionAnswers).length > 0)
-              )
+            ? !!selectedOption
             : true;
 
           const isAllComplete =
@@ -1368,28 +1340,8 @@ export const useToolExecution = ({
             if (handleSendMessageRef.current && !isStoppedRef?.current) {
               flushedMessageIdsRef.current.add(messageObj.id);
               let finalContent = newBuffer.join("\n\n");
-              // Handle question answers - both legacy and new
-              if (questionAnswers && Object.keys(questionAnswers).length > 0) {
-                const answerLines = Object.entries(questionAnswers).map(
-                  ([qId, answer]) => {
-                    const q = (parsed.question as any)?.questions?.find(
-                      (q: any) => q.id === qId,
-                    );
-                    const label = q?.label || qId;
-                    let valueStr = answer.value;
-                    if (Array.isArray(valueStr)) {
-                      valueStr = valueStr.join(", ");
-                    } else if (typeof valueStr === "boolean") {
-                      valueStr = valueStr ? "Yes" : "No";
-                    }
-                    return `[question: "${label}"] Answer: ${valueStr}`;
-                  },
-                );
-                if (answerLines.length > 0) {
-                  finalContent =
-                    answerLines.join("\n\n") + "\n\n" + finalContent;
-                }
-              } else if (selectedOption) {
+              // Handle question answer - legacy format only
+              if (selectedOption) {
                 const questionTitle =
                   parsed.question?.type === "question"
                     ? (parsed.question as any).title
@@ -1457,13 +1409,9 @@ export const useToolExecution = ({
           (m) => m.id === messageObj.id,
         );
         const selectedOption = currentMessage?.selectedOption;
-        const questionAnswers = currentMessage?.questionAnswers;
         const hasQuestion = !!parsed.question;
         const isQuestionAnswered = hasQuestion
-          ? !!(
-              selectedOption ||
-              (questionAnswers && Object.keys(questionAnswers).length > 0)
-            )
+          ? !!selectedOption
           : true;
 
         const isAllComplete =
@@ -1476,27 +1424,8 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(messageObj.id);
             let finalContent = newBuffer.join("\n\n");
-            // Handle question answers - both legacy and new
-            if (questionAnswers && Object.keys(questionAnswers).length > 0) {
-              const answerLines = Object.entries(questionAnswers).map(
-                ([qId, answer]) => {
-                  const q = (parsed.question as any)?.questions?.find(
-                    (q: any) => q.id === qId,
-                  );
-                  const label = q?.label || qId;
-                  let valueStr = answer.value;
-                  if (Array.isArray(valueStr)) {
-                    valueStr = valueStr.join(", ");
-                  } else if (typeof valueStr === "boolean") {
-                    valueStr = valueStr ? "Yes" : "No";
-                  }
-                  return `[question: "${label}"] Answer: ${valueStr}`;
-                },
-              );
-              if (answerLines.length > 0) {
-                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
-              }
-            } else if (selectedOption) {
+            // Handle question answer - legacy format only
+            if (selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title
@@ -1538,11 +1467,7 @@ export const useToolExecution = ({
         const parsed = parseAIResponse(msg.content);
         const hasQuestion = !!parsed.question;
         const isQuestionAnswered = hasQuestion
-          ? !!(
-              msg.selectedOption ||
-              (msg.questionAnswers &&
-                Object.keys(msg.questionAnswers).length > 0)
-            )
+          ? !!msg.selectedOption
           : true;
 
         const allActionIds = parsed.actions.map(
@@ -1561,30 +1486,8 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(messageId);
             let finalContent = buffer.join("\n\n");
-            // Handle question answers - both legacy and new
-            if (
-              msg.questionAnswers &&
-              Object.keys(msg.questionAnswers).length > 0
-            ) {
-              const answerLines = Object.entries(msg.questionAnswers).map(
-                ([qId, answer]) => {
-                  const q = (parsed.question as any)?.questions?.find(
-                    (q: any) => q.id === qId,
-                  );
-                  const label = q?.label || qId;
-                  let valueStr = answer.value;
-                  if (Array.isArray(valueStr)) {
-                    valueStr = valueStr.join(", ");
-                  } else if (typeof valueStr === "boolean") {
-                    valueStr = valueStr ? "Yes" : "No";
-                  }
-                  return `[question: "${label}"] Answer: ${valueStr}`;
-                },
-              );
-              if (answerLines.length > 0) {
-                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
-              }
-            } else if (msg.selectedOption) {
+            // Handle question answer - legacy format only
+            if (msg.selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title

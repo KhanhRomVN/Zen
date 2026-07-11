@@ -164,10 +164,9 @@ export class ConversationHandler {
                 ? Object.keys(toolOutputs)
                 : [];
 
-              // ✅ FIX: Get questionAnswers (giống toolOutputs)
-              const questionAnswers = isArray
+              const conversationFileStats = isArray
                 ? undefined
-                : candidateParsed.questionAnswers;
+                : candidateParsed.conversationFileStats;
 
               const messages = isArray
                 ? candidateParsed
@@ -186,7 +185,7 @@ export class ConversationHandler {
                   singleLineReviewActions: isArray
                     ? undefined
                     : candidateParsed.singleLineReviewActions,
-                  questionAnswers, // ✅ ADD THIS
+                  conversationFileStats,
                 },
               });
               return;
@@ -221,8 +220,9 @@ export class ConversationHandler {
 
       const messages = isArray ? parsed : parsed.messages || [];
 
-      // FIX: Get questionAnswers (giống toolOutputs)
-      const questionAnswers = isArray ? undefined : parsed.questionAnswers;
+      const conversationFileStats = isArray
+        ? undefined
+        : parsed.conversationFileStats;
 
       webviewView.webview.postMessage({
         command: "conversationResult",
@@ -237,7 +237,7 @@ export class ConversationHandler {
           singleLineReviewActions: isArray
             ? undefined
             : parsed.singleLineReviewActions,
-          questionAnswers, // ✅ ADD THIS
+          conversationFileStats,
         },
       });
     } catch (error: any) {
@@ -481,6 +481,59 @@ export class ConversationHandler {
     webviewView: vscode.WebviewView,
   ) {
     // Basic messaging logic if needed
+  }
+
+  public async handleSaveConversationState(message: any) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) return;
+      const {
+        conversationId,
+        messages,
+        backendConversationId,
+        toolOutputs,
+        singleLineReviewActions,
+        conversationFileStats,
+        metadata,
+      } = message;
+
+      if (!conversationId) return;
+
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      await fs.promises.mkdir(projectContextDir, { recursive: true });
+      const logPath = path.join(projectContextDir, `${conversationId}.json`);
+
+      const release = await this.fileLockManager.acquire(logPath);
+      try {
+        const data: any = {
+          messages: messages || [],
+          backendConversationId,
+          metadata,
+        };
+
+        if (toolOutputs && Object.keys(toolOutputs).length > 0) {
+          data.toolOutputs = toolOutputs;
+        }
+        if (
+          singleLineReviewActions &&
+          Object.keys(singleLineReviewActions).length > 0
+        ) {
+          data.singleLineReviewActions = singleLineReviewActions;
+        }
+        if (conversationFileStats) {
+          data.conversationFileStats = conversationFileStats;
+        }
+
+        await fs.promises.writeFile(logPath, JSON.stringify(data, null, 2));
+      } finally {
+        release();
+      }
+      await this.enforceHistoryLimit(projectContextDir);
+    } catch (e) {
+      console.error("[ConversationHandler] handleSaveConversationState error:", e);
+    }
   }
 
   public async handleRevertConversation(

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { getFileIconPath, getFolderIconPath } from "@/utils/fileIconMapper";
+import ErrorBlock from "../error/ErrorBlock";
 import "./TreeBlock.css";
 
 interface FileNode {
@@ -126,11 +127,7 @@ export const TreeBlock: React.FC<TreeBlockProps> = ({ files, onFileClick }) => {
   // Validate data structure
   if (!Array.isArray(files)) {
     console.error("[TreeBlock] Invalid files data - not an array:", files);
-    return (
-      <div style={{ padding: "8px", color: "var(--vscode-errorForeground)" }}>
-        Error: Invalid tree data format (not array)
-      </div>
-    );
+    return <ErrorBlock content="Invalid tree data format (not array)" compact={true} />;
   }
 
   if (files.length === 0) {

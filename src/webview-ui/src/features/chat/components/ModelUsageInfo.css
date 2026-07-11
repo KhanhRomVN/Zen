@@ -1,0 +1,117 @@
+/* ModelUsageInfo Container */
+.model-usage-info {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  margin: 8px 0;
+  background: color-mix(
+    in srgb,
+    var(--vscode-badge-background, #4d4d4d) 10%,
+    transparent
+  );
+  border: 1.5px dashed
+    color-mix(in srgb, var(--vscode-badge-background, #4d4d4d) 40%, transparent);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* SVG pattern for custom dashed border */
+.model-usage-info::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 10px;
+  background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='10' ry='10' stroke='rgba(77, 77, 77, 0.4)' stroke-width='2' stroke-dasharray='8 6' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Gradient border effect */
+.model-usage-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 10px;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--vscode-badge-background, #4d4d4d) 60%, transparent),
+    color-mix(in srgb, var(--vscode-focusBorder, #007acc) 40%, transparent),
+    color-mix(in srgb, var(--vscode-badge-background, #4d4d4d) 60%, transparent)
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Icon Section */
+.model-usage-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  padding: 5px;
+  position: relative;
+  z-index: 2;
+}
+
+.model-favicon {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
+.model-usage-icon .codicon {
+  font-size: 18px;
+  color: var(--vscode-badge-foreground, #ffffff);
+}
+
+/* Content Section */
+.model-usage-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 2;
+}
+
+/* Model Name */
+.model-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vscode-badge-foreground, #ffffff);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+/* Separator */
+.model-usage-separator {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.5;
+}
+
+/* Account/Email */
+.model-account {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.9;
+}

@@ -74,7 +74,11 @@ export const saveConversation = async (
     string,
     { action: any; actionId: string; messageId: string }
   >,
-  questionAnswers?: Record<string, Record<string, any>>,
+  conversationFileStats?: {
+    totalFiles: number;
+    totalAdditions: number;
+    totalDeletions: number;
+  },
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
@@ -105,23 +109,12 @@ export const saveConversation = async (
     let existingSingleLineReviewActions:
       | Record<string, { action: any; actionId: string; messageId: string }>
       | undefined;
-    let existingQuestionAnswers:
-      | Record<string, Record<string, any>>
-      | undefined;
 
     const cached = ConversationCache.get(convId);
     if (cached) {
       existingToolOutputs = cached.toolOutputs;
       existingSingleLineReviewActions = cached.singleLineReviewActions;
       existingBackendConversationId = cached.backendConversationId;
-      // Also get questionAnswers from cache
-      if (
-        !existingQuestionAnswers &&
-        cached.questionAnswers &&
-        Object.keys(cached.questionAnswers).length > 0
-      ) {
-        existingQuestionAnswers = cached.questionAnswers;
-      }
     }
 
     try {
@@ -148,13 +141,6 @@ export const saveConversation = async (
         ) {
           existingSingleLineReviewActions = parsed.singleLineReviewActions;
         }
-        // Also read questionAnswers from storage
-        if (
-          parsed.questionAnswers &&
-          Object.keys(parsed.questionAnswers).length > 0
-        ) {
-          existingQuestionAnswers = parsed.questionAnswers;
-        }
       }
     } catch (error) {}
 
@@ -173,90 +159,14 @@ export const saveConversation = async (
           }
         : existingSingleLineReviewActions || undefined;
 
-    // Extract questionAnswers from messages to root level
-    let extractedQuestionAnswers:
-      | Record<string, Record<string, any>>
-      | undefined;
-    const messagesWithoutQA = messagesToSave.map((m) => {
-      const { questionAnswers: qa, ...rest } = m;
-      if (qa && Object.keys(qa).length > 0) {
-        if (!extractedQuestionAnswers) extractedQuestionAnswers = {};
-        extractedQuestionAnswers[m.id] = qa;
-      }
-      return rest;
-    });
-
-    // Merge with existing questionAnswers from cached data and parameter
-    // Always try to get questionAnswers from cache first (check again in case cache was updated)
-    const cachedQuestionAnswers =
-      ConversationCache.get(convId)?.questionAnswers;
-    // Also check the global store
-    const storeQuestionAnswers = (
-      ConversationCache as any
-    ).getQuestionAnswers?.(convId);
-    let bestExisting = existingQuestionAnswers;
-    if (
-      cachedQuestionAnswers &&
-      Object.keys(cachedQuestionAnswers).length > 0
-    ) {
-      bestExisting = cachedQuestionAnswers;
-    }
-    if (storeQuestionAnswers && Object.keys(storeQuestionAnswers).length > 0) {
-      bestExisting = storeQuestionAnswers;
-    }
-    existingQuestionAnswers = bestExisting;
-
-    try {
-      const existingData = await storage.get(key, false);
-      if (existingData && existingData.value) {
-        const parsed = JSON.parse(existingData.value);
-        if (
-          parsed.questionAnswers &&
-          Object.keys(parsed.questionAnswers).length > 0
-        ) {
-          existingQuestionAnswers = parsed.questionAnswers;
-        }
-      }
-    } catch (error) {}
-
-    // Merge: parameter > extracted from messages > existing
-    // ALWAYS preserve existingQuestionAnswers if no new data is provided
-    const paramHasData =
-      questionAnswers && Object.keys(questionAnswers).length > 0;
-    const extractedHasData =
-      extractedQuestionAnswers &&
-      Object.keys(extractedQuestionAnswers).length > 0;
-    const existingHasData =
-      existingQuestionAnswers &&
-      Object.keys(existingQuestionAnswers).length > 0;
-
-    let mergedQuestionAnswers: Record<string, Record<string, any>> | undefined =
-      existingQuestionAnswers || {};
-    if (paramHasData) {
-      mergedQuestionAnswers = { ...mergedQuestionAnswers, ...questionAnswers };
-    }
-    if (extractedHasData) {
-      mergedQuestionAnswers = {
-        ...mergedQuestionAnswers,
-        ...extractedQuestionAnswers,
-      };
-    }
-    // If no data at all, set to undefined to avoid storing empty objects
-    if (Object.keys(mergedQuestionAnswers).length === 0) {
-      mergedQuestionAnswers = undefined;
-    }
-    // Use mergedQuestionAnswers or existingQuestionAnswers for storage write
-    // This ensures questionAnswers are not lost when mergedQuestionAnswers is undefined
-    const finalQAForStorage = mergedQuestionAnswers || existingQuestionAnswers;
-
     const data = {
-      messages: messagesWithoutQA,
+      messages: messagesToSave,
       conversationId: convId,
       backendConversationId:
         backendConversationId || existingBackendConversationId,
       toolOutputs: mergedToolOutputs,
       singleLineReviewActions: mergedSingleLineReviewActions,
-      questionAnswers: finalQAForStorage,
+      conversationFileStats: conversationFileStats,
       metadata: {
         id: key,
         sessionId,
@@ -278,37 +188,28 @@ export const saveConversation = async (
 
     await storage.set(key, JSON.stringify(data), false);
 
-    // Always store mergedQuestionAnswers in global store if it has data
-    if (
-      mergedQuestionAnswers &&
-      Object.keys(mergedQuestionAnswers).length > 0
-    ) {
-      (ConversationCache as any).setQuestionAnswers?.(
-        convId,
-        mergedQuestionAnswers,
-      );
-    }
+    // Sync conversation state to file JSON (for backend restore)
+    extensionService.postMessage({
+      command: "saveConversationState",
+      conversationId: convId,
+      messages: messagesToSave,
+      backendConversationId:
+        backendConversationId || existingBackendConversationId,
+      toolOutputs: mergedToolOutputs,
+      singleLineReviewActions: mergedSingleLineReviewActions,
+      conversationFileStats: conversationFileStats,
+      metadata: data.metadata,
+    });
 
-    // Only update cache if mergedQuestionAnswers has data, or if we're explicitly clearing it
-    // This prevents overwriting existing questionAnswers with undefined
-    const existingCache = ConversationCache.get(convId);
-
-    // Always preserve questionAnswers from global store if available
-    const globalStoreQA = (ConversationCache as any).getQuestionAnswers?.(
-      convId,
-    );
-    const finalQuestionAnswers =
-      mergedQuestionAnswers || globalStoreQA || existingCache?.questionAnswers;
-
-    // Update cache with finalQuestionAnswers (preserved from global store if needed)
+    // Update cache
     const cacheData = {
-      messages: messagesWithoutQA,
+      messages: messagesToSave,
       conversationId: convId,
       backendConversationId:
         backendConversationId || existingBackendConversationId,
       toolOutputs: mergedToolOutputs,
       singleLineReviewActions: mergedSingleLineReviewActions,
-      questionAnswers: finalQuestionAnswers,
+      conversationFileStats: conversationFileStats,
     };
     ConversationCache.set(convId, cacheData);
     return convId;

@@ -38,7 +38,7 @@ export interface Message {
   isError?: boolean;
   /** Legacy single option selection (kept for backward compatibility) */
   selectedOption?: string;
-  /** New structured question answers keyed by question id */
+  /** Structured answers for new paginated question format */
   questionAnswers?: Record<string, QuestionAnswer>;
   thinking?: string;
   clickedActions?: string[];

@@ -67,6 +67,7 @@ export class ZenDiffProvider implements vscode.TextDocumentContentProvider {
   provideTextDocumentContent(uri: vscode.Uri): string {
     // The key is stored in the authority component of the URI
     const key = uri.authority;
-    return this._store.get(key) ?? "";
+    const content = this._store.get(key) ?? "";
+    return content;
   }
 }

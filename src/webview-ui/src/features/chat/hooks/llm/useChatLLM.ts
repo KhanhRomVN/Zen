@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Message } from "../../types/message";
+import { Message, QuestionAnswer } from "../../types/message";
 import { ToolAction, parseAIResponse } from "../../services/ResponseParser";
 import { getDefaultPrompt, combinePrompts } from "../../prompts";
 import {
@@ -18,6 +18,69 @@ import { useProject } from "../../../../context/ProjectContext";
 import { extensionService } from "@/services/ExtensionService";
 import { useFileUpload } from "../workspace/useFileUpload";
 import { ChatSession } from "../../types/chat";
+
+/**
+ * Parse <question-answer> tag from user message content
+ * Format: <question-answer>\n1. {questionId}: {answer}\n2. {questionId}: {answer}\n</question-answer>
+ * Returns Record<questionId, QuestionAnswer>
+ */
+const parseQuestionAnswerTag = (
+  content: string,
+): Record<string, QuestionAnswer> | null => {
+  const regex = /<question-answer>([\s\S]*?)<\/question-answer>/i;
+  const match = regex.exec(content);
+  
+  console.log("[Zen][parseQuestionAnswerTag] Input content:", content.substring(0, 200));
+  console.log("[Zen][parseQuestionAnswerTag] Regex match:", !!match);
+  
+  if (!match) return null;
+
+  const innerContent = match[1].trim();
+  console.log("[Zen][parseQuestionAnswerTag] Inner content:", innerContent);
+  
+  const answers: Record<string, QuestionAnswer> = {};
+
+  // Parse each line: "1. {questionId}: {answer}"
+  const lines = innerContent.split("\n");
+  console.log("[Zen][parseQuestionAnswerTag] Lines to parse:", lines);
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === "No answer") continue;
+
+    // Match pattern: "N. questionId: answer"
+    const lineMatch = /^\d+\.\s+([^:]+):\s+(.+)$/i.exec(trimmed);
+    console.log("[Zen][parseQuestionAnswerTag] Line parse:", { line: trimmed, matched: !!lineMatch });
+    
+    if (!lineMatch) continue;
+
+    const questionId = lineMatch[1].trim();
+    const answerValue = lineMatch[2].trim();
+
+    // Parse answer value (could be array for multi-choice)
+    let parsedValue: string | string[] | boolean = answerValue;
+
+    // Check if it's a boolean (for confirm type)
+    if (answerValue.toLowerCase() === "true") {
+      parsedValue = true;
+    } else if (answerValue.toLowerCase() === "false") {
+      parsedValue = false;
+    } else if (answerValue.includes(",")) {
+      // Array for multi-choice
+      parsedValue = answerValue.split(",").map((v) => v.trim());
+    }
+
+    answers[questionId] = {
+      questionId,
+      value: parsedValue,
+    };
+    
+    console.log("[Zen][parseQuestionAnswerTag] Parsed answer:", { questionId, value: parsedValue });
+  }
+
+  console.log("[Zen][parseQuestionAnswerTag] Final answers:", answers);
+  return Object.keys(answers).length > 0 ? answers : null;
+};
 
 /** Returns only top-level entries from a formatted tree string. */
 const getShallowTree = (tree: string): string => {
@@ -463,36 +526,6 @@ export const useChatLLM = ({
         ? content
         : `## User Message\n<zen-user-content>\n${content}\n</zen-user-content>`;
 
-      // ✅ FIX: Capture existing questionAnswers before any operations to prevent overwriting
-      // This is especially important for auto-triggered requests (skipFirstRequestLogic=true)
-      // that happen after user answers questions in handleSelectOption
-      let preservedQuestionAnswers:
-        | Record<string, Record<string, any>>
-        | undefined;
-      if (skipFirstRequestLogic && effectiveChatUuid) {
-        try {
-          const storage = (window as any).storage;
-          if (storage) {
-            const key = `zen-chat:${sessionId}:${folderPath || "global"}:${effectiveChatUuid}`;
-            const existingData = await storage.get(key, false);
-            if (existingData && existingData.value) {
-              const parsed = JSON.parse(existingData.value);
-              if (
-                parsed.questionAnswers &&
-                Object.keys(parsed.questionAnswers).length > 0
-              ) {
-                preservedQuestionAnswers = parsed.questionAnswers;
-              }
-            }
-          }
-        } catch (e) {
-          console.warn(
-            "[useChatLLM] sendMessage - Failed to preserve questionAnswers:",
-            e,
-          );
-        }
-      }
-
       if (skipFirstRequestLogic) {
         // Detailed trace for tool results to catch duplicates
         const lastToolMsg = [...messagesRef.current]
@@ -554,6 +587,11 @@ export const useChatLLM = ({
         conversationId: backendConversationIdRef.current || undefined,
       };
 
+      console.log("[Zen][sendMessage] User message created:", {
+        content: content.substring(0, 300),
+        hasQuestionAnswerTag: content.includes("<question-answer>"),
+      });
+
       // Log token count for every request (user-initiated and auto/tool)
       const reqTokens = calculateTokens(promptPayload);
       const reqType = skipFirstRequestLogic
@@ -563,6 +601,49 @@ export const useChatLLM = ({
           : "user req";
 
       const updatedMessages = [...filteredMessages, userMessage];
+
+      // Parse <question-answer> from user message and inject into previous AI message
+      const parsedAnswers = parseQuestionAnswerTag(content);
+      console.log("[Zen][QuestionAnswer] Parsed answers from user message:", parsedAnswers);
+      
+      if (parsedAnswers) {
+        console.log("[Zen][QuestionAnswer] Looking for assistant message with questions...");
+        // Find the last assistant message with questions
+        for (let i = updatedMessages.length - 2; i >= 0; i--) {
+          const msg = updatedMessages[i];
+          if (msg.role === "assistant") {
+            // Parse the assistant message to check if it has questions
+            const parsed = parseAIResponse(msg.content);
+            console.log("[Zen][QuestionAnswer] Assistant message parsed:", {
+              messageId: msg.id,
+              hasQuestion: !!parsed.question,
+              questionType: parsed.question?.type,
+            });
+            
+            // Type guard: check if question block has the questions array
+            if (
+              parsed.question &&
+              parsed.question.type === "question" &&
+              "questions" in parsed.question &&
+              parsed.question.questions &&
+              parsed.question.questions.length > 0
+            ) {
+              console.log("[Zen][QuestionAnswer] ✓ Found matching assistant message, injecting answers:", {
+                messageId: msg.id,
+                answersCount: Object.keys(parsedAnswers).length,
+                questionsCount: parsed.question.questions.length,
+              });
+              // Inject answers into this message
+              updatedMessages[i] = {
+                ...msg,
+                questionAnswers: parsedAnswers,
+              };
+              break;
+            }
+          }
+        }
+      }
+
       setMessages(updatedMessages);
       setIsProcessingSync(true);
 
@@ -578,7 +659,7 @@ export const useChatLLM = ({
         backendConversationIdRef.current,
         undefined, // toolOutputs
         undefined, // singleLineReviewActions
-        preservedQuestionAnswers, // ✅ FIX: Pass preserved questionAnswers to prevent overwrite
+        undefined, // conversationFileStats
       );
       // User message log will happen after response when we have backendConversationId
 
@@ -1242,22 +1323,15 @@ export const useChatLLM = ({
                 : m,
             );
           }
-        } catch (e) {
-          // Not JSON or not allAnswered payload - ignore
-        }
+        } catch (e) {}
 
-        // Ensure conversation ID exists before saving answers
+        // Ensure conversation ID exists before saving
         let convId = currentConversationIdRef.current;
         if (!convId) {
           convId = crypto.randomUUID?.() || Date.now().toString();
           currentConversationIdRef.current = convId;
           setCurrentConversationId(convId);
         }
-
-        // Extract questionAnswers from the payload
-        const answersToSave = parsedPayload?.answers
-          ? { [messageId]: parsedPayload.answers }
-          : undefined;
 
         // Log the message state after update
         const sessionId = selectedTab?.sessionId || -1;
@@ -1274,7 +1348,7 @@ export const useChatLLM = ({
           backendConversationIdRef.current,
           undefined, // toolOutputs
           undefined, // singleLineReviewActions
-          answersToSave, // questionAnswers - saved at root level
+          undefined, // questionAnswers - REMOVED: no longer saved
         );
 
         // After state update, if this was an allAnswered payload, auto-submit the answers
@@ -1285,18 +1359,27 @@ export const useChatLLM = ({
             const questions = parsedPayload.questions || [];
             const answers = parsedPayload.answers || {};
 
-            const formattedAnswers = Object.entries(answers)
-              .map(([qId, answer], index) => {
-                const question = questions.find((q: any) => q.id === qId);
-                const label = question?.label || qId;
+            // Format: <question-answer>\n1. <answer>\n2. No answer\n</question-answer>
+            // New format includes question IDs for proper answer tracking
+            const formattedAnswers = questions
+              .map((question: any, index: number) => {
+                const qId = question.id;
+                const answer = answers[qId];
+                const number = index + 1;
+
+                if (!answer || !answer.value) {
+                  return `${number}. No answer`;
+                }
+
                 const value = Array.isArray(answer.value)
                   ? answer.value.join(", ")
                   : String(answer.value);
-                const number = index + 1;
-                return `${number}. ${label}: ${value}`;
+                // Include question ID in format: "1. {questionId}: {answer}"
+                return `${number}. ${qId}: ${value}`;
               })
               .join("\n");
-            const promptText = `Câu trả lời của người dùng:\n${formattedAnswers}`;
+
+            const promptText = `<question-answer>\n${formattedAnswers}\n</question-answer>`;
 
             // Use sendMessage directly - it will use the latest messagesRef
             sendMessage(

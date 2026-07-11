@@ -15,6 +15,11 @@ export interface CachedConversation {
     { action: any; actionId: string; messageId: string }
   >;
   questionAnswers?: Record<string, Record<string, any>>;
+  conversationFileStats?: {
+    totalFiles: number;
+    totalAdditions: number;
+    totalDeletions: number;
+  };
 }
 
 const MAX_CACHE = 20;

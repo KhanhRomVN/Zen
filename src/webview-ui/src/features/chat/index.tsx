@@ -128,6 +128,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   } | null>(null);
   const revertParentMessageIdRef = useRef<string | null>(null);
 
+  // 🆕 Loaded conversation file stats from history
+  const [loadedConversationFileStats, setLoadedConversationFileStats] =
+    useState<{
+      totalFiles: number;
+      totalAdditions: number;
+      totalDeletions: number;
+    } | null>(null);
+
   // --- Hooks ---
   const {
     messages,
@@ -367,12 +375,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     onBack,
     revertParentMessageIdRef,
     setRevertInput,
+    setLoadedConversationFileStats,
   });
 
   // Reset hasProcessedInitial whenever a new tab/chat session starts
   useEffect(() => {
     hasProcessedInitial.current = false;
     resetSession();
+    setLoadedConversationFileStats(null); // Reset loaded stats for new conversation
   }, [currentChat?.sessionId]);
 
   // --- Memoized Values ---
@@ -431,6 +441,87 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
     return null;
   }, [parsedMessages]);
+
+  // Calculate conversation file stats from messages
+  const conversationFileStats = useMemo(() => {
+    // If we have loaded stats from history and no new messages, use loaded stats
+    if (
+      loadedConversationFileStats &&
+      messages.length > 0 &&
+      messages.every((m) => !m.content?.includes("<write_to_file>") && !m.content?.includes("<str_replace>"))
+    ) {
+      return loadedConversationFileStats;
+    }
+
+    const fileChanges = new Map<
+      string,
+      { additions: number; deletions: number }
+    >();
+
+    messages.forEach((msg) => {
+      if (msg.role === "assistant" && msg.content) {
+        // Match write_to_file
+        const writeMatches = msg.content.matchAll(
+          /<write_to_file>\s*<file_path>([^<]+)<\/file_path>\s*<content>([\s\S]*?)<\/content>\s*<\/write_to_file>/g,
+        );
+
+        for (const match of writeMatches) {
+          const filePath = match[1];
+          const content = match[2];
+
+          if (filePath) {
+            if (!fileChanges.has(filePath)) {
+              fileChanges.set(filePath, { additions: 0, deletions: 0 });
+            }
+
+            const stats = fileChanges.get(filePath)!;
+            const lines = content.split("\n").length;
+            stats.additions += lines;
+          }
+        }
+
+        // Match str_replace
+        const replaceMatches = msg.content.matchAll(
+          /<str_replace>\s*<file_path>([^<]+)<\/file_path>\s*<old_str>([\s\S]*?)<\/old_str>\s*<new_str>([\s\S]*?)<\/new_str>\s*<\/str_replace>/g,
+        );
+
+        for (const match of replaceMatches) {
+          const filePath = match[1];
+          const oldStr = match[2];
+          const newStr = match[3];
+
+          if (filePath) {
+            if (!fileChanges.has(filePath)) {
+              fileChanges.set(filePath, { additions: 0, deletions: 0 });
+            }
+
+            const stats = fileChanges.get(filePath)!;
+            const oldLines = oldStr.split("\n").length;
+            const newLines = newStr.split("\n").length;
+
+            stats.deletions += oldLines;
+            stats.additions += newLines;
+          }
+        }
+      }
+    });
+
+    const totalFiles = fileChanges.size;
+    const totalAdditions = Array.from(fileChanges.values()).reduce(
+      (sum, stat) => sum + stat.additions,
+      0,
+    );
+    const totalDeletions = Array.from(fileChanges.values()).reduce(
+      (sum, stat) => sum + stat.deletions,
+      0,
+    );
+
+    return {
+      totalFiles,
+      totalAdditions,
+      totalDeletions,
+    };
+  }, [messages, loadedConversationFileStats]);
 
   // Trigger context compression
   const triggerContextCompression = useCallback(() => {
@@ -533,6 +624,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           Object.keys(toolOutputs).length > 0
             ? toolOutputs
             : existing?.toolOutputs,
+        conversationFileStats:
+          conversationFileStats.totalFiles > 0
+            ? conversationFileStats
+            : existing?.conversationFileStats,
       });
     }
   }, [
@@ -541,6 +636,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     currentModel,
     currentAccount,
     toolOutputs,
+    conversationFileStats,
   ]);
 
   // Persist toolOutputs
@@ -583,6 +679,30 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       singleLineReviewActions,
     );
   }, [singleLineReviewActions, currentConversationId, currentChat]);
+
+  // Persist conversationFileStats
+  useEffect(() => {
+    if (
+      !currentConversationId ||
+      conversationFileStats.totalFiles === 0
+    )
+      return;
+    const sessionId = currentChat?.sessionId || -1;
+    const folderPath = currentChat?.folderPath || null;
+    saveConversation(
+      sessionId,
+      folderPath,
+      messages,
+      currentConversationId,
+      currentChat || undefined,
+      true,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      conversationFileStats,
+    );
+  }, [conversationFileStats, currentConversationId, currentChat]);
 
   // Conversation restore is now handled by useConversationRestore hook
 
@@ -895,6 +1015,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           isGitProcessing={gitCommitLoading}
           isGitStatusVisible={showGitStatusBlock}
           onBackToHome={handleBackToHome}
+          isLoadingConversation={isLoadingConversation}
         />
       </ChatErrorBoundary>
 
@@ -947,6 +1068,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onTriggerCompression={triggerContextCompression}
         gitStatus={gitStatus}
         onOpenGitStatus={() => setShowGitStatusBlock(true)}
+        loadedConversationFileStats={loadedConversationFileStats}
       />
     </div>
   );

@@ -11,6 +11,7 @@ import "../blocks/markdown/MarkdownBlock.css";
 import { MarkdownBlock } from "../blocks/markdown/MarkdownBlock";
 import { QuestionBlock } from "../blocks/question/QuestionBlock";
 import { CodeBlock } from "../blocks/code/CodeBlock";
+import { ModelUsageInfo } from "../ModelUsageInfo";
 
 interface AIMessageBoxProps {
   message: Message;
@@ -436,54 +437,12 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
             );
           } else if (group.type === "metadata") {
             content = (
-              <div style={{ paddingBottom: "8px" }}>
-                <div
-                  style={{
-                    paddingTop: "4px",
-                    fontSize: "var(--font-size-sm)",
-                    color: "var(--vscode-descriptionForeground)",
-                    lineHeight: 1.6,
-                    fontStyle: "italic",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}
-                >
-                  {group.faviconUrl ? (
-                    <img
-                      src={group.faviconUrl}
-                      alt="favicon"
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        borderRadius: "2px",
-                      }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                        const parent = (e.target as HTMLImageElement)
-                          .parentElement;
-                        if (parent) {
-                          const icon = document.createElement("span");
-                          icon.className = "codicon codicon-server-process";
-                          icon.style.color =
-                            "var(--vscode-descriptionForeground)";
-                          icon.style.fontSize = "14px";
-                          parent.appendChild(icon);
-                        }
-                      }}
-                    />
-                  ) : (
-                    <span
-                      className="codicon codicon-server-process"
-                      style={{
-                        color: "var(--vscode-descriptionForeground)",
-                        fontSize: "14px",
-                      }}
-                    />
-                  )}
-                  {group.content}
-                </div>
-              </div>
+              <ModelUsageInfo
+                providerId={message.providerId}
+                modelId={message.modelId || "unknown-model"}
+                email={message.email}
+                websiteUrl={message.websiteUrl}
+              />
             );
           } else if (group.type === "code") {
             const isDiffBlock = isDiff(group.content, group.language);
@@ -595,10 +554,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "question") {
-            const isAnswered =
-              !!message.selectedOption ||
-              (message.questionAnswers &&
-                Object.keys(message.questionAnswers).length > 0);
+            const isAnswered = !!message.selectedOption;
             const isThisActive = isLastMessage && !isInteractionBlocked;
             const dotColor = isAnswered
               ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
@@ -619,8 +575,9 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 selectedOption={
                   !hasQuestions ? message.selectedOption : undefined
                 }
-                initialAnswers={
-                  hasQuestions ? message.questionAnswers || {} : undefined
+                // Pass questionAnswers from message state to pre-fill answers
+                questionAnswers={
+                  hasQuestions ? message.questionAnswers : undefined
                 }
                 disabled={!!nextUserMessage || isGenerating}
                 onAnswer={(questionId, value) => {
