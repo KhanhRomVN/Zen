@@ -336,7 +336,17 @@ export const useChatLLM = ({
       uiHidden?: boolean,
       parentMessageId?: string,
     ) => {
+      console.log('[Zen][useChatLLM][sendMessage] Called with:', {
+        contentPreview: content.substring(0, 100),
+        filesCount: files?.length || 0,
+        skipFirstRequestLogic,
+        actionIds,
+        uiHidden,
+        isProcessing: isProcessingRef.current,
+      });
+
       if (isProcessingRef.current && !skipFirstRequestLogic) {
+        console.log('[Zen][useChatLLM][sendMessage] Already processing, skipping');
         return;
       }
 
@@ -346,12 +356,22 @@ export const useChatLLM = ({
       // Clean up ghosted (cancelled) messages
       const currentMessages = messagesRef.current;
       const filteredMessages = currentMessages.filter((m) => !m.isCancelled);
+      console.log('[Zen][useChatLLM][sendMessage] Filtered messages:', {
+        total: currentMessages.length,
+        filtered: filteredMessages.length,
+        cancelled: currentMessages.length - filteredMessages.length,
+      });
 
       let effectiveChatUuid = currentConversationIdRef.current;
       const isNewSession = !effectiveChatUuid;
+      console.log('[Zen][useChatLLM][sendMessage] Session info:', {
+        effectiveChatUuid,
+        isNewSession,
+      });
 
       // GUARD: tool results must never create a new session — they belong to the current one
       if (skipFirstRequestLogic && isNewSession) {
+        console.warn('[Zen][useChatLLM][sendMessage] Tool request on new session - aborting');
         return;
       }
       if (isNewSession) {
@@ -359,6 +379,7 @@ export const useChatLLM = ({
         currentConversationIdRef.current = effectiveChatUuid; // sync update immediately
         setCurrentConversationId(effectiveChatUuid);
         backendConversationIdRef.current = ""; // reset for new session
+        console.log('[Zen][useChatLLM][sendMessage] Created new session:', effectiveChatUuid);
         // Pin model/account from caller immediately — before any async ops.
         // This prevents resetSession() race or stream metadata from overwriting
         // the model the user just selected.
@@ -645,9 +666,13 @@ export const useChatLLM = ({
       }
 
       setMessages(updatedMessages);
+      console.log('[Zen][sendMessage] setMessages completed, messages count:', updatedMessages.length);
+      
       setIsProcessingSync(true);
+      console.log('[Zen][sendMessage] setIsProcessingSync completed');
 
       // Save & Log
+      console.log('[Zen][sendMessage] Calling saveConversation...');
       saveConversation(
         sessionId,
         folderPath,
@@ -661,6 +686,7 @@ export const useChatLLM = ({
         undefined, // singleLineReviewActions
         undefined, // conversationFileStats
       );
+      console.log('[Zen][sendMessage] saveConversation completed');
       // User message log will happen after response when we have backendConversationId
 
       // Save old model and account to detect switches before they are updated
@@ -820,12 +846,31 @@ export const useChatLLM = ({
 
         const headers = { "Content-Type": "application/json" };
         const bodyStr = JSON.stringify(body);
+        
+        console.log('[Zen][sendMessage] About to fetch API, payload size:', bodyStr.length);
+        console.log('[Zen][sendMessage] Request body:', {
+          modelId: body.modelId,
+          providerId: body.providerId,
+          messagesCount: body.messages.length,
+          hasConversationId: !!body.conversationId,
+        });
+
+        // Lưu rawRequest vào user message (chỉ nội dung request hiện tại)
+        updatedMessages[updatedMessages.length - 1].rawRequest = content;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === userMessage.id ? { ...m, rawRequest: content } : m,
+          ),
+        );
+        
         const response = await fetch(`${apiUrl}/v1/chat/accounts/messages`, {
           method: "POST",
           headers,
           body: bodyStr,
           signal: abortController.signal,
         });
+        
+        console.log('[Zen][sendMessage] Fetch completed, status:', response.status);
 
         if (!response.ok) {
           let errorDetail = `API Error: ${response.status}`;
@@ -1165,6 +1210,9 @@ export const useChatLLM = ({
             conversationId: finalConversationId,
           });
         } catch (logErr) {}
+
+        // Lưu rawResponse vào assistant message để hiển thị raw content trong UI
+        assistantMessage.rawResponse = assistantMessage.content;
 
         // Final state update to ensure UI and subsequent logic see the latest usage info (with correct metadata)
         setMessages([...updatedMessages, assistantMessage]);

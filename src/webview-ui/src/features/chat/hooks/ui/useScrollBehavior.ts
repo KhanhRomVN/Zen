@@ -14,6 +14,7 @@ export const useScrollBehavior = (
   // effect caused by rapid successive smooth-scroll calls conflicting with
   // continuously-growing DOM height.
   useEffect(() => {
+    console.log('[Zen][useScrollBehavior] Scroll effect triggered, autoScrollPaused:', autoScrollPaused);
     if (autoScrollPaused) return;
 
     // Cancel any pending frame to throttle to one scroll per render cycle
@@ -22,6 +23,7 @@ export const useScrollBehavior = (
     }
 
     autoScrollRafRef.current = requestAnimationFrame(() => {
+      console.log('[Zen][useScrollBehavior] Executing scroll to bottom');
       autoScrollRafRef.current = null;
       isProgrammaticScrollRef.current = true;
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });

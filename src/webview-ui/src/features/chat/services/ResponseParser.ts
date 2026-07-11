@@ -73,6 +73,9 @@ const DEBUG_PARSER =
   window.localStorage?.getItem("zen_debug_parser") === "true";
 
 export const parseAIResponse = (content: string): ParsedResponse => {
+  const startTime = performance.now();
+  console.log('[Zen][ResponseParser] Starting parse, content length:', content.length);
+  
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -612,7 +615,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
                   rawXml,
                 };
               }
-              break;
+              // IMPORTANT: context_compression is NOT an executable tool
+              // Only add to contentBlocks for UI display, NOT to actions array
+              result.contentBlocks.push({ type: "tool", action, actionIndex });
+              // Skip: result.actions.push(action)
+              continue; // Skip the actions.push below
             }
             default:
               // Fallback to ToolParser for any unhandled tools
@@ -1073,6 +1080,24 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       contentLength: content.length,
       contentPreview: content.substring(0, 200),
       remainingAfterThinking: remainingContent.substring(0, 100),
+    });
+  }
+
+  const endTime = performance.now();
+  const duration = endTime - startTime;
+  console.log('[Zen][ResponseParser] Parse completed:', {
+    duration: duration.toFixed(2) + 'ms',
+    contentBlocks: result.contentBlocks.length,
+    actions: result.actions.length,
+    hasQuestion: !!result.question,
+  });
+
+  // Warn if parsing took too long
+  if (duration > 100) {
+    console.warn('[Zen][ResponseParser] SLOW PARSE detected:', {
+      duration: duration.toFixed(2) + 'ms',
+      contentLength: content.length,
+      blocksCount: result.contentBlocks.length,
     });
   }
 

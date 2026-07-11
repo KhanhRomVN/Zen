@@ -830,11 +830,11 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             isRejected={isRejected}
             onConfirm={(summaryText) => {
               setIsAccepted(true);
-              // Send message to extension to navigate home with summary
+              // Send message to extension to create new conversation with summary
               const vscodeApi = (window as any).vscodeApi;
               if (vscodeApi) {
                 vscodeApi.postMessage({
-                  command: "acceptContextCompression",
+                  command: "createConversationWithSummary",
                   summary: summaryText,
                 });
               }

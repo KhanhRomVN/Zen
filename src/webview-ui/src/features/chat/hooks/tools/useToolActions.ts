@@ -58,6 +58,7 @@ export const useToolActions = ({
         });
       }
     });
+
     if (historicalClicked.size > 0) {
       setClickedActions((prev) => {
         const hasNew = Array.from(historicalClicked).some(
@@ -192,13 +193,17 @@ export const useToolActions = ({
 
   // Auto-execute tools logic
   useEffect(() => {
-    if (isRestored) return;
-    if (!onSendToolRequest || parsedMessages.length === 0) return;
+    // Early returns to prevent unnecessary processing
+    if (isRestored || !onSendToolRequest || parsedMessages.length === 0) {
+      return;
+    }
 
     // CRITICAL: Do NOT auto-trigger while the LLM is still streaming.
     // Triggering mid-stream causes the flush logic to parseAIResponse on
     // incomplete content, flushing early and skipping later actions (e.g. SEARCH).
-    if (isProcessing) return;
+    if (isProcessing) {
+      return;
+    }
 
     const lastMessage = parsedMessages[parsedMessages.length - 1];
     if (lastMessage.role !== "assistant") return;

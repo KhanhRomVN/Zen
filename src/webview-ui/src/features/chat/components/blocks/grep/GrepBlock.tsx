@@ -149,30 +149,42 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
   // Check for validation error from parser
   const validationError = action.params._validationError;
 
-  const parseGrepResult = (): GrepResultData | null => {
+  const grepResult = React.useMemo((): GrepResultData | null => {
     const output = toolOutputs?.[actionId]?.output;
-    if (!output) return null;
+    if (!output) {
+      return null;
+    }
 
     if (!_loggedOutputs.has(actionId)) {
       _loggedOutputs.add(actionId);
+    }
+
+    // Check for error messages first (before attempting JSON parse)
+    if (output.startsWith('Error - ') || output.startsWith('Error:') || output.includes('not found')) {
+      // This is an error message, not grep results - will be handled by ErrorBlock
+      return null;
     }
 
     if (output.includes("<grep_results")) {
       const result = parseCompactGrepOutput(output);
       return result;
     }
+    
     try {
       const parsed = JSON.parse(output);
-      if (parsed.searchTerm !== undefined) return parsed as GrepResultData;
-      if (parsed.success && parsed.data) return parsed.data as GrepResultData;
+      if (parsed.searchTerm !== undefined) {
+        return parsed as GrepResultData;
+      }
+      if (parsed.success && parsed.data) {
+        return parsed.data as GrepResultData;
+      }
       return null;
     } catch (e) {
-      console.warn("[GrepBlock] Failed to parse output:", e);
+      // Not JSON - likely an error message, will be handled by ErrorBlock
       return null;
     }
-  };
+  }, [actionId, toolOutputs]);
 
-  const grepResult = parseGrepResult();
   const hasResults = grepResult && grepResult.totalMatches > 0;
   const filePaths = Object.keys(grepResult?.results || {});
 
@@ -236,6 +248,18 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
   // Error state: show error message
   if (isError && errorMessage) {
     return <ErrorBlock content={errorMessage} compact={true} />;
+  }
+  
+  // Check if output is an error message (not grep results)
+  const output = toolOutputs?.[actionId]?.output;
+  const isOutputError = output && (
+    output.startsWith('Error - ') || 
+    output.startsWith('Error:') || 
+    output.includes('not found')
+  );
+  
+  if (isOutputError && !grepResult) {
+    return <ErrorBlock content={output || 'Search failed'} compact={true} />;
   }
 
   if (!grepResult || !isCompleted) return null;

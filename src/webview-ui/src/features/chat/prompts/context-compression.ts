@@ -29,6 +29,8 @@ You are helping compress a long conversation that has exceeded 100K tokens. Your
 
 You MUST wrap your entire summary inside <conversation_compress></conversation_compress> XML tags.
 
+**IMPORTANT**: There MUST NOT be ANY content after the closing </conversation_compress> tag. End your response immediately after closing the tag.
+
 Structure your summary in clear sections using markdown INSIDE the tags:
 
 <conversation_compress>
@@ -68,6 +70,7 @@ Structure your summary in clear sections using markdown INSIDE the tags:
 - Include code patterns/conventions if relevant
 - Do NOT include greetings or meta-commentary
 - **MUST use <conversation_compress> tags to wrap the summary**
+- **CRITICAL: Do NOT add any text, explanation, or content after the closing </conversation_compress> tag**
 
 Generate the summary now:
 </context_compression_request>`;

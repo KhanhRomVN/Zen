@@ -450,6 +450,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       messages.length > 0 &&
       messages.every((m) => !m.content?.includes("<write_to_file>") && !m.content?.includes("<str_replace>"))
     ) {
+      console.log('[Zen][ChatPanel][conversationFileStats] Using loaded stats from history');
       return loadedConversationFileStats;
     }
 
@@ -516,6 +517,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       0,
     );
 
+    console.log('[Zen][ChatPanel][conversationFileStats] Computed stats:', { totalFiles, totalAdditions, totalDeletions });
+
     return {
       totalFiles,
       totalAdditions,
@@ -525,23 +528,203 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Trigger context compression
   const triggerContextCompression = useCallback(() => {
-    // Import CONTEXT_COMPRESSION_PROMPT
-    import("./prompts/context-compression").then(
-      ({ CONTEXT_COMPRESSION_PROMPT }) => {
-        wrappedSendMessage(
+    console.log('[Zen][ContextCompression] Triggering compression...');
+    
+    // Prevent multiple compression requests
+    if (isProcessing) {
+      console.warn('[Zen][ContextCompression] Already processing - ignoring request');
+      return;
+    }
+    
+    try {
+      // Inline CONTEXT_COMPRESSION_PROMPT to avoid dynamic import blocking
+      const CONTEXT_COMPRESSION_PROMPT = `<context_compression_request>
+You are helping compress a long conversation that has exceeded 100K tokens. Your task is to create a concise but complete summary that preserves all critical information needed to continue the work.
+
+## What to Include in Summary
+
+1. **Current Task/Goal**: What is the user trying to accomplish? What's the main objective?
+
+2. **Progress Made**: What has been completed so far? List key milestones, features implemented, or problems solved.
+
+3. **Current State**: 
+   - What files have been created/modified?
+   - What is the current architecture or structure?
+   - What patterns or conventions are being used?
+
+4. **Active Context**:
+   - What are you currently working on?
+   - What was the last action taken?
+   - Are there any pending tasks or next steps?
+
+5. **Important Decisions**: Any architectural decisions, design choices, or constraints that must be remembered.
+
+6. **Known Issues/Blockers**: Any problems encountered, workarounds applied, or limitations discovered.
+
+## CRITICAL FORMAT REQUIREMENT
+
+You MUST wrap your entire summary inside <conversation_compress></conversation_compress> XML tags.
+
+**IMPORTANT**: There MUST NOT be ANY content after the closing </conversation_compress> tag. End your response immediately after closing the tag.
+
+Structure your summary in clear sections using markdown INSIDE the tags:
+
+<conversation_compress>
+# Task Summary
+
+## Objective
+[Brief description of what user is trying to achieve]
+
+## Progress Completed
+- [Key milestone 1]
+- [Key milestone 2]
+...
+
+## Current State
+- Files modified: [list]
+- Architecture: [brief description]
+- Key patterns: [list]
+
+## Active Work
+[What you're currently doing]
+
+## Next Steps
+- [Step 1]
+- [Step 2]
+...
+
+## Important Notes
+[Any critical information, decisions, or constraints]
+</conversation_compress>
+
+## Guidelines
+
+- Be concise but complete - aim for 500-1000 words
+- Focus on information needed to continue work seamlessly
+- Omit chat meta-discussion, off-topic tangents, or failed attempts
+- Preserve exact file names, paths, and technical terms
+- Include code patterns/conventions if relevant
+- Do NOT include greetings or meta-commentary
+- **MUST use <conversation_compress> tags to wrap the summary**
+- **CRITICAL: Do NOT add any text, explanation, or content after the closing </conversation_compress> tag**
+
+Generate the summary now:
+</context_compression_request>`;
+
+      console.log('[Zen][ContextCompression] Sending compression request...');
+      console.log('[Zen][ContextCompression] Current model:', currentModelRef.current);
+      console.log('[Zen][ContextCompression] Current account:', currentAccountRef.current);
+      
+      // CRITICAL FIX: Use setTimeout to break out of the current call stack
+      // This prevents UI freeze by allowing the browser to process pending updates
+      setTimeout(() => {
+        console.log('[Zen][ContextCompression] Executing sendMessage in next tick...');
+        
+        // Check if conversation exists
+        const hasConversation = currentConversationIdRef.current && messages.length > 0;
+        
+        if (!hasConversation) {
+          console.warn('[Zen][ContextCompression] No active conversation - compression not possible');
+          return;
+        }
+        
+        console.log('[Zen][ContextCompression] Conversation info:', {
+          conversationId: currentConversationIdRef.current,
+          messageCount: messages.length,
+          messagesSize: JSON.stringify(messages).length,
+        });
+        
+        // Use sendMessage directly instead of wrappedSendMessage to avoid ref issues
+        // Use skipFirstRequestLogic=true since this is an internal request for existing conversation
+        sendMessage(
           CONTEXT_COMPRESSION_PROMPT,
           undefined,
+          currentModelRef.current, // Use ref to get latest model
+          currentAccountRef.current, // Use ref to get latest account
+          true, // skipFirstRequestLogic=true (conversation already exists)
           undefined,
-          undefined,
-          false, // Not skipFirstRequestLogic
-          undefined,
-          true, // uiHidden - hide this internal request from user
+          true, // uiHidden=true - hide internal compression request
         );
-      },
-    );
-  }, [wrappedSendMessage]);
+        console.log('[Zen][ContextCompression] sendMessage called');
+      }, 0);
+      
+      console.log('[Zen][ContextCompression] Request scheduled');
+    } catch (error) {
+      console.error('[Zen][ContextCompression] Error triggering compression:', error);
+    }
+  }, [sendMessage, isProcessing]); // Add isProcessing dependency
 
   const shouldShowCompressionButton = true; // Always show button
+
+  // Handle model switch from MessageInput
+  const handleModelSwitch = useCallback(
+    (
+      newModel: any,
+      newAccount: any,
+      contextData: {
+        fileChanges: Array<{ path: string; additions: number; deletions: number }>;
+        userMessages: Array<{ content: string; responseNumber: number }>;
+      },
+    ) => {
+      // Extract user messages from current range
+      const currentRange = messages.reduce((acc, msg, idx) => {
+        if (msg.role === "user" && !msg.uiHidden) {
+          acc.push({
+            content: msg.content,
+            index: idx,
+          });
+        }
+        return acc;
+      }, [] as Array<{ content: string; index: number }>);
+
+      // Get last few user messages (e.g., last 3)
+      const recentUserMessages = currentRange.slice(-3).map((m, i) => ({
+        content: m.content,
+        responseNumber: currentRange.length - 3 + i + 1,
+      }));
+
+      // Update contextData with user messages
+      contextData.userMessages = recentUserMessages;
+
+      // Create ModelUsageInfo message as a system message
+      const modelSwitchMessage: Message = {
+        id: `model-switch-${Date.now()}`,
+        role: "system" as const,
+        content: `__MODEL_SWITCH__::${JSON.stringify({
+          providerId: newModel.providerId,
+          modelId: newModel.id,
+          email: newAccount.email,
+          websiteUrl: providers.find((p: any) => p.provider_id === newModel.providerId)
+            ?.website,
+        })}`,
+        timestamp: Date.now(),
+        conversationId: currentConversationId || "",
+        token_usage: 0,
+      };
+
+      // Add to messages
+      setMessages((prev: Message[]) => [...prev, modelSwitchMessage]);
+
+      // Save conversation with new model switch message
+      const sessionId = currentChat?.sessionId || -1;
+      const folderPath = currentChat?.folderPath || null;
+      saveConversation(
+        sessionId,
+        folderPath,
+        [...messages, modelSwitchMessage],
+        currentConversationId,
+        currentChat || undefined,
+        true,
+      );
+    },
+    [
+      messages,
+      currentConversationId,
+      currentChat,
+      providers,
+      setMessages,
+    ],
+  );
 
   // --- Effects ---
   useEffect(() => {
@@ -612,7 +795,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Update ConversationCache
   useEffect(() => {
+    console.log('[Zen][ChatPanel][ConversationCache] Update effect triggered');
     if (currentConversationId && messages.length > 0) {
+      console.log('[Zen][ChatPanel][ConversationCache] Updating cache for:', currentConversationId, 'messages:', messages.length);
       const existing = ConversationCache.get(currentConversationId);
       ConversationCache.set(currentConversationId, {
         messages,
@@ -642,6 +827,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Persist toolOutputs
   useEffect(() => {
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
+    console.log('[Zen][ChatPanel][Persist] Persisting toolOutputs, count:', Object.keys(toolOutputs).length);
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
     saveConversation(
@@ -836,32 +1022,43 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           type: isFolder ? "folder" : "file",
         });
       } else if (message.command === "createConversationWithSummary") {
-        // Create new conversation with summary as context
+        // Context Compression Flow:
+        // 1. User clicks "Accept" in ContextCompressionBlock
+        // 2. Creates hidden summary message (uiHidden: true) as context
+        // 3. Saves conversation with summary
+        // 4. Waits for user to send next message
+        // 5. When user sends message, hidden summary is included in API context automatically
+        //    (useChatLLM.ts only filters isError messages, not uiHidden messages)
         const summary = message.summary;
         if (summary) {
-          // Clear current messages and start fresh with summary
+          // Create summary message as hidden context
           const summaryMessage: Message = {
             id: `summary-${Date.now()}`,
             role: "user",
-            content: `📝 **Context từ conversation trước** (tự động tóm tắt do vượt quá 100K tokens):\n\n---\n\n${summary}\n\n---\n\n*Conversation mới bắt đầu từ đây với context đã được nén.*`,
+            content: `Context from previous conversation (auto-compressed due to exceeding 100K tokens):\n\n${summary}`,
             timestamp: Date.now(),
             conversationId: currentConversationId || "",
             token_usage: 0,
+            uiHidden: true, // Hide from UI but keep in context
           };
 
-          // Update messages to only have the summary
-          setMessages([summaryMessage]);
+          // Add summary message to conversation
+          setMessages((prev) => [...prev, summaryMessage]);
 
-          // Save to conversation
+          // Save conversation with new summary context
           const sessionId = currentChat?.sessionId || -1;
           const folderPath = currentChat?.folderPath || null;
           saveConversation(
             sessionId,
             folderPath,
-            [summaryMessage],
-            currentConversationId || undefined,
+            [...messages, summaryMessage],
+            currentConversationId,
             currentChat || undefined,
+            true,
           );
+          
+          // Don't auto-send empty message - wait for user input
+          // The hidden summary will be included in context when user sends next message
         }
       }
     };
@@ -965,7 +1162,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       {/* ─── ChatBody ─── */}
       <ChatErrorBoundary>
         <ChatBody
-          messages={messages}
+          messages={parsedMessages}
           isProcessing={isProcessing}
           isContinuing={isContinuing}
           incompleteHasPartialTool={incompleteHasPartialTool}
@@ -1069,6 +1266,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         gitStatus={gitStatus}
         onOpenGitStatus={() => setShowGitStatusBlock(true)}
         loadedConversationFileStats={loadedConversationFileStats}
+        onModelSwitch={handleModelSwitch}
       />
     </div>
   );

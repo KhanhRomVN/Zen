@@ -58,6 +58,14 @@ interface ChatFooterProps {
     totalAdditions: number;
     totalDeletions: number;
   } | null;
+  onModelSwitch?: (
+    newModel: any,
+    newAccount: any,
+    contextData: {
+      fileChanges: Array<{ path: string; additions: number; deletions: number }>;
+      userMessages: Array<{ content: string; responseNumber: number }>;
+    }
+  ) => void;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -109,6 +117,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   gitStatus,
   onOpenGitStatus,
   loadedConversationFileStats,
+  onModelSwitch,
 }) => {
   // Calculate response range - count all assistant responses in the conversation
   const responseRange = React.useMemo(() => {
@@ -553,6 +562,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           onReviewClick={() => {}}
           responseRange={responseRange}
           responseRanges={responseRanges}
+          onModelSwitch={onModelSwitch}
         />
       </div>
     </div>

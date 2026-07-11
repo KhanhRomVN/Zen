@@ -148,23 +148,18 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   const parseCacheRef = useRef<Map<string, ParsedResponse>>(new Map());
 
   const parsedMessages = useMemo(() => {
+    // Check if messages are already parsed (from ChatPanel)
+    if (messages.length > 0 && messages[0].parsed !== undefined) {
+      // Messages already parsed by parent, no need to re-parse
+      return messages;
+    }
+    
+    // Fallback: parse messages if not already parsed
     const cache = parseCacheRef.current;
     const result = messages.map((msg) => {
-      // Always re-parse if content changed (for streaming)
       const cached = cache.get(msg.content);
       if (!cached || cached === undefined) {
         const parsed = parseAIResponse(msg.content);
-        // 🔍 Only log if something went wrong
-        if (
-          parsed.contentBlocks.length === 0 &&
-          msg.content.trim().length > 50
-        ) {
-          console.warn("[Zen][ChatBody] No blocks generated for message:", {
-            messageId: msg.id,
-            contentLength: msg.content.length,
-            contentPreview: msg.content.substring(0, 100),
-          });
-        }
         cache.set(msg.content, parsed);
       }
       return { ...msg, parsed: cache.get(msg.content)! };
@@ -219,9 +214,11 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   }, [messages, isRestored, toolOutputs, permissionMode, clickedActions]);
 
   const visibleMessages = useMemo(() => {
+    console.log('[Zen][ChatBody][visibleMessages] Re-computing visible messages, total messages:', messages.length);
     const filtered = messages.filter(
       (msg) => !msg.uiHidden && !msg.isCancelled,
     );
+    console.log('[Zen][ChatBody][visibleMessages] Visible messages count:', filtered.length);
     return filtered;
   }, [messages, firstRequestMessageId]);
 
@@ -233,43 +230,48 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
   }, [visibleMessages]);
 
   const isResponding = useMemo(() => {
+    console.log('[Zen][ChatBody][isResponding] Checking isResponding state, isProcessing:', isProcessing);
     if (!isProcessing || visibleMessages.length === 0) return false;
     const lastMessage = visibleMessages[visibleMessages.length - 1];
     if (lastMessage.role !== "assistant") return false;
     const parsedMessage = parsedMessages.find((pm) => pm.id === lastMessage.id);
-    if (!parsedMessage) return false;
+    if (!parsedMessage || !parsedMessage.parsed) return false;
     const parsed = parsedMessage.parsed;
 
     // Hide ProcessingIndicator nếu có bất kỳ content nào (kể cả thinking blocks)
     // Kiểm tra message.thinking (SSE stream)
     if (lastMessage.thinking && lastMessage.thinking.trim().length > 0) {
+      console.log('[Zen][ChatBody][isResponding] Has thinking (SSE stream), hiding ProcessingIndicator');
       return false; // Ẩn ProcessingIndicator (đã có thinking)
     }
 
     // Kiểm tra thinking blocks trong contentBlocks
     const hasThinkingBlock =
       parsed.contentBlocks &&
-      parsed.contentBlocks.some((b) => b.type === "thinking");
+      parsed.contentBlocks.some((b: any) => b.type === "thinking");
     if (hasThinkingBlock) {
+      console.log('[Zen][ChatBody][isResponding] Has thinking blocks, hiding ProcessingIndicator');
       return false; // Ẩn ProcessingIndicator (đã có thinking blocks)
     }
 
     // Kiểm tra text content
     const hasText = parsed.displayText && parsed.displayText.trim().length > 0;
     if (hasText) {
+      console.log('[Zen][ChatBody][isResponding] Has text content, hiding ProcessingIndicator');
       return false; // Ẩn ProcessingIndicator (đã có text)
     }
 
     // Kiểm tra actions
     const hasActions = parsed.actions && parsed.actions.length > 0;
     if (hasActions) {
+      console.log('[Zen][ChatBody][isResponding] Has actions, hiding ProcessingIndicator');
       return false; // Ẩn ProcessingIndicator (đã có actions)
     }
 
     // Kiểm tra other blocks (code, file, markdown, mixed_content) - skip thinking
     const hasOtherBlocks =
       parsed.contentBlocks &&
-      parsed.contentBlocks.some((b) => {
+      parsed.contentBlocks.some((b: any) => {
         // Skip thinking blocks - they're rendered separately
         if (b.type === "thinking") {
           return false;
@@ -289,10 +291,12 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
       });
 
     if (hasOtherBlocks) {
+      console.log('[Zen][ChatBody][isResponding] Has other blocks, hiding ProcessingIndicator');
       return false; // Ẩn ProcessingIndicator (đã có content blocks)
     }
 
     // Show ProcessingIndicator chỉ khi chưa có content nào
+    console.log('[Zen][ChatBody][isResponding] No content yet, showing ProcessingIndicator');
     return true;
   }, [isProcessing, visibleMessages, parsedMessages]);
 
@@ -378,7 +382,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
           const parsedMessage = parsedMessages.find(
             (pm) => pm.id === message.id,
           );
-          if (!parsedMessage) return null;
+          if (!parsedMessage || !parsedMessage.parsed) return null;
           const parsedContent = parsedMessage.parsed;
 
           // Track assistant response number
@@ -485,7 +489,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         const parsedMessage = parsedMessages.find(
           (pm) => pm.id === lastMessage.id,
         );
-        if (!parsedMessage) {
+        if (!parsedMessage || !parsedMessage.parsed) {
           return null;
         }
 

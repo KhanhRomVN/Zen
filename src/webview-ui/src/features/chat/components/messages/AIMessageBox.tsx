@@ -100,11 +100,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   onBackToHome,
   responseNumber,
 }) => {
-  /**
-   * Map known hardcoded error strings to English messages.
-   */
   const translateError = (raw: string): string => {
-    // Simple hardcoded English error messages
     const normalized = raw.trim().toLowerCase();
     if (/provider returned empty response/i.test(normalized))
       return "Provider returned empty response";
@@ -141,123 +137,104 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
     return raw;
   };
 
+  const [responseLineHovered, setResponseLineHovered] = React.useState(false);
+  const [requestChecked, setRequestChecked] = React.useState(false);
+  const [responseChecked, setResponseChecked] = React.useState(false);
+
+  const previousUserMessage = React.useMemo((): Message | null => {
+    if (!allMessages || !message) return null;
+    const msgIndex = allMessages.findIndex((m) => m.id === message.id);
+    if (msgIndex <= 0) return null;
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (allMessages[i].role === "user") return allMessages[i];
+    }
+    return null;
+  }, [allMessages, message]);
+
   const knownFilePaths = React.useMemo((): Map<string, string> => {
     const map = new Map<string, string>();
     if (!allMessages) return map;
-
-    const filePathRegex = /<file_path>([^<]+)<\/file_path>/gi;
+    const filePathRegex = /<path>([^<]+)<\/file_path>/gi;
     const pathRegex = /<path>([^<]+)<\/path>/gi;
-
     for (const msg of allMessages) {
       if (!msg.content) continue;
-
-      // Extract all <file_path> occurrences
       let m: RegExpExecArray | null;
       filePathRegex.lastIndex = 0;
       while ((m = filePathRegex.exec(msg.content)) !== null) {
         const fullPath = m[1].trim();
         if (!fullPath) continue;
         const basename = fullPath.split(/[/\\]/).pop() || "";
-        if (basename && !map.has(basename)) {
-          map.set(basename, fullPath);
-        }
+        if (basename && !map.has(basename)) map.set(basename, fullPath);
       }
-
-      // Also try <path> tags (used by some search/list calls)
       pathRegex.lastIndex = 0;
       while ((m = pathRegex.exec(msg.content)) !== null) {
         const fullPath = m[1].trim();
         if (!fullPath) continue;
         const basename = fullPath.split(/[/\\]/).pop() || "";
-        if (basename && !map.has(basename)) {
-          map.set(basename, fullPath);
-        }
+        if (basename && !map.has(basename)) map.set(basename, fullPath);
       }
     }
-
     return map;
   }, [allMessages]);
+
+  const checkboxStyle = (checked: boolean, visible: boolean): React.CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "14px",
+    height: "14px",
+    borderRadius: "3px",
+    border: checked
+      ? "1.5px solid var(--vscode-button-background, #007acc)"
+      : "1.5px solid var(--vscode-descriptionForeground)",
+    backgroundColor: checked
+      ? "var(--vscode-button-background, #007acc)"
+      : "transparent",
+    opacity: visible ? 1 : 0,
+    transition: "opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease",
+    flexShrink: 0,
+    cursor: "pointer",
+  });
+
+  const CheckSVG = (
+    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
 
   return (
     <div
       className={`assistant-message-container ${message.isError ? "is-error" : ""} ${
-        hasNextAssistantMessage === false && message.role === "assistant"
-          ? "is-last-assistant"
-          : ""
+        hasNextAssistantMessage === false && message.role === "assistant" ? "is-last-assistant" : ""
       }`}
       style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "0px",
-        marginBottom: "4px",
-        paddingLeft: "0px",
-        position: "relative",
+        display: "flex", flexDirection: "column", gap: "0px", marginBottom: "4px",
+        paddingLeft: "0px", position: "relative",
         opacity: message.isCancelled ? 0.4 : 1,
         filter: message.isCancelled ? "grayscale(1) blur(0.5px)" : "none",
         pointerEvents: message.isCancelled ? "none" : "auto",
-        transition: "all 0.3s ease",
-        backgroundColor: "transparent",
-        borderRadius: "var(--border-radius)",
-        border: "none",
-        padding: "0px",
+        transition: "all 0.3s ease", backgroundColor: "transparent",
+        borderRadius: "var(--border-radius)", border: "none", padding: "0px",
       }}
     >
-      {/* 3. Interleaved Content (Text + Tools) */}
       {(() => {
-        // Prepare render groups
         const groups: Array<
-          | {
-              type: "metadata";
-              content: string;
-              faviconUrl?: string;
-              key: string;
-            }
+          | { type: "metadata"; content: string; faviconUrl?: string; key: string }
           | { type: "code"; content: string; language: string; key: string }
           | { type: "file"; content: string; key: string }
           | { type: "markdown"; content: string; key: string }
-          | {
-              type: "mixed_content";
-              segments: any[];
-              key: string;
-            }
-          | {
-              type: "tools";
-              items: { action: any; index: number }[];
-              key: string;
-            }
-          | {
-              type: "question";
-              options: string[];
-              title?: string;
-              optional?: boolean;
-              questions?: import("../../types/message").Question[];
-              key: string;
-            }
-          | {
-              type: "error";
-              content: string;
-              key: string;
-            }
-          | {
-              type: "response_number";
-              content: string;
-              key: string;
-            }
+          | { type: "mixed_content"; segments: any[]; key: string }
+          | { type: "tools"; items: { action: any; index: number }[]; key: string }
+          | { type: "question"; options: string[]; title?: string; optional?: boolean; questions?: import("../../types/message").Question[]; key: string }
+          | { type: "error"; content: string; key: string }
+          | { type: "response_number"; content: string; key: string }
         > = [];
 
-        // Add response number at the beginning if provided
         if (responseNumber !== null && responseNumber !== undefined) {
-          groups.push({
-            type: "response_number",
-            content: `[${responseNumber}]`,
-            key: "response-number",
-          });
+          groups.push({ type: "response_number", content: `[${responseNumber}]`, key: "response-number" });
         }
 
-        const isCommitMessage =
-          message.content?.includes("[COMMIT_MESSAGE_REQUEST]") ||
-          message.content?.includes("<commit_message>");
-
+        const isCommitMessage = message.content?.includes("[COMMIT_MESSAGE_REQUEST]") || message.content?.includes("<commit_message>");
         const metaChanged =
           !previousAssistantMessage ||
           message.conversationId !== previousAssistantMessage.conversationId ||
@@ -266,173 +243,130 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           message.accountId !== previousAssistantMessage.accountId ||
           message.email !== previousAssistantMessage.email;
 
-        // If metadata changed, inject the Metadata group (skip for commit messages)
-        if (
-          !isCommitMessage &&
-          metaChanged &&
-          (message.providerId || message.modelId || message.email)
-        ) {
-          const providerStr = message.providerId
-            ? `${message.providerId}/`
-            : "";
+        if (!isCommitMessage && metaChanged && (message.providerId || message.modelId || message.email)) {
+          const providerStr = message.providerId ? `${message.providerId}/` : "";
           const modelStr = message.modelId || "unknown-model";
           const emailStr = message.email ? ` by ${message.email}` : "";
-
           let faviconUrl: string | undefined = undefined;
           if (message.websiteUrl) {
-            try {
-              const url = new URL(message.websiteUrl);
-              faviconUrl = `${url.origin}/favicon.ico`;
-            } catch (e) {
-              // Ignore invalid url
-            }
+            try { const url = new URL(message.websiteUrl); faviconUrl = `${url.origin}/favicon.ico`; } catch (e) {}
           }
-
-          groups.push({
-            type: "metadata",
-            content: `Used ${providerStr}${modelStr}${emailStr}`,
-            faviconUrl,
-            key: "metadata-info",
-          });
+          groups.push({ type: "metadata", content: `Used ${providerStr}${modelStr}${emailStr}`, faviconUrl, key: "metadata-info" });
         }
 
-        // NOTE: message.thinking is now rendered in ChatBody
-        // So we don't render it here anymore
-
         let currentToolGroup: { action: any; index: number }[] = [];
-
-        // Use contentBlocks from parser
         const blocks = parsedContent.contentBlocks || [];
 
-        // Track if we've already added thinking from message.thinking
-        // Only count as "added" if we're still generating (thinking will be hidden when done)
-        // NOTE: message.thinking is now rendered outside in ChatBody, so skip here
-        const hasAddedThinking = false;
-
-        // Helper to flush tool group
         const flushTools = () => {
           if (currentToolGroup.length > 0) {
             const firstIndex = currentToolGroup[0].index;
-            groups.push({
-              type: "tools",
-              items: [...currentToolGroup],
-              key: `tools-${firstIndex}`,
-            });
+            groups.push({ type: "tools", items: [...currentToolGroup], key: `tools-${firstIndex}` });
             currentToolGroup = [];
           }
         };
 
         if (message.isError) {
-          groups.push({
-            type: "error",
-            content: message.content,
-            key: "error-block",
-          });
+          groups.push({ type: "error", content: message.content, key: "error-block" });
         } else if (blocks.length > 0) {
           blocks.forEach((block, idx) => {
             if (block.type === "tool") {
               const actionIndex = parsedContent.actions.indexOf(block.action);
-              currentToolGroup.push({
-                action: block.action,
-                index: actionIndex !== -1 ? actionIndex : idx,
-              });
+              currentToolGroup.push({ action: block.action, index: actionIndex !== -1 ? actionIndex : idx });
             } else if (block.type === "file") {
               flushTools();
-              groups.push({
-                type: "file",
-                content: block.content,
-                key: `file-${idx}`,
-              });
+              groups.push({ type: "file", content: block.content, key: `file-${idx}` });
             } else if (block.type === "markdown") {
               flushTools();
-              groups.push({
-                type: "markdown",
-                content: block.content,
-                key: `markdown-${idx}`,
-              });
+              groups.push({ type: "markdown", content: block.content, key: `markdown-${idx}` });
             } else if (block.type === "thinking") {
-              // Skip - thinking blocks are rendered in ChatBody
-              // Do nothing here
+              // Skip
             } else if (block.type === "question") {
               flushTools();
-              groups.push({
-                type: "question",
-                options: block.options,
-                title: block.title,
-                optional: block.optional,
-                questions: block.questions,
-                key: `question-${idx}`,
-              });
+              groups.push({ type: "question", options: block.options, title: block.title, optional: block.optional, questions: block.questions, key: `question-${idx}` });
             } else if (block.type === "mixed_content") {
               flushTools();
-              groups.push({
-                type: "mixed_content",
-                segments: block.segments,
-                key: `mixed_content-${idx}`,
-              });
+              groups.push({ type: "mixed_content", segments: block.segments, key: `mixed_content-${idx}` });
             } else {
-              // Flush tools before adding non-tool block
               flushTools();
-
               if (block.type === "code") {
-                groups.push({
-                  type: "code",
-                  content: block.content,
-                  language: block.language || "text",
-                  key: `code-${groups.length}`,
-                });
+                groups.push({ type: "code", content: block.content, language: block.language || "text", key: `code-${groups.length}` });
               }
             }
           });
-          // Flush any remaining tools
           flushTools();
         } else {
-          // Legacy Fallback
-          // 1. Text (Legacy Fallback)
           if (parsedContent.displayText) {
-            groups.push({
-              type: "markdown",
-              content: parsedContent.displayText,
-              key: "markdown-legacy",
-            });
+            groups.push({ type: "markdown", content: parsedContent.displayText, key: "markdown-legacy" });
           }
-          // 2. Tools
           if (parsedContent.actions && parsedContent.actions.length > 0) {
-            currentToolGroup = parsedContent.actions.map((action, index) => ({
-              action,
-              index,
-            }));
+            currentToolGroup = parsedContent.actions.map((action, index) => ({ action, index }));
             flushTools();
           }
         }
 
         let isInteractionBlocked = false;
-
         const renderGroups = groups;
 
         return renderGroups.map((group, index) => {
           let content = null;
 
           if (group.type === "response_number") {
+            const showCb = responseLineHovered || requestChecked || responseChecked;
+            const showRaw = requestChecked || responseChecked;
+            const reqTokens = message.usage?.prompt_tokens ?? 0;
+            const resTokens = message.usage?.completion_tokens ?? 0;
+
             content = (
-              <div
-                style={{
-                  position: "relative",
-                  paddingTop: "4px",
-                  paddingBottom: "4px",
-                  fontSize: "11px",
-                  color: "var(--vscode-descriptionForeground)",
-                  fontFamily: "var(--vscode-editor-font-family, monospace)",
-                  lineHeight: 1.6,
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  opacity: 0.7,
-                  userSelect: "none",
-                }}
-              >
-                <span style={{ position: "relative", zIndex: 1 }}>
-                  {group.content}
-                </span>
+              <div>
+                <div
+                  onMouseEnter={() => setResponseLineHovered(true)}
+                  onMouseLeave={() => setResponseLineHovered(false)}
+                  style={{
+                    position: "relative", paddingTop: "4px", paddingBottom: "4px",
+                    fontSize: "11px", color: "var(--vscode-descriptionForeground)",
+                    fontFamily: "var(--vscode-editor-font-family, monospace)",
+                    lineHeight: 1.6, display: "flex", justifyContent: "flex-end",
+                    alignItems: "center", gap: "12px", userSelect: "none",
+                  }}
+                >
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
+                    <span onClick={() => setRequestChecked(!requestChecked)} style={checkboxStyle(requestChecked, showCb)}>
+                      {requestChecked && CheckSVG}
+                    </span>
+                    <span>Request [{responseNumber}]: {reqTokens.toLocaleString()} tokens</span>
+                  </label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
+                    <span onClick={() => setResponseChecked(!responseChecked)} style={checkboxStyle(responseChecked, showCb)}>
+                      {responseChecked && CheckSVG}
+                    </span>
+                    <span>Response [{responseNumber}]: {resTokens.toLocaleString()} tokens</span>
+                  </label>
+                </div>
+                {showRaw && (
+                  <div style={{ marginTop: "4px", marginBottom: "8px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {requestChecked && previousUserMessage?.rawRequest && (
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--vscode-descriptionForeground)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          📤 Raw Request (User Content)
+                        </div>
+                        <CodeBlock code={previousUserMessage.rawRequest} language="text" />
+                      </div>
+                    )}
+                    {responseChecked && message.rawResponse && (
+                      <div>
+                        <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--vscode-descriptionForeground)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                          📥 Raw Response (Accumulated Content)
+                        </div>
+                        <CodeBlock code={message.rawResponse} language="text" />
+                      </div>
+                    )}
+                    {showRaw && !previousUserMessage?.rawRequest && !message.rawResponse && (
+                      <div style={{ fontSize: "11px", color: "var(--vscode-descriptionForeground)", fontStyle: "italic", padding: "8px" }}>
+                        Raw data not available for this response (may have been loaded from history before this feature was added).
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           } else if (group.type === "metadata") {
@@ -447,75 +381,32 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           } else if (group.type === "code") {
             const isDiffBlock = isDiff(group.content, group.language);
             let displayCode = group.content;
-            let diffStats: { added: number; removed: number } | undefined =
-              undefined;
+            let diffStats: { added: number; removed: number } | undefined = undefined;
             let prefix: string | undefined = undefined;
-            let statusColor: string | undefined =
-              "var(--vscode-descriptionForeground, #6a737d)";
-
+            let statusColor: string | undefined = "var(--vscode-descriptionForeground, #6a737d)";
             if (isDiffBlock) {
               const diffResult = parseDiff(group.content);
               displayCode = diffResult.code;
               diffStats = diffResult.stats;
               prefix = "Edit";
-              statusColor =
-                "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
+              statusColor = "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
             }
-
             content = (
-              <CodeBlock
-                code={displayCode}
-                language={isDiffBlock ? "python" : group.language}
-                diffStats={diffStats}
-                isDiffBlock={isDiffBlock}
-                prefix={prefix}
-                statusColor={statusColor}
-              />
+              <CodeBlock code={displayCode} language={isDiffBlock ? "python" : group.language}
+                diffStats={diffStats} isDiffBlock={isDiffBlock} prefix={prefix} statusColor={statusColor} />
             );
           } else if (group.type === "file") {
             content = (
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  backgroundColor: "var(--vscode-badge-background)",
-                  color: "var(--vscode-badge-foreground)",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                }}
-                onClick={() => {
-                  const vscodeApi = (window as any).vscodeApi;
-                  if (vscodeApi) {
-                    vscodeApi.postMessage({
-                      command: "openFile",
-                      path: group.content,
-                    });
-                  }
-                }}
-              >
-                <FileIcon
-                  path={group.content}
-                  style={{ width: "14px", height: "14px" }}
-                />
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 8px", borderRadius: "4px", backgroundColor: "var(--vscode-badge-background)", color: "var(--vscode-badge-foreground)", fontSize: "12px", cursor: "pointer" }}
+                onClick={() => { const vscodeApi = (window as any).vscodeApi; if (vscodeApi) { vscodeApi.postMessage({ command: "openFile", path: group.content }); } }}>
+                <FileIcon path={group.content} style={{ width: "14px", height: "14px" }} />
                 <span>{group.content}</span>
               </div>
             );
           } else if (group.type === "markdown") {
             content = (
-              <div
-                style={{
-                  paddingTop: "4px",
-                  fontSize: "var(--font-size-sm)",
-                  color: "var(--primary-text)",
-                }}
-              >
-                <MarkdownBlock
-                  content={group.content}
-                  knownFilePaths={knownFilePaths}
-                />
+              <div style={{ paddingTop: "4px", fontSize: "var(--font-size-sm)", color: "var(--primary-text)" }}>
+                <MarkdownBlock content={group.content} knownFilePaths={knownFilePaths} />
               </div>
             );
           } else if (group.type === "mixed_content") {
@@ -523,32 +414,11 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               <div style={{ paddingTop: "4px" }}>
                 {group.segments.map((seg: any, i: number) => {
                   if (seg.type === "code") {
-                    return (
-                      <CodeBlock
-                        key={i}
-                        code={seg.content}
-                        language={seg.language}
-                        enableWordWrap={true}
-                      />
-                    );
+                    return <CodeBlock key={i} code={seg.content} language={seg.language} enableWordWrap={true} />;
                   } else if (seg.type === "markdown") {
-                    return (
-                      <MarkdownBlock
-                        key={i}
-                        content={seg.content}
-                        className="markdown-content-inline"
-                        knownFilePaths={knownFilePaths}
-                      />
-                    );
+                    return <MarkdownBlock key={i} content={seg.content} className="markdown-content-inline" knownFilePaths={knownFilePaths} />;
                   } else {
-                    return (
-                      <MarkdownBlock
-                        key={i}
-                        content={seg.content}
-                        className="markdown-content-inline"
-                        knownFilePaths={knownFilePaths}
-                      />
-                    );
+                    return <MarkdownBlock key={i} content={seg.content} className="markdown-content-inline" knownFilePaths={knownFilePaths} />;
                   }
                 })}
               </div>
@@ -556,153 +426,70 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           } else if (group.type === "question") {
             const isAnswered = !!message.selectedOption;
             const isThisActive = isLastMessage && !isInteractionBlocked;
-            const dotColor = isAnswered
-              ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-              : isThisActive
-                ? "var(--vscode-button-background)"
-                : "var(--vscode-descriptionForeground)";
-
-            // Check if this is the new paginated format (has questions array)
             const hasQuestions = group.questions && group.questions.length > 0;
-
-            // Render QuestionBlock - it now manages its own summary mode internally
             content = (
               <QuestionBlock
                 questions={hasQuestions ? group.questions : undefined}
                 options={!hasQuestions ? group.options : undefined}
-                title={group.title}
-                optional={group.optional}
-                selectedOption={
-                  !hasQuestions ? message.selectedOption : undefined
-                }
-                // Pass questionAnswers from message state to pre-fill answers
-                questionAnswers={
-                  hasQuestions ? message.questionAnswers : undefined
-                }
+                title={group.title} optional={group.optional}
+                selectedOption={!hasQuestions ? message.selectedOption : undefined}
+                questionAnswers={hasQuestions ? message.questionAnswers : undefined}
                 disabled={!!nextUserMessage || isGenerating}
-                onAnswer={(questionId, value) => {
-                  if (!hasQuestions) return;
-                  if (onSelectOption) {
-                    const answerStr = JSON.stringify({ questionId, value });
-                    onSelectOption(message.id, answerStr);
-                  }
-                }}
-                onAllAnswered={(answers) => {
-                  if (!hasQuestions) return;
-                  if (onSelectOption) {
-                    // Include questions in payload so handleSelectOption can format and auto-submit
-                    const allAnsweredStr = JSON.stringify({
-                      allAnswered: true,
-                      answers,
-                      questions: group.questions || [],
-                    });
-                    onSelectOption(message.id, allAnsweredStr);
-                  }
-                  // Auto-submit is now handled inside useChatLLM.handleSelectOption
-                }}
+                onAnswer={(questionId, value) => { if (!hasQuestions) return; if (onSelectOption) { onSelectOption(message.id, JSON.stringify({ questionId, value })); } }}
+                onAllAnswered={(answers) => { if (!hasQuestions) return; if (onSelectOption) { onSelectOption(message.id, JSON.stringify({ allAnswered: true, answers, questions: group.questions || [] })); } }}
                 onOptionSelect={(option: string) => {
                   if (hasQuestions) return;
-                  if (onSelectOption) {
-                    onSelectOption(message.id, option);
-                  }
+                  if (onSelectOption) { onSelectOption(message.id, option); }
                   const hasTools = (parsedContent.actions?.length || 0) > 0;
                   if (onSendMessage && !hasTools) {
-                    const questionTitle = group.title || "Question";
-                    onSendMessage(
-                      `[question: "${questionTitle}"] Answer: ${option}`,
-                      undefined,
-                      undefined,
-                      undefined,
-                      true,
-                    );
+                    onSendMessage(`[question: "${group.title || "Question"}"] Answer: ${option}`, undefined, undefined, undefined, true);
                   }
                 }}
               />
             );
-
-            // Update blocking state
             if (!isAnswered) isInteractionBlocked = true;
           } else if (group.type === "error") {
             const errorText = group.content.replace(/^Error:\s*/i, "");
-            // Parse error code from "[CODE] message" format
             const codeMatch = errorText.match(/^\[([^\]]+)\]\s*(.*)/s);
             const errorCode = codeMatch ? codeMatch[1] : null;
             const rawMessage = codeMatch ? codeMatch[2] : errorText;
             const translatedMessage = translateError(rawMessage);
-            content = (
-              <ErrorBlock
-                content={translatedMessage}
-                errorCode={errorCode || undefined}
-                isLast={false}
-                isLastMessage={isLastMessage}
-              />
-            );
+            content = <ErrorBlock content={translatedMessage} errorCode={errorCode || undefined} isLast={false} isLastMessage={isLastMessage} />;
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           } else {
             content = (
               <ToolActionsList
-                message={message}
-                items={group.items}
-                clickedActions={clickedActions}
-                failedActions={failedActions}
-                rejectedActions={rejectedActions}
-                onToolClick={onToolClick}
-                executionState={executionState}
-                isLastMessage={isLastMessage}
-                toolOutputs={toolOutputs}
-                terminalStatus={terminalStatus}
-                nextUserMessage={nextUserMessage}
-                allMessages={allMessages}
-                activeTerminalIds={activeTerminalIds}
-                attachedTerminalIds={attachedTerminalIds}
-                conversationId={conversationId}
-                allActions={parsedContent.actions}
-                isBlockedByPrecedingInteraction={isInteractionBlocked}
-                isVisibleTool={undefined}
+                message={message} items={group.items}
+                clickedActions={clickedActions} failedActions={failedActions} rejectedActions={rejectedActions}
+                onToolClick={onToolClick} executionState={executionState} isLastMessage={isLastMessage}
+                toolOutputs={toolOutputs} terminalStatus={terminalStatus}
+                nextUserMessage={nextUserMessage} allMessages={allMessages}
+                activeTerminalIds={activeTerminalIds} attachedTerminalIds={attachedTerminalIds}
+                conversationId={conversationId} allActions={parsedContent.actions}
+                isBlockedByPrecedingInteraction={isInteractionBlocked} isVisibleTool={undefined}
                 singleLineReviewActions={singleLineReviewActions}
                 onConfirmSingleLineAction={onConfirmSingleLineAction}
                 onRejectSingleLineAction={onRejectSingleLineAction}
-                onGitConfirm={onGitConfirm}
-                onGitCancel={onGitCancel}
-                gitStatusItems={gitStatusItems}
-                gitStatusBranch={gitStatusBranch}
-                isGitProcessing={isGitProcessing}
-                isGitStatusVisible={isGitStatusVisible}
+                onGitConfirm={onGitConfirm} onGitCancel={onGitCancel}
+                gitStatusItems={gitStatusItems} gitStatusBranch={gitStatusBranch}
+                isGitProcessing={isGitProcessing} isGitStatusVisible={isGitStatusVisible}
                 onBackToHome={onBackToHome}
               />
             );
-
-            // Check if THIS group has any pending or busy action that should block subsequent ones
             const hasUnclickedOrBusyAction = group.items.some((item) => {
               const actionId = `${message.id}-action-${item.index}`;
               const hasOutput = toolOutputs && toolOutputs[actionId];
               const isClicked = clickedActions.has(actionId);
-
-              // Check if there is a subsequent message in history containing the output
-              const hasHistoryOutput =
-                !!nextUserMessage ||
-                !!allMessages?.some((m) => m.actionIds?.includes(actionId));
-
+              const hasHistoryOutput = !!nextUserMessage || !!allMessages?.some((m) => m.actionIds?.includes(actionId));
               if (!isClicked && !hasOutput && !hasHistoryOutput) {
-                // If it is a write/edit tool, on restore it shouldn't block subsequent tools
-                const isWriteTool =
-                  item.action.type === "write_to_file" ||
-                  item.action.type === "replace_in_file";
-                if (isWriteTool) {
-                  return false;
-                }
+                const isWriteTool = item.action.type === "write_to_file" || item.action.type === "replace_in_file";
+                if (isWriteTool) return false;
                 return true;
               }
-
-              // Also block if a run_command is still busy
               if (item.action.type === "run_command" && !hasHistoryOutput) {
                 const outputData = toolOutputs?.[actionId];
-                const terminalId =
-                  (outputData as any)?.terminalId ||
-                  item.action.params.terminal_id;
-                if (terminalId && terminalStatus?.[terminalId] === "busy") {
-                  return true;
-                }
+                const terminalId = (outputData as any)?.terminalId || item.action.params.terminal_id;
+                if (terminalId && terminalStatus?.[terminalId] === "busy") return true;
               }
               return false;
             });
@@ -712,7 +499,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           if (group.type === "tools" || group.type === "question") {
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           }
-
           return <React.Fragment key={group.key}>{content}</React.Fragment>;
         });
       })()}

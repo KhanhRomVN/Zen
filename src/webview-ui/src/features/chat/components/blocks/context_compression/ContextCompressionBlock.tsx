@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { Copy, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import "./ContextCompressionBlock.css";
 
 export interface ContextCompressionBlockProps {
@@ -27,7 +27,6 @@ const ContextCompressionBlock: React.FC<ContextCompressionBlockProps> = ({
   isAccepted = false,
   isRejected = false,
 }) => {
-  const [copied, setCopied] = React.useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when streaming (same as FileStreamingBlock)
@@ -36,13 +35,6 @@ const ContextCompressionBlock: React.FC<ContextCompressionBlockProps> = ({
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
   }, [summary, isStreaming]);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(summary).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
 
   return (
     <div style={{ padding: "4px 12px 12px 0" }}>
@@ -94,33 +86,6 @@ const ContextCompressionBlock: React.FC<ContextCompressionBlockProps> = ({
           }}
         >
           <button
-            onClick={handleCopy}
-            style={{
-              background: `color-mix(in srgb, var(--vscode-descriptionForeground, #8c8c8c) 15%, transparent)`,
-              color: "var(--vscode-descriptionForeground, #8c8c8c)",
-              border: `1px solid color-mix(in srgb, var(--vscode-descriptionForeground, #8c8c8c) 30%, transparent)`,
-              padding: "4px 10px",
-              borderRadius: "6px",
-              fontSize: "11px",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              height: "24px",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-descriptionForeground, #8c8c8c) 25%, transparent)`;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-descriptionForeground, #8c8c8c) 15%, transparent)`;
-            }}
-          >
-            <Copy size={14} strokeWidth={2.5} />
-            <span>{copied ? "Copied!" : "Copy"}</span>
-          </button>
-
-          <button
             onClick={() => onConfirm(summary)}
             style={{
               background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #10b981) 15%, transparent)`,
@@ -144,7 +109,7 @@ const ContextCompressionBlock: React.FC<ContextCompressionBlockProps> = ({
             }}
           >
             <Check size={14} strokeWidth={2.5} />
-            <span>Confirm</span>
+            <span>Accept</span>
           </button>
 
           <button
