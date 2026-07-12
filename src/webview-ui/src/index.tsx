@@ -6,7 +6,7 @@ import "./styles/variables.css";
 import "./styles.css";
 
 const root = ReactDOM.createRoot(
-  document.getElementById("root") as HTMLElement
+  document.getElementById("root") as HTMLElement,
 );
 
 root.render(<App />);

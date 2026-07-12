@@ -11,7 +11,7 @@ module.exports = {
     filename: "webview.js",
   },
   resolve: {
-    extensions: [".ts", ".tsx", ".js", ".jsx"],
+    extensions: [".ts", ".tsx", ".js", ".jsx", ".mjs"],
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
@@ -42,6 +42,13 @@ module.exports = {
           },
         },
         exclude: /node_modules/,
+      },
+      {
+        test: /\.m?js$/,
+        resolve: {
+          fullySpecified: false,
+        },
+        type: 'javascript/auto',
       },
       {
         test: /\.css$/,
