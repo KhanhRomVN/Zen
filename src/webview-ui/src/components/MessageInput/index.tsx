@@ -370,10 +370,7 @@ const CompressButton: React.FC<CompressButtonProps> = ({
           }}
         >
           <button
-            onClick={() => {
-              setShowTooltip(false);
-              onClick(); // Use current model+account - trigger context compression
-            }}
+            disabled
             style={{
               display: "flex",
               flexDirection: "column",
@@ -384,17 +381,12 @@ const CompressButton: React.FC<CompressButtonProps> = ({
               fontWeight: 500,
               textAlign: "left",
               border: "none",
-              cursor: "pointer",
+              cursor: "not-allowed",
               background: "transparent",
               color: "var(--vscode-foreground)",
               borderBottom: "1px solid var(--vscode-widget-border)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background =
-                "var(--vscode-list-hoverBackground)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
+              opacity: 0.4,
+              pointerEvents: "none",
             }}
           >
             <div style={{ fontWeight: 600, marginBottom: "2px" }}>
@@ -707,7 +699,7 @@ interface MessageInputProps {
   isGitStatusVisible?: boolean;
   // 🆕 Context Compression Button
   showCompressButton?: boolean;
-  onCompress?: () => void;
+  
   // 🆕 Git Status for DiffSummaryBar
   gitStatus?: { items?: any[]; branch?: string } | null;
   onOpenGitStatus?: () => void;
@@ -788,7 +780,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isGitLoading = false,
   isGitStatusVisible = false,
   showCompressButton = false,
-  onCompress,
+  
   gitStatus,
   onOpenGitStatus,
   conversationFileStats,
@@ -1833,7 +1825,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             {/* Context Compression Button */}
             {showCompressButton && (
               <CompressButton
-                onClick={onCompress || (() => {})}
+                onClick={() => {}}
                 title="Context Compression - Compress conversation history"
                 currentModel={currentModel}
                 currentAccount={currentAccount}

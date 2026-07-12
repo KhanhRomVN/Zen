@@ -16,9 +16,9 @@ export const useScrollBehavior = (
   useEffect(() => {
     if (autoScrollPaused) return;
 
-    // Cancel any pending frame to throttle to one scroll per render cycle
+    // Throttle scroll updates using RAF - only one scroll per animation frame
     if (autoScrollRafRef.current !== null) {
-      cancelAnimationFrame(autoScrollRafRef.current);
+      return; // Already scheduled, skip
     }
 
     autoScrollRafRef.current = requestAnimationFrame(() => {
@@ -30,6 +30,14 @@ export const useScrollBehavior = (
         isProgrammaticScrollRef.current = false;
       }, 100);
     });
+    
+    // Cleanup: cancel pending scroll on unmount
+    return () => {
+      if (autoScrollRafRef.current !== null) {
+        cancelAnimationFrame(autoScrollRafRef.current);
+        autoScrollRafRef.current = null;
+      }
+    };
   }, dependencies);
 
   // Detect scroll direction

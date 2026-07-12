@@ -11,9 +11,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   message,
   onRevertConversation,
 }) => {
-  const [isMessageCollapsed, setIsMessageCollapsed] = React.useState(false);
   const [showRevertModal, setShowRevertModal] = React.useState(false);
-  const [isHovered, setIsHovered] = React.useState(false);
+  const [isCopied, setIsCopied] = React.useState(false);
 
   const userMsgRegex =
     /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
@@ -39,25 +38,15 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
       .replace(/\n?<\/zen-user-content>[\s\S]*$/, "");
   }
 
-  // 🆕 Collapsible long messages
-  const lineCount = displayContent.split("\n").length;
-  const charCount = displayContent.length;
-  const isLongMessage = lineCount > 10 || charCount > 500;
-
-  // Auto-collapse on mount if message is long
-  React.useEffect(() => {
-    if (isLongMessage && !isMessageCollapsed) {
-      setIsMessageCollapsed(true);
-    }
-  }, [isLongMessage]);
-
-  const truncatedContent =
-    isLongMessage && isMessageCollapsed
-      ? displayContent.split("\n").slice(0, 5).join("\n") + "\n..."
-      : displayContent;
-
   const handleCopy = () => {
     navigator.clipboard.writeText(displayContent);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 1000);
+  };
+
+  const handleRegenerate = () => {
+    // TODO: Implement regenerate logic - resend this message
+    console.log("Regenerate message:", message.id);
   };
 
   return (
@@ -73,10 +62,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
         pointerEvents: message.isCancelled ? "none" : "auto",
         transition: "all 0.3s ease",
         position: "relative",
-        zIndex: 1, // Add z-index to avoid overlap issues
+        zIndex: 1,
       }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         style={{
@@ -87,13 +74,10 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           backgroundColor: "var(--input-bg)",
           border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
           padding: "var(--spacing-md)",
-          marginLeft: "0px", // Align with left edge since there is no dot
+          marginLeft: "0px",
           position: "relative",
-          borderBottomLeftRadius: isHovered ? "0" : "var(--border-radius)",
-          borderBottomRightRadius: isHovered ? "0" : "var(--border-radius)",
         }}
       >
-        <style>{``}</style>
         <div
           style={{
             fontSize: "var(--font-size-sm)",
@@ -103,55 +87,53 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
             wordBreak: "break-word",
             overflowWrap: "break-word",
             maxWidth: "100%",
-            maxHeight: isMessageCollapsed ? "200px" : "none",
-            overflow: "hidden",
+            maxHeight: "400px",
+            overflow: "auto",
           }}
         >
-          {truncatedContent}
+          {displayContent}
         </div>
       </div>
       
-      {/* Bottom toolbar - show on hover */}
-      {isHovered && (
-        <div
+      {/* Bottom toolbar - always visible, transparent background */}
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "flex-start",
+          alignItems: "center",
+          gap: "8px",
+          backgroundColor: "transparent",
+          padding: "4px 8px",
+        }}
+      >
+        {/* Copy button */}
+        <button
+          onClick={handleCopy}
+          title="Copy content"
           style={{
-            width: "95%",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: "4px",
             display: "flex",
-            justifyContent: "flex-end",
             alignItems: "center",
-            gap: "4px",
-            backgroundColor: "var(--input-bg)",
-            borderLeft: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderRight: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderBottom: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderTop: "none",
-            borderRadius: "0 0 var(--border-radius) var(--border-radius)",
-            padding: "6px",
-            paddingLeft: "8px",
-            paddingRight: "8px",
-            margin: "0 auto",
+            justifyContent: "center",
+            color: isCopied
+              ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+              : "var(--vscode-descriptionForeground)",
+            borderRadius: "4px",
+            opacity: 0.7,
+            transition: "opacity 0.2s, color 0.2s",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
         >
-          {/* Copy button */}
-          <button
-            onClick={handleCopy}
-            title="Copy content"
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: "2px 4px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--primary-text)",
-              borderRadius: "4px",
-            }}
-          >
+          {isCopied ? (
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="12"
-              height="12"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -159,83 +141,62 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              <path d="M20 6 9 17l-5-5" />
             </svg>
-          </button>
-
-          {/* Expand/Collapse button */}
-          {isLongMessage && (
-            <button
-              onClick={() => setIsMessageCollapsed(!isMessageCollapsed)}
-              title={isMessageCollapsed ? "Expand content" : "Collapse content"}
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "2px 4px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--primary-text)",
-                borderRadius: "4px",
-              }}
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                  transform: isMessageCollapsed ? "rotate(0deg)" : "rotate(180deg)",
-                  transition: "transform 0.2s",
-                }}
-              >
-                <polyline points="18 15 12 9 6 15" />
-              </svg>
-            </button>
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+            </svg>
           )}
+        </button>
 
-          {/* Revert button */}
-          {onRevertConversation && (
-            <button
-              onClick={() => setShowRevertModal(true)}
-              title="Revert conversation to this state"
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                padding: "2px 4px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--primary-text)",
-                borderRadius: "4px",
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M9 14 4 9l5-5" />
-                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
-              </svg>
-            </button>
-          )}
-        </div>
-      )}
+        {/* Regenerate button */}
+        <button
+          onClick={handleRegenerate}
+          title="Regenerate response"
+          style={{
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--vscode-descriptionForeground)",
+            borderRadius: "4px",
+            opacity: 0.7,
+            transition: "opacity 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+          </svg>
+        </button>
+      </div>
       
       {showRevertModal &&
         createPortal(

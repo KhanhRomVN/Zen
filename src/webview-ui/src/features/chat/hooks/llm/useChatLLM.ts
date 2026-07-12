@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useReducer } from "react";
 import { Message, QuestionAnswer } from "../../types/message";
 import { ToolAction, parseAIResponse } from "../../services/ResponseParser";
 import { getDefaultPrompt, combinePrompts } from "../../prompts";
@@ -114,36 +114,119 @@ interface UseChatLLMProps {
   ) => void;
 }
 
+// Streaming state combined into single object to reduce re-renders
+interface StreamingState {
+  isProcessing: boolean;
+  isStreaming: boolean;
+  isContinuing: boolean;
+  incompleteHasPartialTool: boolean;
+  incompletePartialToolType: string | null;
+}
+
+type StreamingAction =
+  | { type: "SET_PROCESSING"; payload: boolean }
+  | { type: "SET_STREAMING"; payload: boolean }
+  | { type: "SET_CONTINUING"; payload: boolean }
+  | { type: "SET_INCOMPLETE_TOOL"; payload: { hasPartial: boolean; toolType: string | null } }
+  | { type: "RESET_STREAMING" }
+  | { type: "STOP_ALL" };
+
+const streamingReducer = (state: StreamingState, action: StreamingAction): StreamingState => {
+  switch (action.type) {
+    case "SET_PROCESSING":
+      return { ...state, isProcessing: action.payload };
+    case "SET_STREAMING":
+      return { ...state, isStreaming: action.payload };
+    case "SET_CONTINUING":
+      return { ...state, isContinuing: action.payload };
+    case "SET_INCOMPLETE_TOOL":
+      return {
+        ...state,
+        incompleteHasPartialTool: action.payload.hasPartial,
+        incompletePartialToolType: action.payload.toolType,
+      };
+    case "RESET_STREAMING":
+      return {
+        ...state,
+        isStreaming: false,
+        isContinuing: false,
+        incompleteHasPartialTool: false,
+        incompletePartialToolType: null,
+      };
+    case "STOP_ALL":
+      return {
+        isProcessing: false,
+        isStreaming: false,
+        isContinuing: false,
+        incompleteHasPartialTool: false,
+        incompletePartialToolType: null,
+      };
+    default:
+      return state;
+  }
+};
+
 export const useChatLLM = ({
   apiUrl,
   selectedTab,
   onConversationIdChange,
   onToolRequest,
 }: UseChatLLMProps) => {
+  // Track render count for performance monitoring
+  const renderCountRef = useRef(0);
+  const prevDepsRef = useRef<any>({});
+  renderCountRef.current++;
+  
+  // Get context values
   const { aiLanguage, permissionMode } = useSettings();
   const { workspace, treeView } = useProject();
   const { uploadFiles } = useFileUpload(apiUrl);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Replace multiple state variables with single reducer
+  const [streamingState, dispatchStreaming] = useReducer(streamingReducer, {
+    isProcessing: false,
+    isStreaming: false,
+    isContinuing: false,
+    incompleteHasPartialTool: false,
+    incompletePartialToolType: null,
+  });
+  
+  // Debug logging - track what triggers re-renders
+  const deps: Record<string, any> = {
+    messagesLen: messages.length,
+    isProcessing: streamingState.isProcessing,
+    isStreaming: streamingState.isStreaming,
+    isContinuing: streamingState.isContinuing,
+    aiLanguage,
+    permissionMode,
+    workspaceLen: workspace?.length || 0,
+    treeViewLen: treeView?.length || 0,
+  };
+  
+  if (renderCountRef.current > 1) {
+    const prev = prevDepsRef.current;
+    const changed = Object.keys(deps).filter(k => deps[k] !== prev[k]);
+    if (changed.length > 0) {
+      console.log(`[ZEN-PERF] 🔄 useChatLLM - Render #${renderCountRef.current} - Changed:`, 
+        changed.map(k => `${k}: ${prev[k]} → ${deps[k]}`).join(', '));
+    }
+  }
+  prevDepsRef.current = deps;
+  
   const isProcessingRef = useRef(false);
   const setIsProcessingSync = useCallback((val: boolean) => {
     isProcessingRef.current = val;
-    setIsProcessing(val);
+    dispatchStreaming({ type: "SET_PROCESSING", payload: val });
   }, []);
-  const [isStreaming, setIsStreaming] = useState(false);
+  
   // DeepSeek: true khi server đang tự động gọi /chat/continue để lấy phần còn lại của response dài
-  const [isContinuing, setIsContinuing] = useState(false);
   // Ref để tránh stale closure bên trong sendMessage useCallback
   const isContinuingRef = useRef(false);
   const setIsContinuingSync = (val: boolean) => {
     isContinuingRef.current = val;
-    setIsContinuing(val);
+    dispatchStreaming({ type: "SET_CONTINUING", payload: val });
   };
-  const [incompleteHasPartialTool, setIncompleteHasPartialTool] =
-    useState(false);
-  const [incompletePartialToolType, setIncompletePartialToolType] = useState<
-    string | null
-  >(null);
   const [currentConversationId, setCurrentConversationId] =
     useState<string>("");
   const [conversationToolOverrides, setConversationToolOverrides] = useState<
@@ -274,10 +357,7 @@ export const useChatLLM = ({
     setCurrentConversationId("");
     setMessages([]);
     setIsProcessingSync(false);
-    setIsStreaming(false);
-    setIsContinuingSync(false);
-    setIncompleteHasPartialTool(false);
-    setIncompletePartialToolType(null);
+    dispatchStreaming({ type: "STOP_ALL" });
     setConversationToolOverrides({});
   }, []);
 
@@ -288,7 +368,7 @@ export const useChatLLM = ({
     }
 
     // Cleanup if it was the first turn of a new session
-    if (isProcessing && messagesRef.current.length <= 2) {
+    if (streamingState.isProcessing && messagesRef.current.length <= 2) {
       const chatId = currentConversationIdRef.current;
       if (chatId) {
         deleteConversation(chatId);
@@ -298,11 +378,7 @@ export const useChatLLM = ({
       }
     }
 
-    setIsStreaming(false);
-    setIsContinuingSync(false);
-    setIncompleteHasPartialTool(false);
-    setIncompletePartialToolType(null);
-    setIsProcessingSync(false);
+    dispatchStreaming({ type: "STOP_ALL" });
 
     // Stop all processes in the extension
     extensionService.postMessage({
@@ -310,7 +386,7 @@ export const useChatLLM = ({
       actionId: "all",
       kill: true,
     });
-  }, [isProcessing]);
+  }, [streamingState.isProcessing]);
 
   const sendMessage = useCallback(
     async (
@@ -789,31 +865,16 @@ export const useChatLLM = ({
 
         const abortController = new AbortController();
         abortControllerRef.current = abortController;
-        setIsStreaming(true);
+        dispatchStreaming({ type: "SET_STREAMING", payload: true });
 
         const headers = { "Content-Type": "application/json" };
         const bodyStr = JSON.stringify(body);
 
-        // Lưu rawRequest vào user message (chỉ nội dung request hiện tại)
-        // Trích xuất nội dung từ <zen-user-content> tag để đảm bảo chỉ lấy text gốc của user,
-        // không bao gồm system prompt, project context, attached context, permission tag, checkpoint reminder.
-        const extractUserContent = (fullContent: string): string => {
-          const startTag = "<zen-user-content>";
-          const endTag = "</zen-user-content>";
-          const startIdx = fullContent.indexOf(startTag);
-          const endIdx = fullContent.indexOf(endTag);
-          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-            return fullContent
-              .substring(startIdx + startTag.length, endIdx)
-              .trim();
-          }
-          return fullContent;
-        };
-        const rawUserContent = extractUserContent(userMessage.content);
-        updatedMessages[updatedMessages.length - 1].rawRequest = rawUserContent;
+        // Lưu rawRequest vào user message (toàn bộ nội dung request bao gồm permission-mode, user content và các metadata khác)
+        updatedMessages[updatedMessages.length - 1].rawRequest = userMessage.content;
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === userMessage.id ? { ...m, rawRequest: rawUserContent } : m,
+            m.id === userMessage.id ? { ...m, rawRequest: userMessage.content } : m,
           ),
         );
 
@@ -853,6 +914,14 @@ export const useChatLLM = ({
 
         let done = false;
         let buffer = "";
+        
+        // Batching: Accumulate updates and flush periodically
+        let updateBatch = { content: "", thinking: "" };
+        let lastFlushTime = Date.now();
+        const FLUSH_INTERVAL_MS = 100; // Increased from 50ms to 100ms to reduce update frequency
+        
+        // Track metadata updates separately to avoid triggering state changes
+        let pendingMetadataUpdate = false;
 
         // First-chunk timeout: if no SSE data arrives within 5 minutes, abort the stream.
         // The Elara server has its own 5-minute timeout and sends an error event — this is
@@ -945,27 +1014,34 @@ export const useChatLLM = ({
                     // DeepSeek: server đang auto-continue response bị ngắt giữa chừng
                     if (metaObj.continuing === true) {
                       setIsContinuingSync(true);
+                      pendingMetadataUpdate = true;
                     } else if (metaObj.continuing === false) {
                       // Dùng ref để tránh stale closure — isContinuing state có thể chưa update vào closure
                       if (isContinuingRef.current) {
                         setIsContinuingSync(false);
+                        pendingMetadataUpdate = true;
                       }
                     }
 
                     // DeepSeek: server phát hiện response INCOMPLETE có partial toolcall
                     if (metaObj.incomplete_has_partial_tool !== undefined) {
-                      setIncompleteHasPartialTool(
-                        metaObj.incomplete_has_partial_tool,
-                      );
-                      setIncompletePartialToolType(
-                        metaObj.incomplete_partial_tool_type ?? null,
-                      );
+                      dispatchStreaming({
+                        type: "SET_INCOMPLETE_TOOL",
+                        payload: {
+                          hasPartial: metaObj.incomplete_has_partial_tool,
+                          toolType: metaObj.incomplete_partial_tool_type ?? null,
+                        },
+                      });
+                      pendingMetadataUpdate = true;
                     }
 
                     // DeepSeek: tất cả continuations đã hoàn thành — reset partial tool state
                     if (metaObj.continuation_complete === true) {
-                      setIncompleteHasPartialTool(false);
-                      setIncompletePartialToolType(null);
+                      dispatchStreaming({
+                        type: "SET_INCOMPLETE_TOOL",
+                        payload: { hasPartial: false, toolType: null },
+                      });
+                      pendingMetadataUpdate = true;
                     }
 
                     // Sync metadata to lastUsed refs for subsequent tool execution requests.
@@ -1002,33 +1078,47 @@ export const useChatLLM = ({
                     }
                   }
 
+                  // PERF FIX: Mutate message object directly instead of creating new objects
+                  // This preserves object reference for memo comparison
                   if (data.usage) {
-                    assistantMessage = {
-                      ...assistantMessage,
-                      usage: data.usage,
-                      token_usage: data.usage.total_tokens,
-                    };
+                    assistantMessage.usage = data.usage;
+                    assistantMessage.token_usage = data.usage.total_tokens;
                   }
                   if (data.content) {
-                    assistantMessage = {
-                      ...assistantMessage,
-                      content: assistantMessage.content + data.content,
-                    };
+                    assistantMessage.content = assistantMessage.content + data.content;
                   }
                   if (data.thinking) {
-                    assistantMessage = {
-                      ...assistantMessage,
-                      thinking:
-                        (assistantMessage.thinking || "") + data.thinking,
-                    };
+                    assistantMessage.thinking = (assistantMessage.thinking || "") + data.thinking;
                   }
 
-                  if (data.usage || data.content || data.thinking) {
-                    setMessages((prev) =>
-                      prev.map((m) =>
-                        m.id === assistantMessage.id ? assistantMessage : m,
-                      ),
-                    );
+                  // Batch updates instead of immediate setState
+                  if (data.content) {
+                    updateBatch.content += data.content;
+                  }
+                  if (data.thinking) {
+                    updateBatch.thinking += data.thinking;
+                  }
+                  
+                  // Flush batch if interval passed or if we have usage data (final chunk)
+                  const now = Date.now();
+                  const shouldFlush = (now - lastFlushTime >= FLUSH_INTERVAL_MS) || data.usage;
+                  
+                  if (shouldFlush && (updateBatch.content || updateBatch.thinking || data.usage)) {
+                    // PERF FIX: Preserve message object references for unchanged messages
+                    // This prevents cascade re-renders in ChatPanel memo comparison
+                    setMessages((prev) => {
+                      const newArray = prev.slice(); // Shallow copy array
+                      const targetIndex = prev.findIndex(m => m.id === assistantMessage.id);
+                      
+                      if (targetIndex !== -1) {
+                        // Replace only the target message, reuse all others
+                        newArray[targetIndex] = assistantMessage;
+                      }
+                      
+                      return newArray;
+                    });
+                    updateBatch = { content: "", thinking: "" };
+                    lastFlushTime = now;
                   }
                 } catch (e) {
                   if (e instanceof Error && (e as any).isServerError) throw e;
@@ -1042,8 +1132,24 @@ export const useChatLLM = ({
         // Process any remaining data in buffer after stream ends
         // Stream ended — clear first-chunk timer if still pending
         clearTimeout(firstChunkTimer);
+        
+        // Flush any pending batch updates
+        if (updateBatch.content || updateBatch.thinking) {
+          // PERF FIX: Mutate instead of recreate
+          assistantMessage.content = assistantMessage.content + updateBatch.content;
+          assistantMessage.thinking = (assistantMessage.thinking || "") + updateBatch.thinking;
+          
+          setMessages((prev) => {
+            const newArray = prev.slice();
+            const targetIndex = prev.findIndex(m => m.id === assistantMessage.id);
+            if (targetIndex !== -1) {
+              newArray[targetIndex] = assistantMessage;
+            }
+            return newArray;
+          });
+        }
 
-        if (isContinuing) {
+        if (streamingState.isContinuing) {
           console.warn(
             `[Zen] Stream ended but isContinuing is still true — server may not have sent continuing:false | conversationId=${backendConversationId || currentConversationIdRef.current || "none"}`,
           );
@@ -1101,24 +1207,16 @@ export const useChatLLM = ({
               }
             }
 
+            // PERF FIX: Mutate instead of recreate
             if (data.usage) {
-              assistantMessage = {
-                ...assistantMessage,
-                usage: data.usage,
-                token_usage: data.usage.total_tokens,
-              };
+              assistantMessage.usage = data.usage;
+              assistantMessage.token_usage = data.usage.total_tokens;
             }
             if (data.content) {
-              assistantMessage = {
-                ...assistantMessage,
-                content: assistantMessage.content + data.content,
-              };
+              assistantMessage.content = assistantMessage.content + data.content;
             }
             if (data.thinking) {
-              assistantMessage = {
-                ...assistantMessage,
-                thinking: (assistantMessage.thinking || "") + data.thinking,
-              };
+              assistantMessage.thinking = (assistantMessage.thinking || "") + data.thinking;
             }
           } catch (e) {}
         }
@@ -1170,10 +1268,7 @@ export const useChatLLM = ({
         setMessages([...updatedMessages, assistantMessage]);
 
         setIsProcessingSync(false);
-        setIsStreaming(false);
-        setIsContinuingSync(false);
-        setIncompleteHasPartialTool(false);
-        setIncompletePartialToolType(null);
+        dispatchStreaming({ type: "RESET_STREAMING" });
         abortControllerRef.current = null;
 
         // 🔍 LOG: Full response content after stream completion (before parsing)
@@ -1201,10 +1296,7 @@ export const useChatLLM = ({
           backendConversationId || backendConversationIdRef.current,
         );
       } catch (error) {
-        setIsStreaming(false);
-        setIsContinuingSync(false);
-        setIncompleteHasPartialTool(false);
-        setIncompletePartialToolType(null);
+        dispatchStreaming({ type: "RESET_STREAMING" });
         abortControllerRef.current = null;
         if (error instanceof Error && error.name === "AbortError") {
           setIsProcessingSync(false);
@@ -1251,12 +1343,12 @@ export const useChatLLM = ({
     messages,
     setMessages,
     messagesRef,
-    isProcessing,
+    isProcessing: streamingState.isProcessing,
     setIsProcessing: setIsProcessingSync,
-    isStreaming,
-    isContinuing,
-    incompleteHasPartialTool,
-    incompletePartialToolType,
+    isStreaming: streamingState.isStreaming,
+    isContinuing: streamingState.isContinuing,
+    incompleteHasPartialTool: streamingState.incompleteHasPartialTool,
+    incompletePartialToolType: streamingState.incompletePartialToolType,
     currentConversationId,
     setCurrentConversationId,
     currentConversationIdRef,

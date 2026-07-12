@@ -150,6 +150,7 @@ interface CodeBlockProps {
   prefix?: string;
   statusColor?: string;
   enableWordWrap?: boolean;
+  maxHeight?: string;
 }
 
 export const CodeBlock: React.FC<CodeBlockProps> = ({
@@ -160,6 +161,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   prefix,
   statusColor,
   enableWordWrap = true,
+  maxHeight,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(isDiffBlock);
   const [isCopied, setIsCopied] = useState(false);
@@ -244,6 +246,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
               wordBreak: enableWordWrap ? "break-word" : "normal",
               overflowWrap: enableWordWrap ? "break-word" : "normal",
               overflowX: enableWordWrap ? "hidden" : "auto",
+              maxHeight: maxHeight,
             }}
           >
             <code style={{ background: "none", padding: 0 }}>{code}</code>

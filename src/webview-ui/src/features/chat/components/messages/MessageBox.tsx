@@ -107,16 +107,55 @@ const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
 
 // Memoize to prevent unnecessary re-renders
 const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
+  const startTime = performance.now();
+  
+  // Return true to SKIP re-render (props are equal)
   // Only re-render if message content, clickedActions, or key props change
-  return (
+  //
+  // PERF: When streaming (isGenerating=true), content changes on every chunk.
+  // We still need to re-render to show new text, but we skip the comparison
+  // for heavy props like toolOutputs/allMessages since they don't change mid-stream.
+  const isStreaming =
+    prevProps.isGenerating === true && nextProps.isGenerating === true;
+
+  // During streaming, only check props that actually change per chunk
+  if (isStreaming) {
+    const streamingPropsEqual =
+      prevProps.message.id === nextProps.message.id &&
+      prevProps.message.content === nextProps.message.content &&
+      prevProps.message.thinking === nextProps.message.thinking &&
+      prevProps.clickedActions === nextProps.clickedActions &&
+      prevProps.failedActions === nextProps.failedActions &&
+      prevProps.rejectedActions === nextProps.rejectedActions;
+
+    const duration = performance.now() - startTime;
+    if (!streamingPropsEqual) {
+      console.log(
+        `[ZEN-PERF] 🔄 MessageBox.memo - Re-render NEEDED for message ${nextProps.message.id.slice(0, 20)}... (streaming check took ${duration.toFixed(2)}ms)`,
+      );
+    }
+    return streamingPropsEqual;
+  }
+
+  // Full comparison when not streaming
+  const propsAreEqual =
     prevProps.message.id === nextProps.message.id &&
     prevProps.message.content === nextProps.message.content &&
+    prevProps.message.thinking === nextProps.message.thinking &&
     prevProps.clickedActions === nextProps.clickedActions &&
     prevProps.failedActions === nextProps.failedActions &&
     prevProps.rejectedActions === nextProps.rejectedActions &&
     prevProps.isGenerating === nextProps.isGenerating &&
-    prevProps.toolOutputs === nextProps.toolOutputs
-  );
+    prevProps.toolOutputs === nextProps.toolOutputs;
+
+  const duration = performance.now() - startTime;
+  if (!propsAreEqual) {
+    console.log(
+      `[ZEN-PERF] 🔄 MessageBox.memo - Re-render NEEDED for message ${nextProps.message.id.slice(0, 20)}... (check took ${duration.toFixed(2)}ms)`,
+    );
+  }
+
+  return propsAreEqual; // true = skip re-render, false = do re-render
 });
 
 export default MessageBox;

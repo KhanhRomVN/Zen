@@ -9,13 +9,12 @@ import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
 import ExecuteButton from "./ExecuteButton";
 import { useSettings } from "../../../../context/SettingsContext";
-import { RichtextBlock } from "../blocks/richtext/RichtextBlock";
-import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { GrepBlock } from "../blocks/grep/GrepBlock";
 import { TreeBlock } from "../blocks/tree/TreeBlock";
 import { getPermissionDecision } from "../../utils/permissionUtils";
 import { ToolOutputs } from "../../types/tool-outputs";
+import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
 // Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
@@ -199,6 +198,28 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     }
   }
 
+  // Calculate diff stats for revert_file (same logic as replace_in_file)
+  if (toolType === "revert_file") {
+    if (action.params.old_str && action.params.new_str) {
+      const oldLines = (action.params.old_str || "").split("\n");
+      const newLines = (action.params.new_str || "").split("\n");
+
+      diffStats = {
+        added: newLines.length,
+        removed: oldLines.length,
+      };
+    }
+    else if (action.params.old_content && action.params.new_content) {
+      const oldLines = (action.params.old_content || "").split("\n");
+      const newLines = (action.params.new_content || "").split("\n");
+
+      diffStats = {
+        added: newLines.length,
+        removed: oldLines.length,
+      };
+    }
+  }
+
   let linesCount =
     action.type === "write_to_file"
       ? action.params.content?.split("\n").length || 0
@@ -319,7 +340,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   const isWriteOrEditTool =
     toolType === "delete_file" ||
     toolType === "delete_folder" ||
-    toolType === "move_file";
+    toolType === "move_file" ||
+    toolType === "revert_file";
   const isGrepTool = toolType === "grep";
   const isFindFilesTool = toolType === "find_files";
   const isCompleted: boolean = Boolean(
@@ -533,11 +555,15 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 ? "MOVE"
                 : toolType === "replace_in_file"
                   ? "REPLACE"
-                  : toolType === "write_to_file"
-                    ? "WRITE"
-                    : "READ";
+                  : toolType === "revert_file"
+                    ? "REVERT"
+                    : toolType === "write_to_file"
+                      ? "WRITE"
+                      : "READ";
   // For grep tool, we'll render in the main flow with ToolHeader
-  const grepValidationError = isGrepTool ? action.params._validationError : null;
+  const grepValidationError = isGrepTool
+    ? action.params._validationError
+    : null;
   const grepCompleted =
     isGrepTool &&
     (!isPartial || !!grepValidationError) && // Consider completed if validation failed
@@ -834,8 +860,23 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   e.stopPropagation();
                   // For replace_in_file, show diff view
                   if (toolType === "replace_in_file" && rawPath) {
-                    const oldContent = action.params.old_content || action.params.old_str || "";
-                    const newContent = action.params.new_content || action.params.new_str || "";
+                    const oldContent =
+                      action.params.old_content || action.params.old_str || "";
+                    const newContent =
+                      action.params.new_content || action.params.new_str || "";
+                    extensionService.postMessage({
+                      command: "openReplaceInFileDiff",
+                      filePath: rawPath,
+                      oldContent,
+                      newContent,
+                    });
+                  }
+                  // For revert_file, show diff view
+                  else if (toolType === "revert_file" && rawPath) {
+                    const oldContent =
+                      action.params.old_content || action.params.old_str || "";
+                    const newContent =
+                      action.params.new_content || action.params.new_str || "";
                     extensionService.postMessage({
                       command: "openReplaceInFileDiff",
                       filePath: rawPath,
@@ -868,8 +909,23 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   e.stopPropagation();
                   // For replace_in_file, show diff view
                   if (toolType === "replace_in_file" && rawPath) {
-                    const oldContent = action.params.old_content || action.params.old_str || "";
-                    const newContent = action.params.new_content || action.params.new_str || "";
+                    const oldContent =
+                      action.params.old_content || action.params.old_str || "";
+                    const newContent =
+                      action.params.new_content || action.params.new_str || "";
+                    extensionService.postMessage({
+                      command: "openReplaceInFileDiff",
+                      filePath: rawPath,
+                      oldContent,
+                      newContent,
+                    });
+                  }
+                  // For revert_file, show diff view
+                  else if (toolType === "revert_file" && rawPath) {
+                    const oldContent =
+                      action.params.old_content || action.params.old_str || "";
+                    const newContent =
+                      action.params.new_content || action.params.new_str || "";
                     extensionService.postMessage({
                       command: "openReplaceInFileDiff",
                       filePath: rawPath,
@@ -910,8 +966,23 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   e.stopPropagation();
                   // For replace_in_file, show diff view
                   if (toolType === "replace_in_file" && rawPath) {
-                    const oldContent = action.params.old_content || action.params.old_str || "";
-                    const newContent = action.params.new_content || action.params.new_str || "";
+                    const oldContent =
+                      action.params.old_content || action.params.old_str || "";
+                    const newContent =
+                      action.params.new_content || action.params.new_str || "";
+                    extensionService.postMessage({
+                      command: "openReplaceInFileDiff",
+                      filePath: rawPath,
+                      oldContent,
+                      newContent,
+                    });
+                  }
+                  // For revert_file, show diff view
+                  else if (toolType === "revert_file" && rawPath) {
+                    const oldContent =
+                      action.params.old_content || action.params.old_str || "";
+                    const newContent =
+                      action.params.new_content || action.params.new_str || "";
                     extensionService.postMessage({
                       command: "openReplaceInFileDiff",
                       filePath: rawPath,
@@ -935,7 +1006,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.textDecoration = "none";
-                }}
+                }}  
               >
                 {displayName || (isPartial && !rawPath ? "..." : "")}
               </span>
@@ -955,7 +1026,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               )}
               {/* Show diff stats for replace_in_file inline */}
               {diffStats &&
-                toolType === "replace_in_file" &&
+                (toolType === "replace_in_file" || toolType === "revert_file") &&
                 (diffStats.added > 0 || diffStats.removed > 0) && (
                   <span
                     style={{

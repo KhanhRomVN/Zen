@@ -50,7 +50,6 @@ interface ChatFooterProps {
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   footerPaddingBottom: string;
   shouldShowCompressionButton?: boolean;
-  onTriggerCompression?: () => void;
   gitStatus?: { items?: any[]; branch?: string } | null;
   onOpenGitStatus?: () => void;
   loadedConversationFileStats?: {
@@ -113,7 +112,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   handleFileInputChange,
   footerPaddingBottom,
   shouldShowCompressionButton = false,
-  onTriggerCompression,
   gitStatus,
   onOpenGitStatus,
   loadedConversationFileStats,
@@ -546,7 +544,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           isGitLoading={gitLoading}
           isGitStatusVisible={isGitStatusVisible}
           showCompressButton={shouldShowCompressionButton}
-          onCompress={onTriggerCompression}
+          
           gitStatus={{
             items: Array.from(
               { length: conversationFileStats.totalFiles },

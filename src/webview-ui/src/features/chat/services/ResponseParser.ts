@@ -8,6 +8,7 @@ import {
 import { parseReadFile } from "./parsers/ReadFileParser";
 import { parseWriteToFile } from "./parsers/WriteToFileParser";
 import { parseReplaceInFile } from "./parsers/ReplaceInFileParser";
+import { parseRevertFile } from "./parsers/RevertFileParser";
 import { parseListFiles } from "./parsers/ListFilesParser";
 import { parseFindFiles } from "./parsers/FindFilesParser";
 import { parseGrep } from "./parsers/GrepParser";
@@ -74,6 +75,9 @@ const DEBUG_PARSER =
 
 export const parseAIResponse = (content: string): ParsedResponse => {
   const startTime = performance.now();
+  const contentLength = content.length;
+  console.log(`[ZEN-PERF] 🔍 parseAIResponse START - Content length: ${contentLength} chars`);
+  
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -113,20 +117,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     content.trim().length > 0 &&
     content.trim().length < 2000 && // Small content, likely incomplete
     !content.includes("</thinking>"); // No closing tag yet
-
-  if (
-    remainingContent.trim().length === 0 &&
-    content.trim().length > 100 &&
-    !isLikelyStreaming
-  ) {
-    console.warn(
-      "[Zen][Parser] ⚠️ All content consumed by thinking extraction!",
-      {
-        originalLength: content.length,
-        thinkingBlocks: thinkingBlocks.length,
-      },
-    );
-  }
 
   // Scan for tools and text blocks
   // Note: "thinking" is intentionally excluded — thinking blocks are pre-extracted
@@ -545,6 +535,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             case "replace_in_file": {
               const params = parseReplaceInFile(innerContent || "");
               action = { type: "replace_in_file" as const, params, rawXml };
+              break;
+            }
+            case "revert_file": {
+              const params = parseRevertFile(innerContent || "");
+              action = { type: "revert_file" as const, params, rawXml };
               break;
             }
             case "list_files": {
@@ -1081,15 +1076,15 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     });
   }
 
-  const endTime = performance.now();
-  const duration = endTime - startTime;
-
-  // Warn if parsing took too long
+  const duration = performance.now() - startTime;
+  console.log(`[ZEN-PERF] ✅ parseAIResponse END - Duration: ${duration.toFixed(2)}ms, Content: ${contentLength} chars, Blocks: ${result.contentBlocks.length}, Actions: ${result.actions.length}`);
+  
   if (duration > 100) {
-    console.warn("[Zen][ResponseParser] SLOW PARSE detected:", {
+    console.warn("[ZEN-PERF] ⚠️ SLOW PARSE detected:", {
       duration: duration.toFixed(2) + "ms",
       contentLength: content.length,
       blocksCount: result.contentBlocks.length,
+      actionsCount: result.actions.length,
     });
   }
 
@@ -1113,6 +1108,9 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "replace_in_file":
       return `replace_in_file: ${action.params.file_path || "unknown"}`;
+
+    case "revert_file":
+      return `revert_file: ${action.params.file_path || "unknown"}`;
 
     case "run_command":
       return `Run: ${action.params.command || ""}`;

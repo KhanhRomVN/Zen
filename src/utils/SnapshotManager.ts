@@ -6,7 +6,7 @@ import * as vscode from "vscode";
 
 export interface Snapshot {
   filePath: string;
-  operation: "write" | "replace";
+  operation: "write" | "replace" | "revert";
   beforeContent: string | null;
   afterContent: string;
   timestamp: number;
@@ -41,7 +41,7 @@ export class SnapshotManager {
     conversationId: string,
     actionId: string,
     filePath: string,
-    operation: "write" | "replace",
+    operation: "write" | "replace" | "revert",
     beforeContent: string | null,
     afterContent: string,
   ): Promise<void> {

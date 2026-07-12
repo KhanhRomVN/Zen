@@ -460,11 +460,14 @@ export class FileHandler {
         }
       }
 
-      if (message.startLine !== undefined) {
+      // Handle line range if specified (support both snake_case and camelCase)
+      const startLine = message.start_line ?? message.startLine;
+      const endLine = message.end_line ?? message.endLine;
+      
+      if (startLine !== undefined) {
         const lines = content.split(/\r?\n/);
-        const end =
-          message.endLine !== undefined ? message.endLine + 1 : lines.length;
-        content = lines.slice(message.startLine || 0, end).join("\n");
+        const end = endLine !== undefined ? endLine + 1 : lines.length;
+        content = lines.slice(startLine || 0, end).join("\n");
       }
       const diagnostics = this.getDiagnosticsForFile(absPath);
 
@@ -1645,6 +1648,95 @@ export class FileHandler {
       });
       webviewView.webview.postMessage({
         command: "moveFileResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
+
+  public async handleRevertFile(message: any, webviewView: vscode.WebviewView) {
+    const logger = LoggerService.getInstance();
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) throw new Error("No workspace");
+
+      const filePath = message.file_path || message.path;
+      if (!filePath) throw new Error("'file_path' is required");
+
+      logger.info(`[revert_file] Start`, {
+        path: filePath,
+        requestId: message.requestId,
+      });
+
+      const absPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(workspaceFolder.uri.fsPath, filePath);
+
+      // Security check
+      const pathCheck = SecurityValidator.validatePath(absPath, false);
+      if (!pathCheck.safe)
+        throw new Error(
+          pathCheck.reason || "Security validation failed",
+        );
+
+      // Verify file exists
+      try {
+        await fs.promises.stat(absPath);
+      } catch {
+        throw new Error(`File not found: '${filePath}'`);
+      }
+
+      // Read content before undo
+      const beforeContent = await fs.promises.readFile(absPath, "utf-8");
+
+      // Open the file in editor
+      const fileUri = vscode.Uri.file(absPath);
+      const document = await vscode.workspace.openTextDocument(fileUri);
+      const editor = await vscode.window.showTextDocument(document, {
+        preview: false,
+        preserveFocus: false,
+      });
+
+      // Execute undo command
+      await vscode.commands.executeCommand("undo");
+
+      // Save the document after undo
+      await document.save();
+
+      // Read content after undo
+      const afterContent = await fs.promises.readFile(absPath, "utf-8");
+
+      // Save snapshot if conversationId and actionId are provided
+      if (message.conversationId && message.actionId) {
+        await SnapshotManager.getInstance().saveSnapshot(
+          message.conversationId,
+          message.actionId,
+          absPath,
+          "revert",
+          beforeContent,
+          afterContent,
+        );
+      }
+
+      logger.info(`[revert_file] File reverted successfully`, {
+        path: filePath,
+      });
+
+      webviewView.webview.postMessage({
+        command: "revertFileResult",
+        requestId: message.requestId,
+        success: true,
+        path: filePath,
+        oldContent: beforeContent,
+        newContent: afterContent,
+      });
+    } catch (e: any) {
+      logger.error(`[revert_file] Error`, {
+        path: message.file_path || message.path,
+        error: e.message,
+      });
+      webviewView.webview.postMessage({
+        command: "revertFileResult",
         requestId: message.requestId,
         error: e.message,
       });

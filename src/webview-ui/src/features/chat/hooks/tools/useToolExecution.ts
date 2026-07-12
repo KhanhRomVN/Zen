@@ -562,6 +562,71 @@ export const useToolExecution = ({
           );
           break;
         }
+        case "revert_file": {
+          const requestId = `revert-${Date.now()}-${Math.random()}`;
+          const filePath = action.params.path || action.params.file_path;
+          const actionId = action.actionId;
+          
+          extensionService.postMessage({
+            command: "revertFile",
+            path: filePath,
+            requestId,
+            bypassIgnore,
+            conversationId: conversationIdRef?.current,
+            actionId: actionId,
+          });
+          
+          messageDispatcher.register(
+            requestId,
+            (msg) => {
+              if (msg.error) {
+                console.error(`[revert_file] Error response`, {
+                  requestId,
+                  filePath,
+                  error: msg.error,
+                });
+                // Store error in toolOutputs
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: `Error - ${msg.error}`,
+                    isError: true,
+                  },
+                }));
+                resolve(
+                  `[revert_file for '${filePath}'] Result: Error - ${msg.error}`,
+                );
+              } else {
+                const result = `[revert_file for '${filePath}'] Result: File reverted successfully (undo applied)`;
+                
+                // Store old/new content in action params for diff view
+                if (msg.oldContent !== undefined && msg.newContent !== undefined) {
+                  action.params.old_content = msg.oldContent;
+                  action.params.new_content = msg.newContent;
+                  action.params.old_str = msg.oldContent;
+                  action.params.new_str = msg.newContent;
+                }
+                
+                // Store output in toolOutputs
+                setToolOutputs((prev) => ({
+                  ...prev,
+                  [actionId]: {
+                    output: "Reverted",
+                    isError: false,
+                  },
+                }));
+                
+                resolve(result);
+              }
+            },
+            TOOL_TIMEOUT_STANDARD,
+            () => {
+              console.warn(`[revert_file] Timeout`, { requestId, filePath });
+              resolve(null);
+            },
+          );
+          break;
+        }
         case "list_files": {
           const requestId = `list-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.path || action.params.folder_path;
@@ -1188,9 +1253,7 @@ export const useToolExecution = ({
         const parsed = parseAIResponse(message.content);
         const hasQuestion = !!parsed.question;
         // Check if question is answered: legacy selectedOption only
-        const isQuestionAnswered = hasQuestion
-          ? !!selectedOption
-          : true;
+        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
 
         const allActionIds = parsed.actions.map(
           (_: any, idx: number) => `${message.id}-action-${idx}`,
@@ -1324,9 +1387,7 @@ export const useToolExecution = ({
           );
           const selectedOption = currentMessage?.selectedOption;
           const hasQuestion = !!parsed.question;
-          const isQuestionAnswered = hasQuestion
-            ? !!selectedOption
-            : true;
+          const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
 
           const isAllComplete =
             allActionIds.every((id: string) =>
@@ -1410,9 +1471,7 @@ export const useToolExecution = ({
         );
         const selectedOption = currentMessage?.selectedOption;
         const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion
-          ? !!selectedOption
-          : true;
+        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
 
         const isAllComplete =
           allActionIds.every(
@@ -1466,9 +1525,7 @@ export const useToolExecution = ({
 
         const parsed = parseAIResponse(msg.content);
         const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion
-          ? !!msg.selectedOption
-          : true;
+        const isQuestionAnswered = hasQuestion ? !!msg.selectedOption : true;
 
         const allActionIds = parsed.actions.map(
           (_, idx: number) => `${msg.id}-action-${idx}`,

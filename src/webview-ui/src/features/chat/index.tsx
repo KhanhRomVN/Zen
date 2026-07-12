@@ -25,9 +25,10 @@ import ChatFooter from "./components/ChatFooter";
 import { ChatErrorBoundary } from "./components/ChatErrorBoundary";
 import { parseAIResponse } from "./services/ResponseParser";
 import { useTerminalPolling } from "./hooks/tools/useTerminalPolling";
-import { CONTEXT_COMPRESSION_THRESHOLD } from "./constants/constants";
+
 import { useBrowserSession } from "./hooks/llm/useBrowserSession";
 import { useDraftManagement } from "./hooks/conversation/useDraftManagement";
+import { useModelAccount } from "../../hooks/useModelAccount";
 
 interface ChatPanelProps {
   currentChat: ChatSession | null;
@@ -53,28 +54,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   initialMessageData,
   onClearInitialData,
 }) => {
+  // Track render count for performance monitoring
+  const renderCountRef = useRef(0);
+  renderCountRef.current++;
+  
   // --- States ---
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
   const [isApiUrlReady, setIsApiUrlReady] = useState(false);
   const [providers, setProviders] = useState<any[]>([]);
 
   const { activeTerminalIds, attachedTerminalIds } = useTerminalPolling();
-  const [currentModel, setCurrentModel] = useState<any>(() => {
-    if (initialMessageData?.model) return initialMessageData.model;
-    try {
-      const saved = localStorage.getItem("zen_last_model");
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
-  const [currentAccount, setCurrentAccount] = useState<any>(() => {
-    if (initialMessageData?.account) return initialMessageData.account;
-    try {
-      const saved = localStorage.getItem("zen_last_account");
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return null;
-  });
+
+  // Model+Account selection (centralized hook — workspace-scoped persistence)
+  const { currentModel, setCurrentModel, currentAccount, setCurrentAccount } =
+    useModelAccount(currentChat?.folderPath, {
+      initialModel: initialMessageData?.model,
+      initialAccount: initialMessageData?.account,
+    });
 
   // Refs to always access the latest model/account values inside callbacks.
   // Without these, callbacks created via useCallback can capture stale closure
@@ -86,19 +82,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Keep refs in sync with state (synchronous, runs before any async callbacks)
   currentModelRef.current = currentModel;
   currentAccountRef.current = currentAccount;
-
-  // Persist model/account selection when changed
-  useEffect(() => {
-    if (currentModel) {
-      localStorage.setItem("zen_last_model", JSON.stringify(currentModel));
-    }
-  }, [currentModel]);
-
-  useEffect(() => {
-    if (currentAccount) {
-      localStorage.setItem("zen_last_account", JSON.stringify(currentAccount));
-    }
-  }, [currentAccount]);
 
   const { commitMessageLanguage } = useSettings();
 
@@ -170,6 +153,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionType,
       ),
   });
+  
+  // Track render count AFTER messages is available
+  useEffect(() => {
+    // Only log in development or when explicitly debugging performance
+    if (process.env.NODE_ENV === 'development' && messages.length > 20) {
+      console.log(`[ZEN-PERF] 📊 ChatPanel State - Messages: ${messages.length}, Processing: ${isProcessing}, Streaming: ${isStreaming}`);
+    }
+  }, [messages.length, isProcessing, isStreaming]);
 
   const { availableFiles, availableFolders, availableRules } =
     useWorkspaceData();
@@ -395,40 +386,255 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const parseCacheRef = useRef<Map<string, ReturnType<typeof parseAIResponse>>>(
     new Map(),
   );
+  // PERF: Cache parsed message objects to maintain reference stability
+  // Map from cache key (id:contentLength:clicked:rejected) to the full parsed message object
+  const parsedMessageObjectCacheRef = useRef<Map<string, any>>(new Map());
+  // PERF: Track the last streaming message ID and its last content length.
+  // During streaming, we skip re-parsing if only a few chars were appended
+  // (no structural change like a new closing tag).
+  const lastStreamingParseRef = useRef<{
+    messageId: string;
+    contentLength: number;
+    parsed: ReturnType<typeof parseAIResponse>;
+  } | null>(null);
+  
+  // PERF: Track last parsed messages to enable incremental updates
+  const lastParsedLengthRef = useRef(0);
+  const lastParsedResultRef = useRef<any[]>([]);
+  const lastMessagesRef = useRef<Message[]>([]);  // Track previous messages array for comparison
 
   const parsedMessages = useMemo(() => {
+    const startTime = performance.now();
+    
     const cache = parseCacheRef.current;
-    return messages.map((msg: Message) => {
-      if (!cache.has(msg.content)) {
-        cache.set(msg.content, parseAIResponse(msg.content));
+    const lastStreaming = lastStreamingParseRef.current;
+    
+    // PERF OPTIMIZATION: Incremental parsing with stable references
+    // CRITICAL FIX: Check if messages array only GREW (new messages added)
+    // We DON'T compare content because the last message might be streaming (content changes)
+    // We only check if existing message IDs match → same messages, just potentially updated content
+    const messagesOnlyGrew = 
+      messages.length >= lastParsedLengthRef.current &&
+      lastParsedResultRef.current.length > 0;
+    
+    // For non-streaming messages, check if they're identical to previous render
+    const existingMessagesUnchanged = messagesOnlyGrew && 
+      messages.slice(0, lastParsedLengthRef.current).every(
+        (msg, i) => msg === lastMessagesRef.current[i] // Same object reference = unchanged
+      );
+    
+    let result: any[];
+    
+    if (existingMessagesUnchanged) {
+      // PERF: Reuse ALL previous parsed message objects (stable references!)
+      const reusedMessages = lastParsedResultRef.current.slice(0, lastParsedLengthRef.current);
+      
+      // Only parse new messages (or re-parse if last message is streaming)
+      const newMessages = messages.slice(lastParsedLengthRef.current);
+      const newParsed = newMessages.map((msg: Message, index: number) => {
+        const globalIndex = lastParsedLengthRef.current + index;
+        const isLastMessage = globalIndex === messages.length - 1;
+        const isAssistantStreaming =
+          isLastMessage && msg.role === "assistant" && isStreaming;
+        
+        return parseMessageWithCache(msg, isAssistantStreaming, cache, lastStreaming);
+      });
+      
+      result = [...reusedMessages, ...newParsed];
+      
+      if (newParsed.length > 0) {
+        console.log(`[ZEN-PERF] ✅ ChatPanel.parsedMessages - Incremental: Reused ${reusedMessages.length}, New ${newParsed.length}`);
       }
-      return { ...msg, parsed: cache.get(msg.content)! };
-    });
-  }, [messages]);
+    } else if (messagesOnlyGrew && !existingMessagesUnchanged) {
+      // Messages grew but some existing messages changed (e.g., clickedActions updated)
+      // Re-parse ALL but try to use object cache for unchanged ones
+      result = messages.map((msg: Message, index: number) => {
+        const isLastMessage = index === messages.length - 1;
+        const isAssistantStreaming =
+          isLastMessage && msg.role === "assistant" && isStreaming;
+        
+        return parseMessageWithCache(msg, isAssistantStreaming, cache, lastStreaming);
+      });
+      
+      console.log(`[ZEN-PERF] ✅ ChatPanel.parsedMessages - Partial update: ${messages.length} messages (some changed)`);
+    } else {
+      // Full re-parse (messages array shrank or completely different)
+      result = messages.map((msg: Message, index: number) => {
+        const isLastMessage = index === messages.length - 1;
+        const isAssistantStreaming =
+          isLastMessage && msg.role === "assistant" && isStreaming;
+        
+        return parseMessageWithCache(msg, isAssistantStreaming, cache, lastStreaming);
+      });
+      
+      const duration = performance.now() - startTime;
+      if (duration > 5) {
+        console.log(`[ZEN-PERF] ✅ ChatPanel.parsedMessages - Full parse in ${duration.toFixed(2)}ms, ${messages.length} messages`);
+      }
+    }
+
+    // Clear streaming ref when no longer streaming
+    if (!isStreaming) {
+      lastStreamingParseRef.current = null;
+    }
+    
+    // Cache result and messages for next incremental update
+    lastParsedLengthRef.current = messages.length;
+    lastParsedResultRef.current = result;
+    lastMessagesRef.current = messages;  // Store current messages array for next comparison
+    
+    return result;
+  }, [messages, isStreaming]);
+  
+  // Helper function to parse a single message with caching
+  function parseMessageWithCache(
+    msg: Message,
+    isAssistantStreaming: boolean,
+    cache: Map<string, ReturnType<typeof parseAIResponse>>,
+    lastStreaming: typeof lastStreamingParseRef.current
+  ) {
+    // PERF: During streaming, if the last message is the same one and content
+    // only grew by a small amount (no new closing tags), reuse the cached
+    // parsed result to avoid re-running the full parser on every chunk.
+    if (
+      isAssistantStreaming &&
+      lastStreaming &&
+      lastStreaming.messageId === msg.id &&
+      msg.content.length > lastStreaming.contentLength
+    ) {
+      const growth = msg.content.length - lastStreaming.contentLength;
+      // Check if new content contains a closing tag (structural change)
+      const newContent = msg.content.slice(lastStreaming.contentLength);
+      const hasClosingTag = /<\/[a-zA-Z_][a-zA-Z0-9_]*>/i.test(newContent);
+
+      if (!hasClosingTag && growth < 500) {
+        // Small text-only append — reuse previous parse result.
+        // The UI will still show new text because content comes from msg.content,
+        // not from parsed result.
+        lastStreaming.contentLength = msg.content.length;
+        return { ...msg, parsed: lastStreaming.parsed };
+      }
+    }
+
+    // Normal path: use cache or parse fresh
+    if (!cache.has(msg.content)) {
+      const parsed = parseAIResponse(msg.content);
+      cache.set(msg.content, parsed);
+
+      // Update streaming parse ref for next render
+      if (isAssistantStreaming) {
+        lastStreamingParseRef.current = {
+          messageId: msg.id,
+          contentLength: msg.content.length,
+          parsed,
+        };
+      }
+    } else if (isAssistantStreaming) {
+      // Cache hit during streaming — still update the ref
+      lastStreamingParseRef.current = {
+        messageId: msg.id,
+        contentLength: msg.content.length,
+        parsed: cache.get(msg.content)!,
+      };
+    }
+
+    // PERF FIX: Create a cache key that identifies this message's state
+    // Key includes: id + content + clickedActions + rejectedActions to detect changes
+    const clickedKey = (msg.clickedActions || []).join(',');
+    const rejectedKey = (msg.rejectedActions || []).join(',');
+    const cacheKey = `${msg.id}:${msg.content.length}:${clickedKey}:${rejectedKey}`;
+    
+    // Check object cache - if we've created this exact parsed message before, reuse it
+    const objectCache = parsedMessageObjectCacheRef.current;
+    if (objectCache.has(cacheKey)) {
+      return objectCache.get(cacheKey)!;
+    }
+    
+    // Create new parsed message object
+    const parsedMsg = { ...msg, parsed: cache.get(msg.content)! };
+    
+    // Store in object cache (limit size to prevent memory leak)
+    if (objectCache.size > 100) {
+      // Clear old entries when cache grows too large
+      const keys = Array.from(objectCache.keys());
+      keys.slice(0, 50).forEach(k => objectCache.delete(k));
+    }
+    objectCache.set(cacheKey, parsedMsg);
+    
+    return parsedMsg;
+  }
+
+  // PERF: Track last computed context usage for incremental updates
+  const lastContextUsageLengthRef = useRef(0);
+  const lastContextUsageRef = useRef({ prompt: 0, completion: 0, total: 0 });
 
   const contextUsage = useMemo(() => {
-    return messages.reduce(
-      (acc, msg) => {
-        if (msg.isCancelled) return acc;
+    const startTime = performance.now();
+    
+    // PERF OPTIMIZATION: Incremental computation - only process new messages
+    const canUseIncremental = messages.length >= lastContextUsageLengthRef.current;
+    
+    let result;
+    if (canUseIncremental && lastContextUsageLengthRef.current > 0) {
+      // Start from previous result and add new messages
+      result = { ...lastContextUsageRef.current };
+      
+      const newMessages = messages.slice(lastContextUsageLengthRef.current);
+      for (const msg of newMessages) {
+        if (msg.isCancelled) continue;
         if (msg.token_usage) {
-          acc.total += msg.token_usage;
+          result.total += msg.token_usage;
           if (msg.usage) {
-            acc.prompt += msg.usage.prompt_tokens || 0;
-            acc.completion += msg.usage.completion_tokens || 0;
+            result.prompt += msg.usage.prompt_tokens || 0;
+            result.completion += msg.usage.completion_tokens || 0;
           } else if (msg.role === "user") {
-            acc.prompt += msg.token_usage;
+            result.prompt += msg.token_usage;
           } else {
-            acc.completion += msg.token_usage;
+            result.completion += msg.token_usage;
           }
         } else if (msg.usage) {
-          acc.prompt += msg.usage.prompt_tokens || 0;
-          acc.completion += msg.usage.completion_tokens || 0;
-          acc.total += msg.usage.total_tokens || 0;
+          result.prompt += msg.usage.prompt_tokens || 0;
+          result.completion += msg.usage.completion_tokens || 0;
+          result.total += msg.usage.total_tokens || 0;
         }
-        return acc;
-      },
-      { prompt: 0, completion: 0, total: 0 },
-    );
+      }
+    } else {
+      // Full computation (messages were edited or first render)
+      result = messages.reduce(
+        (acc, msg) => {
+          if (msg.isCancelled) return acc;
+          if (msg.token_usage) {
+            acc.total += msg.token_usage;
+            if (msg.usage) {
+              acc.prompt += msg.usage.prompt_tokens || 0;
+              acc.completion += msg.usage.completion_tokens || 0;
+            } else if (msg.role === "user") {
+              acc.prompt += msg.token_usage;
+            } else {
+              acc.completion += msg.token_usage;
+            }
+          } else if (msg.usage) {
+            acc.prompt += msg.usage.prompt_tokens || 0;
+            acc.completion += msg.usage.completion_tokens || 0;
+            acc.total += msg.usage.total_tokens || 0;
+          }
+          return acc;
+        },
+        { prompt: 0, completion: 0, total: 0 },
+      );
+    }
+    
+    // Cache result for next incremental update
+    lastContextUsageLengthRef.current = messages.length;
+    lastContextUsageRef.current = result;
+    
+    const duration = performance.now() - startTime;
+    // Only log slow operations
+    if (duration > 5) {
+      console.log(`[ZEN-PERF] ✅ ChatPanel.contextUsage - Done in ${duration.toFixed(2)}ms, Total tokens: ${result.total}`);
+    }
+    
+    return result;
   }, [messages]);
 
   const currentTaskName = useMemo(() => {
@@ -442,8 +648,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return null;
   }, [parsedMessages]);
 
+  // PERF: Track last computed file stats for incremental updates
+  const lastFileStatsLengthRef = useRef(0);
+  const lastFileStatsMapRef = useRef<Map<string, { additions: number; deletions: number }>>(new Map());
+
   // Calculate conversation file stats from messages
   const conversationFileStats = useMemo(() => {
+    const startTime = performance.now();
+    
     // If we have loaded stats from history and no new messages, use loaded stats
     if (
       loadedConversationFileStats &&
@@ -457,12 +669,56 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       return loadedConversationFileStats;
     }
 
-    const fileChanges = new Map<
-      string,
-      { additions: number; deletions: number }
-    >();
+    // PERF OPTIMIZATION: Incremental computation - only scan new messages
+    const canUseIncremental = messages.length >= lastFileStatsLengthRef.current;
+    
+    let fileChanges: Map<string, { additions: number; deletions: number }>;
+    
+    if (canUseIncremental && lastFileStatsLengthRef.current > 0) {
+      // Start from previous map and scan only new messages
+      fileChanges = new Map(lastFileStatsMapRef.current);
+      
+      const newMessages = messages.slice(lastFileStatsLengthRef.current);
+      scanMessagesForFileChanges(newMessages, fileChanges);
+    } else {
+      // Full scan (messages were edited or first render)
+      fileChanges = new Map();
+      scanMessagesForFileChanges(messages, fileChanges);
+    }
+    
+    // Cache map for next incremental update
+    lastFileStatsLengthRef.current = messages.length;
+    lastFileStatsMapRef.current = fileChanges;
 
-    messages.forEach((msg) => {
+    const totalFiles = fileChanges.size;
+    const totalAdditions = Array.from(fileChanges.values()).reduce(
+      (sum, stat) => sum + stat.additions,
+      0,
+    );
+    const totalDeletions = Array.from(fileChanges.values()).reduce(
+      (sum, stat) => sum + stat.deletions,
+      0,
+    );
+
+    const duration = performance.now() - startTime;
+    // Only log slow operations
+    if (duration > 5) {
+      console.log(`[ZEN-PERF] ✅ ChatPanel.conversationFileStats - Done in ${duration.toFixed(2)}ms, Files: ${totalFiles}, +${totalAdditions}/-${totalDeletions}`);
+    }
+
+    return {
+      totalFiles,
+      totalAdditions,
+      totalDeletions,
+    };
+  }, [messages, loadedConversationFileStats]);
+  
+  // Helper function to scan messages for file changes
+  function scanMessagesForFileChanges(
+    messagesToScan: Message[],
+    fileChanges: Map<string, { additions: number; deletions: number }>
+  ) {
+    messagesToScan.forEach((msg) => {
       if (msg.role === "assistant" && msg.content) {
         // Match write_to_file
         const writeMatches = msg.content.matchAll(
@@ -509,23 +765,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         }
       }
     });
-
-    const totalFiles = fileChanges.size;
-    const totalAdditions = Array.from(fileChanges.values()).reduce(
-      (sum, stat) => sum + stat.additions,
-      0,
-    );
-    const totalDeletions = Array.from(fileChanges.values()).reduce(
-      (sum, stat) => sum + stat.deletions,
-      0,
-    );
-
-    return {
-      totalFiles,
-      totalAdditions,
-      totalDeletions,
-    };
-  }, [messages, loadedConversationFileStats]);
+  }
 
   // Trigger context compression
   const triggerContextCompression = useCallback(() => {
@@ -788,25 +1028,55 @@ Generate the summary now:
   }, [initialMessageData, sendMessage, onClearInitialData, isApiUrlReady]);
 
   // Update ConversationCache
+  // PERF: Skip cache writes during streaming to avoid ~60 useless writes per message.
+  // The cache will be updated when streaming ends (isStreaming becomes false).
+  // PERF FIX: Use refs to track previous values to avoid triggering on every render
+  const prevCacheDataRef = useRef<{
+    messagesLength: number;
+    conversationId: string | null;
+    isStreaming: boolean;
+  }>({ messagesLength: 0, conversationId: null, isStreaming: false });
+
   useEffect(() => {
-    if (currentConversationId && messages.length > 0) {
-      const existing = ConversationCache.get(currentConversationId);
-      ConversationCache.set(currentConversationId, {
-        messages,
-        conversationId: currentConversationId,
-        backendConversationId: existing?.backendConversationId,
-        currentModel: currentModel || existing?.currentModel,
-        currentAccount: currentAccount || existing?.currentAccount,
-        toolOutputs:
-          Object.keys(toolOutputs).length > 0
-            ? toolOutputs
-            : existing?.toolOutputs,
-        conversationFileStats:
-          conversationFileStats.totalFiles > 0
-            ? conversationFileStats
-            : existing?.conversationFileStats,
-      });
+    // Skip if streaming or no conversation
+    if (!currentConversationId || messages.length === 0 || isStreaming) {
+      return;
     }
+    
+    // Skip if nothing changed since last cache update
+    const prev = prevCacheDataRef.current;
+    if (
+      prev.messagesLength === messages.length &&
+      prev.conversationId === currentConversationId &&
+      prev.isStreaming === isStreaming
+    ) {
+      return; // Nothing changed, skip cache update
+    }
+    
+    // Update cache
+    const existing = ConversationCache.get(currentConversationId);
+    ConversationCache.set(currentConversationId, {
+      messages,
+      conversationId: currentConversationId,
+      backendConversationId: existing?.backendConversationId,
+      currentModel: currentModel || existing?.currentModel,
+      currentAccount: currentAccount || existing?.currentAccount,
+      toolOutputs:
+        Object.keys(toolOutputs).length > 0
+          ? toolOutputs
+          : existing?.toolOutputs,
+      conversationFileStats:
+        conversationFileStats.totalFiles > 0
+          ? conversationFileStats
+          : existing?.conversationFileStats,
+    });
+    
+    // Update ref to track this update
+    prevCacheDataRef.current = {
+      messagesLength: messages.length,
+      conversationId: currentConversationId,
+      isStreaming,
+    };
   }, [
     messages,
     currentConversationId,
@@ -814,11 +1084,16 @@ Generate the summary now:
     currentAccount,
     toolOutputs,
     conversationFileStats,
+    isStreaming,
   ]);
 
   // Persist toolOutputs
   useEffect(() => {
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
+    
+    console.log(`[ZEN-PERF] 💾 ChatPanel.useEffect[toolOutputs] - Saving conversation with ${Object.keys(toolOutputs).length} tool outputs`);
+    const startTime = performance.now();
+    
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
     saveConversation(
@@ -832,6 +1107,9 @@ Generate the summary now:
       undefined,
       toolOutputs,
     );
+    
+    const duration = performance.now() - startTime;
+    console.log(`[ZEN-PERF] ✅ ChatPanel.useEffect[toolOutputs] - Saved in ${duration.toFixed(2)}ms`);
   }, [toolOutputs, currentConversationId, currentChat]);
 
   // Persist singleLineReviewActions
@@ -841,6 +1119,10 @@ Generate the summary now:
       Object.keys(singleLineReviewActions).length === 0
     )
       return;
+    
+    console.log(`[ZEN-PERF] 💾 ChatPanel.useEffect[singleLineReviewActions] - Saving conversation with ${Object.keys(singleLineReviewActions).length} review actions`);
+    const startTime = performance.now();
+    
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
     saveConversation(
@@ -855,12 +1137,19 @@ Generate the summary now:
       undefined,
       singleLineReviewActions,
     );
+    
+    const duration = performance.now() - startTime;
+    console.log(`[ZEN-PERF] ✅ ChatPanel.useEffect[singleLineReviewActions] - Saved in ${duration.toFixed(2)}ms`);
   }, [singleLineReviewActions, currentConversationId, currentChat]);
 
   // Persist conversationFileStats
   useEffect(() => {
     if (!currentConversationId || conversationFileStats.totalFiles === 0)
       return;
+    
+    console.log(`[ZEN-PERF] 💾 ChatPanel.useEffect[conversationFileStats] - Saving conversation with file stats: ${conversationFileStats.totalFiles} files`);
+    const startTime = performance.now();
+    
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
     saveConversation(
@@ -876,6 +1165,9 @@ Generate the summary now:
       undefined,
       conversationFileStats,
     );
+    
+    const duration = performance.now() - startTime;
+    console.log(`[ZEN-PERF] ✅ ChatPanel.useEffect[conversationFileStats] - Saved in ${duration.toFixed(2)}ms`);
   }, [conversationFileStats, currentConversationId, currentChat]);
 
   // Conversation restore is now handled by useConversationRestore hook
@@ -1250,7 +1542,7 @@ Generate the summary now:
         handleFileInputChange={handleFileInputChange}
         footerPaddingBottom={footerPaddingBottom}
         shouldShowCompressionButton={shouldShowCompressionButton}
-        onTriggerCompression={triggerContextCompression}
+        
         gitStatus={gitStatus}
         onOpenGitStatus={() => setShowGitStatusBlock(true)}
         loadedConversationFileStats={loadedConversationFileStats}
@@ -1260,4 +1552,32 @@ Generate the summary now:
   );
 };
 
-export default ChatPanel;
+// Wrap with React.memo to prevent unnecessary re-renders from parent
+// ChatPanel should only re-render when its props actually change
+export default React.memo(ChatPanel, (prevProps, nextProps) => {
+  // Debug: Check which props changed
+  const sessionIdSame = prevProps.currentChat?.sessionId === nextProps.currentChat?.sessionId;
+  const folderPathSame = prevProps.currentChat?.folderPath === nextProps.currentChat?.folderPath;
+  const initialDataSame = prevProps.initialMessageData === nextProps.initialMessageData;
+  const onBackSame = prevProps.onBack === nextProps.onBack;
+  const onLoadConvSame = prevProps.onLoadConversation === nextProps.onLoadConversation;
+  const onClearSame = prevProps.onClearInitialData === nextProps.onClearInitialData;
+  
+  const allSame = sessionIdSame && folderPathSame && initialDataSame && onBackSame && onLoadConvSame && onClearSame;
+  
+  // Log when props change (causing re-render)
+  if (!allSame) {
+    console.log('[ZEN-PERF] 🔴 ChatPanel.memo - Props changed, re-rendering:', {
+      sessionId: !sessionIdSame ? 'CHANGED' : 'same',
+      folderPath: !folderPathSame ? 'CHANGED' : 'same',
+      initialData: !initialDataSame ? 'CHANGED' : 'same',
+      onBack: !onBackSame ? 'CHANGED' : 'same',
+      onLoadConv: !onLoadConvSame ? 'CHANGED' : 'same',
+      onClear: !onClearSame ? 'CHANGED' : 'same',
+    });
+  }
+  
+  // Return true to SKIP re-render (props are same)
+  // Return false to ALLOW re-render (props changed)
+  return allSame;
+});

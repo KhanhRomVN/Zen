@@ -67,7 +67,7 @@ interface AIMessageBoxProps {
   responseNumber?: number | null;
 }
 
-const AIMessageBox: React.FC<AIMessageBoxProps> = ({
+const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   message,
   parsedContent,
   clickedActions,
@@ -100,6 +100,14 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   onBackToHome,
   responseNumber,
 }) => {
+  // Track render count for this specific message
+  const renderCountRef = React.useRef(0);
+  renderCountRef.current++;
+  
+  if (renderCountRef.current > 5) {
+    console.log(`[ZEN-PERF] ⚠️ AIMessageBox - Message ${message.id.slice(0, 20)}... rendered ${renderCountRef.current} times`);
+  }
+  
   const translateError = (raw: string): string => {
     const normalized = raw.trim().toLowerCase();
     if (/provider returned empty response/i.test(normalized))
@@ -137,47 +145,116 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
     return raw;
   };
 
-  const [responseLineHovered, setResponseLineHovered] = React.useState(false);
   const [requestChecked, setRequestChecked] = React.useState(false);
   const [responseChecked, setResponseChecked] = React.useState(false);
 
+  // PERF: Cache previousUserMessage lookup. Only recompute when the message
+  // list length changes or the current message id changes (not on every render
+  // where allMessages is a new array reference with same content).
+  const prevUserMsgCacheRef = React.useRef<{
+    allMessagesLength: number;
+    messageId: string;
+    result: Message | null;
+  } | null>(null);
+
   const previousUserMessage = React.useMemo((): Message | null => {
+    const startTime = performance.now();
+
     if (!allMessages || !message) return null;
+
+    // Use cached result if messages array hasn't changed structurally
+    const cache = prevUserMsgCacheRef.current;
+    if (
+      cache &&
+      cache.allMessagesLength === allMessages.length &&
+      cache.messageId === message.id
+    ) {
+      return cache.result;
+    }
+
     const msgIndex = allMessages.findIndex((m) => m.id === message.id);
-    if (msgIndex <= 0) return null;
-    for (let i = msgIndex - 1; i >= 0; i--) {
-      if (allMessages[i].role === "user") {
-        return allMessages[i];
+    let result: Message | null = null;
+    if (msgIndex > 0) {
+      for (let i = msgIndex - 1; i >= 0; i--) {
+        if (allMessages[i].role === "user") {
+          result = allMessages[i];
+          break;
+        }
       }
     }
-    return null;
+
+    // Update cache
+    prevUserMsgCacheRef.current = {
+      allMessagesLength: allMessages.length,
+      messageId: message.id,
+      result,
+    };
+
+    const duration = performance.now() - startTime;
+    if (duration > 5) {
+      console.log(
+        `[ZEN-PERF] 🔄 AIMessageBox.previousUserMessage - Found in ${duration.toFixed(2)}ms`,
+      );
+    }
+    return result;
   }, [allMessages, message, responseNumber]);
 
+  // PERF: Cache knownFilePaths computation. This scans all messages for file paths
+  // using regex — expensive O(n*m) operation. Only recompute when the number of
+  // messages changes (new message added), not on every render during streaming.
+  const knownFilePathsCacheRef = React.useRef<{
+    allMessagesLength: number;
+    lastMessageId: string;
+    map: Map<string, string>;
+  } | null>(null);
+
   const knownFilePaths = React.useMemo((): Map<string, string> => {
-    const map = new Map<string, string>();
-    if (!allMessages) return map;
-    const filePathRegex = /<path>([^<]+)<\/file_path>/gi;
-    const pathRegex = /<path>([^<]+)<\/path>/gi;
-    for (const msg of allMessages) {
-      if (!msg.content) continue;
-      let m: RegExpExecArray | null;
-      filePathRegex.lastIndex = 0;
-      while ((m = filePathRegex.exec(msg.content)) !== null) {
-        const fullPath = m[1].trim();
-        if (!fullPath) continue;
-        const basename = fullPath.split(/[/\\]/).pop() || "";
-        if (basename && !map.has(basename)) map.set(basename, fullPath);
-      }
-      pathRegex.lastIndex = 0;
-      while ((m = pathRegex.exec(msg.content)) !== null) {
-        const fullPath = m[1].trim();
-        if (!fullPath) continue;
-        const basename = fullPath.split(/[/\\]/).pop() || "";
-        if (basename && !map.has(basename)) map.set(basename, fullPath);
-      }
+    const startTime = performance.now();
+
+    if (!allMessages) return new Map();
+
+    // Use cached result if messages array hasn't changed structurally
+    const lastMsg = allMessages[allMessages.length - 1];
+    const cache = knownFilePathsCacheRef.current;
+    if (
+      cache &&
+      cache.allMessagesLength === allMessages.length &&
+      cache.lastMessageId === lastMsg?.id
+    ) {
+      return cache.map;
     }
+
+    const map = new Map<string, string>();
+    const filePathRegex = /(?:^|\s)([\/~][\w\-\.\/]+\.\w+)(?:\s|$)/g;
+
+    allMessages.forEach((msg) => {
+      if (!msg.content) return;
+      const matches = msg.content.matchAll(filePathRegex);
+      for (const match of matches) {
+        const fullPath = match[1];
+        const basename = fullPath.split('/').pop();
+        if (basename) {
+          map.set(basename, fullPath);
+        }
+      }
+    });
+
+    // Update cache
+    knownFilePathsCacheRef.current = {
+      allMessagesLength: allMessages.length,
+      lastMessageId: lastMsg?.id,
+      map,
+    };
+
+    const duration = performance.now() - startTime;
+    if (duration > 5) {
+      console.log(
+        `[ZEN-PERF] 🔄 AIMessageBox.knownFilePaths - Built in ${duration.toFixed(2)}ms`,
+      );
+    }
+
     return map;
-  }, [allMessages]);
+  }, [allMessages, responseNumber]);
 
   const checkboxStyle = (
     checked: boolean,
@@ -271,7 +348,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           | { type: "response_number"; content: string; key: string }
         > = [];
 
-        if (responseNumber !== null && responseNumber !== undefined) {
+        if (responseNumber !== null && responseNumber !== undefined && !message.isError) {
           groups.push({
             type: "response_number",
             content: `[${responseNumber}]`,
@@ -414,23 +491,57 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           let content = null;
 
           if (group.type === "response_number") {
-            const showCb =
-              responseLineHovered || requestChecked || responseChecked;
             const showRaw = requestChecked || responseChecked;
-            const reqTokens = message.usage?.prompt_tokens ?? 0;
-            const resTokens = message.usage?.completion_tokens ?? 0;
+            const reqTokens = previousUserMessage?.token_usage ?? previousUserMessage?.usage?.prompt_tokens ?? 0;
+            const resTokens = message.usage?.completion_tokens ?? message.token_usage ?? 0;
+
+            // Request/Response icons (upload/download)
+            const RequestIcon = (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ flexShrink: 0 }}
+              >
+                <path d="M12 3v12"/>
+                <path d="m17 8-5-5-5 5"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              </svg>
+            );
+
+            const ResponseIcon = (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ flexShrink: 0 }}
+              >
+                <path d="M12 15V3"/>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <path d="m7 10 5 5 5-5"/>
+              </svg>
+            );
 
             content = (
               <div>
                 <div
-                  onMouseEnter={() => setResponseLineHovered(true)}
-                  onMouseLeave={() => setResponseLineHovered(false)}
                   style={{
                     position: "relative",
-                    paddingTop: "4px",
-                    paddingBottom: "4px",
+                    paddingTop: "6px",
+                    paddingBottom: "6px",
                     fontSize: "11px",
-                    color: "var(--vscode-descriptionForeground)",
                     fontFamily: "var(--vscode-editor-font-family, monospace)",
                     lineHeight: 1.6,
                     display: "flex",
@@ -438,46 +549,85 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                     alignItems: "center",
                     gap: "12px",
                     userSelect: "none",
+                    flexWrap: "wrap",
                   }}
                 >
-                  <label
+                  {/* Request Badge */}
+                  <div
+                    onClick={() => setRequestChecked(!requestChecked)}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "4px",
+                      gap: "6px",
                       cursor: "pointer",
+                      textDecoration: requestChecked ? "underline" : "none",
+                      textUnderlineOffset: "3px",
+                      transition: "opacity 0.2s ease",
+                      opacity: requestChecked ? 1 : 0.8,
                     }}
                   >
                     <span
-                      onClick={() => setRequestChecked(!requestChecked)}
-                      style={checkboxStyle(requestChecked, showCb)}
+                      style={{
+                        color: "var(--vscode-charts-green, #89d185)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                      }}
                     >
-                      {requestChecked && CheckSVG}
+                      {RequestIcon}
                     </span>
-                    <span>
-                      Request [{responseNumber}]: {reqTokens.toLocaleString()}{" "}
-                      tokens
+                    <span
+                      style={{
+                        color: "var(--vscode-foreground)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {reqTokens.toLocaleString()}
                     </span>
-                  </label>
-                  <label
+                  </div>
+
+                  {/* Response Badge */}
+                  <div
+                    onClick={() => setResponseChecked(!responseChecked)}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: "4px",
+                      gap: "6px",
                       cursor: "pointer",
+                      textDecoration: responseChecked ? "underline" : "none",
+                      textUnderlineOffset: "3px",
+                      transition: "opacity 0.2s ease",
+                      opacity: responseChecked ? 1 : 0.8,
                     }}
                   >
                     <span
-                      onClick={() => setResponseChecked(!responseChecked)}
-                      style={checkboxStyle(responseChecked, showCb)}
+                      style={{
+                        color: "var(--vscode-charts-red, #f48771)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                      }}
                     >
-                      {responseChecked && CheckSVG}
+                      {ResponseIcon}
                     </span>
-                    <span>
-                      Response [{responseNumber}]: {resTokens.toLocaleString()}{" "}
-                      tokens
+                    <span
+                      style={{
+                        color: "var(--vscode-foreground)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {resTokens.toLocaleString()}
                     </span>
-                  </label>
+                  </div>
+
+                  {/* Response Number */}
+                  <span
+                    style={{
+                      color: "var(--vscode-descriptionForeground)",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    [{responseNumber}]
+                  </span>
                 </div>
                 {showRaw && (
                   <div
@@ -501,11 +651,12 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                             letterSpacing: "0.5px",
                           }}
                         >
-                          📤 Raw Request (User Content)
+                          Request (User Content)
                         </div>
                         <CodeBlock
                           code={previousUserMessage.rawRequest}
                           language="text"
+                          maxHeight="400px"
                         />
                       </div>
                     )}
@@ -521,9 +672,13 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                             letterSpacing: "0.5px",
                           }}
                         >
-                          📥 Raw Response (Accumulated Content)
+                          Response (Assistant Content)
                         </div>
-                        <CodeBlock code={message.rawResponse} language="text" />
+                        <CodeBlock 
+                          code={message.rawResponse} 
+                          language="text"
+                          maxHeight="400px"
+                        />
                       </div>
                     )}
                     {showRaw &&
@@ -804,5 +959,70 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
     </div>
   );
 };
+
+// Memoize AIMessageBox to prevent re-renders during streaming
+const AIMessageBox = React.memo(AIMessageBoxInternal, (prevProps, nextProps) => {
+  // Performance optimization: shallow comparison of props
+  // Only re-render if these critical props change
+  
+  const startTime = performance.now();
+  
+  // Message identity check
+  if (prevProps.message.id !== nextProps.message.id) {
+    return false; // Different message, re-render
+  }
+  
+  // CRITICAL: During streaming, only re-render if content actually changed
+  if (prevProps.isGenerating || nextProps.isGenerating) {
+    // Check if message content changed
+    const contentChanged = prevProps.message.content !== nextProps.message.content;
+    
+    // Check if streaming state changed (started/stopped)
+    const streamingStateChanged = prevProps.isGenerating !== nextProps.isGenerating;
+    
+    // Only re-render if content or streaming state changed
+    if (contentChanged || streamingStateChanged) {
+      const duration = performance.now() - startTime;
+      if (duration > 0.5) {
+        console.log(`[ZEN-PERF] 🔄 MessageBox.memo - Re-render NEEDED for message ${nextProps.message.id.slice(0, 20)}... (streaming check took ${duration.toFixed(2)}ms)`);
+      }
+      return false; // Re-render needed
+    }
+    
+    // Content hasn't changed during streaming, skip re-render
+    return true; // Skip re-render
+  }
+  
+  // Not streaming, check all critical props
+  const sameContent = prevProps.message.content === nextProps.message.content;
+  const sameParsed = prevProps.parsedContent === nextProps.parsedContent;
+  const sameIsLastMessage = prevProps.isLastMessage === nextProps.isLastMessage;
+  const sameHasNext = prevProps.hasNextAssistantMessage === nextProps.hasNextAssistantMessage;
+  const sameResponseNumber = prevProps.responseNumber === nextProps.responseNumber;
+  const sameSelectedOption = prevProps.message.selectedOption === nextProps.message.selectedOption;
+  
+  // Check if arrays/objects changed by reference (quick check)
+  const sameClickedActions = prevProps.clickedActions === nextProps.clickedActions;
+  const sameToolOutputs = prevProps.toolOutputs === nextProps.toolOutputs;
+  const sameTerminalStatus = prevProps.terminalStatus === nextProps.terminalStatus;
+  
+  const shouldSkipRender = 
+    sameContent &&
+    sameParsed &&
+    sameIsLastMessage &&
+    sameHasNext &&
+    sameResponseNumber &&
+    sameSelectedOption &&
+    sameClickedActions &&
+    sameToolOutputs &&
+    sameTerminalStatus;
+  
+  const duration = performance.now() - startTime;
+  if (!shouldSkipRender && duration > 0.5) {
+    console.log(`[ZEN-PERF] 🔄 MessageBox.memo - Re-render NEEDED for message ${nextProps.message.id.slice(0, 20)}... (check took ${duration.toFixed(2)}ms)`);
+  }
+  
+  return shouldSkipRender; // true = skip re-render
+});
 
 export default AIMessageBox;
