@@ -99,3 +99,8 @@ Made with ❤️ by <a href="https://github.com/KhanhRomVN">KhanhRomVN</a>
 </div>
 
 ...
+
+RULE:
+1/ giao tiếp bằng tiếng việt
+2/ ko tự tạo các file .md thừa ko cần thiết
+3/ ko tự chạy các lệnh terminal khi chưa cho phép

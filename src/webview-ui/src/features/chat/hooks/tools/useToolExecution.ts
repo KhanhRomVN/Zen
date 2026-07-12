@@ -566,7 +566,7 @@ export const useToolExecution = ({
           const requestId = `revert-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
           const actionId = action.actionId;
-          
+
           extensionService.postMessage({
             command: "revertFile",
             path: filePath,
@@ -575,7 +575,7 @@ export const useToolExecution = ({
             conversationId: conversationIdRef?.current,
             actionId: actionId,
           });
-          
+
           messageDispatcher.register(
             requestId,
             (msg) => {
@@ -598,15 +598,18 @@ export const useToolExecution = ({
                 );
               } else {
                 const result = `[revert_file for '${filePath}'] Result: File reverted successfully (undo applied)`;
-                
+
                 // Store old/new content in action params for diff view
-                if (msg.oldContent !== undefined && msg.newContent !== undefined) {
+                if (
+                  msg.oldContent !== undefined &&
+                  msg.newContent !== undefined
+                ) {
                   action.params.old_content = msg.oldContent;
                   action.params.new_content = msg.newContent;
                   action.params.old_str = msg.oldContent;
                   action.params.new_str = msg.newContent;
                 }
-                
+
                 // Store output in toolOutputs
                 setToolOutputs((prev) => ({
                   ...prev,
@@ -615,7 +618,7 @@ export const useToolExecution = ({
                     isError: false,
                   },
                 }));
-                
+
                 resolve(result);
               }
             },

@@ -3,6 +3,7 @@ import { useSettings } from "../../context/SettingsContext";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { extensionService } from "../../services/ExtensionService";
 import { saveConversation } from "./services/ConversationService";
+import { perfRender, perfEffect } from "../../utils/logger";
 
 // Core chat hooks
 import { useChatLLM } from "./hooks/llm/useChatLLM";
@@ -68,6 +69,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Track render count for performance monitoring
   const renderCountRef = useRef(0);
   renderCountRef.current++;
+  
+  // PERF: Log renders to track re-render spam
+  perfRender('chat/index', renderCountRef.current, {
+    messagesLen: messages?.length,
+    isProcessing: streamingState?.isProcessing,
+    isStreaming: streamingState?.isStreaming,
+    currentChatSession: currentChat?.sessionId,
+  });
+  console.log(`[Zen][ChatPanel] 🔄 Render #${renderCountRef.current}`, {
+    sessionId: currentChat?.sessionId,
+    hasInitialData: !!initialMessageData,
+  });
 
   // --- API & Configuration ---
   const {
@@ -504,6 +517,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Reset hasProcessedInitial when new tab/chat starts
   useEffect(() => {
+    perfEffect('chat/index', 'resetSession', [currentChat?.sessionId]);
     hasProcessedInitial.current = false;
     resetSession();
     setLoadedConversationFileStats(null);
@@ -540,6 +554,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Auto-resize textarea
   useEffect(() => {
+    perfEffect('chat/index', 'textareaAutoResize', [message]);
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(

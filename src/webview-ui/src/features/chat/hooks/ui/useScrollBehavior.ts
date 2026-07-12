@@ -30,7 +30,7 @@ export const useScrollBehavior = (
         isProgrammaticScrollRef.current = false;
       }, 100);
     });
-    
+
     // Cleanup: cancel pending scroll on unmount
     return () => {
       if (autoScrollRafRef.current !== null) {
