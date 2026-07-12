@@ -141,33 +141,38 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   onBackToHome,
   isLoadingConversation = false,
 }: ExtendedChatBodyProps) => {
-  // Track render count for performance monitoring (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    const renderCountRef = useRef(0);
-    renderCountRef.current++;
-    if (renderCountRef.current % 10 === 0) {
-      console.log(`[ZEN-PERF] 🔄 ChatBody - Render #${renderCountRef.current}, Messages: ${messages.length}, Processing: ${isProcessing}`);
-    }
-  }
-  
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const parseCacheRef = useRef<Map<string, ParsedResponse>>(new Map());
+  const lastParsedMessagesRef = useRef<any[]>([]);
 
   const parsedMessages = useMemo(() => {
     const startTime = performance.now();
-    
     // Check if messages are already parsed (from ChatPanel)
     if (messages.length > 0 && messages[0].parsed !== undefined) {
-      // Messages already parsed by parent, no need to re-parse
+      const messagesUnchanged =
+        lastParsedMessagesRef.current.length === messages.length &&
+        messages.every(
+          (msg, i) =>
+            msg.id === lastParsedMessagesRef.current[i]?.id &&
+            msg.content === lastParsedMessagesRef.current[i]?.content,
+        );
+
+      if (messagesUnchanged) {
+        return lastParsedMessagesRef.current;
+      }
+
+      lastParsedMessagesRef.current = messages;
       return messages;
     }
 
     // Fallback: parse messages if not already parsed
     const cache = parseCacheRef.current;
-    const result = messages.map((msg) => {
+
+    const result = messages.map((msg, index) => {
+      const msgStartTime = performance.now();
       const cached = cache.get(msg.content);
       if (!cached || cached === undefined) {
         const parsed = parseAIResponse(msg.content);
@@ -175,13 +180,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       }
       return { ...msg, parsed: cache.get(msg.content)! };
     });
-    
-    const duration = performance.now() - startTime;
-    // Only log slow operations
-    if (duration > 10) {
-      console.log(`[ZEN-PERF] ✅ ChatBody.parsedMessages - Done in ${duration.toFixed(2)}ms, Cache size: ${cache.size}`);
-    }
-    
+
+    const elapsed = performance.now() - startTime;
+    lastParsedMessagesRef.current = result;
     return result;
   }, [messages]);
 
@@ -632,13 +633,16 @@ const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
   // Quick reference comparison for arrays/objects
   const sameMessages = prevProps.messages === nextProps.messages;
   const sameProcessing = prevProps.isProcessing === nextProps.isProcessing;
-  const sameExecutionState = prevProps.executionState === nextProps.executionState;
+  const sameExecutionState =
+    prevProps.executionState === nextProps.executionState;
   const sameToolOutputs = prevProps.toolOutputs === nextProps.toolOutputs;
-  const sameTerminalStatus = prevProps.terminalStatus === nextProps.terminalStatus;
+  const sameTerminalStatus =
+    prevProps.terminalStatus === nextProps.terminalStatus;
   const sameSearchOpen = prevProps.isSearchOpen === nextProps.isSearchOpen;
   const sameSearchQuery = prevProps.searchQuery === nextProps.searchQuery;
-  const sameLoadingConversation = prevProps.isLoadingConversation === nextProps.isLoadingConversation;
-  
+  const sameLoadingConversation =
+    prevProps.isLoadingConversation === nextProps.isLoadingConversation;
+
   // Skip re-render if nothing changed
   return (
     sameMessages &&

@@ -103,11 +103,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
-  
-  if (renderCountRef.current > 5) {
-    console.log(`[ZEN-PERF] ⚠️ AIMessageBox - Message ${message.id.slice(0, 20)}... rendered ${renderCountRef.current} times`);
-  }
-  
+
   const translateError = (raw: string): string => {
     const normalized = raw.trim().toLowerCase();
     if (/provider returned empty response/i.test(normalized))
@@ -159,7 +155,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 
   const previousUserMessage = React.useMemo((): Message | null => {
     const startTime = performance.now();
-
     if (!allMessages || !message) return null;
 
     // Use cached result if messages array hasn't changed structurally
@@ -190,12 +185,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       result,
     };
 
-    const duration = performance.now() - startTime;
-    if (duration > 5) {
-      console.log(
-        `[ZEN-PERF] 🔄 AIMessageBox.previousUserMessage - Found in ${duration.toFixed(2)}ms`,
-      );
-    }
+    const elapsed = performance.now() - startTime;
     return result;
   }, [allMessages, message, responseNumber]);
 
@@ -210,7 +200,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 
   const knownFilePaths = React.useMemo((): Map<string, string> => {
     const startTime = performance.now();
-
     if (!allMessages) return new Map();
 
     // Use cached result if messages array hasn't changed structurally
@@ -227,15 +216,21 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
     const map = new Map<string, string>();
     const filePathRegex = /(?:^|\s)([\/~][\w\-\.\/]+\.\w+)(?:\s|$)/g;
 
-    allMessages.forEach((msg) => {
+    allMessages.forEach((msg, msgIndex) => {
       if (!msg.content) return;
+      const msgStartTime = performance.now();
       const matches = msg.content.matchAll(filePathRegex);
+      let matchCount = 0;
       for (const match of matches) {
+        matchCount++;
         const fullPath = match[1];
-        const basename = fullPath.split('/').pop();
+        const basename = fullPath.split("/").pop();
         if (basename) {
           map.set(basename, fullPath);
         }
+      }
+      const msgElapsed = performance.now() - msgStartTime;
+      if (msgElapsed > 5) {
       }
     });
 
@@ -246,13 +241,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       map,
     };
 
-    const duration = performance.now() - startTime;
-    if (duration > 5) {
-      console.log(
-        `[ZEN-PERF] 🔄 AIMessageBox.knownFilePaths - Built in ${duration.toFixed(2)}ms`,
-      );
-    }
-
+    const elapsed = performance.now() - startTime;
     return map;
   }, [allMessages, responseNumber]);
 
@@ -348,7 +337,11 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           | { type: "response_number"; content: string; key: string }
         > = [];
 
-        if (responseNumber !== null && responseNumber !== undefined && !message.isError) {
+        if (
+          responseNumber !== null &&
+          responseNumber !== undefined &&
+          !message.isError
+        ) {
           groups.push({
             type: "response_number",
             content: `[${responseNumber}]`,
@@ -492,8 +485,12 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 
           if (group.type === "response_number") {
             const showRaw = requestChecked || responseChecked;
-            const reqTokens = previousUserMessage?.token_usage ?? previousUserMessage?.usage?.prompt_tokens ?? 0;
-            const resTokens = message.usage?.completion_tokens ?? message.token_usage ?? 0;
+            const reqTokens =
+              previousUserMessage?.token_usage ??
+              previousUserMessage?.usage?.prompt_tokens ??
+              0;
+            const resTokens =
+              message.usage?.completion_tokens ?? message.token_usage ?? 0;
 
             // Request/Response icons (upload/download)
             const RequestIcon = (
@@ -509,9 +506,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 strokeLinejoin="round"
                 style={{ flexShrink: 0 }}
               >
-                <path d="M12 3v12"/>
-                <path d="m17 8-5-5-5 5"/>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <path d="M12 3v12" />
+                <path d="m17 8-5-5-5 5" />
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               </svg>
             );
 
@@ -528,9 +525,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 strokeLinejoin="round"
                 style={{ flexShrink: 0 }}
               >
-                <path d="M12 15V3"/>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <path d="m7 10 5 5 5-5"/>
+                <path d="M12 15V3" />
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="m7 10 5 5 5-5" />
               </svg>
             );
 
@@ -674,8 +671,8 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                         >
                           Response (Assistant Content)
                         </div>
-                        <CodeBlock 
-                          code={message.rawResponse} 
+                        <CodeBlock
+                          code={message.rawResponse}
                           language="text"
                           maxHeight="400px"
                         />
@@ -961,68 +958,70 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 };
 
 // Memoize AIMessageBox to prevent re-renders during streaming
-const AIMessageBox = React.memo(AIMessageBoxInternal, (prevProps, nextProps) => {
-  // Performance optimization: shallow comparison of props
-  // Only re-render if these critical props change
-  
-  const startTime = performance.now();
-  
-  // Message identity check
-  if (prevProps.message.id !== nextProps.message.id) {
-    return false; // Different message, re-render
-  }
-  
-  // CRITICAL: During streaming, only re-render if content actually changed
-  if (prevProps.isGenerating || nextProps.isGenerating) {
-    // Check if message content changed
-    const contentChanged = prevProps.message.content !== nextProps.message.content;
-    
-    // Check if streaming state changed (started/stopped)
-    const streamingStateChanged = prevProps.isGenerating !== nextProps.isGenerating;
-    
-    // Only re-render if content or streaming state changed
-    if (contentChanged || streamingStateChanged) {
-      const duration = performance.now() - startTime;
-      if (duration > 0.5) {
-        console.log(`[ZEN-PERF] 🔄 MessageBox.memo - Re-render NEEDED for message ${nextProps.message.id.slice(0, 20)}... (streaming check took ${duration.toFixed(2)}ms)`);
-      }
-      return false; // Re-render needed
+const AIMessageBox = React.memo(
+  AIMessageBoxInternal,
+  (prevProps, nextProps) => {
+    // Performance optimization: shallow comparison of props
+    // Only re-render if these critical props change
+
+    const startTime = performance.now();
+
+    // Message identity check
+    if (prevProps.message.id !== nextProps.message.id) {
+      return false; // Different message, re-render
     }
-    
-    // Content hasn't changed during streaming, skip re-render
-    return true; // Skip re-render
-  }
-  
-  // Not streaming, check all critical props
-  const sameContent = prevProps.message.content === nextProps.message.content;
-  const sameParsed = prevProps.parsedContent === nextProps.parsedContent;
-  const sameIsLastMessage = prevProps.isLastMessage === nextProps.isLastMessage;
-  const sameHasNext = prevProps.hasNextAssistantMessage === nextProps.hasNextAssistantMessage;
-  const sameResponseNumber = prevProps.responseNumber === nextProps.responseNumber;
-  const sameSelectedOption = prevProps.message.selectedOption === nextProps.message.selectedOption;
-  
-  // Check if arrays/objects changed by reference (quick check)
-  const sameClickedActions = prevProps.clickedActions === nextProps.clickedActions;
-  const sameToolOutputs = prevProps.toolOutputs === nextProps.toolOutputs;
-  const sameTerminalStatus = prevProps.terminalStatus === nextProps.terminalStatus;
-  
-  const shouldSkipRender = 
-    sameContent &&
-    sameParsed &&
-    sameIsLastMessage &&
-    sameHasNext &&
-    sameResponseNumber &&
-    sameSelectedOption &&
-    sameClickedActions &&
-    sameToolOutputs &&
-    sameTerminalStatus;
-  
-  const duration = performance.now() - startTime;
-  if (!shouldSkipRender && duration > 0.5) {
-    console.log(`[ZEN-PERF] 🔄 MessageBox.memo - Re-render NEEDED for message ${nextProps.message.id.slice(0, 20)}... (check took ${duration.toFixed(2)}ms)`);
-  }
-  
-  return shouldSkipRender; // true = skip re-render
-});
+
+    // CRITICAL: During streaming, only re-render if content actually changed
+    if (prevProps.isGenerating || nextProps.isGenerating) {
+      // Check if message content changed
+      const contentChanged =
+        prevProps.message.content !== nextProps.message.content;
+
+      // Check if streaming state changed (started/stopped)
+      const streamingStateChanged =
+        prevProps.isGenerating !== nextProps.isGenerating;
+
+      // Only re-render if content or streaming state changed
+      if (contentChanged || streamingStateChanged) {
+        return false; // Re-render needed
+      }
+
+      // Content hasn't changed during streaming, skip re-render
+      return true; // Skip re-render
+    }
+
+    // Not streaming, check all critical props
+    const sameContent = prevProps.message.content === nextProps.message.content;
+    const sameParsed = prevProps.parsedContent === nextProps.parsedContent;
+    const sameIsLastMessage =
+      prevProps.isLastMessage === nextProps.isLastMessage;
+    const sameHasNext =
+      prevProps.hasNextAssistantMessage === nextProps.hasNextAssistantMessage;
+    const sameResponseNumber =
+      prevProps.responseNumber === nextProps.responseNumber;
+    const sameSelectedOption =
+      prevProps.message.selectedOption === nextProps.message.selectedOption;
+
+    // Check if arrays/objects changed by reference (quick check)
+    const sameClickedActions =
+      prevProps.clickedActions === nextProps.clickedActions;
+    const sameToolOutputs = prevProps.toolOutputs === nextProps.toolOutputs;
+    const sameTerminalStatus =
+      prevProps.terminalStatus === nextProps.terminalStatus;
+
+    const shouldSkipRender =
+      sameContent &&
+      sameParsed &&
+      sameIsLastMessage &&
+      sameHasNext &&
+      sameResponseNumber &&
+      sameSelectedOption &&
+      sameClickedActions &&
+      sameToolOutputs &&
+      sameTerminalStatus;
+
+    return shouldSkipRender; // true = skip re-render
+  },
+);
 
 export default AIMessageBox;

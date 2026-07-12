@@ -76,8 +76,7 @@ const DEBUG_PARSER =
 export const parseAIResponse = (content: string): ParsedResponse => {
   const startTime = performance.now();
   const contentLength = content.length;
-  console.log(`[ZEN-PERF] 🔍 parseAIResponse START - Content length: ${contentLength} chars`);
-  
+
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -1073,18 +1072,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       contentLength: content.length,
       contentPreview: content.substring(0, 200),
       remainingAfterThinking: remainingContent.substring(0, 100),
-    });
-  }
-
-  const duration = performance.now() - startTime;
-  console.log(`[ZEN-PERF] ✅ parseAIResponse END - Duration: ${duration.toFixed(2)}ms, Content: ${contentLength} chars, Blocks: ${result.contentBlocks.length}, Actions: ${result.actions.length}`);
-  
-  if (duration > 100) {
-    console.warn("[ZEN-PERF] ⚠️ SLOW PARSE detected:", {
-      duration: duration.toFixed(2) + "ms",
-      contentLength: content.length,
-      blocksCount: result.contentBlocks.length,
-      actionsCount: result.actions.length,
     });
   }
 

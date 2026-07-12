@@ -1,5 +1,6 @@
 const path = require("path");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
+const webpack = require("webpack");
 
 module.exports = {
   // Make webpack output use paths relative to this folder in logs/errors
@@ -75,6 +76,9 @@ module.exports = {
           to: path.resolve(__dirname, "dist/images/material"),
         },
       ],
+    }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
     }),
   ],
   devtool: process.env.NODE_ENV === "production" ? false : "source-map",

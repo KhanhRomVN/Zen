@@ -46,7 +46,6 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
 
   const handleRegenerate = () => {
     // TODO: Implement regenerate logic - resend this message
-    console.log("Regenerate message:", message.id);
   };
 
   return (
@@ -72,7 +71,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           gap: "var(--spacing-xs)",
           borderRadius: "var(--border-radius)",
           backgroundColor: "var(--input-bg)",
-          border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+          border:
+            "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
           padding: "var(--spacing-md)",
           marginLeft: "0px",
           position: "relative",
@@ -94,7 +94,7 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           {displayContent}
         </div>
       </div>
-      
+
       {/* Bottom toolbar - always visible, transparent background */}
       <div
         style={{
@@ -197,7 +197,7 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           </svg>
         </button>
       </div>
-      
+
       {showRevertModal &&
         createPortal(
           <div

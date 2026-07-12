@@ -108,7 +108,7 @@ const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
 // Memoize to prevent unnecessary re-renders
 const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
   const startTime = performance.now();
-  
+
   // Return true to SKIP re-render (props are equal)
   // Only re-render if message content, clickedActions, or key props change
   //
@@ -128,11 +128,8 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
       prevProps.failedActions === nextProps.failedActions &&
       prevProps.rejectedActions === nextProps.rejectedActions;
 
-    const duration = performance.now() - startTime;
-    if (!streamingPropsEqual) {
-      console.log(
-        `[ZEN-PERF] 🔄 MessageBox.memo - Re-render NEEDED for message ${nextProps.message.id.slice(0, 20)}... (streaming check took ${duration.toFixed(2)}ms)`,
-      );
+    const elapsed = performance.now() - startTime;
+    if (elapsed > 1) {
     }
     return streamingPropsEqual;
   }
@@ -147,13 +144,6 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
     prevProps.rejectedActions === nextProps.rejectedActions &&
     prevProps.isGenerating === nextProps.isGenerating &&
     prevProps.toolOutputs === nextProps.toolOutputs;
-
-  const duration = performance.now() - startTime;
-  if (!propsAreEqual) {
-    console.log(
-      `[ZEN-PERF] 🔄 MessageBox.memo - Re-render NEEDED for message ${nextProps.message.id.slice(0, 20)}... (check took ${duration.toFixed(2)}ms)`,
-    );
-  }
 
   return propsAreEqual; // true = skip re-render, false = do re-render
 });

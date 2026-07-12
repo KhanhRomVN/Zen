@@ -57,7 +57,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // Track render count for performance monitoring
   const renderCountRef = useRef(0);
   renderCountRef.current++;
-  
+
   // --- States ---
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
   const [isApiUrlReady, setIsApiUrlReady] = useState(false);
@@ -153,14 +153,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionType,
       ),
   });
-  
-  // Track render count AFTER messages is available
-  useEffect(() => {
-    // Only log in development or when explicitly debugging performance
-    if (process.env.NODE_ENV === 'development' && messages.length > 20) {
-      console.log(`[ZEN-PERF] 📊 ChatPanel State - Messages: ${messages.length}, Processing: ${isProcessing}, Streaming: ${isStreaming}`);
-    }
-  }, [messages.length, isProcessing, isStreaming]);
 
   const { availableFiles, availableFolders, availableRules } =
     useWorkspaceData();
@@ -397,38 +389,42 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     contentLength: number;
     parsed: ReturnType<typeof parseAIResponse>;
   } | null>(null);
-  
+
   // PERF: Track last parsed messages to enable incremental updates
   const lastParsedLengthRef = useRef(0);
   const lastParsedResultRef = useRef<any[]>([]);
-  const lastMessagesRef = useRef<Message[]>([]);  // Track previous messages array for comparison
+  const lastMessagesRef = useRef<Message[]>([]); // Track previous messages array for comparison
 
   const parsedMessages = useMemo(() => {
     const startTime = performance.now();
-    
+
     const cache = parseCacheRef.current;
     const lastStreaming = lastStreamingParseRef.current;
-    
+
     // PERF OPTIMIZATION: Incremental parsing with stable references
     // CRITICAL FIX: Check if messages array only GREW (new messages added)
     // We DON'T compare content because the last message might be streaming (content changes)
     // We only check if existing message IDs match → same messages, just potentially updated content
-    const messagesOnlyGrew = 
+    const messagesOnlyGrew =
       messages.length >= lastParsedLengthRef.current &&
       lastParsedResultRef.current.length > 0;
-    
+
     // For non-streaming messages, check if they're identical to previous render
-    const existingMessagesUnchanged = messagesOnlyGrew && 
+    const existingMessagesUnchanged =
+      messagesOnlyGrew &&
       messages.slice(0, lastParsedLengthRef.current).every(
-        (msg, i) => msg === lastMessagesRef.current[i] // Same object reference = unchanged
+        (msg, i) => msg === lastMessagesRef.current[i], // Same object reference = unchanged
       );
-    
+
     let result: any[];
-    
+
     if (existingMessagesUnchanged) {
       // PERF: Reuse ALL previous parsed message objects (stable references!)
-      const reusedMessages = lastParsedResultRef.current.slice(0, lastParsedLengthRef.current);
-      
+      const reusedMessages = lastParsedResultRef.current.slice(
+        0,
+        lastParsedLengthRef.current,
+      );
+
       // Only parse new messages (or re-parse if last message is streaming)
       const newMessages = messages.slice(lastParsedLengthRef.current);
       const newParsed = newMessages.map((msg: Message, index: number) => {
@@ -436,15 +432,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const isLastMessage = globalIndex === messages.length - 1;
         const isAssistantStreaming =
           isLastMessage && msg.role === "assistant" && isStreaming;
-        
-        return parseMessageWithCache(msg, isAssistantStreaming, cache, lastStreaming);
+
+        return parseMessageWithCache(
+          msg,
+          isAssistantStreaming,
+          cache,
+          lastStreaming,
+        );
       });
-      
+
       result = [...reusedMessages, ...newParsed];
-      
-      if (newParsed.length > 0) {
-        console.log(`[ZEN-PERF] ✅ ChatPanel.parsedMessages - Incremental: Reused ${reusedMessages.length}, New ${newParsed.length}`);
-      }
     } else if (messagesOnlyGrew && !existingMessagesUnchanged) {
       // Messages grew but some existing messages changed (e.g., clickedActions updated)
       // Re-parse ALL but try to use object cache for unchanged ones
@@ -452,46 +449,49 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         const isLastMessage = index === messages.length - 1;
         const isAssistantStreaming =
           isLastMessage && msg.role === "assistant" && isStreaming;
-        
-        return parseMessageWithCache(msg, isAssistantStreaming, cache, lastStreaming);
+
+        return parseMessageWithCache(
+          msg,
+          isAssistantStreaming,
+          cache,
+          lastStreaming,
+        );
       });
-      
-      console.log(`[ZEN-PERF] ✅ ChatPanel.parsedMessages - Partial update: ${messages.length} messages (some changed)`);
     } else {
       // Full re-parse (messages array shrank or completely different)
       result = messages.map((msg: Message, index: number) => {
         const isLastMessage = index === messages.length - 1;
         const isAssistantStreaming =
           isLastMessage && msg.role === "assistant" && isStreaming;
-        
-        return parseMessageWithCache(msg, isAssistantStreaming, cache, lastStreaming);
+
+        return parseMessageWithCache(
+          msg,
+          isAssistantStreaming,
+          cache,
+          lastStreaming,
+        );
       });
-      
-      const duration = performance.now() - startTime;
-      if (duration > 5) {
-        console.log(`[ZEN-PERF] ✅ ChatPanel.parsedMessages - Full parse in ${duration.toFixed(2)}ms, ${messages.length} messages`);
-      }
     }
 
     // Clear streaming ref when no longer streaming
     if (!isStreaming) {
       lastStreamingParseRef.current = null;
     }
-    
+
     // Cache result and messages for next incremental update
     lastParsedLengthRef.current = messages.length;
     lastParsedResultRef.current = result;
-    lastMessagesRef.current = messages;  // Store current messages array for next comparison
-    
+    lastMessagesRef.current = messages; // Store current messages array for next comparison
+
     return result;
   }, [messages, isStreaming]);
-  
+
   // Helper function to parse a single message with caching
   function parseMessageWithCache(
     msg: Message,
     isAssistantStreaming: boolean,
     cache: Map<string, ReturnType<typeof parseAIResponse>>,
-    lastStreaming: typeof lastStreamingParseRef.current
+    lastStreaming: typeof lastStreamingParseRef.current,
   ) {
     // PERF: During streaming, if the last message is the same one and content
     // only grew by a small amount (no new closing tags), reuse the cached
@@ -540,27 +540,27 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
     // PERF FIX: Create a cache key that identifies this message's state
     // Key includes: id + content + clickedActions + rejectedActions to detect changes
-    const clickedKey = (msg.clickedActions || []).join(',');
-    const rejectedKey = (msg.rejectedActions || []).join(',');
+    const clickedKey = (msg.clickedActions || []).join(",");
+    const rejectedKey = (msg.rejectedActions || []).join(",");
     const cacheKey = `${msg.id}:${msg.content.length}:${clickedKey}:${rejectedKey}`;
-    
+
     // Check object cache - if we've created this exact parsed message before, reuse it
     const objectCache = parsedMessageObjectCacheRef.current;
     if (objectCache.has(cacheKey)) {
       return objectCache.get(cacheKey)!;
     }
-    
+
     // Create new parsed message object
     const parsedMsg = { ...msg, parsed: cache.get(msg.content)! };
-    
+
     // Store in object cache (limit size to prevent memory leak)
     if (objectCache.size > 100) {
       // Clear old entries when cache grows too large
       const keys = Array.from(objectCache.keys());
-      keys.slice(0, 50).forEach(k => objectCache.delete(k));
+      keys.slice(0, 50).forEach((k) => objectCache.delete(k));
     }
     objectCache.set(cacheKey, parsedMsg);
-    
+
     return parsedMsg;
   }
 
@@ -570,15 +570,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const contextUsage = useMemo(() => {
     const startTime = performance.now();
-    
+
     // PERF OPTIMIZATION: Incremental computation - only process new messages
-    const canUseIncremental = messages.length >= lastContextUsageLengthRef.current;
-    
+    const canUseIncremental =
+      messages.length >= lastContextUsageLengthRef.current;
+
     let result;
     if (canUseIncremental && lastContextUsageLengthRef.current > 0) {
       // Start from previous result and add new messages
       result = { ...lastContextUsageRef.current };
-      
+
       const newMessages = messages.slice(lastContextUsageLengthRef.current);
       for (const msg of newMessages) {
         if (msg.isCancelled) continue;
@@ -623,17 +624,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         { prompt: 0, completion: 0, total: 0 },
       );
     }
-    
+
     // Cache result for next incremental update
     lastContextUsageLengthRef.current = messages.length;
     lastContextUsageRef.current = result;
-    
-    const duration = performance.now() - startTime;
-    // Only log slow operations
-    if (duration > 5) {
-      console.log(`[ZEN-PERF] ✅ ChatPanel.contextUsage - Done in ${duration.toFixed(2)}ms, Total tokens: ${result.total}`);
-    }
-    
+
     return result;
   }, [messages]);
 
@@ -650,12 +645,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // PERF: Track last computed file stats for incremental updates
   const lastFileStatsLengthRef = useRef(0);
-  const lastFileStatsMapRef = useRef<Map<string, { additions: number; deletions: number }>>(new Map());
+  const lastFileStatsMapRef = useRef<
+    Map<string, { additions: number; deletions: number }>
+  >(new Map());
 
   // Calculate conversation file stats from messages
   const conversationFileStats = useMemo(() => {
     const startTime = performance.now();
-    
+
     // If we have loaded stats from history and no new messages, use loaded stats
     if (
       loadedConversationFileStats &&
@@ -671,13 +668,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
     // PERF OPTIMIZATION: Incremental computation - only scan new messages
     const canUseIncremental = messages.length >= lastFileStatsLengthRef.current;
-    
+
     let fileChanges: Map<string, { additions: number; deletions: number }>;
-    
+
     if (canUseIncremental && lastFileStatsLengthRef.current > 0) {
       // Start from previous map and scan only new messages
       fileChanges = new Map(lastFileStatsMapRef.current);
-      
+
       const newMessages = messages.slice(lastFileStatsLengthRef.current);
       scanMessagesForFileChanges(newMessages, fileChanges);
     } else {
@@ -685,7 +682,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       fileChanges = new Map();
       scanMessagesForFileChanges(messages, fileChanges);
     }
-    
+
     // Cache map for next incremental update
     lastFileStatsLengthRef.current = messages.length;
     lastFileStatsMapRef.current = fileChanges;
@@ -700,23 +697,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       0,
     );
 
-    const duration = performance.now() - startTime;
-    // Only log slow operations
-    if (duration > 5) {
-      console.log(`[ZEN-PERF] ✅ ChatPanel.conversationFileStats - Done in ${duration.toFixed(2)}ms, Files: ${totalFiles}, +${totalAdditions}/-${totalDeletions}`);
-    }
-
     return {
       totalFiles,
       totalAdditions,
       totalDeletions,
     };
   }, [messages, loadedConversationFileStats]);
-  
+
   // Helper function to scan messages for file changes
   function scanMessagesForFileChanges(
     messagesToScan: Message[],
-    fileChanges: Map<string, { additions: number; deletions: number }>
+    fileChanges: Map<string, { additions: number; deletions: number }>,
   ) {
     messagesToScan.forEach((msg) => {
       if (msg.role === "assistant" && msg.content) {
@@ -1042,7 +1033,7 @@ Generate the summary now:
     if (!currentConversationId || messages.length === 0 || isStreaming) {
       return;
     }
-    
+
     // Skip if nothing changed since last cache update
     const prev = prevCacheDataRef.current;
     if (
@@ -1052,7 +1043,7 @@ Generate the summary now:
     ) {
       return; // Nothing changed, skip cache update
     }
-    
+
     // Update cache
     const existing = ConversationCache.get(currentConversationId);
     ConversationCache.set(currentConversationId, {
@@ -1070,7 +1061,7 @@ Generate the summary now:
           ? conversationFileStats
           : existing?.conversationFileStats,
     });
-    
+
     // Update ref to track this update
     prevCacheDataRef.current = {
       messagesLength: messages.length,
@@ -1090,10 +1081,8 @@ Generate the summary now:
   // Persist toolOutputs
   useEffect(() => {
     if (!currentConversationId || Object.keys(toolOutputs).length === 0) return;
-    
-    console.log(`[ZEN-PERF] 💾 ChatPanel.useEffect[toolOutputs] - Saving conversation with ${Object.keys(toolOutputs).length} tool outputs`);
     const startTime = performance.now();
-    
+
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
     saveConversation(
@@ -1107,9 +1096,6 @@ Generate the summary now:
       undefined,
       toolOutputs,
     );
-    
-    const duration = performance.now() - startTime;
-    console.log(`[ZEN-PERF] ✅ ChatPanel.useEffect[toolOutputs] - Saved in ${duration.toFixed(2)}ms`);
   }, [toolOutputs, currentConversationId, currentChat]);
 
   // Persist singleLineReviewActions
@@ -1119,10 +1105,8 @@ Generate the summary now:
       Object.keys(singleLineReviewActions).length === 0
     )
       return;
-    
-    console.log(`[ZEN-PERF] 💾 ChatPanel.useEffect[singleLineReviewActions] - Saving conversation with ${Object.keys(singleLineReviewActions).length} review actions`);
     const startTime = performance.now();
-    
+
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
     saveConversation(
@@ -1137,19 +1121,16 @@ Generate the summary now:
       undefined,
       singleLineReviewActions,
     );
-    
+
     const duration = performance.now() - startTime;
-    console.log(`[ZEN-PERF] ✅ ChatPanel.useEffect[singleLineReviewActions] - Saved in ${duration.toFixed(2)}ms`);
   }, [singleLineReviewActions, currentConversationId, currentChat]);
 
   // Persist conversationFileStats
   useEffect(() => {
     if (!currentConversationId || conversationFileStats.totalFiles === 0)
       return;
-    
-    console.log(`[ZEN-PERF] 💾 ChatPanel.useEffect[conversationFileStats] - Saving conversation with file stats: ${conversationFileStats.totalFiles} files`);
     const startTime = performance.now();
-    
+
     const sessionId = currentChat?.sessionId || -1;
     const folderPath = currentChat?.folderPath || null;
     saveConversation(
@@ -1165,9 +1146,6 @@ Generate the summary now:
       undefined,
       conversationFileStats,
     );
-    
-    const duration = performance.now() - startTime;
-    console.log(`[ZEN-PERF] ✅ ChatPanel.useEffect[conversationFileStats] - Saved in ${duration.toFixed(2)}ms`);
   }, [conversationFileStats, currentConversationId, currentChat]);
 
   // Conversation restore is now handled by useConversationRestore hook
@@ -1542,7 +1520,6 @@ Generate the summary now:
         handleFileInputChange={handleFileInputChange}
         footerPaddingBottom={footerPaddingBottom}
         shouldShowCompressionButton={shouldShowCompressionButton}
-        
         gitStatus={gitStatus}
         onOpenGitStatus={() => setShowGitStatusBlock(true)}
         loadedConversationFileStats={loadedConversationFileStats}
@@ -1556,27 +1533,26 @@ Generate the summary now:
 // ChatPanel should only re-render when its props actually change
 export default React.memo(ChatPanel, (prevProps, nextProps) => {
   // Debug: Check which props changed
-  const sessionIdSame = prevProps.currentChat?.sessionId === nextProps.currentChat?.sessionId;
-  const folderPathSame = prevProps.currentChat?.folderPath === nextProps.currentChat?.folderPath;
-  const initialDataSame = prevProps.initialMessageData === nextProps.initialMessageData;
+  const sessionIdSame =
+    prevProps.currentChat?.sessionId === nextProps.currentChat?.sessionId;
+  const folderPathSame =
+    prevProps.currentChat?.folderPath === nextProps.currentChat?.folderPath;
+  const initialDataSame =
+    prevProps.initialMessageData === nextProps.initialMessageData;
   const onBackSame = prevProps.onBack === nextProps.onBack;
-  const onLoadConvSame = prevProps.onLoadConversation === nextProps.onLoadConversation;
-  const onClearSame = prevProps.onClearInitialData === nextProps.onClearInitialData;
-  
-  const allSame = sessionIdSame && folderPathSame && initialDataSame && onBackSame && onLoadConvSame && onClearSame;
-  
-  // Log when props change (causing re-render)
-  if (!allSame) {
-    console.log('[ZEN-PERF] 🔴 ChatPanel.memo - Props changed, re-rendering:', {
-      sessionId: !sessionIdSame ? 'CHANGED' : 'same',
-      folderPath: !folderPathSame ? 'CHANGED' : 'same',
-      initialData: !initialDataSame ? 'CHANGED' : 'same',
-      onBack: !onBackSame ? 'CHANGED' : 'same',
-      onLoadConv: !onLoadConvSame ? 'CHANGED' : 'same',
-      onClear: !onClearSame ? 'CHANGED' : 'same',
-    });
-  }
-  
+  const onLoadConvSame =
+    prevProps.onLoadConversation === nextProps.onLoadConversation;
+  const onClearSame =
+    prevProps.onClearInitialData === nextProps.onClearInitialData;
+
+  const allSame =
+    sessionIdSame &&
+    folderPathSame &&
+    initialDataSame &&
+    onBackSame &&
+    onLoadConvSame &&
+    onClearSame;
+
   // Return true to SKIP re-render (props are same)
   // Return false to ALLOW re-render (props changed)
   return allSame;

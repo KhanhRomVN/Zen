@@ -127,11 +127,17 @@ type StreamingAction =
   | { type: "SET_PROCESSING"; payload: boolean }
   | { type: "SET_STREAMING"; payload: boolean }
   | { type: "SET_CONTINUING"; payload: boolean }
-  | { type: "SET_INCOMPLETE_TOOL"; payload: { hasPartial: boolean; toolType: string | null } }
+  | {
+      type: "SET_INCOMPLETE_TOOL";
+      payload: { hasPartial: boolean; toolType: string | null };
+    }
   | { type: "RESET_STREAMING" }
   | { type: "STOP_ALL" };
 
-const streamingReducer = (state: StreamingState, action: StreamingAction): StreamingState => {
+const streamingReducer = (
+  state: StreamingState,
+  action: StreamingAction,
+): StreamingState => {
   switch (action.type) {
     case "SET_PROCESSING":
       return { ...state, isProcessing: action.payload };
@@ -176,13 +182,13 @@ export const useChatLLM = ({
   const renderCountRef = useRef(0);
   const prevDepsRef = useRef<any>({});
   renderCountRef.current++;
-  
+
   // Get context values
   const { aiLanguage, permissionMode } = useSettings();
   const { workspace, treeView } = useProject();
   const { uploadFiles } = useFileUpload(apiUrl);
   const [messages, setMessages] = useState<Message[]>([]);
-  
+
   // Replace multiple state variables with single reducer
   const [streamingState, dispatchStreaming] = useReducer(streamingReducer, {
     isProcessing: false,
@@ -191,7 +197,7 @@ export const useChatLLM = ({
     incompleteHasPartialTool: false,
     incompletePartialToolType: null,
   });
-  
+
   // Debug logging - track what triggers re-renders
   const deps: Record<string, any> = {
     messagesLen: messages.length,
@@ -203,23 +209,15 @@ export const useChatLLM = ({
     workspaceLen: workspace?.length || 0,
     treeViewLen: treeView?.length || 0,
   };
-  
-  if (renderCountRef.current > 1) {
-    const prev = prevDepsRef.current;
-    const changed = Object.keys(deps).filter(k => deps[k] !== prev[k]);
-    if (changed.length > 0) {
-      console.log(`[ZEN-PERF] 🔄 useChatLLM - Render #${renderCountRef.current} - Changed:`, 
-        changed.map(k => `${k}: ${prev[k]} → ${deps[k]}`).join(', '));
-    }
-  }
+
   prevDepsRef.current = deps;
-  
+
   const isProcessingRef = useRef(false);
   const setIsProcessingSync = useCallback((val: boolean) => {
     isProcessingRef.current = val;
     dispatchStreaming({ type: "SET_PROCESSING", payload: val });
   }, []);
-  
+
   // DeepSeek: true khi server đang tự động gọi /chat/continue để lấy phần còn lại của response dài
   // Ref để tránh stale closure bên trong sendMessage useCallback
   const isContinuingRef = useRef(false);
@@ -871,10 +869,13 @@ export const useChatLLM = ({
         const bodyStr = JSON.stringify(body);
 
         // Lưu rawRequest vào user message (toàn bộ nội dung request bao gồm permission-mode, user content và các metadata khác)
-        updatedMessages[updatedMessages.length - 1].rawRequest = userMessage.content;
+        updatedMessages[updatedMessages.length - 1].rawRequest =
+          userMessage.content;
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === userMessage.id ? { ...m, rawRequest: userMessage.content } : m,
+            m.id === userMessage.id
+              ? { ...m, rawRequest: userMessage.content }
+              : m,
           ),
         );
 
@@ -914,12 +915,12 @@ export const useChatLLM = ({
 
         let done = false;
         let buffer = "";
-        
+
         // Batching: Accumulate updates and flush periodically
         let updateBatch = { content: "", thinking: "" };
         let lastFlushTime = Date.now();
         const FLUSH_INTERVAL_MS = 100; // Increased from 50ms to 100ms to reduce update frequency
-        
+
         // Track metadata updates separately to avoid triggering state changes
         let pendingMetadataUpdate = false;
 
@@ -1029,7 +1030,8 @@ export const useChatLLM = ({
                         type: "SET_INCOMPLETE_TOOL",
                         payload: {
                           hasPartial: metaObj.incomplete_has_partial_tool,
-                          toolType: metaObj.incomplete_partial_tool_type ?? null,
+                          toolType:
+                            metaObj.incomplete_partial_tool_type ?? null,
                         },
                       });
                       pendingMetadataUpdate = true;
@@ -1085,36 +1087,45 @@ export const useChatLLM = ({
                     assistantMessage.token_usage = data.usage.total_tokens;
                   }
                   if (data.content) {
-                    assistantMessage.content = assistantMessage.content + data.content;
+                    assistantMessage.content =
+                      assistantMessage.content + data.content;
                   }
                   if (data.thinking) {
-                    assistantMessage.thinking = (assistantMessage.thinking || "") + data.thinking;
+                    assistantMessage.thinking =
+                      (assistantMessage.thinking || "") + data.thinking;
                   }
 
                   // Batch updates instead of immediate setState
                   if (data.content) {
+                    // console.log(`[Zen][Main Stream] Appending content chunk (length: ${data.content.length}):`, data.content.substring(0, 100));
                     updateBatch.content += data.content;
                   }
                   if (data.thinking) {
                     updateBatch.thinking += data.thinking;
                   }
-                  
+
                   // Flush batch if interval passed or if we have usage data (final chunk)
                   const now = Date.now();
-                  const shouldFlush = (now - lastFlushTime >= FLUSH_INTERVAL_MS) || data.usage;
-                  
-                  if (shouldFlush && (updateBatch.content || updateBatch.thinking || data.usage)) {
+                  const shouldFlush =
+                    now - lastFlushTime >= FLUSH_INTERVAL_MS || data.usage;
+
+                  if (
+                    shouldFlush &&
+                    (updateBatch.content || updateBatch.thinking || data.usage)
+                  ) {
                     // PERF FIX: Preserve message object references for unchanged messages
                     // This prevents cascade re-renders in ChatPanel memo comparison
                     setMessages((prev) => {
                       const newArray = prev.slice(); // Shallow copy array
-                      const targetIndex = prev.findIndex(m => m.id === assistantMessage.id);
-                      
+                      const targetIndex = prev.findIndex(
+                        (m) => m.id === assistantMessage.id,
+                      );
+
                       if (targetIndex !== -1) {
                         // Replace only the target message, reuse all others
                         newArray[targetIndex] = assistantMessage;
                       }
-                      
+
                       return newArray;
                     });
                     updateBatch = { content: "", thinking: "" };
@@ -1132,16 +1143,26 @@ export const useChatLLM = ({
         // Process any remaining data in buffer after stream ends
         // Stream ended — clear first-chunk timer if still pending
         clearTimeout(firstChunkTimer);
-        
+
+        // console.log(`[Zen][Stream End] Buffer state before cleanup (length: ${buffer.length}):`, buffer.substring(buffer.length - 200));
+
         // Flush any pending batch updates
         if (updateBatch.content || updateBatch.thinking) {
-          // PERF FIX: Mutate instead of recreate
-          assistantMessage.content = assistantMessage.content + updateBatch.content;
-          assistantMessage.thinking = (assistantMessage.thinking || "") + updateBatch.thinking;
-          
+          // BUGFIX: Remove duplicate append
+          // Content was already appended in main stream loop (line ~1095)
+          // Adding it again here causes duplicate content at the end of response
+          //
+          // ❌ BEFORE (causes duplicate):
+          // assistantMessage.content = assistantMessage.content + updateBatch.content;
+          // assistantMessage.thinking = (assistantMessage.thinking || "") + updateBatch.thinking;
+          //
+          // ✅ AFTER: Content is already in assistantMessage, just trigger UI update
+
           setMessages((prev) => {
             const newArray = prev.slice();
-            const targetIndex = prev.findIndex(m => m.id === assistantMessage.id);
+            const targetIndex = prev.findIndex(
+              (m) => m.id === assistantMessage.id,
+            );
             if (targetIndex !== -1) {
               newArray[targetIndex] = assistantMessage;
             }
@@ -1157,6 +1178,9 @@ export const useChatLLM = ({
         const remainingLines = buffer
           .split("\n")
           .filter((l) => l.trim().startsWith("data: "));
+
+        // console.log(`[Zen][Buffer Cleanup] Processing ${remainingLines.length} remaining lines`);
+
         for (const line of remainingLines) {
           const dataStr = line.slice(6).trim();
           if (dataStr === "[DONE]") continue;
@@ -1213,10 +1237,13 @@ export const useChatLLM = ({
               assistantMessage.token_usage = data.usage.total_tokens;
             }
             if (data.content) {
-              assistantMessage.content = assistantMessage.content + data.content;
+              // console.log(`[Zen][Buffer Cleanup] Appending content chunk (length: ${data.content.length}):`, data.content.substring(0, 100));
+              assistantMessage.content =
+                assistantMessage.content + data.content;
             }
             if (data.thinking) {
-              assistantMessage.thinking = (assistantMessage.thinking || "") + data.thinking;
+              assistantMessage.thinking =
+                (assistantMessage.thinking || "") + data.thinking;
             }
           } catch (e) {}
         }
