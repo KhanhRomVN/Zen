@@ -3,6 +3,7 @@ import { Message } from "../../types/message";
 import { ParsedResponse } from "../../services/ResponseParser";
 import UserMessageBox from "./UserMessageBox";
 import AIMessageBox from "./AIMessageBox";
+import { ModelUsageInfo } from "../ModelUsageInfo";
 
 interface MessageBoxProps {
   message: Message;
@@ -59,16 +60,92 @@ interface MessageBoxProps {
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
+  responseNumber?: number | null;
 }
 
-const MessageBox: React.FC<MessageBoxProps> = (props) => {
+const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
   const { message, onRevertConversation } = props;
-
   if (message.role === "user") {
-    return <UserMessageBox message={message} onRevertConversation={onRevertConversation} />;
+    return (
+      <UserMessageBox
+        message={message}
+        onRevertConversation={onRevertConversation}
+      />
+    );
+  }
+
+  // Handle system messages (e.g., model switch)
+  if (message.role === "system") {
+    // Check if it's a model switch message
+    if (message.content.startsWith("__MODEL_SWITCH__::")) {
+      try {
+        const dataStr = message.content.replace("__MODEL_SWITCH__::", "");
+        const data = JSON.parse(dataStr);
+
+        return (
+          <div style={{ padding: "12px 0" }}>
+            <ModelUsageInfo
+              providerId={data.providerId}
+              modelId={data.modelId}
+              email={data.email}
+              websiteUrl={data.websiteUrl}
+            />
+          </div>
+        );
+      } catch (e) {
+        console.error("Failed to parse model switch message:", e);
+        return null;
+      }
+    }
+
+    // Other system messages
+    return null;
   }
 
   return <AIMessageBox {...props} />;
 };
+
+// Memoize to prevent unnecessary re-renders
+const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
+  const startTime = performance.now();
+
+  // Return true to SKIP re-render (props are equal)
+  // Only re-render if message content, clickedActions, or key props change
+  //
+  // When streaming (isGenerating=true), content changes on every chunk.
+  // We still need to re-render to show new text, but we skip the comparison
+  // for heavy props like toolOutputs/allMessages since they don't change mid-stream.
+  const isStreaming =
+    prevProps.isGenerating === true && nextProps.isGenerating === true;
+
+  // During streaming, only check props that actually change per chunk
+  if (isStreaming) {
+    const streamingPropsEqual =
+      prevProps.message.id === nextProps.message.id &&
+      prevProps.message.content === nextProps.message.content &&
+      prevProps.message.thinking === nextProps.message.thinking &&
+      prevProps.clickedActions === nextProps.clickedActions &&
+      prevProps.failedActions === nextProps.failedActions &&
+      prevProps.rejectedActions === nextProps.rejectedActions;
+
+    const elapsed = performance.now() - startTime;
+    if (elapsed > 1) {
+    }
+    return streamingPropsEqual;
+  }
+
+  // Full comparison when not streaming
+  const propsAreEqual =
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.thinking === nextProps.message.thinking &&
+    prevProps.clickedActions === nextProps.clickedActions &&
+    prevProps.failedActions === nextProps.failedActions &&
+    prevProps.rejectedActions === nextProps.rejectedActions &&
+    prevProps.isGenerating === nextProps.isGenerating &&
+    prevProps.toolOutputs === nextProps.toolOutputs;
+
+  return propsAreEqual; // true = skip re-render, false = do re-render
+});
 
 export default MessageBox;

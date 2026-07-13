@@ -45,4 +45,10 @@ export interface Message {
   rejectedActions?: string[];
   /** DeepSeek parent_message_id for revert support. */
   response_message_id?: string;
+  /** Raw request content for debugging/inspection */
+  rawRequest?: string;
+  /** Raw response content for debugging/inspection */
+  rawResponse?: string;
+  /** Parsed content (may be pre-parsed by ChatPanel) */
+  parsed?: any;
 }

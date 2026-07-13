@@ -12,6 +12,8 @@ export interface ErrorBlockProps {
   showHeader?: boolean;
   /** Padding left for content when header is hidden */
   contentPaddingLeft?: string;
+  /** Use compact inline style (like GrepBlock error) instead of full header style */
+  compact?: boolean;
 }
 
 // Parse error message to extract meaningful information
@@ -70,6 +72,7 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
   isLastMessage = false,
   showHeader = true,
   contentPaddingLeft = "36px",
+  compact = false,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const errorColor = "var(--vscode-errorForeground, #f44336)";
@@ -85,6 +88,48 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
   // Parse and simplify error message
   displayMessage = parseErrorMessage(displayMessage);
 
+  // Compact inline style (like GrepBlock error)
+  if (compact) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "6px",
+          padding: "5px 8px",
+          backgroundColor:
+            "color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)",
+          border:
+            "1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)",
+          borderRadius: "4px",
+        }}
+      >
+        <span
+          className="codicon codicon-error"
+          style={{
+            fontSize: "11px",
+            color: "var(--vscode-errorForeground)",
+            opacity: 0.7,
+            marginTop: "1px",
+            flexShrink: 0,
+          }}
+        />
+        <span
+          style={{
+            fontSize: "11px",
+            color: "var(--vscode-errorForeground)",
+            opacity: 0.85,
+            fontFamily: "var(--vscode-editor-font-family, monospace)",
+            wordBreak: "break-word",
+          }}
+        >
+          {displayMessage}
+        </span>
+      </div>
+    );
+  }
+
+  // Full header style (original ErrorBlock)
   return (
     <div
       style={{
@@ -145,26 +190,44 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
 
         {!isCollapsed && (
           <div
-            className="error-block-content"
             style={{
-              padding: "0 16px",
-              marginLeft: showHeader ? "36px" : contentPaddingLeft,
-              marginTop: "0",
-              marginBottom: "0",
-              marginRight: "0",
-              display: "flex",
-              alignItems: "center",
-              minHeight: "32px",
+              marginTop: "4px",
             }}
           >
             <div
               style={{
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                color: "var(--vscode-errorForeground, #f14c4c)",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "6px",
+                padding: "5px 8px",
+                backgroundColor:
+                  "color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)",
+                border:
+                  "1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)",
+                borderRadius: "4px",
               }}
             >
-              {displayMessage}
+              <span
+                className="codicon codicon-error"
+                style={{
+                  fontSize: "11px",
+                  color: "var(--vscode-errorForeground)",
+                  opacity: 0.7,
+                  marginTop: "1px",
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: "var(--vscode-errorForeground)",
+                  opacity: 0.85,
+                  fontFamily: "var(--vscode-editor-font-family, monospace)",
+                  wordBreak: "break-word",
+                }}
+              >
+                {displayMessage}
+              </span>
             </div>
           </div>
         )}

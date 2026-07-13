@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { extensionService } from "@/services/ExtensionService";
 import { getFileIconPath } from "@/utils/fileIconMapper";
+import ErrorBlock from "../error/ErrorBlock";
 
 interface GrepBlockProps {
   action: any;
@@ -144,31 +145,46 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
   const folderPath =
     action.params.folder_path || action.params.folderPath || "";
   const filePath = action.params.file_path || action.params.filePath || "";
+  
+  // Check for validation error from parser
+  const validationError = action.params._validationError;
 
-  const parseGrepResult = (): GrepResultData | null => {
+  const grepResult = React.useMemo((): GrepResultData | null => {
     const output = toolOutputs?.[actionId]?.output;
-    if (!output) return null;
+    if (!output) {
+      return null;
+    }
 
     if (!_loggedOutputs.has(actionId)) {
       _loggedOutputs.add(actionId);
+    }
+
+    // Check for error messages first (before attempting JSON parse)
+    if (output.startsWith('Error - ') || output.startsWith('Error:') || output.includes('not found')) {
+      // This is an error message, not grep results - will be handled by ErrorBlock
+      return null;
     }
 
     if (output.includes("<grep_results")) {
       const result = parseCompactGrepOutput(output);
       return result;
     }
+    
     try {
       const parsed = JSON.parse(output);
-      if (parsed.searchTerm !== undefined) return parsed as GrepResultData;
-      if (parsed.success && parsed.data) return parsed.data as GrepResultData;
+      if (parsed.searchTerm !== undefined) {
+        return parsed as GrepResultData;
+      }
+      if (parsed.success && parsed.data) {
+        return parsed.data as GrepResultData;
+      }
       return null;
     } catch (e) {
-      console.warn("[GrepBlock] Failed to parse output:", e);
+      // Not JSON - likely an error message, will be handled by ErrorBlock
       return null;
     }
-  };
+  }, [actionId, toolOutputs]);
 
-  const grepResult = parseGrepResult();
   const hasResults = grepResult && grepResult.totalMatches > 0;
   const filePaths = Object.keys(grepResult?.results || {});
 
@@ -194,6 +210,16 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
       extensionService.postMessage({ command: "openFile", path: fullPath });
     }, 200);
   };
+  
+  // Validation error state: show error message immediately
+  if (validationError && !toolOutputs?.[actionId]) {
+    return (
+      <ErrorBlock 
+        content={`Invalid Search Pattern: ${validationError}\nPattern: ${searchTerm}`} 
+        compact={true} 
+      />
+    );
+  }
 
   // Loading state: show spinner placeholder
   if (isPartial && !isCompleted) {
@@ -221,43 +247,19 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
 
   // Error state: show error message
   if (isError && errorMessage) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "6px",
-          padding: "5px 8px",
-          backgroundColor:
-            "color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)",
-          border:
-            "1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)",
-          borderRadius: "4px",
-        }}
-      >
-        <span
-          className="codicon codicon-error"
-          style={{
-            fontSize: "11px",
-            color: "var(--vscode-errorForeground)",
-            opacity: 0.7,
-            marginTop: "1px",
-            flexShrink: 0,
-          }}
-        />
-        <span
-          style={{
-            fontSize: "11px",
-            color: "var(--vscode-errorForeground)",
-            opacity: 0.85,
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            wordBreak: "break-word",
-          }}
-        >
-          {errorMessage}
-        </span>
-      </div>
-    );
+    return <ErrorBlock content={errorMessage} compact={true} />;
+  }
+  
+  // Check if output is an error message (not grep results)
+  const output = toolOutputs?.[actionId]?.output;
+  const isOutputError = output && (
+    output.startsWith('Error - ') || 
+    output.startsWith('Error:') || 
+    output.includes('not found')
+  );
+  
+  if (isOutputError && !grepResult) {
+    return <ErrorBlock content={output || 'Search failed'} compact={true} />;
   }
 
   if (!grepResult || !isCompleted) return null;
@@ -274,7 +276,6 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
       <div
         style={{
           marginTop: "4px",
-          marginLeft: "29px",
           padding: "8px 12px 8px 12px",
           backgroundColor:
             "color-mix(in srgb, var(--vscode-editor-background) 50%, transparent)",
@@ -300,7 +301,6 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
         maxHeight: "320px",
         overflowY: "auto",
         marginTop: "2px",
-        marginLeft: "29px",
         paddingLeft: "12px",
         paddingRight: "10px",
         paddingTop: "6px",

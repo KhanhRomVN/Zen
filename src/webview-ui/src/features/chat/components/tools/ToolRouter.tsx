@@ -460,7 +460,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
-        
         style={{
           position: "relative",
           display: "flex",
@@ -528,7 +527,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             statusColor={statusColor}
             isPartial={false}
           />
-          <div style={{ padding: "4px 12px 12px 29px" }}>
+          <div style={{ padding: "4px 12px 12px 0" }}>
             <div
               style={{
                 padding: "12px 14px",
@@ -725,7 +724,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
-        
         style={{
           position: "relative",
           display: "flex",
@@ -832,11 +830,11 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             isRejected={isRejected}
             onConfirm={(summaryText) => {
               setIsAccepted(true);
-              // Send message to extension to navigate home with summary
+              // Send message to extension to create new conversation with summary
               const vscodeApi = (window as any).vscodeApi;
               if (vscodeApi) {
                 vscodeApi.postMessage({
-                  command: "acceptContextCompression",
+                  command: "createConversationWithSummary",
                   summary: summaryText,
                 });
               }
@@ -894,7 +892,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     if (!hasOutput && !isActiveGroup) {
       return (
         <div
-          
           style={{
             position: "relative",
             display: "flex",
@@ -926,7 +923,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
-        
         style={{
           position: "relative",
           display: "flex",
