@@ -460,6 +460,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
+        className="timeline-item"
         style={{
           position: "relative",
           display: "flex",
@@ -527,7 +528,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             statusColor={statusColor}
             isPartial={false}
           />
-          <div style={{ padding: "4px 12px 12px 0" }}>
+          <div style={{ padding: "4px 12px 12px 29px" }}>
             <div
               style={{
                 padding: "12px 14px",
@@ -724,6 +725,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
+        className="timeline-item"
         style={{
           position: "relative",
           display: "flex",
@@ -830,11 +832,11 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             isRejected={isRejected}
             onConfirm={(summaryText) => {
               setIsAccepted(true);
-              // Send message to extension to create new conversation with summary
+              // Send message to extension to navigate home with summary
               const vscodeApi = (window as any).vscodeApi;
               if (vscodeApi) {
                 vscodeApi.postMessage({
-                  command: "createConversationWithSummary",
+                  command: "acceptContextCompression",
                   summary: summaryText,
                 });
               }
@@ -888,10 +890,14 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     const stats = parseDiffStats(diffContent);
 
+    // Determine if there are actions after this one (for timeline line)
+    // Use "timeline-item" always — let CSS handle line drawing via padding-bottom
+
     // If no output yet and we're not the active group, show a loading/skeleton state
     if (!hasOutput && !isActiveGroup) {
       return (
         <div
+          className="timeline-item"
           style={{
             position: "relative",
             display: "flex",
@@ -923,6 +929,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
+        className="timeline-item"
         style={{
           position: "relative",
           display: "flex",

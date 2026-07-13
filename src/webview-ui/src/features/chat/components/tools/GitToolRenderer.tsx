@@ -204,7 +204,7 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
       />
 
       {hasOutput && (
-        <div style={{ padding: "0px 12px 12px 0" }}>
+        <div style={{ padding: "0px 12px 12px 29px" }}>
           <GitStatusBlock
             statusItems={effectiveItems}
             onConfirm={handleConfirm}

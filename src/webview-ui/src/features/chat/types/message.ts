@@ -1,5 +1,3 @@
-import type { ParsedResponse } from "../services/ResponseParser";
-
 export type QuestionType = 'single' | 'multi' | 'text' | 'confirm';
 
 export interface Question {
@@ -40,17 +38,11 @@ export interface Message {
   isError?: boolean;
   /** Legacy single option selection (kept for backward compatibility) */
   selectedOption?: string;
-  /** Structured answers for new paginated question format */
+  /** New structured question answers keyed by question id */
   questionAnswers?: Record<string, QuestionAnswer>;
   thinking?: string;
   clickedActions?: string[];
   rejectedActions?: string[];
   /** DeepSeek parent_message_id for revert support. */
   response_message_id?: string;
-  /** Pre-parsed message content (cached for performance) */
-  parsed?: ParsedResponse;
-  /** Raw API request body (JSON string) sent to LLM provider. */
-  rawRequest?: string;
-  /** Raw API response content accumulated from SSE stream. */
-  rawResponse?: string;
 }

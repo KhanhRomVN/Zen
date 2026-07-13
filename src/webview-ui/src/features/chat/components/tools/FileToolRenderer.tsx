@@ -9,12 +9,13 @@ import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
 import ExecuteButton from "./ExecuteButton";
 import { useSettings } from "../../../../context/SettingsContext";
+import { RichtextBlock } from "../blocks/richtext/RichtextBlock";
+import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { GrepBlock } from "../blocks/grep/GrepBlock";
 import { TreeBlock } from "../blocks/tree/TreeBlock";
 import { getPermissionDecision } from "../../utils/permissionUtils";
 import { ToolOutputs } from "../../types/tool-outputs";
-import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
 // Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
@@ -165,13 +166,23 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
   if (toolType === "list_files" || toolType === "find_files") {
     const output = toolOutputs?.[actionId]?.output;
+    
+    console.log('[FileToolRenderer] list_files output:', {
+      actionId,
+      outputType: typeof output,
+      isArray: Array.isArray(output),
+      outputPreview: typeof output === 'string' ? output.substring(0, 100) : output,
+      fullOutput: output
+    });
 
     // For list_files, check if we have raw JSON array (new format)
     if (toolType === "list_files" && Array.isArray(output)) {
+      console.log('[FileToolRenderer] Using rawTreeData (array format)');
       rawTreeData = output; // Store raw JSON for TreeBlock
       // Convert to string format for agent display (backward compatibility)
       codeContent = JSON.stringify(output, null, 2);
     } else {
+      console.log('[FileToolRenderer] Falling back to string format parsing');
       // Fallback to string format (old behavior or find_files)
       codeContent = typeof output === "string" ? output : "";
     }
@@ -190,28 +201,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     else if (action.params.old_str && action.params.new_str) {
       const oldLines = (action.params.old_str || "").split("\n");
       const newLines = (action.params.new_str || "").split("\n");
-
-      diffStats = {
-        added: newLines.length,
-        removed: oldLines.length,
-      };
-    }
-  }
-
-  // Calculate diff stats for revert_file (same logic as replace_in_file)
-  if (toolType === "revert_file") {
-    if (action.params.old_str && action.params.new_str) {
-      const oldLines = (action.params.old_str || "").split("\n");
-      const newLines = (action.params.new_str || "").split("\n");
-
-      diffStats = {
-        added: newLines.length,
-        removed: oldLines.length,
-      };
-    }
-    else if (action.params.old_content && action.params.new_content) {
-      const oldLines = (action.params.old_content || "").split("\n");
-      const newLines = (action.params.new_content || "").split("\n");
 
       diffStats = {
         added: newLines.length,
@@ -340,8 +329,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   const isWriteOrEditTool =
     toolType === "delete_file" ||
     toolType === "delete_folder" ||
-    toolType === "move_file" ||
-    toolType === "revert_file";
+    toolType === "move_file";
   const isGrepTool = toolType === "grep";
   const isFindFilesTool = toolType === "find_files";
   const isCompleted: boolean = Boolean(
@@ -555,21 +543,15 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 ? "MOVE"
                 : toolType === "replace_in_file"
                   ? "REPLACE"
-                  : toolType === "revert_file"
-                    ? "REVERT"
-                    : toolType === "write_to_file"
-                      ? "WRITE"
-                      : "READ";
+                  : toolType === "write_to_file"
+                    ? "WRITE"
+                    : "READ";
   // For grep tool, we'll render in the main flow with ToolHeader
-  const grepValidationError = isGrepTool
-    ? action.params._validationError
-    : null;
   const grepCompleted =
     isGrepTool &&
-    (!isPartial || !!grepValidationError) && // Consider completed if validation failed
+    !isPartial &&
     (isActionClicked ||
       isError ||
-      !!grepValidationError ||
       !!toolOutputs?.[actionId] ||
       !!nextUserMessage);
   const grepErrorMsg =
@@ -581,6 +563,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
   return (
     <div
+      className="timeline-item"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -601,6 +584,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 fontSize: "12px",
                 color: "var(--vscode-editor-foreground)",
                 cursor: isCompleted ? "pointer" : "default",
+                width: "100%",
               }}
               onMouseEnter={() => setIsHeaderHovered(true)}
               onMouseLeave={() => setIsHeaderHovered(false)}
@@ -728,6 +712,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 fontSize: "12px",
                 color: "var(--vscode-editor-foreground)",
                 cursor: isCompleted ? "pointer" : "default",
+                width: "100%",
               }}
               onMouseEnter={() => setIsHeaderHovered(true)}
               onMouseLeave={() => setIsHeaderHovered(false)}
@@ -845,6 +830,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 fontSize: "12px",
                 color: "var(--vscode-editor-foreground)",
                 position: "relative",
+                width: "100%",
               }}
               onMouseEnter={() => setIsHeaderHovered(true)}
               onMouseLeave={() => setIsHeaderHovered(false)}
@@ -856,44 +842,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   cursor: "pointer",
                   transition: "text-decoration 0.15s ease",
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // For replace_in_file, show diff view
-                  if (toolType === "replace_in_file" && rawPath) {
-                    const oldContent =
-                      action.params.old_content || action.params.old_str || "";
-                    const newContent =
-                      action.params.new_content || action.params.new_str || "";
-                    extensionService.postMessage({
-                      command: "openReplaceInFileDiff",
-                      filePath: rawPath,
-                      oldContent,
-                      newContent,
-                    });
-                  }
-                  // For revert_file, show diff view
-                  else if (toolType === "revert_file" && rawPath) {
-                    const oldContent =
-                      action.params.old_content || action.params.old_str || "";
-                    const newContent =
-                      action.params.new_content || action.params.new_str || "";
-                    extensionService.postMessage({
-                      command: "openReplaceInFileDiff",
-                      filePath: rawPath,
-                      oldContent,
-                      newContent,
-                    });
-                  }
-                  // For write_to_file, open virtual document
-                  else if (toolType === "write_to_file" && rawPath) {
-                    const content = action.params.content || "";
-                    extensionService.postMessage({
-                      command: "openWriteToFile",
-                      filePath: rawPath,
-                      content,
-                    });
-                  }
-                }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.textDecoration = "underline";
                   e.currentTarget.style.textUnderlineOffset = "2px";
@@ -904,55 +852,13 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               >
                 {prefix}
               </span>
-              <span
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // For replace_in_file, show diff view
-                  if (toolType === "replace_in_file" && rawPath) {
-                    const oldContent =
-                      action.params.old_content || action.params.old_str || "";
-                    const newContent =
-                      action.params.new_content || action.params.new_str || "";
-                    extensionService.postMessage({
-                      command: "openReplaceInFileDiff",
-                      filePath: rawPath,
-                      oldContent,
-                      newContent,
-                    });
-                  }
-                  // For revert_file, show diff view
-                  else if (toolType === "revert_file" && rawPath) {
-                    const oldContent =
-                      action.params.old_content || action.params.old_str || "";
-                    const newContent =
-                      action.params.new_content || action.params.new_str || "";
-                    extensionService.postMessage({
-                      command: "openReplaceInFileDiff",
-                      filePath: rawPath,
-                      oldContent,
-                      newContent,
-                    });
-                  }
-                  // For write_to_file, open virtual document
-                  else if (toolType === "write_to_file" && rawPath) {
-                    const content = action.params.content || "";
-                    extensionService.postMessage({
-                      command: "openWriteToFile",
-                      filePath: rawPath,
-                      content,
-                    });
-                  }
-                }}
-                style={{ display: "flex", alignItems: "center" }}
-              >
-                <FileIcon
-                  path={rawPath}
-                  isFolder={
-                    toolType === "list_files" || !!action.params.folder_path
-                  }
-                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
-                />
-              </span>
+              <FileIcon
+                path={rawPath}
+                isFolder={
+                  toolType === "list_files" || !!action.params.folder_path
+                }
+                style={{ width: "16px", height: "16px", cursor: "pointer" }}
+              />
               <span
                 style={{
                   fontWeight: 500,
@@ -962,51 +868,13 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   cursor: "pointer",
                   transition: "text-decoration 0.15s ease",
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // For replace_in_file, show diff view
-                  if (toolType === "replace_in_file" && rawPath) {
-                    const oldContent =
-                      action.params.old_content || action.params.old_str || "";
-                    const newContent =
-                      action.params.new_content || action.params.new_str || "";
-                    extensionService.postMessage({
-                      command: "openReplaceInFileDiff",
-                      filePath: rawPath,
-                      oldContent,
-                      newContent,
-                    });
-                  }
-                  // For revert_file, show diff view
-                  else if (toolType === "revert_file" && rawPath) {
-                    const oldContent =
-                      action.params.old_content || action.params.old_str || "";
-                    const newContent =
-                      action.params.new_content || action.params.new_str || "";
-                    extensionService.postMessage({
-                      command: "openReplaceInFileDiff",
-                      filePath: rawPath,
-                      oldContent,
-                      newContent,
-                    });
-                  }
-                  // For write_to_file, open virtual document
-                  else if (toolType === "write_to_file" && rawPath) {
-                    const content = action.params.content || "";
-                    extensionService.postMessage({
-                      command: "openWriteToFile",
-                      filePath: rawPath,
-                      content,
-                    });
-                  }
-                }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.textDecoration = "underline";
                   e.currentTarget.style.textUnderlineOffset = "2px";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.textDecoration = "none";
-                }}  
+                }}
               >
                 {displayName || (isPartial && !rawPath ? "..." : "")}
               </span>
@@ -1026,7 +894,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               )}
               {/* Show diff stats for replace_in_file inline */}
               {diffStats &&
-                (toolType === "replace_in_file" || toolType === "revert_file") &&
+                toolType === "replace_in_file" &&
                 (diffStats.added > 0 || diffStats.removed > 0) && (
                   <span
                     style={{
@@ -1073,12 +941,27 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               {toolType === "list_files" &&
                 isCompleted &&
                 !isError &&
+                codeContent &&
                 (() => {
                   const depth = action.params.depth;
 
-                  // Use pre-counted values from rawTreeData (already calculated above)
-                  const folderCountInline = folderCount;
-                  const fileCountInline = fileCountFromListFiles;
+                  // Count folders and files from plain text format
+                  // Folders end with /, files don't
+                  const lines = codeContent
+                    .split("\n")
+                    .filter((line) => line.trim());
+                  let folderCountInline = 0;
+                  let fileCountInline = 0;
+
+                  lines.forEach((line) => {
+                    const trimmed = line.trim();
+                    if (trimmed.endsWith("/")) {
+                      folderCountInline++;
+                    } else if (trimmed && !trimmed.startsWith("//")) {
+                      fileCountInline++;
+                    }
+                  });
+
                   const totalCount = folderCountInline + fileCountInline;
 
                   if (totalCount === 0) return null; // Don't show for empty folders
@@ -1216,8 +1099,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         }
         path={rawPath}
         onPathClick={(clickedPath) => {
-          // When clicking on path (line 2), always open the actual file in editor
-          // regardless of tool type (REPLACE, WRITE, READ, etc.)
+          // Always open file when clicking on the path itself
           extensionService.postMessage({
             command: "openFile",
             path: clickedPath,
@@ -1233,6 +1115,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         <div
           style={{
             marginTop: "4px",
+            marginLeft: "29px",
             padding: "8px 12px",
             backgroundColor:
               "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
@@ -1397,7 +1280,43 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         )}
 
       {!shouldHideContent && isError && errorMessage && !isGrepTool && (
-        <ErrorBlock content={errorMessage} compact={true} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "6px",
+            padding: "5px 8px",
+            marginLeft: "29px",
+            backgroundColor:
+              "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 4%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 20%, transparent)",
+            borderRadius: "4px",
+            marginTop: "2px",
+          }}
+        >
+          <span
+            className="codicon codicon-error"
+            style={{
+              fontSize: "11px",
+              color: "var(--vscode-errorForeground, #f44336)",
+              opacity: 0.7,
+              marginTop: "1px",
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontSize: "11px",
+              color: "var(--vscode-errorForeground, #f44336)",
+              opacity: 0.85,
+              fontFamily: "var(--vscode-editor-font-family, monospace)",
+              wordBreak: "break-word",
+            }}
+          >
+            {errorMessage}
+          </span>
+        </div>
       )}
 
       {!shouldHideContent &&
@@ -1420,6 +1339,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                     <div
                       style={{
                         marginTop: "8px",
+                        marginLeft: "29px",
                         padding: "8px 12px",
                         backgroundColor:
                           "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
@@ -1461,6 +1381,11 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 // Use TreeBlock for non-empty folders
                 // If we have raw JSON tree data, use it directly
                 if (rawTreeData && Array.isArray(rawTreeData)) {
+                  console.log('[FileToolRenderer] Using rawTreeData for TreeBlock:', {
+                    dataType: 'raw JSON array',
+                    itemCount: rawTreeData.length,
+                    firstItem: rawTreeData[0]
+                  });
                   return (
                     <TreeBlock
                       files={rawTreeData}
@@ -1474,10 +1399,23 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                   );
                 }
 
+                // Fallback: Parse codeContent to extract file paths (legacy string format)
+                console.log('[FileToolRenderer] Parsing codeContent for TreeBlock:', {
+                  dataType: 'string',
+                  contentLength: codeContent.length,
+                  contentPreview: codeContent.substring(0, 200)
+                });
+                
                 const lines = codeContent.split("\n").filter(Boolean);
                 const filePaths = lines
                   .map((line) => line.trim())
                   .filter((line) => line && !line.startsWith("//"));
+
+                console.log('[FileToolRenderer] Extracted file paths:', {
+                  totalLines: lines.length,
+                  filteredPaths: filePaths.length,
+                  paths: filePaths
+                });
 
                 // Build tree structure
                 interface FileNode {
@@ -1537,6 +1475,11 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 };
 
                 const treeData = buildTree(filePaths);
+                
+                console.log('[FileToolRenderer] Built tree data:', {
+                  treeNodeCount: treeData.length,
+                  treeStructure: treeData
+                });
 
                 return (
                   <TreeBlock
@@ -1566,6 +1509,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           <div
             style={{
               marginTop: "8px",
+              marginLeft: "29px",
             }}
           >
             {(() => {
@@ -1718,7 +1662,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
           }
 
           return (
-            <div style={{}}>
+            <div style={{ marginLeft: "29px" }}>
               <FileStreamingBlock
                 content={streamingContent}
                 maxHeight={STREAM_BOX_HEIGHT}
@@ -1752,6 +1696,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
             <div
               style={{
                 marginTop: "4px",
+                marginLeft: "29px",
                 padding: "8px 12px",
                 backgroundColor:
                   "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",

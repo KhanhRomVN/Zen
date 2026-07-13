@@ -3,7 +3,6 @@ export type ToolType =
   | "read_file"
   | "write_to_file"
   | "replace_in_file"
-  | "revert_file"
   | "list_files"
   | "find_files"
   | "grep"
@@ -61,16 +60,6 @@ export const TOOL_VARIANTS: Record<string, string[]> = {
     "replace_InFile",
     "replaceInfile",
     "Replace_in_file",
-  ],
-  revert_file: [
-    "revertFile",
-    "RevertFile",
-    "revert_File",
-    "RevertInfile",
-    "revertfile",
-    "REVERTFILE",
-    "Revert_File",
-    "REVERT_FILE",
   ],
   list_files: [
     "listFiles",
@@ -157,7 +146,6 @@ export const TOOL_LABELS: Record<string, string> = {
   read_file: "Read",
   write_to_file: "Write",
   replace_in_file: "Replace",
-  revert_file: "Revert",
   list_files: "List",
   find_files: "Find",
   grep: "Grep",
@@ -181,7 +169,6 @@ export const TOOL_COLORS: Record<string, string> = {
   read_file: "var(--vscode-textLink-foreground, #3b82f6)",
   write_to_file: "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
   replace_in_file: "var(--vscode-editorWarning-foreground, #d4a72c)",
-  revert_file: "var(--vscode-gitDecoration-conflictingResourceForeground, #c74e39)",
   list_files: "var(--vscode-textLink-foreground, #3b82f6)",
   find_files: "var(--vscode-textLink-foreground, #3b82f6)",
   grep: "var(--vscode-textLink-foreground, #3b82f6)",
@@ -191,7 +178,7 @@ export const TOOL_COLORS: Record<string, string> = {
   run_command: "var(--vscode-editorWarning-foreground, #f59e0b)",
   git_status: "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)",
   commit_message: "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
-  git_diff: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+  git_diff: "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)",
   code: "var(--vscode-textLink-foreground, #3b82f6)",
   markdown: "var(--vscode-foreground)",
   thinking: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
@@ -206,7 +193,6 @@ export const CLICKABLE_TOOLS: string[] = [
   "read_file",
   "write_to_file",
   "replace_in_file",
-  "revert_file",
   "list_files",
   "grep",
   "delete_file",
@@ -224,7 +210,6 @@ export const TOOL_PERMISSIONS: Record<string, string> = {
   read_file: "prompt",
   write_to_file: "prompt",
   replace_in_file: "prompt",
-  revert_file: "prompt",
   list_files: "prompt",
   grep: "read",
   delete_file: "write",
@@ -241,7 +226,6 @@ export const TOOL_TIMEOUTS: Record<string, number> = {
   read_file: 10000,
   write_to_file: 10000,
   replace_in_file: 10000,
-  revert_file: 10000,
   list_files: 10000,
   find_files: 30000,
   grep: 30000,

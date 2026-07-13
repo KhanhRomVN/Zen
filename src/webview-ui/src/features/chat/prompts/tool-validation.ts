@@ -45,8 +45,6 @@ The following XML tags are the ONLY valid tool tags. Using any other tag names w
 <grep><search_term>.*\\.tsx$</search_term><folder_path>src</folder_path></grep>
 <!-- OR -->
 <list_files><folder_path>src</folder_path><depth>3</depth></list_files>
-<!-- OR with unlimited depth -->
-<list_files><folder_path>src</folder_path><depth>max</depth></list_files>
 
 <!-- To search file contents -->
 <grep><search_term>Table</search_term><folder_path>src</folder_path></grep>
@@ -101,8 +99,6 @@ Since \`find_files\` does NOT exist, use these alternatives:
 
 <!-- Option 2: List directory recursively -->
 <list_files><folder_path>src</folder_path><depth>5</depth></list_files>
-<!-- OR with unlimited depth -->
-<list_files><folder_path>src</folder_path><depth>max</depth></list_files>
 \`\`\`
 
 **To search file contents:**

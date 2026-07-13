@@ -6,7 +6,6 @@ import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
-import DiffSummaryBar from "./DiffSummaryBar";
 
 export interface UploadedFile {
   id: string;
@@ -91,8 +90,8 @@ const MemoryIcon = () => (
 const SummaryIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
+    width="11"
+    height="11"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -276,167 +275,39 @@ const MemoryButton: React.FC<ToggleButtonProps> = ({
 interface CompressButtonProps {
   onClick: () => void;
   title: string;
-  currentModel: any;
-  currentAccount: any;
-  providers: any[];
-  apiUrl: string;
-  onModelAccountSelect?: (model: any, account: any) => void;
-  onSwitchModelRequest?: () => void; // New callback to trigger model switch with confirmation
-  disabled?: boolean; // Add disabled prop
 }
 
 const CompressButton: React.FC<CompressButtonProps> = ({
   onClick,
   title,
-  currentModel,
-  currentAccount,
-  providers,
-  apiUrl,
-  onModelAccountSelect,
-  onSwitchModelRequest,
-  disabled = false,
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
-  const [showTooltip, setShowTooltip] = React.useState(false);
-  const [isTooltipHovered, setIsTooltipHovered] = React.useState(false);
-  const tooltipRef = React.useRef<HTMLDivElement>(null);
-
-  // Close tooltip when clicking outside or when disabled
-  React.useEffect(() => {
-    if (!showTooltip) return;
-    if (disabled) {
-      setShowTooltip(false);
-      return;
-    }
-    const handler = (e: MouseEvent) => {
-      if (
-        tooltipRef.current &&
-        !tooltipRef.current.contains(e.target as Node)
-      ) {
-        setShowTooltip(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showTooltip, disabled]);
 
   return (
-    <div style={{ position: "relative" }}>
-      <div
-        onClick={() => setShowTooltip((v) => !v)}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "22px",
-          width: "22px",
-          boxSizing: "border-box",
-          borderRadius: "4px",
-          cursor: "pointer",
-          transition: "all 0.2s ease-in-out",
-          border: "1px solid rgba(128, 128, 128, 0.2)",
-          background: isHovered
-            ? "rgba(128, 128, 128, 0.2)"
-            : "rgba(128, 128, 128, 0.12)",
-          color: "var(--vscode-foreground)",
-          opacity: isHovered ? 0.9 : 0.7,
-        }}
-        title={title}
-      >
-        <SummaryIcon />
-      </div>
-
-      {showTooltip && (
-        <div
-          ref={tooltipRef}
-          onMouseEnter={() => setIsTooltipHovered(true)}
-          onMouseLeave={() => setIsTooltipHovered(false)}
-          style={{
-            position: "absolute",
-            bottom: "calc(100% + 8px)",
-            left: "0",
-            zIndex: 10000,
-            backgroundColor:
-              "color-mix(in srgb, var(--input-bg) 100%, black 15%)",
-            border: isTooltipHovered
-              ? "1px solid var(--vscode-focusBorder, #007acc)"
-              : "1px solid var(--vscode-widget-border)",
-            borderRadius: "6px",
-            overflow: "hidden",
-            minWidth: "220px",
-            transition: "border-color 0.15s ease",
-          }}
-        >
-          <button
-            disabled
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-              width: "100%",
-              padding: "10px 12px",
-              fontSize: "11.5px",
-              fontWeight: 500,
-              textAlign: "left",
-              border: "none",
-              cursor: "not-allowed",
-              background: "transparent",
-              color: "var(--vscode-foreground)",
-              borderBottom: "1px solid var(--vscode-widget-border)",
-              opacity: 0.4,
-              pointerEvents: "none",
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: "2px" }}>
-              Continue with current model
-            </div>
-            <div style={{ fontSize: "10px", opacity: 0.7 }}>
-              {currentModel?.providerId}/{currentModel?.id}
-              {currentAccount?.email && ` • ${currentAccount.email}`}
-            </div>
-          </button>
-
-          <button
-            onClick={() => {
-              setShowTooltip(false);
-              // Trigger switch model flow
-              if (onSwitchModelRequest) {
-                onSwitchModelRequest();
-              }
-            }}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-start",
-              width: "100%",
-              padding: "10px 12px",
-              fontSize: "11.5px",
-              fontWeight: 500,
-              textAlign: "left",
-              border: "none",
-              cursor: "pointer",
-              background: "transparent",
-              color: "var(--vscode-foreground)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background =
-                "var(--vscode-list-hoverBackground)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: "2px" }}>
-              Switch to different model
-            </div>
-            <div style={{ fontSize: "10px", opacity: 0.7 }}>
-              Continue conversation with new model
-            </div>
-          </button>
-        </div>
-      )}
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "22px",
+        width: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        transition: "all 0.2s ease-in-out",
+        border: "1px solid rgba(128, 128, 128, 0.2)",
+        background: isHovered
+          ? "rgba(128, 128, 128, 0.2)"
+          : "rgba(128, 128, 128, 0.12)",
+        color: "var(--vscode-foreground)",
+        opacity: isHovered ? 0.9 : 0.7,
+      }}
+      title={title}
+    >
+      <SummaryIcon />
     </div>
   );
 };
@@ -699,48 +570,7 @@ interface MessageInputProps {
   isGitStatusVisible?: boolean;
   // 🆕 Context Compression Button
   showCompressButton?: boolean;
-  
-  // 🆕 Git Status for DiffSummaryBar
-  gitStatus?: { items?: any[]; branch?: string } | null;
-  onOpenGitStatus?: () => void;
-  conversationFileStats?: {
-    totalFiles: number;
-    totalAdditions: number;
-    totalDeletions: number;
-    responseNumber?: number;
-  };
-  // 🆕 Review Drawer
-  onReviewClick?: () => void;
-  responseRange?: { start: number; end: number } | null;
-  responseRanges?: Array<{
-    start: number;
-    end: number;
-    isCurrent: boolean;
-    fileChanges: Map<
-      string,
-      {
-        additions: number;
-        deletions: number;
-        toolType?: "write_to_file" | "replace_in_file";
-        content?: string;
-        oldContent?: string;
-        newContent?: string;
-      }
-    >;
-  }>;
-  // 🆕 Model Switch Handler
-  onModelSwitch?: (
-    newModel: any,
-    newAccount: any,
-    contextData: {
-      fileChanges: Array<{
-        path: string;
-        additions: number;
-        deletions: number;
-      }>;
-      userMessages: Array<{ content: string; responseNumber: number }>;
-    },
-  ) => void;
+  onCompress?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -780,14 +610,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   isGitLoading = false,
   isGitStatusVisible = false,
   showCompressButton = false,
-  
-  gitStatus,
-  onOpenGitStatus,
-  conversationFileStats,
-  onReviewClick,
-  responseRange,
-  responseRanges = [],
-  onModelSwitch,
+  onCompress,
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
@@ -834,15 +657,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
 
   const [isPlusHovered, setIsPlusHovered] = React.useState(false);
   const [isGitHovered, setIsGitHovered] = React.useState(false);
-
-  // Model switch confirmation state
-  const [pendingModelSwitch, setPendingModelSwitch] = React.useState<{
-    model: any;
-    account: any;
-  } | null>(null);
-
-  // Track if ModelAccountDrawer is opened for model switch (vs normal selection)
-  const [isModelSwitchMode, setIsModelSwitchMode] = React.useState(false);
 
   const toggleThinking = () => {
     setIsThinking((prev) => {
@@ -1185,14 +999,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
           borderRadius: "var(--border-radius)",
           border: !isConnected
             ? "1px solid var(--vscode-errorForeground, #f44336)"
-            : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+            : "1px solid transparent",
           transition: "border 0.3s ease",
           marginTop:
-            !isConversationStarted ||
-            (isConnected && isElaraMismatch) ||
-            isConversationStarted
+            !isConversationStarted || (isConnected && isElaraMismatch)
               ? "24px"
-              : "0px", // Space for badges/DiffSummaryBar sticking up
+              : "0px", // Space for badges sticking up
         }}
       >
         {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
@@ -1281,30 +1093,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
             )}
           </div>
         )}
-
-        {/* 🆕 CHAT PANEL DIFF SUMMARY BAR (Stuck to Border) - Only when isConversationStarted */}
-        {isConversationStarted && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: "100%",
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "98%",
-              zIndex: 20,
-            }}
-          >
-            <DiffSummaryBar
-              totalChanges={conversationFileStats?.totalFiles || 0}
-              addedLines={conversationFileStats?.totalAdditions || 0}
-              removedLines={conversationFileStats?.totalDeletions || 0}
-              onClick={onOpenGitStatus}
-              onReviewClick={onReviewClick}
-              responseRange={responseRange}
-              responseRanges={responseRanges}
-            />
-          </div>
-        )}
         {showModelDrawer && (
           <ModelAccountDrawer
             isOpen={showModelDrawer}
@@ -1335,232 +1123,35 @@ const MessageInput: React.FC<MessageInputProps> = ({
                 is_upload: modelObj?.is_upload ?? false,
                 is_memory: modelObj?.is_memory ?? prov?.is_memory ?? false,
               };
-
-              const newAccount = {
+              setCurrentModel(newModel);
+              setCurrentAccount({
                 id: selected.accountId,
                 email: selected.email,
-              };
+              });
 
-              if (isModelSwitchMode) {
-                // Switch mode: show confirmation dialog
-                setPendingModelSwitch({
-                  model: newModel,
-                  account: newAccount,
-                });
-                setShowModelDrawer(false);
-                setIsModelSwitchMode(false); // Reset flag
-              } else {
-                // Normal mode: apply immediately
-                setCurrentModel(newModel);
-                setCurrentAccount(newAccount);
-
-                // Fetch memory state from server
-                const fetchMemoryState = async () => {
-                  try {
-                    const response = await fetch(
-                      `${apiUrl}/v1/accounts/${selected.accountId}/memory`,
+              // Fetch memory state from server
+              const fetchMemoryState = async () => {
+                try {
+                  const response = await fetch(
+                    `${apiUrl}/v1/accounts/${selected.accountId}/memory`,
+                  );
+                  const result = await response.json();
+                  if (result.success && result.data) {
+                    setIsMemory(result.data.is_memory_enabled);
+                    // Sync to localStorage
+                    localStorage.setItem(
+                      "zen-memory-enabled",
+                      String(result.data.is_memory_enabled),
                     );
-                    const result = await response.json();
-                    if (result.success && result.data) {
-                      setIsMemory(result.data.is_memory_enabled);
-                      // Sync to localStorage
-                      localStorage.setItem(
-                        "zen-memory-enabled",
-                        String(result.data.is_memory_enabled),
-                      );
-                    }
-                  } catch (error) {
-                    console.error("Failed to fetch memory state:", error);
                   }
-                };
-                fetchMemoryState();
-                setShowModelDrawer(false);
-              }
+                } catch (error) {
+                  console.error("Failed to fetch memory state:", error);
+                }
+              };
+              fetchMemoryState();
+              setShowModelDrawer(false);
             }}
           />
-        )}
-
-        {/* Model Switch Confirmation Dialog */}
-        {pendingModelSwitch && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.5)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10001,
-            }}
-            onClick={() => setPendingModelSwitch(null)}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                backgroundColor: "var(--vscode-editor-background)",
-                border: "1px solid var(--vscode-widget-border)",
-                borderRadius: "8px",
-                padding: "20px",
-                maxWidth: "400px",
-                width: "90%",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  marginBottom: "12px",
-                  color: "var(--vscode-foreground)",
-                }}
-              >
-                Switch Model?
-              </div>
-              <div
-                style={{
-                  fontSize: "13px",
-                  marginBottom: "16px",
-                  color: "var(--vscode-descriptionForeground)",
-                  lineHeight: 1.5,
-                }}
-              >
-                You're about to switch to:
-                <div
-                  style={{
-                    marginTop: "8px",
-                    padding: "8px 12px",
-                    backgroundColor: "var(--vscode-input-background)",
-                    borderRadius: "4px",
-                    fontSize: "12px",
-                    fontFamily: "var(--vscode-editor-font-family, monospace)",
-                  }}
-                >
-                  <strong>
-                    {pendingModelSwitch.model.providerId}/
-                    {pendingModelSwitch.model.id}
-                  </strong>
-                  {pendingModelSwitch.account.email && (
-                    <div style={{ marginTop: "4px", opacity: 0.8 }}>
-                      {pendingModelSwitch.account.email}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <button
-                  onClick={() => setPendingModelSwitch(null)}
-                  style={{
-                    padding: "6px 16px",
-                    borderRadius: "4px",
-                    border: "1px solid var(--vscode-widget-border)",
-                    backgroundColor: "transparent",
-                    color: "var(--vscode-foreground)",
-                    fontSize: "13px",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--vscode-list-hoverBackground)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    // Prepare context data from current range
-                    const currentRange = responseRanges.find(
-                      (r) => r.isCurrent,
-                    );
-
-                    // Extract user messages from current range
-                    const userMessagesInRange: Array<{
-                      content: string;
-                      responseNumber: number;
-                    }> = [];
-                    if (currentRange) {
-                      // Find user messages in the current response range
-                      let responseCount = 0;
-                      for (const msg of messages) {
-                        if (msg.role === "assistant") {
-                          responseCount++;
-                        }
-                        if (
-                          msg.role === "user" &&
-                          responseCount >= currentRange.start - 1 &&
-                          responseCount <= currentRange.end
-                        ) {
-                          userMessagesInRange.push({
-                            content: msg.content,
-                            responseNumber: responseCount,
-                          });
-                        }
-                      }
-                    }
-
-                    const contextData = {
-                      fileChanges: currentRange
-                        ? Array.from(currentRange.fileChanges.entries()).map(
-                            ([path, stats]) => ({
-                              path,
-                              additions: stats.additions,
-                              deletions: stats.deletions,
-                            }),
-                          )
-                        : [],
-                      userMessages: userMessagesInRange,
-                    };
-
-                    // Call parent handler
-                    if (onModelSwitch) {
-                      onModelSwitch(
-                        pendingModelSwitch.model,
-                        pendingModelSwitch.account,
-                        contextData,
-                      );
-                    }
-
-                    // Apply model switch
-                    setCurrentModel(pendingModelSwitch.model);
-                    setCurrentAccount(pendingModelSwitch.account);
-
-                    // Clear pending
-                    setPendingModelSwitch(null);
-                  }}
-                  style={{
-                    padding: "6px 16px",
-                    borderRadius: "4px",
-                    border: "none",
-                    backgroundColor: "var(--vscode-button-background)",
-                    color: "var(--vscode-button-foreground)",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--vscode-button-hoverBackground)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--vscode-button-background)";
-                  }}
-                >
-                  Confirm Switch
-                </button>
-              </div>
-            </div>
-          </div>
         )}
         {/* Browser session warning - bottom right inside MessageInput */}
         {showBrowserWarning && currentModel?.providerId === "zai-browser" && (
@@ -1825,25 +1416,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
             {/* Context Compression Button */}
             {showCompressButton && (
               <CompressButton
-                onClick={() => {}}
+                onClick={onCompress || (() => {})}
                 title="Context Compression - Compress conversation history"
-                currentModel={currentModel}
-                currentAccount={currentAccount}
-                providers={providers}
-                apiUrl={apiUrl}
-                onModelAccountSelect={(model, account) => {
-                  // Open model selection drawer when null is passed
-                  if (model === null && account === null) {
-                    if (providers.length === 0) fetchProviders();
-                    setShowModelDrawer(true);
-                  }
-                }}
-                onSwitchModelRequest={() => {
-                  // Open ModelAccountDrawer for model switch
-                  setIsModelSwitchMode(true); // Mark as switch mode
-                  if (providers.length === 0) fetchProviders();
-                  setShowModelDrawer(true);
-                }}
               />
             )}
 

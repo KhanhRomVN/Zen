@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 
 interface ProcessingIndicatorProps {
   isResponding?: boolean;
@@ -7,40 +7,14 @@ interface ProcessingIndicatorProps {
 const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
   isResponding,
 }) => {
-  const startTimeRef = useRef<number | null>(null);
-  const timerDisplayRef = useRef<HTMLSpanElement>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
-    if (isResponding) {
-      // Record start time
-      startTimeRef.current = Date.now();
-
-      // Update display using requestAnimationFrame (smoother, no re-renders!)
-      const updateDisplay = () => {
-        if (timerDisplayRef.current && startTimeRef.current) {
-          const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-          timerDisplayRef.current.textContent = `Processing (${elapsed}s)`;
-        }
-        animationFrameRef.current = requestAnimationFrame(updateDisplay);
-      };
-
-      animationFrameRef.current = requestAnimationFrame(updateDisplay);
-    } else {
-      // Cleanup when not responding
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      startTimeRef.current = null;
-    }
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isResponding]);
+    const timer = setInterval(() => {
+      setSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // isResponding = true means waiting (should show)
   // isResponding = false means has content (should hide)
@@ -61,9 +35,7 @@ const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
         marginBottom: "var(--spacing-md)",
       }}
     >
-      <span ref={timerDisplayRef} className="processing-text">
-        Processing (0s)
-      </span>
+      <span className="processing-text">Processing ({seconds}s)</span>
       <style>
         {`
         .processing-text {

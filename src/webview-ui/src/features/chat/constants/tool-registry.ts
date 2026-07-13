@@ -150,38 +150,6 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     },
   },
 
-  revert_file: {
-    type: "revert_file",
-    variants: [
-      "revertFile",
-      "RevertFile",
-      "revert_File",
-      "RevertInfile",
-      "revertfile",
-      "REVERTFILE",
-      "Revert_File",
-      "REVERT_FILE",
-    ],
-    label: "Revert",
-    color: "var(--vscode-gitDecoration-conflictingResourceForeground, #c74e39)",
-    category: "write",
-    requiresConfirmation: false,
-    isClickable: true,
-    defaultPermission: "prompt",
-    timeout: 10000,
-    tags: ["file", "undo"],
-    attributeAliases: {
-      path: [
-        "filePath",
-        "file_path",
-        "FilePath",
-        "File_Path",
-        "FILE_PATH",
-        "filepath",
-      ],
-    },
-  },
-
   list_files: {
     type: "list_files",
     variants: [
@@ -624,7 +592,6 @@ export type ExecutableToolType =
   | "read_file"
   | "write_to_file"
   | "replace_in_file"
-  | "revert_file"
   | "list_files"
   | "find_files"
   | "run_command"

@@ -8,7 +8,6 @@ import {
 import { parseReadFile } from "./parsers/ReadFileParser";
 import { parseWriteToFile } from "./parsers/WriteToFileParser";
 import { parseReplaceInFile } from "./parsers/ReplaceInFileParser";
-import { parseRevertFile } from "./parsers/RevertFileParser";
 import { parseListFiles } from "./parsers/ListFilesParser";
 import { parseFindFiles } from "./parsers/FindFilesParser";
 import { parseGrep } from "./parsers/GrepParser";
@@ -74,9 +73,6 @@ const DEBUG_PARSER =
   window.localStorage?.getItem("zen_debug_parser") === "true";
 
 export const parseAIResponse = (content: string): ParsedResponse => {
-  const startTime = performance.now();
-  const contentLength = content.length;
-
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -116,6 +112,20 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     content.trim().length > 0 &&
     content.trim().length < 2000 && // Small content, likely incomplete
     !content.includes("</thinking>"); // No closing tag yet
+
+  if (
+    remainingContent.trim().length === 0 &&
+    content.trim().length > 100 &&
+    !isLikelyStreaming
+  ) {
+    console.warn(
+      "[Zen][Parser] ⚠️ All content consumed by thinking extraction!",
+      {
+        originalLength: content.length,
+        thinkingBlocks: thinkingBlocks.length,
+      },
+    );
+  }
 
   // Scan for tools and text blocks
   // Note: "thinking" is intentionally excluded — thinking blocks are pre-extracted
@@ -536,11 +546,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               action = { type: "replace_in_file" as const, params, rawXml };
               break;
             }
-            case "revert_file": {
-              const params = parseRevertFile(innerContent || "");
-              action = { type: "revert_file" as const, params, rawXml };
-              break;
-            }
             case "list_files": {
               const params = parseListFiles(innerContent || "");
               action = { type: "list_files" as const, params, rawXml };
@@ -607,11 +612,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
                   rawXml,
                 };
               }
-              // IMPORTANT: context_compression is NOT an executable tool
-              // Only add to contentBlocks for UI display, NOT to actions array
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              // Skip: result.actions.push(action)
-              continue; // Skip the actions.push below
+              break;
             }
             default:
               // Fallback to ToolParser for any unhandled tools
@@ -1095,9 +1096,6 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "replace_in_file":
       return `replace_in_file: ${action.params.file_path || "unknown"}`;
-
-    case "revert_file":
-      return `revert_file: ${action.params.file_path || "unknown"}`;
 
     case "run_command":
       return `Run: ${action.params.command || ""}`;

@@ -562,79 +562,11 @@ export const useToolExecution = ({
           );
           break;
         }
-        case "revert_file": {
-          const requestId = `revert-${Date.now()}-${Math.random()}`;
-          const filePath = action.params.path || action.params.file_path;
-          const actionId = action.actionId;
-
-          extensionService.postMessage({
-            command: "revertFile",
-            path: filePath,
-            requestId,
-            bypassIgnore,
-            conversationId: conversationIdRef?.current,
-            actionId: actionId,
-          });
-
-          messageDispatcher.register(
-            requestId,
-            (msg) => {
-              if (msg.error) {
-                console.error(`[revert_file] Error response`, {
-                  requestId,
-                  filePath,
-                  error: msg.error,
-                });
-                // Store error in toolOutputs
-                setToolOutputs((prev) => ({
-                  ...prev,
-                  [actionId]: {
-                    output: `Error - ${msg.error}`,
-                    isError: true,
-                  },
-                }));
-                resolve(
-                  `[revert_file for '${filePath}'] Result: Error - ${msg.error}`,
-                );
-              } else {
-                const result = `[revert_file for '${filePath}'] Result: File reverted successfully (undo applied)`;
-
-                // Store old/new content in action params for diff view
-                if (
-                  msg.oldContent !== undefined &&
-                  msg.newContent !== undefined
-                ) {
-                  action.params.old_content = msg.oldContent;
-                  action.params.new_content = msg.newContent;
-                  action.params.old_str = msg.oldContent;
-                  action.params.new_str = msg.newContent;
-                }
-
-                // Store output in toolOutputs
-                setToolOutputs((prev) => ({
-                  ...prev,
-                  [actionId]: {
-                    output: "Reverted",
-                    isError: false,
-                  },
-                }));
-
-                resolve(result);
-              }
-            },
-            TOOL_TIMEOUT_STANDARD,
-            () => {
-              console.warn(`[revert_file] Timeout`, { requestId, filePath });
-              resolve(null);
-            },
-          );
-          break;
-        }
         case "list_files": {
           const requestId = `list-${Date.now()}-${Math.random()}`;
           const folderPath = action.params.path || action.params.folder_path;
           const actionId = (action as any).actionId;
-
+          
           extensionService.postMessage({
             command: "listFiles",
             path: folderPath,
@@ -658,8 +590,7 @@ export const useToolExecution = ({
               // Check if folder is empty
               if (
                 !listResults ||
-                (typeof listResults === "string" &&
-                  listResults.trim() === "") ||
+                (typeof listResults === "string" && listResults.trim() === "") ||
                 (Array.isArray(listResults) && listResults.length === 0)
               ) {
                 resolve(
@@ -670,6 +601,11 @@ export const useToolExecution = ({
 
               // Store the raw JSON tree data in toolOutputs for TreeBlock to consume
               if (Array.isArray(listResults) && actionId) {
+                console.log('[useToolExecution] Storing raw JSON array to toolOutputs:', {
+                  actionId,
+                  arrayLength: listResults.length,
+                  firstItem: listResults[0]
+                });
                 setToolOutputs((prev) => ({
                   ...prev,
                   [actionId]: {
@@ -677,45 +613,44 @@ export const useToolExecution = ({
                     isError: false,
                   },
                 }));
-
+                
                 // Format as readable tree for agent (no emojis, no tree lines)
-                const formatTree = (
-                  nodes: any[],
-                  indent: string = "",
-                ): string => {
-                  let result = "";
+                const formatTree = (nodes: any[], indent: string = ''): string => {
+                  let result = '';
                   nodes.forEach((node) => {
                     // Node line (no tree characters, just indentation)
-                    if (node.type === "folder") {
+                    if (node.type === 'folder') {
                       result += `${indent}${node.name}/`;
                       if (node.children && node.children.length > 0) {
-                        result += ` (${node.children.length} files)`;
+                        result += ` (${node.children.length} items)`;
                       }
-                      result += "\n";
+                      result += '\n';
                       if (node.children && node.children.length > 0) {
-                        result += formatTree(node.children, indent + "  ");
+                        result += formatTree(node.children, indent + '  ');
                       }
                     } else {
                       result += `${indent}${node.name}`;
                       if (node.lines !== undefined) {
                         result += ` (${node.lines} lines)`;
                       }
-                      result += "\n";
+                      result += '\n';
                     }
                   });
                   return result;
                 };
-
+                
                 const formattedOutput = formatTree(listResults);
                 resolve(
                   `[list_files for '${folderPath}'] Result:\n${formattedOutput}`,
                 );
               } else {
+                console.log('[useToolExecution] NOT array or no actionId:', {
+                  isArray: Array.isArray(listResults),
+                  hasActionId: !!actionId,
+                  actionId
+                });
                 // Fallback
-                const outputStr =
-                  typeof listResults === "string"
-                    ? listResults
-                    : String(listResults);
+                const outputStr = typeof listResults === 'string' ? listResults : String(listResults);
                 resolve(
                   `[list_files for '${folderPath}'] Result:\n${outputStr}`,
                 );
@@ -1253,10 +1188,16 @@ export const useToolExecution = ({
           (m) => m.id === message.id,
         );
         const selectedOption = currentMessage?.selectedOption;
+        const questionAnswers = currentMessage?.questionAnswers;
         const parsed = parseAIResponse(message.content);
         const hasQuestion = !!parsed.question;
-        // Check if question is answered: legacy selectedOption only
-        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+        // Check if question is answered: either legacy selectedOption or new questionAnswers
+        const isQuestionAnswered = hasQuestion
+          ? !!(
+              selectedOption ||
+              (questionAnswers && Object.keys(questionAnswers).length > 0)
+            )
+          : true;
 
         const allActionIds = parsed.actions.map(
           (_: any, idx: number) => `${message.id}-action-${idx}`,
@@ -1274,8 +1215,28 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(message.id);
             let finalContent = newBuffer.join("\n\n");
-            // Handle question answer - legacy format only
-            if (selectedOption) {
+            // Handle question answers - both legacy and new
+            if (questionAnswers && Object.keys(questionAnswers).length > 0) {
+              // New paginated format: send all answers
+              const answerLines = Object.entries(questionAnswers).map(
+                ([qId, answer]) => {
+                  const q = (parsed.question as any)?.questions?.find(
+                    (q: any) => q.id === qId,
+                  );
+                  const label = q?.label || qId;
+                  let valueStr = answer.value;
+                  if (Array.isArray(valueStr)) {
+                    valueStr = valueStr.join(", ");
+                  } else if (typeof valueStr === "boolean") {
+                    valueStr = valueStr ? "Yes" : "No";
+                  }
+                  return `[question: "${label}"] Answer: ${valueStr}`;
+                },
+              );
+              if (answerLines.length > 0) {
+                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
+              }
+            } else if (selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title
@@ -1389,8 +1350,14 @@ export const useToolExecution = ({
             (m) => m.id === messageObj.id,
           );
           const selectedOption = currentMessage?.selectedOption;
+          const questionAnswers = currentMessage?.questionAnswers;
           const hasQuestion = !!parsed.question;
-          const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+          const isQuestionAnswered = hasQuestion
+            ? !!(
+                selectedOption ||
+                (questionAnswers && Object.keys(questionAnswers).length > 0)
+              )
+            : true;
 
           const isAllComplete =
             allActionIds.every((id: string) =>
@@ -1404,8 +1371,28 @@ export const useToolExecution = ({
             if (handleSendMessageRef.current && !isStoppedRef?.current) {
               flushedMessageIdsRef.current.add(messageObj.id);
               let finalContent = newBuffer.join("\n\n");
-              // Handle question answer - legacy format only
-              if (selectedOption) {
+              // Handle question answers - both legacy and new
+              if (questionAnswers && Object.keys(questionAnswers).length > 0) {
+                const answerLines = Object.entries(questionAnswers).map(
+                  ([qId, answer]) => {
+                    const q = (parsed.question as any)?.questions?.find(
+                      (q: any) => q.id === qId,
+                    );
+                    const label = q?.label || qId;
+                    let valueStr = answer.value;
+                    if (Array.isArray(valueStr)) {
+                      valueStr = valueStr.join(", ");
+                    } else if (typeof valueStr === "boolean") {
+                      valueStr = valueStr ? "Yes" : "No";
+                    }
+                    return `[question: "${label}"] Answer: ${valueStr}`;
+                  },
+                );
+                if (answerLines.length > 0) {
+                  finalContent =
+                    answerLines.join("\n\n") + "\n\n" + finalContent;
+                }
+              } else if (selectedOption) {
                 const questionTitle =
                   parsed.question?.type === "question"
                     ? (parsed.question as any).title
@@ -1473,8 +1460,14 @@ export const useToolExecution = ({
           (m) => m.id === messageObj.id,
         );
         const selectedOption = currentMessage?.selectedOption;
+        const questionAnswers = currentMessage?.questionAnswers;
         const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+        const isQuestionAnswered = hasQuestion
+          ? !!(
+              selectedOption ||
+              (questionAnswers && Object.keys(questionAnswers).length > 0)
+            )
+          : true;
 
         const isAllComplete =
           allActionIds.every(
@@ -1486,8 +1479,27 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(messageObj.id);
             let finalContent = newBuffer.join("\n\n");
-            // Handle question answer - legacy format only
-            if (selectedOption) {
+            // Handle question answers - both legacy and new
+            if (questionAnswers && Object.keys(questionAnswers).length > 0) {
+              const answerLines = Object.entries(questionAnswers).map(
+                ([qId, answer]) => {
+                  const q = (parsed.question as any)?.questions?.find(
+                    (q: any) => q.id === qId,
+                  );
+                  const label = q?.label || qId;
+                  let valueStr = answer.value;
+                  if (Array.isArray(valueStr)) {
+                    valueStr = valueStr.join(", ");
+                  } else if (typeof valueStr === "boolean") {
+                    valueStr = valueStr ? "Yes" : "No";
+                  }
+                  return `[question: "${label}"] Answer: ${valueStr}`;
+                },
+              );
+              if (answerLines.length > 0) {
+                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
+              }
+            } else if (selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title
@@ -1528,7 +1540,13 @@ export const useToolExecution = ({
 
         const parsed = parseAIResponse(msg.content);
         const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion ? !!msg.selectedOption : true;
+        const isQuestionAnswered = hasQuestion
+          ? !!(
+              msg.selectedOption ||
+              (msg.questionAnswers &&
+                Object.keys(msg.questionAnswers).length > 0)
+            )
+          : true;
 
         const allActionIds = parsed.actions.map(
           (_, idx: number) => `${msg.id}-action-${idx}`,
@@ -1546,8 +1564,30 @@ export const useToolExecution = ({
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(messageId);
             let finalContent = buffer.join("\n\n");
-            // Handle question answer - legacy format only
-            if (msg.selectedOption) {
+            // Handle question answers - both legacy and new
+            if (
+              msg.questionAnswers &&
+              Object.keys(msg.questionAnswers).length > 0
+            ) {
+              const answerLines = Object.entries(msg.questionAnswers).map(
+                ([qId, answer]) => {
+                  const q = (parsed.question as any)?.questions?.find(
+                    (q: any) => q.id === qId,
+                  );
+                  const label = q?.label || qId;
+                  let valueStr = answer.value;
+                  if (Array.isArray(valueStr)) {
+                    valueStr = valueStr.join(", ");
+                  } else if (typeof valueStr === "boolean") {
+                    valueStr = valueStr ? "Yes" : "No";
+                  }
+                  return `[question: "${label}"] Answer: ${valueStr}`;
+                },
+              );
+              if (answerLines.length > 0) {
+                finalContent = answerLines.join("\n\n") + "\n\n" + finalContent;
+              }
+            } else if (msg.selectedOption) {
               const questionTitle =
                 parsed.question?.type === "question"
                   ? (parsed.question as any).title

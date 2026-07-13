@@ -21,13 +21,10 @@ export const useDraftManagement = (
 
   // Restore draft on conversation change
   useEffect(() => {
-    if (!conversationId) {
-      return;
-    }
+    if (!conversationId) return;
     isDraftRestoredRef.current = false;
-    const draftKey = `draft:${conversationId}`;
     storage
-      .get(draftKey)
+      .get(`draft:${conversationId}`)
       .then((res: any) => {
         if (res?.value && !isDraftRestoredRef.current && !revertInput?.value) {
           setMessage(res.value);
@@ -36,39 +33,20 @@ export const useDraftManagement = (
         }
         isDraftRestoredRef.current = true;
       })
-      .catch((err: unknown) => {
-        console.error("[useDraftManagement] ❌ Error restoring draft:", err);
+      .catch(() => {
         isDraftRestoredRef.current = true;
       });
   }, [conversationId]);
 
   // Debounce-save draft on message change
   useEffect(() => {
-    if (!conversationId) {
-      return;
-    }
-    if (!isDraftRestoredRef.current) {
-      return;
-    }
-
+    if (!conversationId || !isDraftRestoredRef.current) return;
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-
     draftTimerRef.current = setTimeout(() => {
-      const draftKey = `draft:${conversationId}`;
       if (message.trim()) {
-        storage
-          .set(draftKey, message)
-          .then(() => {})
-          .catch((err: unknown) => {
-            console.error("[useDraftManagement] ❌ Error saving draft:", err);
-          });
+        storage.set(`draft:${conversationId}`, message).catch(() => {});
       } else {
-        storage
-          .delete(draftKey)
-          .then(() => {})
-          .catch((err: unknown) => {
-            console.error("[useDraftManagement] ❌ Error deleting draft:", err);
-          });
+        storage.delete(`draft:${conversationId}`).catch(() => {});
       }
     }, 500);
     return () => {
@@ -87,13 +65,7 @@ export const useDraftManagement = (
 
   const clearDraft = () => {
     if (conversationId) {
-      const draftKey = `draft:${conversationId}`;
-      storage
-        .delete(draftKey)
-        .then(() => {})
-        .catch((err: unknown) => {
-          console.error("[useDraftManagement] ❌ Error clearing draft:", err);
-        });
+      storage.delete(`draft:${conversationId}`).catch(() => {});
     }
     undoStackRef.current = [];
     undoIndexRef.current = -1;
@@ -110,10 +82,7 @@ export const useDraftManagement = (
     setMessage(value);
   };
 
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLTextAreaElement>,
-    checkMentions: (v: string) => void,
-  ) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, checkMentions: (v: string) => void) => {
     const isUndo = (e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey;
     const isRedo =
       ((e.ctrlKey || e.metaKey) && e.key === "y") ||

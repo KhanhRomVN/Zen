@@ -10,8 +10,6 @@ import "../blocks/run_command/TerminalBlock.css";
 import "../blocks/markdown/MarkdownBlock.css";
 import { MarkdownBlock } from "../blocks/markdown/MarkdownBlock";
 import { QuestionBlock } from "../blocks/question/QuestionBlock";
-import { CodeBlock } from "../blocks/code/CodeBlock";
-import { ModelUsageInfo } from "../ModelUsageInfo";
 
 interface AIMessageBoxProps {
   message: Message;
@@ -64,10 +62,82 @@ interface AIMessageBoxProps {
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
-  responseNumber?: number | null;
 }
 
-const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
+const MessageBoxCodeBlock: React.FC<{
+  code: string;
+  language?: string;
+  diffStats?: { added: number; removed: number };
+  isDiffBlock: boolean;
+  prefix?: string;
+  statusColor?: string;
+}> = ({ code, language, diffStats, isDiffBlock, prefix, statusColor }) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(isDiffBlock);
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+        marginBottom: "8px",
+      }}
+    >
+      <ToolHeader
+        title={prefix || language || "code"}
+        statusColor={statusColor}
+        diffStats={diffStats}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={
+          isDiffBlock ? () => setIsCollapsed(!isCollapsed) : undefined
+        }
+        headerActions={
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigator.clipboard.writeText(code);
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "var(--vscode-foreground)",
+              cursor: "pointer",
+              opacity: 0.7,
+              display: "flex",
+              alignItems: "center",
+              padding: "2px",
+            }}
+            title="Copy Code"
+          >
+            <div
+              className="codicon codicon-copy"
+              style={{ fontSize: "14px" }}
+            />
+          </button>
+        }
+      />
+      {!isCollapsed && (
+        <div style={{ paddingLeft: "29px" }}>
+          <pre
+            style={{
+              margin: 0,
+              padding: "8px",
+              overflow: "auto",
+              fontFamily: "var(--vscode-editor-font-family, monospace)",
+              fontSize: "12px",
+              background: "var(--vscode-editor-background)",
+              borderRadius: "4px",
+            }}
+          >
+            <code style={{ background: "none", padding: 0 }}>{code}</code>
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AIMessageBox: React.FC<AIMessageBoxProps> = ({
   message,
   parsedContent,
   clickedActions,
@@ -98,13 +168,12 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   isGitProcessing,
   isGitStatusVisible = true,
   onBackToHome,
-  responseNumber,
 }) => {
-  // Track render count for this specific message
-  const renderCountRef = React.useRef(0);
-  renderCountRef.current++;
-
+  /**
+   * Map known hardcoded error strings to English messages.
+   */
   const translateError = (raw: string): string => {
+    // Simple hardcoded English error messages
     const normalized = raw.trim().toLowerCase();
     if (/provider returned empty response/i.test(normalized))
       return "Provider returned empty response";
@@ -121,17 +190,14 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       return "Security validation failed: path is outside workspace.";
     if (/out of scope.*ignored/i.test(normalized))
       return "Path is out of scope and will be ignored.";
-    if (/invalid diff format/i.test(normalized)) return "Invalid diff format.";
+    if (/invalid diff format/i.test(normalized))
+      return "Invalid diff format.";
     if (/search text not found/i.test(normalized))
       return "Search text not found in file.";
     if (/no change made/i.test(normalized)) return "No changes were made.";
     if (/command validation failed/i.test(normalized))
       return "Command validation failed.";
-    if (
-      /unknown upload error|upload.*failed|upload api returned/i.test(
-        normalized,
-      )
-    )
+    if (/unknown upload error|upload.*failed|upload api returned/i.test(normalized))
       return "File upload failed.";
     if (/no active account|no.*account.*selected/i.test(normalized))
       return "No active account. Please select an account first.";
@@ -141,155 +207,47 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
     return raw;
   };
 
-  const [requestChecked, setRequestChecked] = React.useState(false);
-  const [responseChecked, setResponseChecked] = React.useState(false);
-
-  // PERF: Cache previousUserMessage lookup. Only recompute when the message
-  // list length changes or the current message id changes (not on every render
-  // where allMessages is a new array reference with same content).
-  const prevUserMsgCacheRef = React.useRef<{
-    allMessagesLength: number;
-    messageId: string;
-    result: Message | null;
-  } | null>(null);
-
-  const previousUserMessage = React.useMemo((): Message | null => {
-    const startTime = performance.now();
-    if (!allMessages || !message) return null;
-
-    // Use cached result if messages array hasn't changed structurally
-    const cache = prevUserMsgCacheRef.current;
-    if (
-      cache &&
-      cache.allMessagesLength === allMessages.length &&
-      cache.messageId === message.id
-    ) {
-      return cache.result;
-    }
-
-    const msgIndex = allMessages.findIndex((m) => m.id === message.id);
-    let result: Message | null = null;
-    if (msgIndex > 0) {
-      for (let i = msgIndex - 1; i >= 0; i--) {
-        if (allMessages[i].role === "user") {
-          result = allMessages[i];
-          break;
-        }
-      }
-    }
-
-    // Update cache
-    prevUserMsgCacheRef.current = {
-      allMessagesLength: allMessages.length,
-      messageId: message.id,
-      result,
-    };
-
-    const elapsed = performance.now() - startTime;
-    return result;
-  }, [allMessages, message, responseNumber]);
-
-  // PERF: Cache knownFilePaths computation. This scans all messages for file paths
-  // using regex — expensive O(n*m) operation. Only recompute when the number of
-  // messages changes (new message added), not on every render during streaming.
-  const knownFilePathsCacheRef = React.useRef<{
-    allMessagesLength: number;
-    lastMessageId: string;
-    map: Map<string, string>;
-  } | null>(null);
-
   const knownFilePaths = React.useMemo((): Map<string, string> => {
-    const startTime = performance.now();
-    if (!allMessages) return new Map();
-
-    // Use cached result if messages array hasn't changed structurally
-    const lastMsg = allMessages[allMessages.length - 1];
-    const cache = knownFilePathsCacheRef.current;
-    if (
-      cache &&
-      cache.allMessagesLength === allMessages.length &&
-      cache.lastMessageId === lastMsg?.id
-    ) {
-      return cache.map;
-    }
-
     const map = new Map<string, string>();
-    const filePathRegex = /(?:^|\s)([\/~][\w\-\.\/]+\.\w+)(?:\s|$)/g;
+    if (!allMessages) return map;
 
-    allMessages.forEach((msg, msgIndex) => {
-      if (!msg.content) return;
-      const msgStartTime = performance.now();
-      const matches = msg.content.matchAll(filePathRegex);
-      let matchCount = 0;
-      for (const match of matches) {
-        matchCount++;
-        const fullPath = match[1];
-        const basename = fullPath.split("/").pop();
-        if (basename) {
+    const filePathRegex = /<file_path>([^<]+)<\/file_path>/gi;
+    const pathRegex = /<path>([^<]+)<\/path>/gi;
+
+    for (const msg of allMessages) {
+      if (!msg.content) continue;
+
+      // Extract all <file_path> occurrences
+      let m: RegExpExecArray | null;
+      filePathRegex.lastIndex = 0;
+      while ((m = filePathRegex.exec(msg.content)) !== null) {
+        const fullPath = m[1].trim();
+        if (!fullPath) continue;
+        const basename = fullPath.split(/[/\\]/).pop() || "";
+        if (basename && !map.has(basename)) {
           map.set(basename, fullPath);
         }
       }
-      const msgElapsed = performance.now() - msgStartTime;
-      if (msgElapsed > 5) {
+
+      // Also try <path> tags (used by some search/list calls)
+      pathRegex.lastIndex = 0;
+      while ((m = pathRegex.exec(msg.content)) !== null) {
+        const fullPath = m[1].trim();
+        if (!fullPath) continue;
+        const basename = fullPath.split(/[/\\]/).pop() || "";
+        if (basename && !map.has(basename)) {
+          map.set(basename, fullPath);
+        }
       }
-    });
+    }
 
-    // Update cache
-    knownFilePathsCacheRef.current = {
-      allMessagesLength: allMessages.length,
-      lastMessageId: lastMsg?.id,
-      map,
-    };
-
-    const elapsed = performance.now() - startTime;
     return map;
-  }, [allMessages, responseNumber]);
-
-  const checkboxStyle = (
-    checked: boolean,
-    visible: boolean,
-  ): React.CSSProperties => ({
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "14px",
-    height: "14px",
-    borderRadius: "3px",
-    border: checked
-      ? "1.5px solid var(--vscode-button-background, #007acc)"
-      : "1.5px solid var(--vscode-descriptionForeground)",
-    backgroundColor: checked
-      ? "var(--vscode-button-background, #007acc)"
-      : "transparent",
-    opacity: visible ? 1 : 0,
-    transition:
-      "opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease",
-    flexShrink: 0,
-    cursor: "pointer",
-  });
-
-  const CheckSVG = (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#fff"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
+  }, [allMessages]);
 
   return (
     <div
       className={`assistant-message-container ${message.isError ? "is-error" : ""} ${
-        hasNextAssistantMessage === false && message.role === "assistant"
-          ? "is-last-assistant"
-          : ""
+        hasNextAssistantMessage === false && message.role === "assistant" ? "is-last-assistant" : ""
       }`}
       style={{
         display: "flex",
@@ -308,7 +266,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
         padding: "0px",
       }}
     >
+      {/* 3. Interleaved Content (Text + Tools) */}
       {(() => {
+        // Prepare render groups
         const groups: Array<
           | {
               type: "metadata";
@@ -319,7 +279,11 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           | { type: "code"; content: string; language: string; key: string }
           | { type: "file"; content: string; key: string }
           | { type: "markdown"; content: string; key: string }
-          | { type: "mixed_content"; segments: any[]; key: string }
+          | {
+              type: "mixed_content";
+              segments: any[];
+              key: string;
+            }
           | {
               type: "tools";
               items: { action: any; index: number }[];
@@ -333,25 +297,19 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               questions?: import("../../types/message").Question[];
               key: string;
             }
-          | { type: "error"; content: string; key: string }
-          | { type: "response_number"; content: string; key: string }
+          | {
+              type: "error";
+              content: string;
+              key: string;
+            }
         > = [];
 
-        if (
-          responseNumber !== null &&
-          responseNumber !== undefined &&
-          !message.isError
-        ) {
-          groups.push({
-            type: "response_number",
-            content: `[${responseNumber}]`,
-            key: "response-number",
-          });
-        }
-
+        // --- 🆕 METADATA DOT CHECK ---
+        // Skip metadata dot for commit messages (they should continue the timeline without a new dot)
         const isCommitMessage =
           message.content?.includes("[COMMIT_MESSAGE_REQUEST]") ||
           message.content?.includes("<commit_message>");
+
         const metaChanged =
           !previousAssistantMessage ||
           message.conversationId !== previousAssistantMessage.conversationId ||
@@ -360,6 +318,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           message.accountId !== previousAssistantMessage.accountId ||
           message.email !== previousAssistantMessage.email;
 
+        // If metadata changed, inject the Metadata group (skip for commit messages)
         if (
           !isCommitMessage &&
           metaChanged &&
@@ -370,13 +329,17 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             : "";
           const modelStr = message.modelId || "unknown-model";
           const emailStr = message.email ? ` by ${message.email}` : "";
+
           let faviconUrl: string | undefined = undefined;
           if (message.websiteUrl) {
             try {
               const url = new URL(message.websiteUrl);
               faviconUrl = `${url.origin}/favicon.ico`;
-            } catch (e) {}
+            } catch (e) {
+              // Ignore invalid url
+            }
           }
+
           groups.push({
             type: "metadata",
             content: `Used ${providerStr}${modelStr}${emailStr}`,
@@ -385,9 +348,21 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           });
         }
 
-        let currentToolGroup: { action: any; index: number }[] = [];
-        const blocks = parsedContent.contentBlocks || [];
+        // Only show message.thinking while generating, auto-hide when done
+        // NOTE: message.thinking is now rendered in ChatBody outside of timeline
+        // So we don't render it here anymore
 
+        let currentToolGroup: { action: any; index: number }[] = [];
+
+        // Use contentBlocks from parser
+        const blocks = parsedContent.contentBlocks || [];
+        
+        // Track if we've already added thinking from message.thinking
+        // Only count as "added" if we're still generating (thinking will be hidden when done)
+        // NOTE: message.thinking is now rendered outside in ChatBody, so skip here
+        const hasAddedThinking = false;
+
+        // Helper to flush tool group
         const flushTools = () => {
           if (currentToolGroup.length > 0) {
             const firstIndex = currentToolGroup[0].index;
@@ -429,7 +404,8 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 key: `markdown-${idx}`,
               });
             } else if (block.type === "thinking") {
-              // Skip
+              // Skip - thinking blocks are rendered in ChatBody outside timeline
+              // Do nothing here
             } else if (block.type === "question") {
               flushTools();
               groups.push({
@@ -448,7 +424,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 key: `mixed_content-${idx}`,
               });
             } else {
+              // Flush tools before adding non-tool block
               flushTools();
+
               if (block.type === "code") {
                 groups.push({
                   type: "code",
@@ -459,8 +437,11 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               }
             }
           });
+          // Flush any remaining tools
           flushTools();
         } else {
+          // Legacy Fallback
+          // 1. Text (Legacy Fallback)
           if (parsedContent.displayText) {
             groups.push({
               type: "markdown",
@@ -468,6 +449,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               key: "markdown-legacy",
             });
           }
+          // 2. Tools
           if (parsedContent.actions && parsedContent.actions.length > 0) {
             currentToolGroup = parsedContent.actions.map((action, index) => ({
               action,
@@ -478,234 +460,96 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
         }
 
         let isInteractionBlocked = false;
+
+        // In simple mode, filter out tool groups where all items are invisible
+        // Complex mode: always show all groups
         const renderGroups = groups;
 
+        // Pre-calculate which groups will render with timeline-item wrapper
+        const groupsWithTimeline = renderGroups.map((group) => 
+          group.type !== "tools" && group.type !== "question"
+        );
+
+        // Find the last group that will have a timeline-item wrapper
+        let lastTimelineIndex = -1;
+        for (let i = renderGroups.length - 1; i >= 0; i--) {
+          if (groupsWithTimeline[i]) {
+            lastTimelineIndex = i;
+            break;
+          }
+        }
+
         return renderGroups.map((group, index) => {
+          // Only mark as "last" if: it's the last timeline group AND (isLastMessage OR hasNextAssistantMessage)
+          // This prevents timeline line when followed by user message
+          const shouldMarkAsLast = index === lastTimelineIndex && isLastMessage;
+          const timelineClass = `timeline-item ${shouldMarkAsLast ? "last" : ""}`;
+
           let content = null;
 
-          if (group.type === "response_number") {
-            const showRaw = requestChecked || responseChecked;
-            const reqTokens =
-              previousUserMessage?.token_usage ??
-              previousUserMessage?.usage?.prompt_tokens ??
-              0;
-            const resTokens =
-              message.usage?.completion_tokens ?? message.token_usage ?? 0;
-
-            // Request/Response icons (upload/download)
-            const RequestIcon = (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0 }}
-              >
-                <path d="M12 3v12" />
-                <path d="m17 8-5-5-5 5" />
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              </svg>
-            );
-
-            const ResponseIcon = (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0 }}
-              >
-                <path d="M12 15V3" />
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <path d="m7 10 5 5 5-5" />
-              </svg>
-            );
-
+          if (group.type === "metadata") {
             content = (
-              <div>
+              <div style={{ paddingBottom: "8px" }}>
                 <div
+                  className="timeline-dot"
                   style={{
-                    position: "relative",
-                    paddingTop: "6px",
-                    paddingBottom: "6px",
-                    fontSize: "11px",
-                    fontFamily: "var(--vscode-editor-font-family, monospace)",
-                    lineHeight: 1.6,
+                    backgroundColor: "transparent",
+                    top: "10px",
                     display: "flex",
-                    justifyContent: "flex-end",
                     alignItems: "center",
-                    gap: "12px",
-                    userSelect: "none",
-                    flexWrap: "wrap",
+                    justifyContent: "center",
+                    border: "none",
                   }}
                 >
-                  {/* Request Badge */}
-                  <div
-                    onClick={() => setRequestChecked(!requestChecked)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: "pointer",
-                      textDecoration: requestChecked ? "underline" : "none",
-                      textUnderlineOffset: "3px",
-                      transition: "opacity 0.2s ease",
-                      opacity: requestChecked ? 1 : 0.8,
-                    }}
-                  >
-                    <span
+                  {group.faviconUrl ? (
+                    <img
+                      src={group.faviconUrl}
+                      alt="favicon"
                       style={{
-                        color: "var(--vscode-charts-green, #89d185)",
-                        display: "inline-flex",
-                        alignItems: "center",
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "2px",
                       }}
-                    >
-                      {RequestIcon}
-                    </span>
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                        const parent = (e.target as HTMLImageElement)
+                          .parentElement;
+                        if (parent) {
+                          const icon = document.createElement("span");
+                          icon.className = "codicon codicon-server-process";
+                          icon.style.color =
+                            "var(--vscode-descriptionForeground)";
+                          icon.style.fontSize = "14px";
+                          parent.appendChild(icon);
+                        }
+                      }}
+                    />
+                  ) : (
                     <span
+                      className="codicon codicon-server-process"
                       style={{
-                        color: "var(--vscode-foreground)",
-                        fontWeight: 600,
+                        color: "var(--vscode-descriptionForeground)",
+                        fontSize: "14px",
                       }}
-                    >
-                      {reqTokens.toLocaleString()}
-                    </span>
-                  </div>
-
-                  {/* Response Badge */}
-                  <div
-                    onClick={() => setResponseChecked(!responseChecked)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: "pointer",
-                      textDecoration: responseChecked ? "underline" : "none",
-                      textUnderlineOffset: "3px",
-                      transition: "opacity 0.2s ease",
-                      opacity: responseChecked ? 1 : 0.8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--vscode-charts-red, #f48771)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      {ResponseIcon}
-                    </span>
-                    <span
-                      style={{
-                        color: "var(--vscode-foreground)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {resTokens.toLocaleString()}
-                    </span>
-                  </div>
-
-                  {/* Response Number */}
-                  <span
-                    style={{
-                      color: "var(--vscode-descriptionForeground)",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    [{responseNumber}]
-                  </span>
+                    />
+                  )}
                 </div>
-                {showRaw && (
-                  <div
-                    style={{
-                      marginTop: "4px",
-                      marginBottom: "8px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                    }}
-                  >
-                    {requestChecked && previousUserMessage?.rawRequest && (
-                      <div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            color: "var(--vscode-descriptionForeground)",
-                            marginBottom: "4px",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.5px",
-                          }}
-                        >
-                          Request (User Content)
-                        </div>
-                        <CodeBlock
-                          code={previousUserMessage.rawRequest}
-                          language="text"
-                          maxHeight="400px"
-                        />
-                      </div>
-                    )}
-                    {responseChecked && message.rawResponse && (
-                      <div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            color: "var(--vscode-descriptionForeground)",
-                            marginBottom: "4px",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.5px",
-                          }}
-                        >
-                          Response (Assistant Content)
-                        </div>
-                        <CodeBlock
-                          code={message.rawResponse}
-                          language="text"
-                          maxHeight="400px"
-                        />
-                      </div>
-                    )}
-                    {showRaw &&
-                      !previousUserMessage?.rawRequest &&
-                      !message.rawResponse && (
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--vscode-descriptionForeground)",
-                            fontStyle: "italic",
-                            padding: "8px",
-                          }}
-                        >
-                          Raw data not available for this response (may have
-                          been loaded from history before this feature was
-                          added).
-                        </div>
-                      )}
-                  </div>
-                )}
+                <div
+                  style={{
+                    paddingLeft: "29px",
+                    paddingTop: "4px",
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--vscode-descriptionForeground)",
+                    lineHeight: 1.6,
+                    fontStyle: "italic",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  {group.content}
+                </div>
               </div>
-            );
-          } else if (group.type === "metadata") {
-            content = (
-              <ModelUsageInfo
-                providerId={message.providerId}
-                modelId={message.modelId || "unknown-model"}
-                email={message.email}
-                websiteUrl={message.websiteUrl}
-              />
             );
           } else if (group.type === "code") {
             const isDiffBlock = isDiff(group.content, group.language);
@@ -715,6 +559,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             let prefix: string | undefined = undefined;
             let statusColor: string | undefined =
               "var(--vscode-descriptionForeground, #6a737d)";
+
             if (isDiffBlock) {
               const diffResult = parseDiff(group.content);
               displayCode = diffResult.code;
@@ -723,8 +568,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               statusColor =
                 "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
             }
+
             content = (
-              <CodeBlock
+              <MessageBoxCodeBlock
                 code={displayCode}
                 language={isDiffBlock ? "python" : group.language}
                 diffStats={diffStats}
@@ -746,6 +592,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                   color: "var(--vscode-badge-foreground)",
                   fontSize: "12px",
                   cursor: "pointer",
+                  marginLeft: "29px",
                 }}
                 onClick={() => {
                   const vscodeApi = (window as any).vscodeApi;
@@ -765,59 +612,113 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               </div>
             );
           } else if (group.type === "markdown") {
+            const dotColor = message.isError
+              ? "var(--vscode-errorForeground, #ff4d4f)"
+              : "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
             content = (
-              <div
-                style={{
-                  paddingTop: "4px",
-                  fontSize: "var(--font-size-sm)",
-                  color: "var(--primary-text)",
-                }}
-              >
-                <MarkdownBlock
-                  content={group.content}
-                  knownFilePaths={knownFilePaths}
+              <div>
+                <div
+                  className="timeline-dot"
+                  style={{
+                    backgroundColor: dotColor,
+                    boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
+                    top: "10px",
+                  }}
                 />
+                <div
+                  style={{
+                    paddingLeft: "29px",
+                    paddingTop: "4px",
+                    fontSize: "var(--font-size-sm)",
+                    color: "var(--primary-text)",
+                  }}
+                >
+                  <MarkdownBlock
+                    content={group.content}
+                    knownFilePaths={knownFilePaths}
+                  />
+                </div>
               </div>
             );
           } else if (group.type === "mixed_content") {
+            const dotColor = message.isError
+              ? "var(--vscode-errorForeground, #ff4d4f)"
+              : "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
             content = (
-              <div style={{ paddingTop: "4px" }}>
-                {group.segments.map((seg: any, i: number) => {
-                  if (seg.type === "code") {
-                    return (
-                      <CodeBlock
-                        key={i}
-                        code={seg.content}
-                        language={seg.language}
-                        enableWordWrap={true}
-                      />
-                    );
-                  } else if (seg.type === "markdown") {
-                    return (
-                      <MarkdownBlock
-                        key={i}
-                        content={seg.content}
-                        className="markdown-content-inline"
-                        knownFilePaths={knownFilePaths}
-                      />
-                    );
-                  } else {
-                    return (
-                      <MarkdownBlock
-                        key={i}
-                        content={seg.content}
-                        className="markdown-content-inline"
-                        knownFilePaths={knownFilePaths}
-                      />
-                    );
-                  }
-                })}
+              <div>
+                <div
+                  className="timeline-dot"
+                  style={{
+                    backgroundColor: dotColor,
+                    boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
+                    top: "10px",
+                  }}
+                />
+                <div style={{ paddingLeft: "29px", paddingTop: "4px" }}>
+                  {group.segments.map((seg: any, i: number) => {
+                    if (seg.type === "code") {
+                      return (
+                        <div
+                          key={i}
+                          style={{ marginBottom: "8px", marginTop: "4px" }}
+                        >
+                          <pre
+                            style={{
+                              margin: 0,
+                              padding: "8px",
+                              overflow: "auto",
+                              fontFamily:
+                                "var(--vscode-editor-font-family, monospace)",
+                              fontSize: "12px",
+                              background: "var(--vscode-editor-background)",
+                              borderRadius: "4px",
+                            }}
+                          >
+                            <code style={{ background: "none", padding: 0 }}>
+                              {seg.content}
+                            </code>
+                          </pre>
+                        </div>
+                      );
+                    } else if (seg.type === "markdown") {
+                      return (
+                        <MarkdownBlock
+                          key={i}
+                          content={seg.content}
+                          className="markdown-content-inline"
+                          knownFilePaths={knownFilePaths}
+                        />
+                      );
+                    } else {
+                      return (
+                        <MarkdownBlock
+                          key={i}
+                          content={seg.content}
+                          className="markdown-content-inline"
+                          knownFilePaths={knownFilePaths}
+                        />
+                      );
+                    }
+                  })}
+                </div>
               </div>
             );
           } else if (group.type === "question") {
-            const isAnswered = !!message.selectedOption;
+            const isAnswered =
+              !!message.selectedOption ||
+              (message.questionAnswers &&
+                Object.keys(message.questionAnswers).length > 0);
             const isThisActive = isLastMessage && !isInteractionBlocked;
+            const dotColor = isAnswered
+              ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+              : isThisActive
+                ? "var(--vscode-button-background)"
+                : "var(--vscode-descriptionForeground)";
+
+            // Check if this is the new paginated format (has questions array)
             const hasQuestions = group.questions && group.questions.length > 0;
+
+            // Render QuestionBlock - it now manages its own summary mode internally
             content = (
               <QuestionBlock
                 questions={hasQuestions ? group.questions : undefined}
@@ -827,31 +728,29 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 selectedOption={
                   !hasQuestions ? message.selectedOption : undefined
                 }
-                questionAnswers={
-                  hasQuestions ? message.questionAnswers : undefined
+                initialAnswers={
+                  hasQuestions ? message.questionAnswers || {} : undefined
                 }
                 disabled={!!nextUserMessage || isGenerating}
                 onAnswer={(questionId, value) => {
                   if (!hasQuestions) return;
                   if (onSelectOption) {
-                    onSelectOption(
-                      message.id,
-                      JSON.stringify({ questionId, value }),
-                    );
+                    const answerStr = JSON.stringify({ questionId, value });
+                    onSelectOption(message.id, answerStr);
                   }
                 }}
                 onAllAnswered={(answers) => {
                   if (!hasQuestions) return;
                   if (onSelectOption) {
-                    onSelectOption(
-                      message.id,
-                      JSON.stringify({
-                        allAnswered: true,
-                        answers,
-                        questions: group.questions || [],
-                      }),
-                    );
+                    // Include questions in payload so handleSelectOption can format and auto-submit
+                    const allAnsweredStr = JSON.stringify({
+                      allAnswered: true,
+                      answers,
+                      questions: group.questions || [],
+                    });
+                    onSelectOption(message.id, allAnsweredStr);
                   }
+                  // Auto-submit is now handled inside useChatLLM.handleSelectOption
                 }}
                 onOptionSelect={(option: string) => {
                   if (hasQuestions) return;
@@ -860,8 +759,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                   }
                   const hasTools = (parsedContent.actions?.length || 0) > 0;
                   if (onSendMessage && !hasTools) {
+                    const questionTitle = group.title || "Question";
                     onSendMessage(
-                      `[question: "${group.title || "Question"}"] Answer: ${option}`,
+                      `[question: "${questionTitle}"] Answer: ${option}`,
                       undefined,
                       undefined,
                       undefined,
@@ -871,9 +771,12 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 }}
               />
             );
+
+            // Update blocking state
             if (!isAnswered) isInteractionBlocked = true;
           } else if (group.type === "error") {
             const errorText = group.content.replace(/^Error:\s*/i, "");
+            // Parse error code from "[CODE] message" format
             const codeMatch = errorText.match(/^\[([^\]]+)\]\s*(.*)/s);
             const errorCode = codeMatch ? codeMatch[1] : null;
             const rawMessage = codeMatch ? codeMatch[2] : errorText;
@@ -882,10 +785,11 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               <ErrorBlock
                 content={translatedMessage}
                 errorCode={errorCode || undefined}
-                isLast={false}
+                isLast={shouldMarkAsLast}
                 isLastMessage={isLastMessage}
               />
             );
+            // Error renders its own timeline-item wrapper like tool groups
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           } else {
             content = (
@@ -920,27 +824,38 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 onBackToHome={onBackToHome}
               />
             );
+
+            // Check if THIS group has any pending or busy action that should block subsequent ones
             const hasUnclickedOrBusyAction = group.items.some((item) => {
               const actionId = `${message.id}-action-${item.index}`;
               const hasOutput = toolOutputs && toolOutputs[actionId];
               const isClicked = clickedActions.has(actionId);
+
+              // Check if there is a subsequent message in history containing the output
               const hasHistoryOutput =
                 !!nextUserMessage ||
                 !!allMessages?.some((m) => m.actionIds?.includes(actionId));
+
               if (!isClicked && !hasOutput && !hasHistoryOutput) {
+                // If it is a write/edit tool, on restore it shouldn't block subsequent tools
                 const isWriteTool =
                   item.action.type === "write_to_file" ||
                   item.action.type === "replace_in_file";
-                if (isWriteTool) return false;
+                if (isWriteTool) {
+                  return false;
+                }
                 return true;
               }
+
+              // Also block if a run_command is still busy
               if (item.action.type === "run_command" && !hasHistoryOutput) {
                 const outputData = toolOutputs?.[actionId];
                 const terminalId =
                   (outputData as any)?.terminalId ||
                   item.action.params.terminal_id;
-                if (terminalId && terminalStatus?.[terminalId] === "busy")
+                if (terminalId && terminalStatus?.[terminalId] === "busy") {
                   return true;
+                }
               }
               return false;
             });
@@ -950,78 +865,16 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           if (group.type === "tools" || group.type === "question") {
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           }
-          return <React.Fragment key={group.key}>{content}</React.Fragment>;
+
+          return (
+            <div key={group.key} className={timelineClass}>
+              {content}
+            </div>
+          );
         });
       })()}
     </div>
   );
 };
-
-// Memoize AIMessageBox to prevent re-renders during streaming
-const AIMessageBox = React.memo(
-  AIMessageBoxInternal,
-  (prevProps, nextProps) => {
-    // Performance optimization: shallow comparison of props
-    // Only re-render if these critical props change
-
-    const startTime = performance.now();
-
-    // Message identity check
-    if (prevProps.message.id !== nextProps.message.id) {
-      return false; // Different message, re-render
-    }
-
-    // CRITICAL: During streaming, only re-render if content actually changed
-    if (prevProps.isGenerating || nextProps.isGenerating) {
-      // Check if message content changed
-      const contentChanged =
-        prevProps.message.content !== nextProps.message.content;
-
-      // Check if streaming state changed (started/stopped)
-      const streamingStateChanged =
-        prevProps.isGenerating !== nextProps.isGenerating;
-
-      // Only re-render if content or streaming state changed
-      if (contentChanged || streamingStateChanged) {
-        return false; // Re-render needed
-      }
-
-      // Content hasn't changed during streaming, skip re-render
-      return true; // Skip re-render
-    }
-
-    // Not streaming, check all critical props
-    const sameContent = prevProps.message.content === nextProps.message.content;
-    const sameParsed = prevProps.parsedContent === nextProps.parsedContent;
-    const sameIsLastMessage =
-      prevProps.isLastMessage === nextProps.isLastMessage;
-    const sameHasNext =
-      prevProps.hasNextAssistantMessage === nextProps.hasNextAssistantMessage;
-    const sameResponseNumber =
-      prevProps.responseNumber === nextProps.responseNumber;
-    const sameSelectedOption =
-      prevProps.message.selectedOption === nextProps.message.selectedOption;
-
-    // Check if arrays/objects changed by reference (quick check)
-    const sameClickedActions =
-      prevProps.clickedActions === nextProps.clickedActions;
-    const sameToolOutputs = prevProps.toolOutputs === nextProps.toolOutputs;
-    const sameTerminalStatus =
-      prevProps.terminalStatus === nextProps.terminalStatus;
-
-    const shouldSkipRender =
-      sameContent &&
-      sameParsed &&
-      sameIsLastMessage &&
-      sameHasNext &&
-      sameResponseNumber &&
-      sameSelectedOption &&
-      sameClickedActions &&
-      sameToolOutputs &&
-      sameTerminalStatus;
-
-    return shouldSkipRender; // true = skip re-render
-  },
-);
 
 export default AIMessageBox;

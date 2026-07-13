@@ -115,7 +115,18 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
           : "var(--vscode-descriptionForeground)";
 
   return (
-    <div style={{ marginTop: "4px", paddingLeft: "0" }}>
+    <div
+      className="timeline-item"
+      style={{ marginTop: "4px", paddingLeft: "29px" }}
+    >
+      <div
+        className="timeline-dot"
+        style={{
+          backgroundColor: dotColor,
+          boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
+          top: "10px",
+        }}
+      />
 
       <div
         style={{

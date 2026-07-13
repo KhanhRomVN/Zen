@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { getFileIconPath, getFolderIconPath } from "@/utils/fileIconMapper";
-import ErrorBlock from "../error/ErrorBlock";
 import "./TreeBlock.css";
 
 interface FileNode {
@@ -24,6 +23,16 @@ const TreeNode: React.FC<{
 }> = ({ node, level, onFileClick }) => {
   // Expand all folders by default for find_files to show all results
   const [isExpanded, setIsExpanded] = useState(true);
+
+  // Debug log for each node
+  console.log(`[TreeNode] Rendering:`, {
+    name: node.name,
+    type: node.type,
+    level: level,
+    hasChildren: !!node.children,
+    childrenCount: node.children?.length || 0,
+    path: node.path
+  });
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -60,16 +69,13 @@ const TreeNode: React.FC<{
         {node.type === "folder" && !hasChildren && (
           <span className="tree-chevron-placeholder" />
         )}
-        {node.type === "file" && <span className="tree-chevron-placeholder" />}
+        {node.type === "file" && (
+          <span className="tree-chevron-placeholder" />
+        )}
         <img
           src={iconPath}
           alt={`${node.type} icon`}
-          style={{
-            width: "14px",
-            height: "14px",
-            marginRight: "6px",
-            flexShrink: 0,
-          }}
+          style={{ width: "14px", height: "14px", marginRight: "6px", flexShrink: 0 }}
           onError={(e) => {
             e.currentTarget.style.display = "none";
             const parent = e.currentTarget.parentElement;
@@ -90,6 +96,7 @@ const TreeNode: React.FC<{
       {node.type === "folder" && isExpanded && hasChildren && (
         <div className="tree-node-children">
           {node.children!.map((child, index) => {
+            console.log(`[TreeNode] Child ${index} of ${node.name}:`, child.name);
             return (
               <TreeNode
                 key={`${child.path}-${index}`}
@@ -110,29 +117,40 @@ export const TreeBlock: React.FC<TreeBlockProps> = ({ files, onFileClick }) => {
   React.useEffect(() => {
     const debugInfo = {
       filesCount: files?.length || 0,
-      filesType: Array.isArray(files) ? "array" : typeof files,
-      firstFile: files?.[0]
-        ? {
-            name: files[0].name,
-            type: files[0].type,
-            path: files[0].path,
-            hasChildren: !!files[0].children,
-            childrenCount: files[0].children?.length || 0,
-          }
-        : "no files",
-      rawData: files,
+      filesType: Array.isArray(files) ? 'array' : typeof files,
+      firstFile: files?.[0] ? {
+        name: files[0].name,
+        type: files[0].type,
+        path: files[0].path,
+        hasChildren: !!files[0].children,
+        childrenCount: files[0].children?.length || 0
+      } : 'no files',
+      rawData: files
     };
+    
+    console.log('[TreeBlock] Received files data:', debugInfo);
+    
+    // Show alert for first render to debug
+    if (files && files.length > 0) {
+      console.log('[TreeBlock] Full tree structure:', JSON.stringify(files, null, 2));
+    }
   }, [files]);
 
   // Validate data structure
   if (!Array.isArray(files)) {
-    console.error("[TreeBlock] Invalid files data - not an array:", files);
-    return <ErrorBlock content="Invalid tree data format (not array)" compact={true} />;
+    console.error('[TreeBlock] Invalid files data - not an array:', files);
+    return (
+      <div style={{ padding: '8px', color: 'var(--vscode-errorForeground)' }}>
+        Error: Invalid tree data format (not array)
+      </div>
+    );
   }
 
   if (files.length === 0) {
     return (
-      <div style={{ padding: "8px", opacity: 0.6 }}>No files to display</div>
+      <div style={{ padding: '8px', opacity: 0.6 }}>
+        No files to display
+      </div>
     );
   }
 
@@ -140,6 +158,7 @@ export const TreeBlock: React.FC<TreeBlockProps> = ({ files, onFileClick }) => {
     <div
       style={{
         marginTop: "4px",
+        marginLeft: "29px",
         backgroundColor:
           "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
         border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
@@ -149,6 +168,11 @@ export const TreeBlock: React.FC<TreeBlockProps> = ({ files, onFileClick }) => {
     >
       <div className="tree-block">
         {files.map((file, index) => {
+          console.log(`[TreeBlock] Rendering node ${index}:`, {
+            name: file.name,
+            type: file.type,
+            childrenCount: file.children?.length || 0
+          });
           return (
             <TreeNode
               key={`${file.path}-${index}`}

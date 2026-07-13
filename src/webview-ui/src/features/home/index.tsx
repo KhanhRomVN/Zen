@@ -10,8 +10,6 @@ import { ConversationItem } from "../history/types";
 import { extensionService } from "../../services/ExtensionService";
 import { useSettings } from "../../context/SettingsContext";
 import { useFileHandling } from "../../hooks/useFileHandling";
-import { useHomeDraftManagement } from "./hooks/useHomeDraftManagement";
-import { useModelAccount } from "../../hooks/useModelAccount";
 
 const SLOGANS = [
   "Code smarter, not harder",
@@ -50,15 +48,36 @@ const HomePanel: React.FC<HomePanelProps> = ({
     | null
     | undefined;
 
-  // Use draft management hook for auto-save/restore
-  const { message, setMessage, clearDraft } = useHomeDraftManagement(
-    folderPath || null
-  );
-
-  // Model+Account selection (centralized hook — workspace-scoped persistence)
-  const { currentModel, setCurrentModel, currentAccount, setCurrentAccount } =
-    useModelAccount(folderPath);
+  // MessageInput state
+  const [currentModel, setCurrentModel] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem("zen_last_model");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+  const [currentAccount, setCurrentAccount] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem("zen_last_account");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return null;
+  });
+  const [message, setMessage] = useState(initialValue || "");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Persist model/account selection when changed
+  useEffect(() => {
+    if (currentModel) {
+      localStorage.setItem("zen_last_model", JSON.stringify(currentModel));
+    }
+  }, [currentModel]);
+
+  useEffect(() => {
+    if (currentAccount) {
+      localStorage.setItem("zen_last_account", JSON.stringify(currentAccount));
+    }
+  }, [currentAccount]);
 
   // Dashboard state
   const [sloganIndex, setSloganIndex] = useState(0);
@@ -204,7 +223,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
     if (message.trim() || uploadedFiles.length > 0) {
       onSendMessage(message, [...uploadedFiles], model, account);
       setMessage("");
-      clearDraft(); // Clear draft after sending
       clearFiles();
     }
   };
@@ -340,108 +358,56 @@ const HomePanel: React.FC<HomePanelProps> = ({
               </div>
             </div>
 
-            {/* AIWeb2API prerequisite alert - Prominent box */}
+            {/* Elara prerequisite alert */}
             <div
               style={{
-                padding: "16px 18px",
-                borderRadius: "10px",
-                background:
-                  "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
-                border: "2px solid rgba(59, 130, 246, 0.3)",
-                boxShadow:
-                  "0 4px 12px rgba(59, 130, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                backgroundColor: "rgba(234, 179, 8, 0.04)",
+                border: "1px solid rgba(234, 179, 8, 0.12)",
                 display: "flex",
-                alignItems: "flex-start",
+                alignItems: "center",
+                gap: "10px",
                 textAlign: "left",
                 width: "100%",
-                marginBottom: "20px",
+                marginBottom: "16px",
                 boxSizing: "border-box",
-                position: "relative",
-                overflow: "hidden",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow =
-                  "0 6px 20px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 4px 12px rgba(59, 130, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)";
               }}
             >
-              {/* Animated background gradient */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background:
-                    "linear-gradient(45deg, transparent 30%, rgba(59, 130, 246, 0.05) 50%, transparent 70%)",
-                  backgroundSize: "200% 200%",
-                  animation: "shimmer 3s ease-in-out infinite",
-                  pointerEvents: "none",
-                }}
+              <Zap
+                size={16}
+                color="var(--vscode-editorWarning-foreground, #eab308)"
+                style={{ flexShrink: 0 }}
               />
               <div
                 style={{
-                  fontSize: "12.5px",
+                  fontSize: "11px",
                   color: "var(--vscode-foreground)",
-                  lineHeight: "1.5",
-                  position: "relative",
-                  zIndex: 1,
+                  lineHeight: "1.4",
                 }}
               >
-                <div
+                <strong
                   style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    color: "var(--vscode-textLink-activeForeground, #3b82f6)",
-                    marginBottom: "6px",
-                    letterSpacing: "0.3px",
+                    color: "var(--vscode-editorWarning-foreground, #eab308)",
                   }}
                 >
-                  ⚡ PREREQUISITE REQUIRED
-                </div>
+                  Prerequisite:
+                </strong>{" "}
                 Zen requires{" "}
                 <a
-                  href="https://github.com/KhanhRomVN/AIWeb2API"
+                  href="https://elara-home.vercel.app/"
                   target="_blank"
                   style={{
-                    color: "var(--vscode-textLink-activeForeground, #3b82f6)",
+                    color: "var(--vscode-link-activeForeground, #3b82f6)",
                     textDecoration: "none",
-                    fontWeight: 700,
-                    borderBottom: "2px solid rgba(59, 130, 246, 0.4)",
-                    paddingBottom: "1px",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderBottomColor =
-                      "var(--vscode-textLink-activeForeground, #3b82f6)";
-                    e.currentTarget.style.paddingBottom = "2px";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderBottomColor =
-                      "rgba(59, 130, 246, 0.4)";
-                    e.currentTarget.style.paddingBottom = "1px";
+                    fontWeight: 600,
                   }}
                 >
-                  AIWeb2API
+                  Elara
                 </a>{" "}
-                backend running. Make sure AIWeb2API is installed and running
-                before using Zen.
+                backend running. Make sure Elara is installed and running before using Zen.
               </div>
             </div>
-
-            <style>{`
-              @keyframes shimmer {
-                0% { background-position: -200% 0; }
-                100% { background-position: 200% 0; }
-              }
-            `}</style>
           </div>
 
           {/* Dashboard content */}

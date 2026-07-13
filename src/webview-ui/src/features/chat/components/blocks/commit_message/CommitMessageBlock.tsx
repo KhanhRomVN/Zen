@@ -22,7 +22,7 @@ const CommitMessageBlock: React.FC<CommitMessageBlockProps> = ({
   return (
     <div
       className="commit-message-block"
-      style={{ padding: "0px 12px 12px 0" }}
+      style={{ padding: "0px 12px 12px 29px" }}
     >
       <div className="commit-message-body">
         <pre className="commit-message-content">{message}</pre>

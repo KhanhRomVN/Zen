@@ -26,13 +26,6 @@ interface UseConversationRestoreProps {
   setRevertInput: React.Dispatch<
     React.SetStateAction<{ value: string; nonce: number } | null>
   >;
-  setLoadedConversationFileStats: React.Dispatch<
-    React.SetStateAction<{
-      totalFiles: number;
-      totalAdditions: number;
-      totalDeletions: number;
-    } | null>
-  >;
 }
 
 export const useConversationRestore = ({
@@ -50,7 +43,6 @@ export const useConversationRestore = ({
   onBack,
   revertParentMessageIdRef,
   setRevertInput,
-  setLoadedConversationFileStats,
 }: UseConversationRestoreProps) => {
   const [isLoadingConversation, setIsLoadingConversation] =
     useState<boolean>(true);
@@ -76,8 +68,19 @@ export const useConversationRestore = ({
       if (convId) {
         const cached = ConversationCache.get(convId);
         if (cached) {
-          // Restore messages from cache
-          const messagesToRestore = cached.messages;
+          // ✅ Restore questionAnswers vào message từ cache (giống toolOutputs)
+          let messagesToRestore = cached.messages;
+          if (
+            cached.questionAnswers &&
+            Object.keys(cached.questionAnswers).length > 0
+          ) {
+            messagesToRestore = cached.messages.map((msg) => ({
+              ...msg,
+              questionAnswers:
+                cached.questionAnswers![msg.id] || msg.questionAnswers,
+            }));
+          }
+
           setMessages(messagesToRestore);
           if (
             cached.toolOutputs &&
@@ -138,12 +141,26 @@ export const useConversationRestore = ({
       const data = event.data;
       if (data.command === "conversationResult") {
         if (data.data?.messages) {
-          const restoredMessages = data.data.messages.map(
+          let restoredMessages = data.data.messages.map(
             (msg: Message, i: number) => ({
               ...msg,
               id: msg.id || `restored-${Date.now()}-${i}`,
             }),
           );
+
+          // ✅ FIX: Restore questionAnswers vào message (giống như toolOutputs)
+          if (
+            data.data.questionAnswers &&
+            Object.keys(data.data.questionAnswers).length > 0
+          ) {
+            restoredMessages = restoredMessages.map(
+              (msg: { id: string | number; questionAnswers: any }) => ({
+                ...msg,
+                questionAnswers:
+                  data.data.questionAnswers[msg.id] || msg.questionAnswers,
+              }),
+            );
+          }
 
           setMessages(restoredMessages);
 
@@ -231,13 +248,8 @@ export const useConversationRestore = ({
               currentAccount: accountToCache,
               toolOutputs: data.data.toolOutputs,
               singleLineReviewActions: data.data.singleLineReviewActions,
-              conversationFileStats: data.data.conversationFileStats,
+              questionAnswers: data.data.questionAnswers,
             });
-
-            // Set loaded conversation file stats
-            if (data.data.conversationFileStats) {
-              setLoadedConversationFileStats(data.data.conversationFileStats);
-            }
           }
         }
         setIsLoadingConversation(false);

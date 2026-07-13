@@ -33,114 +33,73 @@ export class ChatErrorBoundary extends React.Component<
     console.error("[ChatErrorBoundary] Render error caught:", error, info);
   }
 
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return <>{this.props.fallback}</>;
       }
 
-      const errorColor = "var(--vscode-errorForeground, #f44336)";
-
       return (
         <div
           style={{
-            padding: "12px 16px",
+            padding: "16px 20px",
+            margin: "12px",
+            borderRadius: "8px",
+            border: "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 30%, transparent)",
+            background: "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 5%, transparent)",
             display: "flex",
             flexDirection: "column",
             gap: "8px",
           }}
         >
-          {/* Header matching ToolHeader style */}
           <div
             style={{
               display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              width: "100%",
+              alignItems: "center",
+              gap: "8px",
+              fontWeight: 600,
+              fontSize: "13px",
+              color: "var(--vscode-errorForeground, #f44336)",
             }}
           >
-            {/* Left panel: CircleDot */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-                flex: 1,
-                minWidth: 0,
-              }}
-            >
-              <div
-                style={{
-                  position: "relative",
-                  width: "16px",
-                  height: "16px",
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginTop: "2px",
-                }}
-                title="Error - Render failed"
-              >
-                {/* CircleDot */}
-                <div
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    backgroundColor: errorColor,
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Right panel: ERROR label */}
-            <div
-              style={{
-                flexShrink: 0,
-                marginLeft: "8px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  color: errorColor,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                ERROR
-              </span>
-            </div>
+            <span className="codicon codicon-error" style={{ fontSize: "14px" }} />
+            Something went wrong rendering this message
           </div>
-
-          {/* Error Block */}
           {this.state.error && (
-            <div
+            <pre
               style={{
-                padding: "12px 16px",
-                borderRadius: "6px",
-                border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
-                background: `color-mix(in srgb, ${errorColor} 5%, transparent)`,
+                fontSize: "11px",
+                color: "var(--vscode-descriptionForeground)",
+                margin: 0,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+                maxHeight: "120px",
+                overflowY: "auto",
               }}
             >
-              <pre
-                style={{
-                  fontSize: "11px",
-                  color: "var(--vscode-descriptionForeground)",
-                  margin: 0,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  maxHeight: "120px",
-                  overflowY: "auto",
-                  fontFamily: "var(--vscode-editor-font-family, monospace)",
-                }}
-              >
-                {this.state.error.message}
-              </pre>
-            </div>
+              {this.state.error.message}
+            </pre>
           )}
+          <button
+            onClick={this.handleReset}
+            style={{
+              alignSelf: "flex-start",
+              padding: "4px 12px",
+              fontSize: "11px",
+              fontWeight: 600,
+              borderRadius: "4px",
+              border: "1px solid color-mix(in srgb, var(--vscode-foreground) 25%, transparent)",
+              background: "transparent",
+              color: "var(--vscode-foreground)",
+              cursor: "pointer",
+            }}
+          >
+            Try again
+          </button>
         </div>
       );
     }

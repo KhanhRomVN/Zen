@@ -264,7 +264,7 @@ const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
       {!isCollapsed && diffContent && (
         <div
           style={{
-            padding: "4px 12px 12px 0",
+            padding: "4px 12px 12px 29px",
           }}
         >
           <div

@@ -1,0 +1,88 @@
+.richtext-block-container {
+  margin-bottom: 12px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.richtext-block-container.collapsed {
+  background-color: transparent !important;
+  margin-bottom: 8px;
+}
+
+.richtext-block-summary {
+  background-color: transparent !important;
+  transition: opacity 0.2s;
+}
+
+.richtext-block-summary:hover {
+  opacity: 0.9;
+}
+
+.richtext-block-expanded {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+}
+
+.richtext-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0px;
+  background-color: var(
+    --vscode-editorGroupHeader-tabsBackground,
+    var(--vscode-sideBarSectionHeader-background, rgba(0, 0, 0, 0.1))
+  );
+  border-bottom: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: 13px;
+  user-select: none;
+}
+
+.header-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-prefix {
+  font-weight: 600;
+  opacity: 0.8;
+  font-size: 12px;
+}
+
+.title-text {
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.richtext-content {
+  padding: 8px 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.plaintext-output {
+  margin: 0;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--vscode-editor-foreground);
+  background: none;
+}
+
+.plaintext-output code {
+  background: none;
+  padding: 0;
+}
+
+.collapse-icon {
+  opacity: 0.7;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
