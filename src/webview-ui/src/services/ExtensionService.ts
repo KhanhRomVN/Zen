@@ -32,7 +32,12 @@ class MessageDispatcher {
     });
   }
 
-  public register(requestId: string, handler: MessageHandler, timeoutMs: number, onTimeout: () => void) {
+  public register(
+    requestId: string,
+    handler: MessageHandler,
+    timeoutMs: number,
+    onTimeout: () => void,
+  ) {
     this.start();
     const timer = setTimeout(() => {
       this.handlers.delete(requestId);

@@ -7,8 +7,6 @@ import React, {
 } from "react";
 import { useSettings } from "../../context/SettingsContext";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
-import { extensionService } from "../../services/ExtensionService";
-import { saveConversation } from "./services/ConversationService";
 
 // Core chat hooks
 import { useChatLLM } from "./hooks/llm/useChatLLM";

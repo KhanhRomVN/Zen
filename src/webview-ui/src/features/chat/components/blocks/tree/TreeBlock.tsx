@@ -127,7 +127,7 @@ export const TreeBlock: React.FC<TreeBlockProps> = ({ files, onFileClick }) => {
   // Validate data structure
   if (!Array.isArray(files)) {
     console.error("[TreeBlock] Invalid files data - not an array:", files);
-    return <ErrorBlock content="Invalid tree data format (not array)" compact={true} />;
+    return <ErrorBlock content="Invalid tree data format (not array)" compact={true} maxHeight="300px" />;
   }
 
   if (files.length === 0) {

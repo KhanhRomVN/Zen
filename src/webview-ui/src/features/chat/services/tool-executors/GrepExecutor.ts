@@ -1,4 +1,7 @@
-import { extensionService, messageDispatcher } from "@/services/ExtensionService";
+import {
+  extensionService,
+  messageDispatcher,
+} from "@/services/ExtensionService";
 import { formatGrepResultCompact } from "../../utils/grepFormatter";
 import { TOOL_TIMEOUTS } from "../../constants/constants";
 import { GrepParams } from "../../types/tool-types";
@@ -10,11 +13,21 @@ const TIMEOUT_MS = TOOL_TIMEOUTS.grep || 30000;
  */
 export async function executeGrep(params: GrepParams): Promise<string | null> {
   return new Promise((resolve) => {
-    const requestId = `grep-${Date.now()}-${Math.random()}`;
     const searchTerm = params.search_term || params.searchTerm || "";
     const filePath = params.file_path || params.filePath;
     const folderPath = params.folder_path || params.folderPath;
     const targetDesc = filePath || folderPath || "unknown";
+
+    // Check for validation error from parser
+    if (params._validationError) {
+      const errMsg = params._validationError;
+      resolve(
+        `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`,
+      );
+      return;
+    }
+
+    const requestId = `grep-${Date.now()}-${Math.random()}`;
 
     extensionService.postMessage({
       command: "executeAgentAction",

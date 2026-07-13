@@ -242,7 +242,6 @@ export const useToolExecution = ({
       // Or use extensionService.postMessage, but we need generic postMessage.
       // We will use extensionService.postMessage in a real refactor, but for now strict consistency:
       // We'll use extensionService which we defined to behave like vscodeApi.postMessage
-
       switch (action.type) {
         case "read_file": {
           const requestId = `read-${Date.now()}-${Math.random()}`;
@@ -913,11 +912,24 @@ export const useToolExecution = ({
         }
 
         case "grep": {
-          const requestId = `grep-${Date.now()}-${Math.random()}`;
           const searchTerm = action.params.search_term;
           const filePath = action.params.file_path;
           const folderPath = action.params.folder_path;
           const targetDesc = filePath || folderPath || "unknown";
+          
+          // Check for validation error from parser
+          if (action.params._validationError) {
+            const errMsg = action.params._validationError;
+            console.warn(
+              `[Zen][grep] Validation error | pattern="${searchTerm}" | error="${errMsg}"`,
+            );
+            resolve(
+              `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`,
+            );
+            break;
+          }
+
+          const requestId = `grep-${Date.now()}-${Math.random()}`;
 
           extensionService.postMessage({
             command: "executeAgentAction",
@@ -1027,7 +1039,6 @@ export const useToolExecution = ({
       conversationToolOverrides: Record<string, "auto"> = {},
       actionType?: "accept_all" | "accept_once" | "reject",
     ) => {
-      // 🐛 FIX: Đọc permissionMode từ ref đã được update đồng bộ qua useLayoutEffect
       const currentPermissionMode = permissionModeRef.current;
       let wasInterruptedByManual = false;
 

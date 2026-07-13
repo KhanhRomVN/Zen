@@ -193,8 +193,6 @@ export const useToolActions = ({
 
   // Auto-execute tools logic
   useEffect(() => {
-    const startTime = performance.now();
-
     // Early returns to prevent unnecessary processing
     if (isRestored || !onSendToolRequest || parsedMessages.length === 0) {
       return;
@@ -208,6 +206,7 @@ export const useToolActions = ({
     }
 
     const lastMessage = parsedMessages[parsedMessages.length - 1];
+
     if (lastMessage.role !== "assistant") return;
     if (lastMessage.isCancelled) return;
     if (lastMessage.parsed && lastMessage.parsed.actions) {

@@ -618,6 +618,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               // Fallback to ToolParser for any unhandled tools
               action = parseToolAction(toolName, innerContent || "", rawXml);
           }
+
           result.contentBlocks.push({ type: "tool", action, actionIndex });
           result.actions.push(action); // Populate legacy actions array
 
@@ -826,20 +827,35 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
           }
 
-          // grep: requires pattern
+          // grep: requires search_term or pattern
           if (toolName === "grep") {
+            // Check for search_term (primary) or pattern (fallback)
+            const searchTermClosedRegex =
+              /<search_term>([\s\S]*?)<\/search_term>/i;
+            const searchTermUnclosedRegex = /<search_term>([^\<]*?)$/i;
             const patternClosedRegex = /<pattern>([\s\S]*?)<\/pattern>/i;
             const patternUnclosedRegex = /<pattern>([^\<]*?)$/i;
 
-            const closedMatch = (innerContent || "").match(patternClosedRegex);
-            const unclosedMatch = !closedMatch
+            const searchTermClosedMatch = (innerContent || "").match(
+              searchTermClosedRegex,
+            );
+            const searchTermUnclosedMatch = !searchTermClosedMatch
+              ? (innerContent || "").match(searchTermUnclosedRegex)
+              : null;
+            const patternClosedMatch = (innerContent || "").match(
+              patternClosedRegex,
+            );
+            const patternUnclosedMatch = !patternClosedMatch
               ? (innerContent || "").match(patternUnclosedRegex)
               : null;
 
-            const patternValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
+            const searchTermValue =
+              searchTermClosedMatch?.[1]?.trim() ||
+              searchTermUnclosedMatch?.[1]?.trim() ||
+              patternClosedMatch?.[1]?.trim() ||
+              patternUnclosedMatch?.[1]?.trim();
 
-            if (patternValue && patternValue.length > 0) {
+            if (searchTermValue && searchTermValue.length > 0) {
               const recoveredRawXml = rawXml + (innerContent || "") + "</grep>";
               const action = parseToolAction(
                 "grep",
@@ -850,6 +866,14 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
               break;
+            } else {
+              console.warn(
+                "[Zen][ResponseParser] ⚠️ Grep recovery failed: no search_term or pattern found",
+              );
+              console.warn(
+                "[Zen][ResponseParser] innerContent preview:",
+                innerContent?.substring(0, 300),
+              );
             }
           }
 

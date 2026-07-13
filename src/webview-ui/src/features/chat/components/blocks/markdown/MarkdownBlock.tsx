@@ -3,6 +3,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import FileIcon from "@/icons/FileIcon";
 import { extensionService } from "@/services/ExtensionService";
+import { CodeBlock } from "../code/CodeBlock";
 
 const ABSOLUTE_PATH_REGEX = /^(\/[^\s<>"'`]+|[A-Za-z]:\\[^\s<>"'`]+)/;
 const RELATIVE_PATH_WITH_FOLDERS_REGEX =
@@ -82,6 +83,56 @@ const PathChip: React.FC<PathChipProps> = ({ displayText, resolvedPath }) => {
 
 type ReactChild = React.ReactNode;
 
+// Helper to extract filename from path
+const getFilename = (path: string): string => {
+  return path.split(/[/\\]/).pop() || path;
+};
+
+// Helper to shorten path for display: folder/.../file
+const shortenPath = (fullPath: string, maxLength: number = 50): string => {
+  if (fullPath.length <= maxLength) {
+    return fullPath;
+  }
+
+  const parts = fullPath.split(/[/\\]/);
+  if (parts.length <= 2) {
+    return fullPath;
+  }
+
+  const filename = parts[parts.length - 1];
+  const firstFolder = parts[0];
+
+  // Calculate remaining space for middle part
+  const fixedLength = firstFolder.length + filename.length + 5; // +5 for "/../"
+
+  if (fixedLength >= maxLength) {
+    // If first folder + file is already too long, just show folder/../file
+    return `${firstFolder}/../${filename}`;
+  }
+
+  // Try to fit as many middle folders as possible
+  let result = `${firstFolder}`;
+  let remainingParts = parts.slice(1, -1);
+
+  // Check if we can fit all middle parts
+  const fullMiddle = remainingParts.join("/");
+  if (result.length + fullMiddle.length + filename.length + 2 <= maxLength) {
+    return fullPath;
+  }
+
+  // Otherwise, abbreviate
+  return `${firstFolder}/../${filename}`;
+};
+
+// Helper to check if text looks like a file path
+const isFilePath = (text: string): boolean => {
+  // Check for path patterns: contains / or \, and has file extension
+  return (
+    (text.includes("/") || text.includes("\\")) &&
+    /\.[a-zA-Z0-9]{1,10}$/.test(text)
+  );
+};
+
 const domNodeToReact = (
   node: Node,
   key: string | number,
@@ -97,6 +148,93 @@ const domNodeToReact = (
 
   const el = node as Element;
   const tag = el.tagName.toLowerCase();
+
+  // Handle <pre><code> blocks → use CodeBlock component
+  if (tag === "pre") {
+    const codeEl = el.querySelector("code");
+    if (codeEl) {
+      const codeText = codeEl.textContent || "";
+      // Extract language from class (e.g., "language-javascript")
+      const className = codeEl.className || "";
+      const languageMatch = className.match(/language-(\w+)/);
+      const language = languageMatch ? languageMatch[1] : "text";
+
+      return (
+        <CodeBlock
+          key={key}
+          code={codeText}
+          language={language}
+          enableWordWrap={false}
+        />
+      );
+    }
+  }
+
+  // Handle table cells with file paths
+  if (tag === "td") {
+    const text = el.textContent?.trim() || "";
+
+    // Check if this cell contains a file path
+    if (isFilePath(text)) {
+      const filename = getFilename(text);
+      const shortenedPath = shortenPath(text);
+
+      // Strip common prefixes that might be in the full path
+      let cleanPath = text;
+      const prefixesToStrip = ["src/renderer/src/", "src/renderer/", "src/"];
+
+      for (const prefix of prefixesToStrip) {
+        if (cleanPath.startsWith(prefix)) {
+          cleanPath = cleanPath.substring(prefix.length);
+          break;
+        }
+      }
+
+      // Also handle paths starting with components/, features/, etc
+      // These should be relative to src/renderer/src
+      if (
+        cleanPath.startsWith("components/") ||
+        cleanPath.startsWith("features/") ||
+        cleanPath.startsWith("pages/") ||
+        cleanPath.startsWith("utils/")
+      ) {
+        cleanPath = `src/renderer/src/${cleanPath}`;
+      }
+
+      const handleClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+
+      return (
+        <td key={key} data-file-path="true">
+          <span
+            onClick={handleClick}
+            className="file-link"
+            title={`Click to open: ${text}`}
+          >
+            <FileIcon
+              path={text}
+              isFolder={false}
+              style={{ width: "12px", height: "12px", flexShrink: 0 }}
+            />
+            <span style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
+              {filename}
+              <span
+                style={{
+                  opacity: 0.6,
+                  fontSize: "0.9em",
+                  marginLeft: "4px",
+                }}
+              >
+                ({shortenedPath})
+              </span>
+            </span>
+          </span>
+        </td>
+      );
+    }
+  }
 
   // Inline <code> → path detection
   if (tag === "code" && !el.closest("pre")) {
@@ -130,17 +268,8 @@ const domNodeToReact = (
     }
   }
 
-  // <code> inside <pre> → strip VSCode-injected background
-  if (tag === "code" && el.closest("pre")) {
-    const children: ReactChild[] = Array.from(el.childNodes).map((child, i) =>
-      domNodeToReact(child, `${key}-${i}`, knownFilePaths),
-    );
-    return (
-      <code key={key} style={{ background: "none", padding: 0 }}>
-        {children}
-      </code>
-    );
-  }
+  // <code> inside <pre> → already handled above by CodeBlock
+  // Skip this section as pre blocks are now rendered by CodeBlock component
 
   // Recursively convert children
   const children: ReactChild[] = Array.from(el.childNodes).map((child, i) =>

@@ -14,6 +14,8 @@ export interface ErrorBlockProps {
   contentPaddingLeft?: string;
   /** Use compact inline style (like GrepBlock error) instead of full header style */
   compact?: boolean;
+  /** Maximum height for error content */
+  maxHeight?: string;
 }
 
 // Parse error message to extract meaningful information
@@ -73,6 +75,7 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
   showHeader = true,
   contentPaddingLeft = "36px",
   compact = false,
+  maxHeight,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const errorColor = "var(--vscode-errorForeground, #f44336)";
@@ -102,7 +105,13 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
           border:
             "1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)",
           borderRadius: "4px",
+          maxHeight: maxHeight,
+          overflowY: maxHeight ? "auto" : "visible",
+          // @ts-ignore - CSS custom scrollbar properties
+          scrollbarColor: `${errorColor} transparent`,
+          scrollbarWidth: "thin",
         }}
+        className="error-scrollbar"
       >
         <span
           className="codicon codicon-error"
@@ -192,7 +201,13 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
           <div
             style={{
               marginTop: "4px",
+              maxHeight: maxHeight,
+              overflowY: maxHeight ? "auto" : "visible",
+              // @ts-ignore - CSS custom scrollbar properties
+              scrollbarColor: `${errorColor} transparent`,
+              scrollbarWidth: "thin",
             }}
+            className="error-scrollbar"
           >
             <div
               style={{

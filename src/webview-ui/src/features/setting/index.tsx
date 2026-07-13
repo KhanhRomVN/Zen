@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { LANGUAGES } from "./components/LanguageSelector";
+import UniversalAIProviderForm from "./components/UniversalAIProviderForm";
 import { useSettings } from "../../context/SettingsContext";
 
 interface SettingsPanelProps {
@@ -248,6 +249,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             Language used to generate commit messages from git status
           </div>
         </div>
+
+        {/* Universal AI Provider */}
+        <UniversalAIProviderForm />
       </div>
     </div>
   );

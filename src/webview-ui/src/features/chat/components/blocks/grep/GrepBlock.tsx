@@ -216,7 +216,8 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
     return (
       <ErrorBlock 
         content={`Invalid Search Pattern: ${validationError}\nPattern: ${searchTerm}`} 
-        compact={true} 
+        compact={true}
+        maxHeight="300px"
       />
     );
   }
@@ -247,7 +248,7 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
 
   // Error state: show error message
   if (isError && errorMessage) {
-    return <ErrorBlock content={errorMessage} compact={true} />;
+    return <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />;
   }
   
   // Check if output is an error message (not grep results)
@@ -259,7 +260,7 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
   );
   
   if (isOutputError && !grepResult) {
-    return <ErrorBlock content={output || 'Search failed'} compact={true} />;
+    return <ErrorBlock content={output || 'Search failed'} compact={true} maxHeight="300px" />;
   }
 
   if (!grepResult || !isCompleted) return null;

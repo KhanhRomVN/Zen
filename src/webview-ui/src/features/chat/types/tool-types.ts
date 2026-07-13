@@ -43,6 +43,7 @@ export interface GrepParams {
   filePath?: string;
   folder_path?: string;
   folderPath?: string;
+  _validationError?: string; // Internal flag for invalid regex
 }
 
 // ===== FIND FILES =====

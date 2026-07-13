@@ -1397,7 +1397,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         )}
 
       {!shouldHideContent && isError && errorMessage && !isGrepTool && (
-        <ErrorBlock content={errorMessage} compact={true} />
+        <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
       )}
 
       {!shouldHideContent &&

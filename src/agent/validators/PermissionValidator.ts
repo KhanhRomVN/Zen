@@ -173,7 +173,21 @@ export class PermissionValidator {
 
   private validateSmartSearch(action: AgentAction): ValidationResult {
     if (!action.search_term) {
-      return { allowed: false, reason: "Missing search term" };
+      // More detailed error message
+      const hasPattern = !!(action as any).pattern;
+      const hasQuery = !!(action as any).query;
+      
+      if (hasPattern || hasQuery) {
+        return { 
+          allowed: false, 
+          reason: "search_term field is required (found pattern/query but search_term is missing or empty)" 
+        };
+      }
+      
+      return { 
+        allowed: false, 
+        reason: "search_term is required but was not provided or is empty. Check XML parsing or pattern extraction." 
+      };
     }
 
     const hasFilePath = !!action.file_path;
@@ -182,7 +196,7 @@ export class PermissionValidator {
     if (!hasFilePath && !hasFolderPath) {
       return {
         allowed: false,
-        reason: "Either file_path or folder_path must be provided",
+        reason: "Either file_path or folder_path must be provided (both are missing)",
       };
     }
 

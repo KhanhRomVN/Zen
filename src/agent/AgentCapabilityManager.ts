@@ -37,6 +37,10 @@ export class AgentCapabilityManager {
     const validation = this.validator.validate(action);
 
     if (!validation.allowed) {
+      console.warn(`[Zen][AgentCapabilityManager] 🚫 Permission denied:`, {
+        type: action.type,
+        reason: validation.reason,
+      });
       return {
         success: false,
         error: validation.reason || "Permission denied",
@@ -46,25 +50,40 @@ export class AgentCapabilityManager {
 
     // Step 2: Execute action based on type
     try {
+      let result: AgentExecutionResult;
+
       switch (action.type) {
         case "read":
-          return await this.fileReadCapability.execute(action);
+          result = await this.fileReadCapability.execute(action);
+          break;
         case "edit":
-          return await this.fileEditCapability.execute(action);
+          result = await this.fileEditCapability.execute(action);
+          break;
         case "add":
-          return await this.fileAddCapability.execute(action);
+          result = await this.fileAddCapability.execute(action);
+          break;
         case "execute":
-          return await this.commandExecutor.execute(action);
+          result = await this.commandExecutor.execute(action);
+          break;
         case "grep":
-          return await this.grepCapability.execute(action);
+          result = await this.grepCapability.execute(action);
+          break;
         default:
-          return {
+          result = {
             success: false,
             error: "Unknown action type",
             timestamp: Date.now(),
           };
       }
+
+      return result;
     } catch (error) {
+      console.error(`[Zen][AgentCapabilityManager] ❌ Execution failed:`, {
+        type: action.type,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),

@@ -96,11 +96,6 @@ export const useChatLLM = ({
   // Track render duration
   useEffect(() => {
     const renderDuration = performance.now() - renderStartTime;
-    if (renderDuration > 16) {
-      console.warn(
-        `[Zen][useChatLLM Render #${renderCountRef.current}] SLOW RENDER: ${renderDuration.toFixed(2)}ms`,
-      );
-    }
   });
 
   // Use message handlers hook

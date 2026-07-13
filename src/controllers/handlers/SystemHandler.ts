@@ -140,7 +140,11 @@ export class SystemHandler {
 
   public async handleOpenFile(message: any) {
     const filePath = message.path;
-    if (!filePath) return;
+
+    if (!filePath) {
+      console.warn("[SystemHandler] handleOpenFile: No path provided");
+      return;
+    }
 
     try {
       const uri = path.isAbsolute(filePath)
@@ -151,7 +155,9 @@ export class SystemHandler {
           );
       const document = await vscode.workspace.openTextDocument(uri);
       await vscode.window.showTextDocument(document);
-    } catch (error) {}
+    } catch (error) {
+      console.error("[SystemHandler] handleOpenFile error:", error);
+    }
   }
 
   public async handleOpenFileAtLine(message: any) {

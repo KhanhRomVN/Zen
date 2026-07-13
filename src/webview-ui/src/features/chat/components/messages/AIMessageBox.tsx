@@ -880,6 +880,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 errorCode={errorCode || undefined}
                 isLast={false}
                 isLastMessage={isLastMessage}
+                maxHeight="300px"
               />
             );
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
