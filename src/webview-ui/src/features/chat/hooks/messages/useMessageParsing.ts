@@ -1,9 +1,6 @@
 import { useMemo, useRef } from "react";
 import { Message } from "../../types/message";
 import { parseAIResponse } from "../../services/ResponseParser";
-import { createLogger } from "../../utils/performanceLogger";
-
-const log = createLogger('useMessageParsing');
 
 /**
  * Hook to parse messages with advanced caching for performance optimization
@@ -12,7 +9,6 @@ export const useMessageParsing = (
   messages: Message[],
   isStreaming: boolean,
 ) => {
-  log.render('useMessageParsing', { messagesLength: messages.length, isStreaming });
   // Parse cache — reuse results across renders, avoiding redundant re-parses
   // when only unrelated state changes (same messages array, same content).
   const parseCacheRef = useRef<Map<string, ReturnType<typeof parseAIResponse>>>(
@@ -120,13 +116,6 @@ export const useMessageParsing = (
     lastParsedResultRef.current = result;
     lastMessagesRef.current = messages; // Store current messages array for next comparison
 
-    log.perf('parsedMessages_useMemo', startTime, {
-      messagesLength: messages.length,
-      cacheSize: cache.size,
-      incremental: existingMessagesUnchanged,
-      reusedCount: existingMessagesUnchanged ? lastParsedLengthRef.current : 0
-    });
-
     return result;
   }, [messages, isStreaming]);
 
@@ -165,10 +154,6 @@ export const useMessageParsing = (
       const parseStart = performance.now();
       const parsed = parseAIResponse(msg.content);
       cache.set(msg.content, parsed);
-      log.cache('parseAIResponse', false, { 
-        contentLength: msg.content.length,
-        duration: `${(performance.now() - parseStart).toFixed(2)}ms`
-      });
 
       // Update streaming parse ref for next render
       if (isAssistantStreaming) {
@@ -180,14 +165,11 @@ export const useMessageParsing = (
       }
     } else if (isAssistantStreaming) {
       // Cache hit during streaming — still update the ref
-      log.cache('parseAIResponse', true, { contentLength: msg.content.length });
       lastStreamingParseRef.current = {
         messageId: msg.id,
         contentLength: msg.content.length,
         parsed: cache.get(msg.content)!,
       };
-    } else {
-      log.cache('parseAIResponse', true, { contentLength: msg.content.length });
     }
 
     // PERF FIX: Create a cache key that identifies this message's state

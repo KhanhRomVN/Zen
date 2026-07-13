@@ -3,9 +3,6 @@ import { Message } from "../../types/message";
 import { ChatSession } from "../../types/chat";
 import { extensionService } from "../../../../services/ExtensionService";
 import { saveConversation } from "../../services/ConversationService";
-import { createLogger } from "../../utils/performanceLogger";
-
-const log = createLogger('useMessageHandlers');
 
 interface UseMessageHandlersProps {
   message: string;
@@ -68,38 +65,16 @@ export const useMessageHandlers = ({
   const renderCountRef = useRef(0);
   const sendCountRef = useRef(0);
   const stopCountRef = useRef(0);
-  
-  renderCountRef.current += 1;
 
-  log.render('useMessageHandlers', {
-    renderCount: renderCountRef.current,
-    messageLength: message.length,
-    uploadedFilesCount: uploadedFiles.length,
-    attachedItemsCount: attachedItems.length,
-    invalidFilesCount: invalidExternalFiles.length
-  });
+  renderCountRef.current += 1;
 
   const handleSend = useCallback(
     (model: any, account: any) => {
       const callStartTime = performance.now();
       sendCountRef.current += 1;
-      
-      log.state('handleSend_start', {
-        sendCount: sendCountRef.current,
-        messageLength: message.length,
-        uploadedFiles: uploadedFiles.length,
-        attachedItems: attachedItems.length,
-        model: model?.id,
-        account: account?.id
-      });
 
       // Check for invalid external files before sending
       if (invalidExternalFiles && invalidExternalFiles.length > 0) {
-        log.state('send_blocked_invalid_files', {
-          invalidFilesCount: invalidExternalFiles.length,
-          reasons: invalidExternalFiles.map((f: any) => f.reason)
-        });
-        
         const vscodeApi = (window as any).vscodeApi;
         const message = `Cannot send message due to invalid file(s):\n${invalidExternalFiles.map((f) => `• ${f.name}: ${f.reason}`).join("\n")}\n\nPlease remove these files and try again.`;
         if (vscodeApi) {
@@ -124,13 +99,7 @@ export const useMessageHandlers = ({
         // callback yet, but the ref always reflects the latest value.
         const latestModel = model || currentModelRef.current;
         const latestAccount = account || currentAccountRef.current;
-        
-        log.state('send_execute', {
-          model: latestModel?.id,
-          account: latestAccount?.id,
-          totalFiles: uploadedFiles.length + attachedItems.length
-        });
-        
+
         wrappedSendMessage(
           message,
           [...uploadedFiles, ...attachedItems],
@@ -150,12 +119,6 @@ export const useMessageHandlers = ({
         if (textareaRef.current) {
           textareaRef.current.style.height = "auto";
         }
-        
-        log.perf('handleSend_complete', callStartTime, {
-          sendCount: sendCountRef.current
-        });
-      } else {
-        log.state('send_blocked_empty', {});
       }
     },
     [
@@ -180,39 +143,29 @@ export const useMessageHandlers = ({
   const handleStopGeneration = useCallback(() => {
     const callStartTime = performance.now();
     stopCountRef.current += 1;
-    
-    log.state('handleStopGeneration', {
-      stopCount: stopCountRef.current
-    });
 
     isStoppedRef.current = true;
     stopGeneration();
     setIsProcessing(false);
     setMessages((prev: any) => {
       const markStartTime = performance.now();
-      
+
       const lastAssistantIdx = [...prev].reduceRight(
         (found, m, i) =>
           found === -1 && m.role === "assistant" && !m.isCancelled ? i : found,
         -1,
       );
-      
+
       if (lastAssistantIdx === -1) {
-        log.state('stop_no_assistant_message', {});
         return prev;
       }
-      
+
       const updated = [...prev];
       updated[lastAssistantIdx] = {
         ...updated[lastAssistantIdx],
         isCancelled: true,
       };
-      
-      log.state('stop_mark_cancelled', {
-        messageId: updated[lastAssistantIdx].id,
-        messageIndex: lastAssistantIdx
-      });
-      
+
       const sessionId = currentChat?.sessionId || -1;
       const folderPath = currentChat?.folderPath || null;
       saveConversation(
@@ -223,13 +176,8 @@ export const useMessageHandlers = ({
         currentChat || undefined,
         true,
       );
-      
-      log.perf('stop_mark_cancelled_complete', markStartTime, {});
+
       return updated;
-    });
-    
-    log.perf('handleStopGeneration_complete', callStartTime, {
-      stopCount: stopCountRef.current
     });
   }, [
     stopGeneration,
@@ -241,10 +189,6 @@ export const useMessageHandlers = ({
   ]);
 
   const handleClearChat = useCallback(() => {
-    log.state('handleClearChat', {
-      conversationId: currentConversationId
-    });
-    
     extensionService.postMessage({
       command: "confirmClearChat",
       conversationId: currentConversationId,

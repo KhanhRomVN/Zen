@@ -4,9 +4,6 @@ import { Message } from "../../types/message";
 import { CLICKABLE_TOOLS } from "../../constants/constants";
 import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "./useToolExecution";
-import { createLogger } from "../../utils/performanceLogger";
-
-const log = createLogger('useToolActions');
 
 interface UseToolActionsProps {
   onSendToolRequest?: (
@@ -32,11 +29,6 @@ export const useToolActions = ({
   isProcessing = false,
   isRestored = false,
 }: UseToolActionsProps) => {
-  log.render('useToolActions', {
-    parsedMessagesLength: parsedMessages.length,
-    isProcessing,
-    isRestored
-  });
   const { permissionMode } = useSettings();
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
   const [failedActions, setFailedActions] = useState<Set<string>>(new Set());
@@ -202,7 +194,7 @@ export const useToolActions = ({
   // Auto-execute tools logic
   useEffect(() => {
     const startTime = performance.now();
-    
+
     // Early returns to prevent unnecessary processing
     if (isRestored || !onSendToolRequest || parsedMessages.length === 0) {
       return;
@@ -212,7 +204,6 @@ export const useToolActions = ({
     // Triggering mid-stream causes the flush logic to parseAIResponse on
     // incomplete content, flushing early and skipping later actions (e.g. SEARCH).
     if (isProcessing) {
-      log.effect('autoExecuteTools_skip', { reason: 'isProcessing' });
       return;
     }
 
@@ -283,18 +274,8 @@ export const useToolActions = ({
       });
 
       if (actionsToRun.length > 0) {
-        log.effect('autoExecuteTools', {
-          messageId: lastMessage.id,
-          actionsCount: actionsToRun.length,
-          actionTypes: actionsToRun.map(a => a.type).join(',')
-        });
         onSendToolRequest(actionsToRun as any, lastMessage, true);
       }
-      
-      log.perf('autoExecuteTools_effect', startTime, {
-        totalActions: lastMessage.parsed.actions.length,
-        autoExecuted: actionsToRun.length
-      });
     }
   }, [
     parsedMessages,

@@ -1,8 +1,5 @@
 import { useCallback, useRef } from "react";
 import { Message } from "../../types/message";
-import { createLogger } from "../../utils/performanceLogger";
-
-const log = createLogger('useContextCompression');
 
 interface UseContextCompressionProps {
   currentConversationIdRef: React.MutableRefObject<string | null>;
@@ -35,28 +32,15 @@ export const useContextCompression = ({
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
 
-  log.render('useContextCompression', {
-    renderCount: renderCountRef.current,
-    messagesCount: messages.length,
-    isProcessing
-  });
-
   // Trigger context compression
   const triggerContextCompression = useCallback(() => {
     const callStartTime = performance.now();
-    
-    log.state('triggerContextCompression_start', {
-      isProcessing,
-      conversationId: currentConversationIdRef.current,
-      messagesCount: messages.length
-    });
 
     // Prevent multiple compression requests
     if (isProcessing) {
       console.warn(
         "[Zen][ContextCompression] Already processing - ignoring request",
       );
-      log.state('compression_blocked', { reason: 'already_processing' });
       return;
     }
 
@@ -138,24 +122,13 @@ Generate the summary now:
       // CRITICAL FIX: Use setTimeout to break out of the current call stack
       // This prevents UI freeze by allowing the browser to process pending updates
       setTimeout(() => {
-        log.state('compression_setTimeout_execute', {});
-        
         // Check if conversation exists
         const hasConversation =
           currentConversationIdRef.current && messages.length > 0;
 
         if (!hasConversation) {
-          console.warn(
-            "[Zen][ContextCompression] No active conversation - compression not possible",
-          );
-          log.state('compression_skip', { reason: 'no_conversation' });
           return;
         }
-
-        log.state('compression_sendMessage', {
-          conversationId: currentConversationIdRef.current,
-          messagesCount: messages.length
-        });
 
         // Use sendMessage directly instead of wrappedSendMessage to avoid ref issues
         // Use skipFirstRequestLogic=true since this is an internal request for existing conversation
@@ -168,15 +141,12 @@ Generate the summary now:
           undefined,
           true, // uiHidden=true - hide internal compression request
         );
-        
-        log.perf('triggerContextCompression_complete', callStartTime, {});
       }, 0);
     } catch (error) {
       console.error(
         "[Zen][ContextCompression] Error triggering compression:",
         error,
       );
-      log.state('compression_error', { error: String(error) });
     }
   }, [
     sendMessage,

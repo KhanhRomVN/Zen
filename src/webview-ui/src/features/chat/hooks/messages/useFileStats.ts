@@ -1,8 +1,5 @@
 import { useMemo, useRef } from "react";
 import { Message } from "../../types/message";
-import { createLogger } from "../../utils/performanceLogger";
-
-const log = createLogger('useFileStats');
 
 interface FileStats {
   totalFiles: number;
@@ -28,7 +25,7 @@ export const useFileStats = (
 
   const conversationFileStats = useMemo(() => {
     const startTime = performance.now();
-    
+
     // If we have loaded stats from history and no new messages, use loaded stats
     if (
       loadedConversationFileStats &&
@@ -39,10 +36,6 @@ export const useFileStats = (
           !m.content?.includes("<str_replace>"),
       )
     ) {
-      log.cache('fileStats_use_loaded', true, {
-        renderCount: renderCountRef.current,
-        totalFiles: loadedConversationFileStats.totalFiles
-      });
       return loadedConversationFileStats;
     }
 
@@ -56,26 +49,12 @@ export const useFileStats = (
       fileChanges = new Map(lastFileStatsMapRef.current);
 
       const newMessages = messages.slice(lastFileStatsLengthRef.current);
-      
-      log.cache('fileStats_incremental', true, {
-        renderCount: renderCountRef.current,
-        previousLength: lastFileStatsLengthRef.current,
-        currentLength: messages.length,
-        newMessagesCount: newMessages.length,
-        previousFilesCount: fileChanges.size
-      });
-      
+
       scanMessagesForFileChanges(newMessages, fileChanges);
     } else {
       // Full scan (messages were edited or first render)
       fileChanges = new Map();
-      
-      log.cache('fileStats_full', false, {
-        renderCount: renderCountRef.current,
-        messagesCount: messages.length,
-        reason: lastFileStatsLengthRef.current === 0 ? 'first_render' : 'messages_edited'
-      });
-      
+
       scanMessagesForFileChanges(messages, fileChanges);
     }
 
@@ -92,15 +71,6 @@ export const useFileStats = (
       (sum, stat) => sum + stat.deletions,
       0,
     );
-
-    log.perf('fileStats_useMemo', startTime, {
-      renderCount: renderCountRef.current,
-      messagesCount: messages.length,
-      totalFiles,
-      totalAdditions,
-      totalDeletions,
-      incremental: canUseIncremental && lastFileStatsLengthRef.current > 0
-    });
 
     return {
       totalFiles,

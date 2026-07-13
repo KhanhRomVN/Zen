@@ -1,8 +1,5 @@
 import { useMemo, useRef } from "react";
 import { Message } from "../../types/message";
-import { createLogger } from "../../utils/performanceLogger";
-
-const log = createLogger('useContextUsage');
 
 interface ContextUsage {
   prompt: number;
@@ -26,7 +23,7 @@ export const useContextUsage = (messages: Message[]): ContextUsage => {
 
   const contextUsage = useMemo(() => {
     const startTime = performance.now();
-    
+
     const canUseIncremental =
       messages.length >= lastContextUsageLengthRef.current;
 
@@ -37,14 +34,7 @@ export const useContextUsage = (messages: Message[]): ContextUsage => {
       result = { ...lastContextUsageRef.current };
 
       const newMessages = messages.slice(lastContextUsageLengthRef.current);
-      
-      log.cache('contextUsage_incremental', true, {
-        renderCount: renderCountRef.current,
-        previousLength: lastContextUsageLengthRef.current,
-        currentLength: messages.length,
-        newMessagesCount: newMessages.length
-      });
-      
+
       for (const msg of newMessages) {
         if (msg.isCancelled) continue;
         if (msg.token_usage) {
@@ -64,13 +54,6 @@ export const useContextUsage = (messages: Message[]): ContextUsage => {
         }
       }
     } else {
-      // Full computation (messages were edited or first render)
-      log.cache('contextUsage_full', false, {
-        renderCount: renderCountRef.current,
-        messagesCount: messages.length,
-        reason: lastContextUsageLengthRef.current === 0 ? 'first_render' : 'messages_edited'
-      });
-      
       result = messages.reduce(
         (acc, msg) => {
           if (msg.isCancelled) return acc;
@@ -98,16 +81,6 @@ export const useContextUsage = (messages: Message[]): ContextUsage => {
     // Cache result for next incremental update
     lastContextUsageLengthRef.current = messages.length;
     lastContextUsageRef.current = result;
-
-    log.perf('contextUsage_useMemo', startTime, {
-      renderCount: renderCountRef.current,
-      messagesCount: messages.length,
-      totalTokens: result.total,
-      promptTokens: result.prompt,
-      completionTokens: result.completion,
-      incremental: canUseIncremental && lastContextUsageLengthRef.current > 0
-    });
-
     return result;
   }, [messages]);
 

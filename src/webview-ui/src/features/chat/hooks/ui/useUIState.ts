@@ -1,7 +1,4 @@
 import { useState, useRef } from "react";
-import { createLogger } from "../../utils/performanceLogger";
-
-const log = createLogger('useUIState');
 
 /**
  * Hook to manage all UI-related state (modals, dropdowns, search)
@@ -18,17 +15,6 @@ export const useUIState = () => {
   const [showChangesDropdown, setShowChangesDropdown] = useState(false);
   const [showProjectContextModal, setShowProjectContextModal] = useState(false);
   const [projectContext, setProjectContext] = useState<any>(null);
-
-  log.render('useUIState', {
-    renderCount: renderCountRef.current,
-    isSearchOpen,
-    searchQueryLength: searchQuery.length,
-    autoScrollPaused,
-    showProjectStructureDrawer,
-    showChangesDropdown,
-    showProjectContextModal,
-    hasProjectContext: !!projectContext
-  });
 
   return {
     // Search

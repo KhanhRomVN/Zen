@@ -2,9 +2,6 @@ import { useCallback, useRef } from "react";
 import { Message } from "../../types/message";
 import { ChatSession } from "../../types/chat";
 import { saveConversation } from "../../services/ConversationService";
-import { createLogger } from "../../utils/performanceLogger";
-
-const log = createLogger('useModelSwitch');
 
 interface UseModelSwitchProps {
   messages: Message[];
@@ -26,14 +23,8 @@ export const useModelSwitch = ({
 }: UseModelSwitchProps) => {
   const renderCountRef = useRef(0);
   const switchCountRef = useRef(0);
-  
-  renderCountRef.current += 1;
 
-  log.render('useModelSwitch', {
-    renderCount: renderCountRef.current,
-    messagesCount: messages.length,
-    providersCount: providers.length
-  });
+  renderCountRef.current += 1;
 
   const handleModelSwitch = useCallback(
     (
@@ -50,14 +41,6 @@ export const useModelSwitch = ({
     ) => {
       const callStartTime = performance.now();
       switchCountRef.current += 1;
-      
-      log.state('handleModelSwitch_start', {
-        switchCount: switchCountRef.current,
-        newModel: newModel?.id,
-        newAccount: newAccount?.email,
-        providerId: newModel?.providerId,
-        fileChanges: contextData.fileChanges.length
-      });
 
       // Extract user messages from current range
       const currentRange = messages.reduce(
@@ -79,11 +62,6 @@ export const useModelSwitch = ({
         responseNumber: currentRange.length - 3 + i + 1,
       }));
 
-      log.state('model_switch_extract_messages', {
-        totalUserMessages: currentRange.length,
-        recentMessages: recentUserMessages.length
-      });
-
       // Update contextData with user messages
       contextData.userMessages = recentUserMessages;
 
@@ -104,12 +82,6 @@ export const useModelSwitch = ({
         token_usage: 0,
       };
 
-      log.state('model_switch_create_message', {
-        messageId: modelSwitchMessage.id,
-        providerId: newModel.providerId,
-        modelId: newModel.id
-      });
-
       // Add to messages
       setMessages((prev: Message[]) => [...prev, modelSwitchMessage]);
 
@@ -124,10 +96,6 @@ export const useModelSwitch = ({
         currentChat || undefined,
         true,
       );
-      
-      log.perf('handleModelSwitch_complete', callStartTime, {
-        switchCount: switchCountRef.current
-      });
     },
     [messages, currentConversationId, currentChat, providers, setMessages],
   );
