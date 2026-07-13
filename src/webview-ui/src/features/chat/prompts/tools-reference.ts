@@ -8,8 +8,10 @@ Use XML tags for all tool calls:
 <old_content>exact original (indentation must match)</old_content>
 <new_content>replacement</new_content>
 </replace_in_file>
+<revert_file><file_path>path/to/file</file_path></revert_file>
 <list_files><folder_path>path/to/folder</folder_path></list_files>
 <list_files><folder_path>path/to/folder</folder_path><depth>2</depth></list_files>
+<list_files><folder_path>path/to/folder</folder_path><depth>max</depth></list_files>
 <find_files><file_name>filename.ts</file_name><file_name>another.js</file_name></find_files>
 <grep><search_term>string</search_term><file_path>path/to/file</file_path></grep>
 <grep><search_term>string</search_term><folder_path>path/to/folder</folder_path></grep>
@@ -18,6 +20,10 @@ Use XML tags for all tool calls:
 <move_file><file_path>path/to/source/file.ts</file_path><target_folder_path>path/to/destination/folder</target_folder_path></move_file>
 <move_file><file_path>path/to/source/file.ts</file_path><target_folder_path>path/to/destination/folder</target_folder_path><target_file_name>new-name.ts</target_file_name></move_file>
 <run_command><command>your command here</command></run_command>
+**revert_file**: Undo the last change made to a file using VSCode's undo functionality. Each call undoes one change in the file's edit history.
+- \`file_path\`: Path to the file to revert
+- Example: \`<revert_file><file_path>src/utils.ts</file_path></revert_file>\` — undoes the last change to src/utils.ts
+- Note: This uses VSCode's native undo stack, so it will undo the most recent edit regardless of which tool made the change (replace_in_file, write_to_file, or manual edits)
 **find_files**: Search for files by name across the entire workspace (respects .gitignore).
 - Multiple \`file_name\` tags can be provided to search for multiple files at once.
 - Returns: For each file name, a list of all matching file paths found in the workspace.
