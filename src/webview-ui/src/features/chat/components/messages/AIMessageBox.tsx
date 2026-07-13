@@ -304,8 +304,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
             }
         > = [];
 
-        // --- 🆕 METADATA DOT CHECK ---
-        // Skip metadata dot for commit messages (they should continue the timeline without a new dot)
+        // Skip metadata dot for commit messages
         const isCommitMessage =
           message.content?.includes("[COMMIT_MESSAGE_REQUEST]") ||
           message.content?.includes("<commit_message>");
@@ -349,8 +348,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
         }
 
         // Only show message.thinking while generating, auto-hide when done
-        // NOTE: message.thinking is now rendered in ChatBody outside of timeline
-        // So we don't render it here anymore
 
         let currentToolGroup: { action: any; index: number }[] = [];
 
@@ -358,8 +355,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
         const blocks = parsedContent.contentBlocks || [];
         
         // Track if we've already added thinking from message.thinking
-        // Only count as "added" if we're still generating (thinking will be hidden when done)
-        // NOTE: message.thinking is now rendered outside in ChatBody, so skip here
         const hasAddedThinking = false;
 
         // Helper to flush tool group
@@ -404,8 +399,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
                 key: `markdown-${idx}`,
               });
             } else if (block.type === "thinking") {
-              // Skip - thinking blocks are rendered in ChatBody outside timeline
-              // Do nothing here
+              // Skip - thinking blocks are rendered in ChatBody separately
             } else if (block.type === "question") {
               flushTools();
               groups.push({
@@ -461,44 +455,28 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
 
         let isInteractionBlocked = false;
 
-        // In simple mode, filter out tool groups where all items are invisible
-        // Complex mode: always show all groups
+        // Render all groups
         const renderGroups = groups;
 
-        // Pre-calculate which groups will render with timeline-item wrapper
-        const groupsWithTimeline = renderGroups.map((group) => 
-          group.type !== "tools" && group.type !== "question"
-        );
-
-        // Find the last group that will have a timeline-item wrapper
-        let lastTimelineIndex = -1;
-        for (let i = renderGroups.length - 1; i >= 0; i--) {
-          if (groupsWithTimeline[i]) {
-            lastTimelineIndex = i;
-            break;
-          }
-        }
-
         return renderGroups.map((group, index) => {
-          // Only mark as "last" if: it's the last timeline group AND (isLastMessage OR hasNextAssistantMessage)
-          // This prevents timeline line when followed by user message
-          const shouldMarkAsLast = index === lastTimelineIndex && isLastMessage;
-          const timelineClass = `timeline-item ${shouldMarkAsLast ? "last" : ""}`;
-
           let content = null;
 
           if (group.type === "metadata") {
             content = (
               <div style={{ paddingBottom: "8px" }}>
                 <div
-                  className="timeline-dot"
                   style={{
+                    position: "absolute",
+                    left: "15px",
+                    transform: "translateX(-50%)",
                     backgroundColor: "transparent",
                     top: "10px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     border: "none",
+                    width: "8px",
+                    height: "8px",
                   }}
                 >
                   {group.faviconUrl ? (
@@ -618,14 +596,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
             content = (
               <div>
                 <div
-                  className="timeline-dot"
-                  style={{
-                    backgroundColor: dotColor,
-                    boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
-                    top: "10px",
-                  }}
-                />
-                <div
                   style={{
                     paddingLeft: "29px",
                     paddingTop: "4px",
@@ -646,14 +616,6 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               : "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
             content = (
               <div>
-                <div
-                  className="timeline-dot"
-                  style={{
-                    backgroundColor: dotColor,
-                    boxShadow: `0 0 0 2px var(--vscode-editor-background), 0 0 0 3px color-mix(in srgb, ${dotColor} 50%, transparent)`,
-                    top: "10px",
-                  }}
-                />
                 <div style={{ paddingLeft: "29px", paddingTop: "4px" }}>
                   {group.segments.map((seg: any, i: number) => {
                     if (seg.type === "code") {
@@ -785,11 +747,10 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
               <ErrorBlock
                 content={translatedMessage}
                 errorCode={errorCode || undefined}
-                isLast={shouldMarkAsLast}
+                isLast={false}
                 isLastMessage={isLastMessage}
               />
             );
-            // Error renders its own timeline-item wrapper like tool groups
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           } else {
             content = (
@@ -867,7 +828,7 @@ const AIMessageBox: React.FC<AIMessageBoxProps> = ({
           }
 
           return (
-            <div key={group.key} className={timelineClass}>
+            <div key={group.key}>
               {content}
             </div>
           );

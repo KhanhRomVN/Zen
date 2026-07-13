@@ -460,7 +460,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
-        className="timeline-item"
+        
         style={{
           position: "relative",
           display: "flex",
@@ -725,7 +725,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
-        className="timeline-item"
+        
         style={{
           position: "relative",
           display: "flex",
@@ -890,14 +890,11 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     const stats = parseDiffStats(diffContent);
 
-    // Determine if there are actions after this one (for timeline line)
-    // Use "timeline-item" always — let CSS handle line drawing via padding-bottom
-
     // If no output yet and we're not the active group, show a loading/skeleton state
     if (!hasOutput && !isActiveGroup) {
       return (
         <div
-          className="timeline-item"
+          
           style={{
             position: "relative",
             display: "flex",
@@ -929,7 +926,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
     return (
       <div
-        className="timeline-item"
+        
         style={{
           position: "relative",
           display: "flex",

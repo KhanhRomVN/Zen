@@ -360,8 +360,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
         </div>
       )}
 
-      <div className="chat-timeline-wrapper">
-        {visibleMessages.map((message, index) => {
+      {visibleMessages.map((message, index) => {
           const parsedMessage = parsedMessages.find(
             (pm) => pm.id === message.id,
           );
@@ -379,7 +378,7 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             .reverse()
             .find((m) => m.role === "assistant");
 
-          // Check if next visible message is assistant (for timeline line logic)
+          // Check if next visible message is assistant (no longer needed for timeline)
           const nextVisibleMessage = visibleMessages[index + 1];
           const hasNextAssistantMessage =
             nextVisibleMessage?.role === "assistant";
@@ -436,9 +435,8 @@ const ChatBody: React.FC<ExtendedChatBodyProps> = ({
             </ChatErrorBoundary>
           );
         })}
-      </div>
 
-      {/* Thinking Block - render after timeline wrapper, before ProcessingIndicator */}
+      {/* Thinking Block - render after messages, before ProcessingIndicator */}
       {(() => {
         const lastMessage = visibleMessages[visibleMessages.length - 1];
         const isRenderingThinking =

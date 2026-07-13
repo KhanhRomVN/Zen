@@ -85,11 +85,8 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
   // Parse and simplify error message
   displayMessage = parseErrorMessage(displayMessage);
 
-  const timelineClass = isLast ? "timeline-item last" : "timeline-item";
-
   return (
     <div
-      className={timelineClass}
       style={{
         position: "relative",
         display: "flex",

@@ -302,7 +302,7 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
         <div className="terminal-header-top">
           {statusColor && (
             <div
-              className={`terminal-status-dot timeline-dot ${isPartial ? "streaming-pulse" : ""}`}
+              className={`terminal-status-dot ${isPartial ? "streaming-pulse" : ""}`}
               style={{
                 backgroundColor: statusColor,
                 top: "10px",
