@@ -61,9 +61,13 @@ interface ChatFooterProps {
     newModel: any,
     newAccount: any,
     contextData: {
-      fileChanges: Array<{ path: string; additions: number; deletions: number }>;
+      fileChanges: Array<{
+        path: string;
+        additions: number;
+        deletions: number;
+      }>;
       userMessages: Array<{ content: string; responseNumber: number }>;
-    }
+    },
   ) => void;
   onTriggerCompression?: () => void;
 }
@@ -546,7 +550,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           isGitLoading={gitLoading}
           isGitStatusVisible={isGitStatusVisible}
           showCompressButton={shouldShowCompressionButton}
-          
           gitStatus={{
             items: Array.from(
               { length: conversationFileStats.totalFiles },

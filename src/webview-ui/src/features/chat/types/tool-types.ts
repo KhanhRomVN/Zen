@@ -23,12 +23,15 @@ export interface ReplaceInFileParams extends BaseToolParams {
   diff?: string; // Legacy support
 }
 
+// ===== REVERT FILE =====
+export interface RevertFileParams extends BaseToolParams {}
+
 // ===== LIST FILES =====
 export interface ListFilesParams {
   folder_path?: string;
   path?: string;
   recursive?: boolean;
-  depth?: number;
+  depth?: number | "max";
   type?: string;
 }
 

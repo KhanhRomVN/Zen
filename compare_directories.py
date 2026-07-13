@@ -79,7 +79,7 @@ def generate_markdown_report(created: List[str], changed: List[str], deleted: Li
     
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("# Directory Comparison Report\n\n")
-        f.write("Comparison between `temp/webview_src_old/src` and `temp/webview_src_new/src`\n\n")
+        f.write("Comparison between `temp/webview_src_new/src` and `src/webview-ui/src`\n\n")
         f.write("---\n\n")
         
         # Summary
@@ -125,8 +125,8 @@ def main():
     """Main execution function."""
     # Define directories
     workspace_root = Path(__file__).parent
-    old_dir = workspace_root / "temp" / "webview_src_old" / "src"
-    new_dir = workspace_root / "temp" / "webview_src_new" / "src"
+    old_dir = workspace_root / "temp" / "webview_src_new" / "src"
+    new_dir = workspace_root / "src" / "webview-ui" / "src"
     output_file = workspace_root / "directory_comparison_report.md"
     
     print("=" * 60)
