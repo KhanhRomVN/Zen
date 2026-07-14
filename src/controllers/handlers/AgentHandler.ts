@@ -1,8 +1,8 @@
 import * as vscode from "vscode";
-import { AgentCapabilityManager } from "../../agent/AgentCapabilityManager";
+import { AgentManager } from "../../agent/AgentManager";
 
 export class AgentHandler {
-  constructor(private agentManager: AgentCapabilityManager | undefined) {}
+  constructor(private agentManager: AgentManager | undefined) {}
 
   public handleUpdateAgentPermissions(message: any) {
     if (this.agentManager) {

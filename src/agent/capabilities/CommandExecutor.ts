@@ -1,6 +1,6 @@
 import { exec } from "child_process";
 import { promisify } from "util";
-import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
+import { AgentAction, AgentExecutionResult } from "../../types";
 
 const execAsync = promisify(exec);
 

@@ -2,7 +2,7 @@
   "name": "khanhromvn-zen",
   "displayName": "Zen - Free AI Chat For ALL LLM",
   "description": "A powerful VSCode extension that brings AI chat capabilities directly into your development environment",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "publisher": "KhanhRomVN",
   "license": "MIT",
   "capabilities": {

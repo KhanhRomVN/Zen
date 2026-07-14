@@ -70,6 +70,7 @@ interface ChatFooterProps {
     },
   ) => void;
   onTriggerCompression?: () => void;
+  onRevertConversation?: (messageId: string, timestamp: number) => void;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -122,6 +123,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   loadedConversationFileStats,
   onModelSwitch,
   onTriggerCompression,
+  onRevertConversation,
 }) => {
   // Calculate response range - count all assistant responses in the conversation
   const responseRange = React.useMemo(() => {
@@ -140,6 +142,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       start: number;
       end: number;
       isCurrent: boolean;
+      messageId?: string;
+      timestamp?: number;
       fileChanges: Map<
         string,
         {
@@ -313,6 +317,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
               start: currentRangeStart,
               end: rangeEnd,
               isCurrent: false, // Will mark the last one as current later
+              messageId: msg.id,
+              timestamp: msg.timestamp,
               fileChanges,
             });
 
@@ -565,6 +571,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           onReviewClick={() => {}}
           responseRange={responseRange}
           responseRanges={responseRanges}
+          onRevertConversation={onRevertConversation}
           onModelSwitch={onModelSwitch}
         />
       </div>

@@ -2,32 +2,32 @@ import { PermissionValidator } from "./validators/PermissionValidator";
 import {
   FileReadCapability,
   FileEditCapability,
-  FileAddCapability,
+  FileWriteCapability,
   CommandExecutor,
-  grepCapability,
+  GrepCapability,
 } from "./capabilities";
 import {
   AgentPermissions,
   AgentAction,
   AgentExecutionResult,
   ValidationResult,
-} from "./types/AgentTypes";
+} from "../types";
 
-export class AgentCapabilityManager {
+export class AgentManager {
   private validator: PermissionValidator;
   private fileReadCapability: FileReadCapability;
   private fileEditCapability: FileEditCapability;
-  private fileAddCapability: FileAddCapability;
+  private fileWriteCapability: FileWriteCapability;
   private commandExecutor: CommandExecutor;
-  private grepCapability: grepCapability;
+  private grepCapability: GrepCapability;
 
   constructor(permissions: AgentPermissions, workspaceRoot: string) {
     this.validator = new PermissionValidator(permissions, workspaceRoot);
     this.fileReadCapability = new FileReadCapability();
     this.fileEditCapability = new FileEditCapability();
-    this.fileAddCapability = new FileAddCapability();
+    this.fileWriteCapability = new FileWriteCapability();
     this.commandExecutor = new CommandExecutor(workspaceRoot);
-    this.grepCapability = new grepCapability(workspaceRoot);
+    this.grepCapability = new GrepCapability(workspaceRoot);
   }
 
   public async executeAction(
@@ -37,7 +37,7 @@ export class AgentCapabilityManager {
     const validation = this.validator.validate(action);
 
     if (!validation.allowed) {
-      console.warn(`[Zen][AgentCapabilityManager] 🚫 Permission denied:`, {
+      console.warn(`[Zen][AgentManager] 🚫 Permission denied:`, {
         type: action.type,
         reason: validation.reason,
       });
@@ -60,7 +60,7 @@ export class AgentCapabilityManager {
           result = await this.fileEditCapability.execute(action);
           break;
         case "add":
-          result = await this.fileAddCapability.execute(action);
+          result = await this.fileWriteCapability.execute(action);
           break;
         case "execute":
           result = await this.commandExecutor.execute(action);
@@ -78,7 +78,7 @@ export class AgentCapabilityManager {
 
       return result;
     } catch (error) {
-      console.error(`[Zen][AgentCapabilityManager] ❌ Execution failed:`, {
+      console.error(`[Zen][AgentManager] ❌ Execution failed:`, {
         type: action.type,
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,

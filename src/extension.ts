@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { ContextManager } from "./context/ContextManager";
-import { GlobalStorageManager } from "./storage-manager";
+import { GlobalStorageManager } from "./storage/GlobalStorageManager";
 import { ZenChatViewProvider } from "./providers/ZenChatViewProvider";
 import { ZenDiffProvider } from "./providers/ZenDiffProvider";
 

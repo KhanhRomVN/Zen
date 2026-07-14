@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
+import { AgentAction, AgentExecutionResult } from "../../types";
 
 export class FileReadCapability {
   async execute(action: AgentAction): Promise<AgentExecutionResult> {

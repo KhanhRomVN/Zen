@@ -1,6 +1,6 @@
 import React from "react";
-import { createPortal } from "react-dom";
 import { Message } from "../../types/message";
+import RevertConfirmModal from "@/components/RevertConfirmModal";
 
 interface UserMessageBoxProps {
   message: Message;
@@ -161,6 +161,50 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           )}
         </button>
 
+        {/* Revert button */}
+        {onRevertConversation && (
+          <button
+            onClick={() => {
+              console.log("[REVERT-DEBUG] UserMessageBox: Revert button clicked", {
+                messageId: message.id,
+                timestamp: message.timestamp,
+              });
+              setShowRevertModal(true);
+            }}
+            title="Revert conversation to this point"
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--vscode-descriptionForeground)",
+              borderRadius: "4px",
+              opacity: 0.7,
+              transition: "opacity 0.2s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 14 4 9l5-5" />
+              <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+            </svg>
+          </button>
+        )}
+
         {/* Regenerate button */}
         <button
           onClick={handleRegenerate}
@@ -198,94 +242,21 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
         </button>
       </div>
 
-      {showRevertModal &&
-        createPortal(
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 9999,
-              backgroundColor: "rgba(0,0,0,0.5)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onClick={() => setShowRevertModal(false)}
-          >
-            <div
-              style={{
-                backgroundColor: "var(--vscode-editor-background)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "8px",
-                padding: "20px 24px",
-                minWidth: "300px",
-                maxWidth: "400px",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  marginBottom: "8px",
-                }}
-              >
-                Revert conversation?
-              </div>
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: "var(--secondary-text)",
-                  marginBottom: "16px",
-                }}
-              >
-                This will restore all modified files to their state before this
-                message. Messages after this point will be removed.
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <button
-                  onClick={() => setShowRevertModal(false)}
-                  style={{
-                    padding: "5px 14px",
-                    borderRadius: "4px",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                    background: "transparent",
-                    border: "1px solid var(--border-color)",
-                    color: "var(--primary-text)",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    setShowRevertModal(false);
-                    onRevertConversation!(message.id, message.timestamp);
-                  }}
-                  style={{
-                    padding: "5px 14px",
-                    borderRadius: "4px",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                    background: "var(--vscode-button-background)",
-                    border: "none",
-                    color: "var(--vscode-button-foreground)",
-                    fontWeight: 600,
-                  }}
-                >
-                  Revert
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      <RevertConfirmModal
+        isOpen={showRevertModal}
+        onClose={() => {
+          console.log("[REVERT-DEBUG] UserMessageBox: Revert modal cancelled");
+          setShowRevertModal(false);
+        }}
+        onConfirm={() => {
+          console.log("[REVERT-DEBUG] UserMessageBox: Revert confirmed in modal", {
+            messageId: message.id,
+            timestamp: message.timestamp,
+            hasOnRevertConversation: !!onRevertConversation,
+          });
+          onRevertConversation!(message.id, message.timestamp);
+        }}
+      />
     </div>
   );
 };

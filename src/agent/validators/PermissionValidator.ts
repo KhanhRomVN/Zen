@@ -3,7 +3,7 @@ import {
   AgentPermissions,
   AgentAction,
   ValidationResult,
-} from "../types/AgentTypes";
+} from "../../types";
 import { SecurityValidator } from "./SecurityValidator";
 
 export class PermissionValidator {

@@ -1,9 +1,9 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
+import { AgentAction, AgentExecutionResult } from "../../types";
 
-export class FileAddCapability {
+export class FileWriteCapability {
   async execute(action: AgentAction): Promise<AgentExecutionResult> {
     try {
       if (!action.path) {
@@ -21,7 +21,6 @@ export class FileAddCapability {
         : [path.join(workspaceRoot, action.path), action.path];
 
       let targetPath: string | undefined;
-      let lastError: unknown;
       for (const candidate of candidates) {
         try {
           // Check if file already exists

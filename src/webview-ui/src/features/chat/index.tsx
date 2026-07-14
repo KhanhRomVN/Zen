@@ -851,6 +851,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onOpenGitStatus={() => setShowGitStatusBlock(true)}
         loadedConversationFileStats={loadedConversationFileStats}
         onModelSwitch={handleModelSwitch}
+        onRevertConversation={handleRevertConversation}
       />
     </div>
   );

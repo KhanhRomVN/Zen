@@ -1,5 +1,5 @@
-import { FileSystemAnalyzer } from "./FileSystemAnalyzer";
-import { WorkspaceAnalyzer } from "./WorkspaceAnalyzer";
+import { FileSystemAnalyzer } from "./analyzers/FileSystemAnalyzer";
+import { WorkspaceAnalyzer } from "./analyzers/WorkspaceAnalyzer";
 import { ContextBuilder } from "./ContextBuilder";
 
 export class ContextManager {

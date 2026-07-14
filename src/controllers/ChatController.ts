@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import { ContextManager } from "../context/ContextManager";
-import { GlobalStorageManager } from "../storage-manager";
-import { AgentCapabilityManager } from "../agent/AgentCapabilityManager";
+import { GlobalStorageManager } from "../storage/GlobalStorageManager";
+import { AgentManager } from "../agent/AgentManager";
 import { ProcessManager } from "../managers/ProcessManager";
 import { FileLockManager } from "../managers/FileLockManager";
 import { RecentItemsManager } from "../context/RecentItemsManager";
@@ -12,7 +12,7 @@ import { SystemHandler } from "./handlers/SystemHandler";
 import { ProjectContextHandler } from "./handlers/ProjectContextHandler";
 import { AgentHandler } from "./handlers/AgentHandler";
 import { StorageHandler } from "./handlers/StorageHandler";
-import { CheckpointManager } from "../utils/CheckpointManager";
+import { CheckpointManager } from "../managers/CheckpointManager";
 
 export class ChatController {
   private conversationHandler: ConversationHandler;
@@ -26,7 +26,7 @@ export class ChatController {
   constructor(
     private contextManager: ContextManager,
     private storageManager: GlobalStorageManager | undefined,
-    private agentManager: AgentCapabilityManager | undefined,
+    private agentManager: AgentManager | undefined,
     private processManager: ProcessManager,
     private fileLockManager: FileLockManager,
     private recentItemsManager: RecentItemsManager | undefined,

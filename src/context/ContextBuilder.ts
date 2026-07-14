@@ -1,5 +1,4 @@
-import { WorkspaceInfo } from "./WorkspaceAnalyzer";
-
+import { WorkspaceInfo } from "./analyzers/WorkspaceAnalyzer";
 export class ContextBuilder {
   public buildContextString(
     task: string,

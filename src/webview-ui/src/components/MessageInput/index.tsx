@@ -741,6 +741,7 @@ interface MessageInputProps {
       userMessages: Array<{ content: string; responseNumber: number }>;
     },
   ) => void;
+  onRevertConversation?: (messageId: string, timestamp: number) => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -788,6 +789,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
   responseRange,
   responseRanges = [],
   onModelSwitch,
+  onRevertConversation,
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
@@ -1300,6 +1302,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               removedLines={conversationFileStats?.totalDeletions || 0}
               onClick={onOpenGitStatus}
               onReviewClick={onReviewClick}
+              onRevert={onRevertConversation}
               responseRange={responseRange}
               responseRanges={responseRanges}
             />

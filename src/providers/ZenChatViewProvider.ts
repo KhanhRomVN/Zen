@@ -2,9 +2,9 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { ChatController } from "../controllers/ChatController";
 import { ContextManager } from "../context/ContextManager";
-import { GlobalStorageManager } from "../storage-manager";
-import { AgentCapabilityManager } from "../agent/AgentCapabilityManager";
-import { AgentPermissions } from "../agent/types/AgentTypes";
+import { GlobalStorageManager } from "../storage/GlobalStorageManager";
+import { AgentManager } from "../agent/AgentManager";
+import { AgentPermissions } from "../types";
 import { ProcessManager } from "../managers/ProcessManager";
 import { FileLockManager } from "../managers/FileLockManager";
 import { RecentItemsManager } from "../context/RecentItemsManager";
@@ -16,7 +16,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private chatController?: ChatController;
   private _extensionContext?: vscode.ExtensionContext;
-  private _agentManager?: AgentCapabilityManager;
+  private _agentManager?: AgentManager;
   private _processManager: ProcessManager;
   private _fileLockManager: FileLockManager;
   private _recentItemsManager?: RecentItemsManager;
@@ -73,7 +73,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         executeAllCommands: false, // executeAllCommands stays false by default for safety
       };
 
-      this._agentManager = new AgentCapabilityManager(
+      this._agentManager = new AgentManager(
         defaultPermissions,
         folderPath,
       );

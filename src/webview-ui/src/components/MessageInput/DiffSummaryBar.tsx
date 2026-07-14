@@ -1,11 +1,14 @@
 import React from "react";
 import { getFileIconPath } from "@/utils/fileIconMapper";
-import { RotateCcw } from "lucide-react";
+import { Undo2 } from "lucide-react";
+import RevertConfirmModal from "@/components/RevertConfirmModal";
 
 interface ResponseRange {
   start: number;
   end: number;
   isCurrent: boolean;
+  messageId?: string;
+  timestamp?: number;
   fileChanges: Map<
     string,
     {
@@ -25,6 +28,7 @@ interface DiffSummaryBarProps {
   removedLines: number;
   onClick?: () => void;
   onReviewClick?: () => void;
+  onRevert?: (messageId: string, timestamp: number) => void;
   responseRange?: { start: number; end: number } | null;
   responseRanges?: ResponseRange[];
 }
@@ -35,11 +39,17 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
   removedLines,
   onClick,
   onReviewClick,
+  onRevert,
   responseRange,
   responseRanges = [],
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [isReviewHovered, setIsReviewHovered] = React.useState(false);
+  const [showRevertModal, setShowRevertModal] = React.useState(false);
+  const [pendingRevert, setPendingRevert] = React.useState<{
+    messageId: string;
+    timestamp: number;
+  } | null>(null);
 
   const rangeText = React.useMemo(() => {
     // Find current range and use it for summary
@@ -352,6 +362,28 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
                         </span>
                       )}
                       <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (range.messageId && range.timestamp) {
+                            console.log("[REVERT-DEBUG] DiffSummaryBar: REVERT button clicked", {
+                              rangeStart: range.start,
+                              rangeEnd: range.end,
+                              isCurrent: range.isCurrent,
+                              messageId: range.messageId,
+                              timestamp: range.timestamp,
+                            });
+                            setPendingRevert({
+                              messageId: range.messageId,
+                              timestamp: range.timestamp,
+                            });
+                            setShowRevertModal(true);
+                          } else {
+                            console.warn("[REVERT-DEBUG] DiffSummaryBar: REVERT clicked but no messageId/timestamp", {
+                              messageId: range.messageId,
+                              timestamp: range.timestamp,
+                            });
+                          }
+                        }}
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -379,7 +411,7 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
                             : "Revert to this range"
                         }
                       >
-                        <RotateCcw size={10} />
+                        <Undo2 size={10} />
                         REVERT
                       </button>
                     </div>
@@ -559,6 +591,27 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
           )}
         </div>
       )}
+
+      <RevertConfirmModal
+        isOpen={showRevertModal}
+        onClose={() => {
+          setShowRevertModal(false);
+          setPendingRevert(null);
+        }}
+        onConfirm={() => {
+          if (pendingRevert) {
+            console.log("[REVERT-DEBUG] DiffSummaryBar: Revert confirmed in modal", {
+              messageId: pendingRevert.messageId,
+              timestamp: pendingRevert.timestamp,
+              hasOnRevert: !!onRevert,
+            });
+            onRevert?.(pendingRevert.messageId, pendingRevert.timestamp);
+            setPendingRevert(null);
+          } else {
+            console.warn("[REVERT-DEBUG] DiffSummaryBar: Confirm but pendingRevert is null");
+          }
+        }}
+      />
     </div>
   );
 };

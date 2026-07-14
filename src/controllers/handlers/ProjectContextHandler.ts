@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as crypto from "crypto";
 import * as os from "os";
 import { ContextManager } from "../../context/ContextManager";
-import { GlobalStorageManager } from "../../storage-manager";
+import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
 
 export class ProjectContextHandler {
 

@@ -265,9 +265,17 @@ export const useConversationRestore = ({
       ) {
         handleClearConfirmed();
       } else if (
+        data.command === "conversationRevertedError" &&
+        data.conversationId === currentConversationId
+      ) {
+        console.error("[REVERT-DEBUG] Received conversationRevertedError from extension:", data.error);
+        setIsLoadingConversation(false);
+        revertMessageIdRef.current = null;
+      } else if (
         data.command === "conversationReverted" &&
         data.conversationId === currentConversationId
       ) {
+        console.log("[REVERT-DEBUG] Received conversationReverted from extension");
         const targetId = revertMessageIdRef.current;
         revertMessageIdRef.current = null;
         if (targetId === "__first__") {
@@ -341,16 +349,36 @@ export const useConversationRestore = ({
 
   const handleRevertConversation = useCallback(
     (messageId: string, timestamp: number) => {
-      if (!currentConversationId) return;
+      console.log("[REVERT-DEBUG] handleRevertConversation called", {
+        messageId,
+        timestamp,
+        currentConversationId,
+        messagesCount: messagesRef.current.length,
+      });
+      if (!currentConversationId) {
+        console.warn("[REVERT-DEBUG] handleRevertConversation: no currentConversationId, aborting");
+        return;
+      }
       const visibleUserMessages = messagesRef.current.filter(
         (m) => !m.uiHidden && !m.isCancelled && m.role === "user",
       );
       const isFirstMessage =
         visibleUserMessages.length > 0 &&
         visibleUserMessages[0].id === messageId;
+      console.log("[REVERT-DEBUG] handleRevertConversation", {
+        visibleUserMessagesCount: visibleUserMessages.length,
+        isFirstMessage,
+        revertTarget: isFirstMessage ? "__first__" : messageId,
+      });
       revertMessageIdRef.current = isFirstMessage ? "__first__" : messageId;
       setIsLoadingConversation(true);
       extensionService.postMessage({
+        command: "revertConversation",
+        conversationId: currentConversationId,
+        messageId,
+        timestamp,
+      });
+      console.log("[REVERT-DEBUG] handleRevertConversation: postMessage sent", {
         command: "revertConversation",
         conversationId: currentConversationId,
         messageId,

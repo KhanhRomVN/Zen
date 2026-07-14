@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
-import { AgentAction, AgentExecutionResult } from "../types/AgentTypes";
+import { AgentAction, AgentExecutionResult } from "../../types";
 import { LoggerService } from "../../services/LoggerService";
+import { DiagnosticsService } from "../../services/DiagnosticsService";
 
 interface MatchResult {
   lineNumber: number;
@@ -15,7 +16,7 @@ interface FileMatchResult {
   warningCount: number;
 }
 
-export class grepCapability {
+export class GrepCapability {
   private workspaceRoot: string;
 
   constructor(workspaceRoot: string = process.cwd()) {
@@ -144,22 +145,7 @@ export class grepCapability {
     errorCount: number;
     warningCount: number;
   } {
-    try {
-      const uri = vscode.Uri.file(filePath);
-      const diagnostics = vscode.languages.getDiagnostics(uri);
-
-      const errorCount = diagnostics.filter(
-        (d) => d.severity === vscode.DiagnosticSeverity.Error,
-      ).length;
-
-      const warningCount = diagnostics.filter(
-        (d) => d.severity === vscode.DiagnosticSeverity.Warning,
-      ).length;
-
-      return { errorCount, warningCount };
-    } catch (e) {
-      return { errorCount: 0, warningCount: 0 };
-    }
+    return DiagnosticsService.getInstance().getDiagnosticCount(vscode.Uri.file(filePath));
   }
 
   /**
@@ -186,72 +172,18 @@ export class grepCapability {
    */
   private removeDiacritics(str: string): string {
     const diacriticsMap: Record<string, string> = {
-      à: "a",
-      á: "a",
-      ả: "a",
-      ã: "a",
-      ạ: "a",
-      ă: "a",
-      ằ: "a",
-      ắ: "a",
-      ẳ: "a",
-      ẵ: "a",
-      ặ: "a",
-      â: "a",
-      ầ: "a",
-      ấ: "a",
-      ẩ: "a",
-      ẫ: "a",
-      ậ: "a",
-      è: "e",
-      é: "e",
-      ẻ: "e",
-      ẽ: "e",
-      ẹ: "e",
-      ê: "e",
-      ề: "e",
-      ế: "e",
-      ể: "e",
-      ễ: "e",
-      ệ: "e",
-      ì: "i",
-      í: "i",
-      ỉ: "i",
-      ĩ: "i",
-      ị: "i",
-      ò: "o",
-      ó: "o",
-      ỏ: "o",
-      õ: "o",
-      ọ: "o",
-      ô: "o",
-      ồ: "o",
-      ố: "o",
-      ổ: "o",
-      ỗ: "o",
-      ộ: "o",
-      ơ: "o",
-      ờ: "o",
-      ớ: "o",
-      ở: "o",
-      ỡ: "o",
-      ợ: "o",
-      ù: "u",
-      ú: "u",
-      ủ: "u",
-      ũ: "u",
-      ụ: "u",
-      ư: "u",
-      ừ: "u",
-      ứ: "u",
-      ử: "u",
-      ữ: "u",
-      ự: "u",
-      ỳ: "y",
-      ý: "y",
-      ỷ: "y",
-      ỹ: "y",
-      ỵ: "y",
+      à: "a", á: "a", ả: "a", ã: "a", ạ: "a",
+      ă: "a", ằ: "a", ắ: "a", ẳ: "a", ẵ: "a", ặ: "a",
+      â: "a", ầ: "a", ấ: "a", ẩ: "a", ẫ: "a", ậ: "a",
+      è: "e", é: "e", ẻ: "e", ẽ: "e", ẹ: "e",
+      ê: "e", ề: "e", ế: "e", ể: "e", ễ: "e", ệ: "e",
+      ì: "i", í: "i", ỉ: "i", ĩ: "i", ị: "i",
+      ò: "o", ó: "o", ỏ: "o", õ: "o", ọ: "o",
+      ô: "o", ồ: "o", ố: "o", ổ: "o", ỗ: "o", ộ: "o",
+      ơ: "o", ờ: "o", ớ: "o", ở: "o", ỡ: "o", ợ: "o",
+      ù: "u", ú: "u", ủ: "u", ũ: "u", ụ: "u",
+      ư: "u", ừ: "u", ứ: "u", ử: "u", ữ: "u", ự: "u",
+      ỳ: "y", ý: "y", ỷ: "y", ỹ: "y", ỵ: "y",
       đ: "d",
     };
 
