@@ -14,6 +14,7 @@ import { parseGrep } from "./parsers/GrepParser";
 import { parseDeleteFile } from "./parsers/DeleteFileParser";
 import { parseDeleteFolder } from "./parsers/DeleteFolderParser";
 import { parseMoveFile } from "./parsers/MoveFileParser";
+import { parseRevertFile } from "./parsers/RevertFileParser";
 import { parseRunCommand } from "./parsers/RunCommandParser";
 import { parseGitStatus } from "./parsers/GitStatusParser";
 import { parseGitDiff } from "./parsers/GitDiffParser";
@@ -574,6 +575,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             case "move_file": {
               const params = parseMoveFile(innerContent || "");
               action = { type: "move_file" as const, params, rawXml };
+              break;
+            }
+            case "revert_file": {
+              const params = parseRevertFile(innerContent || "");
+              action = { type: "revert_file" as const, params, rawXml };
               break;
             }
             case "run_command": {

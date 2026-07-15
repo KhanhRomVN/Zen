@@ -2,6 +2,7 @@ import React from "react";
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import { CONTEXT_COMPRESSION_THRESHOLD } from "../constants/constants";
+import { parseAIResponse } from "../services/ResponseParser";
 
 interface ChatFooterProps {
   message: string;
@@ -149,7 +150,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         {
           additions: number;
           deletions: number;
-          toolType?: "write_to_file" | "replace_in_file";
+          toolType?: "write_to_file" | "replace_in_file" | "revert_file";
           content?: string;
           oldContent?: string;
           newContent?: string;
@@ -191,7 +192,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
               {
                 additions: number;
                 deletions: number;
-                toolType?: "write_to_file" | "replace_in_file";
+                toolType?: "write_to_file" | "replace_in_file" | "revert_file";
                 content?: string;
                 oldContent?: string;
                 newContent?: string;
@@ -311,6 +312,52 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
                   stats.additions += newLines;
                 }
               }
+
+              // Match revert_file and SUBTRACT the reverted changes
+              const revertMatches = m.content.matchAll(
+                /<revert_file[^>]*?>[\s\S]*?<file_path[^>]*?>(.*?)<\/file_path>[\s\S]*?<\/revert_file>/gi,
+              );
+
+              for (const match of revertMatches) {
+                const filePath = match[1]?.trim();
+
+                if (filePath) {
+                  if (fileChanges.has(filePath)) {
+                    // If we already have stats for this file in current range,
+                    // reverse them (because revert undoes the change)
+                    const stats = fileChanges.get(filePath)!;
+                    
+                    // Mark as revert_file
+                    stats.toolType = "revert_file";
+                    
+                    // Swap additions and deletions (revert reverses the change)
+                    const tempAdditions = stats.additions;
+                    stats.additions = stats.deletions;
+                    stats.deletions = tempAdditions;
+
+                    console.log("[DEBUG ChatFooter] Applied revert to existing stats", {
+                      filePath,
+                      swapped: true,
+                      newAdditions: stats.additions,
+                      newDeletions: stats.deletions,
+                    });
+                  } else {
+                    // File not in current range - create new entry for revert
+                    // We don't know exact additions/deletions, so set to 1/1 as placeholder
+                    fileChanges.set(filePath, {
+                      additions: 1,
+                      deletions: 1,
+                      toolType: "revert_file",
+                    });
+
+                    console.log("[DEBUG ChatFooter] Created new revert entry", {
+                      filePath,
+                      additions: 1,
+                      deletions: 1,
+                    });
+                  }
+                }
+              }
             }
 
             ranges.push({
@@ -343,7 +390,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   const { conversationFileStats, fileChangesMap } = React.useMemo(() => {
     const fileChanges = new Map<
       string,
-      { additions: number; deletions: number }
+      {
+        additions: number;
+        deletions: number;
+        toolType?: "write_to_file" | "replace_in_file" | "revert_file";
+      }
     >();
 
     // Count assistant responses for STT
@@ -418,6 +469,34 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
             stats.deletions += oldLines;
             stats.additions += newLines;
+          }
+        }
+
+        // Match revert_file and SUBTRACT the reverted changes
+        const revertMatches = msg.content.matchAll(
+          /<revert_file[^>]*?>[\s\S]*?<file_path[^>]*?>(.*?)<\/file_path>[\s\S]*?<\/revert_file>/gi,
+        );
+
+        for (const match of revertMatches) {
+          const filePath = match[1]?.trim();
+
+          if (filePath && fileChanges.has(filePath)) {
+            // If we already have stats for this file, SUBTRACT them (revert cancels out the change)
+            const stats = fileChanges.get(filePath)!;
+            
+            // Mark as revert_file
+            stats.toolType = "revert_file";
+            
+            // SUBTRACT the stats (revert cancels the original change)
+            // If original was +5 -3, after revert should be +0 -0
+            stats.additions = 0;
+            stats.deletions = 0;
+
+            console.log("[DEBUG ChatFooter conversationFileStats] Applied revert - zeroed stats", {
+              filePath,
+              additions: stats.additions,
+              deletions: stats.deletions,
+            });
           }
         }
       }

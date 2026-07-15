@@ -283,18 +283,50 @@ export class FileOperationHandler {
       const pc = SecurityValidator.validatePath(absPath, false);
       if (!pc.safe) throw new Error(pc.reason || "Security validation failed");
       try { await fs.promises.stat(absPath); } catch { throw new Error(`File not found: '${filePath}'`); }
+      
       const beforeContent = await fs.promises.readFile(absPath, "utf-8");
+
+      logger.info(`[DEBUG revert_file] Before revert - contentLength: ${beforeContent.length}, lines: ${beforeContent.split('\n').length}`);
+
+      // FIX: Use CheckpointManager instead of VSCode undo (which doesn't work for programmatic edits)
+      const cpm = CheckpointManager.getInstance();
+      const checkpoint = await cpm.getLastCheckpointForFile(absPath);
+
+      if (!checkpoint) {
+        throw new Error(`No checkpoint found for file '${filePath}'. Cannot revert.`);
+      }
+
+      if (checkpoint.content === null) {
+        throw new Error(`Checkpoint for '${filePath}' has no content. Cannot revert.`);
+      }
+
+      // Write checkpoint content back to file
+      await fs.promises.writeFile(absPath, checkpoint.content, "utf-8");
+
+      const afterContent = checkpoint.content;
       const fileUri = vscode.Uri.file(absPath);
-      const document = await vscode.workspace.openTextDocument(fileUri);
-      await vscode.window.showTextDocument(document, { preview: false, preserveFocus: false });
-      await vscode.commands.executeCommand("undo");
-      await document.save();
-      const afterContent = await fs.promises.readFile(absPath, "utf-8");
+
+      logger.info(`[DEBUG revert_file] After revert - contentLength: ${afterContent.length}, lines: ${afterContent.split('\n').length}`);
+
+      // Check if revert actually changed content
+      if (beforeContent === afterContent) {
+        logger.warn(`[DEBUG revert_file] WARNING: Content unchanged after revert! Checkpoint content same as current content.`);
+      }
+
+      // Đợi language server cập nhật diagnostics (500ms - tăng từ 300ms)
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Lấy diagnostics sau khi revert
+      const diagnostics = this.getDiagnosticsForFile(fileUri);
+
+      logger.info(`[DEBUG revert_file] Diagnostics count: ${diagnostics.length}, errors: ${diagnostics.filter(d => d.severity === 'Error').length}, warnings: ${diagnostics.filter(d => d.severity === 'Warning').length}`);
+
       if (message.conversationId && message.actionId) {
         await SnapshotManager.getInstance().saveSnapshot(message.conversationId, message.actionId, absPath, "revert", beforeContent, afterContent);
       }
-      webviewView.webview.postMessage({ command: "revertFileResult", requestId: message.requestId, success: true, path: filePath, oldContent: beforeContent, newContent: afterContent });
+      webviewView.webview.postMessage({ command: "revertFileResult", requestId: message.requestId, success: true, path: filePath, oldContent: beforeContent, newContent: afterContent, diagnostics });
     } catch (e: any) {
+      logger.error(`[DEBUG revert_file] Error: ${e.message}`);
       webviewView.webview.postMessage({ command: "revertFileResult", requestId: message.requestId, error: e.message });
     }
   }

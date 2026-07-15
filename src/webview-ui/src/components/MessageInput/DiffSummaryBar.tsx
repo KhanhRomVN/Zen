@@ -14,7 +14,7 @@ interface ResponseRange {
     {
       additions: number;
       deletions: number;
-      toolType?: "write_to_file" | "replace_in_file";
+      toolType?: "write_to_file" | "replace_in_file" | "revert_file";
       content?: string;
       oldContent?: string;
       newContent?: string;
@@ -69,7 +69,7 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
   const handleFileClick = (
     filePath: string,
     fileData?: {
-      toolType?: "write_to_file" | "replace_in_file";
+      toolType?: "write_to_file" | "replace_in_file" | "revert_file";
       content?: string;
       oldContent?: string;
       newContent?: string;
@@ -365,23 +365,19 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           if (range.messageId && range.timestamp) {
-                            console.log("[REVERT-DEBUG] DiffSummaryBar: REVERT button clicked", {
-                              rangeStart: range.start,
-                              rangeEnd: range.end,
-                              isCurrent: range.isCurrent,
-                              messageId: range.messageId,
-                              timestamp: range.timestamp,
-                            });
                             setPendingRevert({
                               messageId: range.messageId,
                               timestamp: range.timestamp,
                             });
                             setShowRevertModal(true);
                           } else {
-                            console.warn("[REVERT-DEBUG] DiffSummaryBar: REVERT clicked but no messageId/timestamp", {
-                              messageId: range.messageId,
-                              timestamp: range.timestamp,
-                            });
+                            console.warn(
+                              "[REVERT-DEBUG] DiffSummaryBar: REVERT clicked but no messageId/timestamp",
+                              {
+                                messageId: range.messageId,
+                                timestamp: range.timestamp,
+                              },
+                            );
                           }
                         }}
                         style={{
@@ -441,7 +437,9 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
                           const toolLabel =
                             file.toolType === "write_to_file"
                               ? "WRITE"
-                              : "REPLACE";
+                              : file.toolType === "revert_file"
+                                ? "REVERT"
+                                : "REPLACE";
 
                           return (
                             <div
@@ -474,7 +472,9 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
                                   color:
                                     file.toolType === "write_to_file"
                                       ? "var(--vscode-gitDecoration-addedResourceForeground)"
-                                      : "var(--vscode-editorWarning-foreground)",
+                                      : file.toolType === "revert_file"
+                                        ? "var(--vscode-gitDecoration-deletedResourceForeground)"
+                                        : "var(--vscode-editorWarning-foreground)",
                                   flexShrink: 0,
                                   cursor: "pointer",
                                   textDecoration: "none",
@@ -600,15 +600,12 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
         }}
         onConfirm={() => {
           if (pendingRevert) {
-            console.log("[REVERT-DEBUG] DiffSummaryBar: Revert confirmed in modal", {
-              messageId: pendingRevert.messageId,
-              timestamp: pendingRevert.timestamp,
-              hasOnRevert: !!onRevert,
-            });
             onRevert?.(pendingRevert.messageId, pendingRevert.timestamp);
             setPendingRevert(null);
           } else {
-            console.warn("[REVERT-DEBUG] DiffSummaryBar: Confirm but pendingRevert is null");
+            console.warn(
+              "[REVERT-DEBUG] DiffSummaryBar: Confirm but pendingRevert is null",
+            );
           }
         }}
       />

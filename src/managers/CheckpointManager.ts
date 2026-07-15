@@ -33,6 +33,49 @@ export class CheckpointManager {
     return this.activeConversationId;
   }
 
+  /**
+   * Get the last checkpoint for a specific file path
+   * Used by revert_file to restore previous content
+   */
+  public async getLastCheckpointForFile(filePath: string): Promise<Checkpoint | null> {
+    try {
+      if (!this.activeConversationId) {
+        return null;
+      }
+
+      const ckptDir = this.getCheckpointsDir(this.activeConversationId);
+      if (!fs.existsSync(ckptDir)) {
+        return null;
+      }
+
+      const files = await fs.promises.readdir(ckptDir);
+      let lastCheckpoint: Checkpoint | null = null;
+      let lastTimestamp = 0;
+
+      for (const file of files) {
+        if (file.startsWith("ckpt_") && file.endsWith(".json")) {
+          const checkpointPath = path.join(ckptDir, file);
+          try {
+            const raw = await fs.promises.readFile(checkpointPath, "utf-8");
+            const ckpt: Checkpoint = JSON.parse(raw);
+            
+            // Match by absolute path
+            if (ckpt.filePath === filePath && ckpt.timestamp > lastTimestamp) {
+              lastCheckpoint = { ...ckpt, id: file };
+              lastTimestamp = ckpt.timestamp;
+            }
+          } catch (e) {
+            // Skip invalid checkpoint files
+          }
+        }
+      }
+
+      return lastCheckpoint;
+    } catch (e) {
+      return null;
+    }
+  }
+
   private getCheckpointsDir(conversationId: string): string {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) throw new Error("No workspace folder open");

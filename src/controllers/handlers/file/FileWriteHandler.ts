@@ -310,7 +310,16 @@ export class FileWriteHandler {
       return;
     }
 
-    if (!message.skipDiagnostics) await this.ensureFileOpened(absPath);
+    // Kiểm tra file tồn tại trước khi replace
+    try { await vscode.workspace.fs.stat(absPath); } catch {
+      webviewView.webview.postMessage({
+        command: "replaceInFileResult",
+        requestId: message.requestId,
+        error: `File not found: '${pathValue}'`,
+      });
+      return;
+    }
+
     if (message.conversationId) {
       CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
     }

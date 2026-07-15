@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { ToolAction } from "../../services/ResponseParser";
 import FileIcon from "@/icons/FileIcon";
 import { ToolHeader } from "./ToolHeader";
-import { parseDiff } from "../../../../utils/diffUtils";
+import { parseDiff, calculateLineDiff } from "../../../../utils/diffUtils";
 import { getFilename, getToolColor } from "../../utils/toolUtils";
 import { getDisplayPath, collectConvFilePaths } from "../../utils/pathUtils";
 import { extensionService } from "../../../../services/ExtensionService";
@@ -198,24 +198,29 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     }
   }
 
-  // Calculate diff stats for revert_file (same logic as replace_in_file)
+  // Calculate diff stats for revert_file - use ACCURATE diff algorithm
   if (toolType === "revert_file") {
     if (action.params.old_str && action.params.new_str) {
-      const oldLines = (action.params.old_str || "").split("\n");
-      const newLines = (action.params.new_str || "").split("\n");
+      // FIX: Use calculateLineDiff instead of counting all lines
+      const { additions, deletions } = calculateLineDiff(
+        action.params.old_str || "",
+        action.params.new_str || "",
+      );
 
       diffStats = {
-        added: newLines.length,
-        removed: oldLines.length,
+        added: additions,
+        removed: deletions,
       };
-    }
-    else if (action.params.old_content && action.params.new_content) {
-      const oldLines = (action.params.old_content || "").split("\n");
-      const newLines = (action.params.new_content || "").split("\n");
+    } else if (action.params.old_content && action.params.new_content) {
+      // FIX: Use calculateLineDiff instead of counting all lines
+      const { additions, deletions } = calculateLineDiff(
+        action.params.old_content || "",
+        action.params.new_content || "",
+      );
 
       diffStats = {
-        added: newLines.length,
-        removed: oldLines.length,
+        added: additions,
+        removed: deletions,
       };
     }
   }
@@ -1006,7 +1011,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.textDecoration = "none";
-                }}  
+                }}
               >
                 {displayName || (isPartial && !rawPath ? "..." : "")}
               </span>
@@ -1026,7 +1031,8 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               )}
               {/* Show diff stats for replace_in_file inline */}
               {diffStats &&
-                (toolType === "replace_in_file" || toolType === "revert_file") &&
+                (toolType === "replace_in_file" ||
+                  toolType === "revert_file") &&
                 (diffStats.added > 0 || diffStats.removed > 0) && (
                   <span
                     style={{

@@ -69,7 +69,10 @@ export class ConversationStateHandler {
         release();
       }
     } catch (e) {
-      console.error("[ConversationStateHandler] handleSaveConversationState error:", e);
+      console.error(
+        "[ConversationStateHandler] handleSaveConversationState error:",
+        e,
+      );
     }
   }
 
@@ -78,12 +81,6 @@ export class ConversationStateHandler {
     webviewView: vscode.WebviewView,
   ) {
     try {
-      console.log("[REVERT-DEBUG] ConversationStateHandler.handleRevertConversation called", {
-        conversationId: message.conversationId,
-        messageId: message.messageId,
-        timestamp: message.timestamp,
-      });
-
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) {
         console.warn("[REVERT-DEBUG] No workspace folder found");
@@ -91,7 +88,10 @@ export class ConversationStateHandler {
       }
       const { conversationId, messageId, timestamp } = message;
       if (!conversationId || !messageId) {
-        console.warn("[REVERT-DEBUG] Missing conversationId or messageId", { conversationId, messageId });
+        console.warn("[REVERT-DEBUG] Missing conversationId or messageId", {
+          conversationId,
+          messageId,
+        });
         return;
       }
 
@@ -99,7 +99,6 @@ export class ConversationStateHandler {
         workspaceFolder.uri.fsPath,
       );
       const logPath = path.join(projectContextDir, `${conversationId}.json`);
-      console.log("[REVERT-DEBUG] Log path:", logPath);
 
       if (!fs.existsSync(logPath)) {
         console.error("[REVERT-DEBUG] Log file not found:", logPath);
@@ -109,7 +108,6 @@ export class ConversationStateHandler {
       const release = await this.fileLockManager.acquire(logPath);
       try {
         const fileData = await fs.promises.readFile(logPath, "utf-8");
-        console.log("[REVERT-DEBUG] Raw file data (first 200 chars):", fileData.substring(0, 200));
 
         let parsed;
         try {
@@ -123,17 +121,23 @@ export class ConversationStateHandler {
         let content: any[];
         if (Array.isArray(parsed)) {
           content = parsed;
-        } else if (parsed && typeof parsed === "object" && Array.isArray(parsed.messages)) {
+        } else if (
+          parsed &&
+          typeof parsed === "object" &&
+          Array.isArray(parsed.messages)
+        ) {
           content = parsed.messages;
-          console.log("[REVERT-DEBUG] Using parsed.messages array, entries:", content.length);
         } else {
-          console.error("[REVERT-DEBUG] Invalid conversation log format, type:", typeof parsed, "value:", JSON.stringify(parsed).substring(0, 100));
+          console.error(
+            "[REVERT-DEBUG] Invalid conversation log format, type:",
+            typeof parsed,
+            "value:",
+            JSON.stringify(parsed).substring(0, 100),
+          );
           throw new Error("Invalid conversation log format");
         }
 
-        console.log("[REVERT-DEBUG] Log entries count:", content.length);
         if (content.length === 0) {
-          console.log("[REVERT-DEBUG] Log is empty, treating as no-op revert");
           webviewView.webview.postMessage({
             command: "conversationReverted",
             conversationId,
@@ -142,9 +146,11 @@ export class ConversationStateHandler {
         }
 
         const index = content.findIndex((m: any) => m.id === messageId);
-        console.log("[REVERT-DEBUG] Searching for messageId:", messageId, "found at index:", index);
         if (index === -1) {
-          console.error("[REVERT-DEBUG] Message not found in history. Available IDs:", content.map((m: any) => m.id));
+          console.error(
+            "[REVERT-DEBUG] Message not found in history. Available IDs:",
+            content.map((m: any) => m.id),
+          );
           throw new Error(`Message with ID ${messageId} not found in history`);
         }
 
@@ -153,10 +159,8 @@ export class ConversationStateHandler {
           typeof targetMsg.timestamp === "string"
             ? new Date(targetMsg.timestamp).getTime()
             : targetMsg.timestamp || timestamp;
-        console.log("[REVERT-DEBUG] Revert timestamp:", revertTimestamp, "from target msg timestamp:", targetMsg.timestamp);
 
         content = content.slice(0, index);
-        console.log("[REVERT-DEBUG] Sliced content to", content.length, "entries");
 
         // Preserve the original object format { messages: [...], ... }
         if (!Array.isArray(parsed)) {
@@ -169,25 +173,25 @@ export class ConversationStateHandler {
           JSON.stringify(parsed, null, 2),
           "utf-8",
         );
-        console.log("[REVERT-DEBUG] Log file written successfully");
 
-        console.log("[REVERT-DEBUG] Calling CheckpointManager.revertToCheckpoint...");
         await CheckpointManager.getInstance().revertToCheckpoint(
           conversationId,
           revertTimestamp,
         );
-        console.log("[REVERT-DEBUG] CheckpointManager.revertToCheckpoint completed");
       } finally {
         release();
       }
 
-      console.log("[REVERT-DEBUG] Sending conversationReverted to webview");
       webviewView.webview.postMessage({
         command: "conversationReverted",
         conversationId,
       });
     } catch (e: any) {
-      console.error("[REVERT-DEBUG] Error in handleRevertConversation:", e.message, e.stack);
+      console.error(
+        "[REVERT-DEBUG] Error in handleRevertConversation:",
+        e.message,
+        e.stack,
+      );
       webviewView.webview.postMessage({
         command: "conversationRevertedError",
         error: e.message,

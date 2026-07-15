@@ -165,10 +165,6 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
         {onRevertConversation && (
           <button
             onClick={() => {
-              console.log("[REVERT-DEBUG] UserMessageBox: Revert button clicked", {
-                messageId: message.id,
-                timestamp: message.timestamp,
-              });
               setShowRevertModal(true);
             }}
             title="Revert conversation to this point"
@@ -245,15 +241,9 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
       <RevertConfirmModal
         isOpen={showRevertModal}
         onClose={() => {
-          console.log("[REVERT-DEBUG] UserMessageBox: Revert modal cancelled");
           setShowRevertModal(false);
         }}
         onConfirm={() => {
-          console.log("[REVERT-DEBUG] UserMessageBox: Revert confirmed in modal", {
-            messageId: message.id,
-            timestamp: message.timestamp,
-            hasOnRevertConversation: !!onRevertConversation,
-          });
           onRevertConversation!(message.id, message.timestamp);
         }}
       />

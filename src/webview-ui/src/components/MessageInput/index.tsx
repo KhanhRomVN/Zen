@@ -721,7 +721,7 @@ interface MessageInputProps {
       {
         additions: number;
         deletions: number;
-        toolType?: "write_to_file" | "replace_in_file";
+        toolType?: "write_to_file" | "replace_in_file" | "revert_file";
         content?: string;
         oldContent?: string;
         newContent?: string;

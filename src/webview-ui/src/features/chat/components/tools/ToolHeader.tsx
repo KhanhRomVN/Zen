@@ -350,11 +350,19 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                       width: "16px",
                       height: "16px",
                       borderRadius: "50%",
-                      border: `2px solid ${statusColor}`,
-                      opacity: 0.4,
+                      // FIX: Use individual border properties instead of shorthand to avoid conflict
+                      ...(!isPartial && {
+                        border: `2px solid ${statusColor}`,
+                        opacity: 0.4,
+                      }),
                       ...(isPartial && {
-                        animation: "circle-ring-spin 1s linear infinite",
+                        borderWidth: "2px",
+                        borderStyle: "solid",
+                        borderRightColor: statusColor,
+                        borderBottomColor: statusColor,
+                        borderLeftColor: statusColor,
                         borderTopColor: "transparent",
+                        animation: "circle-ring-spin 1s linear infinite",
                         opacity: 0.8,
                       }),
                     }}

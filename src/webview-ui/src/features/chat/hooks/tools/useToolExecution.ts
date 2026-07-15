@@ -615,6 +615,7 @@ export const useToolExecution = ({
                   [actionId]: {
                     output: "Reverted",
                     isError: false,
+                    diagnostics: msg.diagnostics || undefined,
                   },
                 }));
 
@@ -916,7 +917,7 @@ export const useToolExecution = ({
           const filePath = action.params.file_path;
           const folderPath = action.params.folder_path;
           const targetDesc = filePath || folderPath || "unknown";
-          
+
           // Check for validation error from parser
           if (action.params._validationError) {
             const errMsg = action.params._validationError;

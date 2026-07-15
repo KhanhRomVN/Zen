@@ -29,9 +29,9 @@ export const extractParamValue = (
   // Whether this param holds raw file content (no aggressive trimming allowed)
   const isContentParam = CONTENT_PARAMS.has(paramName);
 
-  // Try standard XML tag first
+  // Try standard XML tag first (fully closed tag)
   const standardRegex = new RegExp(
-    `<${paramName}>([\\s\\S]*?)<\\/${paramName}>`,
+    `<${paramName}(?:\\s+[^>]*)?>([\\s\\S]*?)<\\/${paramName}>`,
     "i",
   );
   const standardMatch = content.match(standardRegex);
@@ -46,15 +46,15 @@ export const extractParamValue = (
     return isContentParam ? decoded.replace(/^\n|\n$/g, "") : decoded.trim();
   }
 
-  const selfClosingRegex = isContentParam
-    ? new RegExp(`<${paramName}\\s*>([\\s\\S]*)$`, "i")
-    : new RegExp(
-        `<${paramName}\\s*>([\\s\\S]*?)(?=<\\/?[\\w_]+\\s*>|$)`,
-        "i",
-      );
-  const selfClosingMatch = content.match(selfClosingRegex);
-  if (selfClosingMatch) {
-    let value = selfClosingMatch[1];
+  // Try unclosed tag (for streaming) - handle both inline and multiline
+  // Match: <paramName> followed by content until next opening tag, closing tag, or end of string
+  const unclodRegex = new RegExp(
+    `<${paramName}(?:\\s+[^>]*)?>([\\s\\S]*?)(?=<[/\\w_]|$)`,
+    "i",
+  );
+  const unclosedMatch = content.match(unclodRegex);
+  if (unclosedMatch) {
+    let value = unclosedMatch[1];
     value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
     let decoded = decodeHtmlEntities(value);
     if (!isContentParam) {
