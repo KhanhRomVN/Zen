@@ -742,6 +742,9 @@ interface MessageInputProps {
     },
   ) => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
+  // 🆕 Scroll behavior for "Return to present" button
+  autoScrollPaused?: boolean;
+  scrollToBottom?: () => void;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({
@@ -790,6 +793,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
   responseRanges = [],
   onModelSwitch,
   onRevertConversation,
+  autoScrollPaused = false,
+  scrollToBottom,
 }) => {
   const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
   const [providers, setProviders] = React.useState<any[]>([]);
@@ -1305,6 +1310,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
               onRevert={onRevertConversation}
               responseRange={responseRange}
               responseRanges={responseRanges}
+              autoScrollPaused={autoScrollPaused}
+              scrollToBottom={scrollToBottom}
             />
           </div>
         )}

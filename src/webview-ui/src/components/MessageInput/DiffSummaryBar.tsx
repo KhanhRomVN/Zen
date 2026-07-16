@@ -31,6 +31,8 @@ interface DiffSummaryBarProps {
   onRevert?: (messageId: string, timestamp: number) => void;
   responseRange?: { start: number; end: number } | null;
   responseRanges?: ResponseRange[];
+  autoScrollPaused?: boolean;
+  scrollToBottom?: () => void;
 }
 
 const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
@@ -42,6 +44,8 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
   onRevert,
   responseRange,
   responseRanges = [],
+  autoScrollPaused = false,
+  scrollToBottom,
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [isReviewHovered, setIsReviewHovered] = React.useState(false);
@@ -268,6 +272,33 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
           </span>
         )}
 
+        {/* Return to Present Button (when scrolled up) */}
+        {autoScrollPaused && scrollToBottom && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              scrollToBottom();
+            }}
+            style={{
+              fontSize: "13px",
+              fontFamily: "var(--vscode-font-family)",
+              color: "var(--vscode-textLink-foreground, #3b82f6)",
+              cursor: "pointer",
+              textDecoration: "none",
+              marginLeft: autoScrollPaused ? "auto" : "12px",
+              transition: "text-decoration 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.textDecoration = "underline";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.textDecoration = "none";
+            }}
+          >
+            ↓ Return to present
+          </span>
+        )}
+
         {/* Review Button */}
         <span
           onClick={handleReviewClick}
@@ -279,7 +310,7 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
             color: "var(--vscode-textLink-foreground, #3b82f6)",
             cursor: "pointer",
             textDecoration: isReviewHovered ? "underline" : "none",
-            marginLeft: "auto",
+            marginLeft: autoScrollPaused ? "12px" : "auto",
           }}
         >
           {isExpanded ? "Close" : "Review all"}

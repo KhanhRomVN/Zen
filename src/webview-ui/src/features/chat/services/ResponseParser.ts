@@ -513,21 +513,27 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           const openTag = match[0].split(">")[0];
           const optional = /optional=["']true["']/i.test(openTag);
 
-          // Build the question block
-          const qBlock: ContentBlock = {
-            type: "question",
-            options: options.length > 0 ? options : [],
-            title,
-            optional,
-            ...(questions.length > 0 ? { questions } : {}),
-          };
+          // VALIDATION: Only push question block if it has valid content
+          // Skip empty questions to avoid showing empty outline boxes during streaming
+          const hasValidContent = options.length > 0 || questions.length > 0;
+          
+          if (hasValidContent) {
+            // Build the question block
+            const qBlock: ContentBlock = {
+              type: "question",
+              options: options.length > 0 ? options : [],
+              title,
+              optional,
+              ...(questions.length > 0 ? { questions } : {}),
+            };
 
-          result.contentBlocks.push(qBlock);
-          result.question = qBlock;
+            result.contentBlocks.push(qBlock);
+            result.question = qBlock;
 
-          // Legacy compatibility
-          if (options.length > 0) {
-            result.followupOptions = options;
+            // Legacy compatibility
+            if (options.length > 0) {
+              result.followupOptions = options;
+            }
           }
         } else {
           // It's a tool - delegate to individual tag parsers

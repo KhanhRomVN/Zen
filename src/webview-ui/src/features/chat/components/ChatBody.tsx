@@ -203,6 +203,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     });
   const { autoScrollPaused, scrollToBottom } = useScrollBehavior(
     messagesEndRef,
+    bodyRef,
     [messages, isProcessing],
   );
 
@@ -348,48 +349,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
               onCloseSearch={onCloseSearch}
               bodyRef={bodyRef}
             />
-          )}
-
-          {/* ── New messages indicator ─────────────────────────────────────── */}
-          {autoScrollPaused && isProcessing && (
-            <div
-              style={{
-                position: "sticky",
-                bottom: "12px",
-                zIndex: 20,
-                display: "flex",
-                justifyContent: "center",
-                pointerEvents: "none",
-              }}
-            >
-              <button
-                onClick={scrollToBottom}
-                style={{
-                  pointerEvents: "auto",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "5px 14px",
-                  borderRadius: "20px",
-                  border:
-                    "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 40%, transparent)",
-                  background:
-                    "color-mix(in srgb, var(--vscode-editor-background) 85%, var(--vscode-button-background, #007acc))",
-                  color: "var(--vscode-button-background, #007acc)",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-                  transition: "opacity 0.2s",
-                }}
-              >
-                <span
-                  className="codicon codicon-arrow-down"
-                  style={{ fontSize: "11px" }}
-                />
-                New messages
-              </button>
-            </div>
           )}
 
           {(() => {

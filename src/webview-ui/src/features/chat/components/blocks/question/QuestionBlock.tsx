@@ -1171,29 +1171,8 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
     return (
       <div style={wrapperStyle}>
         <ToolHeader
-          title={
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "14px",
-                color: "var(--vscode-editor-foreground)",
-              }}
-            >
-              <span style={{ fontWeight: 500 }}>Question Summary</span>
-              <span
-                style={{
-                  fontSize: "13px",
-                  opacity: 0.6,
-                  fontWeight: 400,
-                }}
-              >
-                ({answerCount})
-              </span>
-            </div>
-          }
-          statusColor="var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+          title=""
+          statusColor={undefined}
           icon={
             <span
               className="codicon codicon-question"
@@ -1245,7 +1224,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                       color: "var(--vscode-foreground)",
                     }}
                   >
-                    {/* Badge number instead of plain text */}
+                    {/* Badge number - green for answered, gray for skipped */}
                     <span
                       style={{
                         display: "inline-flex",
@@ -1256,9 +1235,12 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                         padding: "0 6px",
                         fontSize: "11px",
                         fontWeight: 600,
-                        color: "var(--vscode-button-background)",
-                        backgroundColor:
-                          "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)",
+                        color: isAnswered
+                          ? "var(--vscode-button-background)"
+                          : "var(--vscode-descriptionForeground)",
+                        backgroundColor: isAnswered
+                          ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
+                          : "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
                         borderRadius: "4px",
                       }}
                     >
@@ -1269,7 +1251,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                   <div
                     style={{
                       fontSize: "13px",
-                      paddingLeft: "28px",
+                      paddingLeft: "30px",
                       color: isAnswered
                         ? "var(--vscode-descriptionForeground)"
                         : "var(--vscode-descriptionForeground)",
@@ -1308,29 +1290,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   return (
     <div style={wrapperStyle}>
       <ToolHeader
-        title={
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "12px",
-              color: "var(--vscode-editor-foreground)",
-            }}
-          >
-            <span style={{ fontWeight: 600, opacity: 0.8 }}>QUESTION</span>
-            <span
-              style={{
-                fontSize: "10px",
-                opacity: 0.5,
-                fontWeight: 400,
-                marginLeft: "4px",
-              }}
-            >
-              {`${answeredCount} / ${totalQuestions} answered`}
-            </span>
-          </div>
-        }
+        title=""
         statusColor={undefined}
         icon={
           <span
@@ -1340,7 +1300,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
         }
         headerActions={isAllAnswered ? renderNavIcons() : undefined}
       />
-      <div style={{ paddingLeft: "24px", marginTop: "8px" }}>
+      <div style={{ marginTop: "8px" }}>
         {/* Question Label */}
         <div
           style={{
@@ -1355,33 +1315,24 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
         >
           <span
             style={{
-              fontSize: "13px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minWidth: "22px",
+              height: "22px",
+              padding: "0 6px",
+              fontSize: "11px",
               fontWeight: 600,
               color: "var(--vscode-descriptionForeground)",
-              opacity: 0.6,
-              minWidth: "auto",
-              paddingRight: "4px",
+              backgroundColor:
+                "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
+              borderRadius: "4px",
             }}
           >
-            {currentIndex + 1}.
+            {currentIndex + 1}
           </span>
           <span style={{ flex: 1 }}>
             {currentQuestion?.label}
-            {currentQuestion?.type && (
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 400,
-                  color: "var(--vscode-descriptionForeground)",
-                  marginLeft: "8px",
-                  opacity: 0.6,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.3px",
-                }}
-              >
-                ({getTypeLabel(currentQuestion.type)})
-              </span>
-            )}
           </span>
         </div>
 
@@ -1393,12 +1344,31 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
           <div
             style={{
               display: "flex",
-              justifyContent: "flex-end",
+              justifyContent: "space-between",
               alignItems: "center",
               gap: "8px",
               marginTop: "12px",
             }}
           >
+            {/* Left: Progress indicator */}
+            <span
+              style={{
+                fontSize: "11px",
+                color: "var(--vscode-descriptionForeground)",
+                opacity: 0.6,
+              }}
+            >
+              {currentIndex + 1} of {totalQuestions}
+            </span>
+
+            {/* Right: Action buttons */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
             {/* Skip button - ghost variant with underline on hover */}
             <button
               onClick={() => {
@@ -1630,6 +1600,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                 }}
               />
             </button>
+            </div>
           </div>
         )}
 

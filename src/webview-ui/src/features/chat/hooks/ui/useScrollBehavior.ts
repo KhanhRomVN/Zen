@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, RefObject, useCallback } from "react";
 
 export const useScrollBehavior = (
   messagesEndRef: RefObject<HTMLDivElement>,
+  scrollContainerRef: RefObject<HTMLDivElement>,
   dependencies: any[],
 ) => {
   const renderCountRef = useRef(0);
@@ -32,8 +33,6 @@ export const useScrollBehavior = (
     scrollCallCountRef.current += 1;
 
     autoScrollRafRef.current = requestAnimationFrame(() => {
-      const scrollStartTime = performance.now();
-
       autoScrollRafRef.current = null;
       isProgrammaticScrollRef.current = true;
       messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
@@ -55,20 +54,15 @@ export const useScrollBehavior = (
 
   // Detect scroll direction
   useEffect(() => {
-    const setupStartTime = performance.now();
-    const container = messagesEndRef.current?.parentElement;
+    const container = scrollContainerRef.current;
 
     if (!container) {
       return;
     }
 
     let lastScrollTop = container.scrollTop;
-    let scrollEventCount = 0;
 
     const handleScroll = () => {
-      const eventStartTime = performance.now();
-      scrollEventCount += 1;
-
       const { scrollTop, scrollHeight, clientHeight } = container;
       const atBottom = scrollHeight - scrollTop - clientHeight < 100;
       setIsAtBottom(atBottom);
@@ -79,8 +73,8 @@ export const useScrollBehavior = (
         setAutoScrollPaused(true);
       }
 
-      // If user manually scrolled back to bottom, resume
-      if (atBottom) {
+      // If user manually scrolled DOWN back to bottom, resume
+      if (atBottom && !isProgrammaticScrollRef.current && scrollTop > lastScrollTop) {
         setAutoScrollPaused(false);
       }
 
@@ -92,11 +86,9 @@ export const useScrollBehavior = (
     return () => {
       container.removeEventListener("scroll", handleScroll);
     };
-  }, [messagesEndRef]);
+  }, [scrollContainerRef]);
 
   const scrollToBottom = useCallback(() => {
-    const callStartTime = performance.now();
-
     setAutoScrollPaused(false);
     isProgrammaticScrollRef.current = true;
     // Manual scroll-to-bottom uses smooth for nice UX

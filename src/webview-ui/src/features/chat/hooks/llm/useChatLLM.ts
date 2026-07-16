@@ -529,10 +529,34 @@ export const useChatLLM = ({
         dispatchStreaming({ type: "RESET_STREAMING" });
         abortControllerRef.current = null;
 
-        console.log(
-          "[Stream Complete] Full raw content:",
-          assistantMessage.content,
+        // Parse response to extract tool sequence
+        const { parseAIResponse } = await import(
+          "../../services/ResponseParser"
         );
+        const parsed = parseAIResponse(assistantMessage.content);
+        const toolSequence = parsed.contentBlocks
+          .map((block, idx) => {
+            if (block.type === "tool") {
+              return `[${idx + 1}]. ${(block as any).action.type}`;
+            } else if (block.type === "thinking") {
+              return `[${idx + 1}]. thinking`;
+            } else if (block.type === "markdown") {
+              return `[${idx + 1}]. markdown`;
+            } else if (block.type === "code") {
+              return `[${idx + 1}]. code`;
+            } else if (block.type === "question") {
+              return `[${idx + 1}]. question`;
+            }
+            return null;
+          })
+          .filter(Boolean)
+          .join(" ");
+
+        const responseNum = (assistantMessage as any).response_number || "?";
+        console.log(
+          `[Stream Complete #${responseNum}] Parsed blocks: ${toolSequence || "none"}`,
+        );
+        console.log("[Raw Content]:", assistantMessage.content);
 
         // Save final conversation
         saveConversation(

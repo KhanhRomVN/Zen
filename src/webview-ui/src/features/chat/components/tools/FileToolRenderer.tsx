@@ -1711,7 +1711,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
 
             if (oldStr || newStr) {
               // Show diff-like format with old and new content
-              streamingContent = `<<<<<<< OLD\n${oldStr}\n=======\n${newStr}\n>>>>>>> NEW`;
+              streamingContent = `<<<<<<< OLD\n${oldStr}\n${newStr}`;
             } else if (diff) {
               // Fallback to legacy diff format
               streamingContent = diff;
