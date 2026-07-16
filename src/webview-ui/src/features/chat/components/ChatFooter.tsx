@@ -326,21 +326,14 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
                     // If we already have stats for this file in current range,
                     // reverse them (because revert undoes the change)
                     const stats = fileChanges.get(filePath)!;
-                    
+
                     // Mark as revert_file
                     stats.toolType = "revert_file";
-                    
+
                     // Swap additions and deletions (revert reverses the change)
                     const tempAdditions = stats.additions;
                     stats.additions = stats.deletions;
                     stats.deletions = tempAdditions;
-
-                    console.log("[DEBUG ChatFooter] Applied revert to existing stats", {
-                      filePath,
-                      swapped: true,
-                      newAdditions: stats.additions,
-                      newDeletions: stats.deletions,
-                    });
                   } else {
                     // File not in current range - create new entry for revert
                     // We don't know exact additions/deletions, so set to 1/1 as placeholder
@@ -348,12 +341,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
                       additions: 1,
                       deletions: 1,
                       toolType: "revert_file",
-                    });
-
-                    console.log("[DEBUG ChatFooter] Created new revert entry", {
-                      filePath,
-                      additions: 1,
-                      deletions: 1,
                     });
                   }
                 }
@@ -483,20 +470,14 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           if (filePath && fileChanges.has(filePath)) {
             // If we already have stats for this file, SUBTRACT them (revert cancels out the change)
             const stats = fileChanges.get(filePath)!;
-            
+
             // Mark as revert_file
             stats.toolType = "revert_file";
-            
+
             // SUBTRACT the stats (revert cancels the original change)
             // If original was +5 -3, after revert should be +0 -0
             stats.additions = 0;
             stats.deletions = 0;
-
-            console.log("[DEBUG ChatFooter conversationFileStats] Applied revert - zeroed stats", {
-              filePath,
-              additions: stats.additions,
-              deletions: stats.deletions,
-            });
           }
         }
       }

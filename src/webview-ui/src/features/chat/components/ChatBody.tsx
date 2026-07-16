@@ -150,8 +150,13 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
 
   const parsedMessages = useMemo(() => {
     const startTime = performance.now();
+
     // Check if messages are already parsed (from ChatPanel)
     if (messages.length > 0 && messages[0].parsed !== undefined) {
+      // STREAMING FIX: During streaming, always check content changes for last message
+      const lastMsg = messages[messages.length - 1];
+      const lastParsed = lastParsedMessagesRef.current[messages.length - 1];
+
       const messagesUnchanged =
         lastParsedMessagesRef.current.length === messages.length &&
         messages.every(
@@ -164,6 +169,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
         return lastParsedMessagesRef.current;
       }
 
+      // Content changed or new messages - update cache
       lastParsedMessagesRef.current = messages;
       return messages;
     }
@@ -628,32 +634,5 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   );
 };
 
-// Memoize ChatBody to prevent unnecessary re-renders
-const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
-  // Quick reference comparison for arrays/objects
-  const sameMessages = prevProps.messages === nextProps.messages;
-  const sameProcessing = prevProps.isProcessing === nextProps.isProcessing;
-  const sameExecutionState =
-    prevProps.executionState === nextProps.executionState;
-  const sameToolOutputs = prevProps.toolOutputs === nextProps.toolOutputs;
-  const sameTerminalStatus =
-    prevProps.terminalStatus === nextProps.terminalStatus;
-  const sameSearchOpen = prevProps.isSearchOpen === nextProps.isSearchOpen;
-  const sameSearchQuery = prevProps.searchQuery === nextProps.searchQuery;
-  const sameLoadingConversation =
-    prevProps.isLoadingConversation === nextProps.isLoadingConversation;
-
-  // Skip re-render if nothing changed
-  return (
-    sameMessages &&
-    sameProcessing &&
-    sameExecutionState &&
-    sameToolOutputs &&
-    sameTerminalStatus &&
-    sameSearchOpen &&
-    sameSearchQuery &&
-    sameLoadingConversation
-  );
-});
-
+const ChatBody = ChatBodyInternal;
 export default ChatBody;

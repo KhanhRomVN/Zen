@@ -126,76 +126,49 @@ export const useMessageParsing = (
     cache: Map<string, ReturnType<typeof parseAIResponse>>,
     lastStreaming: typeof lastStreamingParseRef.current,
   ) {
-    //   During streaming, if the last message is the same one and content
-    // only grew by a small amount (no new closing tags), reuse the cached
-    // parsed result to avoid re-running the full parser on every chunk.
-    if (
-      isAssistantStreaming &&
-      lastStreaming &&
-      lastStreaming.messageId === msg.id &&
-      msg.content.length > lastStreaming.contentLength
-    ) {
-      const growth = msg.content.length - lastStreaming.contentLength;
-      // Check if new content contains a closing tag (structural change)
-      const newContent = msg.content.slice(lastStreaming.contentLength);
-      const hasClosingTag = /<\/[a-zA-Z_][a-zA-Z0-9_]*>/i.test(newContent);
-
-      if (!hasClosingTag && growth < 500) {
-        // Small text-only append — reuse previous parse result.
-        // The UI will still show new text because content comes from msg.content,
-        // not from parsed result.
-        lastStreaming.contentLength = msg.content.length;
-        return { ...msg, parsed: lastStreaming.parsed };
+    // STREAMING FIX: Always parse fresh for streaming messages to ensure
+    // letter-by-letter animation works. No cache optimization during streaming.
+    if (!isAssistantStreaming && cache.has(msg.content)) {
+      // Only use cache for non-streaming messages
+      const parsed = cache.get(msg.content)!;
+      const clickedKey = (msg.clickedActions || []).join(",");
+      const rejectedKey = (msg.rejectedActions || []).join(",");
+      const cacheKey = `${msg.id}:${msg.content.length}:${clickedKey}:${rejectedKey}`;
+      
+      const objectCache = parsedMessageObjectCacheRef.current;
+      if (objectCache.has(cacheKey)) {
+        return objectCache.get(cacheKey)!;
       }
+      
+      const parsedMsg = { ...msg, parsed };
+      if (objectCache.size > 100) {
+        const keys = Array.from(objectCache.keys());
+        keys.slice(0, 50).forEach((k) => objectCache.delete(k));
+      }
+      objectCache.set(cacheKey, parsedMsg);
+      return parsedMsg;
     }
 
-    // Normal path: use cache or parse fresh
-    if (!cache.has(msg.content)) {
-      const parseStart = performance.now();
-      const parsed = parseAIResponse(msg.content);
+    // Parse fresh for streaming or cache miss
+    const parseStart = performance.now();
+    const parsed = parseAIResponse(msg.content);
+    
+    // Cache the parse result (but always create new object for streaming)
+    if (!isAssistantStreaming) {
       cache.set(msg.content, parsed);
+    }
 
-      // Update streaming parse ref for next render
-      if (isAssistantStreaming) {
-        lastStreamingParseRef.current = {
-          messageId: msg.id,
-          contentLength: msg.content.length,
-          parsed,
-        };
-      }
-    } else if (isAssistantStreaming) {
-      // Cache hit during streaming — still update the ref
+    // Update streaming parse ref for next render
+    if (isAssistantStreaming) {
       lastStreamingParseRef.current = {
         messageId: msg.id,
         contentLength: msg.content.length,
-        parsed: cache.get(msg.content)!,
+        parsed,
       };
     }
 
-    // PERF FIX: Create a cache key that identifies this message's state
-    // Key includes: id + content + clickedActions + rejectedActions to detect changes
-    const clickedKey = (msg.clickedActions || []).join(",");
-    const rejectedKey = (msg.rejectedActions || []).join(",");
-    const cacheKey = `${msg.id}:${msg.content.length}:${clickedKey}:${rejectedKey}`;
-
-    // Check object cache - if we've created this exact parsed message before, reuse it
-    const objectCache = parsedMessageObjectCacheRef.current;
-    if (objectCache.has(cacheKey)) {
-      return objectCache.get(cacheKey)!;
-    }
-
-    // Create new parsed message object
-    const parsedMsg = { ...msg, parsed: cache.get(msg.content)! };
-
-    // Store in object cache (limit size to prevent memory leak)
-    if (objectCache.size > 100) {
-      // Clear old entries when cache grows too large
-      const keys = Array.from(objectCache.keys());
-      keys.slice(0, 50).forEach((k) => objectCache.delete(k));
-    }
-    objectCache.set(cacheKey, parsedMsg);
-
-    return parsedMsg;
+    // Always create new object for streaming messages (never reuse from object cache)
+    return { ...msg, parsed };
   }
 
   return parsedMessages;

@@ -79,10 +79,10 @@ export class StreamingService {
     let buffer = "";
     let firstChunkReceived = false;
 
-    // Batching
+    // Batching - Optimized for smooth letter-by-letter streaming
     let updateBatch = { content: "", thinking: "" };
     let lastFlushTime = Date.now();
-    const FLUSH_INTERVAL_MS = 100;
+    const FLUSH_INTERVAL_MS = 8; // ~120fps for smooth streaming without overwhelming React
 
     // First-chunk timeout
     const FIRST_CHUNK_TIMEOUT_MS = 305_000;

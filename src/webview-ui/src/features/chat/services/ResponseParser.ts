@@ -104,6 +104,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     thinkingBlocks,
     unclosedThinkingContent,
   } = extractThinkingBlocks(remainingContent);
+
   remainingContent = contentAfterThinking;
 
   // 🔍 ALWAYS log if content is stripped completely
@@ -137,6 +138,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   const toolPatterns = [
     ...getAllToolTypes().filter((t) => t !== "thinking"), // Exclude thinking (pre-extracted)
     "file", // Special display tag not in registry
+    "markdown", // Special display tag
+    "code", // Special display tag
+    "question", // Special display tag
   ];
 
   // Fix missing opening bracket for the first tool call due to prefix/prefill stripping.
@@ -275,7 +279,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     const { index, match, toolName, isClosed } = findNextTag(scanStr);
 
     if (index !== -1 && match) {
-      // Found a tag
       // 1. Everything before the tag is markdown
       const prefix = scanStr.substring(0, index);
       if (prefix.trim()) {
