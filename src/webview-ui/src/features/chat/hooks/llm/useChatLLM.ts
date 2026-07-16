@@ -96,6 +96,11 @@ export const useChatLLM = ({
   // Track render duration
   useEffect(() => {
     const renderDuration = performance.now() - renderStartTime;
+    if (renderDuration > 16) {
+      console.warn(
+        `[useChatLLM] slow render #${renderCountRef.current} - duration: ${renderDuration.toFixed(1)}ms`,
+      );
+    }
   });
 
   // Use message handlers hook
@@ -529,34 +534,67 @@ export const useChatLLM = ({
         dispatchStreaming({ type: "RESET_STREAMING" });
         abortControllerRef.current = null;
 
-        // Parse response to extract tool sequence
-        const { parseAIResponse } = await import(
-          "../../services/ResponseParser"
-        );
-        const parsed = parseAIResponse(assistantMessage.content);
-        const toolSequence = parsed.contentBlocks
-          .map((block, idx) => {
-            if (block.type === "tool") {
-              return `[${idx + 1}]. ${(block as any).action.type}`;
-            } else if (block.type === "thinking") {
-              return `[${idx + 1}]. thinking`;
-            } else if (block.type === "markdown") {
-              return `[${idx + 1}]. markdown`;
-            } else if (block.type === "code") {
-              return `[${idx + 1}]. code`;
-            } else if (block.type === "question") {
-              return `[${idx + 1}]. question`;
-            }
-            return null;
-          })
-          .filter(Boolean)
-          .join(" ");
+        // Parse response to extract tool sequence with error handling
+        const { parseAIResponse } =
+          await import("../../services/ResponseParser");
+        let toolSequence = "";
+        let parsed: any = null;
+        let hasParsingError = false;
 
-        const responseNum = (assistantMessage as any).response_number || "?";
-        console.log(
-          `[Stream Complete #${responseNum}] Parsed blocks: ${toolSequence || "none"}`,
-        );
-        console.log("[Raw Content]:", assistantMessage.content);
+        try {
+          parsed = parseAIResponse(assistantMessage.content);
+          toolSequence = parsed.contentBlocks
+            .map((block: any, idx: number) => {
+              if (block.type === "tool") {
+                return `[${idx + 1}]. ${block.action.type}`;
+              } else if (block.type === "thinking") {
+                return `[${idx + 1}]. thinking`;
+              } else if (block.type === "markdown") {
+                return `[${idx + 1}]. markdown`;
+              } else if (block.type === "code") {
+                return `[${idx + 1}]. code`;
+              } else if (block.type === "question") {
+                return `[${idx + 1}]. question`;
+              }
+              return null;
+            })
+            .filter(Boolean)
+            .join(" ");
+
+          const responseNum = (assistantMessage as any).response_number || "?";
+          console.log(
+            `[Stream Complete #${responseNum}] Parsed blocks: ${toolSequence || "none"}`,
+          );
+          console.log("[Raw Content]:", assistantMessage.content);
+        } catch (parseError) {
+          hasParsingError = true;
+          // Parsing failed - convert assistant message to error
+          console.error("[Zen] Response parsing failed:", parseError);
+
+          const errorDetails =
+            parseError instanceof Error
+              ? parseError.message
+              : "Unknown parsing error";
+
+          // Create error message with details
+          const errorContent = `Error: Failed to parse response\n\nDetails: ${errorDetails}\n\n**Note:** The response was received but could not be displayed due to malformed content. This usually happens when tool calls are missing closing tags.\n\nYou can try:\n- Regenerating the response\n- Asking the assistant to fix the issue`;
+
+          // Update the assistant message to error state
+          assistantMessage.content = errorContent;
+          assistantMessage.isError = true;
+
+          // Update messages array with error state
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? { ...m, content: errorContent, isError: true }
+                : m,
+            ),
+          );
+
+          // Log the parsing error
+          console.log(`[Stream Complete] Parsing ERROR: ${errorDetails}`);
+        }
 
         // Save final conversation
         saveConversation(
@@ -569,6 +607,16 @@ export const useChatLLM = ({
           undefined,
           backendConversationId || backendConversationIdRef.current,
         );
+
+        // Trigger tool request only if parsing succeeded
+        if (
+          !hasParsingError &&
+          parsed &&
+          onToolRequest &&
+          parsed.actions?.length > 0
+        ) {
+          onToolRequest(parsed.actions, assistantMessage, false, "accept_all");
+        }
       } catch (error) {
         dispatchStreaming({ type: "RESET_STREAMING" });
         abortControllerRef.current = null;

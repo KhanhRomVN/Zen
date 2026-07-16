@@ -377,6 +377,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   // Get diagnostics from toolOutputs ONLY (single source of truth)
   // No cache, no merge - prioritize consistency over performance
   const mergedDiagnostics = React.useMemo(() => {
+    const _diagStartTime = performance.now();
     const shouldGetDiagnostics =
       (toolType === "read_file" ||
         toolType === "write_to_file" ||

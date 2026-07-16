@@ -130,6 +130,11 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   autoScrollPaused = false,
   scrollToBottom,
 }) => {
+  // 🔍 PERFORMANCE DEBUG
+  const renderStartTime = performance.now();
+  const renderCountRef = React.useRef(0);
+  renderCountRef.current++;
+
   // Calculate response range - count all assistant responses in the conversation
   const responseRange = React.useMemo(() => {
     // Count all assistant responses
@@ -143,6 +148,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
   // Calculate response ranges per manual user message
   const responseRanges = React.useMemo(() => {
+    const computeStart = performance.now();
     const ranges: Array<{
       start: number;
       end: number;
@@ -373,7 +379,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
     // Reverse to show current first
     const reversedRanges = [...ranges].reverse();
-
     return reversedRanges;
   }, [messages]);
 
@@ -514,6 +519,14 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
     };
   }, [messages, loadedConversationFileStats]);
 
+  // 🔍 Track render performance
+  React.useEffect(() => {
+    const renderTime = performance.now() - renderStartTime;
+    if (renderTime > 16) {
+      console.warn(`[ChatFooter] ⚠️ Slow render: ${renderTime.toFixed(2)}ms`);
+    }
+  });
+
   // Prepare data for review drawer
   const fileChangesList = React.useMemo(() => {
     return Array.from(fileChangesMap.entries()).map(
@@ -645,4 +658,73 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   );
 };
 
-export default ChatFooter;
+// 🚀 PERF: Wrap with React.memo to prevent re-renders when parent ChatPanel re-renders
+// Custom comparator checks only props that actually change across renders
+export default React.memo(ChatFooter, (prevProps, nextProps) => {
+  // Quick check: if any of these primitives changed, re-render
+  if (prevProps.message !== nextProps.message) return false;
+  if (prevProps.isProcessing !== nextProps.isProcessing) return false;
+  if (prevProps.isStreaming !== nextProps.isStreaming) return false;
+  if (prevProps.isHistoryMode !== nextProps.isHistoryMode) return false;
+  if (prevProps.showChangesDropdown !== nextProps.showChangesDropdown)
+    return false;
+  if (prevProps.hasProjectContext !== nextProps.hasProjectContext) return false;
+  if (prevProps.folderPath !== nextProps.folderPath) return false;
+  if (prevProps.isConversationStarted !== nextProps.isConversationStarted)
+    return false;
+  if (prevProps.showBrowserWarning !== nextProps.showBrowserWarning)
+    return false;
+  if (prevProps.isLaunchingBrowser !== nextProps.isLaunchingBrowser)
+    return false;
+  if (prevProps.gitLoading !== nextProps.gitLoading) return false;
+  if (prevProps.isGitStatusVisible !== nextProps.isGitStatusVisible)
+    return false;
+  if (prevProps.footerPaddingBottom !== nextProps.footerPaddingBottom)
+    return false;
+  if (
+    prevProps.shouldShowCompressionButton !==
+    nextProps.shouldShowCompressionButton
+  )
+    return false;
+  if (prevProps.autoScrollPaused !== nextProps.autoScrollPaused) return false;
+
+  // Messages: only re-render if length changed (content changes are handled by child memo)
+  if (prevProps.messages !== nextProps.messages) {
+    if (prevProps.messages.length !== nextProps.messages.length) return false;
+    // Same-length array but different reference — check last message
+    const prevLast = prevProps.messages[prevProps.messages.length - 1];
+    const nextLast = nextProps.messages[nextProps.messages.length - 1];
+    if (prevLast !== nextLast) return false;
+  }
+
+  // Arrays: reference comparison
+  if (prevProps.uploadedFiles !== nextProps.uploadedFiles) return false;
+  if (prevProps.attachedItems !== nextProps.attachedItems) return false;
+
+  // Objects: reference comparison
+  if (prevProps.currentModel !== nextProps.currentModel) return false;
+  if (prevProps.currentAccount !== nextProps.currentAccount) return false;
+  if (prevProps.gitStatus !== nextProps.gitStatus) return false;
+  if (
+    prevProps.loadedConversationFileStats !==
+    nextProps.loadedConversationFileStats
+  )
+    return false;
+
+  // Function props: reference comparison (should be stable after useTextareaHandlers ref fix)
+  if (prevProps.handleTextareaChange !== nextProps.handleTextareaChange)
+    return false;
+  if (prevProps.handleKeyDown !== nextProps.handleKeyDown) return false;
+  if (prevProps.handleSend !== nextProps.handleSend) return false;
+  if (prevProps.handlePaste !== nextProps.handlePaste) return false;
+  if (prevProps.handleDragOver !== nextProps.handleDragOver) return false;
+  if (prevProps.handleDrop !== nextProps.handleDrop) return false;
+  if (prevProps.onStopGeneration !== nextProps.onStopGeneration) return false;
+  if (prevProps.onModelSwitch !== nextProps.onModelSwitch) return false;
+  if (prevProps.onRevertConversation !== nextProps.onRevertConversation)
+    return false;
+  if (prevProps.scrollToBottom !== nextProps.scrollToBottom) return false;
+
+  // All checks passed — skip re-render
+  return true;
+});

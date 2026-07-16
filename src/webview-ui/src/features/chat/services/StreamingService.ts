@@ -18,7 +18,10 @@ export interface StreamCallbacks {
   onThinking?: (thinking: string) => void;
   onUsage?: (usage: any) => void;
   onContinuing?: (isContinuing: boolean) => void;
-  onIncompleteToolDetected?: (hasPartial: boolean, toolType: string | null) => void;
+  onIncompleteToolDetected?: (
+    hasPartial: boolean,
+    toolType: string | null,
+  ) => void;
 }
 
 export class StreamingService {
@@ -32,8 +35,12 @@ export class StreamingService {
       accountId: config.account?.id,
       messages: config.messages,
       stream: true,
-      ...(config.conversationId ? { conversationId: config.conversationId } : {}),
-      ...(config.parentMessageId ? { parent_message_id: config.parentMessageId } : {}),
+      ...(config.conversationId
+        ? { conversationId: config.conversationId }
+        : {}),
+      ...(config.parentMessageId
+        ? { parent_message_id: config.parentMessageId }
+        : {}),
       is_thinking: localStorage.getItem("zen-thinking-enabled") === "true",
       is_search: localStorage.getItem("zen-search-enabled") === "true",
       thinking: localStorage.getItem("zen-thinking-enabled") === "true",
@@ -57,7 +64,8 @@ export class StreamingService {
         const raw = errBody.error || errBody.message;
         const msg = typeof raw === "string" ? raw : JSON.stringify(raw);
         errorDetail = msg || errorDetail;
-        if (errBody.error_code) errorDetail = `[${errBody.error_code}] ${errorDetail}`;
+        if (errBody.error_code)
+          errorDetail = `[${errBody.error_code}] ${errorDetail}`;
       } catch {}
       throw new Error(errorDetail);
     }
@@ -134,7 +142,8 @@ export class StreamingService {
               }
 
               // Conversation ID
-              const recvConvId = data.meta?.conversation_id || data.conversation_id;
+              const recvConvId =
+                data.meta?.conversation_id || data.conversation_id;
               if (recvConvId) {
                 backendConversationId = recvConvId;
                 assistantMessage.conversationId = recvConvId;
@@ -143,13 +152,17 @@ export class StreamingService {
               // Metadata
               const metaObj = data.meta || data.metadata;
               if (metaObj) {
-                if (metaObj.providerId) assistantMessage.providerId = metaObj.providerId;
+                if (metaObj.providerId)
+                  assistantMessage.providerId = metaObj.providerId;
                 if (metaObj.modelId) assistantMessage.modelId = metaObj.modelId;
-                if (metaObj.accountId) assistantMessage.accountId = metaObj.accountId;
-                if (metaObj.websiteUrl) assistantMessage.websiteUrl = metaObj.websiteUrl;
+                if (metaObj.accountId)
+                  assistantMessage.accountId = metaObj.accountId;
+                if (metaObj.websiteUrl)
+                  assistantMessage.websiteUrl = metaObj.websiteUrl;
                 if (metaObj.email) assistantMessage.email = metaObj.email;
                 if (metaObj.response_message_id)
-                  assistantMessage.response_message_id = metaObj.response_message_id;
+                  assistantMessage.response_message_id =
+                    metaObj.response_message_id;
 
                 callbacks.onMetadata?.(metaObj);
 
@@ -183,18 +196,24 @@ export class StreamingService {
               }
 
               if (data.thinking) {
-                assistantMessage.thinking = (assistantMessage.thinking || "") + data.thinking;
+                assistantMessage.thinking =
+                  (assistantMessage.thinking || "") + data.thinking;
                 updateBatch.thinking += data.thinking;
               }
 
               // Flush batch
               const now = Date.now();
-              const shouldFlush = now - lastFlushTime >= FLUSH_INTERVAL_MS || data.usage;
+              const shouldFlush =
+                now - lastFlushTime >= FLUSH_INTERVAL_MS || data.usage;
 
-              if (shouldFlush && (updateBatch.content || updateBatch.thinking || data.usage)) {
-                if (updateBatch.content) callbacks.onContent?.(updateBatch.content);
-                if (updateBatch.thinking) callbacks.onThinking?.(updateBatch.thinking);
-
+              if (
+                shouldFlush &&
+                (updateBatch.content || updateBatch.thinking || data.usage)
+              ) {
+                if (updateBatch.content)
+                  callbacks.onContent?.(updateBatch.content);
+                if (updateBatch.thinking)
+                  callbacks.onThinking?.(updateBatch.thinking);
                 updateBatch = { content: "", thinking: "" };
                 lastFlushTime = now;
               }
@@ -213,7 +232,9 @@ export class StreamingService {
     if (updateBatch.thinking) callbacks.onThinking?.(updateBatch.thinking);
 
     // Process remaining buffer
-    const remainingLines = buffer.split("\n").filter((l) => l.trim().startsWith("data: "));
+    const remainingLines = buffer
+      .split("\n")
+      .filter((l) => l.trim().startsWith("data: "));
     for (const line of remainingLines) {
       const dataStr = line.slice(6).trim();
       if (dataStr === "[DONE]") continue;
@@ -223,10 +244,12 @@ export class StreamingService {
         const metaObj = data.meta || data.metadata;
 
         if (metaObj) {
-          if (metaObj.providerId) assistantMessage.providerId = metaObj.providerId;
+          if (metaObj.providerId)
+            assistantMessage.providerId = metaObj.providerId;
           if (metaObj.modelId) assistantMessage.modelId = metaObj.modelId;
           if (metaObj.accountId) assistantMessage.accountId = metaObj.accountId;
-          if (metaObj.websiteUrl) assistantMessage.websiteUrl = metaObj.websiteUrl;
+          if (metaObj.websiteUrl)
+            assistantMessage.websiteUrl = metaObj.websiteUrl;
           if (metaObj.email) assistantMessage.email = metaObj.email;
           callbacks.onMetadata?.(metaObj);
         }
@@ -241,7 +264,8 @@ export class StreamingService {
         }
 
         if (data.thinking) {
-          assistantMessage.thinking = (assistantMessage.thinking || "") + data.thinking;
+          assistantMessage.thinking =
+            (assistantMessage.thinking || "") + data.thinking;
         }
       } catch (e) {}
     }

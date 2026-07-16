@@ -56,6 +56,14 @@ export const ConversationCache = {
       cacheKeys.push(conversationId);
     }
     cache[conversationId] = data;
+    if (
+      cacheKeys.length > 15 ||
+      Object.keys(questionAnswersStore).length > 10
+    ) {
+      console.warn(
+        `[ConversationCache] set - key: ${conversationId}, cacheSize: ${cacheKeys.length}, questionStoreSize: ${Object.keys(questionAnswersStore).length}`,
+      );
+    }
   },
   getQuestionAnswers: (
     conversationId: string,

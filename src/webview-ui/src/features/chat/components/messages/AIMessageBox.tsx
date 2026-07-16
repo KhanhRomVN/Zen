@@ -6,6 +6,7 @@ import FileIcon from "@/icons/FileIcon";
 import { isDiff, parseDiff } from "../../../../utils/diffUtils";
 import { ToolHeader } from "../tools/ToolHeader";
 import ErrorBlock from "../blocks/error/ErrorBlock";
+import { WarningBlock } from "../blocks/warning/WarningBlock";
 import "../blocks/run_command/TerminalBlock.css";
 import "../blocks/markdown/MarkdownBlock.css";
 import { MarkdownBlock } from "../blocks/markdown/MarkdownBlock";
@@ -198,7 +199,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   } | null>(null);
 
   const knownFilePaths = React.useMemo((): Map<string, string> => {
-    const startTime = performance.now();
+    const _startTime = performance.now();
     if (!allMessages) return new Map();
 
     // Use cached result if messages array hasn't changed structurally
@@ -237,6 +238,11 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       lastMessageId: lastMsg?.id,
       map,
     };
+
+    const _elapsed = performance.now() - _startTime;
+    if (_elapsed > 5 || map.size > 20) {
+      console.warn(`[AIMessageBox] knownFilePaths recalculated - messages: ${allMessages.length}, pathsFound: ${map.size}, time: ${_elapsed.toFixed(1)}ms`);
+    }
 
     return map;
   }, [allMessages, responseNumber]);
@@ -331,6 +337,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             }
           | { type: "error"; content: string; key: string }
           | { type: "response_number"; content: string; key: string }
+          | { type: "warning"; label: string; message: string; key: string }
         > = [];
 
         if (
@@ -401,6 +408,14 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             type: "error",
             content: message.content,
             key: "error-block",
+          });
+        } else if (parsedContent.onlyThinkingDetected) {
+          // 🛡️ FALLBACK: Response chỉ có thinking, hiển thị warning
+          groups.push({
+            type: "warning" as any,
+            label: "RESPONSE INCOMPLETE",
+            message: "The response contains only internal reasoning (thinking blocks) with no visible content or tool calls. This may indicate an incomplete or malformed response.",
+            key: "only-thinking-warning",
           });
         } else if (blocks.length > 0) {
           blocks.forEach((block, idx) => {
@@ -881,6 +896,17 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 isLast={false}
                 isLastMessage={isLastMessage}
                 maxHeight="300px"
+              />
+            );
+            return <React.Fragment key={group.key}>{content}</React.Fragment>;
+          } else if (group.type === "warning") {
+            // 🛡️ Render WarningBlock for only-thinking responses
+            content = (
+              <WarningBlock
+                label={group.label}
+                message={group.message}
+                warningColor="var(--vscode-editorWarning-foreground, #cca700)"
+                isPulsing={false}
               />
             );
             return <React.Fragment key={group.key}>{content}</React.Fragment>;

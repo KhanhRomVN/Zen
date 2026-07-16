@@ -47,6 +47,11 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
   autoScrollPaused = false,
   scrollToBottom,
 }) => {
+  // 🔍 PERFORMANCE DEBUG
+  const renderStartTime = performance.now();
+  const renderCountRef = React.useRef(0);
+  renderCountRef.current++;
+
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [isReviewHovered, setIsReviewHovered] = React.useState(false);
   const [showRevertModal, setShowRevertModal] = React.useState(false);
@@ -64,6 +69,16 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
     // Fallback to responseRange if no current found
     return responseRange ? `(${responseRange.start}-${responseRange.end})` : "";
   }, [responseRange, responseRanges]);
+
+  // Track render time
+  React.useEffect(() => {
+    const renderTime = performance.now() - renderStartTime;
+    if (renderTime > 16) {
+      console.warn(
+        `[DiffSummaryBar] ⚠️ Slow render: ${renderTime.toFixed(2)}ms`,
+      );
+    }
+  });
 
   const handleReviewClick = (e: React.MouseEvent) => {
     e.stopPropagation();

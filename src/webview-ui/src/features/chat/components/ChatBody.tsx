@@ -188,6 +188,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     });
 
     const elapsed = performance.now() - startTime;
+    if (elapsed > 10 || messages.length > 10) {
+      console.warn(`[ChatBody] parsedMessages recalculated - messages: ${messages.length}, cacheSize: ${cache.size}, time: ${elapsed.toFixed(1)}ms`);
+    }
     lastParsedMessagesRef.current = result;
     return result;
   }, [messages]);

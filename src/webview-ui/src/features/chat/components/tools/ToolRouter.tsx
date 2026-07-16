@@ -177,6 +177,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
   // Validate fuzzy match & fetch file stats
   React.useEffect(() => {
+    const _effectStartTime = performance.now();
     const cleanups: (() => void)[] = [];
 
     group.forEach((item) => {
@@ -719,7 +720,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
       : isAccepted
         ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
         : compressionColor;
-    
+
     const isStreaming = firstAction.isPartial;
 
     return (
@@ -822,7 +823,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                     : "Context summary ready"
             }
           />
-          
+
           <ContextCompressionBlock
             summary={summary}
             isStreaming={isStreaming}

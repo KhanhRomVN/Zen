@@ -33,6 +33,8 @@ export interface ParsedResponse {
   contentBlocks: ContentBlock[];
   displayText: string;
   question: ContentBlock | null;
+  /** True if response contains ONLY thinking blocks, no other content or tools */
+  onlyThinkingDetected?: boolean;
 }
 
 export interface ToolAction {
@@ -74,6 +76,7 @@ const DEBUG_PARSER =
   window.localStorage?.getItem("zen_debug_parser") === "true";
 
 export const parseAIResponse = (content: string): ParsedResponse => {
+  const _parseStartTime = performance.now();
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -1113,6 +1116,26 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       contentPreview: content.substring(0, 200),
       remainingAfterThinking: remainingContent.substring(0, 100),
     });
+  }
+
+  // 🛡️ DETECT ONLY-THINKING RESPONSE (fallback mechanism)
+  // If response has thinking blocks BUT no other content or tools, mark it
+  const hasThinkingBlocks = thinkingBlocks.length > 0 || unclosedThinkingContent;
+  const hasOtherContent = result.contentBlocks.length > 0 || result.actions.length > 0;
+  
+  if (hasThinkingBlocks && !hasOtherContent && content.trim().length > 100) {
+    // Only mark if content is substantial (> 100 chars) to avoid false positives during streaming
+    result.onlyThinkingDetected = true;
+    console.warn("[Zen][Parser] ⚠️ ONLY-THINKING response detected!", {
+      thinkingBlocksCount: thinkingBlocks.length,
+      hasUnclosedThinking: !!unclosedThinkingContent,
+      contentLength: content.length,
+    });
+  }
+
+  const _parseElapsed = performance.now() - _parseStartTime;
+  if (_parseElapsed > 10 || content.length > 5000) {
+    console.warn(`[ResponseParser] parseAIResponse - contentLen: ${content.length}, blocks: ${result.contentBlocks.length}, actions: ${result.actions.length}, thinkingBlocks: ${thinkingBlocks.length}, time: ${_parseElapsed.toFixed(1)}ms`);
   }
 
   return result;

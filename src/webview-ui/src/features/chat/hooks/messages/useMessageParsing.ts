@@ -30,7 +30,7 @@ export const useMessageParsing = (
   const lastMessagesRef = useRef<Message[]>([]); // Track previous messages array for comparison
 
   const parsedMessages = useMemo(() => {
-    const startTime = performance.now();
+    const _startTime = performance.now();
     const cache = parseCacheRef.current;
     const lastStreaming = lastStreamingParseRef.current;
 
@@ -134,12 +134,12 @@ export const useMessageParsing = (
       const clickedKey = (msg.clickedActions || []).join(",");
       const rejectedKey = (msg.rejectedActions || []).join(",");
       const cacheKey = `${msg.id}:${msg.content.length}:${clickedKey}:${rejectedKey}`;
-      
+
       const objectCache = parsedMessageObjectCacheRef.current;
       if (objectCache.has(cacheKey)) {
         return objectCache.get(cacheKey)!;
       }
-      
+
       const parsedMsg = { ...msg, parsed };
       if (objectCache.size > 100) {
         const keys = Array.from(objectCache.keys());
@@ -152,7 +152,7 @@ export const useMessageParsing = (
     // Parse fresh for streaming or cache miss
     const parseStart = performance.now();
     const parsed = parseAIResponse(msg.content);
-    
+
     // Cache the parse result (but always create new object for streaming)
     if (!isAssistantStreaming) {
       cache.set(msg.content, parsed);

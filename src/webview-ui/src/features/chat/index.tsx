@@ -363,12 +363,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isStoppedRef.current = false;
       }
       setIsRestored(false);
-      
+
       // Auto-scroll to bottom when sending new message
       if (scrollToBottomRef.current) {
         scrollToBottomRef.current();
       }
-      
+
       const parentMsgId = revertParentMessageIdRef.current || undefined;
       revertParentMessageIdRef.current = null;
       if (parentMsgId && currentConversationId) {

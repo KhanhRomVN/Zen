@@ -127,10 +127,6 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
       prevProps.clickedActions === nextProps.clickedActions &&
       prevProps.failedActions === nextProps.failedActions &&
       prevProps.rejectedActions === nextProps.rejectedActions;
-
-    const elapsed = performance.now() - startTime;
-    if (elapsed > 1) {
-    }
     return streamingPropsEqual;
   }
 

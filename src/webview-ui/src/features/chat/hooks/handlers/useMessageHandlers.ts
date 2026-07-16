@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { Message } from "../../types/message";
 import { ChatSession } from "../../types/chat";
 import { extensionService } from "../../../../services/ExtensionService";
@@ -66,6 +66,32 @@ export const useMessageHandlers = ({
   const sendCountRef = useRef(0);
   const stopCountRef = useRef(0);
 
+  // 🚀 PERFORMANCE FIX: Use refs to avoid re-creating handleSend on every state change
+  const messageRef = useRef(message);
+  const uploadedFilesRef = useRef(uploadedFiles);
+  const attachedItemsRef = useRef(attachedItems);
+  const invalidExternalFilesRef = useRef(invalidExternalFiles);
+  const wrappedSendMessageRef = useRef(wrappedSendMessage);
+  const setMessageRef = useRef(setMessage);
+  const clearDraftRef = useRef(clearDraft);
+  const clearFilesRef = useRef(clearFiles);
+  const clearAttachedItemsRef = useRef(clearAttachedItems);
+  const clearInvalidExternalFilesRef = useRef(clearInvalidExternalFiles);
+  
+  // Sync refs with state — all deps go through refs, handleSend stays stable
+  useEffect(() => {
+    messageRef.current = message;
+    uploadedFilesRef.current = uploadedFiles;
+    attachedItemsRef.current = attachedItems;
+    invalidExternalFilesRef.current = invalidExternalFiles;
+    wrappedSendMessageRef.current = wrappedSendMessage;
+    setMessageRef.current = setMessage;
+    clearDraftRef.current = clearDraft;
+    clearFilesRef.current = clearFiles;
+    clearAttachedItemsRef.current = clearAttachedItems;
+    clearInvalidExternalFilesRef.current = clearInvalidExternalFiles;
+  }, [message, uploadedFiles, attachedItems, invalidExternalFiles, wrappedSendMessage, setMessage, clearDraft, clearFiles, clearAttachedItems, clearInvalidExternalFiles]);
+
   renderCountRef.current += 1;
 
   const handleSend = useCallback(
@@ -73,10 +99,16 @@ export const useMessageHandlers = ({
       const callStartTime = performance.now();
       sendCountRef.current += 1;
 
+      // 🚀 PERF: Read from refs instead of closure
+      const currentMessage = messageRef.current;
+      const currentFiles = uploadedFilesRef.current;
+      const currentItems = attachedItemsRef.current;
+      const currentInvalidFiles = invalidExternalFilesRef.current;
+
       // Check for invalid external files before sending
-      if (invalidExternalFiles && invalidExternalFiles.length > 0) {
+      if (currentInvalidFiles && currentInvalidFiles.length > 0) {
         const vscodeApi = (window as any).vscodeApi;
-        const message = `Cannot send message due to invalid file(s):\n${invalidExternalFiles.map((f) => `• ${f.name}: ${f.reason}`).join("\n")}\n\nPlease remove these files and try again.`;
+        const message = `Cannot send message due to invalid file(s):\n${currentInvalidFiles.map((f) => `• ${f.name}: ${f.reason}`).join("\n")}\n\nPlease remove these files and try again.`;
         if (vscodeApi) {
           vscodeApi.postMessage({
             command: "showError",
@@ -89,9 +121,9 @@ export const useMessageHandlers = ({
       }
 
       if (
-        message.trim() ||
-        uploadedFiles.length > 0 ||
-        attachedItems.length > 0
+        currentMessage.trim() ||
+        currentFiles.length > 0 ||
+        currentItems.length > 0
       ) {
         // Use refs (not state) to get the latest model/account values.
         // This prevents stale closure: if the user changed model right before
@@ -100,20 +132,20 @@ export const useMessageHandlers = ({
         const latestModel = model || currentModelRef.current;
         const latestAccount = account || currentAccountRef.current;
 
-        wrappedSendMessage(
-          message,
-          [...uploadedFiles, ...attachedItems],
+        wrappedSendMessageRef.current(
+          currentMessage,
+          [...currentFiles, ...currentItems],
           latestModel,
           latestAccount,
           undefined,
           undefined,
           undefined,
         );
-        setMessage("");
-        clearDraft();
-        clearFiles();
-        clearAttachedItems();
-        clearInvalidExternalFiles();
+        setMessageRef.current("");
+        clearDraftRef.current();
+        clearFilesRef.current();
+        clearAttachedItemsRef.current();
+        clearInvalidExternalFilesRef.current();
         undoStackRef.current = [];
         undoIndexRef.current = -1;
         if (textareaRef.current) {
@@ -122,18 +154,9 @@ export const useMessageHandlers = ({
       }
     },
     [
-      message,
-      uploadedFiles,
-      attachedItems,
-      invalidExternalFiles,
+      // 🚀 PERF: ALL deps via refs — handleSend is now PERMANENTLY STABLE
       currentModelRef,
       currentAccountRef,
-      wrappedSendMessage,
-      setMessage,
-      clearDraft,
-      clearFiles,
-      clearAttachedItems,
-      clearInvalidExternalFiles,
       undoStackRef,
       undoIndexRef,
       textareaRef,
