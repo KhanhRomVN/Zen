@@ -61,19 +61,6 @@ const ContextCompressionBlock: React.FC<ContextCompressionBlockProps> = ({
         }}
       >
         {summary}
-        {isStreaming && (
-          <span
-            style={{
-              display: "inline-block",
-              width: "6px",
-              height: "12px",
-              background: "var(--vscode-editor-foreground)",
-              marginLeft: "2px",
-              verticalAlign: "middle",
-              animation: "context-cursor-blink 0.6s step-end infinite",
-            }}
-          />
-        )}
       </div>
 
       {!isStreaming && !isAccepted && !isRejected && (
@@ -155,11 +142,6 @@ const ContextCompressionBlock: React.FC<ContextCompressionBlockProps> = ({
       )}
 
       <style>{`
-        @keyframes context-cursor-blink {
-          0%, 100% { opacity: 0.8; }
-          50%       { opacity: 0; }
-        }
-        
         /* Webkit scrollbar styling */
         div[style*="overflowY"]::-webkit-scrollbar {
           width: 10px;

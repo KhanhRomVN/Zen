@@ -10,6 +10,7 @@ export interface StreamConfig {
   parentMessageId?: string;
   refFileIds?: string[];
   abortSignal: AbortSignal;
+  isPerformanceMode?: boolean; // Performance mode: disable streaming parse
 }
 
 export interface StreamCallbacks {
@@ -22,6 +23,7 @@ export interface StreamCallbacks {
     hasPartial: boolean,
     toolType: string | null,
   ) => void;
+  onRawContent?: (content: string) => void; // For performance mode: raw content without parsing
 }
 
 export class StreamingService {
@@ -86,6 +88,9 @@ export class StreamingService {
     let done = false;
     let buffer = "";
     let firstChunkReceived = false;
+
+    // Performance mode: stream content but don't parse until complete
+    const isPerformanceMode = config.isPerformanceMode || false;
 
     // Batching - Optimized for smooth letter-by-letter streaming
     let updateBatch = { content: "", thinking: "" };
@@ -210,8 +215,16 @@ export class StreamingService {
                 shouldFlush &&
                 (updateBatch.content || updateBatch.thinking || data.usage)
               ) {
-                if (updateBatch.content)
-                  callbacks.onContent?.(updateBatch.content);
+                // In performance mode, send to onRawContent for ThinkingBlock display
+                if (isPerformanceMode) {
+                  if (updateBatch.content)
+                    callbacks.onRawContent?.(updateBatch.content);
+                } else {
+                  // Normal mode: parse as we stream
+                  if (updateBatch.content)
+                    callbacks.onContent?.(updateBatch.content);
+                }
+
                 if (updateBatch.thinking)
                   callbacks.onThinking?.(updateBatch.thinking);
                 updateBatch = { content: "", thinking: "" };
@@ -227,8 +240,17 @@ export class StreamingService {
 
     clearTimeout(firstChunkTimer);
 
-    // Flush remaining batch
-    if (updateBatch.content) callbacks.onContent?.(updateBatch.content);
+    // Flush remaining batch - in performance mode, this is where we parse everything once
+    if (isPerformanceMode) {
+      // Performance mode: send all accumulated content for parsing NOW
+      if (assistantMessage.content) {
+        callbacks.onContent?.(assistantMessage.content);
+      }
+    } else {
+      // Normal mode: flush any remaining batched content
+      if (updateBatch.content) callbacks.onContent?.(updateBatch.content);
+    }
+
     if (updateBatch.thinking) callbacks.onThinking?.(updateBatch.thinking);
 
     // Process remaining buffer

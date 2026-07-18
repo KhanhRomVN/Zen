@@ -150,6 +150,46 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       totalDeletions: number;
     } | null>(null);
 
+  // Performance mode state
+  const [isPerformanceMode, setIsPerformanceModeRaw] = useState(() => {
+    try {
+      return localStorage.getItem("zen-performance-mode") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  // Wrapped setter with logging
+  const setIsPerformanceMode = useCallback(
+    (value: boolean | ((prev: boolean) => boolean)) => {
+      console.trace("[Chat/index] Call stack:");
+
+      setIsPerformanceModeRaw((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        // Immediately update localStorage here
+        try {
+          localStorage.setItem("zen-performance-mode", String(next));
+        } catch (e) {
+          console.error(
+            "[Chat/index] Failed to update localStorage immediately:",
+            e,
+          );
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  // Sync performance mode changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("zen-performance-mode", String(isPerformanceMode));
+    } catch (e) {
+      console.error("[Chat/index] Failed to update localStorage:", e);
+    }
+  }, [isPerformanceMode]);
+
   // --- Chat LLM Hook ---
   const {
     messages,
@@ -183,6 +223,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         conversationToolOverrides,
         actionType,
       ),
+    isPerformanceMode,
   });
 
   // Track messages and streaming state - kept for potential future use, but removed heavy logging
@@ -737,113 +778,64 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       </ChatErrorBoundary>
 
       {/* ─── ChatFooter ─── */}
-      {useMemo(() => (
-        <ChatFooter
-          message={message}
-          setMessage={setMessage}
-          isHistoryMode={isHistoryMode}
-          uploadedFiles={uploadedFiles}
-          attachedItems={attachedItems}
-          textareaRef={textareaRef}
-          handleTextareaChange={handleTextareaChange}
-          handleKeyDown={handleKeyDown}
-          handlePaste={handlePaste}
-          handleDragOver={handleDragOver}
-          handleDrop={handleDrop}
-          setShowAtMenu={setShowAtMenu}
-          handleFileSelect={handleFileSelect}
-          fileInputRef={fileInputRef}
-          onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
-          showChangesDropdown={showChangesDropdown}
-          setShowChangesDropdown={setShowChangesDropdown}
-          messages={messages}
-          handleSend={handleSend}
-          hasProjectContext={!!projectContext}
-          onOpenProjectContext={() => setShowProjectContextModal(true)}
-          folderPath={currentChat?.folderPath || null}
-          isConversationStarted={messages.length > 0 || !!initialMessageData}
-          currentModel={enrichedModel ?? currentModel}
-          setCurrentModel={setCurrentModel}
-          currentAccount={currentAccount}
-          setCurrentAccount={setCurrentAccount}
-          isProcessing={isProcessing || executionState.status === "running"}
-          isStreaming={isStreaming}
-          onStopGeneration={handleStopGeneration}
-          showBrowserWarning={showBrowserWarning}
-          isLaunchingBrowser={isLaunchingBrowser}
-          onLaunchBrowserSession={launchBrowserSession}
-          onGitPullRequest={handleGitPullRequest}
-          gitLoading={gitLoading}
-          isGitStatusVisible={showGitStatusBlock}
-          removeAttachedItem={removeAttachedItem}
-          onOpenImage={handleOpenImage}
-          removeFile={removeFile}
-          externalFileInputRef={externalFileInputRef}
-          handleExternalFileInputChange={handleExternalFileInputChange}
-          handleFileInputChange={handleFileInputChange}
-          footerPaddingBottom={footerPaddingBottom}
-          shouldShowCompressionButton={shouldShowCompressionButton}
-          gitStatus={gitStatus}
-          onOpenGitStatus={() => setShowGitStatusBlock(true)}
-          loadedConversationFileStats={loadedConversationFileStats}
-          onModelSwitch={handleModelSwitch}
-          onRevertConversation={handleRevertConversation}
-          autoScrollPaused={autoScrollPaused}
-          scrollToBottom={scrollToBottomRef.current || undefined}
-        />
-      ), [
-        message,
-        setMessage,
-        isHistoryMode,
-        uploadedFiles,
-        attachedItems,
-        textareaRef,
-        handleTextareaChange,
-        handleKeyDown,
-        handlePaste,
-        handleDragOver,
-        handleDrop,
-        setShowAtMenu,
-        handleFileSelect,
-        fileInputRef,
-        showChangesDropdown,
-        setShowChangesDropdown,
-        messages,
-        handleSend,
-        projectContext,
-        currentChat?.folderPath,
-        messages.length,
-        initialMessageData,
-        enrichedModel,
-        currentModel,
-        setCurrentModel,
-        currentAccount,
-        setCurrentAccount,
-        isProcessing,
-        executionState.status,
-        isStreaming,
-        handleStopGeneration,
-        showBrowserWarning,
-        isLaunchingBrowser,
-        launchBrowserSession,
-        handleGitPullRequest,
-        gitLoading,
-        showGitStatusBlock,
-        removeAttachedItem,
-        handleOpenImage,
-        removeFile,
-        externalFileInputRef,
-        handleExternalFileInputChange,
-        handleFileInputChange,
-        footerPaddingBottom,
-        shouldShowCompressionButton,
-        gitStatus,
-        loadedConversationFileStats,
-        handleModelSwitch,
-        handleRevertConversation,
-        autoScrollPaused,
-        scrollToBottomRef.current,
-      ])}
+      {(() => {
+        return null;
+      })()}
+      <ChatFooter
+        message={message}
+        setMessage={setMessage}
+        isHistoryMode={isHistoryMode}
+        uploadedFiles={uploadedFiles}
+        attachedItems={attachedItems}
+        textareaRef={textareaRef}
+        handleTextareaChange={handleTextareaChange}
+        handleKeyDown={handleKeyDown}
+        handlePaste={handlePaste}
+        handleDragOver={handleDragOver}
+        handleDrop={handleDrop}
+        setShowAtMenu={setShowAtMenu}
+        handleFileSelect={handleFileSelect}
+        fileInputRef={fileInputRef}
+        onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
+        showChangesDropdown={showChangesDropdown}
+        setShowChangesDropdown={setShowChangesDropdown}
+        messages={messages}
+        handleSend={handleSend}
+        hasProjectContext={!!projectContext}
+        onOpenProjectContext={() => setShowProjectContextModal(true)}
+        folderPath={currentChat?.folderPath || null}
+        isConversationStarted={messages.length > 0 || !!initialMessageData}
+        currentModel={enrichedModel ?? currentModel}
+        setCurrentModel={setCurrentModel}
+        currentAccount={currentAccount}
+        setCurrentAccount={setCurrentAccount}
+        isProcessing={isProcessing || executionState.status === "running"}
+        isStreaming={isStreaming}
+        onStopGeneration={handleStopGeneration}
+        showBrowserWarning={showBrowserWarning}
+        isLaunchingBrowser={isLaunchingBrowser}
+        onLaunchBrowserSession={launchBrowserSession}
+        onGitPullRequest={handleGitPullRequest}
+        gitLoading={gitLoading}
+        isGitStatusVisible={showGitStatusBlock}
+        removeAttachedItem={removeAttachedItem}
+        onOpenImage={handleOpenImage}
+        removeFile={removeFile}
+        externalFileInputRef={externalFileInputRef}
+        handleExternalFileInputChange={handleExternalFileInputChange}
+        handleFileInputChange={handleFileInputChange}
+        footerPaddingBottom={footerPaddingBottom}
+        shouldShowCompressionButton={shouldShowCompressionButton}
+        gitStatus={gitStatus}
+        onOpenGitStatus={() => setShowGitStatusBlock(true)}
+        loadedConversationFileStats={loadedConversationFileStats}
+        onModelSwitch={handleModelSwitch}
+        onRevertConversation={handleRevertConversation}
+        autoScrollPaused={autoScrollPaused}
+        scrollToBottom={scrollToBottomRef.current || undefined}
+        isPerformanceMode={isPerformanceMode}
+        onPerformanceModeChange={setIsPerformanceMode}
+      />
     </div>
   );
 };

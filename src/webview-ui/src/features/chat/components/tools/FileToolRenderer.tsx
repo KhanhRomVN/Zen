@@ -60,24 +60,6 @@ const StreamingPreviewBox: React.FC<{ content: string }> = ({ content }) => {
       }}
     >
       {content}
-      {/* Blinking cursor at the end */}
-      <span
-        style={{
-          display: "inline-block",
-          width: "6px",
-          height: "12px",
-          background: "var(--vscode-editor-foreground)",
-          marginLeft: "1px",
-          verticalAlign: "middle",
-          animation: "zen-cursor-blink 0.6s step-end infinite",
-        }}
-      />
-      <style>{`
-        @keyframes zen-cursor-blink {
-          0%, 100% { opacity: 0.8; }
-          50%       { opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 };

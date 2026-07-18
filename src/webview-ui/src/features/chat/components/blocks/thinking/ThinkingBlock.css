@@ -58,3 +58,8 @@
 .thinking-block-content::-webkit-scrollbar-thumb:hover {
   background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
 }
+
+/* Hide scrollbar for thinking block scroll container */
+.thinking-block-scroll::-webkit-scrollbar {
+  display: none;
+}

@@ -271,8 +271,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     if (!xtermRef.current) {
       const term = new Terminal({
         cursorBlink: false,
-        cursorStyle: "underline",
-        cursorInactiveStyle: "none",
+        cursorStyle: "block",
         disableStdin: true,
         fontSize: 12,
         fontFamily:
@@ -346,13 +345,9 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
         if (fitAddonRef.current) fitAddonRef.current.fit();
       }
 
-      xtermRef.current.options.cursorBlink = status === "busy";
       xtermRef.current.options.theme = {
         ...xtermRef.current.options.theme,
-        cursor:
-          status === "busy"
-            ? getCSSVar("--vscode-terminal-foreground", "#cccccc")
-            : "transparent",
+        cursor: "transparent",
       };
     }
   }, [logs, status, isXtermVisible, rows]);

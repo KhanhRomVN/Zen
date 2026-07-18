@@ -29,6 +29,7 @@ interface UseChatLLMProps {
     isAutoTrigger?: boolean,
     actionType?: "accept_all" | "accept_once" | "reject",
   ) => void;
+  isPerformanceMode?: boolean;
 }
 
 export const useChatLLM = ({
@@ -36,6 +37,7 @@ export const useChatLLM = ({
   selectedTab,
   onConversationIdChange,
   onToolRequest,
+  isPerformanceMode,
 }: UseChatLLMProps) => {
   // Use extracted hooks
   const {
@@ -408,6 +410,7 @@ export const useChatLLM = ({
               parentMessageId: effectiveParentMessageId,
               refFileIds: ref_file_ids,
               abortSignal: abortController.signal,
+              isPerformanceMode: isPerformanceMode,
             },
             {
               onMetadata: (meta) => {
@@ -448,6 +451,25 @@ export const useChatLLM = ({
                 dispatchStreaming({
                   type: "SET_INCOMPLETE_TOOL",
                   payload: { hasPartial, toolType },
+                });
+              },
+              onRawContent: (content) => {
+                // Performance mode: display raw streaming content in thinking block
+                setMessages((prev) => {
+                  const targetIndex = prev.findIndex(
+                    (m) => m.id === assistantMessageId,
+                  );
+                  if (targetIndex === -1) return prev;
+
+                  const currentMessage = prev[targetIndex];
+                  const updatedMessage = {
+                    ...currentMessage,
+                    thinking: (currentMessage.thinking || "") + content,
+                  };
+
+                  const newArray = prev.slice();
+                  newArray[targetIndex] = updatedMessage;
+                  return newArray;
                 });
               },
               onContent: (content) => {

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState, useMemo } from "react";
 import "./ThinkingBlock.css";
 
 interface ThinkingRendererProps {
@@ -13,13 +13,45 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
   isStreaming = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
 
-  // Auto-scroll to bottom when content updates (streaming)
+  // Virtual scrolling configuration
+  const LINE_HEIGHT = 18; // 12px font * 1.5 line-height
+  const BUFFER_SIZE = 5; // Extra lines above and below viewport
+  const maxHeightPx = typeof maxHeight === "number" ? maxHeight : 240;
+
+  // Split content into lines
+  const lines = useMemo(() => content.split("\n"), [content]);
+  const totalLines = lines.length;
+
+  // Calculate visible range with virtual scrolling
+  const { startIndex, endIndex, visibleLines, offsetY } = useMemo(() => {
+    const viewportLines = Math.ceil(maxHeightPx / LINE_HEIGHT);
+    const scrollLines = Math.floor(scrollTop / LINE_HEIGHT);
+    
+    const start = Math.max(0, scrollLines - BUFFER_SIZE);
+    const end = Math.min(totalLines, scrollLines + viewportLines + BUFFER_SIZE);
+    
+    return {
+      startIndex: start,
+      endIndex: end,
+      visibleLines: lines.slice(start, end),
+      offsetY: start * LINE_HEIGHT,
+    };
+  }, [scrollTop, lines, totalLines, maxHeightPx]);
+
+  // Auto-scroll to bottom when streaming
   useEffect(() => {
     if (isStreaming && containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      const maxScroll = Math.max(0, totalLines * LINE_HEIGHT - maxHeightPx);
+      containerRef.current.scrollTop = maxScroll;
     }
-  }, [content, isStreaming]);
+  }, [content, isStreaming, totalLines, maxHeightPx]);
+
+  // Handle scroll event
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  };
 
   return (
     <div
@@ -30,9 +62,10 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
         paddingLeft: "12px",
       }}
     >
-      {/* Content container - no background, no padding, no dot, no scrollbar */}
+      {/* Virtual scrolling container */}
       <div
         ref={containerRef}
+        onScroll={handleScroll}
         style={{
           fontFamily: "var(--vscode-editor-font-family, monospace)",
           fontSize: "12px",
@@ -42,38 +75,34 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
           opacity: 0.75,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
-          maxHeight:
-            typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight,
-          overflowY: "hidden",
+          maxHeight: `${maxHeightPx}px`,
+          overflowY: totalLines * LINE_HEIGHT > maxHeightPx ? "auto" : "hidden",
           padding: 0,
           border: "none",
           background: "transparent",
           outline: "none",
           flex: 1,
-        }}
+          position: "relative",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        } as React.CSSProperties}
+        className="thinking-block-scroll"
       >
-        {content}
-        {isStreaming && (
-          <span
+        {/* Spacer to maintain scroll height */}
+        <div style={{ height: `${totalLines * LINE_HEIGHT}px`, position: "relative" }}>
+          {/* Visible content with offset */}
+          <div
             style={{
-              display: "inline-block",
-              width: "6px",
-              height: "12px",
-              background: "var(--vscode-editor-foreground)",
-              marginLeft: "2px",
-              verticalAlign: "middle",
-              animation: "thinking-cursor-blink 0.6s step-end infinite",
+              position: "absolute",
+              top: `${offsetY}px`,
+              left: 0,
+              right: 0,
             }}
-          />
-        )}
+          >
+            {visibleLines.join("\n")}
+          </div>
+        </div>
       </div>
-
-      <style>{`
-        @keyframes thinking-cursor-blink {
-          0%, 100% { opacity: 0.8; }
-          50%       { opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 };
