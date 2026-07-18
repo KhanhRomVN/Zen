@@ -347,7 +347,9 @@ export const useToolExecution = ({
                   isError: true,
                 },
               }));
-              resolve(`[read_file for '${filePath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[read_file for '${filePath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -459,7 +461,9 @@ export const useToolExecution = ({
                   isError: true,
                 },
               }));
-              resolve(`[write_to_file for '${filePath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[write_to_file for '${filePath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -584,7 +588,9 @@ export const useToolExecution = ({
                   isError: true,
                 },
               }));
-              resolve(`[replace_in_file for '${filePath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[replace_in_file for '${filePath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -617,7 +623,7 @@ export const useToolExecution = ({
                 // Store error in toolOutputs
                 setToolOutputs((prev) => ({
                   ...prev,
-                  [actionId]: { 
+                  [actionId]: {
                     output: `Error - ${msg.error}`,
                     isError: true,
                   },
@@ -626,7 +632,8 @@ export const useToolExecution = ({
                   `[revert_file for '${filePath}'] Result: Error - ${msg.error}`,
                 );
               } else {
-                const versionMsg = version !== undefined ? ` to version ${version}` : '';
+                const versionMsg =
+                  version !== undefined ? ` to version ${version}` : "";
                 const result = `[revert_file for '${filePath}'] Result: File reverted successfully${versionMsg}`;
 
                 // Store old/new content in action params for diff view
@@ -664,7 +671,9 @@ export const useToolExecution = ({
                   isError: true,
                 },
               }));
-              resolve(`[revert_file for '${filePath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[revert_file for '${filePath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -673,13 +682,6 @@ export const useToolExecution = ({
           const requestId = `view-history-${Date.now()}-${Math.random()}`;
           const filePath = action.params.path || action.params.file_path;
           const actionId = action.actionId;
-
-          console.log("[useToolExecution] view_replace_history START:", {
-            requestId,
-            filePath,
-            actionId,
-            conversationId: conversationIdRef?.current,
-          });
 
           extensionService.postMessage({
             command: "viewReplaceHistory",
@@ -691,16 +693,6 @@ export const useToolExecution = ({
           messageDispatcher.register(
             requestId,
             (msg) => {
-              console.log("[useToolExecution] view_replace_history RESPONSE:", {
-                requestId,
-                hasError: !!msg.error,
-                error: msg.error,
-                histories: msg.histories,
-                historiesCount: msg.histories?.length,
-                historiesType: typeof msg.histories,
-                msgKeys: Object.keys(msg),
-              });
-
               if (msg.error) {
                 console.error(`[view_replace_history] Error response`, {
                   requestId,
@@ -720,18 +712,8 @@ export const useToolExecution = ({
               } else {
                 const histories = msg.histories || [];
 
-                console.log("[useToolExecution] Processing histories:", {
-                  historiesCount: histories.length,
-                  histories: histories,
-                  willStringify: true,
-                });
-
                 if (histories.length === 0) {
                   const result = `[view_replace_history for '${filePath}'] Result: No replace_in_file history found for this file.`;
-                  console.log("[useToolExecution] No history found, setting output:", {
-                    actionId,
-                    output: "No history",
-                  });
                   setToolOutputs((prev) => ({
                     ...prev,
                     [actionId]: {
@@ -745,22 +727,25 @@ export const useToolExecution = ({
 
                 let result = `[view_replace_history for '${filePath}'] Found ${histories.length} version(s):\n\n`;
 
-                histories.forEach((h: { version: number; errorCount: number; warningCount: number; lineCount: number }, index: number) => {
-                  result += `**Version ${h.version}**\n`;
-                  result += `- Lines: ${h.lineCount}, Errors: ${h.errorCount}, Warnings: ${h.warningCount}\n`;
-                  if (index < histories.length - 1) {
-                    result += `\n`;
-                  }
-                });
+                histories.forEach(
+                  (
+                    h: {
+                      version: number;
+                      errorCount: number;
+                      warningCount: number;
+                      lineCount: number;
+                    },
+                    index: number,
+                  ) => {
+                    result += `**Version ${h.version}**\n`;
+                    result += `- Lines: ${h.lineCount}, Errors: ${h.errorCount}, Warnings: ${h.warningCount}\n`;
+                    if (index < histories.length - 1) {
+                      result += `\n`;
+                    }
+                  },
+                );
 
                 const stringified = JSON.stringify(histories);
-                console.log("[useToolExecution] Setting toolOutputs with histories:", {
-                  actionId,
-                  historiesCount: histories.length,
-                  stringifiedLength: stringified.length,
-                  stringified: stringified,
-                });
-
                 setToolOutputs((prev) => {
                   const newOutputs = {
                     ...prev,
@@ -769,10 +754,6 @@ export const useToolExecution = ({
                       isError: false,
                     },
                   };
-                  console.log("[useToolExecution] New toolOutputs state:", {
-                    actionId,
-                    newOutput: (newOutputs as any)[actionId],
-                  });
                   return newOutputs;
                 });
 
@@ -793,7 +774,9 @@ export const useToolExecution = ({
                   isError: true,
                 },
               }));
-              resolve(`[view_replace_history for '${filePath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[view_replace_history for '${filePath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -892,7 +875,9 @@ export const useToolExecution = ({
             TOOL_TIMEOUTS.list_files,
             () => {
               const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.list_files / 1000}s. Failed to list files.`;
-              resolve(`[list_files for '${folderPath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[list_files for '${folderPath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -1025,7 +1010,9 @@ export const useToolExecution = ({
             TOOL_TIMEOUTS.delete_file,
             () => {
               const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.delete_file / 1000}s. Failed to delete file.`;
-              resolve(`[delete_file for '${filePath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[delete_file for '${filePath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -1055,7 +1042,9 @@ export const useToolExecution = ({
             TOOL_TIMEOUTS.delete_folder,
             () => {
               const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.delete_folder / 1000}s. Failed to delete folder.`;
-              resolve(`[delete_folder for '${folderPath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[delete_folder for '${folderPath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -1087,7 +1076,9 @@ export const useToolExecution = ({
             TOOL_TIMEOUTS.move_file,
             () => {
               const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.move_file / 1000}s. Failed to move file.`;
-              resolve(`[move_file from '${filePath}' to '${targetFolderPath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[move_file from '${filePath}' to '${targetFolderPath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -1150,7 +1141,9 @@ export const useToolExecution = ({
                 `[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`,
               );
               const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.grep / 1000}s. Search took too long to complete.`;
-              resolve(`[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -1201,7 +1194,9 @@ export const useToolExecution = ({
             TOOL_TIMEOUTS.git_diff,
             () => {
               const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.git_diff / 1000}s. Failed to get git diff.`;
-              resolve(`[git_diff for '${filePath}'] Result: Error - ${timeoutError}`);
+              resolve(
+                `[git_diff for '${filePath}'] Result: Error - ${timeoutError}`,
+              );
             },
           );
           break;
@@ -1211,10 +1206,8 @@ export const useToolExecution = ({
           // commit_message is a display-only block handled by ToolRouter UI
           // User clicks Accept/Reject buttons to send acceptCommitMessage/rejectCommitMessage
           // Return special marker to skip auto-flush (same as git_status)
-          const messageContent = action.params?.message || action.params?.content || "";
-          console.log(
-            `[Zen][commit_message] Parsed commit message block (${messageContent.length} chars) — UI will handle user interaction`,
-          );
+          const messageContent =
+            action.params?.message || action.params?.content || "";
           resolve("__DISPLAY_ONLY__");
           break;
         }
@@ -1351,7 +1344,7 @@ export const useToolExecution = ({
         if (result !== null) {
           // Skip display-only tools from auto-flush
           const isDisplayOnly = result === "__DISPLAY_ONLY__";
-          
+
           if (!isDisplayOnly) {
             validResults.push(result);
           }
@@ -1362,9 +1355,15 @@ export const useToolExecution = ({
             const prefixMatch = result.match(/^\[.*?\] Result:\s*/);
             if (prefixMatch)
               cleanOutput = result.substring(prefixMatch[0].length);
-            if (cleanOutput.startsWith("```\n") && cleanOutput.endsWith("\n```"))
+            if (
+              cleanOutput.startsWith("```\n") &&
+              cleanOutput.endsWith("\n```")
+            )
               cleanOutput = cleanOutput.substring(4, cleanOutput.length - 4);
-            else if (cleanOutput.startsWith("```") && cleanOutput.endsWith("```"))
+            else if (
+              cleanOutput.startsWith("```") &&
+              cleanOutput.endsWith("```")
+            )
               cleanOutput = cleanOutput.substring(3, cleanOutput.length - 3);
 
             const isError =
@@ -1377,7 +1376,11 @@ export const useToolExecution = ({
             // Overwriting here would inject the "Output: [run_command...]" header and backticks into the TerminalBlock UI.
             // ALSO: For list_files, preserve raw JSON array that was already set
             // ALSO: For view_replace_history, preserve JSON stringified histories array that was already set
-            if (action.type !== "run_command" && action.type !== "list_files" && action.type !== "view_replace_history") {
+            if (
+              action.type !== "run_command" &&
+              action.type !== "list_files" &&
+              action.type !== "view_replace_history"
+            ) {
               setToolOutputs((prev) => {
                 const existing = prev[actionId];
                 return {
@@ -1451,16 +1454,14 @@ export const useToolExecution = ({
           const textActionIds = actions.map(
             (a) => `${message.id}-action-${a._index}`,
           );
-          console.log(
-            `[Zen][autoFlush] Partial execution detected | messageId=${message.id} | executed=${validResults.length}/${actions.length} | buffered=${newBuffer.length} results`,
-          );
-          
+
           // Only send if we have actual results to send (not just display-only tools)
-          if (newBuffer.length > 0 && handleSendMessageRef.current && !isStoppedRef?.current) {
+          if (
+            newBuffer.length > 0 &&
+            handleSendMessageRef.current &&
+            !isStoppedRef?.current
+          ) {
             const finalContent = newBuffer.join("\n\n");
-            console.log(
-              `[Zen][autoFlush] Sending partial results | contentLength=${finalContent.length}`,
-            );
             handleSendMessageRef.current(
               finalContent,
               undefined,
@@ -1471,15 +1472,12 @@ export const useToolExecution = ({
             );
             return { ...prev, [message.id]: [] };
           }
-          
+
           // If all actions were display-only, don't send anything, just keep buffer empty
           if (newBuffer.length === 0) {
-            console.log(
-              `[Zen][autoFlush] All actions were display-only, skipping auto-send`,
-            );
             return { ...prev, [message.id]: [] };
           }
-          
+
           return { ...prev, [message.id]: newBuffer };
         }
 
@@ -1516,10 +1514,6 @@ export const useToolExecution = ({
                   : "Question";
               finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
             }
-
-            console.log(
-              `[Zen][autoFlush] All actions complete | messageId=${message.id} | flushing ${newBuffer.length} buffered results | contentLength=${finalContent.length}`,
-            );
             handleSendMessageRef.current(
               finalContent,
               undefined,
@@ -1755,7 +1749,20 @@ export const useToolExecution = ({
 
   // 🆕 Auto-flush effect: When messages state changes, check if we can now flush buffered results
   // because a question was finally answered.
+  const autoFlushCountRef = useRef(0);
   useEffect(() => {
+    // Skip if no buffer to process
+    const bufferKeys = Object.keys(availableToolResultsBuffer);
+    const hasBuffer = bufferKeys.some(
+      (key) => availableToolResultsBuffer[key].length > 0,
+    );
+
+    if (!hasBuffer) {
+      // No buffer, skip completely - don't even increment counter
+      return;
+    }
+
+    autoFlushCountRef.current += 1;
     Object.entries(availableToolResultsBuffer).forEach(
       ([messageId, buffer]) => {
         if (buffer.length === 0) return;

@@ -22,9 +22,11 @@ const STREAM_BOX_HEIGHT = 154; // px — 120 base + 2 extra lines (≈17px/line)
 
 const StreamingPreviewBox: React.FC<{ content: string }> = ({ content }) => {
   const boxRef = useRef<HTMLDivElement>(null);
+  const streamCountRef = useRef(0);
 
   // Auto-scroll to bottom whenever content grows
   useEffect(() => {
+    streamCountRef.current += 1;
     if (boxRef.current) {
       boxRef.current.scrollTop = boxRef.current.scrollHeight;
     }
@@ -341,7 +343,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         .slice(allMessages.findIndex((m) => m.id === messageId) + 1)
         .find((m) => m.role === "user")
     : undefined;
-  
+
   const isWriteOrEditTool =
     toolType === "delete_file" ||
     toolType === "delete_folder" ||
@@ -440,7 +442,9 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   }, [toolOutputs, actionId, toolType, isCompleted, isPartial, rawPath]);
 
   // Fetch diagnostics directly from extension for read_file, write_to_file, replace_in_file
+  const diagEffectCountRef = React.useRef(0);
   React.useEffect(() => {
+    diagEffectCountRef.current += 1;
     const shouldFetchDiagnostics =
       (toolType === "read_file" ||
         toolType === "write_to_file" ||

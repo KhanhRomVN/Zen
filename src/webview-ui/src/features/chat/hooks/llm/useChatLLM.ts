@@ -554,9 +554,6 @@ export const useChatLLM = ({
             .join(" ");
 
           const responseNum = (assistantMessage as any).response_number || "?";
-          console.log(
-            `[Stream Complete #${responseNum}] Parsed blocks: ${toolSequence || "none"}`,
-          );
           console.log("[Raw Content]:", assistantMessage.content);
         } catch (parseError) {
           hasParsingError = true;
@@ -607,9 +604,6 @@ export const useChatLLM = ({
           onToolRequest &&
           parsed.actions?.length > 0
         ) {
-          console.log(
-            `[Zen][sendMessage] Triggering onToolRequest | actions=${parsed.actions.length} | conversationId=${effectiveChatUuid}`,
-          );
           onToolRequest(parsed.actions, assistantMessage, false, "accept_all");
         } else if (parsed && parsed.actions?.length > 0 && hasParsingError) {
           console.warn(
@@ -697,10 +691,6 @@ export const useChatLLM = ({
    */
   const handleSelectOption = useCallback(
     (messageId: string, option: string) => {
-      console.log(
-        `[Zen][handleSelectOption] Called | messageId=${messageId} | isProcessing=${isProcessingRef.current}`,
-      );
-
       // Guard: Don't process if already sending a message
       if (isProcessingRef.current) {
         console.warn(
@@ -752,10 +742,6 @@ export const useChatLLM = ({
         );
 
         if (parsedPayload && parsedPayload.answers) {
-          console.log(
-            `[Zen][handleSelectOption] Auto-sending question answers | convId=${convId}`,
-          );
-
           // Check again before triggering sendMessage
           if (isProcessingRef.current) {
             console.warn(
@@ -794,10 +780,6 @@ export const useChatLLM = ({
               .join("\n");
 
             const promptText = `<question-answer>\n${formattedAnswers}\n</question-answer>`;
-
-            console.log(
-              `[Zen][handleSelectOption] Executing sendMessage with answers`,
-            );
             sendMessage(
               promptText,
               undefined,

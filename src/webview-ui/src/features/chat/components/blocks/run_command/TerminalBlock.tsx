@@ -252,15 +252,20 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
       .replace(/\x1B\[[0-9;?]*[A-Za-z~]/g, "")
       .replace(/\x1b\].*?(\x07|\x1b\\)/g, "");
 
+  const visibleEffectCountRef = useRef(0);
   useEffect(() => {
-    if (logs || status === "busy") {
+    visibleEffectCountRef.current += 1;
+    const shouldShow = !!(logs || status === "busy");
+    if (shouldShow) {
       setIsXtermVisible(true);
     } else {
       setIsXtermVisible(false);
     }
   }, [logs, status]);
 
+  const initTermCountRef = useRef(0);
   useEffect(() => {
+    initTermCountRef.current += 1;
     if (!isXtermVisible || !terminalRef.current) return;
 
     if (!xtermRef.current) {
@@ -305,7 +310,9 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
 
   const lastWrittenLogsRef = useRef("");
 
+  const updateTermCountRef = useRef(0);
   useEffect(() => {
+    updateTermCountRef.current += 1;
     if (xtermRef.current && isXtermVisible) {
       const trimmedLogs = logs.replace(/\r?\n$/, "");
 

@@ -78,11 +78,7 @@ const DEBUG_PARSER =
 
 export const parseAIResponse = (content: string): ParsedResponse => {
   const _parseStartTime = performance.now();
-  console.log('[DEBUG][ResponseParser.parseAIResponse] Start parsing', {
-    contentLength: content.length,
-    timestamp: new Date().toISOString()
-  });
-  
+
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -593,7 +589,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             case "move_file": {
               const params = parseMoveFile(innerContent || "");
               action = { type: "move_file" as const, params, rawXml };
-              break;  
+              break;
             }
             case "revert_file": {
               const params = parseRevertFile(innerContent || "");
@@ -602,7 +598,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
             case "view_replace_history": {
               const params = parseViewReplaceHistory(innerContent || "");
-              action = { type: "view_replace_history" as const, params, rawXml };
+              action = {
+                type: "view_replace_history" as const,
+                params,
+                rawXml,
+              };
               break;
             }
             case "run_command": {
@@ -1139,18 +1139,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   }
 
   const _parseElapsed = performance.now() - _parseStartTime;
-  console.log('[DEBUG][ResponseParser.parseAIResponse] Completed', {
-    duration: _parseElapsed.toFixed(2) + 'ms',
-    contentLength: content.length,
-    actionsCount: result.actions.length,
-    contentBlocksCount: result.contentBlocks.length,
-    thinkingBlocksCount: thinkingBlocks.length
-  });
-  
+
   if (_parseElapsed > 20) {
-    console.warn('[DEBUG][ResponseParser.parseAIResponse] SLOW PARSE', {
-      duration: _parseElapsed.toFixed(2) + 'ms',
-      contentLength: content.length
+    console.warn("[DEBUG][ResponseParser.parseAIResponse] SLOW PARSE", {
+      duration: _parseElapsed.toFixed(2) + "ms",
+      contentLength: content.length,
     });
   }
 

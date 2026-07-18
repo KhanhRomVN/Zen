@@ -117,7 +117,9 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     });
   };
 
+  const effectCollapsedCountRef = React.useRef(0);
   useEffect(() => {
+    effectCollapsedCountRef.current += 1;
     const initialCollapsed = new Set<string>();
     group.forEach((item, index) => {
       const actionId = `${messageId}-action-${index}`;
@@ -268,7 +270,8 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
   // Handle view_replace_history BEFORE isFileTool check
   if (toolType === "view_replace_history") {
-    const filePath = firstAction.params.file_path || firstAction.params.path || "";
+    const filePath =
+      firstAction.params.file_path || firstAction.params.path || "";
     const actionIndex = group[0].index;
     const actionId = `${messageId}-action-${actionIndex}`;
     const outputData = toolOutputs?.[actionId];
@@ -297,9 +300,10 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     }
 
     // Summary result for ToolHeader
-    const summaryResult = isCompleted && !isError && histories.length > 0
-      ? `${histories.length} ${histories.length === 1 ? "version" : "versions"}`
-      : undefined;
+    const summaryResult =
+      isCompleted && !isError && histories.length > 0
+        ? `${histories.length} ${histories.length === 1 ? "version" : "versions"}`
+        : undefined;
 
     return (
       <div
@@ -383,10 +387,8 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
           <div
             style={{
               padding: "12px",
-              backgroundColor:
-                "var(--vscode-inputValidation-errorBackground)",
-              border:
-                "1px solid var(--vscode-inputValidation-errorBorder)",
+              backgroundColor: "var(--vscode-inputValidation-errorBackground)",
+              border: "1px solid var(--vscode-inputValidation-errorBorder)",
               borderRadius: "4px",
               color: "var(--vscode-errorForeground)",
               fontSize: "12px",

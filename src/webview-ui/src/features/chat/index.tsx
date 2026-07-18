@@ -70,72 +70,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 }) => {
   // Track render count for performance monitoring
   const renderCountRef = useRef(0);
-  const prevPropsRef = useRef<any>({});
   renderCountRef.current++;
-
-  // DEBUG: Log what caused this render
-  useEffect(() => {
-    const changedProps: string[] = [];
-    const prev = prevPropsRef.current;
-
-    if (prev.currentChat !== currentChat) changedProps.push("currentChat");
-    if (prev.onBack !== onBack) changedProps.push("onBack");
-    if (prev.onLoadConversation !== onLoadConversation)
-      changedProps.push("onLoadConversation");
-    if (prev.initialMessageData !== initialMessageData)
-      changedProps.push("initialMessageData");
-    if (prev.onClearInitialData !== onClearInitialData)
-      changedProps.push("onClearInitialData");
-
-    prevPropsRef.current = {
-      currentChat,
-      onBack,
-      onLoadConversation,
-      initialMessageData,
-      onClearInitialData,
-    };
-  });
-
-  // DEBUG: Track all state changes that could cause re-renders
-  const prevStateRef = useRef<any>({});
-  useEffect(() => {
-    const prev = prevStateRef.current;
-    const changes: string[] = [];
-
-    // Track what changed
-    if (prev.apiUrl !== apiUrl) changes.push(`apiUrl`);
-    if (prev.isApiUrlReady !== isApiUrlReady) changes.push(`isApiUrlReady`);
-    if (prev.currentModel !== currentModel) changes.push(`currentModel`);
-    if (prev.currentAccount !== currentAccount) changes.push(`currentAccount`);
-    if (prev.isSearchOpen !== isSearchOpen) changes.push(`isSearchOpen`);
-    if (prev.searchQuery !== searchQuery) changes.push(`searchQuery`);
-    if (prev.autoScrollPaused !== autoScrollPaused)
-      changes.push(`autoScrollPaused`);
-    if (prev.showProjectStructureDrawer !== showProjectStructureDrawer)
-      changes.push(`showProjectStructureDrawer`);
-    if (prev.showChangesDropdown !== showChangesDropdown)
-      changes.push(`showChangesDropdown`);
-    if (prev.showProjectContextModal !== showProjectContextModal)
-      changes.push(`showProjectContextModal`);
-    if (prev.revertInput !== revertInput) changes.push(`revertInput`);
-    if (prev.loadedConversationFileStats !== loadedConversationFileStats)
-      changes.push(`loadedConversationFileStats`);
-
-    prevStateRef.current = {
-      apiUrl,
-      isApiUrlReady,
-      currentModel,
-      currentAccount,
-      isSearchOpen,
-      searchQuery,
-      autoScrollPaused,
-      showProjectStructureDrawer,
-      showChangesDropdown,
-      showProjectContextModal,
-      revertInput,
-      loadedConversationFileStats,
-    };
-  });
 
   // --- API & Configuration ---
   const { apiUrl, setApiUrl, isApiUrlReady, providers, setProviders } =
@@ -250,70 +185,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       ),
   });
 
-  // DEBUG: Track messages and streaming state changes
-  const prevChatStateRef = useRef<any>({});
-  useEffect(() => {
-    const prev = prevChatStateRef.current;
-    const changes: string[] = [];
-
-    if (prev.messages !== messages)
-      changes.push(`messages (length: ${messages.length})`);
-    if (prev.isProcessing !== isProcessing)
-      changes.push(`isProcessing: ${isProcessing}`);
-    if (prev.isStreaming !== isStreaming)
-      changes.push(`isStreaming: ${isStreaming}`);
-    if (prev.currentConversationId !== currentConversationId)
-      changes.push(`currentConversationId`);
-    if (prev.isContinuing !== isContinuing)
-      changes.push(`isContinuing: ${isContinuing}`);
-
-    prevChatStateRef.current = {
-      messages,
-      isProcessing,
-      isStreaming,
-      currentConversationId,
-      isContinuing,
-    };
-  });
-
-  // DEBUG: Track hook return value changes that might cause re-renders
-  const hookChangesRef = useRef<any>({});
-  useEffect(() => {
-    const prev = hookChangesRef.current;
-    const changes: string[] = [];
-
-    // Track workspace data
-    if (prev.availableFiles !== availableFiles) changes.push("availableFiles");
-    if (prev.availableFolders !== availableFolders)
-      changes.push("availableFolders");
-    if (prev.availableRules !== availableRules) changes.push("availableRules");
-
-    // Track tool execution state
-    if (prev.executionState !== executionState) changes.push("executionState");
-    if (prev.toolOutputs !== toolOutputs) changes.push("toolOutputs");
-    if (prev.terminalStatus !== terminalStatus) changes.push("terminalStatus");
-
-    // Track git operations
-    if (prev.gitStatus !== gitStatus) changes.push("gitStatus");
-    if (prev.gitLoading !== gitLoading) changes.push("gitLoading");
-
-    // Track parsed messages
-    if (prev.parsedMessages !== parsedMessages) changes.push("parsedMessages");
-    if (prev.contextUsage !== contextUsage) changes.push("contextUsage");
-
-    hookChangesRef.current = {
-      availableFiles,
-      availableFolders,
-      availableRules,
-      executionState,
-      toolOutputs,
-      terminalStatus,
-      gitStatus,
-      gitLoading,
-      parsedMessages,
-      contextUsage,
-    };
-  });
+  // Track messages and streaming state - kept for potential future use, but removed heavy logging
+  // (Previously had debug useEffect here - removed for performance)
 
   // --- Workspace Data ---
   const { availableFiles, availableFolders, availableRules } =
@@ -770,7 +643,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   ]);
 
   // Listen for Git commit message detection
+  const prevGitMessagesLengthRef = useRef(0);
   useEffect(() => {
+    // Only run when messages array actually changes (new message added)
+    const currentLength = messages.length;
+    if (currentLength === prevGitMessagesLengthRef.current) {
+      return;
+    }
+    prevGitMessagesLengthRef.current = currentLength;
     handleGitCommitMessageDetected(messages);
   }, [messages, handleGitCommitMessageDetected]);
 
@@ -857,59 +737,113 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       </ChatErrorBoundary>
 
       {/* ─── ChatFooter ─── */}
-      <ChatFooter
-        message={message}
-        setMessage={setMessage}
-        isHistoryMode={isHistoryMode}
-        uploadedFiles={uploadedFiles}
-        attachedItems={attachedItems}
-        textareaRef={textareaRef}
-        handleTextareaChange={handleTextareaChange}
-        handleKeyDown={handleKeyDown}
-        handlePaste={handlePaste}
-        handleDragOver={handleDragOver}
-        handleDrop={handleDrop}
-        setShowAtMenu={setShowAtMenu}
-        handleFileSelect={handleFileSelect}
-        fileInputRef={fileInputRef}
-        onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
-        showChangesDropdown={showChangesDropdown}
-        setShowChangesDropdown={setShowChangesDropdown}
-        messages={messages}
-        handleSend={handleSend}
-        hasProjectContext={!!projectContext}
-        onOpenProjectContext={() => setShowProjectContextModal(true)}
-        folderPath={currentChat?.folderPath || null}
-        isConversationStarted={messages.length > 0 || !!initialMessageData}
-        currentModel={enrichedModel ?? currentModel}
-        setCurrentModel={setCurrentModel}
-        currentAccount={currentAccount}
-        setCurrentAccount={setCurrentAccount}
-        isProcessing={isProcessing || executionState.status === "running"}
-        isStreaming={isStreaming}
-        onStopGeneration={handleStopGeneration}
-        showBrowserWarning={showBrowserWarning}
-        isLaunchingBrowser={isLaunchingBrowser}
-        onLaunchBrowserSession={launchBrowserSession}
-        onGitPullRequest={handleGitPullRequest}
-        gitLoading={gitLoading}
-        isGitStatusVisible={showGitStatusBlock}
-        removeAttachedItem={removeAttachedItem}
-        onOpenImage={handleOpenImage}
-        removeFile={removeFile}
-        externalFileInputRef={externalFileInputRef}
-        handleExternalFileInputChange={handleExternalFileInputChange}
-        handleFileInputChange={handleFileInputChange}
-        footerPaddingBottom={footerPaddingBottom}
-        shouldShowCompressionButton={shouldShowCompressionButton}
-        gitStatus={gitStatus}
-        onOpenGitStatus={() => setShowGitStatusBlock(true)}
-        loadedConversationFileStats={loadedConversationFileStats}
-        onModelSwitch={handleModelSwitch}
-        onRevertConversation={handleRevertConversation}
-        autoScrollPaused={autoScrollPaused}
-        scrollToBottom={scrollToBottomRef.current || undefined}
-      />
+      {useMemo(() => (
+        <ChatFooter
+          message={message}
+          setMessage={setMessage}
+          isHistoryMode={isHistoryMode}
+          uploadedFiles={uploadedFiles}
+          attachedItems={attachedItems}
+          textareaRef={textareaRef}
+          handleTextareaChange={handleTextareaChange}
+          handleKeyDown={handleKeyDown}
+          handlePaste={handlePaste}
+          handleDragOver={handleDragOver}
+          handleDrop={handleDrop}
+          setShowAtMenu={setShowAtMenu}
+          handleFileSelect={handleFileSelect}
+          fileInputRef={fileInputRef}
+          onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}
+          showChangesDropdown={showChangesDropdown}
+          setShowChangesDropdown={setShowChangesDropdown}
+          messages={messages}
+          handleSend={handleSend}
+          hasProjectContext={!!projectContext}
+          onOpenProjectContext={() => setShowProjectContextModal(true)}
+          folderPath={currentChat?.folderPath || null}
+          isConversationStarted={messages.length > 0 || !!initialMessageData}
+          currentModel={enrichedModel ?? currentModel}
+          setCurrentModel={setCurrentModel}
+          currentAccount={currentAccount}
+          setCurrentAccount={setCurrentAccount}
+          isProcessing={isProcessing || executionState.status === "running"}
+          isStreaming={isStreaming}
+          onStopGeneration={handleStopGeneration}
+          showBrowserWarning={showBrowserWarning}
+          isLaunchingBrowser={isLaunchingBrowser}
+          onLaunchBrowserSession={launchBrowserSession}
+          onGitPullRequest={handleGitPullRequest}
+          gitLoading={gitLoading}
+          isGitStatusVisible={showGitStatusBlock}
+          removeAttachedItem={removeAttachedItem}
+          onOpenImage={handleOpenImage}
+          removeFile={removeFile}
+          externalFileInputRef={externalFileInputRef}
+          handleExternalFileInputChange={handleExternalFileInputChange}
+          handleFileInputChange={handleFileInputChange}
+          footerPaddingBottom={footerPaddingBottom}
+          shouldShowCompressionButton={shouldShowCompressionButton}
+          gitStatus={gitStatus}
+          onOpenGitStatus={() => setShowGitStatusBlock(true)}
+          loadedConversationFileStats={loadedConversationFileStats}
+          onModelSwitch={handleModelSwitch}
+          onRevertConversation={handleRevertConversation}
+          autoScrollPaused={autoScrollPaused}
+          scrollToBottom={scrollToBottomRef.current || undefined}
+        />
+      ), [
+        message,
+        setMessage,
+        isHistoryMode,
+        uploadedFiles,
+        attachedItems,
+        textareaRef,
+        handleTextareaChange,
+        handleKeyDown,
+        handlePaste,
+        handleDragOver,
+        handleDrop,
+        setShowAtMenu,
+        handleFileSelect,
+        fileInputRef,
+        showChangesDropdown,
+        setShowChangesDropdown,
+        messages,
+        handleSend,
+        projectContext,
+        currentChat?.folderPath,
+        messages.length,
+        initialMessageData,
+        enrichedModel,
+        currentModel,
+        setCurrentModel,
+        currentAccount,
+        setCurrentAccount,
+        isProcessing,
+        executionState.status,
+        isStreaming,
+        handleStopGeneration,
+        showBrowserWarning,
+        isLaunchingBrowser,
+        launchBrowserSession,
+        handleGitPullRequest,
+        gitLoading,
+        showGitStatusBlock,
+        removeAttachedItem,
+        handleOpenImage,
+        removeFile,
+        externalFileInputRef,
+        handleExternalFileInputChange,
+        handleFileInputChange,
+        footerPaddingBottom,
+        shouldShowCompressionButton,
+        gitStatus,
+        loadedConversationFileStats,
+        handleModelSwitch,
+        handleRevertConversation,
+        autoScrollPaused,
+        scrollToBottomRef.current,
+      ])}
     </div>
   );
 };

@@ -129,7 +129,9 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   };
 
   // Initialize state from questionAnswersProp when it changes (after user submits)
+  const initEffectCountRef = useRef(0);
   useEffect(() => {
+    initEffectCountRef.current += 1;
     if (questionAnswersProp && Object.keys(questionAnswersProp).length > 0) {
       // Pre-fill answers state
       setAnswers(questionAnswersProp);
@@ -186,7 +188,9 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   }, [questionAnswersProp, questions]);
 
   // Auto-resize textareas: expand up to maxHeight (10 lines ~= 240px), shrink when content is deleted
+  const resizeEffectCountRef = useRef(0);
   useEffect(() => {
+    resizeEffectCountRef.current += 1;
     Object.entries(textareaRefs.current).forEach(([key, el]) => {
       if (!el) return;
       // Reset to auto so scrollHeight reflects actual content height

@@ -9,19 +9,19 @@ export const useScrollBehavior = (
   const renderCountRef = useRef(0);
   const scrollCallCountRef = useRef(0);
   const userScrollCountRef = useRef(0);
-  const prevDepsRef = useRef<{ messagesLength: number; lastMessageId: string; lastContentLength: number; isProcessing: boolean }>({
+  const prevDepsRef = useRef<{
+    messagesLength: number;
+    lastMessageId: string;
+    lastContentLength: number;
+    isProcessing: boolean;
+  }>({
     messagesLength: 0,
-    lastMessageId: '',
+    lastMessageId: "",
     lastContentLength: 0,
     isProcessing: false,
   });
 
   renderCountRef.current += 1;
-  
-  console.log('[DEBUG][useScrollBehavior] Render', {
-    renderCount: renderCountRef.current,
-    timestamp: new Date().toISOString(),
-  });
 
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [autoScrollPaused, setAutoScrollPaused] = useState(false);
@@ -30,11 +30,14 @@ export const useScrollBehavior = (
 
   // Track real changes
   const messagesLength = Array.isArray(messages) ? messages.length : 0;
-  const lastMessage = Array.isArray(messages) && messages.length > 0 ? messages[messages.length - 1] : null;
-  const lastMessageId = lastMessage?.id || '';
+  const lastMessage =
+    Array.isArray(messages) && messages.length > 0
+      ? messages[messages.length - 1]
+      : null;
+  const lastMessageId = lastMessage?.id || "";
   const lastContentLength = lastMessage?.content?.length || 0;
 
-  const depsChanged = 
+  const depsChanged =
     prevDepsRef.current.messagesLength !== messagesLength ||
     prevDepsRef.current.lastMessageId !== lastMessageId ||
     prevDepsRef.current.lastContentLength !== lastContentLength ||
@@ -67,14 +70,6 @@ export const useScrollBehavior = (
     }
 
     scrollCallCountRef.current += 1;
-    
-    console.log('[DEBUG][useScrollBehavior] Auto-scroll triggered', {
-      scrollCallCount: scrollCallCountRef.current,
-      autoScrollPaused,
-      messagesLength,
-      lastMessageId,
-      isProcessing,
-    });
 
     autoScrollRafRef.current = requestAnimationFrame(() => {
       autoScrollRafRef.current = null;
@@ -94,7 +89,15 @@ export const useScrollBehavior = (
         autoScrollRafRef.current = null;
       }
     };
-  }, [messagesLength, lastMessageId, lastContentLength, isProcessing, autoScrollPaused, depsChanged, messagesEndRef]);
+  }, [
+    messagesLength,
+    lastMessageId,
+    lastContentLength,
+    isProcessing,
+    autoScrollPaused,
+    depsChanged,
+    messagesEndRef,
+  ]);
 
   // Detect scroll direction
   useEffect(() => {
@@ -111,25 +114,18 @@ export const useScrollBehavior = (
       const atBottom = scrollHeight - scrollTop - clientHeight < 100;
       setIsAtBottom(atBottom);
 
-      console.log('[DEBUG][useScrollBehavior.handleScroll] Scroll event', {
-        scrollTop: scrollTop.toFixed(0),
-        atBottom,
-        isProgrammatic: isProgrammaticScrollRef.current,
-        scrollDirection: scrollTop < lastScrollTop ? 'UP' : 'DOWN'
-      });
-
       // If user scrolled UP (not programmatic), pause auto-scroll
       if (!isProgrammaticScrollRef.current && scrollTop < lastScrollTop) {
         userScrollCountRef.current += 1;
-        console.log('[DEBUG][useScrollBehavior.handleScroll] User scrolled UP, pausing auto-scroll', {
-          userScrollCount: userScrollCountRef.current
-        });
         setAutoScrollPaused(true);
       }
 
       // If user manually scrolled DOWN back to bottom, resume
-      if (atBottom && !isProgrammaticScrollRef.current && scrollTop > lastScrollTop) {
-        console.log('[DEBUG][useScrollBehavior.handleScroll] User scrolled to bottom, resuming auto-scroll');
+      if (
+        atBottom &&
+        !isProgrammaticScrollRef.current &&
+        scrollTop > lastScrollTop
+      ) {
         setAutoScrollPaused(false);
       }
 

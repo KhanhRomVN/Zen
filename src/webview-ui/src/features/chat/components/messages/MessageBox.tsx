@@ -110,13 +110,6 @@ let memoCheckCount = 0;
 const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
   const startTime = performance.now();
   memoCheckCount++;
-  
-  console.log('[DEBUG][MessageBox.memo] Checking props equality', {
-    checkCount: memoCheckCount,
-    messageId: nextProps.message.id,
-    isStreaming: nextProps.isGenerating,
-    timestamp: new Date().toISOString()
-  });
 
   // Return true to SKIP re-render (props are equal)
   // Only re-render if message content, clickedActions, or key props change
@@ -136,14 +129,6 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
       prevProps.clickedActions === nextProps.clickedActions &&
       prevProps.failedActions === nextProps.failedActions &&
       prevProps.rejectedActions === nextProps.rejectedActions;
-    
-    const elapsed = performance.now() - startTime;
-    console.log('[DEBUG][MessageBox.memo] Streaming comparison', {
-      duration: elapsed.toFixed(2) + 'ms',
-      propsEqual: streamingPropsEqual,
-      willRerender: !streamingPropsEqual
-    });
-    
     return streamingPropsEqual;
   }
 
@@ -157,14 +142,6 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
     prevProps.rejectedActions === nextProps.rejectedActions &&
     prevProps.isGenerating === nextProps.isGenerating &&
     prevProps.toolOutputs === nextProps.toolOutputs;
-
-  const elapsed = performance.now() - startTime;
-  console.log('[DEBUG][MessageBox.memo] Full comparison', {
-    duration: elapsed.toFixed(2) + 'ms',
-    propsEqual: propsAreEqual,
-    willRerender: !propsAreEqual
-  });
-
   return propsAreEqual; // true = skip re-render, false = do re-render
 });
 

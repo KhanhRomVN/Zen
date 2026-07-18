@@ -31,12 +31,6 @@ export const useMessageParsing = (
 
   const parsedMessages = useMemo(() => {
     const _startTime = performance.now();
-    console.log('[DEBUG][useMessageParsing] Start parsing', {
-      messageCount: messages.length,
-      isStreaming,
-      timestamp: new Date().toISOString()
-    });
-    
     const cache = parseCacheRef.current;
     const lastStreaming = lastStreamingParseRef.current;
 
@@ -59,11 +53,6 @@ export const useMessageParsing = (
 
     if (existingMessagesUnchanged) {
       //   Reuse ALL previous parsed message objects (stable references!)
-      console.log('[DEBUG][useMessageParsing] Messages unchanged, reusing', {
-        reusedCount: lastParsedLengthRef.current,
-        newCount: messages.length - lastParsedLengthRef.current
-      });
-      
       const reusedMessages = lastParsedResultRef.current.slice(
         0,
         lastParsedLengthRef.current,
@@ -89,10 +78,6 @@ export const useMessageParsing = (
     } else if (messagesOnlyGrew && !existingMessagesUnchanged) {
       // Messages grew but some existing messages changed (e.g., clickedActions updated)
       // Re-parse ALL but try to use object cache for unchanged ones
-      console.log('[DEBUG][useMessageParsing] Messages grew with changes, re-parsing all', {
-        totalCount: messages.length
-      });
-      
       result = messages.map((msg: Message, index: number) => {
         const isLastMessage = index === messages.length - 1;
         const isAssistantStreaming =
@@ -106,12 +91,6 @@ export const useMessageParsing = (
         );
       });
     } else {
-      // Full re-parse (messages array shrank or completely different)
-      console.log('[DEBUG][useMessageParsing] Full re-parse needed', {
-        oldCount: lastParsedLengthRef.current,
-        newCount: messages.length
-      });
-      
       result = messages.map((msg: Message, index: number) => {
         const isLastMessage = index === messages.length - 1;
         const isAssistantStreaming =
@@ -137,16 +116,10 @@ export const useMessageParsing = (
     lastMessagesRef.current = messages; // Store current messages array for next comparison
 
     const _elapsed = performance.now() - _startTime;
-    console.log('[DEBUG][useMessageParsing] Completed', {
-      duration: _elapsed.toFixed(2) + 'ms',
-      messageCount: messages.length,
-      cacheSize: cache.size
-    });
-    
     if (_elapsed > 15) {
-      console.warn('[DEBUG][useMessageParsing] SLOW PARSING', {
-        duration: _elapsed.toFixed(2) + 'ms',
-        messageCount: messages.length
+      console.warn("[DEBUG][useMessageParsing] SLOW PARSING", {
+        duration: _elapsed.toFixed(2) + "ms",
+        messageCount: messages.length,
       });
     }
 
@@ -163,12 +136,6 @@ export const useMessageParsing = (
     // STREAMING FIX: Always parse fresh for streaming messages to ensure
     // letter-by-letter animation works. No cache optimization during streaming.
     if (!isAssistantStreaming && cache.has(msg.content)) {
-      // Only use cache for non-streaming messages
-      console.log('[DEBUG][useMessageParsing.parseMessageWithCache] Cache hit', {
-        messageId: msg.id,
-        contentLength: msg.content.length
-      });
-      
       const parsed = cache.get(msg.content)!;
       const clickedKey = (msg.clickedActions || []).join(",");
       const rejectedKey = (msg.rejectedActions || []).join(",");
@@ -189,22 +156,20 @@ export const useMessageParsing = (
     }
 
     // Parse fresh for streaming or cache miss
-    console.log('[DEBUG][useMessageParsing.parseMessageWithCache] Cache miss or streaming', {
-      messageId: msg.id,
-      isStreaming: isAssistantStreaming,
-      contentLength: msg.content.length
-    });
-    
+
     const parseStart = performance.now();
     const parsed = parseAIResponse(msg.content);
     const parseElapsed = performance.now() - parseStart;
-    
+
     if (parseElapsed > 10) {
-      console.warn('[DEBUG][useMessageParsing.parseMessageWithCache] SLOW MESSAGE PARSE', {
-        duration: parseElapsed.toFixed(2) + 'ms',
-        messageId: msg.id,
-        contentLength: msg.content.length
-      });
+      console.warn(
+        "[DEBUG][useMessageParsing.parseMessageWithCache] SLOW MESSAGE PARSE",
+        {
+          duration: parseElapsed.toFixed(2) + "ms",
+          messageId: msg.id,
+          contentLength: msg.content.length,
+        },
+      );
     }
 
     // Cache the parse result (but always create new object for streaming)

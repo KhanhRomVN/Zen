@@ -7,7 +7,11 @@ import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import DiffSummaryBar from "./DiffSummaryBar";
 import { CompressButton } from "./CompressButton";
-import type { MessageInputProps, UploadedFile, ToggleButtonProps } from "./types";
+import type {
+  MessageInputProps,
+  UploadedFile,
+  ToggleButtonProps,
+} from "./types";
 
 export type { UploadedFile };
 
@@ -157,10 +161,7 @@ const useModelCapabilities = (
   };
 };
 
-const useProvidersConfig = (
-  currentModel: any,
-  providers: any[],
-) => {
+const useProvidersConfig = (currentModel: any, providers: any[]) => {
   const currentProviderConfig = React.useMemo(() => {
     if (!currentModel?.providerId) {
       return null;
@@ -194,8 +195,11 @@ const useTextareaAutoResize = (
   message: string,
 ) => {
   const rafIdRef = React.useRef<number | null>(null);
+  const resizeCountRef = React.useRef(0);
 
   React.useEffect(() => {
+    resizeCountRef.current += 1;
+    const msgLength = message?.length || 0;
     // Cancel any pending resize
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
@@ -205,12 +209,12 @@ const useTextareaAutoResize = (
     rafIdRef.current = requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
-      
+
       el.style.height = "auto";
       const maxHeight = 240;
       el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
       el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
-      
+
       rafIdRef.current = null;
     });
 
@@ -233,7 +237,7 @@ const useModelSelection = (
   const pendingAccountIdRef = React.useRef<string | null>(null);
   const currentModelRef = React.useRef<any>(null);
   const currentAccountRef = React.useRef<any>(null);
-  
+
   currentModelRef.current = currentModel;
   currentAccountRef.current = currentAccount;
 
@@ -865,7 +869,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
     // Sync thinking and search toggles when model changes
     React.useEffect(() => {
-      if (providers.length === 0 || !currentModel) return;
+      if (providers.length === 0 || !currentModel) {
+        return;
+      }
       const hasThinking =
         currentModel?.is_thinking !== undefined
           ? !!currentModel.is_thinking
@@ -930,56 +936,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       }
     }, [providers, currentModel, currentAccount, apiUrl, setCurrentAccount]);
 
-    // 🔍 TRACK PROPS CHANGES - Tìm nguyên nhân re-render
-    const prevPropsRef = React.useRef<any>({});
-    React.useEffect(() => {
-      const prev = prevPropsRef.current;
-      const changes: string[] = [];
-
-      if (prev.message !== message)
-        changes.push(
-          `message (${prev.message?.length || 0} → ${message.length})`,
-        );
-      if (prev.messages !== messages)
-        changes.push(
-          `messages (${prev.messages?.length || 0} → ${messages.length})`,
-        );
-      if (prev.responseRanges !== responseRanges)
-        changes.push(
-          `responseRanges (${prev.responseRanges?.length || 0} → ${responseRanges.length})`,
-        );
-      if (prev.conversationFileStats !== conversationFileStats)
-        changes.push("conversationFileStats");
-      if (prev.isProcessing !== isProcessing)
-        changes.push(`isProcessing (${isProcessing})`);
-      if (prev.isStreaming !== isStreaming)
-        changes.push(`isStreaming (${isStreaming})`);
-      if (prev.currentModel !== currentModel) changes.push("currentModel");
-      if (prev.currentAccount !== currentAccount)
-        changes.push("currentAccount");
-      if (prev.handleTextareaChange !== handleTextareaChange)
-        changes.push("handleTextareaChange [FUNCTION]");
-      if (prev.handleKeyDown !== handleKeyDown)
-        changes.push("handleKeyDown [FUNCTION]");
-      if (prev.handleSend !== handleSend) changes.push("handleSend [FUNCTION]");
-      if (prev.onModelSwitch !== onModelSwitch)
-        changes.push("onModelSwitch [FUNCTION]");
-
-      prevPropsRef.current = {
-        message,
-        messages,
-        responseRanges,
-        conversationFileStats,
-        isProcessing,
-        isStreaming,
-        currentModel,
-        currentAccount,
-        handleTextareaChange,
-        handleKeyDown,
-        handleSend,
-        onModelSwitch,
-      };
-    });
+    // TRACK PROPS CHANGES - removed for performance
 
     return (
       <div
@@ -1849,4 +1806,34 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
   },
 );
 
-export default MessageInput;
+export default React.memo(MessageInput, (prevProps, nextProps) => {
+  // Only re-render when essential props change
+  // Skip re-render when only message length changes (typing)
+  // or when non-essential callbacks change
+  const messageSame = prevProps.message === nextProps.message;
+  const isProcessingSame = prevProps.isProcessing === nextProps.isProcessing;
+  const isStreamingSame = prevProps.isStreaming === nextProps.isStreaming;
+  const currentModelSame =
+    prevProps.currentModel?.id === nextProps.currentModel?.id;
+  const currentAccountSame =
+    prevProps.currentAccount?.id === nextProps.currentAccount?.id;
+  const messagesLengthSame =
+    prevProps.messages?.length === nextProps.messages?.length;
+  const responseRangesSame =
+    prevProps.responseRanges?.length === nextProps.responseRanges?.length;
+  const conversationFileStatsSame =
+    prevProps.conversationFileStats === nextProps.conversationFileStats;
+
+  // Only re-render if critical props changed
+  const shouldSkip =
+    messageSame &&
+    isProcessingSame &&
+    isStreamingSame &&
+    currentModelSame &&
+    currentAccountSame &&
+    messagesLengthSame &&
+    responseRangesSame &&
+    conversationFileStatsSame;
+
+  return shouldSkip;
+});
