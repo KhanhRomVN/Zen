@@ -473,7 +473,11 @@ export const useChatLLM = ({
                 });
               },
               onContent: (content) => {
-                // Update UI with batched content - use the message ID we created
+                // Update UI with batched content
+                // In Performance Mode: this is called ONCE at the end with full content
+                // In Normal Mode: this is called multiple times during streaming
+                const isPerformanceModeActive = isPerformanceMode;
+
                 setMessages((prev) => {
                   const targetIndex = prev.findIndex(
                     (m) => m.id === assistantMessageId,
@@ -481,11 +485,19 @@ export const useChatLLM = ({
                   if (targetIndex === -1) return prev;
 
                   const currentMessage = prev[targetIndex];
-                  const updatedMessage = {
-                    ...currentMessage,
-                    content: currentMessage.content + content,
-                  };
 
+                  // Performance Mode: Replace content and clear thinking
+                  // Normal Mode: Append content
+                  const updatedMessage = isPerformanceModeActive
+                    ? {
+                        ...currentMessage,
+                        content: content, // Replace with full parsed content
+                        thinking: undefined, // Clear thinking field after parsing
+                      }
+                    : {
+                        ...currentMessage,
+                        content: currentMessage.content + content, // Append for streaming
+                      };
                   const newArray = prev.slice();
                   newArray[targetIndex] = updatedMessage;
                   return newArray;
@@ -575,7 +587,6 @@ export const useChatLLM = ({
             .filter(Boolean)
             .join(" ");
 
-          const responseNum = (assistantMessage as any).response_number || "?";
           console.log("[Raw Content]:", assistantMessage.content);
         } catch (parseError) {
           hasParsingError = true;

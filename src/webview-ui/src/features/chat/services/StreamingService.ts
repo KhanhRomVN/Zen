@@ -217,12 +217,14 @@ export class StreamingService {
               ) {
                 // In performance mode, send to onRawContent for ThinkingBlock display
                 if (isPerformanceMode) {
-                  if (updateBatch.content)
+                  if (updateBatch.content) {
                     callbacks.onRawContent?.(updateBatch.content);
+                  }
                 } else {
                   // Normal mode: parse as we stream
-                  if (updateBatch.content)
+                  if (updateBatch.content) {
                     callbacks.onContent?.(updateBatch.content);
+                  }
                 }
 
                 if (updateBatch.thinking)

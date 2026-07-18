@@ -1631,7 +1631,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     transition: "all 0.2s ease-in-out",
                     border: "none",
                     background: isStreaming
-                      ? "rgba(128, 128, 128, 0.05)"
+                      ? // Disabled state - different colors for ON vs OFF
+                        isPerformanceMode
+                        ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #eab308) 8%, transparent)" // Disabled when ON
+                        : "rgba(128, 128, 128, 0.05)" // Disabled when OFF
                       : isPerformanceMode
                         ? isPerformanceHovered
                           ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #eab308) 20%, transparent)"
@@ -1640,12 +1643,15 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                           ? "rgba(128, 128, 128, 0.2)"
                           : "rgba(128, 128, 128, 0.12)",
                     color: isStreaming
-                      ? "var(--vscode-descriptionForeground, #8c8c8c)"
+                      ? // Disabled state - different colors for ON vs OFF
+                        isPerformanceMode
+                        ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #eab308) 60%, var(--vscode-descriptionForeground, #8c8c8c))" // Faded yellow when ON
+                        : "var(--vscode-descriptionForeground, #8c8c8c)" // Gray when OFF
                       : isPerformanceMode
                         ? "var(--vscode-editorBracketHighlight-foreground4, #eab308)"
                         : "var(--vscode-foreground)",
                     opacity: isStreaming
-                      ? 0.4
+                      ? 0.5 // Consistent opacity for disabled state
                       : isPerformanceMode
                         ? 1
                         : isPerformanceHovered

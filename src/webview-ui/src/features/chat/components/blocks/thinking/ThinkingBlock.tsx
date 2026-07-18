@@ -14,6 +14,8 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Virtual scrolling configuration
   const LINE_HEIGHT = 18; // 12px font * 1.5 line-height
@@ -25,7 +27,7 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
   const totalLines = lines.length;
 
   // Calculate visible range with virtual scrolling
-  const { startIndex, endIndex, visibleLines, offsetY } = useMemo(() => {
+  const { visibleLines, offsetY } = useMemo(() => {
     const viewportLines = Math.ceil(maxHeightPx / LINE_HEIGHT);
     const scrollLines = Math.floor(scrollTop / LINE_HEIGHT);
     
@@ -40,18 +42,50 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
     };
   }, [scrollTop, lines, totalLines, maxHeightPx]);
 
-  // Auto-scroll to bottom when streaming
+  // Auto-scroll to bottom when streaming NEW content
   useEffect(() => {
-    if (isStreaming && containerRef.current) {
+    if (isStreaming && containerRef.current && !isUserScrolling) {
+      // Smooth scroll to bottom
       const maxScroll = Math.max(0, totalLines * LINE_HEIGHT - maxHeightPx);
       containerRef.current.scrollTop = maxScroll;
     }
-  }, [content, isStreaming, totalLines, maxHeightPx]);
+  }, [content, isStreaming, totalLines, maxHeightPx, isUserScrolling]);
 
-  // Handle scroll event
+  // Handle scroll event - detect user manual scroll
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
+    const target = e.currentTarget;
+    const newScrollTop = target.scrollTop;
+    setScrollTop(newScrollTop);
+
+    // Detect if user is manually scrolling up (away from bottom)
+    const maxScroll = Math.max(0, totalLines * LINE_HEIGHT - maxHeightPx);
+    const isNearBottom = maxScroll - newScrollTop < 50; // Within 50px of bottom
+
+    if (!isNearBottom) {
+      setIsUserScrolling(true);
+      
+      // Clear existing timeout
+      if (autoScrollTimeoutRef.current) {
+        clearTimeout(autoScrollTimeoutRef.current);
+      }
+
+      // Resume auto-scroll after 2 seconds of no scrolling
+      autoScrollTimeoutRef.current = setTimeout(() => {
+        setIsUserScrolling(false);
+      }, 2000);
+    } else {
+      setIsUserScrolling(false);
+    }
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (autoScrollTimeoutRef.current) {
+        clearTimeout(autoScrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div

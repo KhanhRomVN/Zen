@@ -190,7 +190,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, [isPerformanceMode]);
 
-  // --- Chat LLM Hook ---
   const {
     messages,
     setMessages,
