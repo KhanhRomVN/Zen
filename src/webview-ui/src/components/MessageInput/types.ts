@@ -57,7 +57,7 @@ export interface MessageInputProps {
   onReviewClick?: () => void;
   responseRange?: { start: number; end: number } | null;
   responseRanges?: Array<{
-    start: number;
+    start: number;  
     end: number;
     isCurrent: boolean;
     fileChanges: Map<

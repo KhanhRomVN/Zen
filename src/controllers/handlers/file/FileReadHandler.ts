@@ -119,7 +119,7 @@ export class FileReadHandler {
 
       if (!shouldSkipDiagnostics) {
         await this.ensureFileOpened(absPath);
-        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 300000);
+        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000); // 50 giây - phù hợp với 60s timeout frontend
       }
 
       let content = "";

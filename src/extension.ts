@@ -124,6 +124,6 @@ export async function activate(extContext: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  activeProvider?.getProcessManager().stopAll();
+  activeProvider?.getProcessManager().dispose();
   activeProvider = null;
 }

@@ -99,6 +99,9 @@ export class FileHandler {
   public async handleRevertFile(message: any, webviewView: vscode.WebviewView) {
     return this.operationHandler.handleRevertFile(message, webviewView);
   }
+  public async handleViewReplaceHistory(message: any, webviewView: vscode.WebviewView) {
+    return this.operationHandler.handleViewReplaceHistory(message, webviewView);
+  }
   public async handleGetSnapshot(
     message: any,
     webviewView: vscode.WebviewView,

@@ -70,16 +70,6 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
     return responseRange ? `(${responseRange.start}-${responseRange.end})` : "";
   }, [responseRange, responseRanges]);
 
-  // Track render time
-  React.useEffect(() => {
-    const renderTime = performance.now() - renderStartTime;
-    if (renderTime > 16) {
-      console.warn(
-        `[DiffSummaryBar] ⚠️ Slow render: ${renderTime.toFixed(2)}ms`,
-      );
-    }
-  });
-
   const handleReviewClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);

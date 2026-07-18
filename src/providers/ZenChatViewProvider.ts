@@ -21,6 +21,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _fileLockManager: FileLockManager;
   private _recentItemsManager?: RecentItemsManager;
 
+  // Throttle terminal list updates to reduce redundant messages
+  private terminalListUpdateTimer: NodeJS.Timeout | null = null;
+  private readonly TERMINAL_LIST_UPDATE_DELAY = 100; // ms
+
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _contextManager: ContextManager,
@@ -137,11 +141,18 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
     // Listen for Terminal Changes
     this._processManager.onTerminalsChanged(() => {
-      const terminals = this._processManager.list();
-      webviewView.webview.postMessage({
-        command: "listTerminalsResult",
-        terminals,
-      });
+      // Debounce terminal list updates
+      if (this.terminalListUpdateTimer) {
+        clearTimeout(this.terminalListUpdateTimer);
+      }
+      this.terminalListUpdateTimer = setTimeout(() => {
+        const terminals = this._processManager.list();
+        webviewView.webview.postMessage({
+          command: "listTerminalsResult",
+          terminals,
+        });
+        this.terminalListUpdateTimer = null;
+      }, this.TERMINAL_LIST_UPDATE_DELAY);
     });
 
     // Listen for real-time terminal data
@@ -175,6 +186,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.onDidDispose(() => {
       themeDisposable.dispose();
       cmdFinishedDisposable.dispose();
+      if (this.terminalListUpdateTimer) {
+        clearTimeout(this.terminalListUpdateTimer);
+        this.terminalListUpdateTimer = null;
+      }
     });
   }
 

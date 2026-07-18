@@ -60,6 +60,8 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   // Ref to track summary mode across re-renders and re-mounts (giống cách TerminalBlock track state)
   const isSummaryModeRef = useRef(false);
   const logPrefix = useRef(`[Zen][QuestionAnswerBlock]`);
+  // Guard to prevent multiple onAllAnswered calls
+  const hasSubmittedRef = useRef(false);
 
   // Refs for auto-resizing textareas
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
@@ -304,7 +306,14 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
       } else {
         // Switch to summary mode immediately when all questions are answered
         setIsSummaryMode(true);
-        onAllAnsweredProp?.(newAnswers);
+        // Guard: prevent multiple submissions
+        if (!hasSubmittedRef.current) {
+          console.log(`[Zen][QuestionBlock] Submitting all answers (handleTextSubmit)`);
+          hasSubmittedRef.current = true;
+          onAllAnsweredProp?.(newAnswers);
+        } else {
+          console.warn(`[Zen][QuestionBlock] Blocked duplicate submission (handleTextSubmit)`);
+        }
       }
     }, 300);
   };

@@ -27,7 +27,7 @@ export class CheckpointManager {
 
   public setActiveConversationId(conversationId: string | null) {
     this.activeConversationId = conversationId;
-  }
+  } 
 
   public getActiveConversationId(): string | null {
     return this.activeConversationId;

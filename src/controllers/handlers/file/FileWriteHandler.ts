@@ -6,6 +6,7 @@ import * as os from "os";
 import { FileLockManager } from "../../../managers/FileLockManager";
 import { CheckpointManager } from "../../../managers/CheckpointManager";
 import { SnapshotManager } from "../../../managers/SnapshotManager";
+import { ReplaceInFileHistoryManager } from "../../../managers/ReplaceInFileHistoryManager";
 import { SecurityValidator } from "../../../agent/validators/SecurityValidator";
 import { FuzzyMatcher } from "../../../utils/FuzzyMatcher";
 import { LoggerService } from "../../../services/LoggerService";
@@ -117,7 +118,7 @@ export class FileWriteHandler {
   private async waitForDiagnosticsWithFallback(
     uri: vscode.Uri,
     pathValue: string,
-    maxTimeoutMs: number = 30000,
+    maxTimeoutMs: number = 50000, // 50 giây - đủ buffer trong 1 phút timeout của frontend
   ): Promise<void> {
     return new Promise<void>((resolve) => {
       const fallbackTimeout = 2000;
@@ -233,7 +234,7 @@ export class FileWriteHandler {
             const doc = await vscode.workspace.openTextDocument(absolutePath);
             await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
           } catch {}
-          await this.waitForDiagnosticsWithFallback(absolutePath, pathValue, 30000);
+          await this.waitForDiagnosticsWithFallback(absolutePath, pathValue, 50000); // 50 giây
         }
         webviewView.webview.postMessage({
           command: "writeFileResult",
@@ -384,27 +385,47 @@ export class FileWriteHandler {
     }
     release();
 
+    // Lấy diagnostics trước khi gửi response
+    let diagnostics: Array<{
+      severity: string;
+      message: string;
+      line: number;
+      column: number;
+      source?: string;
+      code?: string | number;
+    }> = [];
+
     if (!message.skipDiagnostics) {
       if (!this.isNonCodeFile(pathValue)) {
         try { await vscode.workspace.openTextDocument(absPath); } catch {}
-        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 30000);
+        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000); // 50 giây
       }
-      webviewView.webview.postMessage({
-        command: "replaceInFileResult",
-        requestId: message.requestId,
-        path: message.path,
-        success: true,
-        diagnostics: this.getDiagnosticsForFile(absPath),
-        content: newContent,
-      });
-    } else {
-      webviewView.webview.postMessage({
-        command: "replaceInFileResult",
-        requestId: message.requestId,
-        path: message.path,
-        success: true,
-        diagnostics: [],
-      });
+      diagnostics = this.getDiagnosticsForFile(absPath);
     }
+
+    // Lưu lịch sử replace_in_file thành công
+    if (message.conversationId && newContent !== undefined) {
+      const errorCount = diagnostics.filter((d) => d.severity === "Error").length;
+      const warningCount = diagnostics.filter((d) => d.severity === "Warning").length;
+      
+      const historyManager = ReplaceInFileHistoryManager.getInstance();
+      historyManager.setActiveConversationId(message.conversationId);
+      await historyManager.saveHistory(
+        absPath.fsPath,
+        newContent,
+        errorCount,
+        warningCount,
+      );
+    }
+
+    // Gửi response
+    webviewView.webview.postMessage({
+      command: "replaceInFileResult",
+      requestId: message.requestId,
+      path: message.path,
+      success: true,
+      diagnostics: diagnostics,
+      content: newContent,
+    });
   }
 }

@@ -249,6 +249,12 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
         case "move_file":
           return "✓ File moved successfully";
 
+        case "view_replace_history":
+          if (tooltipMeta?.fileCount) {
+            return `✓ Found ${tooltipMeta.fileCount} ${tooltipMeta.fileCount === 1 ? "version" : "versions"}`;
+          }
+          return "✓ History loaded successfully";
+
         case "run_command":
           return "✓ Command executed successfully";
 

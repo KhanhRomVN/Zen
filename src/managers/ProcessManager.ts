@@ -91,6 +91,14 @@ export class ProcessManager {
   }>();
   public onTerminalStatusChanged = this.onTerminalStatusChangedEmitter.event;
 
+  // Throttle terminal data events to reduce IPC overhead
+  private dataBuffers = new Map<string, { data: string; timer: NodeJS.Timeout | null }>();
+  private readonly DATA_FLUSH_INTERVAL = 100; // ms
+
+  // Debounce terminals changed events
+  private terminalsChangedTimer: NodeJS.Timeout | null = null;
+  private readonly TERMINALS_CHANGED_DEBOUNCE = 50; // ms
+
   public setProjectDir(_dir: string) {}
   public setExtensionContext(_ctx: vscode.ExtensionContext) {}
 
@@ -116,8 +124,49 @@ export class ProcessManager {
       isLongRunning: false,
     };
     this.terminalMap.set(id, entry);
-    this.onTerminalsChangedEmitter.fire();
+    this.fireTerminalsChanged();
     return { id, name };
+  }
+
+  private fireTerminalsChanged() {
+    if (this.terminalsChangedTimer) {
+      clearTimeout(this.terminalsChangedTimer);
+    }
+    this.terminalsChangedTimer = setTimeout(() => {
+      this.onTerminalsChangedEmitter.fire();
+      this.terminalsChangedTimer = null;
+    }, this.TERMINALS_CHANGED_DEBOUNCE);
+  }
+
+  private flushDataBuffer(terminalId: string) {
+    const buffer = this.dataBuffers.get(terminalId);
+    if (!buffer || !buffer.data) return;
+
+    this.onDidWriteDataEmitter.fire({
+      terminalId,
+      data: buffer.data,
+    });
+    
+    buffer.data = "";
+    buffer.timer = null;
+  }
+
+  private bufferTerminalData(terminalId: string, data: string) {
+    let buffer = this.dataBuffers.get(terminalId);
+    if (!buffer) {
+      buffer = { data: "", timer: null };
+      this.dataBuffers.set(terminalId, buffer);
+    }
+
+    buffer.data += data;
+
+    if (buffer.timer) {
+      clearTimeout(buffer.timer);
+    }
+
+    buffer.timer = setTimeout(() => {
+      this.flushDataBuffer(terminalId);
+    }, this.DATA_FLUSH_INTERVAL);
   }
 
   sendInput(id: string, commandText: string, actionId?: string) {
@@ -157,7 +206,7 @@ export class ProcessManager {
       terminalId: id,
       status: "busy",
     });
-    this.onTerminalsChangedEmitter.fire();
+    this.fireTerminalsChanged();
 
     entry.writeEmitter.fire(`$ ${cleanCmd}\r\n`);
 
@@ -176,7 +225,8 @@ export class ProcessManager {
           entry.output.length - MAX_OUTPUT / 2,
         );
       }
-      this.onDidWriteDataEmitter.fire({ terminalId: id, data: clean });
+      // Buffer data instead of firing immediately
+      this.bufferTerminalData(id, clean);
     };
 
     child.stdout!.on("data", onData);
@@ -190,6 +240,9 @@ export class ProcessManager {
 
     const tryFinish = () => {
       if (!processClosed || !stdoutEnded || !stderrEnded) return;
+
+      // Flush any remaining buffered data before finishing
+      this.flushDataBuffer(id);
 
       entry.process = null;
       entry.isBusy = false;
@@ -210,7 +263,7 @@ export class ProcessManager {
         terminalId: id,
         status: "free",
       });
-      this.onTerminalsChangedEmitter.fire();
+      this.fireTerminalsChanged();
 
       // Auto-cleanup after command finishes to free resources
       this._cleanup(id);
@@ -233,6 +286,7 @@ export class ProcessManager {
 
     child.on("error", (err) => {
       entry.writeEmitter.fire(`Error: ${err.message}\r\n`);
+      this.flushDataBuffer(id);
       entry.process = null;
       entry.isBusy = false;
       if (actionId) {
@@ -252,7 +306,7 @@ export class ProcessManager {
         terminalId: id,
         status: "free",
       });
-      this.onTerminalsChangedEmitter.fire();
+      this.fireTerminalsChanged();
       this._cleanup(id);
     });
   }
@@ -260,9 +314,17 @@ export class ProcessManager {
   private _cleanup(id: string) {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
+    
+    // Clear any pending data buffer
+    const buffer = this.dataBuffers.get(id);
+    if (buffer?.timer) {
+      clearTimeout(buffer.timer);
+    }
+    this.dataBuffers.delete(id);
+    
     entry.writeEmitter.dispose();
     this.terminalMap.delete(id);
-    this.onTerminalsChangedEmitter.fire();
+    this.fireTerminalsChanged();
   }
 
   attachToVSCode(_id: string) {}
@@ -291,6 +353,9 @@ export class ProcessManager {
   stop(id: string) {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
+    
+    this.flushDataBuffer(id);
+    
     if (entry.process) {
       try {
         if (os.platform() === "win32") {
@@ -316,13 +381,16 @@ export class ProcessManager {
       terminalId: id,
       status: "free",
     });
-    this.onTerminalsChangedEmitter.fire();
+    this.fireTerminalsChanged();
     this._cleanup(id);
   }
 
   close(id: string) {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
+    
+    this.flushDataBuffer(id);
+    
     if (entry.process) {
       try {
         if (os.platform() === "win32") {
@@ -333,13 +401,45 @@ export class ProcessManager {
       } catch (_) {}
     }
     entry.writeEmitter.dispose();
+    
+    // Clear buffer
+    const buffer = this.dataBuffers.get(id);
+    if (buffer?.timer) {
+      clearTimeout(buffer.timer);
+    }
+    this.dataBuffers.delete(id);
+    
     this.terminalMap.delete(id);
-    this.onTerminalsChangedEmitter.fire();
+    this.fireTerminalsChanged();
   }
 
   stopAll() {
     for (const id of [...this.terminalMap.keys()]) {
       this.close(id);
     }
+  }
+
+  dispose() {
+    // Clear all timers
+    if (this.terminalsChangedTimer) {
+      clearTimeout(this.terminalsChangedTimer);
+      this.terminalsChangedTimer = null;
+    }
+
+    for (const buffer of this.dataBuffers.values()) {
+      if (buffer.timer) {
+        clearTimeout(buffer.timer);
+      }
+    }
+    this.dataBuffers.clear();
+
+    // Stop all terminals
+    this.stopAll();
+
+    // Dispose all event emitters
+    this.onTerminalsChangedEmitter.dispose();
+    this.onCommandFinishedEmitter.dispose();
+    this.onDidWriteDataEmitter.dispose();
+    this.onTerminalStatusChangedEmitter.dispose();
   }
 }

@@ -159,6 +159,9 @@ export class ChatController {
         case "revertFile":
           await this.fileHandler.handleRevertFile(message, webviewView);
           break;
+        case "viewReplaceHistory":
+          await this.fileHandler.handleViewReplaceHistory(message, webviewView);
+          break;
         case "listFiles":
           await this.fileHandler.handleListFiles(message, webviewView);
           break;

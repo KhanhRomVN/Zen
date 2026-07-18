@@ -159,7 +159,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
       "RevertInfile",
       "revertfile",
       "REVERTFILE",
-      "Revert_File",
+      "Revert_File",  
       "REVERT_FILE",
     ],
     label: "Revert",
@@ -170,6 +170,37 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     defaultPermission: "prompt",
     timeout: 10000,
     tags: ["file", "undo"],
+    attributeAliases: {
+      path: [
+        "filePath",
+        "file_path",
+        "FilePath",
+        "File_Path",
+        "FILE_PATH",
+        "filepath",
+      ],
+    },
+  },
+
+  view_replace_history: {
+    type: "view_replace_history",
+    variants: [
+      "viewReplaceHistory",
+      "ViewReplaceHistory",
+      "view_Replace_History",
+      "viewreplacehistory",
+      "VIEWREPLACEHISTORY",
+      "View_Replace_History",
+      "VIEW_REPLACE_HISTORY",
+    ],
+    label: "History",
+    color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+    category: "read",
+    requiresConfirmation: false,
+    isClickable: true,
+    defaultPermission: "prompt",
+    timeout: 10000,
+    tags: ["file", "history"],
     attributeAliases: {
       path: [
         "filePath",
@@ -625,6 +656,7 @@ export type ExecutableToolType =
   | "write_to_file"
   | "replace_in_file"
   | "revert_file"
+  | "view_replace_history"
   | "list_files"
   | "find_files"
   | "run_command"

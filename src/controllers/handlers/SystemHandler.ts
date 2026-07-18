@@ -37,7 +37,6 @@ export class SystemHandler {
   }
 
   public async updateTheme(webview: vscode.Webview) {
-    await new Promise((resolve) => setTimeout(resolve, 150));
     const theme = vscode.window.activeColorTheme;
     const themeKind = theme.kind;
     const colorTheme =

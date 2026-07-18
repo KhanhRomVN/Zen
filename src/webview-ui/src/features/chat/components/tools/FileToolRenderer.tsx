@@ -341,7 +341,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         .slice(allMessages.findIndex((m) => m.id === messageId) + 1)
         .find((m) => m.role === "user")
     : undefined;
-
+  
   const isWriteOrEditTool =
     toolType === "delete_file" ||
     toolType === "delete_folder" ||

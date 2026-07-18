@@ -15,6 +15,7 @@ import { parseDeleteFile } from "./parsers/DeleteFileParser";
 import { parseDeleteFolder } from "./parsers/DeleteFolderParser";
 import { parseMoveFile } from "./parsers/MoveFileParser";
 import { parseRevertFile } from "./parsers/RevertFileParser";
+import { parseViewReplaceHistory } from "./parsers/ViewReplaceHistoryParser";
 import { parseRunCommand } from "./parsers/RunCommandParser";
 import { parseGitStatus } from "./parsers/GitStatusParser";
 import { parseGitDiff } from "./parsers/GitDiffParser";
@@ -519,7 +520,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           // VALIDATION: Only push question block if it has valid content
           // Skip empty questions to avoid showing empty outline boxes during streaming
           const hasValidContent = options.length > 0 || questions.length > 0;
-          
+
           if (hasValidContent) {
             // Build the question block
             const qBlock: ContentBlock = {
@@ -587,11 +588,16 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             case "move_file": {
               const params = parseMoveFile(innerContent || "");
               action = { type: "move_file" as const, params, rawXml };
-              break;
+              break;  
             }
             case "revert_file": {
               const params = parseRevertFile(innerContent || "");
               action = { type: "revert_file" as const, params, rawXml };
+              break;
+            }
+            case "view_replace_history": {
+              const params = parseViewReplaceHistory(innerContent || "");
+              action = { type: "view_replace_history" as const, params, rawXml };
               break;
             }
             case "run_command": {
@@ -884,14 +890,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               result.contentBlocks.push({ type: "tool", action, actionIndex });
               result.actions.push(action);
               break;
-            } else {
-              console.warn(
-                "[Zen][ResponseParser] ⚠️ Grep recovery failed: no search_term or pattern found",
-              );
-              console.warn(
-                "[Zen][ResponseParser] innerContent preview:",
-                innerContent?.substring(0, 300),
-              );
             }
           }
 
@@ -1120,9 +1118,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   // 🛡️ DETECT ONLY-THINKING RESPONSE (fallback mechanism)
   // If response has thinking blocks BUT no other content or tools, mark it
-  const hasThinkingBlocks = thinkingBlocks.length > 0 || unclosedThinkingContent;
-  const hasOtherContent = result.contentBlocks.length > 0 || result.actions.length > 0;
-  
+  const hasThinkingBlocks =
+    thinkingBlocks.length > 0 || unclosedThinkingContent;
+  const hasOtherContent =
+    result.contentBlocks.length > 0 || result.actions.length > 0;
+
   if (hasThinkingBlocks && !hasOtherContent && content.trim().length > 100) {
     // Only mark if content is substantial (> 100 chars) to avoid false positives during streaming
     result.onlyThinkingDetected = true;
@@ -1131,11 +1131,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       hasUnclosedThinking: !!unclosedThinkingContent,
       contentLength: content.length,
     });
-  }
-
-  const _parseElapsed = performance.now() - _parseStartTime;
-  if (_parseElapsed > 10 || content.length > 5000) {
-    console.warn(`[ResponseParser] parseAIResponse - contentLen: ${content.length}, blocks: ${result.contentBlocks.length}, actions: ${result.actions.length}, thinkingBlocks: ${thinkingBlocks.length}, time: ${_parseElapsed.toFixed(1)}ms`);
   }
 
   return result;

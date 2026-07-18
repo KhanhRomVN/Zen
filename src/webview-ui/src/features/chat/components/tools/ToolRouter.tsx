@@ -18,6 +18,7 @@ import { ToolHeader } from "./ToolHeader";
 import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
 import { ToolOutputs } from "../../types/tool-outputs";
 import ContextCompressionBlock from "../blocks/context_compression/ContextCompressionBlock";
+import FileIcon from "@/icons/FileIcon";
 
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
@@ -268,6 +269,140 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   const toolColor = getToolColor(toolType);
   const clickableTools = CLICKABLE_TOOLS;
   const isFileTool = checkIsFileTool(toolType);
+
+  // Handle view_replace_history BEFORE isFileTool check
+  if (toolType === "view_replace_history") {
+    const filePath = firstAction.params.file_path || firstAction.params.path || "";
+    const actionIndex = group[0].index;
+    const actionId = `${messageId}-action-${actionIndex}`;
+    const outputData = toolOutputs?.[actionId];
+    const isError = outputData?.isError || false;
+    const isCompleted = !!outputData && !firstAction.isPartial;
+
+    // Determine color based on status
+    const historyColor = isError
+      ? "var(--vscode-errorForeground, #ff4d4d)"
+      : isCompleted
+        ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+        : getToolColor("view_replace_history");
+
+    // Parse histories from output
+    let histories: any[] = [];
+    try {
+      if (outputData?.output && typeof outputData.output === "string") {
+        if (outputData.output === "No history") {
+          histories = [];
+        } else {
+          histories = JSON.parse(outputData.output);
+        }
+      }
+    } catch (e) {
+      // Ignore parse error - histories will remain empty array
+    }
+
+    // Summary result for ToolHeader
+    const summaryResult = isCompleted && !isError && histories.length > 0
+      ? `${histories.length} ${histories.length === 1 ? "version" : "versions"}`
+      : undefined;
+
+    return (
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+          marginBottom: isLastItemInList ? "0" : "8px",
+        }}
+      >
+        <ToolHeader
+          title={
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                color: "var(--vscode-editor-foreground)",
+              }}
+            >
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>HISTORY</span>
+              <span style={{ display: "flex", alignItems: "center" }}>
+                <FileIcon
+                  path={filePath}
+                  isFolder={false}
+                  style={{ width: "16px", height: "16px" }}
+                />
+              </span>
+              <span
+                style={{
+                  fontFamily: "var(--vscode-editor-font-family, monospace)",
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  opacity: 0.9,
+                }}
+              >
+                {filePath.split("/").pop() || filePath}
+              </span>
+              {firstAction.isPartial && (
+                <span
+                  style={{
+                    fontSize: "10px",
+                    opacity: 0.55,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <span
+                    className="codicon codicon-loading codicon-modifier-spin"
+                    style={{ fontSize: "10px" }}
+                  />
+                  Loading...
+                </span>
+              )}
+              {summaryResult && (
+                <span
+                  style={{
+                    opacity: 0.5,
+                    fontSize: "10px",
+                    color: "var(--vscode-descriptionForeground)",
+                  }}
+                >
+                  {summaryResult}
+                </span>
+              )}
+            </div>
+          }
+          path={filePath}
+          statusColor={historyColor}
+          isPartial={firstAction.isPartial}
+          isError={isError}
+          toolType="view_replace_history"
+          tooltipMeta={{
+            fileCount: histories.length,
+          }}
+        />
+        {isError && (
+          <div
+            style={{
+              padding: "12px",
+              backgroundColor:
+                "var(--vscode-inputValidation-errorBackground)",
+              border:
+                "1px solid var(--vscode-inputValidation-errorBorder)",
+              borderRadius: "4px",
+              color: "var(--vscode-errorForeground)",
+              fontSize: "12px",
+              marginTop: "8px",
+            }}
+          >
+            {outputData?.output || "Failed to load history"}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (toolType === "write_to_file") {
     const action = firstAction;

@@ -1,24 +1,707 @@
 import React from "react";
 import { PlusIcon, SendIcon } from "@/icons/Icon";
-import { X, GitPullRequestArrow } from "lucide-react";
+import { X, GitPullRequestArrow, Zap, ShieldCheck, Eye } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import DiffSummaryBar from "./DiffSummaryBar";
-import { ThinkingButton, SearchButton, MemoryButton } from "./ToggleButtons";
 import { CompressButton } from "./CompressButton";
-import { GlobalPermissionButton } from "./GlobalPermissionButton";
-import {
-  useToggleState,
-  useModelCapabilities,
-  useProvidersConfig,
-  useTextareaAutoResize,
-  useModelSelection,
-} from "./hooks";
-import type { MessageInputProps, UploadedFile } from "./types";
+import type { MessageInputProps, UploadedFile, ToggleButtonProps } from "./types";
 
 export type { UploadedFile };
+
+// ============================================================================
+// ICONS
+// ============================================================================
+
+const BrainCogIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="lucide lucide-brain-cog-icon lucide-brain-cog"
+  >
+    <path d="m10.852 14.772-.383.923" />
+    <path d="m10.852 9.228-.383-.923" />
+    <path d="m13.148 14.772.382.924" />
+    <path d="m13.531 8.305-.383.923" />
+    <path d="m14.772 10.852.923-.383" />
+    <path d="m14.772 13.148.923.383" />
+    <path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 0 0-5.63-1.446 3 3 0 0 0-.368 1.571 4 4 0 0 0-2.525 5.771" />
+    <path d="M17.998 5.125a4 4 0 0 1 2.525 5.771" />
+    <path d="M19.505 10.294a4 4 0 0 1-1.5 7.706" />
+    <path d="M4.032 17.483A4 4 0 0 0 11.464 20c.18-.311.892-.311 1.072 0a4 4 0 0 0 7.432-2.516" />
+    <path d="M4.5 10.291A4 4 0 0 0 6 18" />
+    <path d="M6.002 5.125a3 3 0 0 0 .4 1.375" />
+    <path d="m9.228 10.852-.923-.383" />
+    <path d="m9.228 13.148-.923.383" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const GlobeIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="lucide lucide-globe-icon lucide-globe"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+    <path d="M2 12h20" />
+  </svg>
+);
+
+const MemoryIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="lucide lucide-database-icon lucide-database"
+  >
+    <ellipse cx="12" cy="5" rx="9" ry="3" />
+    <path d="M3 12a9 3 0 0 0 18 0" />
+    <path d="M3 5v14a9 3 0 0 0 18 0V5" />
+  </svg>
+);
+
+// ============================================================================
+// CUSTOM HOOKS
+// ============================================================================
+
+const useToggleState = (key: string, defaultValue: boolean = false) => {
+  const [state, setState] = React.useState(() => {
+    try {
+      return localStorage.getItem(key) === "true";
+    } catch {
+      return defaultValue;
+    }
+  });
+
+  const toggle = React.useCallback(() => {
+    setState((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(key, String(next));
+      } catch {}
+      return next;
+    });
+  }, [key]);
+
+  return [state, toggle, setState] as const;
+};
+
+const useModelCapabilities = (
+  currentModel: any,
+  currentModelConfig: any,
+  currentProviderConfig: any,
+) => {
+  const showThinkingButton = React.useMemo(() => {
+    return currentModel?.is_thinking !== undefined
+      ? !!currentModel.is_thinking
+      : !!currentModelConfig?.is_thinking;
+  }, [currentModel, currentModelConfig]);
+
+  const showSearchButton = React.useMemo(() => {
+    let result: boolean;
+    if (currentModel?.is_search !== undefined) {
+      result = !!currentModel.is_search;
+    } else if (currentModelConfig?.is_search !== undefined) {
+      result = !!currentModelConfig.is_search;
+    } else {
+      result = !!currentProviderConfig?.is_search;
+    }
+    return result;
+  }, [currentModel, currentModelConfig, currentProviderConfig]);
+
+  const showMemoryButton = React.useMemo(() => {
+    return currentModel?.is_memory === true;
+  }, [currentModel]);
+
+  const supportsUpload = React.useMemo(() => {
+    let result: boolean;
+    if (currentModel?.is_upload !== undefined) {
+      result = !!currentModel.is_upload;
+    } else if (currentModelConfig?.is_upload !== undefined) {
+      result = !!currentModelConfig.is_upload;
+    } else {
+      result = !!currentProviderConfig?.is_upload;
+    }
+    return result;
+  }, [currentModel, currentProviderConfig, currentModelConfig]);
+
+  return {
+    showThinkingButton,
+    showSearchButton,
+    showMemoryButton,
+    supportsUpload,
+  };
+};
+
+const useProvidersConfig = (
+  currentModel: any,
+  providers: any[],
+) => {
+  const currentProviderConfig = React.useMemo(() => {
+    if (!currentModel?.providerId) {
+      return null;
+    }
+    const found = providers.find(
+      (p) =>
+        p.provider_id?.toLowerCase() === currentModel.providerId?.toLowerCase(),
+    );
+    return found ?? null;
+  }, [currentModel, providers]);
+
+  const currentModelConfig = React.useMemo(() => {
+    if (!currentProviderConfig || !currentModel?.id) {
+      return null;
+    }
+    const found = currentProviderConfig.models?.find(
+      (m: any) => m.id?.toLowerCase() === currentModel.id?.toLowerCase(),
+    );
+    return found ?? null;
+  }, [currentProviderConfig, currentModel]);
+
+  return { currentProviderConfig, currentModelConfig };
+};
+
+/**
+ * 🚀 PERFORMANCE FIX: Use requestAnimationFrame to batch textarea resizes
+ * This prevents excessive layout recalculations during rapid typing
+ */
+const useTextareaAutoResize = (
+  textareaRef: React.RefObject<HTMLTextAreaElement>,
+  message: string,
+) => {
+  const rafIdRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    // Cancel any pending resize
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+
+    // Schedule resize in next animation frame
+    rafIdRef.current = requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      
+      el.style.height = "auto";
+      const maxHeight = 240;
+      el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
+      el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
+      
+      rafIdRef.current = null;
+    });
+
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, [message, textareaRef]);
+};
+
+const useModelSelection = (
+  folderPath: string | null | undefined,
+  setCurrentModel: (model: any) => void,
+  setCurrentAccount: (account: any) => void,
+  currentModel: any,
+  currentAccount: any,
+) => {
+  const [isLoadingCache, setIsLoadingCache] = React.useState(true);
+  const pendingAccountIdRef = React.useRef<string | null>(null);
+  const currentModelRef = React.useRef<any>(null);
+  const currentAccountRef = React.useRef<any>(null);
+  
+  currentModelRef.current = currentModel;
+  currentAccountRef.current = currentAccount;
+
+  // Load saved selection
+  React.useEffect(() => {
+    let cancelled = false;
+    setIsLoadingCache(true);
+    const key = `zen-model-selection:${folderPath || "global"}`;
+
+    const applyCache = (saved: any) => {
+      if (cancelled) return;
+      if (saved.model && !currentModelRef.current) setCurrentModel(saved.model);
+      if (saved.accountId && !currentAccountRef.current) {
+        pendingAccountIdRef.current = saved.accountId;
+        if (saved.email) {
+          setCurrentAccount({ id: saved.accountId, email: saved.email });
+        }
+      }
+    };
+
+    try {
+      const savedStr = localStorage.getItem(key);
+      if (savedStr) {
+        const saved = JSON.parse(savedStr);
+        applyCache(saved);
+        setIsLoadingCache(false);
+      } else {
+        const storage = (window as any).storage;
+        if (storage) {
+          storage
+            .get(key)
+            .then((res: any) => {
+              if (cancelled) return;
+              if (res?.value) {
+                const saved = JSON.parse(res.value);
+                applyCache(saved);
+                try {
+                  localStorage.setItem(key, res.value);
+                } catch {}
+              }
+              setIsLoadingCache(false);
+            })
+            .catch(() => {
+              if (!cancelled) setIsLoadingCache(false);
+            });
+        } else {
+          setIsLoadingCache(false);
+        }
+      }
+    } catch (e) {
+      setIsLoadingCache(false);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [folderPath, setCurrentModel, setCurrentAccount]);
+
+  // Save selection
+  React.useEffect(() => {
+    if (currentModel) {
+      const key = `zen-model-selection:${folderPath || "global"}`;
+      const data = {
+        model: currentModel,
+        accountId: currentAccount?.id,
+        email: currentAccount?.email,
+      };
+      const dataStr = JSON.stringify(data);
+      try {
+        localStorage.setItem(key, dataStr);
+      } catch (e) {}
+
+      const storage = (window as any).storage;
+      if (storage) {
+        storage.set(key, dataStr);
+      }
+    }
+  }, [currentModel, currentAccount, folderPath]);
+
+  return {
+    isLoadingCache,
+    pendingAccountIdRef,
+  };
+};
+
+// ============================================================================
+// TOGGLE BUTTONS
+// ============================================================================
+
+const ThinkingButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: "none",
+        background: isOn
+          ? isHovered
+            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, transparent)"
+            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 12%, transparent)"
+          : isHovered
+            ? "rgba(128, 128, 128, 0.2)"
+            : "rgba(128, 128, 128, 0.12)",
+        color: isOn
+          ? "var(--vscode-editorBracketHighlight-foreground2, #a855f7)"
+          : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={title}
+    >
+      <BrainCogIcon />
+      <span
+        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+      >
+        Thinking
+      </span>
+    </button>
+  );
+};
+
+const SearchButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: "none",
+        background: isOn
+          ? isHovered
+            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 20%, transparent)"
+            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 12%, transparent)"
+          : isHovered
+            ? "rgba(128, 128, 128, 0.2)"
+            : "rgba(128, 128, 128, 0.12)",
+        color: isOn
+          ? "var(--vscode-editorBracketHighlight-foreground1, #0ea5e9)"
+          : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={title}
+    >
+      <GlobeIcon />
+      <span
+        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+      >
+        Search
+      </span>
+    </button>
+  );
+};
+
+const MemoryButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: isOn
+          ? "1px solid var(--vscode-editorBracketHighlight-foreground3, rgba(139, 92, 246, 0.4))"
+          : "1px solid rgba(128, 128, 128, 0.2)",
+        background: isOn
+          ? isHovered
+            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #8b5cf6) 20%, transparent)"
+            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #8b5cf6) 12%, transparent)"
+          : isHovered
+            ? "rgba(128, 128, 128, 0.2)"
+            : "rgba(128, 128, 128, 0.12)",
+        color: isOn
+          ? "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)"
+          : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={title}
+    >
+      <MemoryIcon />
+      <span
+        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+      >
+        Memory
+      </span>
+    </button>
+  );
+};
+
+// ============================================================================
+// GLOBAL PERMISSION BUTTON
+// ============================================================================
+
+const MODE_METADATA: Record<
+  string,
+  { label: string; desc: string; icon: React.ReactNode; color: string }
+> = {
+  fullAccess: {
+    label: "Full Access",
+    desc: "AI has unrestricted access to all project files and tools",
+    icon: <Zap size={11} />,
+    color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)",
+  },
+  approval: {
+    label: "Approval Required",
+    desc: "AI must request explicit approval before accessing files or running commands",
+    icon: <ShieldCheck size={11} />,
+    color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
+  },
+  readOnly: {
+    label: "Read Only",
+    desc: "AI can only read project files, cannot modify them or run commands",
+    icon: <Eye size={11} />,
+    color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
+  },
+};
+
+const GlobalPermissionButton: React.FC = () => {
+  const { permissionMode, setPermissionMode } = useSettings();
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [tooltip, setTooltip] = React.useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const tooltipTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) {
+      setTooltip(null);
+      if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    }
+  }, [open]);
+
+  const handleItemMouseEnter = (
+    id: string,
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    if (!e.currentTarget.parentElement) return;
+    if (
+      !e.currentTarget.style.backgroundColor ||
+      e.currentTarget.style.backgroundColor === "transparent"
+    ) {
+      e.currentTarget.style.backgroundColor =
+        "var(--vscode-list-hoverBackground)";
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    tooltipTimer.current = setTimeout(() => {
+      setTooltip({ id, x: rect.right + 6, y: rect.top });
+    }, 500);
+  };
+
+  const handleItemMouseLeave = (
+    isSelected: boolean,
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    if (!isSelected) e.currentTarget.style.backgroundColor = "transparent";
+    if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+    setTooltip(null);
+  };
+
+  const metadata = MODE_METADATA[permissionMode] || MODE_METADATA.fullAccess;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          padding: "0 8px",
+          height: "22px",
+          boxSizing: "border-box",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontSize: "11px",
+          fontWeight: 600,
+          letterSpacing: "0.3px",
+          transition: "all 0.2s ease-in-out",
+          border: `1px solid ${metadata.color}40`,
+          background: isHovered
+            ? `color-mix(in srgb, ${metadata.color} 20%, transparent)`
+            : `color-mix(in srgb, ${metadata.color} 12%, transparent)`,
+          color: metadata.color,
+          opacity: 1,
+          lineHeight: 1,
+          verticalAlign: "middle",
+        }}
+        title="Tool permission mode"
+      >
+        {metadata.icon}
+        <span
+          style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
+        >
+          {metadata.label}
+        </span>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 4px)",
+            left: 0,
+            zIndex: 1000,
+            backgroundColor:
+              "color-mix(in srgb, var(--input-bg) 100%, black 15%)",
+            border: "1px solid var(--vscode-widget-border)",
+            borderRadius: "6px",
+            overflow: "hidden",
+            boxShadow: "0 -4px 12px rgba(0,0,0,0.2)",
+            minWidth: "180px",
+          }}
+        >
+          {Object.entries(MODE_METADATA).map(([modeId, meta]) => {
+            const isSelected = permissionMode === modeId;
+            return (
+              <button
+                key={modeId}
+                onClick={() => {
+                  setPermissionMode(modeId as any);
+                  setOpen(false);
+                  setTooltip(null);
+                  if (tooltipTimer.current) clearTimeout(tooltipTimer.current);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  width: "100%",
+                  padding: "7px 12px",
+                  fontSize: "11.5px",
+                  fontWeight: 500,
+                  textAlign: "left",
+                  border: "none",
+                  cursor: "pointer",
+                  background: isSelected
+                    ? "var(--vscode-button-background)"
+                    : "transparent",
+                  color: isSelected
+                    ? "var(--vscode-button-foreground)"
+                    : "var(--vscode-foreground)",
+                }}
+                onMouseEnter={(e) => handleItemMouseEnter(modeId, e)}
+                onMouseLeave={(e) => handleItemMouseLeave(isSelected, e)}
+              >
+                <span
+                  style={{
+                    color: isSelected ? "inherit" : meta.color,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {meta.icon}
+                </span>
+                {meta.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {tooltip && MODE_METADATA[tooltip.id] && (
+        <div
+          style={{
+            position: "fixed",
+            left: tooltip.x,
+            top: tooltip.y,
+            zIndex: 9999,
+            backgroundColor:
+              "var(--vscode-editorHoverWidget-background, #1e1e1e)",
+            border: "1px solid var(--vscode-editorHoverWidget-border, #454545)",
+            borderRadius: "6px",
+            padding: "8px 10px",
+            maxWidth: "220px",
+            fontSize: "11px",
+            color: "var(--vscode-foreground)",
+            lineHeight: 1.5,
+            pointerEvents: "none",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 600,
+              marginBottom: "3px",
+              color: MODE_METADATA[tooltip.id].color,
+            }}
+          >
+            {MODE_METADATA[tooltip.id].label}
+          </div>
+          {MODE_METADATA[tooltip.id].desc}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const MessageInput: React.FC<MessageInputProps> = React.memo(
   ({
@@ -296,14 +979,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
         handleSend,
         onModelSwitch,
       };
-
-      const renderTime = performance.now() - renderStartTime;
-      if (renderTime > 16) {
-        // Lag nếu > 1 frame (60fps)
-        console.warn(
-          `[MessageInput] ⚠️ Slow render: ${renderTime.toFixed(2)}ms`,
-        );
-      }
     });
 
     return (

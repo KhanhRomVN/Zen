@@ -8,7 +8,9 @@ Use XML tags for all tool calls:
 <old_content>exact original (indentation must match)</old_content>
 <new_content>replacement</new_content>
 </replace_in_file>
+<view_replace_history><file_path>path/to/file</file_path></view_replace_history>
 <revert_file><file_path>path/to/file</file_path></revert_file>
+<revert_file><file_path>path/to/file</file_path><version>3</version></revert_file>
 <list_files><folder_path>path/to/folder</folder_path></list_files>
 <list_files><folder_path>path/to/folder</folder_path><depth>2</depth></list_files>
 <list_files><folder_path>path/to/folder</folder_path><depth>max</depth></list_files>
@@ -22,8 +24,15 @@ Use XML tags for all tool calls:
 <run_command><command>your command here</command></run_command>
 **revert_file**: Undo the last change made to a file using VSCode's undo functionality. Each call undoes one change in the file's edit history.
 - \`file_path\`: Path to the file to revert
+- \`version\`: (optional) Version number to revert to. If provided, reverts to that specific replace_in_file version and deletes all versions after it. If omitted, reverts to the last checkpoint (single undo).
 - Example: \`<revert_file><file_path>src/utils.ts</file_path></revert_file>\` — undoes the last change to src/utils.ts
-- Note: This uses VSCode's native undo stack, so it will undo the most recent edit regardless of which tool made the change (replace_in_file, write_to_file, or manual edits)
+- Example with version: \`<revert_file><file_path>src/utils.ts</file_path><version>3</version></revert_file>\` — reverts to version 3 and deletes versions 4, 5, 6, etc.
+- Note: This uses VSCode's native undo stack for simple reverts, or replace history for version-based reverts
+**view_replace_history**: View the complete history of all replace_in_file operations for a specific file. Returns a list with version numbers, error counts, and warning counts for each replace operation.
+- \`file_path\`: Path to the file to view history for
+- Returns: List of versions with format: [Version N] Errors: X, Warnings: Y
+- Example: \`<view_replace_history><file_path>src/utils.ts</file_path></view_replace_history>\` — shows all replace_in_file history for src/utils.ts
+- Use this before revert_file to see which version to revert to
 **find_files**: Search for files by name across the entire workspace (respects .gitignore).
 - Multiple \`file_name\` tags can be provided to search for multiple files at once.
 - Returns: For each file name, a list of all matching file paths found in the workspace.

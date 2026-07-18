@@ -153,7 +153,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       start: number;
       end: number;
       isCurrent: boolean;
-      messageId?: string;
+      messageId?: string; 
       timestamp?: number;
       fileChanges: Map<
         string,
@@ -518,14 +518,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       fileChangesMap: fileChanges,
     };
   }, [messages, loadedConversationFileStats]);
-
-  // 🔍 Track render performance
-  React.useEffect(() => {
-    const renderTime = performance.now() - renderStartTime;
-    if (renderTime > 16) {
-      console.warn(`[ChatFooter] ⚠️ Slow render: ${renderTime.toFixed(2)}ms`);
-    }
-  });
 
   // Prepare data for review drawer
   const fileChangesList = React.useMemo(() => {

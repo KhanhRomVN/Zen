@@ -4,6 +4,7 @@ export type ToolType =
   | "write_to_file"
   | "replace_in_file"
   | "revert_file"
+  | "view_replace_history"
   | "list_files"
   | "find_files"
   | "grep"
@@ -65,12 +66,21 @@ export const TOOL_VARIANTS: Record<string, string[]> = {
   revert_file: [
     "revertFile",
     "RevertFile",
-    "revert_File",
+    "revert_File",  
     "RevertInfile",
     "revertfile",
     "REVERTFILE",
     "Revert_File",
     "REVERT_FILE",
+  ],
+  view_replace_history: [
+    "viewReplaceHistory",
+    "ViewReplaceHistory",
+    "view_Replace_History",
+    "viewreplacehistory",
+    "VIEWREPLACEHISTORY",
+    "View_Replace_History",
+    "VIEW_REPLACE_HISTORY",
   ],
   list_files: [
     "listFiles",
@@ -158,6 +168,7 @@ export const TOOL_LABELS: Record<string, string> = {
   write_to_file: "Write",
   replace_in_file: "Replace",
   revert_file: "Revert",
+  view_replace_history: "History",
   list_files: "List",
   find_files: "Find",
   grep: "Grep",
@@ -182,6 +193,7 @@ export const TOOL_COLORS: Record<string, string> = {
   write_to_file: "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
   replace_in_file: "var(--vscode-editorWarning-foreground, #d4a72c)",
   revert_file: "var(--vscode-gitDecoration-conflictingResourceForeground, #c74e39)",
+  view_replace_history: "var(--vscode-textLink-foreground, #9370db)",
   list_files: "var(--vscode-textLink-foreground, #3b82f6)",
   find_files: "var(--vscode-textLink-foreground, #3b82f6)",
   grep: "var(--vscode-textLink-foreground, #3b82f6)",
@@ -207,6 +219,7 @@ export const CLICKABLE_TOOLS: string[] = [
   "write_to_file",
   "replace_in_file",
   "revert_file",
+  "view_replace_history",
   "list_files",
   "grep",
   "delete_file",
@@ -225,6 +238,7 @@ export const TOOL_PERMISSIONS: Record<string, string> = {
   write_to_file: "prompt",
   replace_in_file: "prompt",
   revert_file: "prompt",
+  view_replace_history: "prompt",
   list_files: "prompt",
   grep: "read",
   delete_file: "write",
@@ -238,18 +252,19 @@ export const TOOL_PERMISSIONS: Record<string, string> = {
 
 // ===== TOOL TIMEOUTS (MS) =====
 export const TOOL_TIMEOUTS: Record<string, number> = {
-  read_file: 10000,
-  write_to_file: 10000,
-  replace_in_file: 10000,
-  revert_file: 10000,
-  list_files: 10000,
-  find_files: 30000,
-  grep: 30000,
-  delete_file: 10000,
-  delete_folder: 10000,
-  move_file: 10000,
-  run_command: 30000,
-  git_diff: 30000,
+  read_file: 60000,  // 1 phút
+  write_to_file: 60000,  // 1 phút - đủ thời gian chờ diagnostics khi máy bận
+  replace_in_file: 60000, // 1 phút - đủ thời gian chờ diagnostics khi máy bận
+  revert_file: 60000,  // 1 phút
+  view_replace_history: 60000,  // 1 phút
+  list_files: 60000,  // 1 phút
+  find_files: 60000,  // 1 phút
+  grep: 60000,  // 1 phút
+  delete_file: 60000,  // 1 phút
+  delete_folder: 60000,  // 1 phút
+  move_file: 60000,  // 1 phút
+  run_command: 60000,  // 1 phút
+  git_diff: 60000,  // 1 phút
 };
 
 // ===== CONTEXT COMPRESSION =====

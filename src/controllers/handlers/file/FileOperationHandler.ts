@@ -6,6 +6,7 @@ import { FileLockManager } from "../../../managers/FileLockManager";
 import { RecentItemsManager } from "../../../context/RecentItemsManager";
 import { CheckpointManager } from "../../../managers/CheckpointManager";
 import { SnapshotManager } from "../../../managers/SnapshotManager";
+import { ReplaceInFileHistoryManager } from "../../../managers/ReplaceInFileHistoryManager";
 import { SecurityValidator } from "../../../agent/validators/SecurityValidator";
 import { LoggerService } from "../../../services/LoggerService";
 
@@ -269,7 +270,7 @@ export class FileOperationHandler {
     } catch (e: any) {
       webviewView.webview.postMessage({ command: "moveFileResult", requestId: message.requestId, error: e.message });
     }
-  }
+  } 
 
   // ── Revert File ──
   public async handleRevertFile(message: any, webviewView: vscode.WebviewView) {
@@ -278,6 +279,8 @@ export class FileOperationHandler {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace");
       const filePath = message.file_path || message.path;
+      const version = message.version; // Thêm hỗ trợ version parameter
+      
       if (!filePath) throw new Error("'file_path' is required");
       const absPath = path.isAbsolute(filePath) ? filePath : path.join(workspaceFolder.uri.fsPath, filePath);
       const pc = SecurityValidator.validatePath(absPath, false);
@@ -288,32 +291,52 @@ export class FileOperationHandler {
 
       logger.info(`[DEBUG revert_file] Before revert - contentLength: ${beforeContent.length}, lines: ${beforeContent.split('\n').length}`);
 
-      // FIX: Use CheckpointManager instead of VSCode undo (which doesn't work for programmatic edits)
-      const cpm = CheckpointManager.getInstance();
-      const checkpoint = await cpm.getLastCheckpointForFile(absPath);
+      let afterContent: string;
 
-      if (!checkpoint) {
-        throw new Error(`No checkpoint found for file '${filePath}'. Cannot revert.`);
+      // Nếu có version, sử dụng replace history thay vì checkpoint
+      if (version !== undefined && version !== null && message.conversationId) {
+        const historyManager = ReplaceInFileHistoryManager.getInstance();
+        historyManager.setActiveConversationId(message.conversationId);
+
+        const history = await historyManager.getHistoryVersion(absPath, parseInt(version, 10));
+        if (!history) {
+          throw new Error(`No history found for version ${version} of file '${filePath}'`);
+        }
+
+        afterContent = history.fullContent;
+
+        // Ghi nội dung từ history vào file
+        await fs.promises.writeFile(absPath, afterContent, "utf-8");
+
+        // Xóa các version sau version được chọn
+        await historyManager.deleteVersionsAfter(absPath, parseInt(version, 10));
+      } else {
+        // Sử dụng checkpoint cũ (revert 1 lần)
+        const cpm = CheckpointManager.getInstance();
+        const checkpoint = await cpm.getLastCheckpointForFile(absPath);
+
+        if (!checkpoint) {
+          throw new Error(`No checkpoint found for file '${filePath}'. Cannot revert.`);
+        }
+
+        if (checkpoint.content === null) {
+          throw new Error(`Checkpoint for '${filePath}' has no content. Cannot revert.`);
+        }
+
+        afterContent = checkpoint.content;
+        await fs.promises.writeFile(absPath, afterContent, "utf-8");
       }
 
-      if (checkpoint.content === null) {
-        throw new Error(`Checkpoint for '${filePath}' has no content. Cannot revert.`);
-      }
-
-      // Write checkpoint content back to file
-      await fs.promises.writeFile(absPath, checkpoint.content, "utf-8");
-
-      const afterContent = checkpoint.content;
       const fileUri = vscode.Uri.file(absPath);
 
       logger.info(`[DEBUG revert_file] After revert - contentLength: ${afterContent.length}, lines: ${afterContent.split('\n').length}`);
 
       // Check if revert actually changed content
       if (beforeContent === afterContent) {
-        logger.warn(`[DEBUG revert_file] WARNING: Content unchanged after revert! Checkpoint content same as current content.`);
+        logger.warn(`[DEBUG revert_file] WARNING: Content unchanged after revert!`);
       }
 
-      // Đợi language server cập nhật diagnostics (500ms - tăng từ 300ms)
+      // Đợi language server cập nhật diagnostics (500ms)
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Lấy diagnostics sau khi revert
@@ -341,6 +364,40 @@ export class FileOperationHandler {
       webviewView.webview.postMessage({ command: "getSnapshotResult", requestId, actionId, filePath: snapshot.filePath, operation: snapshot.operation, beforeContent: snapshot.beforeContent, afterContent: snapshot.afterContent, timestamp: snapshot.timestamp });
     } catch (e: any) {
       webviewView.webview.postMessage({ command: "getSnapshotResult", requestId: message.requestId, error: e.message });
+    }
+  }
+
+  // ── View Replace History ──
+  public async handleViewReplaceHistory(message: any, webviewView: vscode.WebviewView): Promise<void> {
+    try {
+      const { filePath, conversationId, requestId } = message;
+      if (!filePath) throw new Error("filePath is required");
+      if (!conversationId) throw new Error("conversationId is required");
+
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) throw new Error("No workspace folder");
+
+      const absPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(workspaceFolder.uri.fsPath, filePath);
+
+      const historyManager = ReplaceInFileHistoryManager.getInstance();
+      historyManager.setActiveConversationId(conversationId);
+
+      const histories = await historyManager.getHistoryList(absPath);
+
+      webviewView.webview.postMessage({
+        command: "viewReplaceHistoryResult",
+        requestId,
+        filePath,
+        histories,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "viewReplaceHistoryResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
     }
   }
 

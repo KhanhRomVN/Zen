@@ -93,16 +93,6 @@ export const useChatLLM = ({
     onConversationIdChange?.(currentConversationId);
   }, [currentConversationId, onConversationIdChange]);
 
-  // Track render duration
-  useEffect(() => {
-    const renderDuration = performance.now() - renderStartTime;
-    if (renderDuration > 16) {
-      console.warn(
-        `[useChatLLM] slow render #${renderCountRef.current} - duration: ${renderDuration.toFixed(1)}ms`,
-      );
-    }
-  });
-
   // Use message handlers hook
   useMessageHandlers({
     selectedTab,
@@ -172,8 +162,10 @@ export const useChatLLM = ({
       uiHidden?: boolean,
       parentMessageId?: string,
     ) => {
-      if (isProcessingRef.current && !skipFirstRequestLogic) {
-        console.warn(`[Zen][sendMessage] Blocked - already processing`);
+      if (isProcessingRef.current) {
+        console.warn(
+          `[Zen][sendMessage] BLOCKED - already processing | skipFirstRequestLogic=${skipFirstRequestLogic} | conversationId=${currentConversationIdRef.current} | content preview: ${content.substring(0, 50)}`,
+        );
         return;
       }
 
@@ -615,7 +607,14 @@ export const useChatLLM = ({
           onToolRequest &&
           parsed.actions?.length > 0
         ) {
+          console.log(
+            `[Zen][sendMessage] Triggering onToolRequest | actions=${parsed.actions.length} | conversationId=${effectiveChatUuid}`,
+          );
           onToolRequest(parsed.actions, assistantMessage, false, "accept_all");
+        } else if (parsed && parsed.actions?.length > 0 && hasParsingError) {
+          console.warn(
+            `[Zen][sendMessage] Skipping onToolRequest due to parsing error`,
+          );
         }
       } catch (error) {
         dispatchStreaming({ type: "RESET_STREAMING" });
@@ -698,6 +697,18 @@ export const useChatLLM = ({
    */
   const handleSelectOption = useCallback(
     (messageId: string, option: string) => {
+      console.log(
+        `[Zen][handleSelectOption] Called | messageId=${messageId} | isProcessing=${isProcessingRef.current}`,
+      );
+
+      // Guard: Don't process if already sending a message
+      if (isProcessingRef.current) {
+        console.warn(
+          `[Zen][handleSelectOption] BLOCKED - already processing, skipping option selection`,
+        );
+        return;
+      }
+
       setMessages((currentMessages) => {
         let updatedMessages = currentMessages.map((m) =>
           m.id === messageId ? { ...m, selectedOption: option } : m,
@@ -741,7 +752,27 @@ export const useChatLLM = ({
         );
 
         if (parsedPayload && parsedPayload.answers) {
+          console.log(
+            `[Zen][handleSelectOption] Auto-sending question answers | convId=${convId}`,
+          );
+
+          // Check again before triggering sendMessage
+          if (isProcessingRef.current) {
+            console.warn(
+              `[Zen][handleSelectOption] Race condition detected - canceling auto-send`,
+            );
+            return updatedMessages;
+          }
+
           setTimeout(() => {
+            // Final guard check inside timeout
+            if (isProcessingRef.current) {
+              console.warn(
+                `[Zen][handleSelectOption] Timeout guard: still processing, canceling`,
+              );
+              return;
+            }
+
             const questions = parsedPayload.questions || [];
             const answers = parsedPayload.answers || {};
 
@@ -764,6 +795,9 @@ export const useChatLLM = ({
 
             const promptText = `<question-answer>\n${formattedAnswers}\n</question-answer>`;
 
+            console.log(
+              `[Zen][handleSelectOption] Executing sendMessage with answers`,
+            );
             sendMessage(
               promptText,
               undefined,
@@ -773,7 +807,7 @@ export const useChatLLM = ({
               undefined,
               true,
             );
-          }, 10);
+          }, 100); // Increased from 10ms to 100ms for better stability
         }
 
         return updatedMessages;

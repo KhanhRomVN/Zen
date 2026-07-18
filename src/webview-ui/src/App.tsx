@@ -164,16 +164,14 @@ const App: React.FC = () => {
             <div className="app-container">
               {!showAccounts && (
                 <>
-                  {lastChatRef.current && (
-                    <div style={{ display: currentChat ? "contents" : "none" }}>
-                      <ChatPanel
-                        currentChat={lastChatRef.current}
-                        onBack={handleBack}
-                        onLoadConversation={handleLoadConversation}
-                        initialMessageData={initialMessageData}
-                        onClearInitialData={() => setInitialMessageData(null)}
-                      />
-                    </div>
+                  {currentChat && lastChatRef.current && (
+                    <ChatPanel
+                      currentChat={lastChatRef.current}
+                      onBack={handleBack}
+                      onLoadConversation={handleLoadConversation}
+                      initialMessageData={initialMessageData}
+                      onClearInitialData={() => setInitialMessageData(null)}
+                    />
                   )}
                   {!currentChat && (
                     <HomePanel
