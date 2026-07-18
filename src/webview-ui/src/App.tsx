@@ -153,7 +153,11 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const lastChatRef = React.useRef<ChatSession | null>(null);
+  const handleClearInitialData = useCallback(() => {
+    setInitialMessageData(null);
+  }, []);
+
+  const lastChatRef = useRef<ChatSession | null>(null);
   if (currentChat) lastChatRef.current = currentChat;
 
   return (
@@ -170,7 +174,7 @@ const App: React.FC = () => {
                       onBack={handleBack}
                       onLoadConversation={handleLoadConversation}
                       initialMessageData={initialMessageData}
-                      onClearInitialData={() => setInitialMessageData(null)}
+                      onClearInitialData={handleClearInitialData}
                     />
                   )}
                   {!currentChat && (

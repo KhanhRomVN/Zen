@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 /**
  * Manages browser session state for the zai-browser provider.
  * Checks session status on mount and polls every 5 seconds.
+ * 
+ * PERFORMANCE: Uses refs to prevent unnecessary re-renders from polling.
  */
 export const useBrowserSession = (
   currentModel: any,
@@ -13,10 +15,35 @@ export const useBrowserSession = (
   const [showBrowserWarning, setShowBrowserWarning] = useState(false);
   const [isLaunchingBrowser, setIsLaunchingBrowser] = useState(false);
 
+  // Use refs to track current state values to avoid unnecessary re-renders
+  const isBrowserSessionReadyRef = useRef(false);
+  const showBrowserWarningRef = useRef(false);
+  
+  // Use refs for dependencies to prevent interval recreation
+  const currentModelRef = useRef(currentModel);
+  const currentAccountRef = useRef(currentAccount);
+  const backendApiUrlRef = useRef(backendApiUrl);
+  
+  // Update refs when values change
+  useEffect(() => {
+    currentModelRef.current = currentModel;
+    currentAccountRef.current = currentAccount;
+    backendApiUrlRef.current = backendApiUrl;
+  }, [currentModel, currentAccount, backendApiUrl]);
+
   const checkBrowserSession = useCallback(async () => {
     if (!currentModel || currentModel.providerId !== "zai-browser") {
-      setIsBrowserSessionReady(true);
-      setShowBrowserWarning(false);
+      // PERF: Only setState if values actually changed — avoids triggering
+      // a re-render when the effect re-runs due to dep reference changes
+      // but the logical state is already correct.
+      if (!isBrowserSessionReadyRef.current) {
+        isBrowserSessionReadyRef.current = true;
+        setIsBrowserSessionReady(true);
+      }
+      if (showBrowserWarningRef.current) {
+        showBrowserWarningRef.current = false;
+        setShowBrowserWarning(false);
+      }
       return;
     }
     if (!currentAccount?.id) {
@@ -80,30 +107,54 @@ export const useBrowserSession = (
   }, [checkBrowserSession]);
 
   // Poll every 5 seconds for zai-browser provider
+  // PERFORMANCE: Only set up interval once, use refs to access latest values
   useEffect(() => {
-    if (
-      !currentModel ||
-      currentModel.providerId !== "zai-browser" ||
-      !currentAccount?.id
-    )
-      return;
-    const interval = setInterval(async () => {
+    const checkStatus = async () => {
+      const model = currentModelRef.current;
+      const account = currentAccountRef.current;
+      const apiUrl = backendApiUrlRef.current;
+      
+      if (!model || model.providerId !== "zai-browser" || !account?.id) {
+        // PERF: When provider is not zai-browser, these states should already be
+        // true/false from the initial check. Skip setState entirely to avoid
+        // unnecessary re-renders on every 5s poll interval.
+        // Only sync refs silently — no setState needed.
+        isBrowserSessionReadyRef.current = true;
+        showBrowserWarningRef.current = false;
+        return;
+      }
+      
       try {
         const response = await fetch(
-          `${backendApiUrl}/v1/accounts/${currentAccount.id}/browser/status`,
+          `${apiUrl}/v1/accounts/${account.id}/browser/status`,
         );
         const result = await response.json();
         if (result.success && result.data) {
-          const isRunning = result.data.is_running === true;
-          setIsBrowserSessionReady(isRunning);
-          setShowBrowserWarning(!isRunning);
+          const isRunning = result.data.has_profile && result.data.is_running;
+          
+          // Only update state if values actually changed
+          if (isBrowserSessionReadyRef.current !== isRunning) {
+            isBrowserSessionReadyRef.current = isRunning;
+            setIsBrowserSessionReady(isRunning);
+          }
+          if (showBrowserWarningRef.current !== !isRunning) {
+            showBrowserWarningRef.current = !isRunning;
+            setShowBrowserWarning(!isRunning);
+          }
         }
       } catch (error) {
         console.error("Polling browser status failed:", error);
       }
-    }, 5000);
+    };
+    
+    // Initial check
+    checkStatus();
+    
+    // Set up polling - only created once
+    const interval = setInterval(checkStatus, 5000);
+    
     return () => clearInterval(interval);
-  }, [currentModel, currentAccount?.id, backendApiUrl]);
+  }, []); // Empty deps - interval is set up once and uses refs
 
   return {
     isBrowserSessionReady,

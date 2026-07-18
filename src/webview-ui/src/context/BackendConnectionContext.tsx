@@ -31,8 +31,14 @@ export const BackendConnectionProvider = ({
   const [isChecking, setIsChecking] = useState(false);
   const [apiUrl, setApiUrl] = useState("http://localhost:8888");
 
-  const checkConnection = async () => {
-    setIsChecking(true);
+  const checkConnection = async (showCheckingUI = false) => {
+    // PERF: Only set isChecking when user manually triggers a connection check
+    // (e.g., clicking "Retry Connection"). During automated 5s polling, skip
+    // isChecking to avoid causing a context value change → re-render of ALL
+    // consumers (including ChatPanel) every 5 seconds.
+    if (showCheckingUI) {
+      setIsChecking(true);
+    }
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -46,22 +52,22 @@ export const BackendConnectionProvider = ({
       if (res.ok) {
         const data = await res.json();
         const connected = data.status === "ok";
-        setIsConnected(connected);
-
-        if (connected) {
-          setIsElaraMismatch(data.elara !== "khanhromvn/elara");
-        } else {
-          setIsElaraMismatch(false);
-        }
+        const mismatch = connected && data.elara !== "khanhromvn/elara";
+        
+        // Only update state if values actually changed
+        setIsConnected((prev) => prev === connected ? prev : connected);
+        setIsElaraMismatch((prev) => prev === mismatch ? prev : mismatch);
       } else {
-        setIsConnected(false);
-        setIsElaraMismatch(false);
+        setIsConnected((prev) => prev === false ? prev : false);
+        setIsElaraMismatch((prev) => prev === false ? prev : false);
       }
     } catch (e) {
-      setIsConnected(false);
-      setIsElaraMismatch(false);
+      setIsConnected((prev) => prev === false ? prev : false);
+      setIsElaraMismatch((prev) => prev === false ? prev : false);
     } finally {
-      setIsChecking(false);
+      if (showCheckingUI) {
+        setIsChecking(false);
+      }
     }
   };
 

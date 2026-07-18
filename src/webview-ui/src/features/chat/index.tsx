@@ -16,7 +16,6 @@ import { useGitOperations } from "./hooks/workspace/useGitOperations";
 import { useConversationRestore } from "./hooks/conversation/useConversationRestore";
 import { useFileHandling } from "../../hooks/useFileHandling";
 import { useMentionSystem } from "./hooks/ui/useMentionSystem";
-import { useTerminalPolling } from "./hooks/tools/useTerminalPolling";
 import { useBrowserSession } from "./hooks/llm/useBrowserSession";
 import { useDraftManagement } from "./hooks/conversation/useDraftManagement";
 import { useModelAccount } from "../../hooks/useModelAccount";
@@ -142,8 +141,21 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const { apiUrl, setApiUrl, isApiUrlReady, providers, setProviders } =
     useApiConfiguration();
 
-  // --- Terminal State ---
-  const { activeTerminalIds, attachedTerminalIds } = useTerminalPolling();
+  // Track chat panel renders - WITH DETAILED TRACKING
+  const chatRenderCountRef = useRef(0);
+  const lastRenderTimeRef = useRef(Date.now());
+  const renderTimingsRef = useRef<number[]>([]);
+
+  chatRenderCountRef.current += 1;
+  const now = Date.now();
+  const timeSinceLastRender = now - lastRenderTimeRef.current;
+  lastRenderTimeRef.current = now;
+  renderTimingsRef.current.push(timeSinceLastRender);
+
+  // Keep only last 10 timings
+  if (renderTimingsRef.current.length > 10) {
+    renderTimingsRef.current.shift();
+  }
 
   // --- Model & Account Selection ---
   const { currentModel, setCurrentModel, currentAccount, setCurrentAccount } =
@@ -261,6 +273,45 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       isStreaming,
       currentConversationId,
       isContinuing,
+    };
+  });
+
+  // DEBUG: Track hook return value changes that might cause re-renders
+  const hookChangesRef = useRef<any>({});
+  useEffect(() => {
+    const prev = hookChangesRef.current;
+    const changes: string[] = [];
+
+    // Track workspace data
+    if (prev.availableFiles !== availableFiles) changes.push("availableFiles");
+    if (prev.availableFolders !== availableFolders)
+      changes.push("availableFolders");
+    if (prev.availableRules !== availableRules) changes.push("availableRules");
+
+    // Track tool execution state
+    if (prev.executionState !== executionState) changes.push("executionState");
+    if (prev.toolOutputs !== toolOutputs) changes.push("toolOutputs");
+    if (prev.terminalStatus !== terminalStatus) changes.push("terminalStatus");
+
+    // Track git operations
+    if (prev.gitStatus !== gitStatus) changes.push("gitStatus");
+    if (prev.gitLoading !== gitLoading) changes.push("gitLoading");
+
+    // Track parsed messages
+    if (prev.parsedMessages !== parsedMessages) changes.push("parsedMessages");
+    if (prev.contextUsage !== contextUsage) changes.push("contextUsage");
+
+    hookChangesRef.current = {
+      availableFiles,
+      availableFolders,
+      availableRules,
+      executionState,
+      toolOutputs,
+      terminalStatus,
+      gitStatus,
+      gitLoading,
+      parsedMessages,
+      contextUsage,
     };
   });
 
@@ -775,8 +826,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           terminalStatus={terminalStatus}
           firstRequestMessageId={firstRequestMessage?.id}
           onLoadConversation={onLoadConversation}
-          activeTerminalIds={activeTerminalIds}
-          attachedTerminalIds={attachedTerminalIds}
           conversationId={currentConversationId}
           onToolAction={handleToolAction}
           onSelectOption={handleSelectOption}

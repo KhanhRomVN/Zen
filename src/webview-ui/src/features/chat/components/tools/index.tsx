@@ -26,8 +26,6 @@ interface ToolActionsListProps {
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
   allMessages?: Message[];
-  activeTerminalIds?: Set<string>;
-  attachedTerminalIds?: Set<string>;
   conversationId?: string;
   allActions?: ToolAction[];
   isBlockedByPrecedingInteraction?: boolean;
@@ -59,8 +57,6 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   terminalStatus,
   nextUserMessage,
   allMessages,
-  activeTerminalIds,
-  attachedTerminalIds,
   conversationId,
   allActions,
   isBlockedByPrecedingInteraction = false,
@@ -282,8 +278,6 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             terminalStatus={terminalStatus}
             nextUserMessage={nextUserMessage}
             allMessages={allMessages}
-            activeTerminalIds={activeTerminalIds}
-            attachedTerminalIds={attachedTerminalIds}
             conversationId={conversationId}
             singleLineReviewActions={singleLineReviewActions}
             onConfirmSingleLineAction={onConfirmSingleLineAction}
@@ -307,7 +301,6 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
     isLastMessage,
     toolOutputs,
     terminalStatus,
-    activeTerminalIds,
     nextUserMessage,
   ]);
 

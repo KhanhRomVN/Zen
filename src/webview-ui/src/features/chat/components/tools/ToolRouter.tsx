@@ -48,8 +48,6 @@ interface ToolRouterProps {
   nextUserMessage?: Message;
   allMessages?: Message[];
   allActions?: ToolAction[];
-  activeTerminalIds?: Set<string>;
-  attachedTerminalIds?: Set<string>;
   conversationId?: string;
   singleLineReviewActions?: Record<
     string,
@@ -82,8 +80,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   nextUserMessage,
   allMessages,
   allActions,
-  activeTerminalIds,
-  attachedTerminalIds,
   conversationId,
   singleLineReviewActions,
   onConfirmSingleLineAction,

@@ -37,8 +37,6 @@ interface AIMessageBoxProps {
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
   allMessages?: Message[];
-  activeTerminalIds?: Set<string>;
-  attachedTerminalIds?: Set<string>;
   conversationId?: string;
   previousAssistantMessage?: Message;
   isGenerating?: boolean;
@@ -82,8 +80,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   terminalStatus,
   nextUserMessage,
   allMessages,
-  activeTerminalIds,
-  attachedTerminalIds,
   conversationId,
   previousAssistantMessage,
   isGenerating,
@@ -104,6 +100,13 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
+  
+  console.log('[DEBUG][AIMessageBox] Render', {
+    renderCount: renderCountRef.current,
+    messageId: message.id,
+    isGenerating,
+    timestamp: new Date().toISOString()
+  });
 
   const translateError = (raw: string): string => {
     const normalized = raw.trim().toLowerCase();
@@ -156,6 +159,11 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 
   const previousUserMessage = React.useMemo((): Message | null => {
     const startTime = performance.now();
+    console.log('[DEBUG][AIMessageBox.previousUserMessage] Start lookup', {
+      messageId: message?.id,
+      allMessagesCount: allMessages?.length
+    });
+    
     if (!allMessages || !message) return null;
 
     // Use cached result if messages array hasn't changed structurally
@@ -165,6 +173,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       cache.allMessagesLength === allMessages.length &&
       cache.messageId === message.id
     ) {
+      console.log('[DEBUG][AIMessageBox.previousUserMessage] Using cache');
       return cache.result;
     }
 
@@ -186,6 +195,12 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       result,
     };
 
+    const elapsed = performance.now() - startTime;
+    console.log('[DEBUG][AIMessageBox.previousUserMessage] Completed', {
+      duration: elapsed.toFixed(2) + 'ms',
+      foundMessage: !!result
+    });
+
     return result;
   }, [allMessages, message, responseNumber]);
 
@@ -200,6 +215,10 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 
   const knownFilePaths = React.useMemo((): Map<string, string> => {
     const _startTime = performance.now();
+    console.log('[DEBUG][AIMessageBox.knownFilePaths] Start scan', {
+      allMessagesCount: allMessages?.length
+    });
+    
     if (!allMessages) return new Map();
 
     // Use cached result if messages array hasn't changed structurally
@@ -210,11 +229,15 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       cache.allMessagesLength === allMessages.length &&
       cache.lastMessageId === lastMsg?.id
     ) {
+      console.log('[DEBUG][AIMessageBox.knownFilePaths] Using cache', {
+        pathsCount: cache.map.size
+      });
       return cache.map;
     }
 
     const map = new Map<string, string>();
     const filePathRegex = /(?:^|\s)([\/~][\w\-\.\/]+\.\w+)(?:\s|$)/g;
+    let totalMatches = 0;
 
     allMessages.forEach((msg, msgIndex) => {
       if (!msg.content) return;
@@ -223,6 +246,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       let matchCount = 0;
       for (const match of matches) {
         matchCount++;
+        totalMatches++;
         const fullPath = match[1];
         const basename = fullPath.split("/").pop();
         if (basename) {
@@ -230,6 +254,13 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
         }
       }
       const msgElapsed = performance.now() - msgStartTime;
+      if (msgElapsed > 2 || matchCount > 5) {
+        console.log('[DEBUG][AIMessageBox.knownFilePaths] Message scan', {
+          msgIndex,
+          duration: msgElapsed.toFixed(2) + 'ms',
+          matchCount
+        });
+      }
     });
 
     // Update cache
@@ -240,6 +271,12 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
     };
 
     const _elapsed = performance.now() - _startTime;
+    console.log('[DEBUG][AIMessageBox.knownFilePaths] Completed', {
+      duration: _elapsed.toFixed(2) + 'ms',
+      pathsFound: map.size,
+      totalMatches
+    });
+    
     if (_elapsed > 5 || map.size > 20) {
       console.warn(`[AIMessageBox] knownFilePaths recalculated - messages: ${allMessages.length}, pathsFound: ${map.size}, time: ${_elapsed.toFixed(1)}ms`);
     }
@@ -925,8 +962,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 terminalStatus={terminalStatus}
                 nextUserMessage={nextUserMessage}
                 allMessages={allMessages}
-                activeTerminalIds={activeTerminalIds}
-                attachedTerminalIds={attachedTerminalIds}
                 conversationId={conversationId}
                 allActions={parsedContent.actions}
                 isBlockedByPrecedingInteraction={isInteractionBlocked}

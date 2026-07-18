@@ -14,6 +14,8 @@ interface UseExternalMessagesProps {
 
 /**
  * Hook to handle external messages from VSCode extension
+ * 
+ * PERFORMANCE: Uses refs to avoid recreating event listeners on every message change
  */
 export const useExternalMessages = ({
   currentChat,
@@ -30,6 +32,24 @@ export const useExternalMessages = ({
 
   renderCountRef.current += 1;
 
+  // Use refs to access latest values without recreating listener
+  const currentChatRef = useRef(currentChat);
+  const currentConversationIdRef = useRef(currentConversationId);
+  const messagesRef = useRef(messages);
+  const setMessagesRef = useRef(setMessages);
+  const setProjectContextRef = useRef(setProjectContext);
+  const addAttachedItemRef = useRef(addAttachedItem);
+  
+  // Update refs when values change
+  useEffect(() => {
+    currentChatRef.current = currentChat;
+    currentConversationIdRef.current = currentConversationId;
+    messagesRef.current = messages;
+    setMessagesRef.current = setMessages;
+    setProjectContextRef.current = setProjectContext;
+    addAttachedItemRef.current = addAttachedItem;
+  }, [currentChat, currentConversationId, messages, setMessages, setProjectContext, addAttachedItem]);
+
   useEffect(() => {
     const setupStartTime = performance.now();
 
@@ -45,7 +65,7 @@ export const useExternalMessages = ({
       const message = event.data;
 
       if (message.command === "projectContextResponse") {
-        setProjectContext(message.context);
+        setProjectContextRef.current(message.context);
       } else if (message.command === "addAttachedItem") {
         attachCountRef.current += 1;
 
@@ -53,7 +73,7 @@ export const useExternalMessages = ({
           message.itemType === "folder" ||
           (!message.uri.includes(".") && !message.itemType);
 
-        addAttachedItem({
+        addAttachedItemRef.current({
           id: Math.random().toString(36).substring(7),
           path: message.uri,
           type: isFolder ? "folder" : "file",
@@ -70,23 +90,23 @@ export const useExternalMessages = ({
             role: "user",
             content: `Context from previous conversation (auto-compressed due to exceeding 100K tokens):\n\n${summary}`,
             timestamp: Date.now(),
-            conversationId: currentConversationId || "",
+            conversationId: currentConversationIdRef.current || "",
             token_usage: 0,
             uiHidden: true, // Hide from UI but keep in context
           };
 
           // Add summary message to conversation
-          setMessages((prev) => [...prev, summaryMessage]);
+          setMessagesRef.current((prev) => [...prev, summaryMessage]);
 
           // Save conversation with new summary context
-          const sessionId = currentChat?.sessionId || -1;
-          const folderPath = currentChat?.folderPath || null;
+          const sessionId = currentChatRef.current?.sessionId || -1;
+          const folderPath = currentChatRef.current?.folderPath || null;
           saveConversation(
             sessionId,
             folderPath,
-            [...messages, summaryMessage],
-            currentConversationId ?? undefined,
-            currentChat || undefined,
+            [...messagesRef.current, summaryMessage],
+            currentConversationIdRef.current ?? undefined,
+            currentChatRef.current || undefined,
             true,
           );
         }
@@ -98,12 +118,5 @@ export const useExternalMessages = ({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [
-    currentChat,
-    currentConversationId,
-    messages,
-    setMessages,
-    setProjectContext,
-    addAttachedItem,
-  ]);
+  }, []); // Empty deps - listener set up once, uses refs for latest values
 };

@@ -308,11 +308,12 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
         setIsSummaryMode(true);
         // Guard: prevent multiple submissions
         if (!hasSubmittedRef.current) {
-          console.log(`[Zen][QuestionBlock] Submitting all answers (handleTextSubmit)`);
           hasSubmittedRef.current = true;
           onAllAnsweredProp?.(newAnswers);
         } else {
-          console.warn(`[Zen][QuestionBlock] Blocked duplicate submission (handleTextSubmit)`);
+          console.warn(
+            `[Zen][QuestionBlock] Blocked duplicate submission (handleTextSubmit)`,
+          );
         }
       }
     }, 300);
@@ -1340,9 +1341,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
           >
             {currentIndex + 1}
           </span>
-          <span style={{ flex: 1 }}>
-            {currentQuestion?.label}
-          </span>
+          <span style={{ flex: 1 }}>{currentQuestion?.label}</span>
         </div>
 
         {/* Question Content */}
@@ -1378,237 +1377,237 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
                 gap: "8px",
               }}
             >
-            {/* Skip button - ghost variant with underline on hover */}
-            <button
-              onClick={() => {
-                // Skip current question - no need to answer
-                if (currentIndex < totalQuestions - 1) {
-                  setCurrentIndex(currentIndex + 1);
-                } else {
-                  // Câu cuối - chuyển sang summary mode
-                  setIsSummaryMode(true);
-                  onAllAnsweredProp?.(answers);
-                }
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "6px 12px",
-                backgroundColor: "transparent",
-                color: "var(--vscode-descriptionForeground)",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "11px",
-                cursor: "pointer",
-                opacity: 0.7,
-                transition: "all 0.15s ease",
-                textDecoration: "none",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = "1";
-                e.currentTarget.style.textDecoration = "underline";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = "0.7";
-                e.currentTarget.style.textDecoration = "none";
-              }}
-            >
-              <span
-                className="codicon codicon-chevron-right"
-                style={{ fontSize: "12px" }}
-              />
-              <span>Skip</span>
-            </button>
+              {/* Skip button - ghost variant with underline on hover */}
+              <button
+                onClick={() => {
+                  // Skip current question - no need to answer
+                  if (currentIndex < totalQuestions - 1) {
+                    setCurrentIndex(currentIndex + 1);
+                  } else {
+                    // Câu cuối - chuyển sang summary mode
+                    setIsSummaryMode(true);
+                    onAllAnsweredProp?.(answers);
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "6px 12px",
+                  backgroundColor: "transparent",
+                  color: "var(--vscode-descriptionForeground)",
+                  border: "none",
+                  borderRadius: "4px",
+                  fontSize: "11px",
+                  cursor: "pointer",
+                  opacity: 0.7,
+                  transition: "all 0.15s ease",
+                  textDecoration: "none",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = "1";
+                  e.currentTarget.style.textDecoration = "underline";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = "0.7";
+                  e.currentTarget.style.textDecoration = "none";
+                }}
+              >
+                <span
+                  className="codicon codicon-chevron-right"
+                  style={{ fontSize: "12px" }}
+                />
+                <span>Skip</span>
+              </button>
 
-            {/* Previous button - soft variant with solid hover (using descriptionForeground color) */}
-            <button
-              onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
-              disabled={currentIndex === 0}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "6px 12px",
-                backgroundColor:
-                  currentIndex === 0
-                    ? "transparent"
+              {/* Previous button - soft variant with solid hover (using descriptionForeground color) */}
+              <button
+                onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                disabled={currentIndex === 0}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "6px 12px",
+                  backgroundColor:
+                    currentIndex === 0
+                      ? "transparent"
+                      : "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
+                  color: "var(--vscode-descriptionForeground)",
+                  border: "none",
+                  borderRadius: "4px",
+                  fontSize: "11px",
+                  lineHeight: "1",
+                  cursor: currentIndex === 0 ? "not-allowed" : "pointer",
+                  opacity: currentIndex === 0 ? 0.4 : 1,
+                  transition: "all 0.15s ease",
+                  minHeight: "0",
+                }}
+                onMouseEnter={(e) => {
+                  if (currentIndex !== 0) {
+                    e.currentTarget.style.backgroundColor =
+                      "color-mix(in srgb, var(--vscode-descriptionForeground) 25%, transparent)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentIndex !== 0) {
+                    e.currentTarget.style.backgroundColor =
+                      "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)";
+                  }
+                }}
+              >
+                <span
+                  className="codicon codicon-arrow-left"
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: "1",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                />
+                <span
+                  style={{
+                    lineHeight: "1",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  Previous
+                </span>
+              </button>
+
+              {/* Next/Complete button - different variants based on isLastQuestion */}
+              <button
+                onClick={() => {
+                  let allAnswers = answers;
+
+                  // For multi-choice, save selected options as answer before proceeding
+                  if (currentQuestion?.type === "multi") {
+                    const selected =
+                      (selectedOptions[currentQuestion.id] as string[]) || [];
+                    // Removed validation - allow moving forward even without selection
+                    if (selected.length > 0) {
+                      const answer: QuestionAnswer = {
+                        questionId: currentQuestion.id,
+                        value: selected,
+                      };
+                      allAnswers = {
+                        ...answers,
+                        [currentQuestion.id]: answer,
+                      };
+                      setAnswers(allAnswers);
+                      onAnswerProp?.(currentQuestion.id, selected);
+                    }
+                  }
+
+                  // For text, save the text input as answer before proceeding
+                  if (currentQuestion?.type === "text") {
+                    const value = textInputs[currentQuestion.id] || "";
+                    // Removed validation - allow moving forward even without text
+                    if (value.trim().length > 0) {
+                      const answer: QuestionAnswer = {
+                        questionId: currentQuestion.id,
+                        value: value.trim(),
+                      };
+                      allAnswers = {
+                        ...answers,
+                        [currentQuestion.id]: answer,
+                      };
+                      setAnswers(allAnswers);
+                      onAnswerProp?.(currentQuestion.id, value.trim());
+                    }
+                  }
+
+                  // For confirm, save custom input if exists
+                  if (currentQuestion?.type === "confirm") {
+                    const customValue = customValues[currentQuestion.id] || "";
+                    if (customValue.trim().length > 0) {
+                      const fullValue = `Ý kiến: ${customValue.trim()}`;
+                      const answer: QuestionAnswer = {
+                        questionId: currentQuestion.id,
+                        value: fullValue,
+                      };
+                      allAnswers = {
+                        ...answers,
+                        [currentQuestion.id]: answer,
+                      };
+                      setAnswers(allAnswers);
+                      onAnswerProp?.(currentQuestion.id, fullValue);
+                    }
+                  }
+
+                  // Always allow navigation - removed isCurrentAnswered() check
+                  if (currentIndex < totalQuestions - 1) {
+                    setCurrentIndex(currentIndex + 1);
+                  } else {
+                    // All questions completed - trigger onAllAnswered with the latest answers
+                    setIsSummaryMode(true);
+                    onAllAnsweredProp?.(allAnswers);
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  padding: "6px 14px",
+                  backgroundColor: isLastQuestion
+                    ? "color-mix(in srgb, var(--vscode-button-background) 20%, transparent)"
                     : "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
-                color: "var(--vscode-descriptionForeground)",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "11px",
-                lineHeight: "1",
-                cursor: currentIndex === 0 ? "not-allowed" : "pointer",
-                opacity: currentIndex === 0 ? 0.4 : 1,
-                transition: "all 0.15s ease",
-                minHeight: "0",
-              }}
-              onMouseEnter={(e) => {
-                if (currentIndex !== 0) {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-descriptionForeground) 25%, transparent)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (currentIndex !== 0) {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)";
-                }
-              }}
-            >
-              <span
-                className="codicon codicon-arrow-left"
-                style={{
+                  color: isLastQuestion
+                    ? "var(--vscode-button-background)"
+                    : "var(--vscode-descriptionForeground)",
+                  border: "none",
+                  borderRadius: "4px",
                   fontSize: "11px",
+                  fontWeight: 500,
                   lineHeight: "1",
-                  display: "flex",
-                  alignItems: "center",
+                  cursor: "pointer",
+                  opacity: 1,
+                  transition: "all 0.15s ease",
+                  minHeight: "0",
                 }}
-              />
-              <span
-                style={{
-                  lineHeight: "1",
-                  display: "flex",
-                  alignItems: "center",
+                onMouseEnter={(e) => {
+                  if (isLastQuestion) {
+                    e.currentTarget.style.backgroundColor =
+                      "var(--vscode-button-background)";
+                    e.currentTarget.style.color =
+                      "var(--vscode-button-foreground)";
+                  } else {
+                    e.currentTarget.style.backgroundColor =
+                      "color-mix(in srgb, var(--vscode-descriptionForeground) 25%, transparent)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (isLastQuestion) {
+                    e.currentTarget.style.backgroundColor =
+                      "color-mix(in srgb, var(--vscode-button-background) 20%, transparent)";
+                    e.currentTarget.style.color =
+                      "var(--vscode-button-background)";
+                  } else {
+                    e.currentTarget.style.backgroundColor =
+                      "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)";
+                  }
                 }}
               >
-                Previous
-              </span>
-            </button>
-
-            {/* Next/Complete button - different variants based on isLastQuestion */}
-            <button
-              onClick={() => {
-                let allAnswers = answers;
-
-                // For multi-choice, save selected options as answer before proceeding
-                if (currentQuestion?.type === "multi") {
-                  const selected =
-                    (selectedOptions[currentQuestion.id] as string[]) || [];
-                  // Removed validation - allow moving forward even without selection
-                  if (selected.length > 0) {
-                    const answer: QuestionAnswer = {
-                      questionId: currentQuestion.id,
-                      value: selected,
-                    };
-                    allAnswers = {
-                      ...answers,
-                      [currentQuestion.id]: answer,
-                    };
-                    setAnswers(allAnswers);
-                    onAnswerProp?.(currentQuestion.id, selected);
-                  }
-                }
-
-                // For text, save the text input as answer before proceeding
-                if (currentQuestion?.type === "text") {
-                  const value = textInputs[currentQuestion.id] || "";
-                  // Removed validation - allow moving forward even without text
-                  if (value.trim().length > 0) {
-                    const answer: QuestionAnswer = {
-                      questionId: currentQuestion.id,
-                      value: value.trim(),
-                    };
-                    allAnswers = {
-                      ...answers,
-                      [currentQuestion.id]: answer,
-                    };
-                    setAnswers(allAnswers);
-                    onAnswerProp?.(currentQuestion.id, value.trim());
-                  }
-                }
-
-                // For confirm, save custom input if exists
-                if (currentQuestion?.type === "confirm") {
-                  const customValue = customValues[currentQuestion.id] || "";
-                  if (customValue.trim().length > 0) {
-                    const fullValue = `Ý kiến: ${customValue.trim()}`;
-                    const answer: QuestionAnswer = {
-                      questionId: currentQuestion.id,
-                      value: fullValue,
-                    };
-                    allAnswers = {
-                      ...answers,
-                      [currentQuestion.id]: answer,
-                    };
-                    setAnswers(allAnswers);
-                    onAnswerProp?.(currentQuestion.id, fullValue);
-                  }
-                }
-
-                // Always allow navigation - removed isCurrentAnswered() check
-                if (currentIndex < totalQuestions - 1) {
-                  setCurrentIndex(currentIndex + 1);
-                } else {
-                  // All questions completed - trigger onAllAnswered with the latest answers
-                  setIsSummaryMode(true);
-                  onAllAnsweredProp?.(allAnswers);
-                }
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                padding: "6px 14px",
-                backgroundColor: isLastQuestion
-                  ? "color-mix(in srgb, var(--vscode-button-background) 20%, transparent)"
-                  : "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)",
-                color: isLastQuestion
-                  ? "var(--vscode-button-background)"
-                  : "var(--vscode-descriptionForeground)",
-                border: "none",
-                borderRadius: "4px",
-                fontSize: "11px",
-                fontWeight: 500,
-                lineHeight: "1",
-                cursor: "pointer",
-                opacity: 1,
-                transition: "all 0.15s ease",
-                minHeight: "0",
-              }}
-              onMouseEnter={(e) => {
-                if (isLastQuestion) {
-                  e.currentTarget.style.backgroundColor =
-                    "var(--vscode-button-background)";
-                  e.currentTarget.style.color =
-                    "var(--vscode-button-foreground)";
-                } else {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-descriptionForeground) 25%, transparent)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (isLastQuestion) {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-button-background) 20%, transparent)";
-                  e.currentTarget.style.color =
-                    "var(--vscode-button-background)";
-                } else {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-descriptionForeground) 15%, transparent)";
-                }
-              }}
-            >
-              <span
-                style={{
-                  lineHeight: "1",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                {isLastQuestion ? "Complete" : "Next"}
-              </span>
-              <span
-                className="codicon codicon-arrow-right"
-                style={{
-                  fontSize: "11px",
-                  lineHeight: "1",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              />
-            </button>
+                <span
+                  style={{
+                    lineHeight: "1",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {isLastQuestion ? "Complete" : "Next"}
+                </span>
+                <span
+                  className="codicon codicon-arrow-right"
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: "1",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                />
+              </button>
             </div>
           </div>
         )}

@@ -145,6 +145,46 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
+  // Track re-renders and prop changes
+  const renderCountRef = useRef(0);
+  const prevPropsRef = useRef<any>({});
+  renderCountRef.current += 1;
+
+  const messagesChanged = prevPropsRef.current.messages !== messages;
+  const contentChanged =
+    messagesChanged &&
+    (prevPropsRef.current.messages?.length !== messages.length ||
+      prevPropsRef.current.messages?.some(
+        (m: any, i: number) =>
+          messages[i] &&
+          (m.id !== messages[i].id || m.content !== messages[i].content),
+      ));
+
+  // Track which props changed
+  const propsChanges = {
+    messages: prevPropsRef.current.messages !== messages,
+    isProcessing: prevPropsRef.current.isProcessing !== isProcessing,
+    executionState: prevPropsRef.current.executionState !== executionState,
+    toolOutputs: prevPropsRef.current.toolOutputs !== toolOutputs,
+    terminalStatus: prevPropsRef.current.terminalStatus !== terminalStatus,
+    clickedActions: prevPropsRef.current.clickedActions !== undefined, // will track in useToolActions
+    onSendToolRequest:
+      prevPropsRef.current.onSendToolRequest !== onSendToolRequest,
+    onSendMessage: prevPropsRef.current.onSendMessage !== onSendMessage,
+    onToolAction: prevPropsRef.current.onToolAction !== onToolAction,
+  };
+
+  prevPropsRef.current = {
+    messages,
+    isProcessing,
+    executionState,
+    toolOutputs,
+    terminalStatus,
+    onSendToolRequest,
+    onSendMessage,
+    onToolAction,
+  };
+
   const parseCacheRef = useRef<Map<string, ParsedResponse>>(new Map());
   const lastParsedMessagesRef = useRef<any[]>([]);
 
@@ -178,7 +218,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     const cache = parseCacheRef.current;
 
     const result = messages.map((msg, index) => {
-      const msgStartTime = performance.now();
       const cached = cache.get(msg.content);
       if (!cached || cached === undefined) {
         const parsed = parseAIResponse(msg.content);
@@ -189,7 +228,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
 
     const elapsed = performance.now() - startTime;
     if (elapsed > 10 || messages.length > 10) {
-      console.warn(`[ChatBody] parsedMessages recalculated - messages: ${messages.length}, cacheSize: ${cache.size}, time: ${elapsed.toFixed(1)}ms`);
+      console.warn(
+        `[ChatBody] parsedMessages recalculated - messages: ${messages.length}, cacheSize: ${cache.size}, time: ${elapsed.toFixed(1)}ms`,
+      );
     }
     lastParsedMessagesRef.current = result;
     return result;
@@ -207,7 +248,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   const { autoScrollPaused, scrollToBottom } = useScrollBehavior(
     messagesEndRef,
     bodyRef,
-    [messages, isProcessing],
+    messages,
+    isProcessing,
   );
 
   const prevPausedRef = useRef(false);
@@ -596,5 +638,26 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   );
 };
 
-const ChatBody = ChatBodyInternal;
+// PERF: React.memo with custom comparator to prevent re-renders when parent
+// (ChatPanel) re-renders due to unrelated state changes (e.g., useBrowserSession polling).
+// ChatBody has ~30 props; without memo it re-renders the entire message list
+// and triggers 150+ MessageBox memo checks on every parent render.
+const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
+  return (
+    prevProps.messages === nextProps.messages &&
+    prevProps.isProcessing === nextProps.isProcessing &&
+    prevProps.isContinuing === nextProps.isContinuing &&
+    prevProps.executionState === nextProps.executionState &&
+    prevProps.toolOutputs === nextProps.toolOutputs &&
+    prevProps.terminalStatus === nextProps.terminalStatus &&
+    prevProps.conversationId === nextProps.conversationId &&
+    prevProps.isRestored === nextProps.isRestored &&
+    prevProps.isSearchOpen === nextProps.isSearchOpen &&
+    prevProps.searchQuery === nextProps.searchQuery &&
+    prevProps.isLoadingConversation === nextProps.isLoadingConversation &&
+    prevProps.isGitProcessing === nextProps.isGitProcessing &&
+    prevProps.isGitStatusVisible === nextProps.isGitStatusVisible &&
+    prevProps.singleLineReviewActions === nextProps.singleLineReviewActions
+  );
+});
 export default ChatBody;
