@@ -42,6 +42,12 @@ export interface ToolAction {
   type: ExecutableToolType | "context_compression" | "thinking" | "question";
   params: Record<string, any>;
   rawXml: string;
+  /** True if this action has a parsing error (e.g., unclosed tag) */
+  isError?: boolean;
+  /** Error message if isError is true */
+  errorMessage?: string;
+  /** Error code if isError is true */
+  errorCode?: string;
 }
 
 export type ContentBlock =
@@ -64,7 +70,14 @@ export type ContentBlock =
       )[];
     }
   | { type: "tool"; action: ToolAction; actionIndex?: number }
-  | { type: "thinking"; content: string };
+  | { type: "thinking"; content: string }
+  | { 
+      type: "error"; 
+      content: string; 
+      errorCode?: string;
+      toolName?: string;
+      toolParams?: Record<string, any>;
+    };
 
 /**
  * Parse AI response to extract tool actions
@@ -196,6 +209,16 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         startContentPos,
         closingTagPattern,
       );
+
+      if (DEBUG_PARSER) {
+        console.log(`[Zen][Parser] 🔍 Checking tag <${toolName}>:`, {
+          openIndex,
+          startContentPos,
+          closingPos,
+          found: closingPos !== -1,
+          contentPreview: str.substring(openIndex, Math.min(openIndex + 100, str.length)),
+        });
+      }
 
       if (closingPos !== -1) {
         if (minIndex === -1 || openIndex < minIndex) {
@@ -656,8 +679,67 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         // 3. Advance scanStr
         scanStr = scanStr.substring(index + rawXml.length);
       } else {
-        // Unclosed tags - no longer needed since we parse only after response is complete
-        // Skip unclosed tags - they indicate malformed AI output
+        // Unclosed tag detected - create malformed tool action
+        // Try to extract params from the partial content we have
+        const partialContent = scanStr.substring(index);
+        const openTagEnd = partialContent.indexOf('>');
+        let toolParams: Record<string, any> = {};
+        
+        if (openTagEnd !== -1) {
+          // We have the opening tag, try to extract any content before it breaks
+          const contentStart = openTagEnd + 1;
+          const remainingAfterTag = partialContent.substring(contentStart);
+          
+          // Try to parse whatever params we can from the partial content
+          // This is best-effort - some params might be incomplete
+          try {
+            // Extract common param tags like <file_path>, <search_text>, etc.
+            const paramRegex = /<([a-zA-Z_][a-zA-Z0-9_]*?)>([\s\S]*?)<\/\1>/g;
+            let paramMatch;
+            while ((paramMatch = paramRegex.exec(remainingAfterTag)) !== null) {
+              toolParams[paramMatch[1]] = paramMatch[2].trim();
+            }
+          } catch (e) {
+            // Ignore parsing errors for incomplete content
+          }
+        }
+        
+        console.error("[Zen][Parser] ⚠️ UNCLOSED TAG DETECTED:", {
+          toolName,
+          tagPosition: index,
+          remainingContentLength: scanStr.length,
+          contentAroundTag: scanStr.substring(Math.max(0, index - 50), index + 150),
+          searchedFor: `</${toolName}>`,
+          foundClosingTag: false,
+          extractedParams: Object.keys(toolParams).length > 0 ? toolParams : "none",
+        });
+        
+        // Create a malformed tool action with error flag
+        const actionIndex = result.actions.length;
+        const malformedAction: ToolAction = {
+          type: toolName as any,
+          params: toolParams,
+          rawXml: match[0],
+          isError: true,
+          errorMessage: `Malformed tool output: <${toolName}> tag is missing closing tag. Please ensure all XML tags are properly closed.`,
+          errorCode: "UNCLOSED_TAG",
+        };
+        
+        console.log("[Zen][Parser] 🔧 Created malformed tool action:", {
+          toolName,
+          actionType: malformedAction.type,
+          isError: malformedAction.isError,
+          errorCode: malformedAction.errorCode,
+          params: malformedAction.params,
+        });
+        
+        result.contentBlocks.push({ 
+          type: "tool", 
+          action: malformedAction,
+          actionIndex,
+        });
+        result.actions.push(malformedAction);
+        
         break;
       }
     } else {
@@ -800,6 +882,28 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       contentLength: content.length,
     });
   }
+
+  // 📊 COMPREHENSIVE PARSING RESULTS LOG
+  console.log("[Zen][Parser] ✅ Parsing Complete:", {
+    contentLength: content.length,
+    parseTime: _parseElapsed.toFixed(2) + "ms",
+    results: {
+      totalActions: result.actions.length,
+      actionTypes: result.actions.map((a) => a.type),
+      totalContentBlocks: result.contentBlocks.length,
+      blockTypes: result.contentBlocks.map((b) => b.type),
+      hasError: result.contentBlocks.some((b) => b.type === "error"),
+      errorBlocks: result.contentBlocks
+        .filter((b) => b.type === "error")
+        .map((b) => ({
+          content: b.type === "error" ? b.content : "",
+          errorCode: b.type === "error" ? b.errorCode : undefined,
+        })),
+      hasQuestion: !!result.question,
+      onlyThinkingDetected: result.onlyThinkingDetected || false,
+    },
+    contentPreview: content.substring(0, 300) + (content.length > 300 ? "..." : ""),
+  });
 
   return result;
 };

@@ -290,7 +290,14 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               questions?: import("../../types/message").Question[];
               key: string;
             }
-          | { type: "error"; content: string; key: string }
+          | { 
+              type: "error"; 
+              content: string; 
+              errorCode?: string;
+              toolName?: string;
+              toolParams?: Record<string, any>;
+              key: string;
+            }
           | { type: "response_number"; content: string; key: string }
           | { type: "warning"; label: string; message: string; key: string }
         > = [];
@@ -381,6 +388,16 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 action: block.action,
                 index: actionIndex !== -1 ? actionIndex : idx,
               });
+            } else if (block.type === "error") {
+              flushTools();
+              groups.push({
+                type: "error",
+                content: block.content,
+                errorCode: block.errorCode,
+                toolName: block.toolName,
+                toolParams: block.toolParams,
+                key: `error-${idx}`,
+              });
             } else if (block.type === "file") {
               flushTools();
               groups.push({
@@ -449,6 +466,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
 
         return renderGroups.map((group, index) => {
           let content = null;
+          const isLastGroup = index === renderGroups.length - 1;
 
           if (group.type === "response_number") {
             const showRaw = requestChecked || responseChecked;
@@ -841,19 +859,25 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             if (!isAnswered) isInteractionBlocked = true;
           } else if (group.type === "error") {
             const errorText = group.content.replace(/^Error:\s*/i, "");
-            const codeMatch = errorText.match(/^\[([^\]]+)\]\s*(.*)/s);
-            const errorCode = codeMatch ? codeMatch[1] : null;
-            const rawMessage = codeMatch ? codeMatch[2] : errorText;
-            const translatedMessage = translateError(rawMessage);
+            const translatedMessage = translateError(errorText);
+            
+            // If we have toolName, use it as the label (e.g., "READ FILE")
+            // Otherwise use default "ERROR"
+            const errorLabel = group.toolName
+              ? group.toolName.toUpperCase().replace(/_/g, " ")
+              : "ERROR";
+            
             content = (
               <ErrorBlock
                 content={translatedMessage}
-                errorCode={errorCode || undefined}
-                isLast={false}
+                errorCode={group.errorCode}
+                isLast={isLastGroup}
                 isLastMessage={isLastMessage}
                 maxHeight="300px"
+                label={errorLabel}
               />
             );
+            
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           } else if (group.type === "warning") {
             // 🛡️ Render WarningBlock for only-thinking responses

@@ -19,6 +19,7 @@ import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
 import { ToolOutputs } from "../../types/tool-outputs";
 import ContextCompressionBlock from "../blocks/context_compression/ContextCompressionBlock";
 import FileIcon from "@/icons/FileIcon";
+import ErrorBlock from "../blocks/error/ErrorBlock";
 
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
@@ -267,6 +268,107 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   const toolColor = getToolColor(toolType);
   const clickableTools = CLICKABLE_TOOLS;
   const isFileTool = checkIsFileTool(toolType);
+
+  // Handle malformed/error tool actions - show ToolHeader + ErrorBlock
+  if (firstAction.isError) {
+    const actionIndex = group[0].index;
+    const actionId = `${messageId}-action-${actionIndex}`;
+    const errorColor = "var(--vscode-errorForeground, #f44336)";
+    
+    // Determine label based on tool type
+    const toolLabel =
+      toolType === "read_file"
+        ? "READ"
+        : toolType === "write_to_file"
+          ? "WRITE"
+          : toolType === "replace_in_file"
+            ? "REPLACE"
+            : toolType === "list_files"
+              ? "LIST"
+              : toolType === "find_files"
+                ? "FIND"
+                : toolType === "grep"
+                  ? "GREP"
+                  : toolType === "delete_file"
+                    ? "DELETE"
+                    : toolType === "delete_folder"
+                      ? "DELETE"
+                      : toolType === "move_file"
+                        ? "MOVE"
+                        : toolType === "revert_file"
+                          ? "REVERT"
+                          : toolType === "run_command"
+                            ? "RUN"
+                            : toolType.toUpperCase().replace(/_/g, " ");
+    
+    // Extract file path or relevant info from params
+    const filePath =
+      firstAction.params.file_path ||
+      firstAction.params.folder_path ||
+      firstAction.params.path ||
+      "";
+    const fileName = filePath ? filePath.split("/").pop() || filePath : "";
+    
+    return (
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+          marginBottom: isLastItemInList ? "0" : "8px",
+        }}
+      >
+        <ToolHeader
+          title={
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                color: "var(--vscode-editor-foreground)",
+              }}
+            >
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>
+                {toolLabel}
+              </span>
+              {fileName && (
+                <>
+                  <span style={{ display: "flex", alignItems: "center" }}>
+                    <FileIcon
+                      path={filePath}
+                      style={{ width: "16px", height: "16px" }}
+                    />
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: 500,
+                      opacity: 0.9,
+                      fontFamily: "var(--vscode-editor-font-family, monospace)",
+                      fontSize: "11px",
+                    }}
+                  >
+                    {fileName}
+                  </span>
+                </>
+              )}
+            </div>
+          }
+          path={filePath}
+          statusColor={errorColor}
+          isError={true}
+          toolType={toolType}
+        />
+        <ErrorBlock
+          content={firstAction.errorMessage || "Unknown error occurred"}
+          errorCode={firstAction.errorCode}
+          showHeader={false}
+          maxHeight="300px"
+        />
+      </div>
+    );
+  }
 
   // Handle view_replace_history BEFORE isFileTool check
   if (toolType === "view_replace_history") {

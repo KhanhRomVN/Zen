@@ -242,7 +242,13 @@ export const useChatLLM = ({
             file_id: f.file_id,
           })),
         attachedItems: files
-          ?.filter((f: any) => f.type === "file" || f.type === "folder" || f.type === "external" || f.type === "text-snippet")
+          ?.filter(
+            (f: any) =>
+              f.type === "file" ||
+              f.type === "folder" ||
+              f.type === "external" ||
+              f.type === "text-snippet",
+          )
           .map((f: any) => ({
             id: f.id,
             path: f.path,
@@ -590,6 +596,10 @@ export const useChatLLM = ({
             .filter(Boolean)
             .join(" ");
 
+          console.log(
+            `[Stream Complete] Parsed blocks: ${toolSequence || "none"}`,
+          );
+
           console.log("[Raw Content]:", assistantMessage.content);
         } catch (parseError) {
           hasParsingError = true;
@@ -616,9 +626,6 @@ export const useChatLLM = ({
                 : m,
             ),
           );
-
-          // Log the parsing error
-          console.log(`[Stream Complete] Parsing ERROR: ${errorDetails}`);
         }
 
         // Save final conversation

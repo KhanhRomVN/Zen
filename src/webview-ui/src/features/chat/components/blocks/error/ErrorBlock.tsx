@@ -16,6 +16,8 @@ export interface ErrorBlockProps {
   compact?: boolean;
   /** Maximum height for error content */
   maxHeight?: string;
+  /** Custom label for ToolHeader (default: "ERROR") */
+  label?: string;
 }
 
 // Parse error message to extract meaningful information
@@ -76,6 +78,7 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
   contentPaddingLeft = "36px",
   compact = false,
   maxHeight,
+  label = "ERROR",
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const errorColor = "var(--vscode-errorForeground, #f44336)";
@@ -172,7 +175,7 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
                 <span
                   style={{ fontWeight: 600, opacity: 0.8, color: errorColor }}
                 >
-                  ERROR
+                  {label}
                 </span>
                 {displayErrorCode && (
                   <span
