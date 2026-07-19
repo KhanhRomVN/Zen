@@ -15,7 +15,7 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Virtual scrolling configuration
   const LINE_HEIGHT = 18; // 12px font * 1.5 line-height
@@ -30,10 +30,10 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
   const { visibleLines, offsetY } = useMemo(() => {
     const viewportLines = Math.ceil(maxHeightPx / LINE_HEIGHT);
     const scrollLines = Math.floor(scrollTop / LINE_HEIGHT);
-    
+
     const start = Math.max(0, scrollLines - BUFFER_SIZE);
     const end = Math.min(totalLines, scrollLines + viewportLines + BUFFER_SIZE);
-    
+
     return {
       startIndex: start,
       endIndex: end,
@@ -63,7 +63,7 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
 
     if (!isNearBottom) {
       setIsUserScrolling(true);
-      
+
       // Clear existing timeout
       if (autoScrollTimeoutRef.current) {
         clearTimeout(autoScrollTimeoutRef.current);
@@ -100,30 +100,38 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        style={{
-          fontFamily: "var(--vscode-editor-font-family, monospace)",
-          fontSize: "12px",
-          lineHeight: "1.5",
-          color:
-            "var(--vscode-descriptionForeground, var(--vscode-editor-foreground))",
-          opacity: 0.75,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          maxHeight: `${maxHeightPx}px`,
-          overflowY: totalLines * LINE_HEIGHT > maxHeightPx ? "auto" : "hidden",
-          padding: 0,
-          border: "none",
-          background: "transparent",
-          outline: "none",
-          flex: 1,
-          position: "relative",
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-        } as React.CSSProperties}
+        style={
+          {
+            fontFamily: "var(--vscode-editor-font-family, monospace)",
+            fontSize: "12px",
+            lineHeight: "1.5",
+            color:
+              "var(--vscode-descriptionForeground, var(--vscode-editor-foreground))",
+            opacity: 0.75,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            maxHeight: `${maxHeightPx}px`,
+            overflowY:
+              totalLines * LINE_HEIGHT > maxHeightPx ? "auto" : "hidden",
+            padding: 0,
+            border: "none",
+            background: "transparent",
+            outline: "none",
+            flex: 1,
+            position: "relative",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none",
+          } as React.CSSProperties
+        }
         className="thinking-block-scroll"
       >
         {/* Spacer to maintain scroll height */}
-        <div style={{ height: `${totalLines * LINE_HEIGHT}px`, position: "relative" }}>
+        <div
+          style={{
+            height: `${totalLines * LINE_HEIGHT}px`,
+            position: "relative",
+          }}
+        >
           {/* Visible content with offset */}
           <div
             style={{

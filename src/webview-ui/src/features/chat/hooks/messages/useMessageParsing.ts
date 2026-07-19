@@ -115,14 +115,6 @@ export const useMessageParsing = (
     lastParsedResultRef.current = result;
     lastMessagesRef.current = messages; // Store current messages array for next comparison
 
-    const _elapsed = performance.now() - _startTime;
-    if (_elapsed > 15) {
-      console.warn("[DEBUG][useMessageParsing] SLOW PARSING", {
-        duration: _elapsed.toFixed(2) + "ms",
-        messageCount: messages.length,
-      });
-    }
-
     return result;
   }, [messages, isStreaming]);
 
@@ -156,21 +148,7 @@ export const useMessageParsing = (
     }
 
     // Parse fresh for streaming or cache miss
-
-    const parseStart = performance.now();
     const parsed = parseAIResponse(msg.content);
-    const parseElapsed = performance.now() - parseStart;
-
-    if (parseElapsed > 10) {
-      console.warn(
-        "[DEBUG][useMessageParsing.parseMessageWithCache] SLOW MESSAGE PARSE",
-        {
-          duration: parseElapsed.toFixed(2) + "ms",
-          messageId: msg.id,
-          contentLength: msg.content.length,
-        },
-      );
-    }
 
     // Cache the parse result (but always create new object for streaming)
     if (!isAssistantStreaming) {

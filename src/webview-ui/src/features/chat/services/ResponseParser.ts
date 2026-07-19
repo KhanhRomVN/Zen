@@ -71,9 +71,9 @@ export type ContentBlock =
     }
   | { type: "tool"; action: ToolAction; actionIndex?: number }
   | { type: "thinking"; content: string }
-  | { 
-      type: "error"; 
-      content: string; 
+  | {
+      type: "error";
+      content: string;
       errorCode?: string;
       toolName?: string;
       toolParams?: Record<string, any>;
@@ -116,10 +116,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   // Pre-extract <thinking> blocks BEFORE any tool scanning so that tool tags
   // inside a thinking block are never mistaken for real tool calls.
-  const {
-    remainingContent: contentAfterThinking,
-    thinkingBlocks,
-  } = extractThinkingBlocks(remainingContent);
+  const { remainingContent: contentAfterThinking, thinkingBlocks } =
+    extractThinkingBlocks(remainingContent);
 
   remainingContent = contentAfterThinking;
 
@@ -171,6 +169,69 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   }
 
   // Helper to find next tag
+  /**
+   * Validate that all param tags inside a tool have proper closing tags
+   * Returns the name of the first missing closing tag, or null if all are closed
+   * 
+   * IMPORTANT: This validates XML param tags (like <file_path>, <content>), NOT HTML tags inside content.
+   * For display tags like <markdown>, <code>, <file>, we skip validation since their content may contain HTML.
+   * <question> is NOT skipped because it contains structured XML (<q>, <option>) that needs validation.
+   */
+  const validateParamTags = (
+    innerContent: string,
+    toolName: string,
+  ): string | null => {
+    // Skip validation for display tags - they can contain arbitrary HTML
+    const DISPLAY_TAGS = ['markdown', 'code', 'file'];
+    if (DISPLAY_TAGS.includes(toolName)) {
+      return null; // Don't validate HTML tags inside display content
+    }
+
+    // Extract all opening param tags (excluding self-closing tags like <q ... />)
+    const openTagRegex = /<([a-zA-Z_][a-zA-Z0-9_]*?)(?:\s+[^>]*)?>(?!\/)/g;
+    const selfClosingRegex = /<([a-zA-Z_][a-zA-Z0-9_]*?)(?:\s+[^>]*)?\/>/g;
+    const closeTagRegex = /<\/([a-zA-Z_][a-zA-Z0-9_]*)>/g;
+
+    const openTags: string[] = [];
+    const selfClosingTags: Set<string> = new Set();
+    const closeTags: string[] = [];
+
+    let match;
+    
+    // Find self-closing tags first
+    while ((match = selfClosingRegex.exec(innerContent)) !== null) {
+      selfClosingTags.add(match[1]);
+    }
+    
+    // Find opening tags (non-self-closing)
+    while ((match = openTagRegex.exec(innerContent)) !== null) {
+      const tagName = match[1];
+      // Only count as opening tag if it's not immediately followed by />
+      const fullMatch = match[0];
+      if (!fullMatch.endsWith('/>')) {
+        openTags.push(tagName);
+      }
+    }
+
+    // Find closing tags
+    while ((match = closeTagRegex.exec(innerContent)) !== null) {
+      closeTags.push(match[1]);
+    }
+
+    // Check each opening tag has a corresponding closing tag
+    // Ignore tags that are self-closing
+    for (const tag of openTags) {
+      const openCount = openTags.filter((t) => t === tag).length;
+      const closeCount = closeTags.filter((t) => t === tag).length;
+
+      if (openCount > closeCount) {
+        return tag; // This tag is missing closing tag(s)
+      }
+    }
+
+    return null;
+  };
+
   const findNextTag = (str: string) => {
     let minIndex = -1;
     let bestMatch: any = null;
@@ -210,17 +271,22 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         closingTagPattern,
       );
 
-      if (DEBUG_PARSER) {
-        console.log(`[Zen][Parser] 🔍 Checking tag <${toolName}>:`, {
-          openIndex,
-          startContentPos,
-          closingPos,
-          found: closingPos !== -1,
-          contentPreview: str.substring(openIndex, Math.min(openIndex + 100, str.length)),
-        });
-      }
-
       if (closingPos !== -1) {
+        // Validate that all param tags inside are properly closed
+        const innerContent = str.substring(startContentPos, closingPos);
+        const missingParamTag = validateParamTags(innerContent, toolName);
+
+        if (missingParamTag) {
+          // Found unclosed param tag - don't register as valid closed tag
+          console.error("[Zen][Parser] ⚠️ UNCLOSED PARAM TAG:", {
+            toolName,
+            missingParam: missingParamTag,
+            contentPreview: innerContent.substring(0, 200),
+          });
+          // Skip this tool - will be caught as unclosed in main loop
+          continue;
+        }
+
         if (minIndex === -1 || openIndex < minIndex) {
           const innerContent = str.substring(startContentPos, closingPos);
           const fullMatch = str.substring(
@@ -682,14 +748,18 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         // Unclosed tag detected - create malformed tool action
         // Try to extract params from the partial content we have
         const partialContent = scanStr.substring(index);
-        const openTagEnd = partialContent.indexOf('>');
+        const openTagEnd = partialContent.indexOf(">");
         let toolParams: Record<string, any> = {};
-        
+        let missingParamTag: string | null = null;
+
         if (openTagEnd !== -1) {
           // We have the opening tag, try to extract any content before it breaks
           const contentStart = openTagEnd + 1;
           const remainingAfterTag = partialContent.substring(contentStart);
-          
+
+          // Check if it's missing param closing tags
+          missingParamTag = validateParamTags(remainingAfterTag, toolName);
+
           // Try to parse whatever params we can from the partial content
           // This is best-effort - some params might be incomplete
           try {
@@ -703,17 +773,26 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             // Ignore parsing errors for incomplete content
           }
         }
-        
+
+        const errorMessage = missingParamTag
+          ? `Malformed tool output: <${toolName}> tag is missing closing tag for parameter <${missingParamTag}>. Please ensure all XML tags are properly closed.`
+          : `Malformed tool output: <${toolName}> tag is missing closing tag. Please ensure all XML tags are properly closed.`;
+
         console.error("[Zen][Parser] ⚠️ UNCLOSED TAG DETECTED:", {
           toolName,
           tagPosition: index,
           remainingContentLength: scanStr.length,
-          contentAroundTag: scanStr.substring(Math.max(0, index - 50), index + 150),
+          contentAroundTag: scanStr.substring(
+            Math.max(0, index - 50),
+            index + 150,
+          ),
           searchedFor: `</${toolName}>`,
           foundClosingTag: false,
-          extractedParams: Object.keys(toolParams).length > 0 ? toolParams : "none",
+          missingParamTag: missingParamTag || "none (tool closing tag missing)",
+          extractedParams:
+            Object.keys(toolParams).length > 0 ? toolParams : "none",
         });
-        
+
         // Create a malformed tool action with error flag
         const actionIndex = result.actions.length;
         const malformedAction: ToolAction = {
@@ -721,25 +800,17 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           params: toolParams,
           rawXml: match[0],
           isError: true,
-          errorMessage: `Malformed tool output: <${toolName}> tag is missing closing tag. Please ensure all XML tags are properly closed.`,
-          errorCode: "UNCLOSED_TAG",
+          errorMessage,
+          errorCode: missingParamTag ? "UNCLOSED_PARAM_TAG" : "UNCLOSED_TAG",
         };
-        
-        console.log("[Zen][Parser] 🔧 Created malformed tool action:", {
-          toolName,
-          actionType: malformedAction.type,
-          isError: malformedAction.isError,
-          errorCode: malformedAction.errorCode,
-          params: malformedAction.params,
-        });
-        
-        result.contentBlocks.push({ 
-          type: "tool", 
+
+        result.contentBlocks.push({
+          type: "tool",
           action: malformedAction,
           actionIndex,
         });
         result.actions.push(malformedAction);
-        
+
         break;
       }
     } else {
@@ -855,10 +926,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // 🛡️ DETECT ONLY-THINKING RESPONSE (fallback mechanism)
   // If response has thinking blocks BUT no other content or tools, mark it
   const hasThinkingBlocks = thinkingBlocks.length > 0;
-  
+
   // Check if there are non-thinking content blocks or actions
   const nonThinkingBlocks = result.contentBlocks.filter(
-    (block) => block.type !== "thinking"
+    (block) => block.type !== "thinking",
   );
   const hasOtherContent =
     nonThinkingBlocks.length > 0 || result.actions.length > 0;
@@ -873,37 +944,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       nonThinkingBlocks: nonThinkingBlocks.length,
     });
   }
-
-  const _parseElapsed = performance.now() - _parseStartTime;
-
-  if (_parseElapsed > 20) {
-    console.warn("[DEBUG][ResponseParser.parseAIResponse] SLOW PARSE", {
-      duration: _parseElapsed.toFixed(2) + "ms",
-      contentLength: content.length,
-    });
-  }
-
-  // 📊 COMPREHENSIVE PARSING RESULTS LOG
-  console.log("[Zen][Parser] ✅ Parsing Complete:", {
-    contentLength: content.length,
-    parseTime: _parseElapsed.toFixed(2) + "ms",
-    results: {
-      totalActions: result.actions.length,
-      actionTypes: result.actions.map((a) => a.type),
-      totalContentBlocks: result.contentBlocks.length,
-      blockTypes: result.contentBlocks.map((b) => b.type),
-      hasError: result.contentBlocks.some((b) => b.type === "error"),
-      errorBlocks: result.contentBlocks
-        .filter((b) => b.type === "error")
-        .map((b) => ({
-          content: b.type === "error" ? b.content : "",
-          errorCode: b.type === "error" ? b.errorCode : undefined,
-        })),
-      hasQuestion: !!result.question,
-      onlyThinkingDetected: result.onlyThinkingDetected || false,
-    },
-    contentPreview: content.substring(0, 300) + (content.length > 300 ? "..." : ""),
-  });
 
   return result;
 };

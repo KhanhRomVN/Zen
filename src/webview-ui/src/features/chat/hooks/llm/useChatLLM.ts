@@ -601,6 +601,41 @@ export const useChatLLM = ({
           );
 
           console.log("[Raw Content]:", assistantMessage.content);
+
+          // 🔧 If there are malformed tool actions, append their errors to content
+          // so they are sent in the next request for AI self-correction
+          const malformedActions = parsed.actions.filter((a: any) => a.isError);
+          if (malformedActions.length > 0) {
+            const errorTexts = malformedActions.map((action: any) => {
+              const toolName = action.type;
+              const errorMsg = action.errorMessage || "Malformed tool output";
+              const errorCode = action.errorCode || "UNKNOWN_ERROR";
+
+              // Extract file path or relevant context for the "for" part
+              const filePath =
+                action.params.file_path ||
+                action.params.folder_path ||
+                action.params.path ||
+                action.params.file_name ||
+                action.params.search_term ||
+                "";
+              const forPart = filePath ? ` for '${filePath}'` : "";
+
+              return `\n[${toolName}${forPart}] Result: Error - ${errorCode}: ${errorMsg}`;
+            });
+
+            // Append errors to content
+            assistantMessage.content += errorTexts.join("");
+
+            // Update messages array with appended errors
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMessageId
+                  ? { ...m, content: assistantMessage.content }
+                  : m,
+              ),
+            );
+          }
         } catch (parseError) {
           hasParsingError = true;
           // Parsing failed - convert assistant message to error
