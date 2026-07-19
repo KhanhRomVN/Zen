@@ -53,4 +53,21 @@ export interface Message {
   rawRequest?: string;
   /** Raw API response content accumulated from SSE stream. */
   rawResponse?: string;
+  /** Uploaded files sent with this message */
+  uploadedFiles?: Array<{
+    id: string;
+    name: string;
+    size: number;
+    type: string;
+    content: string;
+    file_id?: string;
+  }>;
+  /** Attached items (files/folders/snippets) sent with this message */
+  attachedItems?: Array<{
+    id: string;
+    path: string;
+    type: "file" | "folder" | "external" | "text-snippet";
+    content?: string;
+    lineCount?: number;
+  }>;
 }

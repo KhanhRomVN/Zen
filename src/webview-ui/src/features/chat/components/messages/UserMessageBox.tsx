@@ -1,6 +1,7 @@
 import React from "react";
 import { Message } from "../../types/message";
 import RevertConfirmModal from "@/components/RevertConfirmModal";
+import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 
 interface UserMessageBoxProps {
   message: Message;
@@ -64,6 +65,30 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
         zIndex: 1,
       }}
     >
+      {/* Files Preview - Show at top if there are files */}
+      {message.uploadedFiles?.length || message.attachedItems?.length ? (
+        <div style={{ marginBottom: "var(--spacing-xs)" }}>
+          <FilesPreviews
+            uploadedFiles={message.uploadedFiles || []}
+            attachedItems={message.attachedItems || []}
+            onRemoveFile={() => {}} // Read-only in message display
+            onRemoveAttachedItem={() => {}} // Read-only in message display
+            onOpenImage={(file) => {
+              const vscodeApi = (window as any).vscodeApi;
+              if (vscodeApi) {
+                vscodeApi.postMessage({
+                  command: "openTempImage",
+                  content: file.content,
+                  filename: file.name,
+                });
+              }
+            }}
+            onAttachedItemClick={() => {}}
+            readOnly={true}
+          />
+        </div>
+      ) : null}
+
       <div
         style={{
           display: "flex",

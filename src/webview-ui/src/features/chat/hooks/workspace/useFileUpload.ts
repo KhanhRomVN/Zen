@@ -18,7 +18,9 @@ export const useFileUpload = (apiUrl: string) => {
         (f: any) =>
           !f.id?.startsWith("attached-") &&
           !f.id?.startsWith("rule-") &&
-          !f.id?.startsWith("terminal-"),
+          !f.id?.startsWith("terminal-") &&
+          !f.id?.startsWith("snippet-") && // 🚀 FIX: Don't upload text snippets
+          !f.id?.startsWith("external-"), // 🚀 FIX: Don't upload external files (content already in them)
       );
 
       for (const file of localFiles) {

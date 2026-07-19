@@ -23,6 +23,11 @@ export const useTextareaHandlers = ({
     null,
   );
 
+  // 🚀 NEW: Debounce state updates for very large text
+  const setMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   // 🚀 PERF FIX #2: Store callback dependencies in refs to stabilize useCallback
   const checkMentionsRef = useRef(checkMentions);
   const handleDraftKeyDownRef = useRef(handleDraftKeyDown);
@@ -39,11 +44,29 @@ export const useTextareaHandlers = ({
 
   const handleTextareaChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const changeStart = performance.now();
       changeCountRef.current += 1;
       const value = e.target.value;
+      const hasAtSymbol = value.includes("@");
+      const isVeryLargeText = value.length > 50000;
 
-      // Update message state immediately for responsive UI
-      setMessageRef.current(value);
+      // 🚀 OPTIMIZATION: For very large text, use debounced state update
+      // but still update immediately for textarea responsiveness
+      if (isVeryLargeText) {
+        // Clear any pending state update
+        if (setMessageTimeoutRef.current) {
+          clearTimeout(setMessageTimeoutRef.current);
+        }
+
+        // Debounce React state update to avoid expensive re-renders
+        // Textarea will still update immediately (browser-native)
+        setMessageTimeoutRef.current = setTimeout(() => {
+          setMessageRef.current(value);
+        }, 150);
+      } else {
+        // Update message state immediately for responsive UI (normal text)
+        setMessageRef.current(value);
+      }
 
       // Debounce expensive checkMentions operation
       if (checkMentionsTimeoutRef.current) {
@@ -51,8 +74,8 @@ export const useTextareaHandlers = ({
       }
 
       // Only run checkMentions if user is actually typing "@" symbol
-      // This avoids regex matching on every single keystroke
-      if (value.includes("@")) {
+      // Skip for very large text to avoid performance issues
+      if (hasAtSymbol && !isVeryLargeText) {
         checkMentionsTimeoutRef.current = setTimeout(() => {
           checkMentionsRef.current(value);
         }, 150); // 150ms debounce - responsive but not laggy
@@ -78,6 +101,18 @@ export const useTextareaHandlers = ({
         filename: file.name,
       });
     }
+  }, []);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (checkMentionsTimeoutRef.current) {
+        clearTimeout(checkMentionsTimeoutRef.current);
+      }
+      if (setMessageTimeoutRef.current) {
+        clearTimeout(setMessageTimeoutRef.current);
+      }
+    };
   }, []);
 
   return {

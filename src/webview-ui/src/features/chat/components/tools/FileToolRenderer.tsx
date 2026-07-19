@@ -235,7 +235,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
     if (totalLines > 0) linesCount = totalLines;
   }
 
-  const isPartial = action.isPartial;
+  const isPartial = false; // No longer using streaming partial parsing
   const isError = !!toolOutputs?.[actionId]?.isError;
   const errorMessage = isError ? toolOutputs?.[actionId]?.output || "" : "";
 

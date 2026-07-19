@@ -22,6 +22,72 @@ const SLOGANS = [
   "Your partner in development",
 ] as const;
 
+// Memoized dashboard stats component to prevent re-render on typing
+const DashboardStats = React.memo(
+  ({
+    todayTokens,
+    todayRequests,
+    favoriteModel,
+    totalAccounts,
+    modelDistribution,
+    providerFavicons,
+    dailyUsage,
+    sortedConversations,
+    isLoading,
+    onLoadConversation,
+  }: {
+    todayTokens: number;
+    todayRequests: number;
+    favoriteModel: string;
+    totalAccounts: number;
+    modelDistribution: any[];
+    providerFavicons: Record<string, string>;
+    dailyUsage: any[];
+    sortedConversations: ConversationItem[];
+    isLoading: boolean;
+    onLoadConversation: (
+      conversationId: string,
+      tabId: number,
+      folderPath: string | null,
+    ) => void;
+  }) => {
+    const renderCountRef = React.useRef(0);
+    renderCountRef.current++;
+    return (
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+        }}
+      >
+        <StatsGrid
+          todayTokens={todayTokens}
+          todayRequests={todayRequests}
+          favoriteModel={favoriteModel}
+          totalAccounts={totalAccounts}
+        />
+
+        <ModelDistributionCard
+          modelDistribution={modelDistribution}
+          providerFavicons={providerFavicons}
+          title="AI Model Distribution"
+          emptyText="Loading history..."
+        />
+
+        <DailyUsageChart usage={dailyUsage} title="Daily Usage" />
+
+        <RecentActivity
+          conversations={sortedConversations}
+          isLoading={isLoading}
+          onLoadConversation={onLoadConversation}
+        />
+      </div>
+    );
+  },
+);
+
 interface HomePanelProps {
   onSendMessage: (
     content: string,
@@ -42,6 +108,23 @@ const HomePanel: React.FC<HomePanelProps> = ({
   onLoadConversation,
   initialValue,
 }) => {
+  // 🔍 PERFORMANCE DEBUG LOGS
+  const renderCountRef = React.useRef(0);
+  const lastRenderTimeRef = React.useRef(Date.now());
+  const renderTimingsRef = React.useRef<number[]>([]);
+  const renderStartTime = performance.now();
+
+  renderCountRef.current++;
+  const now = Date.now();
+  const timeSinceLastRender = now - lastRenderTimeRef.current;
+  lastRenderTimeRef.current = now;
+  renderTimingsRef.current.push(timeSinceLastRender);
+
+  // Keep only last 10 timings
+  if (renderTimingsRef.current.length > 10) {
+    renderTimingsRef.current.shift();
+  }
+
   const imagesUri = (window as any).__zenImagesUri;
   const { apiUrl } = useSettings();
 
@@ -82,6 +165,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const [providerFavicons, setProviderFavicons] = useState<
     Record<string, string>
   >({});
+
+  // Memoize onLoadConversation to stabilize DashboardStats props
+  const stableOnLoadConversation = React.useCallback(onLoadConversation, []);
 
   // Trigger history limit enforcement on mount
   useEffect(() => {
@@ -189,31 +275,28 @@ const HomePanel: React.FC<HomePanelProps> = ({
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
-  const sortedConversations = [...conversations].sort((a, b) => {
-    const timeA = new Date(
-      a.lastModified || a.timestamp || a.createdAt || 0,
-    ).getTime();
-    const timeB = new Date(
-      b.lastModified || b.timestamp || b.createdAt || 0,
-    ).getTime();
-    return timeB - timeA;
-  });
+  const sortedConversations = React.useMemo(() => {
+    return [...conversations].sort((a, b) => {
+      const timeA = new Date(
+        a.lastModified || a.timestamp || a.createdAt || 0,
+      ).getTime();
+      const timeB = new Date(
+        b.lastModified || b.timestamp || b.createdAt || 0,
+      ).getTime();
+      return timeB - timeA;
+    });
+  }, [conversations]);
 
-  // MessageInput handlers
-  const handleSend = (model: any, account: any) => {
-    if (message.trim() || uploadedFiles.length > 0) {
-      onSendMessage(message, [...uploadedFiles], model, account);
-      setMessage("");
-      clearDraft(); // Clear draft after sending
-      clearFiles();
-    }
-  };
+  // Text snippets state for large paste
+  const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
-  };
+  const handleAddAttachedItem = React.useCallback((item: any) => {
+    setAttachedItems((prev) => [...prev, item]);
+  }, []);
 
-  const handleKeyDown = (_e: React.KeyboardEvent<HTMLTextAreaElement>) => {};
+  const handleRemoveAttachedItem = React.useCallback((id: string) => {
+    setAttachedItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
 
   const {
     uploadedFiles,
@@ -227,10 +310,72 @@ const HomePanel: React.FC<HomePanelProps> = ({
     handleDragOver,
     handleDrop,
     clearFiles,
+    addAttachedItemWithCache,
+    removeAttachedItemFromCache,
   } = useFileHandling({
     accountId: currentAccount?.id,
-    onAddAttachedItem: () => {}, // no mention system in home
+    folderPath: folderPath || null,
+    onAddAttachedItem: handleAddAttachedItem,
   });
+
+  // Wrap handleRemoveAttachedItem to also update localStorage cache
+  const handleRemoveAttachedItemWrapper = React.useCallback(
+    (id: string) => {
+      handleRemoveAttachedItem(id);
+      removeAttachedItemFromCache(id);
+    },
+    [handleRemoveAttachedItem, removeAttachedItemFromCache],
+  );
+
+  // MessageInput handlers - AFTER useFileHandling to avoid reference errors
+  const handleSend = React.useCallback(
+    (model: any, account: any) => {
+      if (
+        message.trim() ||
+        uploadedFiles.length > 0 ||
+        attachedItems.length > 0
+      ) {
+        // 🚀 FIX: Merge uploadedFiles and attachedItems like in chat panel
+        onSendMessage(message, [...uploadedFiles, ...attachedItems], model, account);
+        setMessage("");
+        clearDraft(); // Clear draft after sending
+        clearFiles();
+        setAttachedItems([]); // Clear attached items after sending
+      }
+    },
+    [
+      message,
+      uploadedFiles,
+      attachedItems,
+      onSendMessage,
+      clearDraft,
+      clearFiles,
+    ],
+  );
+
+  const handleTextareaChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const changeStart = performance.now();
+      const newValue = e.target.value;
+      const lengthDiff = newValue.length - message.length;
+
+      setMessage(newValue);
+
+      const changeTime = performance.now() - changeStart;
+
+      if (changeTime > 5) {
+        console.warn(
+          `[Home handleTextareaChange] SLOW: ${changeTime.toFixed(2)}ms`,
+        );
+      }
+    },
+    [message],
+  );
+
+  const handleKeyDown = React.useCallback(
+    (_e: React.KeyboardEvent<HTMLTextAreaElement>) => {},
+    [],
+  );
 
   return (
     <div
@@ -445,36 +590,18 @@ const HomePanel: React.FC<HomePanelProps> = ({
           </div>
 
           {/* Dashboard content */}
-          <div
-            style={{
-              width: "100%",
-              display: "flex",
-              flexDirection: "column",
-              gap: "16px",
-            }}
-          >
-            <StatsGrid
-              todayTokens={todayTokens}
-              todayRequests={todayRequests}
-              favoriteModel={favoriteModel}
-              totalAccounts={totalAccounts}
-            />
-
-            <ModelDistributionCard
-              modelDistribution={modelDistribution}
-              providerFavicons={providerFavicons}
-              title="AI Model Distribution"
-              emptyText="Loading history..."
-            />
-
-            <DailyUsageChart usage={dailyUsage} title="Daily Usage" />
-
-            <RecentActivity
-              conversations={sortedConversations}
-              isLoading={isLoading}
-              onLoadConversation={onLoadConversation}
-            />
-          </div>
+          <DashboardStats
+            todayTokens={todayTokens}
+            todayRequests={todayRequests}
+            favoriteModel={favoriteModel}
+            totalAccounts={totalAccounts}
+            modelDistribution={modelDistribution}
+            providerFavicons={providerFavicons}
+            dailyUsage={dailyUsage}
+            sortedConversations={sortedConversations}
+            isLoading={isLoading}
+            onLoadConversation={stableOnLoadConversation}
+          />
 
           <style>{`
             @keyframes fadeIn {
@@ -517,9 +644,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
       />
       <FilesPreviews
         uploadedFiles={uploadedFiles}
-        attachedItems={[]}
+        attachedItems={attachedItems}
         onRemoveFile={removeFile}
-        onRemoveAttachedItem={() => {}}
+        onRemoveAttachedItem={handleRemoveAttachedItemWrapper}
         onOpenImage={(file) => {
           const vscodeApi = (window as any).vscodeApi;
           if (vscodeApi) {

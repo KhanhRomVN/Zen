@@ -29,7 +29,6 @@ interface UseChatLLMProps {
     isAutoTrigger?: boolean,
     actionType?: "accept_all" | "accept_once" | "reject",
   ) => void;
-  isPerformanceMode?: boolean;
 }
 
 export const useChatLLM = ({
@@ -37,7 +36,6 @@ export const useChatLLM = ({
   selectedTab,
   onConversationIdChange,
   onToolRequest,
-  isPerformanceMode,
 }: UseChatLLMProps) => {
   // Use extracted hooks
   const {
@@ -232,6 +230,26 @@ export const useChatLLM = ({
         actionIds: actionIds,
         uiHidden: uiHidden,
         conversationId: backendConversationIdRef.current || undefined,
+        // Store uploaded files and attached items with the message
+        uploadedFiles: files
+          ?.filter((f: any) => f.type?.startsWith("image/") || f.file_id)
+          .map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            content: f.content,
+            file_id: f.file_id,
+          })),
+        attachedItems: files
+          ?.filter((f: any) => f.type === "file" || f.type === "folder" || f.type === "external" || f.type === "text-snippet")
+          .map((f: any) => ({
+            id: f.id,
+            path: f.path,
+            type: f.type,
+            content: f.content,
+            lineCount: f.lineCount,
+          })),
       };
 
       const updatedMessages = [...filteredMessages, userMessage];
@@ -338,7 +356,9 @@ export const useChatLLM = ({
               (f: any) =>
                 !f.id?.startsWith("attached-") &&
                 !f.id?.startsWith("rule-") &&
-                !f.id?.startsWith("terminal-"),
+                !f.id?.startsWith("terminal-") &&
+                !f.id?.startsWith("snippet-") && // 🚀 FIX: Don't upload text snippets
+                !f.id?.startsWith("external-"), // 🚀 FIX: Don't upload external files
             )
           : [];
 
@@ -410,7 +430,6 @@ export const useChatLLM = ({
               parentMessageId: effectiveParentMessageId,
               refFileIds: ref_file_ids,
               abortSignal: abortController.signal,
-              isPerformanceMode: isPerformanceMode,
             },
             {
               onMetadata: (meta) => {
@@ -447,14 +466,8 @@ export const useChatLLM = ({
               onContinuing: (isContinuing) => {
                 setIsContinuingSync(isContinuing);
               },
-              onIncompleteToolDetected: (hasPartial, toolType) => {
-                dispatchStreaming({
-                  type: "SET_INCOMPLETE_TOOL",
-                  payload: { hasPartial, toolType },
-                });
-              },
               onRawContent: (content) => {
-                // Performance mode: display raw streaming content in thinking block
+                // Display raw streaming content in thinking block
                 setMessages((prev) => {
                   const targetIndex = prev.findIndex(
                     (m) => m.id === assistantMessageId,
@@ -473,11 +486,7 @@ export const useChatLLM = ({
                 });
               },
               onContent: (content) => {
-                // Update UI with batched content
-                // In Performance Mode: this is called ONCE at the end with full content
-                // In Normal Mode: this is called multiple times during streaming
-                const isPerformanceModeActive = isPerformanceMode;
-
+                // Update UI with parsed content (called ONCE at the end with full content)
                 setMessages((prev) => {
                   const targetIndex = prev.findIndex(
                     (m) => m.id === assistantMessageId,
@@ -486,18 +495,12 @@ export const useChatLLM = ({
 
                   const currentMessage = prev[targetIndex];
 
-                  // Performance Mode: Replace content and clear thinking
-                  // Normal Mode: Append content
-                  const updatedMessage = isPerformanceModeActive
-                    ? {
-                        ...currentMessage,
-                        content: content, // Replace with full parsed content
-                        thinking: undefined, // Clear thinking field after parsing
-                      }
-                    : {
-                        ...currentMessage,
-                        content: currentMessage.content + content, // Append for streaming
-                      };
+                  // Replace content and clear thinking
+                  const updatedMessage = {
+                    ...currentMessage,
+                    content: content, // Replace with full parsed content
+                    thinking: undefined, // Clear thinking field after parsing
+                  };
                   const newArray = prev.slice();
                   newArray[targetIndex] = updatedMessage;
                   return newArray;
@@ -841,8 +844,6 @@ export const useChatLLM = ({
       setIsProcessing: setIsProcessingSync,
       isStreaming: streamingState.isStreaming,
       isContinuing: streamingState.isContinuing,
-      incompleteHasPartialTool: streamingState.incompleteHasPartialTool,
-      incompletePartialToolType: streamingState.incompletePartialToolType,
       currentConversationId,
       setCurrentConversationId,
       currentConversationIdRef,

@@ -10,7 +10,6 @@ export interface StreamConfig {
   parentMessageId?: string;
   refFileIds?: string[];
   abortSignal: AbortSignal;
-  isPerformanceMode?: boolean; // Performance mode: disable streaming parse
 }
 
 export interface StreamCallbacks {
@@ -19,11 +18,7 @@ export interface StreamCallbacks {
   onThinking?: (thinking: string) => void;
   onUsage?: (usage: any) => void;
   onContinuing?: (isContinuing: boolean) => void;
-  onIncompleteToolDetected?: (
-    hasPartial: boolean,
-    toolType: string | null,
-  ) => void;
-  onRawContent?: (content: string) => void; // For performance mode: raw content without parsing
+  onRawContent?: (content: string) => void; // Raw content without parsing (for ThinkingBlock display)
 }
 
 export class StreamingService {
@@ -89,9 +84,7 @@ export class StreamingService {
     let buffer = "";
     let firstChunkReceived = false;
 
-    // Performance mode: stream content but don't parse until complete
-    const isPerformanceMode = config.isPerformanceMode || false;
-
+    // Always use performance mode: stream content but don't parse until complete
     // Batching - Optimized for smooth letter-by-letter streaming
     let updateBatch = { content: "", thinking: "" };
     let lastFlushTime = Date.now();
@@ -174,17 +167,6 @@ export class StreamingService {
                 if (metaObj.continuing !== undefined) {
                   callbacks.onContinuing?.(metaObj.continuing);
                 }
-
-                if (metaObj.incomplete_has_partial_tool !== undefined) {
-                  callbacks.onIncompleteToolDetected?.(
-                    metaObj.incomplete_has_partial_tool,
-                    metaObj.incomplete_partial_tool_type ?? null,
-                  );
-                }
-
-                if (metaObj.continuation_complete === true) {
-                  callbacks.onIncompleteToolDetected?.(false, null);
-                }
               }
 
               // Usage
@@ -215,16 +197,9 @@ export class StreamingService {
                 shouldFlush &&
                 (updateBatch.content || updateBatch.thinking || data.usage)
               ) {
-                // In performance mode, send to onRawContent for ThinkingBlock display
-                if (isPerformanceMode) {
-                  if (updateBatch.content) {
-                    callbacks.onRawContent?.(updateBatch.content);
-                  }
-                } else {
-                  // Normal mode: parse as we stream
-                  if (updateBatch.content) {
-                    callbacks.onContent?.(updateBatch.content);
-                  }
+                // Send raw content to onRawContent for ThinkingBlock display (no parsing)
+                if (updateBatch.content) {
+                  callbacks.onRawContent?.(updateBatch.content);
                 }
 
                 if (updateBatch.thinking)
@@ -242,15 +217,10 @@ export class StreamingService {
 
     clearTimeout(firstChunkTimer);
 
-    // Flush remaining batch - in performance mode, this is where we parse everything once
-    if (isPerformanceMode) {
-      // Performance mode: send all accumulated content for parsing NOW
-      if (assistantMessage.content) {
-        callbacks.onContent?.(assistantMessage.content);
-      }
-    } else {
-      // Normal mode: flush any remaining batched content
-      if (updateBatch.content) callbacks.onContent?.(updateBatch.content);
+    // Flush remaining batch - parse everything once at the end
+    // Send all accumulated content for parsing NOW
+    if (assistantMessage.content) {
+      callbacks.onContent?.(assistantMessage.content);
     }
 
     if (updateBatch.thinking) callbacks.onThinking?.(updateBatch.thinking);

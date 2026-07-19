@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   UploadedFile,
   ExternalFile,
@@ -14,19 +14,152 @@ import { useSettings } from "../context/SettingsContext";
 interface UseFileHandlingProps {
   accountId?: string;
   onAddAttachedItem: (item: AttachedItem) => void;
+  folderPath: string | null;
 }
+
+// Storage keys
+const STORAGE_KEYS = {
+  uploadedFiles: (folderPath: string | null) =>
+    `zen-uploaded-files:${folderPath || "global"}`,
+  attachedItems: (folderPath: string | null) =>
+    `zen-attached-items:${folderPath || "global"}`,
+};
 
 export const useFileHandling = ({
   accountId,
   onAddAttachedItem,
+  folderPath,
 }: UseFileHandlingProps) => {
   const { apiUrl } = useSettings();
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [externalFiles, setExternalFiles] = useState<ExternalFile[]>([]);
-  const [invalidExternalFiles, setInvalidExternalFiles] = useState<{name: string, path: string, reason: string}[]>([]);
+  const [invalidExternalFiles, setInvalidExternalFiles] = useState<
+    { name: string; path: string; reason: string }[]
+  >([]);
+  const [attachedItemsCache, setAttachedItemsCache] = useState<AttachedItem[]>(
+    [],
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const externalFileInputRef = useRef<HTMLInputElement>(null);
+  const isRestoringRef = useRef(false);
+
+  // ============================================================================
+  // RESTORE: Load uploadedFiles và attachedItems từ localStorage khi mount
+  // ============================================================================
+  useEffect(() => {
+    isRestoringRef.current = true;
+
+    try {
+      // Restore uploadedFiles
+      const savedUploadedFiles = localStorage.getItem(
+        STORAGE_KEYS.uploadedFiles(folderPath),
+      );
+      if (savedUploadedFiles) {
+        const parsed = JSON.parse(savedUploadedFiles);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setUploadedFiles(parsed);
+        }
+      }
+
+      // Restore attachedItems
+      const savedAttachedItems = localStorage.getItem(
+        STORAGE_KEYS.attachedItems(folderPath),
+      );
+      if (savedAttachedItems) {
+        const parsed = JSON.parse(savedAttachedItems);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAttachedItemsCache(parsed);
+          // Restore each attached item
+          parsed.forEach((item: AttachedItem) => {
+            onAddAttachedItem(item);
+          });
+        }
+      }
+    } catch (error) {
+      console.error(
+        "[useFileHandling] Failed to restore from localStorage:",
+        error,
+      );
+    }
+
+    setTimeout(() => {
+      isRestoringRef.current = false;
+    }, 100);
+  }, [folderPath]); // Only run when folderPath changes
+
+  // ============================================================================
+  // SAVE: Lưu uploadedFiles vào localStorage khi có thay đổi
+  // ============================================================================
+  useEffect(() => {
+    if (isRestoringRef.current) return;
+
+    try {
+      if (uploadedFiles.length > 0) {
+        localStorage.setItem(
+          STORAGE_KEYS.uploadedFiles(folderPath),
+          JSON.stringify(uploadedFiles),
+        );
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.uploadedFiles(folderPath));
+      }
+    } catch (error) {
+      console.error(
+        "[useFileHandling] Failed to save uploadedFiles to localStorage:",
+        error,
+      );
+    }
+  }, [uploadedFiles, folderPath]);
+
+  // ============================================================================
+  // Track attachedItems changes through cache
+  // ============================================================================
+  const addAttachedItemWithCache = (item: AttachedItem) => {
+    setAttachedItemsCache((prev) => {
+      const exists = prev.some((i) => i.id === item.id);
+      if (exists) return prev;
+      const updated = [...prev, item];
+
+      // Save to localStorage
+      try {
+        localStorage.setItem(
+          STORAGE_KEYS.attachedItems(folderPath),
+          JSON.stringify(updated),
+        );
+      } catch (error) {
+        console.error("[useFileHandling] Failed to save attachedItems:", error);
+      }
+
+      return updated;
+    });
+
+    onAddAttachedItem(item);
+  };
+
+  const removeAttachedItemFromCache = (itemId: string) => {
+    setAttachedItemsCache((prev) => {
+      const updated = prev.filter((i) => i.id !== itemId);
+
+      // Update localStorage
+      try {
+        if (updated.length > 0) {
+          localStorage.setItem(
+            STORAGE_KEYS.attachedItems(folderPath),
+            JSON.stringify(updated),
+          );
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.attachedItems(folderPath));
+        }
+      } catch (error) {
+        console.error(
+          "[useFileHandling] Failed to update attachedItems:",
+          error,
+        );
+      }
+
+      return updated;
+    });
+  };
 
   const uploadFileToServer = async (file: UploadedFile) => {
     if (!apiUrl || !accountId) {
@@ -99,6 +232,28 @@ export const useFileHandling = ({
     const items = e.clipboardData.items;
     let hasImage = false;
 
+    // 🚀 NEW: Check for large text paste first
+    const pastedText = e.clipboardData.getData("text/plain");
+    const LARGE_TEXT_THRESHOLD = 10000; // 10k characters
+
+    if (pastedText && pastedText.length > LARGE_TEXT_THRESHOLD) {
+      e.preventDefault(); // Prevent default paste
+
+      // Create text snippet attachment
+      const lineCount = pastedText.split("\n").length;
+      const snippet: AttachedItem = {
+        id: `snippet-${Date.now()}-${Math.random()}`,
+        path: `Pasted Text (${lineCount} lines)`,
+        type: "text-snippet" as any,
+        content: pastedText,
+        lineCount,
+      };
+
+      addAttachedItemWithCache(snippet);
+      return; // Stop processing
+    }
+
+    // Original image handling
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       if (item.kind === "file" && item.type.startsWith("image/")) {
@@ -144,7 +299,7 @@ export const useFileHandling = ({
     const textOnly = (e.target as any).dataset?.textOnly === "true";
 
     const newFiles: UploadedFile[] = [];
-    const invalidFiles: {name: string, reason: string}[] = [];
+    const invalidFiles: { name: string; reason: string }[] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -184,7 +339,7 @@ export const useFileHandling = ({
 
     if (invalidFiles.length > 0) {
       const vscodeApi = (window as any).vscodeApi;
-      const message = `Cannot add file(s):\n${invalidFiles.map(f => `• ${f.name}: ${f.reason}`).join('\n')}`;
+      const message = `Cannot add file(s):\n${invalidFiles.map((f) => `• ${f.name}: ${f.reason}`).join("\n")}`;
       if (vscodeApi) {
         vscodeApi.postMessage({
           command: "showWarning",
@@ -221,7 +376,8 @@ export const useFileHandling = ({
     const files = e.target.files;
     if (!files) return;
 
-    const newInvalidFiles: {name: string, path: string, reason: string}[] = [];
+    const newInvalidFiles: { name: string; path: string; reason: string }[] =
+      [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -231,7 +387,7 @@ export const useFileHandling = ({
         newInvalidFiles.push({
           name: file.name,
           path: (file as any).path || file.webkitRelativePath || file.name,
-          reason: `File type "${file.name.substring(file.name.lastIndexOf('.'))}" is not supported. Allowed: ${ALLOWED_FILE_EXTENSIONS.join(', ')}`,
+          reason: `File type "${file.name.substring(file.name.lastIndexOf("."))}" is not supported. Allowed: ${ALLOWED_FILE_EXTENSIONS.join(", ")}`,
         });
         continue;
       }
@@ -254,13 +410,13 @@ export const useFileHandling = ({
 
         setExternalFiles((prev) => [...prev, externalFile]);
 
-        // Add to attached items
+        // Add to attached items using cache wrapper
         const attachedItem: AttachedItem = {
           id: externalFile.id,
           path: fullPath,
           type: "external",
         };
-        onAddAttachedItem(attachedItem);
+        addAttachedItemWithCache(attachedItem);
       } catch (error) {
         // File is not readable as text
         newInvalidFiles.push({
@@ -278,10 +434,12 @@ export const useFileHandling = ({
       if (vscodeApi) {
         vscodeApi.postMessage({
           command: "showWarning",
-          message: `${newInvalidFiles.length} file(s) could not be added:\n${newInvalidFiles.map(f => `• ${f.name}: ${f.reason}`).join('\n')}`,
+          message: `${newInvalidFiles.length} file(s) could not be added:\n${newInvalidFiles.map((f) => `• ${f.name}: ${f.reason}`).join("\n")}`,
         });
       } else {
-        alert(`Cannot add file(s):\n${newInvalidFiles.map(f => `• ${f.name}: ${f.reason}`).join('\n')}`);
+        alert(
+          `Cannot add file(s):\n${newInvalidFiles.map((f) => `• ${f.name}: ${f.reason}`).join("\n")}`,
+        );
       }
     }
 
@@ -330,7 +488,7 @@ export const useFileHandling = ({
           path: fullPath,
           type: "external",
         };
-        onAddAttachedItem(attachedItem);
+        addAttachedItemWithCache(attachedItem);
       } catch (error) {}
     }
   };
@@ -339,6 +497,15 @@ export const useFileHandling = ({
     setUploadedFiles([]);
     setExternalFiles([]);
     setInvalidExternalFiles([]);
+    setAttachedItemsCache([]);
+
+    // Clear localStorage
+    try {
+      localStorage.removeItem(STORAGE_KEYS.uploadedFiles(folderPath));
+      localStorage.removeItem(STORAGE_KEYS.attachedItems(folderPath));
+    } catch (error) {
+      console.error("[useFileHandling] Failed to clear localStorage:", error);
+    }
   };
 
   const clearInvalidExternalFiles = () => {
@@ -361,5 +528,7 @@ export const useFileHandling = ({
     handleDrop,
     clearFiles,
     clearInvalidExternalFiles,
+    addAttachedItemWithCache,
+    removeAttachedItemFromCache,
   };
 };

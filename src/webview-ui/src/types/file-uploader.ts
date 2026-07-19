@@ -1,8 +1,10 @@
-/** An item attached to the chat input (file, folder, or external). */
+/** An item attached to the chat input (file, folder, external, or text-snippet). */
 export interface AttachedItem {
   id: string;
   path: string;
-  type: "file" | "folder" | "external";
+  type: "file" | "folder" | "external" | "text-snippet";
+  content?: string; // For text-snippet type
+  lineCount?: number; // For text-snippet type
 }
 
 /** A file uploaded by the user (local or already uploaded to backend). */

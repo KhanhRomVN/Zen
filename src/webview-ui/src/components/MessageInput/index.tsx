@@ -1,6 +1,6 @@
 import React from "react";
 import { PlusIcon, SendIcon } from "@/icons/Icon";
-import { X, GitPullRequestArrow, Zap, ShieldCheck, Eye } from "lucide-react";
+import { X, GitPullRequestArrow, ShieldCheck, Eye, Zap } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
@@ -85,43 +85,6 @@ const MemoryIcon = () => (
     <ellipse cx="12" cy="5" rx="9" ry="3" />
     <path d="M3 12a9 3 0 0 0 18 0" />
     <path d="M3 5v14a9 3 0 0 0 18 0V5" />
-  </svg>
-);
-
-const ZapIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="lucide lucide-zap-icon lucide-zap"
-  >
-    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z" />
-  </svg>
-);
-
-const ZapOffIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="lucide lucide-zap-off-icon lucide-zap-off"
-  >
-    <path d="M10.513 4.856 13.12 2.17a.5.5 0 0 1 .86.46l-1.377 4.317" />
-    <path d="M15.656 10H20a1 1 0 0 1 .78 1.63l-1.72 1.773" />
-    <path d="M16.273 16.273 10.88 21.83a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14H4a1 1 0 0 1-.78-1.63l4.507-4.643" />
-    <path d="m2 2 20 20" />
   </svg>
 );
 
@@ -223,26 +186,40 @@ const useProvidersConfig = (currentModel: any, providers: any[]) => {
   return { currentProviderConfig, currentModelConfig };
 };
 
-/**
- * 🚀 PERFORMANCE FIX: Use requestAnimationFrame to batch textarea resizes
- * This prevents excessive layout recalculations during rapid typing
- */
 const useTextareaAutoResize = (
   textareaRef: React.RefObject<HTMLTextAreaElement>,
   message: string,
 ) => {
   const rafIdRef = React.useRef<number | null>(null);
   const resizeCountRef = React.useRef(0);
+  const lastResizeTime = React.useRef(performance.now());
 
   React.useEffect(() => {
     resizeCountRef.current += 1;
     const msgLength = message?.length || 0;
+    const now = performance.now();
+    const timeSinceLastResize = now - lastResizeTime.current;
+
     // Cancel any pending resize
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
     }
 
-    // Schedule resize in next animation frame
+    // 🚀 OPTIMIZATION: Skip auto-resize for very large text (>50k chars)
+    // Let it use fixed max height with scroll instead
+    const isVeryLargeText = msgLength > 50000;
+
+    if (isVeryLargeText) {
+      const el = textareaRef.current;
+      if (el) {
+        el.style.height = "240px"; // max height
+        el.style.overflowY = "auto";
+      }
+      lastResizeTime.current = performance.now();
+      return;
+    }
+
+    // Schedule resize in next animation frame for normal text
     rafIdRef.current = requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
@@ -253,6 +230,7 @@ const useTextareaAutoResize = (
       el.style.overflowY = el.scrollHeight > maxHeight ? "auto" : "hidden";
 
       rafIdRef.current = null;
+      lastResizeTime.current = performance.now();
     });
 
     return () => {
@@ -792,13 +770,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onRevertConversation,
     autoScrollPaused = false,
     scrollToBottom,
-    isPerformanceMode: isPerformanceModeProp,
-    onPerformanceModeChange,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
-    const renderStartTime = performance.now();
     const renderCountRef = React.useRef(0);
-    const instanceIdRef = React.useRef(Math.random().toString(36).substring(7));
     renderCountRef.current++;
 
     const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
@@ -812,8 +786,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const [isModelSwitchMode, setIsModelSwitchMode] = React.useState(false);
     const [isPlusHovered, setIsPlusHovered] = React.useState(false);
     const [isGitHovered, setIsGitHovered] = React.useState(false);
-    const [isPerformanceHovered, setIsPerformanceHovered] =
-      React.useState(false);
 
     // Use custom hooks
     const [isThinking, toggleThinking, setIsThinking] = useToggleState(
@@ -822,32 +794,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const [isSearch, toggleSearch, setIsSearch] =
       useToggleState("zen-search-enabled");
     const [isMemory, , setIsMemory] = useToggleState("zen-memory-enabled");
-    const [isPerformanceModeLocal, togglePerformanceModeLocal] = useToggleState(
-      "zen-performance-mode",
-      false,
-    );
-
-    // Use prop if provided, otherwise use local state
-    const isPerformanceMode =
-      isPerformanceModeProp !== undefined
-        ? isPerformanceModeProp
-        : isPerformanceModeLocal;
-
-    const togglePerformanceMode = React.useCallback(() => {
-      if (onPerformanceModeChange) {
-        // If parent provides callback, use it
-        onPerformanceModeChange(!isPerformanceMode);
-      } else {
-        // Otherwise use local toggle
-        togglePerformanceModeLocal();
-      }
-    }, [
-      isPerformanceMode,
-      onPerformanceModeChange,
-      togglePerformanceModeLocal,
-      isPerformanceModeProp,
-      isPerformanceModeLocal,
-    ]);
 
     const { isLoadingCache, pendingAccountIdRef } = useModelSelection(
       folderPath,
@@ -1605,76 +1551,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 <PlusIcon />
               </div>
 
-              {/* Performance Mode Button */}
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  if (!isStreaming) {
-                    togglePerformanceMode();
-                  }
-                }}
-                onMouseEnter={() =>
-                  !isStreaming && setIsPerformanceHovered(true)
-                }
-                onMouseLeave={() => setIsPerformanceHovered(false)}
-                style={
-                  {
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "22px",
-                    width: "22px",
-                    boxSizing: "border-box",
-                    borderRadius: "4px",
-                    cursor: isStreaming ? "not-allowed" : "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    border: "none",
-                    background: isStreaming
-                      ? // Disabled state - different colors for ON vs OFF
-                        isPerformanceMode
-                        ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #eab308) 8%, transparent)" // Disabled when ON
-                        : "rgba(128, 128, 128, 0.05)" // Disabled when OFF
-                      : isPerformanceMode
-                        ? isPerformanceHovered
-                          ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #eab308) 20%, transparent)"
-                          : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #eab308) 12%, transparent)"
-                        : isPerformanceHovered
-                          ? "rgba(128, 128, 128, 0.2)"
-                          : "rgba(128, 128, 128, 0.12)",
-                    color: isStreaming
-                      ? // Disabled state - different colors for ON vs OFF
-                        isPerformanceMode
-                        ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground4, #eab308) 60%, var(--vscode-descriptionForeground, #8c8c8c))" // Faded yellow when ON
-                        : "var(--vscode-descriptionForeground, #8c8c8c)" // Gray when OFF
-                      : isPerformanceMode
-                        ? "var(--vscode-editorBracketHighlight-foreground4, #eab308)"
-                        : "var(--vscode-foreground)",
-                    opacity: isStreaming
-                      ? 0.5 // Consistent opacity for disabled state
-                      : isPerformanceMode
-                        ? 1
-                        : isPerformanceHovered
-                          ? 0.9
-                          : 0.7,
-                    outline: "none",
-                    outlineWidth: 0,
-                    outlineStyle: "none",
-                    outlineOffset: 0,
-                    WebkitTapHighlightColor: "transparent",
-                  } as React.CSSProperties
-                }
-                title={
-                  isStreaming
-                    ? "Performance Mode - Cannot change while streaming"
-                    : isPerformanceMode
-                      ? "Performance Mode: ON - Streaming parse disabled for faster response"
-                      : "Performance Mode: OFF - Enable to disable streaming parse for full response"
-                }
-              >
-                {isPerformanceMode ? <ZapIcon /> : <ZapOffIcon />}
-              </div>
-
               {/* Git Status Button */}
               {onGitPullRequest && (
                 <div
@@ -1961,8 +1837,6 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     prevProps.responseRanges?.length === nextProps.responseRanges?.length;
   const conversationFileStatsSame =
     prevProps.conversationFileStats === nextProps.conversationFileStats;
-  const isPerformanceModeSame =
-    prevProps.isPerformanceMode === nextProps.isPerformanceMode;
 
   // Only re-render if critical props changed
   const shouldSkip =
@@ -1973,8 +1847,7 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     currentAccountSame &&
     messagesLengthSame &&
     responseRangesSame &&
-    conversationFileStatsSame &&
-    isPerformanceModeSame;
+    conversationFileStatsSame;
 
   return shouldSkip;
 });

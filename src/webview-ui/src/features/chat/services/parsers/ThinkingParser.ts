@@ -13,7 +13,6 @@ export const parseThinking = (innerContent: string): string => {
 export interface ThinkingExtractResult {
   remainingContent: string;
   thinkingBlocks: string[];
-  unclosedThinkingContent: string | null;
 }
 
 /**
@@ -27,18 +26,15 @@ export interface ThinkingExtractResult {
  * ADDITIONAL FIX: Skip <thinking> tags inside backticks (inline code or code blocks).
  *
  * Closed blocks are replaced with numbered placeholders __THINKING_N__ and
- * their content stored in thinkingBlocks[].  An unclosed trailing <thinking>
- * (streaming case) is removed from content and returned separately.
+ * their content stored in thinkingBlocks[].
+ *
+ * NOTE: Since we no longer parse during streaming, unclosed thinking blocks
+ * should not occur. All content is complete when this function is called.
  */
 export const extractThinkingBlocks = (
   content: string,
 ): ThinkingExtractResult => {
   const thinkingBlocks: string[] = [];
-
-  // Debug flag
-  const DEBUG_THINKING =
-    typeof window !== "undefined" &&
-    window.localStorage?.getItem("zen_debug_parser") === "true";
 
   // Tool tags that should NOT have their content scanned for thinking blocks
   // Use EXECUTABLE tools only (excludes UI category: markdown, question, code, thinking)
@@ -121,8 +117,7 @@ export const extractThinkingBlocks = (
           foundToolTag = true;
           break;
         } else {
-          // Tool tag not closed - this might be streaming, stop here
-          // Don't process <thinking> in unclosed tool content
+          // Tool tag not closed - copy remaining content as-is
           processed += content.substring(i);
           i = content.length;
           foundToolTag = true;
@@ -154,11 +149,6 @@ export const extractThinkingBlocks = (
           .toLowerCase()
           .indexOf("</thinking>", i + thinkingOpenTag.length);
         if (simpleEndIndex !== -1) {
-          if (DEBUG_THINKING) {
-            console.warn(
-              "[Zen][ThinkingParser] Fallback to simple indexOf for </thinking>",
-            );
-          }
           thinkingEndIndex = simpleEndIndex;
         }
       }
@@ -176,33 +166,10 @@ export const extractThinkingBlocks = (
 
         continue;
       } else {
-        // Unclosed thinking at the end (streaming case)
-        const unclosedContent = content.substring(i + thinkingOpenTag.length);
-
-        return {
-          remainingContent: processed,
-          thinkingBlocks,
-          unclosedThinkingContent: unclosedContent,
-        };
+        processed += content.substring(i);
+        i = content.length;
+        break;
       }
-    }
-
-    // Check for partial <thinking tag at the very end (streaming incomplete opening tag)
-    // e.g., "<thi", "<think", "<thinking" without the closing >
-    const remainingContent = content.substring(i);
-    const partialThinkingMatch = remainingContent.match(/^<thinking?$/i);
-    if (
-      partialThinkingMatch &&
-      i + remainingContent.length === content.length
-    ) {
-      // This is a partial opening tag at the end - don't include it
-      // It will be completed in the next streaming chunk
-
-      return {
-        remainingContent: processed,
-        thinkingBlocks,
-        unclosedThinkingContent: null,
-      };
     }
 
     // Regular character, just copy it
@@ -213,6 +180,5 @@ export const extractThinkingBlocks = (
   return {
     remainingContent: processed,
     thinkingBlocks,
-    unclosedThinkingContent: null,
   };
 };

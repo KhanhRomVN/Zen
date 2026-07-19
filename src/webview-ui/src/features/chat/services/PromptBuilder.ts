@@ -131,7 +131,9 @@ export class PromptBuilder {
       (f: any) =>
         f.id?.startsWith("attached-") ||
         f.id?.startsWith("rule-") ||
-        f.id?.startsWith("terminal-"),
+        f.id?.startsWith("terminal-") ||
+        f.id?.startsWith("snippet-") || // 🚀 NEW: Support text snippets
+        f.id?.startsWith("external-"), // 🚀 NEW: Support external files
     );
 
     if (attachedItems.length === 0) return "";
@@ -141,6 +143,8 @@ export class PromptBuilder {
     const fileItems = attachedItems.filter((f: any) => f.type === "file");
     const folderItems = attachedItems.filter((f: any) => f.type === "folder");
     const terminalItems = attachedItems.filter((f: any) => f.type === "terminal");
+    const snippetItems = attachedItems.filter((f: any) => f.type === "text-snippet"); // 🚀 NEW
+    const externalItems = attachedItems.filter((f: any) => f.type === "external"); // 🚀 NEW
 
     if (fileItems.length > 0) {
       attachedContextStr += "\n### Files\n";
@@ -181,6 +185,22 @@ export class PromptBuilder {
       attachedContextStr += "\n### Terminals\n";
       terminalItems.forEach((f: any) => {
         attachedContextStr += `- terminal_id: ${f.path}\n`;
+      });
+    }
+
+    // 🚀 NEW: Handle text snippets
+    if (snippetItems.length > 0) {
+      attachedContextStr += "\n### Text Snippets\n";
+      snippetItems.forEach((f: any, index: number) => {
+        attachedContextStr += `#### Snippet[${index + 1}] (${f.lineCount || 0} lines)\n\`\`\`\n${f.content || ""}\n\`\`\`\n`;
+      });
+    }
+
+    // 🚀 NEW: Handle external files
+    if (externalItems.length > 0) {
+      attachedContextStr += "\n### External Files\n";
+      externalItems.forEach((f: any) => {
+        attachedContextStr += `#### ${f.path}\n\`\`\`\n${f.content || ""}\n\`\`\`\n`;
       });
     }
 

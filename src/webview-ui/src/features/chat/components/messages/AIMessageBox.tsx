@@ -238,54 +238,8 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       map,
     };
 
-    const _elapsed = performance.now() - _startTime;
-    if (_elapsed > 5 || map.size > 20) {
-      console.warn(
-        `[AIMessageBox] knownFilePaths recalculated - messages: ${allMessages.length}, pathsFound: ${map.size}, time: ${_elapsed.toFixed(1)}ms`,
-      );
-    }
-
     return map;
   }, [allMessages, responseNumber]);
-
-  const checkboxStyle = (
-    checked: boolean,
-    visible: boolean,
-  ): React.CSSProperties => ({
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "14px",
-    height: "14px",
-    borderRadius: "3px",
-    border: checked
-      ? "1.5px solid var(--vscode-button-background, #007acc)"
-      : "1.5px solid var(--vscode-descriptionForeground)",
-    backgroundColor: checked
-      ? "var(--vscode-button-background, #007acc)"
-      : "transparent",
-    opacity: visible ? 1 : 0,
-    transition:
-      "opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease",
-    flexShrink: 0,
-    cursor: "pointer",
-  });
-
-  const CheckSVG = (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#fff"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
 
   return (
     <div
@@ -414,9 +368,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           // 🛡️ FALLBACK: Response chỉ có thinking, hiển thị warning
           groups.push({
             type: "warning" as any,
-            label: "RESPONSE INCOMPLETE",
+            label: "WARNING",
             message:
-              "The response contains only internal reasoning (thinking blocks) with no visible content or tool calls. This may indicate an incomplete or malformed response.",
+              "Response contains only internal reasoning (thinking blocks) with no visible content or actions. The AI may need to continue or regenerate the response.",
             key: "only-thinking-warning",
           });
         } else if (blocks.length > 0) {

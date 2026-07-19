@@ -123,7 +123,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     const initialCollapsed = new Set<string>();
     group.forEach((item, index) => {
       const actionId = `${messageId}-action-${index}`;
-      if (item.action.type !== "run_command" && !item.action.isPartial) {
+      if (item.action.type !== "run_command") {
         initialCollapsed.add(actionId);
       }
     });
@@ -276,7 +276,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
     const actionId = `${messageId}-action-${actionIndex}`;
     const outputData = toolOutputs?.[actionId];
     const isError = outputData?.isError || false;
-    const isCompleted = !!outputData && !firstAction.isPartial;
+    const isCompleted = !!outputData; // No longer check isPartial since we don't use streaming parsing
 
     // Determine color based on status
     const historyColor = isError
@@ -344,23 +344,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
               >
                 {filePath.split("/").pop() || filePath}
               </span>
-              {firstAction.isPartial && (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    opacity: 0.55,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                  }}
-                >
-                  <span
-                    className="codicon codicon-loading codicon-modifier-spin"
-                    style={{ fontSize: "10px" }}
-                  />
-                  Loading...
-                </span>
-              )}
               {summaryResult && (
                 <span
                   style={{
@@ -376,7 +359,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
           }
           path={filePath}
           statusColor={historyColor}
-          isPartial={firstAction.isPartial}
+          isPartial={false}
           isError={isError}
           toolType="view_replace_history"
           tooltipMeta={{
@@ -854,7 +837,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
         ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
         : compressionColor;
 
-    const isStreaming = firstAction.isPartial;
+    const isStreaming = false; // No longer using streaming partial parsing
 
     return (
       <div

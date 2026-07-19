@@ -239,11 +239,6 @@ export const useToolActions = ({
         return;
       }
 
-      // Only run action if not streaming partial tool
-      if (action.isPartial) {
-        return;
-      }
-
       // Has it completed running/cancelled?
       if (
         clickedActions.has(actionId) ||

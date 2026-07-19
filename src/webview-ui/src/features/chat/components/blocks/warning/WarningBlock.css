@@ -1,84 +1,21 @@
-/* WarningBlock Container */
-.warning-block-container {
-  padding: 12px 16px;
+/* WarningBlock Wrapper */
+.warning-block-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-/* Header Layout (matching ToolHeader) */
-.warning-block-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  width: 100%;
-}
-
-/* Left Panel: CircleDot */
-.warning-block-left {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.warning-circle-dot-container {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 2px;
-}
-
-.warning-circle-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-/* Pulsing Animation */
-.warning-circle-dot.pulsing {
-  animation: warning-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes warning-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(0.75);
-  }
-}
-
-/* Right Panel: Label */
-.warning-block-right {
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-
-.warning-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  gap: 6px;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 /* Warning Message Block */
 .warning-message-block {
   padding: 12px 16px;
   border-radius: 6px;
+  margin-left: 24px; /* Indent để align với content, không align với CircleDot */
 }
 
 .warning-message-text {
   font-size: 11px;
-  color: var(--vscode-descriptionForeground);
   line-height: 1.5;
   display: block;
 }

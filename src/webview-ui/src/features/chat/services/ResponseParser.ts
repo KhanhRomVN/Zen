@@ -42,7 +42,6 @@ export interface ToolAction {
   type: ExecutableToolType | "context_compression" | "thinking" | "question";
   params: Record<string, any>;
   rawXml: string;
-  isPartial?: boolean;
 }
 
 export type ContentBlock =
@@ -107,7 +106,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   const {
     remainingContent: contentAfterThinking,
     thinkingBlocks,
-    unclosedThinkingContent,
   } = extractThinkingBlocks(remainingContent);
 
   remainingContent = contentAfterThinking;
@@ -658,349 +656,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         // 3. Advance scanStr
         scanStr = scanStr.substring(index + rawXml.length);
       } else {
-        // Handle unclosed tags: capture content until EOF
-        const innerContent = scanStr.substring(index + rawXml.length);
-        if (toolName === "markdown") {
-          // For <markdown> we show content even if unclosed
-          if (innerContent.trim()) {
-            result.contentBlocks.push({
-              type: "markdown",
-              content: innerContent,
-            });
-          }
-        } else if (
-          toolName !== "code" &&
-          toolName !== "file" &&
-          toolName !== "conversation_name"
-        ) {
-          // It's a tool, let it stream!
-          const actionIndex = result.actions.length;
-
-          // Enhanced recovery logic for read_file
-          if (toolName === "read_file") {
-            // Try to extract file_path - support both closed and unclosed tags
-            const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
-            const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
-
-            const closedMatch = (innerContent || "").match(filePathClosedRegex);
-            const unclosedMatch = !closedMatch
-              ? (innerContent || "").match(filePathUnclosedRegex)
-              : null;
-
-            const filePathValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
-
-            if (filePathValue && filePathValue.length > 0) {
-              // Recovery condition met: we have a valid file path
-              // Build a fully-closed XML with whatever content we have
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</read_file>";
-              const action = parseToolAction(
-                "read_file",
-                innerContent || "",
-                recoveredRawXml,
-              );
-              // action.isPartial is intentionally NOT set - allow auto-execution
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // Enhanced recovery logic for list_files
-          if (toolName === "list_files") {
-            // Try to extract folder_path - support both closed and unclosed tags
-            const folderPathClosedRegex =
-              /<folder_path>([\s\S]*?)<\/folder_path>/i;
-            const folderPathUnclosedRegex = /<folder_path>([^\<]*?)$/i;
-
-            const closedMatch = (innerContent || "").match(
-              folderPathClosedRegex,
-            );
-            const unclosedMatch = !closedMatch
-              ? (innerContent || "").match(folderPathUnclosedRegex)
-              : null;
-
-            const folderPathValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
-
-            if (folderPathValue && folderPathValue.length > 0) {
-              // Recovery condition met: we have a valid folder path
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</list_files>";
-              const params = parseListFiles(innerContent || "");
-              const action = {
-                type: "list_files" as const,
-                params,
-                rawXml: recoveredRawXml,
-              };
-              // action.isPartial is intentionally NOT set - allow auto-execution
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // Enhanced recovery logic for other common tools
-          // write_to_file: requires file_path
-          if (toolName === "write_to_file") {
-            const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
-            const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
-
-            const closedMatch = (innerContent || "").match(filePathClosedRegex);
-            const unclosedMatch = !closedMatch
-              ? (innerContent || "").match(filePathUnclosedRegex)
-              : null;
-
-            const filePathValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
-
-            if (filePathValue && filePathValue.length > 0) {
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</write_to_file>";
-              const params = parseWriteToFile(innerContent || "");
-              const action = {
-                type: "write_to_file" as const,
-                params,
-                rawXml: recoveredRawXml,
-                isPartial: true, // Always partial during streaming
-              };
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // replace_in_file: auto-recover missing closing tag
-          // If we have both old_content and new_content (or old_str/new_str), treat as complete
-          if (toolName === "replace_in_file") {
-            // Check if we have both required content tags
-            const hasOldContent =
-              /<old_content>[\s\S]*?<\/old_content>/i.test(
-                innerContent || "",
-              ) || /<old_str>[\s\S]*?<\/old_str>/i.test(innerContent || "");
-            const hasNewContent =
-              /<new_content>[\s\S]*?<\/new_content>/i.test(
-                innerContent || "",
-              ) || /<new_str>[\s\S]*?<\/new_str>/i.test(innerContent || "");
-
-            // If we have both content blocks, auto-complete the tag
-            if (hasOldContent && hasNewContent) {
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</replace_in_file>";
-              const params = parseReplaceInFile(innerContent || "");
-              const action = {
-                type: "replace_in_file" as const,
-                params,
-                rawXml: recoveredRawXml,
-                isPartial: false, // Mark as complete since we have all required content
-              };
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-
-            // Otherwise, check for file_path for partial streaming recovery
-            const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
-            const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
-
-            const closedMatch = (innerContent || "").match(filePathClosedRegex);
-            const unclosedMatch = !closedMatch
-              ? (innerContent || "").match(filePathUnclosedRegex)
-              : null;
-
-            const filePathValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
-
-            if (filePathValue && filePathValue.length > 0) {
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</replace_in_file>";
-              const params = parseReplaceInFile(innerContent || "");
-              const action = {
-                type: "replace_in_file" as const,
-                params,
-                rawXml: recoveredRawXml,
-                isPartial: true, // Always partial during streaming
-              };
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // run_command: requires command
-          if (toolName === "run_command") {
-            const commandClosedRegex = /<command>([\s\S]*?)<\/command>/i;
-            const commandUnclosedRegex = /<command>([^\<]*?)$/i;
-
-            const closedMatch = (innerContent || "").match(commandClosedRegex);
-            const unclosedMatch = !closedMatch
-              ? (innerContent || "").match(commandUnclosedRegex)
-              : null;
-
-            const commandValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
-
-            if (commandValue && commandValue.length > 0) {
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</run_command>";
-              const action = parseToolAction(
-                "run_command",
-                innerContent || "",
-                recoveredRawXml,
-              );
-              // action.isPartial is intentionally NOT set - allow auto-execution
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // grep: requires search_term or pattern
-          if (toolName === "grep") {
-            // Check for search_term (primary) or pattern (fallback)
-            const searchTermClosedRegex =
-              /<search_term>([\s\S]*?)<\/search_term>/i;
-            const searchTermUnclosedRegex = /<search_term>([^\<]*?)$/i;
-            const patternClosedRegex = /<pattern>([\s\S]*?)<\/pattern>/i;
-            const patternUnclosedRegex = /<pattern>([^\<]*?)$/i;
-
-            const searchTermClosedMatch = (innerContent || "").match(
-              searchTermClosedRegex,
-            );
-            const searchTermUnclosedMatch = !searchTermClosedMatch
-              ? (innerContent || "").match(searchTermUnclosedRegex)
-              : null;
-            const patternClosedMatch = (innerContent || "").match(
-              patternClosedRegex,
-            );
-            const patternUnclosedMatch = !patternClosedMatch
-              ? (innerContent || "").match(patternUnclosedRegex)
-              : null;
-
-            const searchTermValue =
-              searchTermClosedMatch?.[1]?.trim() ||
-              searchTermUnclosedMatch?.[1]?.trim() ||
-              patternClosedMatch?.[1]?.trim() ||
-              patternUnclosedMatch?.[1]?.trim();
-
-            if (searchTermValue && searchTermValue.length > 0) {
-              const recoveredRawXml = rawXml + (innerContent || "") + "</grep>";
-              const action = parseToolAction(
-                "grep",
-                innerContent || "",
-                recoveredRawXml,
-              );
-              // action.isPartial is intentionally NOT set - allow auto-execution
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // delete_file: requires file_path
-          if (toolName === "delete_file") {
-            const filePathClosedRegex = /<file_path>([\s\S]*?)<\/file_path>/i;
-            const filePathUnclosedRegex = /<file_path>([^\<]*?)$/i;
-
-            const closedMatch = (innerContent || "").match(filePathClosedRegex);
-            const unclosedMatch = !closedMatch
-              ? (innerContent || "").match(filePathUnclosedRegex)
-              : null;
-
-            const filePathValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
-
-            if (filePathValue && filePathValue.length > 0) {
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</delete_file>";
-              const action = parseToolAction(
-                "delete_file",
-                innerContent || "",
-                recoveredRawXml,
-              );
-              // action.isPartial is intentionally NOT set - allow auto-execution
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // delete_folder: requires folder_path
-          if (toolName === "delete_folder") {
-            const folderPathClosedRegex =
-              /<folder_path>([\s\S]*?)<\/folder_path>/i;
-            const folderPathUnclosedRegex = /<folder_path>([^\<]*?)$/i;
-
-            const closedMatch = (innerContent || "").match(
-              folderPathClosedRegex,
-            );
-            const unclosedMatch = !closedMatch
-              ? (innerContent || "").match(folderPathUnclosedRegex)
-              : null;
-
-            const folderPathValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
-
-            if (folderPathValue && folderPathValue.length > 0) {
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</delete_folder>";
-              const action = parseToolAction(
-                "delete_folder",
-                innerContent || "",
-                recoveredRawXml,
-              );
-              // action.isPartial is intentionally NOT set - allow auto-execution
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // move_file: requires source_path and dest_path
-          if (toolName === "move_file") {
-            const sourcePathClosedRegex =
-              /<source_path>([\s\S]*?)<\/source_path>/i;
-            const sourcePathUnclosedRegex = /<source_path>([^\<]*?)$/i;
-
-            const closedMatch = (innerContent || "").match(
-              sourcePathClosedRegex,
-            );
-            const unclosedMatch = !closedMatch
-              ? (innerContent || "").match(sourcePathUnclosedRegex)
-              : null;
-
-            const sourcePathValue =
-              closedMatch?.[1]?.trim() || unclosedMatch?.[1]?.trim();
-
-            if (sourcePathValue && sourcePathValue.length > 0) {
-              const recoveredRawXml =
-                rawXml + (innerContent || "") + "</move_file>";
-              const action = parseToolAction(
-                "move_file",
-                innerContent || "",
-                recoveredRawXml,
-              );
-              // Only allow auto-execution if we also have dest_path started
-              const hasDestPath = /<dest_path>/i.test(innerContent || "");
-              if (!hasDestPath) {
-                action.isPartial = true;
-              }
-              result.contentBlocks.push({ type: "tool", action, actionIndex });
-              result.actions.push(action);
-              break;
-            }
-          }
-
-          // Fallback: tool doesn't meet recovery conditions - mark as partial
-          const action = parseToolAction(toolName, innerContent || "", rawXml);
-          action.isPartial = true;
-          result.contentBlocks.push({ type: "tool", action, actionIndex });
-          result.actions.push(action);
-        } else {
-          // For tools, hide entire content including XML until closed
-        }
-        break; // Stop scanning as we've consumed or hidden till end
+        // Unclosed tags - no longer needed since we parse only after response is complete
+        // Skip unclosed tags - they indicate malformed AI output
+        break;
       }
     } else {
       // No more tags, but check for partial tag prefix at the very end (e.g., "<tex", "<thinking")
@@ -1098,16 +756,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Replace contentBlocks with expanded version
   result.contentBlocks = expandedBlocks;
 
-  // Append unclosed thinking block at the end (streaming case)
-  if (unclosedThinkingContent !== null) {
-    result.contentBlocks.push({
-      type: "thinking",
-      content: unclosedThinkingContent,
-    });
-  }
-
   // 🔍 ALWAYS log if contentBlocks is empty (potential bug)
-  // BUT skip warning if content is just a partial opening tag (streaming case)
   const isPartialTag = /^<[\/]?[a-zA-Z0-9_]*$/.test(content.trim());
   if (
     result.contentBlocks.length === 0 &&
@@ -1123,18 +772,23 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   // 🛡️ DETECT ONLY-THINKING RESPONSE (fallback mechanism)
   // If response has thinking blocks BUT no other content or tools, mark it
-  const hasThinkingBlocks =
-    thinkingBlocks.length > 0 || unclosedThinkingContent;
+  const hasThinkingBlocks = thinkingBlocks.length > 0;
+  
+  // Check if there are non-thinking content blocks or actions
+  const nonThinkingBlocks = result.contentBlocks.filter(
+    (block) => block.type !== "thinking"
+  );
   const hasOtherContent =
-    result.contentBlocks.length > 0 || result.actions.length > 0;
+    nonThinkingBlocks.length > 0 || result.actions.length > 0;
 
   if (hasThinkingBlocks && !hasOtherContent && content.trim().length > 100) {
-    // Only mark if content is substantial (> 100 chars) to avoid false positives during streaming
+    // Only mark if content is substantial (> 100 chars) to avoid false positives
     result.onlyThinkingDetected = true;
     console.warn("[Zen][Parser] ⚠️ ONLY-THINKING response detected!", {
       thinkingBlocksCount: thinkingBlocks.length,
-      hasUnclosedThinking: !!unclosedThinkingContent,
       contentLength: content.length,
+      totalBlocks: result.contentBlocks.length,
+      nonThinkingBlocks: nonThinkingBlocks.length,
     });
   }
 

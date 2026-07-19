@@ -77,7 +77,7 @@ export const useMessageHandlers = ({
   const clearFilesRef = useRef(clearFiles);
   const clearAttachedItemsRef = useRef(clearAttachedItems);
   const clearInvalidExternalFilesRef = useRef(clearInvalidExternalFiles);
-  
+
   // Sync refs with state — all deps go through refs, handleSend stays stable
   useEffect(() => {
     messageRef.current = message;
@@ -90,7 +90,18 @@ export const useMessageHandlers = ({
     clearFilesRef.current = clearFiles;
     clearAttachedItemsRef.current = clearAttachedItems;
     clearInvalidExternalFilesRef.current = clearInvalidExternalFiles;
-  }, [message, uploadedFiles, attachedItems, invalidExternalFiles, wrappedSendMessage, setMessage, clearDraft, clearFiles, clearAttachedItems, clearInvalidExternalFiles]);
+  }, [
+    message,
+    uploadedFiles,
+    attachedItems,
+    invalidExternalFiles,
+    wrappedSendMessage,
+    setMessage,
+    clearDraft,
+    clearFiles,
+    clearAttachedItems,
+    clearInvalidExternalFiles,
+  ]);
 
   renderCountRef.current += 1;
 
@@ -125,6 +136,14 @@ export const useMessageHandlers = ({
         currentFiles.length > 0 ||
         currentItems.length > 0
       ) {
+        // Filter out images with errors before sending
+        const validFiles = currentFiles.filter((file: any) => !file.error);
+        const errorFiles = currentFiles.filter((file: any) => file.error);
+
+        // Log filtered files
+        if (errorFiles.length > 0) {
+        }
+
         // Use refs (not state) to get the latest model/account values.
         // This prevents stale closure: if the user changed model right before
         // pressing Send, the state update may not have propagated into this
@@ -134,7 +153,7 @@ export const useMessageHandlers = ({
 
         wrappedSendMessageRef.current(
           currentMessage,
-          [...currentFiles, ...currentItems],
+          [...validFiles, ...currentItems],
           latestModel,
           latestAccount,
           undefined,

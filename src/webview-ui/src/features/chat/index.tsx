@@ -80,6 +80,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const chatRenderCountRef = useRef(0);
   const lastRenderTimeRef = useRef(Date.now());
   const renderTimingsRef = useRef<number[]>([]);
+  const renderStartTime = performance.now();
 
   chatRenderCountRef.current += 1;
   const now = Date.now();
@@ -150,46 +151,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       totalDeletions: number;
     } | null>(null);
 
-  // Performance mode state
-  const [isPerformanceMode, setIsPerformanceModeRaw] = useState(() => {
-    try {
-      return localStorage.getItem("zen-performance-mode") === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  // Wrapped setter with logging
-  const setIsPerformanceMode = useCallback(
-    (value: boolean | ((prev: boolean) => boolean)) => {
-      console.trace("[Chat/index] Call stack:");
-
-      setIsPerformanceModeRaw((prev) => {
-        const next = typeof value === "function" ? value(prev) : value;
-        // Immediately update localStorage here
-        try {
-          localStorage.setItem("zen-performance-mode", String(next));
-        } catch (e) {
-          console.error(
-            "[Chat/index] Failed to update localStorage immediately:",
-            e,
-          );
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
-  // Sync performance mode changes to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem("zen-performance-mode", String(isPerformanceMode));
-    } catch (e) {
-      console.error("[Chat/index] Failed to update localStorage:", e);
-    }
-  }, [isPerformanceMode]);
-
   const {
     messages,
     setMessages,
@@ -198,8 +159,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     setIsProcessing,
     isStreaming,
     isContinuing,
-    incompleteHasPartialTool,
-    incompletePartialToolType,
     currentConversationId,
     setCurrentConversationId,
     currentConversationIdRef,
@@ -222,7 +181,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         conversationToolOverrides,
         actionType,
       ),
-    isPerformanceMode,
   });
 
   // Track messages and streaming state - kept for potential future use, but removed heavy logging
@@ -296,8 +254,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     handleDrop,
     clearFiles,
     clearInvalidExternalFiles,
+    addAttachedItemWithCache,
+    removeAttachedItemFromCache,
   } = useFileHandling({
     accountId: currentAccount?.id,
+    folderPath: currentChat?.folderPath || null,
     onAddAttachedItem: (item) => {
       addAttachedItem(item);
       setShowAtMenu(false);
@@ -311,6 +272,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     isLaunchingBrowser,
     launchBrowserSession,
   } = useBrowserSession(currentModel, currentAccount, backendApiUrl);
+
+  // Wrap removeAttachedItem to also update localStorage cache
+  const handleRemoveAttachedItem = useCallback(
+    (itemId: string) => {
+      removeAttachedItem(itemId);
+      removeAttachedItemFromCache(itemId);
+    },
+    [removeAttachedItem, removeAttachedItemFromCache],
+  );
 
   // --- Wrapped Send Message ---
   const wrappedSendMessage = useCallback(
@@ -737,8 +707,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           messages={parsedMessages}
           isProcessing={isProcessing}
           isContinuing={isContinuing}
-          incompleteHasPartialTool={incompleteHasPartialTool}
-          incompletePartialToolType={incompletePartialToolType}
           onSendToolRequest={memoizedHandleToolRequest}
           onSendMessage={memoizedWrappedSendMessage}
           executionState={executionState}
@@ -817,7 +785,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onGitPullRequest={handleGitPullRequest}
         gitLoading={gitLoading}
         isGitStatusVisible={showGitStatusBlock}
-        removeAttachedItem={removeAttachedItem}
+        removeAttachedItem={handleRemoveAttachedItem}
         onOpenImage={handleOpenImage}
         removeFile={removeFile}
         externalFileInputRef={externalFileInputRef}
@@ -832,8 +800,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onRevertConversation={handleRevertConversation}
         autoScrollPaused={autoScrollPaused}
         scrollToBottom={scrollToBottomRef.current || undefined}
-        isPerformanceMode={isPerformanceMode}
-        onPerformanceModeChange={setIsPerformanceMode}
       />
     </div>
   );

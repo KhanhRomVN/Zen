@@ -74,8 +74,6 @@ interface ChatFooterProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
-  isPerformanceMode?: boolean;
-  onPerformanceModeChange?: (value: boolean) => void;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -131,22 +129,10 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   onRevertConversation,
   autoScrollPaused = false,
   scrollToBottom,
-  isPerformanceMode,
-  onPerformanceModeChange,
 }) => {
   // 🔍 PERFORMANCE DEBUG
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
-
-  // Handle performance mode change and notify parent
-  const handlePerformanceModeChange = React.useCallback(
-    (value: boolean) => {
-      if (onPerformanceModeChange) {
-        onPerformanceModeChange(value);
-      }
-    },
-    [onPerformanceModeChange, isPerformanceMode],
-  );
 
   // Calculate response range - count all assistant responses in the conversation
   const responseRange = React.useMemo(() => {
@@ -596,6 +582,9 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
               command: "focusTerminal",
               terminalId: item.path,
             });
+          } else if (item.type === "text-snippet") {
+            // Show text snippet content in a modal or copy to clipboard
+            // For now, just log - could open in editor or show preview
           }
         }}
       />
@@ -657,8 +646,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           onModelSwitch={onModelSwitch}
           autoScrollPaused={autoScrollPaused}
           scrollToBottom={scrollToBottom}
-          isPerformanceMode={isPerformanceMode}
-          onPerformanceModeChange={handlePerformanceModeChange}
         />
         {(() => {
           return null;

@@ -61,8 +61,6 @@ interface ChatBodyProps {
   scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
   /** DeepSeek incomplete SSE continuation flags. */
   isContinuing?: boolean;
-  incompleteHasPartialTool?: boolean;
-  incompletePartialToolType?: string | null;
   onGitConfirm?: (items: any[]) => void;
   onGitCancel?: () => void;
   gitStatusItems?: any[];
@@ -118,8 +116,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   onSelectOption,
   isRestored = false,
   isContinuing = false,
-  incompleteHasPartialTool = false,
-  incompletePartialToolType = null,
   onContinue,
   hasInitialMessage = false,
   onRevertConversation,
@@ -272,7 +268,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     if (!parsed.actions || parsed.actions.length === 0) return false;
     const firstPendingAction = parsed.actions.find(
       (action: any, idx: number) => {
-        if (action.isPartial) return false;
         const actionId = `${lastMessage.id}-action-${idx}`;
         const hasOutput = toolOutputs && toolOutputs[actionId];
         const isClicked = clickedActions.has(actionId);
@@ -599,11 +594,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
           {isContinuing && (
             <WarningBlock
               label="CONTINUING RESPONSE"
-              message={
-                incompleteHasPartialTool
-                  ? `AI response was interrupted. Assembling remaining parts of \`${incompletePartialToolType ?? "tool"}\` before execution.`
-                  : "AI response was interrupted. Fetching the remaining content…"
-              }
+              message="AI response was interrupted. Fetching the remaining content…"
               isPulsing={true}
             />
           )}

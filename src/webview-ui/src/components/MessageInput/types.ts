@@ -87,8 +87,6 @@ export interface MessageInputProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
-  isPerformanceMode?: boolean;
-  onPerformanceModeChange?: (enabled: boolean) => void;
 }
 
 export interface ToggleButtonProps {
