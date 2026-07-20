@@ -11,8 +11,9 @@ export interface WriteToFileParams {
 }
 
 export const parseWriteToFile = (innerContent: string): WriteToFileParams => {
-  // Try canonical name first (after normalization), then fallback to variants
-  const filePath = extractParam(innerContent, "path", "file_path", "filePath", "filepath");
+  // Try canonical name first, then fallback to variants
+  // Order matters: canonical → common aliases
+  const filePath = extractParam(innerContent, "file_path", "path", "filePath", "filepath");
   const content = extractParamValue(innerContent, "content");
 
   if (DEBUG_PARSER) {

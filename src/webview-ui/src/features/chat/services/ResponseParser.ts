@@ -4,6 +4,7 @@ import {
   getAllToolTypes,
   type ExecutableToolType,
 } from "../constants/tool-registry";
+import { validateToolParams, type ToolParamValidation } from "../utils/ToolParamValidator";
 // Tag parsers
 import { parseReadFile } from "./parsers/ReadFileParser";
 import { parseWriteToFile } from "./parsers/WriteToFileParser";
@@ -637,47 +638,155 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           switch (toolName) {
             case "read_file": {
               const params = parseReadFile(innerContent || "");
-              action = { type: "read_file" as const, params, rawXml };
+              const validation = validateToolParams("read_file", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "read_file" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "read_file" as const, params, rawXml };
+              }
               break;
             }
             case "write_to_file": {
               const params = parseWriteToFile(innerContent || "");
-              action = { type: "write_to_file" as const, params, rawXml };
+              const validation = validateToolParams("write_to_file", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "write_to_file" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "write_to_file" as const, params, rawXml };
+              }
               break;
             }
             case "replace_in_file": {
               const params = parseReplaceInFile(innerContent || "");
-              action = { type: "replace_in_file" as const, params, rawXml };
+              const validation = validateToolParams("replace_in_file", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "replace_in_file" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "replace_in_file" as const, params, rawXml };
+              }
               break;
             }
             case "list_files": {
               const params = parseListFiles(innerContent || "");
-              action = { type: "list_files" as const, params, rawXml };
+              const validation = validateToolParams("list_files", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "list_files" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "list_files" as const, params, rawXml };
+              }
               break;
             }
             case "find_files": {
               const params = parseFindFiles(innerContent || "");
-              action = { type: "find_files" as const, params, rawXml };
+              const validation = validateToolParams("find_files", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "find_files" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "find_files" as const, params, rawXml };
+              }
               break;
             }
             case "grep": {
               const params = parseGrep(innerContent || "");
-              action = { type: "grep" as const, params, rawXml };
+              const validation = validateToolParams("grep", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "grep" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "grep" as const, params, rawXml };
+              }
               break;
             }
             case "delete_file": {
               const params = parseDeleteFile(innerContent || "");
-              action = { type: "delete_file" as const, params, rawXml };
+              const validation = validateToolParams("delete_file", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "delete_file" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "delete_file" as const, params, rawXml };
+              }
               break;
             }
             case "delete_folder": {
               const params = parseDeleteFolder(innerContent || "");
-              action = { type: "delete_folder" as const, params, rawXml };
+              const validation = validateToolParams("delete_folder", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "delete_folder" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "delete_folder" as const, params, rawXml };
+              }
               break;
             }
             case "move_file": {
               const params = parseMoveFile(innerContent || "");
-              action = { type: "move_file" as const, params, rawXml };
+              const validation = validateToolParams("move_file", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "move_file" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "move_file" as const, params, rawXml };
+              }
               break;
             }
             case "revert_file": {
@@ -696,7 +805,19 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
             case "run_command": {
               const params = parseRunCommand(innerContent || "");
-              action = { type: "run_command" as const, params, rawXml };
+              const validation = validateToolParams("run_command", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "run_command" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "run_command" as const, params, rawXml };
+              }
               break;
             }
             case "git_status": {
@@ -706,12 +827,36 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
             case "git_diff": {
               const params = parseGitDiff(innerContent || "");
-              action = { type: "git_diff" as const, params, rawXml };
+              const validation = validateToolParams("git_diff", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "git_diff" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "git_diff" as const, params, rawXml };
+              }
               break;
             }
             case "commit_message": {
               const params = parseCommitMessage(innerContent || "");
-              action = { type: "commit_message" as const, params, rawXml };
+              const validation = validateToolParams("commit_message", params, innerContent || "");
+              if (!validation.isValid) {
+                action = {
+                  type: "commit_message" as const,
+                  params,
+                  rawXml,
+                  isError: true,
+                  errorMessage: validation.errorMessage,
+                  errorCode: validation.errorCode,
+                };
+              } else {
+                action = { type: "commit_message" as const, params, rawXml };
+              }
               break;
             }
             case "context_compression": {
@@ -753,6 +898,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         const openTagEnd = partialContent.indexOf(">");
         let toolParams: Record<string, any> = {};
         let missingParamTag: string | null = null;
+        let invalidParamInfo: { found: string; expected: string[] } | null = null;
 
         if (openTagEnd !== -1) {
           // We have the opening tag, try to extract any content before it breaks
@@ -774,14 +920,38 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           } catch (e) {
             // Ignore parsing errors for incomplete content
           }
+
+          // Check if extracted params have invalid names (wrong variants)
+          const validation = validateToolParams(toolName, toolParams, remainingAfterTag);
+          if (!validation.isValid && validation.errorCode === "INVALID_PARAM_NAME" && validation.invalidParams) {
+            invalidParamInfo = {
+              found: validation.invalidParams[0].found,
+              expected: validation.invalidParams[0].expected,
+            };
+          }
         }
 
-        const errorMessage = missingParamTag
-          ? `Malformed tool output: <${toolName}> tag is missing closing tag for parameter <${missingParamTag}>. Please ensure all XML tags are properly closed.`
-          : `Malformed tool output: <${toolName}> tag is missing closing tag. Please ensure all XML tags are properly closed.`;
+        // Build error message based on what we found
+        let errorMessage: string;
+        let errorCode: string;
 
-        console.error("[Zen][Parser] ⚠️ UNCLOSED TAG DETECTED:", {
+        if (invalidParamInfo) {
+          // Invalid param name detected
+          errorMessage = `Malformed tool output: <${toolName}> contains invalid parameter name <${invalidParamInfo.found}>. Expected <${invalidParamInfo.expected[0]}>. Valid variants: ${invalidParamInfo.expected.join(", ")}. Please use the correct parameter name.`;
+          errorCode = "INVALID_PARAM_NAME";
+        } else if (missingParamTag) {
+          // Missing param closing tag
+          errorMessage = `Malformed tool output: <${toolName}> tag is missing closing tag for parameter <${missingParamTag}>. Please ensure all XML tags are properly closed.`;
+          errorCode = "UNCLOSED_PARAM_TAG";
+        } else {
+          // Missing tool closing tag
+          errorMessage = `Malformed tool output: <${toolName}> tag is missing closing tag. Please ensure all XML tags are properly closed.`;
+          errorCode = "UNCLOSED_TAG";
+        }
+
+        console.error("[Zen][Parser] ⚠️ MALFORMED TOOL DETECTED:", {
           toolName,
+          errorCode,
           tagPosition: index,
           remainingContentLength: scanStr.length,
           contentAroundTag: scanStr.substring(
@@ -790,7 +960,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           ),
           searchedFor: `</${toolName}>`,
           foundClosingTag: false,
-          missingParamTag: missingParamTag || "none (tool closing tag missing)",
+          missingParamTag: missingParamTag || "none",
+          invalidParamName: invalidParamInfo ? invalidParamInfo.found : "none",
+          expectedParamNames: invalidParamInfo ? invalidParamInfo.expected : "none",
           extractedParams:
             Object.keys(toolParams).length > 0 ? toolParams : "none",
         });
@@ -803,7 +975,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           rawXml: match[0],
           isError: true,
           errorMessage,
-          errorCode: missingParamTag ? "UNCLOSED_PARAM_TAG" : "UNCLOSED_TAG",
+          errorCode,
         };
 
         result.contentBlocks.push({

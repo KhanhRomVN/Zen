@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import { cn } from "../../../lib/utils";
 
 // Simple language definition with emoji flags
 export const LANGUAGES = [
@@ -75,9 +74,12 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
 
   return (
     <div
-      className={cn("relative w-full", className)}
       ref={dropdownRef}
-      style={{ position: "relative" }}
+      style={{ 
+        position: "relative",
+        width: "100%",
+        ...(className ? {} : {})
+      }}
     >
       <button
         type="button"
@@ -97,11 +99,21 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         }}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="flex items-center gap-2">
-          <span className="text-base leading-none">
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "8px" 
+        }}>
+          <span style={{ 
+            fontSize: "16px", 
+            lineHeight: 1 
+          }}>
             {selectedLanguage.flag}
           </span>
-          <span className="font-medium text-foreground">
+          <span style={{ 
+            fontWeight: 500,
+            color: "var(--primary-text)"
+          }}>
             {selectedLanguage.name}
           </span>
         </div>
@@ -126,7 +138,10 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
             overflow: "hidden",
           }}
         >
-          <div className="max-h-60 overflow-y-auto custom-scrollbar">
+          <div style={{ 
+            maxHeight: "240px", 
+            overflowY: "auto" 
+          }} className="custom-scrollbar">
             {LANGUAGES.map((lang) => (
               <div
                 key={lang.code}
@@ -156,7 +171,11 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                   }
                 }}
               >
-                <div className="flex items-center gap-2">
+                <div style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "8px" 
+                }}>
                   <span>{lang.flag}</span>
                   <span>{lang.name}</span>
                 </div>

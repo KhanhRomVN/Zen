@@ -1,0 +1,222 @@
+<thinking>
+Pass 1 (Plan):
+- User xác nhận tiến hành tối ưu.
+- Cần thực hiện tuần tự:
+  1. Tạo ModelUsageInfo.tsx (copy từ temp)
+  2. Tạo RevertConfirmModal.tsx (copy từ temp)
+  3. Sửa ProcessingIndicator.tsx (gradient color)
+  4. Sửa MessageBox.tsx (thêm system message)
+  5. Sửa UserMessageBox.tsx (thêm FilesPreviews, RevertConfirmModal)
+  6. Sửa AIMessageBox.tsx (caching, token badges, ModelUsageInfo, onlyThinkingDetected, isInteractionBlocked)
+- Mỗi turn tối đa 3 file → cần 2 turn.
+
+Pass 2 (Verify):
+- Self-check: None
+
+Bắt đầu batch 1: tạo 2 file mới + sửa ProcessingIndicator.
+</thinking>
+
+<markdown>Bắt đầu tối ưu batch 1/2: tạo ModelUsageInfo, RevertConfirmModal và sửa ProcessingIndicator.</markdown>
+<write_to_file>
+<file_path>src/renderer/src/components/RightPanel/Agent/feature/Chat/components/ModelUsageInfo.tsx</file_path>
+<content>
+import React from "react";
+
+interface ModelUsageInfoProps {
+  providerId?: string;
+  modelId: string;
+  email?: string;
+  websiteUrl?: string;
+}
+
+export const ModelUsageInfo: React.FC<ModelUsageInfoProps> = ({
+  providerId,
+  modelId,
+  email,
+  websiteUrl,
+}) => {
+  const [faviconError, setFaviconError] = React.useState(false);
+  
+  let faviconUrl: string | undefined = undefined;
+  if (websiteUrl) {
+    try {
+      const url = new URL(websiteUrl);
+      faviconUrl = `${url.origin}/favicon.ico`;
+    } catch (e) {
+      // Ignore invalid URL
+    }
+  }
+
+  const providerPrefix = providerId ? `${providerId}/` : "";
+  const modelText = `${providerPrefix}${modelId}`;
+  const accountText = email ? ` by ${email}` : "";
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "4px 8px",
+        marginBottom: "4px",
+        fontSize: "11px",
+        color: "var(--vscode-descriptionForeground)",
+        background: "var(--vscode-badge-background, rgba(128,128,128,0.1))",
+        borderRadius: "4px",
+        width: "fit-content",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        {faviconUrl && !faviconError ? (
+          <img
+            src={faviconUrl}
+            alt="Model provider icon"
+            style={{ width: "14px", height: "14px", borderRadius: "2px" }}
+            onError={() => setFaviconError(true)}
+          />
+        ) : (
+          <span
+            className="codicon codicon-server-process"
+            style={{ fontSize: "14px" }}
+          />
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+        <span style={{ fontWeight: 500 }}>{modelText}</span>
+        {accountText && (
+          <>
+            <span style={{ opacity: 0.5 }}>•</span>
+            <span style={{ opacity: 0.7 }}>{email}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default ModelUsageInfo;
+</content>
+</write_to_file>
+<write_to_file>
+<file_path>src/renderer/src/components/RevertConfirmModal.tsx</file_path>
+<content>
+import React from 'react';
+import { createPortal } from 'react-dom';
+import { $ } from '@renderer/utils/color';
+
+interface RevertConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title?: string;
+  description?: string;
+}
+
+const RevertConfirmModal: React.FC<RevertConfirmModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title = 'Revert conversation?',
+  description = 'This will restore all modified files to their state before this message. Messages after this point will be removed.',
+}) => {
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          backgroundColor: $('--vscode-editor-background', '#1e1e1e'),
+          border: '1px solid ' + $('--border-color', 'rgba(255,255,255,0.1)'),
+          borderRadius: '8px',
+          padding: '20px 24px',
+          minWidth: '300px',
+          maxWidth: '400px',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            fontWeight: 600,
+            fontSize: '14px',
+            marginBottom: '8px',
+            color: $('--primary-text', '#ffffff'),
+          }}
+        >
+          {title}
+        </div>
+        <div
+          style={{
+            fontSize: '12px',
+            color: $('--secondary-text', '#8a8a8a'),
+            marginBottom: '16px',
+          }}
+        >
+          {description}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <button
+            onClick={onClose}
+            style={{
+              padding: '5px 14px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              background: 'transparent',
+              border: '1px solid ' + $('--border-color', 'rgba(255,255,255,0.1)'),
+              color: $('--primary-text', '#ffffff'),
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onClose();
+              onConfirm();
+            }}
+            style={{
+              padding: '5px 14px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              background: $('--vscode-button-background', '#007acc'),
+              border: 'none',
+              color: $('--vscode-button-foreground', '#ffffff'),
+              fontWeight: 600,
+            }}
+          >
+            Revert
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+export default RevertConfirmModal;
+</content>
+</write_to_file>
+<replace_in_file>
+<file_path>src/renderer/src/components/RightPanel/Agent/feature/Chat/components/messages/ProcessingIndicator.tsx</file_path>
+<old_content>            var(--secondary-text) 40%,
+            #cccccc 50%,</old_content>
+<new_content>            var(--secondary-text) 40%,
+            var(--vscode-editor-foreground, #ffffff) 50%,</new_content>
+</replace_in_file>

@@ -20,7 +20,9 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   const [menuPosition, setMenuPosition] = React.useState({ x: 0, y: 0 });
   const [messages, setMessages] = React.useState<any[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = React.useState(false);
-  const [messageFetchError, setMessageFetchError] = React.useState<string | null>(null);
+  const [messageFetchError, setMessageFetchError] = React.useState<
+    string | null
+  >(null);
 
   // Fetch messages when component mounts
   React.useEffect(() => {
@@ -152,13 +154,16 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 
   // Parse user content from XML
   const parseUserContent = (content: string): string => {
-    const regex = /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
+    const regex =
+      /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
     const match = content.match(regex);
     if (match) {
       return match[1];
     }
     // Fallback: strip wrapper if present
-    let cleaned = content.replace(/^<zen-user-content>\n?/, "").replace(/\n?<\/zen-user-content>[\s\S]*$/, "");
+    let cleaned = content
+      .replace(/^<zen-user-content>\n?/, "")
+      .replace(/\n?<\/zen-user-content>[\s\S]*$/, "");
     if (cleaned.startsWith("```") && cleaned.includes("```", 3)) {
       cleaned = cleaned.split("```")[1]?.trim() || cleaned;
     }
@@ -179,18 +184,27 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   const getModelId = (): string | null => {
     if (!messages.length) return null;
     // Find first assistant message with modelId and providerId
-    const assistantMsg = messages.find((msg: any) => msg.role === "assistant" && (msg.modelId || msg.providerId));
+    const assistantMsg = messages.find(
+      (msg: any) => msg.role === "assistant" && (msg.modelId || msg.providerId),
+    );
     if (!assistantMsg) return null;
     const provider = assistantMsg.providerId || "";
     const model = assistantMsg.modelId || "";
-    return provider && model ? `${provider}/${model}` : model || provider || null;
+    return provider && model
+      ? `${provider}/${model}`
+      : model || provider || null;
   };
 
   // Calculate request count and response count
-  const getRequestResponseCounts = (): { requests: number; responses: number } => {
+  const getRequestResponseCounts = (): {
+    requests: number;
+    responses: number;
+  } => {
     if (!messages.length) return { requests: 0, responses: 0 };
     const requests = messages.filter((msg: any) => msg.role === "user").length;
-    const responses = messages.filter((msg: any) => msg.role === "assistant" && !msg.isError).length;
+    const responses = messages.filter(
+      (msg: any) => msg.role === "assistant" && !msg.isError,
+    ).length;
     return { requests, responses };
   };
 
@@ -331,16 +345,56 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
                 fontWeight: 500,
               }}
             >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "2px" }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "var(--vscode-charts-green, #89d185)" }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "2px",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    flexShrink: 0,
+                    color: "var(--vscode-charts-green, #89d185)",
+                  }}
+                >
                   <path d="M12 3v12" />
                   <path d="m17 8-5-5-5 5" />
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 </svg>
                 {requests}
               </span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "2px" }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, color: "var(--vscode-charts-red, #f48771)" }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "2px",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    flexShrink: 0,
+                    color: "var(--vscode-charts-red, #f48771)",
+                  }}
+                >
                   <path d="M12 15V3" />
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <path d="m7 10 5 5 5-5" />
