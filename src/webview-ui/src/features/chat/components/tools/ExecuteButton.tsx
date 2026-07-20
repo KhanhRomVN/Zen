@@ -8,9 +8,9 @@ export interface ExecuteButtonProps {
   isLastMessage?: boolean;
   onExecute: (
     e: React.MouseEvent,
-    type: "accept_all" | "accept_once" | "reject",
+    type: "accept" | "reject",
   ) => void;
-  toolColor: string;
+  toolColor?: string;
   title: string;
   isSkipped?: boolean;
   isLoading?: boolean;
@@ -24,7 +24,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   isFailed,
   isLastMessage,
   onExecute,
-  toolColor,
+  toolColor = "var(--vscode-descriptionForeground, #6b7280)",
   title,
   isSkipped,
   isLoading,
@@ -43,7 +43,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          if (isClickable) onExecute(e, "accept_once");
+          if (isClickable) onExecute(e, "accept");
         }}
         disabled={isLoading || (isCompleted && !isFailed && !isActive)}
         style={{
@@ -124,7 +124,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
     >
       {[
         {
-          type: "accept_once" as const,
+          type: "accept" as const,
           color: toolColor,
           icon: <Check size={14} strokeWidth={2.5} />,
           label: "Accept",

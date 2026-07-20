@@ -1,20 +1,3 @@
-import { ACTION_NAMES, TOOL_LABELS, TOOL_COLORS } from "../constants/constants";
-
-/** Returns the human-readable action name for a tool type. */
-export const getActionName = (type: string): string => {
-  return ACTION_NAMES[type] || type;
-};
-
-/** Returns the display label for a tool type. */
-export const getToolLabel = (type: string): string => {
-  return TOOL_LABELS[type] || TOOL_LABELS.default;
-};
-
-/** Returns the color token for a tool type. */
-export const getToolColor = (type: string): string => {
-  return TOOL_COLORS[type] || TOOL_COLORS.default;
-};
-
 /**
  * Returns a short display name for an action — the filename for file tools,
  * or a truncated command string for run_command.

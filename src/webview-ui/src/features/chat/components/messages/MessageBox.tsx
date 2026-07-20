@@ -17,7 +17,7 @@ interface MessageBoxProps {
     action: any,
     message: Message,
     index: number,
-    type: "accept_all" | "accept_once" | "reject",
+    type: "accept" | "reject",
   ) => void;
   requestNumber?: number | null;
   executionState?: {

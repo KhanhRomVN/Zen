@@ -2,7 +2,7 @@ import React, { useMemo } from "react";
 import { ToolHeader } from "./ToolHeader";
 import { ToolAction } from "../../services/ResponseParser";
 import "../blocks/run_command/TerminalBlock.css";
-import { getToolColor } from "../../utils/toolUtils";
+
 import { parseGitStatusOutput } from "../../utils/gitUtils";
 import { GitStatusBlock } from "../blocks/git_status/GitStatusBlock";
 import { GitStatusItem } from "../../types/tool-types";
@@ -20,7 +20,7 @@ interface GitToolRendererProps {
     action: ToolAction,
     messageId: string,
     actionIndex: number,
-    type: "accept_all" | "accept_once" | "reject",
+    type: "accept" | "reject",
   ) => void;
   onConfirm?: (statusItems: GitStatusItem[]) => void;
   onCancel?: () => void;
@@ -90,9 +90,9 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
     if (hasOutput) {
       const output = toolOutputs[actionId];
       if (output.isError) return "var(--vscode-errorForeground, #f14c4c)";
-      return getToolColor("git_status");
+      return "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)";
     }
-    return getToolColor("git_status");
+    return "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)";
   };
 
   const getTitleParts = () => {

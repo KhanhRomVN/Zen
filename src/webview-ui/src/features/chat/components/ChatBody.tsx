@@ -25,11 +25,11 @@ interface ChatBodyProps {
     action: ToolAction | ToolAction[],
     message: Message,
     isAutoTrigger?: boolean,
-    actionType?: "accept_all" | "accept_once" | "reject",
+    actionType?: "accept" | "reject",
   ) => void;
   onToolAction?: (
     actionId: string,
-    actionType: "accept_all" | "accept_once" | "reject",
+    actionType: "accept" | "reject",
     toolName?: string,
   ) => void;
   onSendMessage?: (

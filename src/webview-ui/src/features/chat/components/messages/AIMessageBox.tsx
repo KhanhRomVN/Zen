@@ -24,7 +24,7 @@ interface AIMessageBoxProps {
     action: any,
     message: Message,
     index: number,
-    type: "accept_all" | "accept_once" | "reject",
+    type: "accept" | "reject",
   ) => void;
   executionState?: {
     total: number;

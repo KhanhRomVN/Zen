@@ -160,8 +160,6 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
     isClickable: false,
     defaultPermission: "allow",
   },
-
-  
 };
 
 // ============= HELPER FUNCTIONS =============
@@ -190,17 +188,10 @@ export const isToolClickable = (type: string): boolean => {
 };
 
 /**
- * Check if a tool should show file stats (line count) in UI
+ * Get all tools that have user-configurable permissions (non-git, non-ui tools)
  */
-export const shouldShowFileStats = (toolType: string): boolean => {
-  return getToolDef(toolType)?.features?.showFileStats ?? false;
-};
-
-/**
- * Check if a tool should validate fuzzy match before execution
- */
-export const shouldValidateFuzzyMatch = (toolType: string): boolean => {
-  return getToolDef(toolType)?.features?.validateFuzzyMatch ?? false;
+export const getConfigurableTools = (): string[] => {
+  return Object.values(TOOL_REGISTRY).map((def) => def.type);
 };
 
 /**
@@ -227,3 +218,14 @@ export type ExecutableToolType =
   | "git_status"
   | "commit_message"
   | "git_diff";
+
+export const shouldShowFileStats = (toolType: string): boolean => {
+  return getToolDef(toolType)?.features?.showFileStats ?? false;
+};
+
+/**
+ * Check if a tool should validate fuzzy match before execution
+ */
+export const shouldValidateFuzzyMatch = (toolType: string): boolean => {
+  return getToolDef(toolType)?.features?.validateFuzzyMatch ?? false;
+};

@@ -3,7 +3,7 @@ import { ToolAction } from "../../services/ResponseParser";
 import FileIcon from "@/icons/FileIcon";
 import { ToolHeader } from "./ToolHeader";
 import { parseDiff, calculateLineDiff } from "../../../../utils/diffUtils";
-import { getFilename, getToolColor } from "../../utils/toolUtils";
+import { getFilename } from "../../utils/toolUtils";
 import { getDisplayPath, collectConvFilePaths } from "../../utils/pathUtils";
 import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
@@ -79,7 +79,7 @@ interface FileToolRendererProps {
     action: ToolAction,
     messageId: string,
     index: number,
-    type: "accept_all" | "accept_once" | "reject",
+    type: "accept" | "reject",
   ) => void;
   mergedItems?: { action: ToolAction; index: number }[];
   conversationId?: string;
@@ -124,7 +124,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   }> | null>(null);
   const { permissionMode } = useSettings();
   const toolType = action.type;
-  const toolColor = getToolColor(toolType);
   const actionId = `${messageId}-action-${actionIndex}`;
 
   const rawPath =
@@ -1379,7 +1378,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
               isCompleted={!!isCompleted}
               isLastMessage={!!isLastMessage}
               isLoading={false}
-              toolColor={toolColor}
               title="Approve action"
               labelText="Approve"
               onExecute={(e, type) => {

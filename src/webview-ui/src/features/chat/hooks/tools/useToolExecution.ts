@@ -1218,7 +1218,7 @@ export const useToolExecution = ({
       message: Message,
       isAutoTrigger: boolean = false,
       conversationToolOverrides: Record<string, "auto"> = {},
-      actionType?: "accept_all" | "accept_once" | "reject",
+      actionType?: "accept" | "reject",
     ) => {
       const currentPermissionMode = permissionModeRef.current;
       let wasInterruptedByManual = false;

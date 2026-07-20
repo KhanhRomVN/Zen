@@ -26,7 +26,7 @@ interface SettingsContextType {
  */
 export const defaultToolPermissions: Record<string, "full_access" | "review"> =
   Object.fromEntries(
-    getConfigurableTools().map(tool => [tool, "full_access"])
+    getConfigurableTools().map((tool: any) => [tool, "full_access"]),
   );
 
 const SettingsContext = createContext<SettingsContextType | undefined>(

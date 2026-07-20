@@ -27,7 +27,7 @@ interface UseChatLLMProps {
     actions: ToolAction[],
     assistantMessage: Message,
     isAutoTrigger?: boolean,
-    actionType?: "accept_all" | "accept_once" | "reject",
+    actionType?: "accept" | "reject",
   ) => void;
   onMalformedTool?: (actionId: string, toolName: string, errorMessage: string, errorCode: string) => void;
 }
@@ -734,7 +734,7 @@ export const useChatLLM = ({
           onToolRequest &&
           parsed.actions?.length > 0
         ) {
-          onToolRequest(parsed.actions, assistantMessage, false, "accept_all");
+          onToolRequest(parsed.actions, assistantMessage, false, "accept");
         } else if (parsed && parsed.actions?.length > 0 && hasParsingError) {
           console.warn(
             `[Zen][sendMessage] Skipping onToolRequest due to parsing error`,
@@ -803,15 +803,10 @@ export const useChatLLM = ({
   const handleToolAction = useCallback(
     (
       actionId: string,
-      actionType: "accept_all" | "accept_once" | "reject",
+      actionType: "accept" | "reject",
       toolName?: string,
     ) => {
-      if (actionType === "accept_all" && toolName) {
-        setConversationToolOverrides((prev) => ({
-          ...prev,
-          [toolName]: "auto",
-        }));
-      }
+      // accept_all logic removed — only accept_once (now just "accept") is kept
     },
     [],
   );

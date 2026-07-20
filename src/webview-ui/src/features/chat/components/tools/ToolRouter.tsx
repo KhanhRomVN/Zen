@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ToolAction } from "../../services/ResponseParser";
 import { formatActionForDisplay } from "../../services/ResponseParser";
-import { getToolColor } from "../../utils/toolUtils";
+
 import { CLICKABLE_TOOLS } from "../../constants/constants";
 import {
   shouldShowFileStats,
@@ -15,7 +15,6 @@ import TerminalToolRenderer from "./TerminalToolRenderer";
 import GitToolRenderer from "./GitToolRenderer";
 import { ToolHeader } from "./ToolHeader";
 import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
-import { ToolOutputs } from "../../types/tool-outputs";
 
 import FileIcon from "@/icons/FileIcon";
 import ErrorBlock from "../blocks/error/ErrorBlock";
@@ -29,7 +28,7 @@ interface ToolRouterProps {
     action: ToolAction,
     messageId: string,
     actionIndex: number,
-    type: "accept_all" | "accept_once" | "reject",
+    type: "accept" | "reject",
   ) => void;
   executionState?: {
     total: number;
@@ -264,7 +263,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
   const firstAction = group[0].action;
   const toolType = firstAction.type;
-  const toolColor = getToolColor(toolType);
   const clickableTools = CLICKABLE_TOOLS;
   const isFileTool = false;
 
@@ -381,7 +379,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
       ? "var(--vscode-errorForeground, #ff4d4d)"
       : isCompleted
         ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-        : getToolColor("view_replace_history");
+        : "var(--vscode-textLink-foreground, #9370db)";
 
     // Parse histories from output
     let histories: any[] = [];
@@ -664,14 +662,13 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
       firstAction.params?.message || firstAction.params?.content || "";
     const actionIndex = group[0].index;
     const actionId = `${messageId}-action-${actionIndex}`;
-    const commitColor = getToolColor("commit_message");
     const isRejected = rejectedActions?.has(actionId) || false;
     const [isCommitted, setIsCommitted] = React.useState(false);
     const statusColor = isRejected
       ? "var(--vscode-errorForeground, #ff4d4d)"
       : isCommitted
         ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-        : commitColor;
+        : "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)";
 
     return (
       <div
@@ -924,7 +921,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
   if (toolType === "git_diff") {
     const filePath = firstAction.params.file_path || "";
-    const diffColor = getToolColor("git_diff");
     const actionIndex = group[0].index;
     const actionId = `${messageId}-action-${actionIndex}`;
 
@@ -943,7 +939,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
         !isLastMessage
       ) {
         hasTriggeredExecution.current = true;
-        onToolClick(firstAction, messageId, actionIndex, "accept_once");
+        onToolClick(firstAction, messageId, actionIndex, "accept");
       }
     }, [hasOutput, isActiveGroup, isLastMessage, actionId]);
 
@@ -978,7 +974,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             diffContent=""
             added={0}
             deleted={0}
-            statusColor={diffColor}
+            statusColor="var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
             isPartial={true}
             branch={gitStatusBranch}
             onFileClick={(path: any) => {
@@ -1009,7 +1005,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
           diffContent={diffContent}
           added={stats.added}
           deleted={stats.deleted}
-          statusColor={diffColor}
+          statusColor="var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
           isPartial={!hasOutput && isActiveGroup}
           branch={gitStatusBranch}
           onFileClick={(path: any) => {
@@ -1035,7 +1031,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             style={{
               padding: "var(--spacing-sm) var(--spacing-md)",
               backgroundColor: "var(--secondary-bg)",
-              border: `2px solid ${toolColor}`,
+              border: "2px solid var(--vscode-descriptionForeground, #6b7280)",
               borderRadius: "var(--border-radius-lg)",
               cursor: clickableTools.includes(action.type)
                 ? "pointer"
@@ -1048,7 +1044,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             }}
             onClick={() => {
               if (clickableTools.includes(action.type))
-                onToolClick(action, messageId, index, "accept_once");
+                onToolClick(action, messageId, index, "accept");
             }}
           >
             <span
@@ -1067,7 +1063,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                 height="16"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke={toolColor}
+                stroke="var(--vscode-descriptionForeground, #6b7280)"
                 strokeWidth="2"
               >
                 <polyline points="9 18 15 12 9 6" />

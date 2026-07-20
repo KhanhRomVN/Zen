@@ -1,7 +1,7 @@
 import React from "react";
 import { ToolAction } from "../../services/ResponseParser";
 import { TerminalBlock } from "../blocks/run_command/TerminalBlock";
-import { getToolColor } from "../../utils/toolUtils";
+
 
 import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
@@ -28,7 +28,7 @@ interface TerminalToolRendererProps {
     action: ToolAction,
     messageId: string,
     index: number,
-    type: "accept_all" | "accept_once" | "reject",
+    type: "accept" | "reject",
   ) => void;
   storedOutput?: string | null;
 }
@@ -103,7 +103,6 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
         : isActionClicked);
   const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
   const isCompleted = hasOutput && !isTerminalBusy;
-  const toolColor = getToolColor("run_command");
   const dotColor = isRejected
     ? "var(--vscode-errorForeground, #ff4d4d)"
     : isCompleted
@@ -279,7 +278,6 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
                 isLastMessage={isLastMessage}
                 isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
                 isLoading={isLoading}
-                toolColor={toolColor}
                 title={
                   isCompleted
                     ? "Completed"

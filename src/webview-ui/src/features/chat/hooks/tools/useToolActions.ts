@@ -10,11 +10,11 @@ interface UseToolActionsProps {
     action: ToolAction | ToolAction[],
     message: Message,
     isAutoTrigger?: boolean,
-    actionType?: "accept_all" | "accept_once" | "reject",
+    actionType?: "accept" | "reject",
   ) => void;
   onToolAction?: (
     actionId: string,
-    actionType: "accept_all" | "accept_once" | "reject",
+    actionType: "accept" | "reject",
     toolName?: string,
   ) => void;
   parsedMessages: any[];
@@ -51,7 +51,7 @@ export const useToolActions = ({
       return;
     }
     loadHistoryPrevLengthRef.current = currentLength;
-    
+
     const historicalClicked = new Set<string>();
     const historicalRejected = new Set<string>();
     parsedMessages.forEach((msg) => {
@@ -142,7 +142,7 @@ export const useToolActions = ({
       actionOrActions: ToolAction | ToolAction[],
       message: Message,
       actionIndex: number,
-      type: "accept_all" | "accept_once" | "reject" = "accept_once",
+      type: "accept" | "reject" = "accept",
     ) => {
       if (!onSendToolRequest) {
         return;
@@ -159,12 +159,7 @@ export const useToolActions = ({
         return;
       }
 
-      if (type === "accept_all") {
-        const actions = Array.isArray(actionOrActions)
-          ? actionOrActions
-          : [actionOrActions];
-        actions.forEach((a) => onToolAction?.("", "accept_all", a.type));
-      }
+      // accept_all logic removed — only accept (formerly accept_once) is kept
 
       if (Array.isArray(actionOrActions)) {
         // Handle Batch
@@ -180,7 +175,7 @@ export const useToolActions = ({
         });
 
         if (actionsToProcess.length > 0) {
-          onSendToolRequest(actionsToProcess as any, message, false, type);
+          onSendToolRequest(actionsToProcess as any, message, false, "accept");
         }
       } else {
         // Handle Single
