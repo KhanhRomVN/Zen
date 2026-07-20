@@ -1,4 +1,5 @@
-import React, { useMemo } from "react";
+import React from "react";
+import { TOOL_ACTION_TYPES } from "../../constants/constants";
 import { ToolHeader } from "./ToolHeader";
 import { ToolAction } from "../../services/ResponseParser";
 import "../blocks/run_command/TerminalBlock.css";
@@ -20,7 +21,7 @@ interface GitToolRendererProps {
     action: ToolAction,
     messageId: string,
     actionIndex: number,
-    type: "accept" | "reject",
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   onConfirm?: (statusItems: GitStatusItem[]) => void;
   onCancel?: () => void;

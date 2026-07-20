@@ -2,11 +2,15 @@ import React, { useState, useEffect } from "react";
 import { ToolAction } from "../../services/ResponseParser";
 import { formatActionForDisplay } from "../../services/ResponseParser";
 
-import { CLICKABLE_TOOLS } from "../../constants/constants";
 import {
   shouldShowFileStats,
   shouldValidateFuzzyMatch,
-} from "../../constants/tool-registry";
+  getToolDef,
+  isToolClickable,
+  TOOL_REGISTRY,
+  TOOL_ACTION_TYPES,
+  EXECUTION_STATUS,
+} from "../../constants/constants";
 import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
 import { useProject } from "../../../../context/ProjectContext";
@@ -18,7 +22,6 @@ import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
 
 import FileIcon from "@/icons/FileIcon";
 import ErrorBlock from "../blocks/error/ErrorBlock";
-
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
   messageId: string;
@@ -28,12 +31,12 @@ interface ToolRouterProps {
     action: ToolAction,
     messageId: string,
     actionIndex: number,
-    type: "accept" | "reject",
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   executionState?: {
     total: number;
     completed: number;
-    status: "idle" | "running" | "error" | "done";
+    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
   };
   isActiveGroup?: boolean;
   failedActions?: Set<string>;
@@ -263,39 +266,28 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
 
   const firstAction = group[0].action;
   const toolType = firstAction.type;
-  const clickableTools = CLICKABLE_TOOLS;
   const isFileTool = false;
 
   // Handle malformed/error tool actions - show ToolHeader + ErrorBlock
   if (firstAction.isError) {
-    const actionIndex = group[0].index;
     const errorColor = "var(--vscode-errorForeground, #f44336)";
 
     // Determine label based on tool type
+    const toolLabelMap: Record<string, string> = {
+      read_file: "READ",
+      write_to_file: "WRITE",
+      replace_in_file: "REPLACE",
+      list_files: "LIST",
+      find_files: "FIND",
+      grep: "GREP",
+      delete_file: "DELETE",
+      delete_folder: "DELETE",
+      move_file: "MOVE",
+      revert_file: "REVERT",
+      run_command: "RUN",
+    };
     const toolLabel =
-      toolType === "read_file"
-        ? "READ"
-        : toolType === "write_to_file"
-          ? "WRITE"
-          : toolType === "replace_in_file"
-            ? "REPLACE"
-            : toolType === "list_files"
-              ? "LIST"
-              : toolType === "find_files"
-                ? "FIND"
-                : toolType === "grep"
-                  ? "GREP"
-                  : toolType === "delete_file"
-                    ? "DELETE"
-                    : toolType === "delete_folder"
-                      ? "DELETE"
-                      : toolType === "move_file"
-                        ? "MOVE"
-                        : toolType === "revert_file"
-                          ? "REVERT"
-                          : toolType === "run_command"
-                            ? "RUN"
-                            : toolType.toUpperCase().replace(/_/g, " ");
+      toolLabelMap[toolType] ?? toolType.toUpperCase().replace(/_/g, " ");
 
     // Extract file path or relevant info from params
     const filePath =
@@ -1033,7 +1025,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
               backgroundColor: "var(--secondary-bg)",
               border: "2px solid var(--vscode-descriptionForeground, #6b7280)",
               borderRadius: "var(--border-radius-lg)",
-              cursor: clickableTools.includes(action.type)
+              cursor: isToolClickable(action.type)
                 ? "pointer"
                 : "default",
               transition: "all 0.2s",
@@ -1043,7 +1035,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
               width: "fit-content",
             }}
             onClick={() => {
-              if (clickableTools.includes(action.type))
+              if (isToolClickable(action.type))
                 onToolClick(action, messageId, index, "accept");
             }}
           >
@@ -1057,7 +1049,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
             >
               {formatActionForDisplay(action)}
             </span>
-            {clickableTools.includes(action.type) && (
+            {isToolClickable(action.type) && (
               <svg
                 width="16"
                 height="16"

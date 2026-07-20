@@ -1,5 +1,5 @@
 import { findClosingTagPosition } from "../../utils/TagClosingFinder";
-import { getExecutableToolTypes } from "../../constants/tool-registry";
+import { getAllToolTypes } from "../../constants/constants";
 
 /**
  * Thinking content is extracted from the tag content.
@@ -40,7 +40,7 @@ export const extractThinkingBlocks = (
   // Use EXECUTABLE tools only (excludes UI category: markdown, question, code, thinking)
   // These are real tool calls that might contain literal <thinking> in their content
   const toolTags = [
-    ...getExecutableToolTypes().filter((t) => t !== "thinking"),
+    ...getAllToolTypes().filter((t: string) => t !== "thinking"),
     "file", // Special display tag not in registry
   ];
 

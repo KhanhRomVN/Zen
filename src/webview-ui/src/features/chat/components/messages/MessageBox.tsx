@@ -1,4 +1,5 @@
 import React from "react";
+import { TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
 import { Message } from "../../types/message";
 import { ParsedResponse } from "../../services/ResponseParser";
 import UserMessageBox from "./UserMessageBox";
@@ -17,13 +18,13 @@ interface MessageBoxProps {
     action: any,
     message: Message,
     index: number,
-    type: "accept" | "reject",
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   requestNumber?: number | null;
   executionState?: {
     total: number;
     completed: number;
-    status: "idle" | "running" | "error" | "done";
+    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
   };
   isLastMessage?: boolean;
   hasNextAssistantMessage?: boolean;
@@ -108,15 +109,8 @@ const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
 // Memoize to prevent unnecessary re-renders
 let memoCheckCount = 0;
 const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
-  const startTime = performance.now();
   memoCheckCount++;
 
-  // Return true to SKIP re-render (props are equal)
-  // Only re-render if message content, clickedActions, or key props change
-  //
-  // When streaming (isGenerating=true), content changes on every chunk.
-  // We still need to re-render to show new text, but we skip the comparison
-  // for heavy props like toolOutputs/allMessages since they don't change mid-stream.
   const isStreaming =
     prevProps.isGenerating === true && nextProps.isGenerating === true;
 

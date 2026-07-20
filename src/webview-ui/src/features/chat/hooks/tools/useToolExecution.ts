@@ -8,10 +8,7 @@ import {
 import { Message } from "../../types/message";
 
 import { parseAIResponse } from "../../services/ResponseParser";
-import {
-  useSettings,
-  PermissionMode,
-} from "../../../../context/SettingsContext";
+import { useSettings } from "../../../../context/SettingsContext";
 import { formatGrepResultCompact } from "../../utils/grepFormatter";
 export { getPermissionDecision } from "../../utils/permissionUtils";
 import { getPermissionDecision } from "../../utils/permissionUtils";
@@ -19,7 +16,7 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { TOOL_TIMEOUT } from "../../constants/constants";
+import { PermissionMode, getToolTimeout, TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
 
 interface UseToolExecutionProps {
   sendMessage: (
@@ -55,8 +52,8 @@ export const useToolExecution = ({
   const [executionState, setExecutionState] = useState<{
     total: number;
     completed: number;
-    status: "idle" | "running" | "error" | "done";
-  }>({ total: 0, completed: 0, status: "idle" });
+    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
+  }>({ total: 0, completed: 0, status: EXECUTION_STATUS.IDLE });
 
   const [toolOutputs, setToolOutputs] = useState<
     Record<
@@ -233,10 +230,6 @@ export const useToolExecution = ({
     bypassIgnore: boolean = false,
   ): Promise<string | null> => {
     return new Promise((resolve) => {
-      const vscodeApi = (window as any).vscodeApi;
-      // Or use extensionService.postMessage, but we need generic postMessage.
-      // We will use extensionService.postMessage in a real refactor, but for now strict consistency:
-      // We'll use extensionService which we defined to behave like vscodeApi.postMessage
       switch (action.type) {
         case "read_file": {
           const requestId = `read-${Date.now()}-${Math.random()}`;
@@ -329,10 +322,10 @@ export const useToolExecution = ({
                 resolve(output);
               }
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
               console.warn(`[read_file] Timeout`, { requestId, filePath });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. The file operation took too long to complete.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. The file operation took too long to complete.`;
               // Store timeout error in toolOutputs
               setToolOutputs((prev) => ({
                 ...prev,
@@ -443,10 +436,10 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
               console.warn(`[write_to_file] Timeout`, { requestId, filePath });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. The file write took too long to complete (possibly waiting for diagnostics).`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. The file write took too long to complete (possibly waiting for diagnostics).`;
               // Store timeout error in toolOutputs
               setToolOutputs((prev) => ({
                 ...prev,
@@ -566,13 +559,13 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
               console.warn(`[replace_in_file] Timeout`, {
                 requestId,
                 filePath,
               });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. The file replacement took too long to complete (possibly waiting for diagnostics).`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. The file replacement took too long to complete (possibly waiting for diagnostics).`;
               // Store timeout error in toolOutputs
               setToolOutputs((prev) => ({
                 ...prev,
@@ -651,10 +644,10 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
               console.warn(`[revert_file] Timeout`, { requestId, filePath });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. The file revert took too long to complete.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. The file revert took too long to complete.`;
               setToolOutputs((prev) => ({
                 ...prev,
                 [actionId]: {
@@ -751,13 +744,13 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
               console.warn(`[view_replace_history] Timeout`, {
                 requestId,
                 filePath,
               });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to retrieve file history.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to retrieve file history.`;
               setToolOutputs((prev) => ({
                 ...prev,
                 [actionId]: {
@@ -863,9 +856,9 @@ export const useToolExecution = ({
                 );
               }
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to list files.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to list files.`;
               resolve(
                 `[list_files for '${folderPath}'] Result: Error - ${timeoutError}`,
               );
@@ -938,10 +931,10 @@ export const useToolExecution = ({
 
               resolve(output);
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
               console.warn(`[find_files] Timeout`, { requestId, fileNames });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to find files.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to find files.`;
               resolve(`[find_files] Result: Error - ${timeoutError}`);
             },
           );
@@ -998,9 +991,9 @@ export const useToolExecution = ({
                 `[delete_file for '${filePath}'] Result: File deleted successfully`,
               );
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to delete file.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to delete file.`;
               resolve(
                 `[delete_file for '${filePath}'] Result: Error - ${timeoutError}`,
               );
@@ -1030,9 +1023,9 @@ export const useToolExecution = ({
                 `[delete_folder for '${folderPath}'] Result: Folder deleted successfully`,
               );
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to delete folder.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to delete folder.`;
               resolve(
                 `[delete_folder for '${folderPath}'] Result: Error - ${timeoutError}`,
               );
@@ -1064,9 +1057,9 @@ export const useToolExecution = ({
                 `[move_file from '${filePath}' to '${targetFolderPath}'] Result: File moved successfully to '${msg.newPath || targetFolderPath}'`,
               );
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to move file.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to move file.`;
               resolve(
                 `[move_file from '${filePath}' to '${targetFolderPath}'] Result: Error - ${timeoutError}`,
               );
@@ -1126,12 +1119,12 @@ export const useToolExecution = ({
                 );
               }
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
               console.warn(
                 `[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`,
               );
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Search took too long to complete.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Search took too long to complete.`;
               resolve(
                 `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${timeoutError}`,
               );
@@ -1182,9 +1175,9 @@ export const useToolExecution = ({
                 );
               }
             },
-            TOOL_TIMEOUT,
+            getToolTimeout(action.type),
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to get git diff.`;
+              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to get git diff.`;
               resolve(
                 `[git_diff for '${filePath}'] Result: Error - ${timeoutError}`,
               );
@@ -1218,7 +1211,7 @@ export const useToolExecution = ({
       message: Message,
       isAutoTrigger: boolean = false,
       conversationToolOverrides: Record<string, "auto"> = {},
-      actionType?: "accept" | "reject",
+      actionType?: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
     ) => {
       const currentPermissionMode = permissionModeRef.current;
       let wasInterruptedByManual = false;
@@ -1236,7 +1229,7 @@ export const useToolExecution = ({
       setExecutionState({
         total: actions.length,
         completed: 0,
-        status: "running",
+        status: EXECUTION_STATUS.RUNNING,
       });
 
       for (let index = 0; index < actions.length; index++) {
@@ -1248,7 +1241,7 @@ export const useToolExecution = ({
 
         // GUARD: Prevent duplicate execution of same action Id
         // 🐛 FIX: Khi reject, KHÔNG skip action dù đã có trong clickedActionsRef
-        const isReject = actionType === "reject";
+        const isReject = actionType === TOOL_ACTION_TYPES.REJECT;
         const isAlreadyClicked = clickedActionsRef.current.has(actionId);
         if (!isReject && isAlreadyClicked) {
           skippedCount++;
@@ -1282,7 +1275,7 @@ export const useToolExecution = ({
             setExecutionState({
               total: actions.length,
               completed: index,
-              status: "idle",
+              status: EXECUTION_STATUS.IDLE,
             });
             // Remove from clickedActions since we didn't actually execute
             clickedActionsRef.current.delete(actionId);
@@ -1301,7 +1294,7 @@ export const useToolExecution = ({
           conversationToolOverrides[action.type] === "auto";
 
         const shouldPauseForManual =
-          decision === "prompt" && !isConversationAuto;
+          decision === "confirm" && !isConversationAuto;
 
         if (isAutoTrigger && shouldPauseForManual) {
           wasInterruptedByManual = true;
@@ -1315,14 +1308,14 @@ export const useToolExecution = ({
         }
 
         let result: string | null = null;
-        if (actionType === "reject") {
+        if (actionType === TOOL_ACTION_TYPES.REJECT) {
           result = `Output: [${action.type}] Tool execution rejected by user.`;
           setRejectedActions((prev) => {
             const next = new Set(prev).add(actionId);
             return next;
           });
           window.postMessage({ command: "markActionRejected", actionId }, "*");
-        } else if (decision === "deny") {
+        } else if (decision === TOOL_ACTION_TYPES.REJECT) {
           result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionModeRef.current}).`;
         } else {
           result = await executeSingleAction(
@@ -1412,7 +1405,7 @@ export const useToolExecution = ({
             });
           }
         } else {
-          setExecutionState((prev) => ({ ...prev, status: "error" }));
+          setExecutionState((prev) => ({ ...prev, status: EXECUTION_STATUS.ERROR }));
           break;
         }
       }
@@ -1424,7 +1417,7 @@ export const useToolExecution = ({
         if (actionType === "reject") {
         }
         setExecutionState((prev) =>
-          prev.status === "error" ? prev : { ...prev, status: "done" },
+          prev.status === EXECUTION_STATUS.ERROR ? prev : { ...prev, status: EXECUTION_STATUS.DONE },
         );
         return;
       }

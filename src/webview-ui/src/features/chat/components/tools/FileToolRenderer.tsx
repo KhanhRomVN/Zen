@@ -14,6 +14,7 @@ import { GrepBlock } from "../blocks/grep/GrepBlock";
 import { TreeBlock } from "../blocks/tree/TreeBlock";
 import { getPermissionDecision } from "../../utils/permissionUtils";
 import { ToolOutputs } from "../../types/tool-outputs";
+import { TOOL_ACTION_TYPES } from "../../constants/constants";
 import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
 
 // Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
@@ -79,7 +80,7 @@ interface FileToolRendererProps {
     action: ToolAction,
     messageId: string,
     index: number,
-    type: "accept" | "reject",
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   mergedItems?: { action: ToolAction; index: number }[];
   conversationId?: string;
@@ -295,21 +296,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
       }
     } catch (err) {}
   }
-
-  // ─── Thinking content ───────────────────────────────────────────────────────
-  // Extract <thinking>...</thinking> or unclosed <thinking>... from the current
-  // streaming message content. Only shown while the tag is open (streaming).
-  // Once </thinking> is closed, the parser replaces it with __THINKING_N__ and
-  // the raw content no longer contains the open tag → we show nothing.
-  const thinkingContent = React.useMemo(() => {
-    if (!isPartial) return null; // only relevant while streaming
-    const currentMsg = allMessages?.find((m) => m.id === messageId);
-    if (!currentMsg?.content) return null;
-    // Match unclosed <thinking> tag (streaming, no closing tag yet)
-    const unclosedMatch = /<thinking>([\s\S]*)$/i.exec(currentMsg.content);
-    if (unclosedMatch) return unclosedMatch[1];
-    return null;
-  }, [isPartial, allMessages, messageId]);
 
   // Debug: log khi render với toolOutputs (chỉ log 1 lần per actionId)
   const debugLoggedRef = React.useRef(false);
@@ -1371,7 +1357,7 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
         !isCompleted &&
         !isPartial &&
         (isActiveGroup || !isLastMessage) &&
-        getPermissionDecision(permissionMode, toolType) === "prompt" && (
+        getPermissionDecision(permissionMode, toolType) === "confirm" && (
           <div style={{ marginTop: "8px", marginBottom: "8px", order: 1 }}>
             <ExecuteButton
               isActive={!!isActiveGroup}

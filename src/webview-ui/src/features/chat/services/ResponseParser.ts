@@ -1,9 +1,6 @@
 import { normalizeTagVariants } from "../utils/TagNormalizer";
 import { parseToolAction } from "../utils/ToolParser";
-import {
-  getAllToolTypes,
-  type ExecutableToolType,
-} from "../constants/tool-registry";
+import { getAllToolTypes, type ToolType } from "../constants/constants";
 // REMOVED: validateToolParams import - validation now happens in useChatLLM after stream completes
 // import { validateToolParams, type ToolParamValidation } from "../utils/ToolParamValidator";
 // Tag parsers
@@ -41,7 +38,7 @@ export interface ParsedResponse {
 }
 
 export interface ToolAction {
-  type: ExecutableToolType | "thinking" | "question";
+  type: ToolType | "thinking" | "question";
   params: Record<string, any>;
   rawXml: string;
   /** True if this action has a parsing error (e.g., unclosed tag) */

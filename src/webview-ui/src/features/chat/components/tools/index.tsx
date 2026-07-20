@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
 import { ToolAction } from "../../services/ResponseParser";
 import { Message } from "../../types/message";
 import ToolRouter from "./ToolRouter";
@@ -12,13 +13,13 @@ interface ToolActionsListProps {
     action: ToolAction | ToolAction[],
     message: Message,
     actionIndex: number,
-    type: "accept" | "reject",
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   isVisibleTool?: (type: string) => boolean;
   executionState?: {
     total: number;
     completed: number;
-    status: "idle" | "running" | "error" | "done";
+    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
   };
   failedActions?: Set<string>;
   isLastMessage?: boolean;

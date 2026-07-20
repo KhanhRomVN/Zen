@@ -1,5 +1,8 @@
-import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUT } from "../../constants/constants";
+import {
+  extensionService,
+  messageDispatcher,
+} from "@/services/ExtensionService";
+import { getToolTimeout } from "../../constants/constants";
 import { WriteToFileParams } from "../../types/tool-types";
 
 /**
@@ -11,7 +14,7 @@ export async function executeWriteToFile(
   skipDiagnostics: boolean = false,
   bypassIgnore: boolean = false,
   conversationId?: string,
-  actionId?: string
+  actionId?: string,
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const requestId = `write-${Date.now()}-${Math.random()}`;

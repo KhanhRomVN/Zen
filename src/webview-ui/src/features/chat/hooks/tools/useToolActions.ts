@@ -1,20 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ToolAction } from "../../services/ResponseParser";
 import { Message } from "../../types/message";
-import { CLICKABLE_TOOLS } from "../../constants/constants";
 import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "./useToolExecution";
+import { getToolDef, isToolClickable, TOOL_ACTION_TYPES } from "../../constants/constants";
 
 interface UseToolActionsProps {
   onSendToolRequest?: (
     action: ToolAction | ToolAction[],
     message: Message,
     isAutoTrigger?: boolean,
-    actionType?: "accept" | "reject",
+    actionType?: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   onToolAction?: (
     actionId: string,
-    actionType: "accept" | "reject",
+    actionType: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
     toolName?: string,
   ) => void;
   parsedMessages: any[];
@@ -142,7 +142,7 @@ export const useToolActions = ({
       actionOrActions: ToolAction | ToolAction[],
       message: Message,
       actionIndex: number,
-      type: "accept" | "reject" = "accept",
+      type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES] = TOOL_ACTION_TYPES.ACCEPT,
     ) => {
       if (!onSendToolRequest) {
         return;
@@ -150,12 +150,12 @@ export const useToolActions = ({
 
       const actionIdBase = `${message.id}-action-`;
 
-      if (type === "reject") {
+      if (type === TOOL_ACTION_TYPES.REJECT) {
         // 🐛 FIX: Truyền đúng _index cho action để không bị nhầm actionId
         const actions = Array.isArray(actionOrActions)
           ? actionOrActions.map((a) => ({ ...a, _index: actionIndex }))
           : [{ ...actionOrActions, _index: actionIndex }];
-        onSendToolRequest(actions as any, message, false, "reject");
+        onSendToolRequest(actions as any, message, false, TOOL_ACTION_TYPES.REJECT);
         return;
       }
 
@@ -175,12 +175,12 @@ export const useToolActions = ({
         });
 
         if (actionsToProcess.length > 0) {
-          onSendToolRequest(actionsToProcess as any, message, false, "accept");
+          onSendToolRequest(actionsToProcess as any, message, false, TOOL_ACTION_TYPES.ACCEPT);
         }
       } else {
         // Handle Single
         const action = actionOrActions;
-        if (CLICKABLE_TOOLS.includes(action.type)) {
+        if (isToolClickable(action.type)) {
           // Mark as clicked
           const actionId = `${actionIdBase}${actionIndex}`;
           setClickedActions((prev: Set<string>) => new Set(prev).add(actionId));
@@ -271,7 +271,7 @@ export const useToolActions = ({
 
       // Check if settings specify this tool runs auto or deny
       const decision = getPermissionDecision(permissionMode, action.type);
-      if (decision === "allow" || decision === "deny") {
+      if (decision === "allow" || decision === TOOL_ACTION_TYPES.REJECT) {
         // Optimistic Synchronous Update
         triggeredIdsRef.current.add(actionId);
         setClickedActions((prev: Set<string>) => new Set(prev).add(actionId));

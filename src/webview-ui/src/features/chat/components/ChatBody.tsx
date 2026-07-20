@@ -14,9 +14,9 @@ import { ThinkingRenderer } from "./blocks/thinking/ThinkingBlock";
 import MessageBox from "./messages/MessageBox";
 import SearchBar from "./SearchBar";
 import { ChatErrorBoundary } from "./ChatErrorBoundary";
-import { getPermissionDecision } from "../utils/permissionUtils";
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import { WarningBlock } from "./blocks/warning/WarningBlock";
+import { TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../constants/constants";
 
 interface ChatBodyProps {
   messages: Message[];
@@ -25,11 +25,11 @@ interface ChatBodyProps {
     action: ToolAction | ToolAction[],
     message: Message,
     isAutoTrigger?: boolean,
-    actionType?: "accept" | "reject",
+    actionType?: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   onToolAction?: (
     actionId: string,
-    actionType: "accept" | "reject",
+    actionType: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
     toolName?: string,
   ) => void;
   onSendMessage?: (
@@ -47,7 +47,7 @@ interface ChatBodyProps {
   executionState?: {
     total: number;
     completed: number;
-    status: "idle" | "running" | "error" | "done";
+    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
   };
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
@@ -76,7 +76,7 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
   executionState?: {
     total: number;
     completed: number;
-    status: "idle" | "running" | "error" | "done";
+    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
   };
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;

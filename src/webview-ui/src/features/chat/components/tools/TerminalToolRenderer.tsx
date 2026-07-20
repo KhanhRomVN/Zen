@@ -1,4 +1,5 @@
 import React from "react";
+import { TOOL_ACTION_TYPES } from "../../constants/constants";
 import { ToolAction } from "../../services/ResponseParser";
 import { TerminalBlock } from "../blocks/run_command/TerminalBlock";
 
@@ -28,7 +29,7 @@ interface TerminalToolRendererProps {
     action: ToolAction,
     messageId: string,
     index: number,
-    type: "accept" | "reject",
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   storedOutput?: string | null;
 }
@@ -72,7 +73,7 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
     return () => window.removeEventListener("message", handler);
   }, [messageId, actionIndex]);
   const needsPrompt =
-    getPermissionDecision(permissionMode, "run_command") === "prompt";
+    getPermissionDecision(permissionMode, "run_command") === "confirm";
   const commandText = action.params.command || "";
   const displayCommand =
     commandText.length > 50

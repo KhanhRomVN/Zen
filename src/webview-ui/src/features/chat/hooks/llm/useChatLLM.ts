@@ -18,6 +18,7 @@ import { useConversationRefs } from "./useConversationRefs";
 import { useMessageHandlers } from "./useMessageHandlers";
 import { PromptBuilder } from "../../services/PromptBuilder";
 import { StreamingService } from "../../services/StreamingService";
+import { TOOL_ACTION_TYPES } from "../../constants/constants";
 
 interface UseChatLLMProps {
   apiUrl: string;
@@ -27,9 +28,14 @@ interface UseChatLLMProps {
     actions: ToolAction[],
     assistantMessage: Message,
     isAutoTrigger?: boolean,
-    actionType?: "accept" | "reject",
+    actionType?: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
-  onMalformedTool?: (actionId: string, toolName: string, errorMessage: string, errorCode: string) => void;
+  onMalformedTool?: (
+    actionId: string,
+    toolName: string,
+    errorMessage: string,
+    errorCode: string,
+  ) => void;
 }
 
 export const useChatLLM = ({
@@ -606,32 +612,33 @@ export const useChatLLM = ({
 
           // 🔧 VALIDATION: Now that stream is complete, validate all tool actions
           // Import validator
-          const { validateToolParams } = await import("../../utils/ToolParamValidator");
-          
+          const { validateToolParams } =
+            await import("../../utils/ToolParamValidator");
+
           // Validate each action and mark as error if validation fails
           for (const action of parsed.actions) {
             if (action.isError) continue; // Already marked as error by parser
-            
+
             // Extract innerContent from rawXml for validation
             const toolOpenTag = `<${action.type}`;
             const toolCloseTag = `</${action.type}>`;
             const openIndex = action.rawXml.indexOf(toolOpenTag);
             const closeIndex = action.rawXml.lastIndexOf(toolCloseTag);
-            
+
             if (openIndex !== -1 && closeIndex !== -1) {
               const openTagEnd = action.rawXml.indexOf(">", openIndex);
               if (openTagEnd !== -1 && openTagEnd < closeIndex) {
-                const innerContent = action.rawXml.substring(openTagEnd + 1, closeIndex);
-                
                 // Run validation
-                const validation = validateToolParams(action.type, action.params, innerContent);
-                
+                const validation = validateToolParams(
+                  action.type,
+                  action.params,
+                );
                 if (!validation.isValid) {
                   // Mark action as error
                   action.isError = true;
                   action.errorMessage = validation.errorMessage;
                   action.errorCode = validation.errorCode;
-                  
+
                   console.warn("[Zen][useChatLLM] Tool validation failed:", {
                     toolName: action.type,
                     errorCode: validation.errorCode,
@@ -647,37 +654,41 @@ export const useChatLLM = ({
           // so they are sent in the next request for AI self-correction
           const malformedActions = parsed.actions.filter((a: any) => a.isError);
           if (malformedActions.length > 0) {
-            const errorTexts = malformedActions.map((action: any, index: number) => {
-              const toolName = action.type;
-              const errorMsg = action.errorMessage || "Malformed tool output";
-              const errorCode = action.errorCode || "UNKNOWN_ERROR";
+            const errorTexts = malformedActions.map(
+              (action: any, index: number) => {
+                const toolName = action.type;
+                const errorMsg = action.errorMessage || "Malformed tool output";
+                const errorCode = action.errorCode || "UNKNOWN_ERROR";
 
-              // Extract file path or relevant context for the "for" part
-              const filePath =
-                action.params.file_path ||
-                action.params.folder_path ||
-                action.params.path ||
-                action.params.file_name ||
-                action.params.search_term ||
-                "";
-              const forPart = filePath ? ` for '${filePath}'` : "";
+                // Extract file path or relevant context for the "for" part
+                const filePath =
+                  action.params.file_path ||
+                  action.params.folder_path ||
+                  action.params.path ||
+                  action.params.file_name ||
+                  action.params.search_term ||
+                  "";
+                const forPart = filePath ? ` for '${filePath}'` : "";
 
-              // Generate actionId for this malformed tool
-              const actionId = `${assistantMessageId}-action-${parsed.actions.indexOf(action)}`;
+                // Generate actionId for this malformed tool
+                const actionId = `${assistantMessageId}-action-${parsed.actions.indexOf(action)}`;
 
-              // Notify parent to save error in toolOutputs
-              if (onMalformedTool) {
-                onMalformedTool(actionId, toolName, errorMsg, errorCode);
-              }
+                // Notify parent to save error in toolOutputs
+                if (onMalformedTool) {
+                  onMalformedTool(actionId, toolName, errorMsg, errorCode);
+                }
 
-              return `\n[${toolName}${forPart}] Result: Error - ${errorCode}: ${errorMsg}`;
-            });
+                return `\n[${toolName}${forPart}] Result: Error - ${errorCode}: ${errorMsg}`;
+              },
+            );
 
             // Import XML syntax reminder
-            const { XML_TOOL_SYNTAX_REMINDER } = await import("../../prompts/reminder");
+            const { XML_TOOL_SYNTAX_REMINDER } =
+              await import("../../prompts/reminder");
 
             // Append errors and reminder to content
-            assistantMessage.content += errorTexts.join("") + "\n\n" + XML_TOOL_SYNTAX_REMINDER;
+            assistantMessage.content +=
+              errorTexts.join("") + "\n\n" + XML_TOOL_SYNTAX_REMINDER;
 
             // Update messages array with appended errors
             setMessages((prev) =>
@@ -734,7 +745,12 @@ export const useChatLLM = ({
           onToolRequest &&
           parsed.actions?.length > 0
         ) {
-          onToolRequest(parsed.actions, assistantMessage, false, "accept");
+          onToolRequest(
+            parsed.actions,
+            assistantMessage,
+            false,
+            TOOL_ACTION_TYPES.ACCEPT,
+          );
         } else if (parsed && parsed.actions?.length > 0 && hasParsingError) {
           console.warn(
             `[Zen][sendMessage] Skipping onToolRequest due to parsing error`,
@@ -803,7 +819,7 @@ export const useChatLLM = ({
   const handleToolAction = useCallback(
     (
       actionId: string,
-      actionType: "accept" | "reject",
+      actionType: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
       toolName?: string,
     ) => {
       // accept_all logic removed — only accept_once (now just "accept") is kept

@@ -1,25 +1,49 @@
-// src/webview-ui/src/features/chat/utils/permissionUtils.ts
-import type { PermissionMode } from "../../../context/SettingsContext";
-import { isReadTool } from "../constants/tool-registry";
+import {
+  PermissionMode,
+  TOOL_REGISTRY,
+  type PermissionValue,
+} from "../constants/constants";
 
 /**
  * Returns the permission decision for a given tool type and permission mode.
- * - "allow"  → execute immediately without prompting
- * - "prompt" → pause and ask the user
- * - "deny"   → block execution entirely
+ * - "allow"   → execute immediately without prompting
+ * - "confirm" → pause and ask the user (hiển thị Accept/Reject buttons)
+ * - "reject"  → block execution entirely
  */
 export const getPermissionDecision = (
   mode: PermissionMode,
   toolType: string,
-): "allow" | "prompt" | "deny" => {
+): "allow" | "confirm" | "reject" => {
+  const toolDef = TOOL_REGISTRY[toolType];
+  if (!toolDef) {
+    return "reject";
+  }
+
+  let permissionValue: PermissionValue;
+
   switch (mode) {
     case "fullAccess":
-      return "allow";
+      permissionValue = toolDef.permissions.fullAccess;
+      break;
     case "approval":
-      return isReadTool(toolType) ? "allow" : "prompt";
+      permissionValue = toolDef.permissions.approval;
+      break;
     case "readOnly":
-      return isReadTool(toolType) ? "allow" : "deny";
+      permissionValue = toolDef.permissions.readOnly;
+      break;
     default:
-      return "prompt";
+      return "confirm";
   }
+
+  // Nếu là string, return trực tiếp
+  if (typeof permissionValue === "string") {
+    return permissionValue;
+  }
+
+  // Nếu là regex, kiểm tra match
+  if (permissionValue instanceof RegExp) {
+    return permissionValue.test(toolType) ? "allow" : "reject";
+  }
+
+  return "reject";
 };

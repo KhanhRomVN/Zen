@@ -1,5 +1,8 @@
-import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUT } from "../../constants/constants";
+import {
+  extensionService,
+  messageDispatcher,
+} from "@/services/ExtensionService";
+import { getToolTimeout } from "../../constants/constants";
 import { ListFilesParams } from "../../types/tool-types";
 
 /**
@@ -8,7 +11,7 @@ import { ListFilesParams } from "../../types/tool-types";
  */
 export async function executeListFiles(
   params: ListFilesParams,
-  bypassIgnore: boolean = false
+  bypassIgnore: boolean = false,
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const requestId = `list-${Date.now()}-${Math.random()}`;
@@ -34,7 +37,7 @@ export async function executeListFiles(
           return;
         }
         const listResults = msg.files || msg.results;
-        
+
         // Return raw JSON array - let the UI format it
         resolve(listResults);
       },

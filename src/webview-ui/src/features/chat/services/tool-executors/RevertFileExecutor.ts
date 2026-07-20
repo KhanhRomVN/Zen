@@ -2,7 +2,7 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { TOOL_TIMEOUT } from "../../constants/constants";
+import { getToolTimeout } from "../../constants/constants";
 import { RevertFileParams } from "../../types/tool-types";
 
 /**

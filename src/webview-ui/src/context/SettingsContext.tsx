@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
-import { getConfigurableTools } from "../features/chat/constants/tool-registry";
 
 export type PermissionMode = "fullAccess" | "approval" | "readOnly";
 
@@ -11,23 +10,11 @@ interface SettingsContextType {
   setCommitMessageLanguage: (lang: "en" | "vi") => void;
   apiUrl: string;
   setApiUrl: (url: string) => void;
-  toolPermissions: Record<string, "full_access" | "review">;
-  setToolPermission: (toolId: string, value: "full_access" | "review") => void;
-  setAllToolPermissions: (value: "full_access" | "review") => void;
   permissionMode: PermissionMode;
   setPermissionMode: (mode: PermissionMode) => void;
   liveWritePreview: boolean;
   setLiveWritePreview: (value: boolean) => void;
 }
-
-/**
- * Generate default tool permissions from Tool Registry.
- * All configurable tools (non-git, non-ui) default to "full_access".
- */
-export const defaultToolPermissions: Record<string, "full_access" | "review"> =
-  Object.fromEntries(
-    getConfigurableTools().map((tool: any) => [tool, "full_access"]),
-  );
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
   undefined,
@@ -55,9 +42,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
   const [permissionModeState, setPermissionModeState] =
     useState<PermissionMode>("fullAccess");
-  const [toolPermissionsState, setToolPermissionsState] = useState<
-    Record<string, "full_access" | "review">
-  >(defaultToolPermissions);
   const [liveWritePreview, setLiveWritePreviewState] = useState<boolean>(true);
 
   useEffect(() => {
@@ -83,17 +67,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
           readOnly: "readOnly",
         };
         setPermissionModeState(migrationMap[val] ?? "fullAccess");
-      }
-    });
-
-    storage.get("zen_tool_permissions").then((res: any) => {
-      if (res?.value) {
-        try {
-          const parsed = JSON.parse(res.value);
-          setToolPermissionsState({ ...defaultToolPermissions, ...parsed });
-        } catch (e) {
-          // Fallback to default if parsing fails
-        }
       }
     });
   }, []);
@@ -128,27 +101,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_permission_mode", mode);
   };
 
-  const setToolPermission = (
-    toolId: string,
-    value: "full_access" | "review",
-  ) => {
-    setToolPermissionsState((prev) => {
-      const next = { ...prev, [toolId]: value };
-      const storage = extensionService.getStorage();
-      storage.set("zen_tool_permissions", JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const setAllToolPermissions = (value: "full_access" | "review") => {
-    const next = Object.fromEntries(
-      Object.keys(defaultToolPermissions).map((k) => [k, value]),
-    ) as Record<string, "full_access" | "review">;
-    setToolPermissionsState(next);
-    const storage = extensionService.getStorage();
-    storage.set("zen_tool_permissions", JSON.stringify(next));
-  };
-
   const setLiveWritePreview = (value: boolean) => {
     setLiveWritePreviewState(value);
     try {
@@ -165,9 +117,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setCommitMessageLanguage,
         apiUrl,
         setApiUrl,
-        toolPermissions: toolPermissionsState,
-        setToolPermission,
-        setAllToolPermissions,
         permissionMode: permissionModeState,
         setPermissionMode,
         liveWritePreview,

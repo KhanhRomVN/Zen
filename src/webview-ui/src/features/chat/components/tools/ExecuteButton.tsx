@@ -1,5 +1,6 @@
 import React from "react";
 import { Check, X } from "lucide-react";
+import { TOOL_ACTION_TYPES } from "../../constants/constants";
 
 export interface ExecuteButtonProps {
   isCompleted: boolean;
@@ -8,7 +9,7 @@ export interface ExecuteButtonProps {
   isLastMessage?: boolean;
   onExecute: (
     e: React.MouseEvent,
-    type: "accept" | "reject",
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   toolColor?: string;
   title: string;
@@ -43,7 +44,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          if (isClickable) onExecute(e, "accept");
+          if (isClickable) onExecute(e, TOOL_ACTION_TYPES.ACCEPT);
         }}
         disabled={isLoading || (isCompleted && !isFailed && !isActive)}
         style={{
@@ -124,14 +125,14 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
     >
       {[
         {
-          type: "accept" as const,
+          type: TOOL_ACTION_TYPES.ACCEPT,
           color: toolColor,
           icon: <Check size={14} strokeWidth={2.5} />,
           label: "Accept",
           title: "Accept Once",
         },
         {
-          type: "reject" as const,
+          type: TOOL_ACTION_TYPES.REJECT,
           color: "var(--vscode-errorForeground, #ff4d4d)",
           icon: <X size={14} strokeWidth={2.5} />,
           label: "Reject",

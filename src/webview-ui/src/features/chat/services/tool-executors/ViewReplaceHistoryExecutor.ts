@@ -1,5 +1,8 @@
-import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUT } from "../../constants/constants";
+import {
+  extensionService,
+  messageDispatcher,
+} from "@/services/ExtensionService";
+import { getToolTimeout } from "../../constants/constants";
 
 const VIEW_REPLACE_HISTORY_TIMEOUT_MS = TOOL_TIMEOUT;
 
@@ -42,7 +45,7 @@ export async function executeViewReplaceHistory(
           );
         } else {
           const histories = msg.histories || [];
-          
+
           if (histories.length === 0) {
             resolve(
               `[view_replace_history for '${filePath}'] Result: No replace_in_file history found for this file.`,
@@ -51,7 +54,7 @@ export async function executeViewReplaceHistory(
           }
 
           let result = `[view_replace_history for '${filePath}'] Found ${histories.length} version(s):\n\n`;
-          
+
           histories.forEach((h: any, index: number) => {
             const date = new Date(h.timestamp).toLocaleString();
             result += `**Version ${h.version}**\n`;

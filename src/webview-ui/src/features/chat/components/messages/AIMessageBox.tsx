@@ -1,4 +1,5 @@
 import React from "react";
+import { TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
 import { Message } from "../../types/message";
 import { ParsedResponse } from "../../services/ResponseParser";
 import ToolActionsList from "../tools/index";
@@ -24,12 +25,12 @@ interface AIMessageBoxProps {
     action: any,
     message: Message,
     index: number,
-    type: "accept" | "reject",
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   executionState?: {
     total: number;
     completed: number;
-    status: "idle" | "running" | "error" | "done";
+    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
   };
   isLastMessage?: boolean;
   hasNextAssistantMessage?: boolean;

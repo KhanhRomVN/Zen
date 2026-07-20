@@ -3,7 +3,7 @@ import {
   messageDispatcher,
 } from "@/services/ExtensionService";
 import { formatGrepResultCompact } from "../../utils/grepFormatter";
-import { TOOL_TIMEOUT } from "../../constants/constants";
+import { getToolTimeout } from "../../constants/constants";
 import { GrepParams } from "../../types/tool-types";
 
 const TIMEOUT_MS = TOOL_TIMEOUT;

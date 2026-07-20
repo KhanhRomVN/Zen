@@ -1,6 +1,6 @@
 import React from "react";
 import { PlusIcon, SendIcon } from "@/icons/Icon";
-import { X, GitPullRequestArrow, ShieldCheck, Eye, Zap } from "lucide-react";
+import { X, GitPullRequestArrow } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
@@ -12,6 +12,7 @@ import type {
   UploadedFile,
   ToggleButtonProps,
 } from "./types";
+import { PERMISSION_MODE } from "../../features/chat/constants/constants";
 
 export type { UploadedFile };
 
@@ -504,30 +505,6 @@ const MemoryButton: React.FC<ToggleButtonProps> = ({
 // GLOBAL PERMISSION BUTTON
 // ============================================================================
 
-const MODE_METADATA: Record<
-  string,
-  { label: string; desc: string; icon: React.ReactNode; color: string }
-> = {
-  fullAccess: {
-    label: "Full Access",
-    desc: "AI has unrestricted access to all project files and tools",
-    icon: <Zap size={11} />,
-    color: "var(--vscode-editorBracketHighlight-foreground3, #f59e0b)",
-  },
-  approval: {
-    label: "Approval Required",
-    desc: "AI must request explicit approval before accessing files or running commands",
-    icon: <ShieldCheck size={11} />,
-    color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
-  },
-  readOnly: {
-    label: "Read Only",
-    desc: "AI can only read project files, cannot modify them or run commands",
-    icon: <Eye size={11} />,
-    color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
-  },
-};
-
 const GlobalPermissionButton: React.FC = () => {
   const { permissionMode, setPermissionMode } = useSettings();
   const [open, setOpen] = React.useState(false);
@@ -584,7 +561,8 @@ const GlobalPermissionButton: React.FC = () => {
     setTooltip(null);
   };
 
-  const metadata = MODE_METADATA[permissionMode] || MODE_METADATA.fullAccess;
+  const metadata =
+    PERMISSION_MODE[permissionMode] || PERMISSION_MODE.fullAccess;
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -639,7 +617,7 @@ const GlobalPermissionButton: React.FC = () => {
             minWidth: "180px",
           }}
         >
-          {Object.entries(MODE_METADATA).map(([modeId, meta]) => {
+          {Object.entries(PERMISSION_MODE).map(([modeId, meta]) => {
             const isSelected = permissionMode === modeId;
             return (
               <button
@@ -686,7 +664,7 @@ const GlobalPermissionButton: React.FC = () => {
           })}
         </div>
       )}
-      {tooltip && MODE_METADATA[tooltip.id] && (
+      {tooltip && PERMISSION_MODE[tooltip.id] && (
         <div
           style={{
             position: "fixed",
@@ -710,12 +688,12 @@ const GlobalPermissionButton: React.FC = () => {
             style={{
               fontWeight: 600,
               marginBottom: "3px",
-              color: MODE_METADATA[tooltip.id].color,
+              color: PERMISSION_MODE[tooltip.id].color,
             }}
           >
-            {MODE_METADATA[tooltip.id].label}
+            {PERMISSION_MODE[tooltip.id].label}
           </div>
-          {MODE_METADATA[tooltip.id].desc}
+          {PERMISSION_MODE[tooltip.id].desc}
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { TOOL_TIMEOUT } from "../../constants/constants";
+import { getToolTimeout } from "../../constants/constants";
 import { ReadFileParams } from "../../types/tool-types";
 
 /**
@@ -99,7 +99,7 @@ export async function executeReadFile(
           });
         }
       },
-      TOOL_TIMEOUT,
+      getToolTimeout("read_file"),
       () => {
         console.warn(`[read_file] Timeout`, { requestId, filePath });
         resolve(null);

@@ -1,5 +1,8 @@
-import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUT } from "../../constants/constants";
+import {
+  extensionService,
+  messageDispatcher,
+} from "@/services/ExtensionService";
+import { getToolTimeout } from "../../constants/constants";
 
 const GIT_DIFF_TIMEOUT_MS = TOOL_TIMEOUT;
 /**
@@ -8,7 +11,7 @@ const GIT_DIFF_TIMEOUT_MS = TOOL_TIMEOUT;
  */
 export async function executeGitDiff(
   filePath: string,
-  requestId: string
+  requestId: string,
 ): Promise<string | null> {
   return new Promise((resolve) => {
     extensionService.postMessage({
@@ -21,9 +24,7 @@ export async function executeGitDiff(
       requestId,
       (msg) => {
         if (msg.error) {
-          resolve(
-            `[git_diff for '${filePath}'] Result: Error - ${msg.error}`,
-          );
+          resolve(`[git_diff for '${filePath}'] Result: Error - ${msg.error}`);
         } else {
           let diffContent = msg.diff || "";
           // Clean diff content: remove metadata lines that are not useful for AI
