@@ -278,11 +278,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
         if (missingParamTag) {
           // Found unclosed param tag - don't register as valid closed tag
-          console.error("[Zen][Parser] ⚠️ UNCLOSED PARAM TAG:", {
-            toolName,
-            missingParam: missingParamTag,
-            contentPreview: innerContent.substring(0, 200),
-          });
+          if (DEBUG_PARSER) {
+            console.warn("[Zen][Parser] ⚠️ UNCLOSED PARAM TAG:", {
+              toolName,
+              missingParam: missingParamTag,
+              contentPreview: innerContent.substring(0, 200),
+            });
+          }
           // Skip this tool - will be caught as unclosed in main loop
           continue;
         }
