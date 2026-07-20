@@ -1,4 +1,4 @@
-import { extractParam, extractParamValue } from "../../utils/ToolParser";
+import { extractParamValue } from "../../utils/ToolParser";
 
 // Enable debug logs via localStorage
 const DEBUG_PARSER =
@@ -11,9 +11,8 @@ export interface WriteToFileParams {
 }
 
 export const parseWriteToFile = (innerContent: string): WriteToFileParams => {
-  // Try canonical name first, then fallback to variants
-  // Order matters: canonical → common aliases
-  const filePath = extractParam(innerContent, "file_path", "path", "filePath", "filepath");
+  // Parse according to tools-reference.ts schema: file_path only
+  const filePath = extractParamValue(innerContent, "file_path");
   const content = extractParamValue(innerContent, "content");
 
   if (DEBUG_PARSER) {

@@ -3,9 +3,10 @@ import {
   messageDispatcher,
 } from "@/services/ExtensionService";
 import { formatGrepResultCompact } from "../../utils/grepFormatter";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { GrepParams } from "../../types/tool-types";
-const TIMEOUT_MS = TOOL_TIMEOUTS.grep || 30000;
+
+const TIMEOUT_MS = TOOL_TIMEOUT;
 
 /**
  * Execute grep tool

@@ -1,7 +1,7 @@
 import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 
-const VIEW_REPLACE_HISTORY_TIMEOUT_MS = TOOL_TIMEOUTS.replace_in_file || 10000;
+const VIEW_REPLACE_HISTORY_TIMEOUT_MS = TOOL_TIMEOUT;
 
 export interface ViewReplaceHistoryParams {
   file_path?: string;

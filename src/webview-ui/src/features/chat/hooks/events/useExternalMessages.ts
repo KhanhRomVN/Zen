@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Message } from "../../types/message";
 import { ChatSession } from "../../types/chat";
-import { saveConversation } from "../../services/ConversationService";
 
 interface UseExternalMessagesProps {
   currentChat: ChatSession | null;
@@ -28,7 +27,6 @@ export const useExternalMessages = ({
   const renderCountRef = useRef(0);
   const messageCountRef = useRef(0);
   const attachCountRef = useRef(0);
-  const compressionCountRef = useRef(0);
 
   renderCountRef.current += 1;
 
@@ -51,15 +49,12 @@ export const useExternalMessages = ({
   }, [currentChat, currentConversationId, messages, setMessages, setProjectContext, addAttachedItem]);
 
   useEffect(() => {
-    const setupStartTime = performance.now();
-
     const vscodeApi = (window as any).vscodeApi;
     if (vscodeApi) {
       vscodeApi.postMessage({ command: "loadProjectContext" });
     }
 
     const handleMessage = (event: MessageEvent) => {
-      const eventStartTime = performance.now();
       messageCountRef.current += 1;
 
       const message = event.data;
@@ -78,38 +73,6 @@ export const useExternalMessages = ({
           path: message.uri,
           type: isFolder ? "folder" : "file",
         });
-      } else if (message.command === "createConversationWithSummary") {
-        compressionCountRef.current += 1;
-
-        const summary = message.summary;
-
-        if (summary) {
-          // Create summary message as hidden context
-          const summaryMessage: Message = {
-            id: `summary-${Date.now()}`,
-            role: "user",
-            content: `Context from previous conversation (auto-compressed due to exceeding 100K tokens):\n\n${summary}`,
-            timestamp: Date.now(),
-            conversationId: currentConversationIdRef.current || "",
-            token_usage: 0,
-            uiHidden: true, // Hide from UI but keep in context
-          };
-
-          // Add summary message to conversation
-          setMessagesRef.current((prev) => [...prev, summaryMessage]);
-
-          // Save conversation with new summary context
-          const sessionId = currentChatRef.current?.sessionId || -1;
-          const folderPath = currentChatRef.current?.folderPath || null;
-          saveConversation(
-            sessionId,
-            folderPath,
-            [...messagesRef.current, summaryMessage],
-            currentConversationIdRef.current ?? undefined,
-            currentChatRef.current || undefined,
-            true,
-          );
-        }
       }
     };
 
@@ -118,5 +81,5 @@ export const useExternalMessages = ({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, []); // Empty deps - listener set up once, uses refs for latest values
+  }, []);
 };

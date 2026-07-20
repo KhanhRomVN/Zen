@@ -1,8 +1,6 @@
 import React from "react";
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
-import { CONTEXT_COMPRESSION_THRESHOLD } from "../constants/constants";
-import { parseAIResponse } from "../services/ResponseParser";
 
 interface ChatFooterProps {
   message: string;
@@ -50,7 +48,6 @@ interface ChatFooterProps {
   ) => void;
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   footerPaddingBottom: string;
-  shouldShowCompressionButton?: boolean;
   gitStatus?: { items?: any[]; branch?: string } | null;
   onOpenGitStatus?: () => void;
   loadedConversationFileStats?: {
@@ -70,7 +67,6 @@ interface ChatFooterProps {
       userMessages: Array<{ content: string; responseNumber: number }>;
     },
   ) => void;
-  onTriggerCompression?: () => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
@@ -120,12 +116,10 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   handleExternalFileInputChange,
   handleFileInputChange,
   footerPaddingBottom,
-  shouldShowCompressionButton = false,
   gitStatus,
   onOpenGitStatus,
   loadedConversationFileStats,
   onModelSwitch,
-  onTriggerCompression,
   onRevertConversation,
   autoScrollPaused = false,
   scrollToBottom,
@@ -626,7 +620,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           onGitPullRequest={onGitPullRequest}
           isGitLoading={gitLoading}
           isGitStatusVisible={isGitStatusVisible}
-          showCompressButton={shouldShowCompressionButton}
           gitStatus={{
             items: Array.from(
               { length: conversationFileStats.totalFiles },

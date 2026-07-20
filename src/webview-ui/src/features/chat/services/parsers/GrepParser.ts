@@ -1,8 +1,7 @@
-import { extractParam, extractParamValue } from "../../utils/ToolParser";
+import { extractParamValue } from "../../utils/ToolParser";
 
 export interface GrepParams {
-  pattern: string;
-  search_term?: string; // Add search_term for backend compatibility
+  search_term: string;
   folder_path?: string;
   file_pattern?: string;
   _validationError?: string; // Internal flag for invalid regex
@@ -41,33 +40,26 @@ const validateRegexPattern = (pattern: string): string | null => {
 };
 
 export const parseGrep = (innerContent: string): GrepParams => {
-  // Try multiple aliases: pattern, search_term, search, query
-  const pattern = extractParam(
-    innerContent,
-    "pattern",
-    "search_term",
-    "search",
-    "query",
-  );
+  // Parse according to tools-reference.ts schema: search_term (required), file_path OR folder_path (optional)
+  const searchTerm = extractParamValue(innerContent, "search_term");
   const folderPath = extractParamValue(innerContent, "folder_path");
   const filePattern = extractParamValue(innerContent, "file_pattern");
 
-  const patternValue = pattern || "";
+  const searchTermValue = searchTerm || "";
 
   // Validate regex pattern
-  const validationError = validateRegexPattern(patternValue);
+  const validationError = validateRegexPattern(searchTermValue);
 
   if (validationError) {
     console.error("[Zen][GrepParser] Invalid regex pattern:", {
-      pattern: patternValue,
+      pattern: searchTermValue,
       error: validationError,
       innerContent: innerContent.substring(0, 200), // Log first 200 chars for debug
     });
   }
 
   return {
-    pattern: patternValue,
-    search_term: patternValue, // Set search_term to same value as pattern
+    search_term: searchTermValue,
     folder_path: folderPath || undefined,
     file_pattern: filePattern || undefined,
     _validationError: validationError || undefined,

@@ -2,10 +2,8 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { RevertFileParams } from "../../types/tool-types";
-
-const REVERT_FILE_TIMEOUT_MS = TOOL_TIMEOUTS.revert_file || 10000;
 
 /**
  * Execute revert_file tool
@@ -48,7 +46,7 @@ export async function executeRevertFile(
           );
         }
       },
-      REVERT_FILE_TIMEOUT_MS,
+      TOOL_TIMEOUT,
       () => {
         console.warn(`[revert_file] Timeout`, { requestId, filePath });
         resolve(null);

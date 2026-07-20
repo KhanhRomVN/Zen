@@ -1,4 +1,4 @@
-import { extractParam, extractParamValue } from "../../utils/ToolParser";
+import { extractParamValue } from "../../utils/ToolParser";
 
 export interface ListFilesParams {
   folder_path: string;
@@ -7,17 +7,8 @@ export interface ListFilesParams {
 }
 
 export const parseListFiles = (innerContent: string): ListFilesParams => {
-  // Try canonical name first (after normalization), then fallback to variants
-  const folderPath = extractParam(
-    innerContent,
-    "path",
-    "folder_path",
-    "folderPath",
-    "dirPath",
-    "dir_path",
-    "directoryPath",
-    "directory_path",
-  );
+  // Parse according to tools-reference.ts schema: folder_path only
+  const folderPath = extractParamValue(innerContent, "folder_path");
   const type = extractParamValue(innerContent, "type");
   const depthStr = extractParamValue(innerContent, "depth");
 

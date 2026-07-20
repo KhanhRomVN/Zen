@@ -30,3 +30,77 @@ If none of the above have been violated, do not mention this checkpoint in your 
 export const buildPermissionModeTag = (mode: string): string => {
   return `<permission-mode>Active: ${mode}</permission-mode>`;
 };
+
+/**
+ * XML tool syntax reminder — injected when malformed tool errors are detected
+ * Reminds the AI to strictly follow XML syntax rules for all tool calls
+ */
+export const XML_TOOL_SYNTAX_REMINDER = `<xml_tool_syntax_reminder>
+⚠️ **MALFORMED TOOL DETECTED** — Your previous tool call had XML syntax errors. Review the rules below and try again.
+
+## CRITICAL XML RULES — MUST FOLLOW EXACTLY
+
+1. **Every opening tag MUST have a matching closing tag**
+   - ❌ WRONG: \`<old_content>some text\` (missing \`</old_content>\`)
+   - ✅ CORRECT: \`<old_content>some text</old_content>\`
+
+2. **All parameter tags must be properly nested inside tool tags**
+   - ❌ WRONG: 
+     \`\`\`xml
+     <replace_in_file>
+     <path>file.ts</path>
+     <old_content>old
+     </replace_in_file>
+     \`\`\`
+   - ✅ CORRECT:
+     \`\`\`xml
+     <replace_in_file>
+     <path>file.ts</path>
+     <old_content>old</old_content>
+     <new_content>new</new_content>
+     </replace_in_file>
+     \`\`\`
+
+3. **Use exact parameter names as defined** (case-sensitive)
+   - \`replace_in_file\`: \`path\`, \`old_content\`, \`new_content\`
+   - \`read_file\`: \`file_path\`, \`start_line\` (optional), \`end_line\` (optional)
+   - \`write_to_file\`: \`file_path\`, \`content\`
+   - \`grep\`: \`search_term\`, \`file_path\` OR \`folder_path\`
+   - \`list_files\`: \`folder_path\`, \`depth\` (optional)
+   - \`find_files\`: \`file_name\` (can have multiple)
+   - \`delete_file\`: \`file_path\`
+   - \`delete_folder\`: \`folder_path\`
+   - \`move_file\`: \`file_path\`, \`target_folder_path\`, \`target_file_name\` (optional)
+   - \`run_command\`: \`command\`, \`cwd\` (optional)
+   - \`revert_file\`: \`file_path\`, \`version\` (optional)
+   - \`view_replace_history\`: \`file_path\`
+
+4. **Escape special XML characters inside content**
+   - Use \`&lt;\` for \`<\`
+   - Use \`&gt;\` for \`>\`
+   - Use \`&amp;\` for \`&\`
+   - Or wrap in CDATA: \`<![CDATA[content with <special> chars]]>\`
+
+5. **Check your XML before submitting**
+   - Count opening tags vs closing tags
+   - Verify all required parameters are present
+   - Ensure no typos in tag names
+
+## TOOL SYNTAX QUICK REFERENCE
+
+\`\`\`xml
+<read_file><file_path>path/to/file</file_path></read_file>
+<write_to_file><file_path>path/to/file</file_path><content>full content</content></write_to_file>
+<replace_in_file>
+  <path>path/to/file</path>
+  <old_content>exact original text</old_content>
+  <new_content>replacement text</new_content>
+</replace_in_file>
+<grep><search_term>regex pattern</search_term><folder_path>path/to/folder</folder_path></grep>
+<list_files><folder_path>path/to/folder</folder_path></list_files>
+<find_files><file_name>filename.ts</file_name></find_files>
+<run_command><command>your command</command></run_command>
+\`\`\`
+
+**Now retry your previous operation with correct XML syntax.**
+</xml_tool_syntax_reminder>`;

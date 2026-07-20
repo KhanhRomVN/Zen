@@ -1,4 +1,4 @@
-import { extractParam, extractParamValue } from "../../utils/ToolParser";
+import { extractParamValue } from "../../utils/ToolParser";
 
 export interface RevertFileParams {
   file_path: string;
@@ -6,8 +6,8 @@ export interface RevertFileParams {
 }
 
 export const parseRevertFile = (innerContent: string): RevertFileParams => {
-  // Try canonical name first (after normalization), then fallback to variants
-  const filePath = extractParam(innerContent, "path", "file_path", "filePath", "filepath");
+  // Parse according to tools-reference.ts schema: file_path only
+  const filePath = extractParamValue(innerContent, "file_path");
   
   // Extract version parameter (optional)
   const versionStr = extractParamValue(innerContent, "version");

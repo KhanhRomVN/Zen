@@ -21,7 +21,6 @@ export {
   CHECKPOINT_INTERVAL,
   buildPermissionModeTag,
 } from "./reminder";
-export { CONTEXT_COMPRESSION_PROMPT } from "./context-compression";
 export { TOOL_VALIDATION } from "./tool-validation";
 
 interface PromptConfig {

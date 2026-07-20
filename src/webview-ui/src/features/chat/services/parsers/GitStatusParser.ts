@@ -1,4 +1,4 @@
-import { extractParam } from "../../utils/ToolParser";
+import { extractParamValue } from "../../utils/ToolParser";
 import { GitStatusParams } from "../../types/tool-types";
 
 /**
@@ -9,13 +9,13 @@ export function parseGitStatus(innerContent: string): GitStatusParams {
   const params: GitStatusParams = {};
 
   // Extract items as JSON string
-  const itemsParam = extractParam(innerContent, "items");
+  const itemsParam = extractParamValue(innerContent, "items");
   if (itemsParam) {
     params.items = itemsParam;
   }
 
   // Extract raw output
-  const rawParam = extractParam(innerContent, "raw");
+  const rawParam = extractParamValue(innerContent, "raw");
   if (rawParam) {
     params.raw = rawParam;
   }

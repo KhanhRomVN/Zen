@@ -26,7 +26,6 @@ import { useUIState } from "./hooks/ui/useUIState";
 import { useMessageParsing } from "./hooks/messages/useMessageParsing";
 import { useContextUsage } from "./hooks/messages/useContextUsage";
 import { useFileStats } from "./hooks/messages/useFileStats";
-import { useContextCompression } from "./hooks/compression/useContextCompression";
 import { useMessageHandlers } from "./hooks/handlers/useMessageHandlers";
 import { useTextareaHandlers } from "./hooks/handlers/useTextareaHandlers";
 import { useModelSwitch } from "./hooks/handlers/useModelSwitch";
@@ -36,7 +35,6 @@ import { useConversationPersistence } from "./hooks/persistence/useConversationP
 
 // Types
 import { ChatSession } from "./types/chat";
-import { Message } from "./types/message";
 
 // Components
 import ChatHeader from "./components/ChatHeader";
@@ -151,6 +149,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       totalDeletions: number;
     } | null>(null);
 
+  // Ref to setToolOutputs (will be set after useToolExecution)
+  const setToolOutputsRef = useRef<any>(null);
+
   const {
     messages,
     setMessages,
@@ -181,6 +182,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         conversationToolOverrides,
         actionType,
       ),
+    onMalformedTool: (actionId, toolName, errorMessage, errorCode) => {
+      // Delay setState to avoid React "update during render" warning
+      setTimeout(() => {
+        if (setToolOutputsRef.current) {
+          setToolOutputsRef.current((prev: any) => ({
+            ...prev,
+            [actionId]: {
+              output: `${errorCode}: ${errorMessage}`,
+              isError: true,
+            },
+          }));
+        }
+      }, 0);
+    },
   });
 
   // Track messages and streaming state - kept for potential future use, but removed heavy logging
@@ -356,6 +371,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       ),
   });
 
+  // Store setToolOutputs ref for use in useChatLLM callback
+  setToolOutputsRef.current = setToolOutputs;
+
   // --- Git Operations ---
   const {
     gitStatus,
@@ -436,17 +454,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
     return null;
   }, [parsedMessages]);
-
-  // --- Context Compression ---
-  const { triggerContextCompression, shouldShowCompressionButton } =
-    useContextCompression({
-      currentConversationIdRef,
-      messages,
-      isProcessing,
-      sendMessage,
-      currentModelRef,
-      currentAccountRef,
-    });
 
   // --- Message Handlers ---
   const { handleSend, handleStopGeneration, handleClearChat } =
@@ -792,7 +799,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         handleExternalFileInputChange={handleExternalFileInputChange}
         handleFileInputChange={handleFileInputChange}
         footerPaddingBottom={footerPaddingBottom}
-        shouldShowCompressionButton={shouldShowCompressionButton}
         gitStatus={gitStatus}
         onOpenGitStatus={() => setShowGitStatusBlock(true)}
         loadedConversationFileStats={loadedConversationFileStats}

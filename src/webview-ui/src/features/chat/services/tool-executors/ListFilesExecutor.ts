@@ -1,8 +1,7 @@
 import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { ListFilesParams } from "../../types/tool-types";
 
-const LIST_FILES_TIMEOUT_MS = TOOL_TIMEOUTS.list_files || 10000;
 /**
  * Execute list_files tool
  * Lists files in a directory
@@ -39,7 +38,7 @@ export async function executeListFiles(
         // Return raw JSON array - let the UI format it
         resolve(listResults);
       },
-      LIST_FILES_TIMEOUT_MS,
+      TOOL_TIMEOUT,
       () => resolve(null),
     );
   });

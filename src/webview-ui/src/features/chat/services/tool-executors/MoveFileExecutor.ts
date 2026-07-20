@@ -1,7 +1,6 @@
 import { extensionService, messageDispatcher } from "@/services/ExtensionService";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { MoveFileParams } from "../../types/tool-types";
-
-const TOOL_TIMEOUT_STANDARD = 10_000;
 
 export const executeMoveFile = (params: MoveFileParams): Promise<string | null> => {
   return new Promise((resolve) => {
@@ -25,7 +24,7 @@ export const executeMoveFile = (params: MoveFileParams): Promise<string | null> 
         }
         resolve(`[move_file from '${filePath}' to '${targetFolderPath}'] Result: File moved successfully to '${msg.newPath || targetFolderPath}'`);
       },
-      TOOL_TIMEOUT_STANDARD,
+      TOOL_TIMEOUT,
       () => resolve(null),
     );
   });

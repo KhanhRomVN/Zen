@@ -1,7 +1,7 @@
 import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 
-const GIT_DIFF_TIMEOUT_MS = TOOL_TIMEOUTS.git_diff || 30000;
+const GIT_DIFF_TIMEOUT_MS = TOOL_TIMEOUT;
 /**
  * Execute git_diff tool
  * Requests git diff for a specific file from the extension

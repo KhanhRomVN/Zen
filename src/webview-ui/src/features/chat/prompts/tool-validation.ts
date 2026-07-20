@@ -17,7 +17,6 @@ The following XML tags are the ONLY valid tool tags. Using any other tag names w
 - \`<git_status>\` - Check git status
 - \`<git_diff>\` - Show git diff
 - \`<commit_message>\` - Generate commit message
-- \`<context_compression>\` - Compress context
 
 **Response Tags (NOT tools):**
 - \`<thinking>\` - Your private reasoning

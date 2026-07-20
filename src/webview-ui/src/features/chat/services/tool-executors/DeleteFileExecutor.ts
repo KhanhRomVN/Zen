@@ -1,7 +1,6 @@
 import { extensionService, messageDispatcher } from "@/services/ExtensionService";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { DeleteFileParams } from "../../types/tool-types";
-
-const TOOL_TIMEOUT_STANDARD = 10_000;
 
 export const executeDeleteFile = (params: DeleteFileParams): Promise<string | null> => {
   return new Promise((resolve) => {
@@ -23,7 +22,7 @@ export const executeDeleteFile = (params: DeleteFileParams): Promise<string | nu
         }
         resolve(`[delete_file for '${filePath}'] Result: File deleted successfully`);
       },
-      TOOL_TIMEOUT_STANDARD,
+      TOOL_TIMEOUT,
       () => resolve(null),
     );
   });

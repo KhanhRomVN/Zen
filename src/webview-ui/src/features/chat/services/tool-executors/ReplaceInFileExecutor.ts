@@ -1,8 +1,7 @@
 import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { ReplaceInFileParams } from "../../types/tool-types";
 
-const REPLACE_IN_FILE_TIMEOUT_MS = TOOL_TIMEOUTS.replace_in_file || 10000;
 /**
  * Execute replace_in_file tool
  * Replaces content in a file using diff format
@@ -21,9 +20,8 @@ export async function executeReplaceInFile(
     extensionService.postMessage({
       command: "replaceInFile",
       path: filePath,
-      old_str: params.old_str,
-      new_str: params.new_str,
-      diff: params.diff, // Legacy support
+      old_str: params.old_content,
+      new_str: params.new_content,
       requestId,
       skipDiagnostics,
       bypassIgnore,
@@ -50,7 +48,7 @@ export async function executeReplaceInFile(
           resolve(result);
         }
       },
-      REPLACE_IN_FILE_TIMEOUT_MS,
+      TOOL_TIMEOUT,
       () => {
         console.warn(`[replace_in_file] Timeout`, { requestId, filePath });
         resolve(null);

@@ -2,10 +2,10 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { FindFilesParams } from "../parsers/FindFilesParser";
 
-const FIND_FILES_TIMEOUT_MS = TOOL_TIMEOUTS.find_files || 30000;
+const FIND_FILES_TIMEOUT_MS = TOOL_TIMEOUT;
 
 export interface FindFilesResult {
   fileName: string;

@@ -18,142 +18,7 @@ export type ToolType =
   | "code"
   | "markdown"
   | "thinking"
-  | "question"
-  | "context_compression";
-
-// ===== TOOL VARIANTS =====
-export const TOOL_VARIANTS: Record<string, string[]> = {
-  read_file: [
-    "readFile",
-    "ReadFile",
-    "read_File",
-    "readfile",
-    "READFILE",
-    "Read_File",
-    "Readfile",
-    "READ_FILE",
-  ],
-  write_to_file: [
-    "writeToFile",
-    "WriteToFile",
-    "write_to_File",
-    "WritetoFile",
-    "writetofile",
-    "WRITETOFILE",
-    "Write_To_File",
-    "writefile",
-    "WriteFile",
-    "WRITE_TO_FILE",
-    "write_toFile",
-    "writeTofile",
-    "WriteTo_File",
-  ],
-  replace_in_file: [
-    "replaceInFile",
-    "ReplaceInFile",
-    "replace_in_File",
-    "ReplaceInfile",
-    "replaceinfile",
-    "REPLACEINFILE",
-    "Replace_In_File",
-    "replaceFile",
-    "ReplaceFile",
-    "REPLACE_IN_FILE",
-    "replace_InFile",
-    "replaceInfile",
-    "Replace_in_file",
-  ],
-  revert_file: [
-    "revertFile",
-    "RevertFile",
-    "revert_File",  
-    "RevertInfile",
-    "revertfile",
-    "REVERTFILE",
-    "Revert_File",
-    "REVERT_FILE",
-  ],
-  view_replace_history: [
-    "viewReplaceHistory",
-    "ViewReplaceHistory",
-    "view_Replace_History",
-    "viewreplacehistory",
-    "VIEWREPLACEHISTORY",
-    "View_Replace_History",
-    "VIEW_REPLACE_HISTORY",
-  ],
-  list_files: [
-    "listFiles",
-    "ListFiles",
-    "list_Files",
-    "ListFile",
-    "listfiles",
-    "LISTFILES",
-    "List_Files",
-    "list_file",
-    "listFile",
-    "LIST_FILES",
-  ],
-  find_files: [
-    "findFiles",
-    "FindFiles",
-    "find_Files",
-    "findfiles",
-    "FINDFILES",
-    "Find_Files",
-    "Findfiles",
-    "FIND_FILES",
-  ],
-  grep: ["Grep", "GREP"],
-  delete_file: [
-    "deleteFile",
-    "DeleteFile",
-    "delete_File",
-    "deletefile",
-    "DELETEFILE",
-    "Delete_File",
-    "Deletefile",
-    "DELETE_FILE",
-  ],
-  delete_folder: [
-    "deleteFolder",
-    "DeleteFolder",
-    "delete_Folder",
-    "deletefolder",
-    "DELETEFOLDER",
-    "Delete_Folder",
-    "Deletefolder",
-    "DELETE_FOLDER",
-  ],
-  move_file: [
-    "moveFile",
-    "MoveFile",
-    "move_File",
-    "movefile",
-    "MOVEFILE",
-    "Move_File",
-    "Movefile",
-    "MOVE_FILE",
-  ],
-  run_command: [
-    "runCommand",
-    "RunCommand",
-    "run_Command",
-    "runcommand",
-    "RUNCOMMAND",
-    "Run_Command",
-    "Runcommand",
-    "RUN_COMMAND",
-  ],
-  git_diff: [
-    "gitDiff",
-    "GitDiff",
-    "git-diff",
-    "Git_Diff",
-    "gitdiff",
-    "GIT_DIFF",
-  ],
-};
+  | "question";
 
 // ===== ACTION NAMES =====
 export const ACTION_NAMES: Record<string, string> = {
@@ -183,7 +48,6 @@ export const TOOL_LABELS: Record<string, string> = {
   markdown: "Markdown",
   thinking: "Thinking",
   question: "Question",
-  context_compression: "Context Summary",
   default: "Zen",
 };
 
@@ -192,7 +56,8 @@ export const TOOL_COLORS: Record<string, string> = {
   read_file: "var(--vscode-textLink-foreground, #3b82f6)",
   write_to_file: "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
   replace_in_file: "var(--vscode-editorWarning-foreground, #d4a72c)",
-  revert_file: "var(--vscode-gitDecoration-conflictingResourceForeground, #c74e39)",
+  revert_file:
+    "var(--vscode-gitDecoration-conflictingResourceForeground, #c74e39)",
   view_replace_history: "var(--vscode-textLink-foreground, #9370db)",
   list_files: "var(--vscode-textLink-foreground, #3b82f6)",
   find_files: "var(--vscode-textLink-foreground, #3b82f6)",
@@ -208,8 +73,6 @@ export const TOOL_COLORS: Record<string, string> = {
   markdown: "var(--vscode-foreground)",
   thinking: "var(--vscode-editorBracketHighlight-foreground2, #a855f7)",
   question: "var(--vscode-button-background, #007acc)",
-  context_compression:
-    "var(--vscode-editorBracketHighlight-foreground2, #10b981)",
   default: "var(--vscode-descriptionForeground, #6b7280)",
 };
 
@@ -251,24 +114,9 @@ export const TOOL_PERMISSIONS: Record<string, string> = {
 };
 
 // ===== TOOL TIMEOUTS (MS) =====
-export const TOOL_TIMEOUTS: Record<string, number> = {
-  read_file: 60000,  // 1 phút
-  write_to_file: 60000,  // 1 phút - đủ thời gian chờ diagnostics khi máy bận
-  replace_in_file: 60000, // 1 phút - đủ thời gian chờ diagnostics khi máy bận
-  revert_file: 60000,  // 1 phút
-  view_replace_history: 60000,  // 1 phút
-  list_files: 60000,  // 1 phút
-  find_files: 60000,  // 1 phút
-  grep: 60000,  // 1 phút
-  delete_file: 60000,  // 1 phút
-  delete_folder: 60000,  // 1 phút
-  move_file: 60000,  // 1 phút
-  run_command: 60000,  // 1 phút
-  git_diff: 60000,  // 1 phút
-};
+export const TOOL_TIMEOUT = 60000; // 1 phút cho tất cả tools
 
-// ===== CONTEXT COMPRESSION =====
-export const CONTEXT_COMPRESSION_THRESHOLD = 10000;
+
 
 // Whitelist of allowed file extensions for external files
 export const ALLOWED_FILE_EXTENSIONS = [

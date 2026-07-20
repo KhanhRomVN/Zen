@@ -1,7 +1,6 @@
 import { extensionService, messageDispatcher } from "@/services/ExtensionService";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { DeleteFolderParams } from "../../types/tool-types";
-
-const TOOL_TIMEOUT_STANDARD = 10_000;
 
 export const executeDeleteFolder = (params: DeleteFolderParams): Promise<string | null> => {
   return new Promise((resolve) => {
@@ -23,7 +22,7 @@ export const executeDeleteFolder = (params: DeleteFolderParams): Promise<string 
         }
         resolve(`[delete_folder for '${folderPath}'] Result: Folder deleted successfully`);
       },
-      TOOL_TIMEOUT_STANDARD,
+      TOOL_TIMEOUT,
       () => resolve(null),
     );
   });

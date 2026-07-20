@@ -1,11 +1,12 @@
-import { extractParam, extractParamValue } from "../../utils/ToolParser";
+import { extractParamValue } from "../../utils/ToolParser";
 import type { RunCommandParams } from "../../types/tool-types";
 
 export const parseRunCommand = (innerContent: string): RunCommandParams => {
+  // Parse according to tools-reference.ts schema: command (required), cwd (optional)
+  // Note: terminal_id is not in official schema but kept for internal use
   return {
-    // Try canonical name first (after normalization), then fallback to variants
-    command: extractParam(innerContent, "command", "cmd", "Command", "CMD", "commandText", "command_text") || "",
-    terminal_id: extractParam(innerContent, "terminal_id", "terminalId") || undefined,
+    command: extractParamValue(innerContent, "command") || "",
+    terminal_id: extractParamValue(innerContent, "terminal_id") || undefined,
     cwd: extractParamValue(innerContent, "cwd") || undefined,
   };
 };

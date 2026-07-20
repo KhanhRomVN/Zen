@@ -1,4 +1,4 @@
-import { extractParam } from "../../utils/ToolParser";
+import { extractParamValue } from "../../utils/ToolParser";
 import { CommitMessageParams } from "../../types/tool-types";
 
 /**
@@ -9,7 +9,7 @@ export function parseCommitMessage(innerContent: string): CommitMessageParams {
   const params: CommitMessageParams = {};
 
   // Extract commit message content
-  const messageParam = extractParam(innerContent, "message");
+  const messageParam = extractParamValue(innerContent, "message");
   if (messageParam) {
     params.message = messageParam;
   }

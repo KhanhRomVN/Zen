@@ -19,13 +19,7 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
-
-// ── Timeout constants ──────────────────────────────────────────────────────
-/** @deprecated Use TOOL_TIMEOUTS from constants instead */
-const TOOL_TIMEOUT_STANDARD = TOOL_TIMEOUTS.read_file; // Fallback for non-specific tools
-/** @deprecated Use TOOL_TIMEOUTS from constants instead */
-const TOOL_TIMEOUT_EXTENDED = TOOL_TIMEOUTS.grep; // Fallback for long-running tools
+import { TOOL_TIMEOUT } from "../../constants/constants";
 
 interface UseToolExecutionProps {
   sendMessage: (
@@ -335,10 +329,10 @@ export const useToolExecution = ({
                 resolve(output);
               }
             },
-            TOOL_TIMEOUTS.read_file,
+            TOOL_TIMEOUT,
             () => {
               console.warn(`[read_file] Timeout`, { requestId, filePath });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.read_file / 1000}s. The file operation took too long to complete.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. The file operation took too long to complete.`;
               // Store timeout error in toolOutputs
               setToolOutputs((prev) => ({
                 ...prev,
@@ -449,10 +443,10 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            TOOL_TIMEOUTS.write_to_file,
+            TOOL_TIMEOUT,
             () => {
               console.warn(`[write_to_file] Timeout`, { requestId, filePath });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.write_to_file / 1000}s. The file write took too long to complete (possibly waiting for diagnostics).`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. The file write took too long to complete (possibly waiting for diagnostics).`;
               // Store timeout error in toolOutputs
               setToolOutputs((prev) => ({
                 ...prev,
@@ -475,9 +469,8 @@ export const useToolExecution = ({
           extensionService.postMessage({
             command: "replaceInFile",
             path: filePath,
-            old_str: action.params.old_str,
-            new_str: action.params.new_str,
-            diff: action.params.diff, // Legacy support
+            old_str: action.params.old_content,
+            new_str: action.params.new_content,
             requestId,
             skipDiagnostics,
             bypassIgnore,
@@ -530,10 +523,10 @@ export const useToolExecution = ({
                       d.severity === "Warning" || d.severity === "warning",
                   );
 
-                  // Get file content lines to show line content (use msg.content if available, otherwise use new_str)
+                  // Get file content lines to show line content (use msg.content if available, otherwise use new_content)
                   const contentLines = (
                     msg.content ||
-                    action.params.new_str ||
+                    action.params.new_content ||
                     ""
                   ).split("\n");
 
@@ -559,7 +552,7 @@ export const useToolExecution = ({
                 // Store output AND diagnostics in toolOutputs (same as read_file)
                 setToolOutputs((prev) => {
                   const newOutput = {
-                    output: msg.content || action.params.new_str || "",
+                    output: msg.content || action.params.new_content || "",
                     isError: false,
                     diagnostics: msg.diagnostics || undefined,
                   };
@@ -573,13 +566,13 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            TOOL_TIMEOUTS.replace_in_file,
+            TOOL_TIMEOUT,
             () => {
               console.warn(`[replace_in_file] Timeout`, {
                 requestId,
                 filePath,
               });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.replace_in_file / 1000}s. The file replacement took too long to complete (possibly waiting for diagnostics).`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. The file replacement took too long to complete (possibly waiting for diagnostics).`;
               // Store timeout error in toolOutputs
               setToolOutputs((prev) => ({
                 ...prev,
@@ -643,8 +636,6 @@ export const useToolExecution = ({
                 ) {
                   action.params.old_content = msg.oldContent;
                   action.params.new_content = msg.newContent;
-                  action.params.old_str = msg.oldContent;
-                  action.params.new_str = msg.newContent;
                 }
 
                 // Store output in toolOutputs
@@ -660,10 +651,10 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            TOOL_TIMEOUTS.revert_file,
+            TOOL_TIMEOUT,
             () => {
               console.warn(`[revert_file] Timeout`, { requestId, filePath });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.revert_file / 1000}s. The file revert took too long to complete.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. The file revert took too long to complete.`;
               setToolOutputs((prev) => ({
                 ...prev,
                 [actionId]: {
@@ -760,13 +751,13 @@ export const useToolExecution = ({
                 resolve(result);
               }
             },
-            TOOL_TIMEOUTS.view_replace_history,
+            TOOL_TIMEOUT,
             () => {
               console.warn(`[view_replace_history] Timeout`, {
                 requestId,
                 filePath,
               });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.view_replace_history / 1000}s. Failed to retrieve file history.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to retrieve file history.`;
               setToolOutputs((prev) => ({
                 ...prev,
                 [actionId]: {
@@ -872,9 +863,9 @@ export const useToolExecution = ({
                 );
               }
             },
-            TOOL_TIMEOUTS.list_files,
+            TOOL_TIMEOUT,
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.list_files / 1000}s. Failed to list files.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to list files.`;
               resolve(
                 `[list_files for '${folderPath}'] Result: Error - ${timeoutError}`,
               );
@@ -947,10 +938,10 @@ export const useToolExecution = ({
 
               resolve(output);
             },
-            TOOL_TIMEOUTS.find_files,
+            TOOL_TIMEOUT,
             () => {
               console.warn(`[find_files] Timeout`, { requestId, fileNames });
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.find_files / 1000}s. Failed to find files.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to find files.`;
               resolve(`[find_files] Result: Error - ${timeoutError}`);
             },
           );
@@ -1007,9 +998,9 @@ export const useToolExecution = ({
                 `[delete_file for '${filePath}'] Result: File deleted successfully`,
               );
             },
-            TOOL_TIMEOUTS.delete_file,
+            TOOL_TIMEOUT,
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.delete_file / 1000}s. Failed to delete file.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to delete file.`;
               resolve(
                 `[delete_file for '${filePath}'] Result: Error - ${timeoutError}`,
               );
@@ -1039,9 +1030,9 @@ export const useToolExecution = ({
                 `[delete_folder for '${folderPath}'] Result: Folder deleted successfully`,
               );
             },
-            TOOL_TIMEOUTS.delete_folder,
+            TOOL_TIMEOUT,
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.delete_folder / 1000}s. Failed to delete folder.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to delete folder.`;
               resolve(
                 `[delete_folder for '${folderPath}'] Result: Error - ${timeoutError}`,
               );
@@ -1073,9 +1064,9 @@ export const useToolExecution = ({
                 `[move_file from '${filePath}' to '${targetFolderPath}'] Result: File moved successfully to '${msg.newPath || targetFolderPath}'`,
               );
             },
-            TOOL_TIMEOUTS.move_file,
+            TOOL_TIMEOUT,
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.move_file / 1000}s. Failed to move file.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to move file.`;
               resolve(
                 `[move_file from '${filePath}' to '${targetFolderPath}'] Result: Error - ${timeoutError}`,
               );
@@ -1135,12 +1126,12 @@ export const useToolExecution = ({
                 );
               }
             },
-            TOOL_TIMEOUTS.grep,
+            TOOL_TIMEOUT,
             () => {
               console.warn(
                 `[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`,
               );
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.grep / 1000}s. Search took too long to complete.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Search took too long to complete.`;
               resolve(
                 `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${timeoutError}`,
               );
@@ -1191,9 +1182,9 @@ export const useToolExecution = ({
                 );
               }
             },
-            TOOL_TIMEOUTS.git_diff,
+            TOOL_TIMEOUT,
             () => {
-              const timeoutError = `Operation timed out after ${TOOL_TIMEOUTS.git_diff / 1000}s. Failed to get git diff.`;
+              const timeoutError = `Operation timed out after ${TOOL_TIMEOUT / 1000}s. Failed to get git diff.`;
               resolve(
                 `[git_diff for '${filePath}'] Result: Error - ${timeoutError}`,
               );

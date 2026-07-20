@@ -2,10 +2,8 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { ReadFileParams } from "../../types/tool-types";
-
-const READ_FILE_TIMEOUT_MS = TOOL_TIMEOUTS.read_file || 10000;
 
 /**
  * Execute read_file tool
@@ -101,7 +99,7 @@ export async function executeReadFile(
           });
         }
       },
-      READ_FILE_TIMEOUT_MS,
+      TOOL_TIMEOUT,
       () => {
         console.warn(`[read_file] Timeout`, { requestId, filePath });
         resolve(null);

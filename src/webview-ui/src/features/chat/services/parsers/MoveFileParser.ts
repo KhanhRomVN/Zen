@@ -1,4 +1,4 @@
-import { extractParam } from "../../utils/ToolParser";
+import { extractParamValue } from "../../utils/ToolParser";
 
 export interface MoveFileParams {
   file_path: string;
@@ -6,19 +6,9 @@ export interface MoveFileParams {
 }
 
 export const parseMoveFile = (innerContent: string): MoveFileParams => {
-  // Try canonical names first (after normalization), then fallback to variants
-  const filePath = extractParam(innerContent, "source", "file_path", "filePath", "sourcePath", "source_path", "from", "oldPath", "old_path");
-  const targetFolderPath = extractParam(
-    innerContent,
-    "destination",
-    "target_folder_path",
-    "targetFolderPath",
-    "destPath",
-    "dest_path",
-    "to",
-    "newPath",
-    "new_path"
-  );
+  // Parse according to tools-reference.ts schema: file_path and target_folder_path only
+  const filePath = extractParamValue(innerContent, "file_path");
+  const targetFolderPath = extractParamValue(innerContent, "target_folder_path");
 
   return {
     file_path: filePath || "",

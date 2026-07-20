@@ -18,9 +18,8 @@ export interface WriteToFileParams extends BaseToolParams {
 
 // ===== REPLACE IN FILE =====
 export interface ReplaceInFileParams extends BaseToolParams {
-  old_str?: string;
-  new_str?: string;
-  diff?: string; // Legacy support
+  old_content?: string;
+  new_content?: string;
 }
 
 // ===== REVERT FILE =====
@@ -141,9 +140,7 @@ export interface CommitMessageBlockProps {
 }
 
 // ===== GIT DIFF =====
-export interface GitDiffParams extends BaseToolParams {
-  diff?: string;
-}
+export interface GitDiffParams extends BaseToolParams {}
 
 export interface GitDiffBlockProps {
   filePath: string;
@@ -178,16 +175,4 @@ export interface QuestionBlock {
   title?: string;
   optional?: boolean;
   questions?: any[]; // Avoid circular dependency with message types
-}
-
-// ===== CONTEXT COMPRESSION =====
-export interface ContextCompressionParams {
-  summary?: string;
-}
-
-export interface ContextCompressionBlockProps {
-  summary: string;
-  onAccept: () => void;
-  onReject: () => void;
-  isProcessing?: boolean;
 }

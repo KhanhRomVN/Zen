@@ -45,7 +45,6 @@ export interface MessageInputProps {
   onGitPullRequest?: () => void;
   isGitLoading?: boolean;
   isGitStatusVisible?: boolean;
-  showCompressButton?: boolean;
   gitStatus?: { items?: any[]; branch?: string } | null;
   onOpenGitStatus?: () => void;
   conversationFileStats?: {
@@ -57,7 +56,7 @@ export interface MessageInputProps {
   onReviewClick?: () => void;
   responseRange?: { start: number; end: number } | null;
   responseRanges?: Array<{
-    start: number;  
+    start: number;
     end: number;
     isCurrent: boolean;
     fileChanges: Map<
@@ -93,16 +92,4 @@ export interface ToggleButtonProps {
   isOn: boolean;
   onClick: () => void;
   title: string;
-}
-
-export interface CompressButtonProps {
-  onClick: () => void;
-  title: string;
-  currentModel: any;
-  currentAccount: any;
-  providers: any[];
-  apiUrl: string;
-  onModelAccountSelect?: (model: any, account: any) => void;
-  onSwitchModelRequest?: () => void;
-  disabled?: boolean;
 }

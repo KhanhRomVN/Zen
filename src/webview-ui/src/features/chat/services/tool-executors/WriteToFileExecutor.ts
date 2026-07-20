@@ -1,8 +1,7 @@
 import { extensionService, messageDispatcher } from "@/services/ExtensionService";
-import { TOOL_TIMEOUTS } from "../../constants/constants";
+import { TOOL_TIMEOUT } from "../../constants/constants";
 import { WriteToFileParams } from "../../types/tool-types";
 
-const WRITE_TO_FILE_TIMEOUT_MS = TOOL_TIMEOUTS.write_to_file || 10000;
 /**
  * Execute write_to_file tool
  * Writes content to a file via the extension
@@ -48,7 +47,7 @@ export async function executeWriteToFile(
           resolve(result);
         }
       },
-      WRITE_TO_FILE_TIMEOUT_MS,
+      TOOL_TIMEOUT,
       () => {
         console.warn(`[write_to_file] Timeout`, { requestId, filePath });
         resolve(null);

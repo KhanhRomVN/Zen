@@ -4,7 +4,6 @@ import { formatActionForDisplay } from "../../services/ResponseParser";
 import { getToolColor } from "../../utils/toolUtils";
 import { CLICKABLE_TOOLS } from "../../constants/constants";
 import {
-  isFileTool as checkIsFileTool,
   shouldShowFileStats,
   shouldValidateFuzzyMatch,
 } from "../../constants/tool-registry";
@@ -17,7 +16,7 @@ import GitToolRenderer from "./GitToolRenderer";
 import { ToolHeader } from "./ToolHeader";
 import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
 import { ToolOutputs } from "../../types/tool-outputs";
-import ContextCompressionBlock from "../blocks/context_compression/ContextCompressionBlock";
+
 import FileIcon from "@/icons/FileIcon";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
@@ -267,14 +266,13 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
   const toolType = firstAction.type;
   const toolColor = getToolColor(toolType);
   const clickableTools = CLICKABLE_TOOLS;
-  const isFileTool = checkIsFileTool(toolType);
+  const isFileTool = false;
 
   // Handle malformed/error tool actions - show ToolHeader + ErrorBlock
   if (firstAction.isError) {
     const actionIndex = group[0].index;
-    const actionId = `${messageId}-action-${actionIndex}`;
     const errorColor = "var(--vscode-errorForeground, #f44336)";
-    
+
     // Determine label based on tool type
     const toolLabel =
       toolType === "read_file"
@@ -300,7 +298,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                           : toolType === "run_command"
                             ? "RUN"
                             : toolType.toUpperCase().replace(/_/g, " ");
-    
+
     // Extract file path or relevant info from params
     const filePath =
       firstAction.params.file_path ||
@@ -308,7 +306,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
       firstAction.params.path ||
       "";
     const fileName = filePath ? filePath.split("/").pop() || filePath : "";
-    
+
     return (
       <div
         style={{
@@ -330,9 +328,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
                 color: "var(--vscode-editor-foreground)",
               }}
             >
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>
-                {toolLabel}
-              </span>
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>{toolLabel}</span>
               {fileName && (
                 <>
                   <span style={{ display: "flex", alignItems: "center" }}>
@@ -921,147 +917,6 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
               </div>
             )}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (toolType === "context_compression") {
-    const summary = firstAction.params?.summary || "";
-    const actionIndex = group[0].index;
-    const actionId = `${messageId}-action-${actionIndex}`;
-    const compressionColor = getToolColor("context_compression");
-    const isRejected = rejectedActions?.has(actionId) || false;
-    const [isAccepted, setIsAccepted] = React.useState(false);
-    const statusColor = isRejected
-      ? "var(--vscode-errorForeground, #ff4d4d)"
-      : isAccepted
-        ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-        : compressionColor;
-
-    const isStreaming = false; // No longer using streaming partial parsing
-
-    return (
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
-        }}
-      >
-        <div
-          className="terminal-block context-compression-tool"
-          style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
-        >
-          <ToolHeader
-            title={
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "12px",
-                  color: "var(--vscode-editor-foreground)",
-                  position: "relative",
-                  width: "100%",
-                }}
-              >
-                <span
-                  style={{
-                    fontWeight: 600,
-                    opacity: 0.8,
-                    cursor: "pointer",
-                    transition: "text-decoration 0.15s",
-                  }}
-                >
-                  CONTEXT SUMMARY
-                </span>
-                {isRejected && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      color: "var(--vscode-errorForeground, #ff4d4d)",
-                      background:
-                        "color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)",
-                      padding: "2px 8px",
-                      borderRadius: "4px",
-                      marginLeft: "4px",
-                    }}
-                  >
-                    REJECTED
-                  </span>
-                )}
-                {isAccepted && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      color:
-                        "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
-                      background:
-                        "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent)",
-                      padding: "2px 8px",
-                      borderRadius: "4px",
-                      marginLeft: "4px",
-                    }}
-                  >
-                    ✓ CONFIRMED
-                  </span>
-                )}
-                {isStreaming && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      opacity: 0.55,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    <span
-                      className="codicon codicon-loading codicon-modifier-spin"
-                      style={{ fontSize: "10px" }}
-                    />
-                    Generating...
-                  </span>
-                )}
-              </div>
-            }
-            statusColor={statusColor}
-            isPartial={isStreaming}
-            statusTooltip={
-              isRejected
-                ? "Rejected"
-                : isAccepted
-                  ? "✓ Confirmed"
-                  : isStreaming
-                    ? "Generating context summary..."
-                    : "Context summary ready"
-            }
-          />
-
-          <ContextCompressionBlock
-            summary={summary}
-            isStreaming={isStreaming}
-            isAccepted={isAccepted}
-            isRejected={isRejected}
-            onConfirm={(summaryText) => {
-              setIsAccepted(true);
-              // Send message to extension to create new conversation with summary
-              const vscodeApi = (window as any).vscodeApi;
-              if (vscodeApi) {
-                vscodeApi.postMessage({
-                  command: "createConversationWithSummary",
-                  summary: summaryText,
-                });
-              }
-            }}
-            onReject={() => {
-              onToolClick(firstAction, messageId, actionIndex, "reject");
-            }}
-          />
         </div>
       </div>
     );

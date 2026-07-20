@@ -7,21 +7,6 @@ import { decodeHtmlEntities } from "./TagNormalizer";
  */
 export const CONTENT_PARAMS = new Set(["content", "diff"]);
 
-/**
- * Extract a param value trying multiple tag name aliases in order.
- * Useful when AI may use camelCase variants (e.g. filePath vs file_path).
- */
-export const extractParam = (
-  content: string,
-  ...aliases: string[]
-): string | null => {
-  for (const alias of aliases) {
-    const value = extractParamValue(content, alias);
-    if (value !== null && value !== "") return value;
-  }
-  return null;
-};
-
 export const extractParamValue = (
   content: string,
   paramName: string,
