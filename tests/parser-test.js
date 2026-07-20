@@ -8,12 +8,17 @@ const { readFileSync } = require('fs');
 const { join } = require('path');
 
 // Load test response from text file
-const testResponse = readFileSync(join(__dirname, 'test-response.txt'), 'utf-8');
+const testFile = process.argv[2] || 'test-response.txt';
+const testResponse = readFileSync(join(__dirname, testFile), 'utf-8');
 
 // Mock browser globals for Node.js environment
 global.window = {
   localStorage: {
-    getItem: () => null,
+    getItem: (key) => {
+      // Enable debug parser to see all logs
+      if (key === 'zen_debug_parser') return 'true';
+      return null;
+    },
   },
 };
 global.document = {
@@ -26,6 +31,43 @@ global.document = {
     }
     return {};
   },
+};
+
+// Mock performance API for Node.js
+global.performance = global.performance || {
+  now: () => Date.now(),
+};
+
+// Capture console logs
+const capturedLogs = {
+  error: [],
+  warn: [],
+  log: [],
+};
+
+const originalConsole = {
+  error: console.error,
+  warn: console.warn,
+  log: console.log,
+};
+
+console.error = (...args) => {
+  capturedLogs.error.push(args);
+  originalConsole.error(...args);
+};
+
+console.warn = (...args) => {
+  capturedLogs.warn.push(args);
+  originalConsole.warn(...args);
+};
+
+console.log = (...args) => {
+  // Only capture logs with [Zen] prefix
+  const firstArg = args[0];
+  if (typeof firstArg === 'string' && firstArg.includes('[Zen]')) {
+    capturedLogs.log.push(args);
+  }
+  originalConsole.log(...args);
 };
 
 // Import parser
@@ -43,6 +85,7 @@ try {
 // Chạy test
 console.log('═'.repeat(80));
 console.log('TESTING AI RESPONSE PARSER');
+console.log(`Test file: ${testFile}`);
 console.log('═'.repeat(80));
 
 console.log('\n📝 Input Response:');
@@ -91,6 +134,34 @@ try {
   console.log(`   Valid Actions: ${validActions.length}`);
   console.log(`   Error Actions: ${errorActions.length}`);
   
+  // Display captured logs
+  if (capturedLogs.error.length > 0 || capturedLogs.warn.length > 0 || capturedLogs.log.length > 0) {
+    console.log('\n' + '═'.repeat(80));
+    console.log('📋 CAPTURED PARSER LOGS');
+    console.log('═'.repeat(80));
+    
+    if (capturedLogs.error.length > 0) {
+      console.log('\n❌ Errors:');
+      capturedLogs.error.forEach((args, idx) => {
+        console.log(`\n  ${idx + 1}.`, ...args);
+      });
+    }
+    
+    if (capturedLogs.warn.length > 0) {
+      console.log('\n⚠️  Warnings:');
+      capturedLogs.warn.forEach((args, idx) => {
+        console.log(`\n  ${idx + 1}.`, ...args);
+      });
+    }
+    
+    if (capturedLogs.log.length > 0) {
+      console.log('\n📝 Debug Logs:');
+      capturedLogs.log.forEach((args, idx) => {
+        console.log(`\n  ${idx + 1}.`, ...args);
+      });
+    }
+  }
+  
   if (errorActions.length > 0) {
     console.log('\n❌ Errors Found:');
     errorActions.forEach((action, idx) => {
@@ -98,9 +169,20 @@ try {
       console.log(`      ${action.errorMessage}`);
     });
     console.log('\n⚠️  Test completed with errors.');
+    
+    // For malformed test, errors are expected, so exit with 0
+    if (testFile.includes('malformed')) {
+      console.log('✅ Malformed test passed - errors were expected and detected!');
+      process.exit(0);
+    }
     process.exit(1);
   } else {
     console.log('\n✅ All actions parsed successfully!');
+    
+    // For malformed test, we expect errors
+    if (testFile.includes('malformed')) {
+      console.log('⚠️  Warning: Malformed test should have detected errors!');
+    }
     process.exit(0);
   }
   

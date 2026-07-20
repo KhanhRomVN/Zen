@@ -92,6 +92,13 @@ const DEBUG_PARSER =
 export const parseAIResponse = (content: string): ParsedResponse => {
   const _parseStartTime = performance.now();
 
+  if (DEBUG_PARSER) {
+    console.log("[Zen][Parser] 🚀 Starting parse", {
+      contentLength: content.length,
+      contentPreview: content.substring(0, 200) + (content.length > 200 ? "..." : ""),
+    });
+  }
+
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -119,6 +126,14 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // inside a thinking block are never mistaken for real tool calls.
   const { remainingContent: contentAfterThinking, thinkingBlocks } =
     extractThinkingBlocks(remainingContent);
+
+  if (DEBUG_PARSER && thinkingBlocks.length > 0) {
+    console.log("[Zen][Parser] 💭 Extracted thinking blocks", {
+      count: thinkingBlocks.length,
+      totalThinkingChars: thinkingBlocks.reduce((sum, b) => sum + b.length, 0),
+      remainingContentLength: contentAfterThinking.length,
+    });
+  }
 
   remainingContent = contentAfterThinking;
 
@@ -166,6 +181,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     `^([ \t]*(?:•[ \t]*)?)(${toolNamesPattern})>`,
   );
   if (missingBracketRegex.test(remainingContent)) {
+    if (DEBUG_PARSER) {
+      console.log("[Zen][Parser] 🔧 Fixed missing opening bracket");
+    }
     remainingContent = remainingContent.replace(missingBracketRegex, "$1<$2>");
   }
 
@@ -415,6 +433,10 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         if (DEBUG_PARSER) {
           const subTagInfo =
             subTags.length > 0 ? ` (${subTags.join(", ")})` : "";
+          console.log(`[Zen][Parser] 📦 Parsing closed tag: <${toolName}>${subTagInfo}`, {
+            innerContentLength: (innerContent || "").length,
+            rawXmlLength: rawXml.length,
+          });
         }
 
         if (toolName === "code") {
@@ -640,6 +662,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               const params = parseReadFile(innerContent || "");
               const validation = validateToolParams("read_file", params, innerContent || "");
               if (!validation.isValid) {
+                if (DEBUG_PARSER) {
+                  console.warn("[Zen][Parser] ⚠️ Validation failed for read_file", {
+                    errorCode: validation.errorCode,
+                    errorMessage: validation.errorMessage,
+                  });
+                }
                 action = {
                   type: "read_file" as const,
                   params,
@@ -657,6 +685,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               const params = parseWriteToFile(innerContent || "");
               const validation = validateToolParams("write_to_file", params, innerContent || "");
               if (!validation.isValid) {
+                if (DEBUG_PARSER) {
+                  console.warn("[Zen][Parser] ⚠️ Validation failed for write_to_file", {
+                    errorCode: validation.errorCode,
+                    errorMessage: validation.errorMessage,
+                    params: params,
+                  });
+                }
                 action = {
                   type: "write_to_file" as const,
                   params,
@@ -674,6 +709,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               const params = parseReplaceInFile(innerContent || "");
               const validation = validateToolParams("replace_in_file", params, innerContent || "");
               if (!validation.isValid) {
+                if (DEBUG_PARSER) {
+                  console.warn("[Zen][Parser] ⚠️ Validation failed for replace_in_file", {
+                    errorCode: validation.errorCode,
+                    errorMessage: validation.errorMessage,
+                    params: params,
+                  });
+                }
                 action = {
                   type: "replace_in_file" as const,
                   params,
@@ -1117,6 +1159,32 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       totalBlocks: result.contentBlocks.length,
       nonThinkingBlocks: nonThinkingBlocks.length,
     });
+  }
+
+  // 📊 Final parse summary
+  if (DEBUG_PARSER) {
+    const parseTime = performance.now() - _parseStartTime;
+    const errorActions = result.actions.filter((a) => a.isError);
+    console.log("[Zen][Parser] ✅ Parse complete", {
+      parseTimeMs: parseTime.toFixed(2),
+      totalActions: result.actions.length,
+      errorActions: errorActions.length,
+      validActions: result.actions.length - errorActions.length,
+      contentBlocks: result.contentBlocks.length,
+      thinkingBlocks: thinkingBlocks.length,
+      onlyThinkingDetected: result.onlyThinkingDetected || false,
+      parsingSequence: parsingSequence.length > 0 ? parsingSequence : undefined,
+    });
+    
+    if (errorActions.length > 0) {
+      console.warn("[Zen][Parser] ⚠️ Error actions summary:", 
+        errorActions.map(a => ({
+          type: a.type,
+          errorCode: a.errorCode,
+          errorMessage: a.errorMessage?.substring(0, 100) + (a.errorMessage && a.errorMessage.length > 100 ? "..." : ""),
+        }))
+      );
+    }
   }
 
   return result;

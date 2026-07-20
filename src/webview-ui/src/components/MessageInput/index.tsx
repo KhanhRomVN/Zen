@@ -7,6 +7,7 @@ import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import DiffSummaryBar from "./DiffSummaryBar";
 import { CompressButton } from "./CompressButton";
+import LogDrawer from "../LogDrawer";
 import type {
   MessageInputProps,
   UploadedFile,
@@ -786,6 +787,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const [isModelSwitchMode, setIsModelSwitchMode] = React.useState(false);
     const [isPlusHovered, setIsPlusHovered] = React.useState(false);
     const [isGitHovered, setIsGitHovered] = React.useState(false);
+    const [showLogDrawer, setShowLogDrawer] = React.useState(false);
 
     // Use custom hooks
     const [isThinking, toggleThinking, setIsThinking] = useToggleState(
@@ -1596,19 +1598,48 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                           ? 0.5
                           : 0.7,
                   }}
-                  title={
-                    isGitStatusVisible
-                      ? "Git Status đang hiển thị"
-                      : isGitLoading
-                        ? "Đang kiểm tra git status..."
-                        : isProcessing
-                          ? "Đang xử lý task, vui lòng đợi..."
-                          : "Git Status - Kiểm tra thay đổi đã staged"
-                  }
+                  title="Git Pull Request"
                 >
-                  <GitPullRequestArrow size={16} />
+                  <GitPullRequestArrow size={12} strokeWidth={2.5} />
                 </div>
               )}
+
+              {/* Log Button */}
+              <div
+                onClick={() => setShowLogDrawer(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "22px",
+                  width: "22px",
+                  boxSizing: "border-box",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease-in-out",
+                  border: "1px solid rgba(128, 128, 128, 0.2)",
+                  background: "rgba(128, 128, 128, 0.12)",
+                  color: "var(--vscode-foreground)",
+                  opacity: 0.7,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(128, 128, 128, 0.2)";
+                  e.currentTarget.style.opacity = "0.9";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(128, 128, 128, 0.12)";
+                  e.currentTarget.style.opacity = "0.7";
+                }}
+                title="View Console Logs"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 14v2.2l1.6 1"/>
+                  <path d="M16 4h2a2 2 0 0 1 2 2v.832"/>
+                  <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h2"/>
+                  <circle cx="16" cy="16" r="6"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1"/>
+                </svg>
+              </div>
 
               {/* Context Compression Button */}
               {showCompressButton && (
@@ -1775,45 +1806,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               </div>
             )}
 
-          {/* Health / Elara Badges (Stuck to Border) */}
-          {isConnected && isElaraMismatch && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: "100%",
-                right: "8px",
-                backgroundColor: "rgba(255, 152, 0, 0.1)",
-                color: "var(--vscode-editorWarning-foreground, #ff9800)",
-                padding: "4px 12px",
-                fontSize: "11px",
-                fontWeight: 600,
-                borderTopLeftRadius: "var(--border-radius)",
-                borderTopRightRadius: "var(--border-radius)",
-                borderBottomLeftRadius: "0",
-                borderBottomRightRadius: "0",
-                border: "1px solid rgba(255, 152, 0, 0.2)",
-                borderBottom: "none",
-                cursor: "pointer",
-                zIndex: 20,
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                boxShadow: "0 -2px 4px rgba(0,0,0,0.1)",
-                marginBottom: "-1px",
-              }}
-              onClick={() => {
-                const vscodeApi = (window as any).vscodeApi;
-                if (vscodeApi) {
-                  vscodeApi.postMessage({
-                    command: "openExternal",
-                    url: "https://github.com/KhanhRomVN/Elara",
-                  });
-                }
-              }}
-            >
-              Elara Version Mismatch
-            </div>
-          )}
+          {/* Log Drawer */}
+          <LogDrawer isOpen={showLogDrawer} onClose={() => setShowLogDrawer(false)} />
         </div>
       </div>
     );
