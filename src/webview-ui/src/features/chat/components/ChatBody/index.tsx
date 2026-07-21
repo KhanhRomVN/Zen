@@ -5,7 +5,11 @@ import {
   ToolAction,
 } from "../../services/ResponseParser";
 import { Message } from "../../types/message";
-import { EXECUTION_STATUS, TOOL_ACTION_TYPES } from "../../constants/constants";
+import {
+  EXECUTION_STATUS,
+  TOOL_ACTION_TYPES,
+  TERMINAL_STATUS,
+} from "../../constants/constants";
 import { useSettings } from "@/context/SettingsContext";
 import { useCollapseSections } from "../../hooks/ui/useCollapseSections";
 import { useToolActions } from "../../hooks/tools/useToolActions";
@@ -51,7 +55,10 @@ interface ChatBodyProps {
     status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
   };
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  terminalStatus?: Record<string, "busy" | "free">;
+  terminalStatus?: Record<
+    string,
+    (typeof TERMINAL_STATUS)[keyof typeof TERMINAL_STATUS]
+  >;
   onLoadConversation?: (
     conversationId: string,
     tabId: number,
@@ -79,7 +86,10 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
     status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
   };
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  terminalStatus?: Record<string, "busy" | "free">;
+  terminalStatus?: Record<
+    string,
+    (typeof TERMINAL_STATUS)[keyof typeof TERMINAL_STATUS]
+  >;
   activeTerminalIds?: Set<string>;
   attachedTerminalIds?: Set<string>;
   conversationId?: string;
@@ -312,17 +322,6 @@ const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
         onRevertConversation={onRevertConversation}
       />
     );
-  }
-
-  // Handle system messages (e.g., model switch)
-  if (message.role === "system") {
-    // Check if it's a model switch message
-    if (message.content.startsWith("__MODEL_SWITCH__::")) {
-      return <ModelInfoBar message={message} />;
-    }
-
-    // Other system messages
-    return null;
   }
 
   return <AIMessageBox {...props} />;

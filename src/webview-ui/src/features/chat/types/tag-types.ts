@@ -30,6 +30,7 @@ export interface TagDefinition {
   features?: {
     showFileStats?: boolean;
     validateFuzzyMatch?: boolean;
+    isFileMutation?: boolean;
   };
 
   params?: {

@@ -13,6 +13,8 @@ import {
   isToolClickable,
   TOOL_ACTION_TYPES,
   EXECUTION_STATUS,
+  TERMINAL_STATUS,
+  type TerminalStatus,
 } from "../../../constants/constants";
 
 // TYPES
@@ -74,7 +76,7 @@ interface TagRouterProps {
     string,
     { output: string; isError: boolean; terminalId?: string }
   >;
-  terminalStatus?: Record<string, "busy" | "free">;
+  terminalStatus?: Record<string, TerminalStatus>;
   nextUserMessage?: Message;
   allMessages?: Message[];
   allActions?: ToolAction[];
@@ -1146,7 +1148,7 @@ interface ToolActionsListProps {
   failedActions?: Set<string>;
   isLastMessage?: boolean;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  terminalStatus?: Record<string, "busy" | "free">;
+  terminalStatus?: Record<string, TerminalStatus>;
   nextUserMessage?: Message;
   allMessages?: Message[];
   conversationId?: string;
@@ -1267,7 +1269,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             (output as any)?.terminalId || action.params.terminal_id;
           if (
             terminalId &&
-            terminalStatus?.[terminalId] === "busy" &&
+            terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY &&
             !hasHistoryOutput
           ) {
             isPreviousAllDone = false;

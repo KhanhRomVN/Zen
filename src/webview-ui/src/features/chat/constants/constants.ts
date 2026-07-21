@@ -70,6 +70,15 @@ export const EXECUTION_STATUS = {
   DONE: "done",
 } as const;
 
+// ===== TERMINAL STATUS =====
+export const TERMINAL_STATUS = {
+  BUSY: "busy",
+  FREE: "free",
+} as const;
+
+export type TerminalStatus =
+  (typeof TERMINAL_STATUS)[keyof typeof TERMINAL_STATUS];
+
 // ===== PERMISSION MODE METADATA =====
 export const PERMISSION_MODE: Record<
   string,
@@ -127,6 +136,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     },
     features: {
       showFileStats: true,
+      isFileMutation: true,
     },
     params: {
       required: ["file_path", "content"],
@@ -144,6 +154,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     },
     features: {
       validateFuzzyMatch: true,
+      isFileMutation: true,
     },
     params: {
       required: ["file_path", "old_content", "new_content"],
@@ -158,6 +169,9 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       readOnly: "reject",
       approval: "confirm",
       fullAccess: "allow",
+    },
+    features: {
+      isFileMutation: true,
     },
   },
 
@@ -315,8 +329,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
   },
 };
 
-
-
 // ============= HELPER FUNCTIONS =============
 
 /**
@@ -389,7 +401,9 @@ export const getConfigurableTools = (): string[] => {
 
 export const shouldShowFileStats = (toolType: string): boolean => {
   const tag = getTagDef(toolType);
-  return tag?.category === "tool" ? (tag.features?.showFileStats ?? false) : false;
+  return tag?.category === "tool"
+    ? (tag.features?.showFileStats ?? false)
+    : false;
 };
 
 /**
@@ -397,7 +411,27 @@ export const shouldShowFileStats = (toolType: string): boolean => {
  */
 export const shouldValidateFuzzyMatch = (toolType: string): boolean => {
   const tag = getTagDef(toolType);
-  return tag?.category === "tool" ? (tag.features?.validateFuzzyMatch ?? false) : false;
+  return tag?.category === "tool"
+    ? (tag.features?.validateFuzzyMatch ?? false)
+    : false;
+};
+
+/**
+ * Get all file mutation tools (tools that modify file content)
+ * These are tools like write_to_file, replace_in_file, revert_file
+ */
+export const FILE_MUTATION_TOOLS = Object.entries(TAG_REGISTRY)
+  .filter(([_, def]) => def.features?.isFileMutation === true)
+  .map(([key]) => key) as any as readonly [
+  "write_to_file",
+  "replace_in_file",
+  "revert_file",
+];
+
+export type FileMutationTool = (typeof FILE_MUTATION_TOOLS)[number];
+
+export const getFileMutationTools = (): readonly string[] => {
+  return FILE_MUTATION_TOOLS;
 };
 
 /**

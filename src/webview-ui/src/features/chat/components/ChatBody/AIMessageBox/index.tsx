@@ -4,6 +4,8 @@ import React from "react";
 import {
   EXECUTION_STATUS,
   TOOL_ACTION_TYPES,
+  TERMINAL_STATUS,
+  type TerminalStatus,
 } from "@/features/chat/constants/constants";
 
 // TYPES
@@ -38,7 +40,7 @@ interface AIMessageBoxProps {
   isLastMessage?: boolean;
   hasNextAssistantMessage?: boolean;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  terminalStatus?: Record<string, "busy" | "free">;
+  terminalStatus?: Record<string, TerminalStatus>;
   nextUserMessage?: Message;
   allMessages?: Message[];
   conversationId?: string;
@@ -440,7 +442,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 const terminalId =
                   (outputData as any)?.terminalId ||
                   item.action.params.terminal_id;
-                if (terminalId && terminalStatus?.[terminalId] === "busy")
+                if (terminalId && terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY)
                   return true;
               }
               return false;

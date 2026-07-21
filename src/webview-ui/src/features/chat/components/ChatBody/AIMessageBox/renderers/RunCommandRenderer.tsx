@@ -7,7 +7,7 @@ import { useSettings } from "../../../../../../context/SettingsContext";
 import { extensionService } from "../../../../../../services/ExtensionService";
 
 // CONSTANTS
-import { TOOL_ACTION_TYPES } from "../../../../constants/constants";
+import { TOOL_ACTION_TYPES, TERMINAL_STATUS, type TerminalStatus } from "../../../../constants/constants";
 
 // TYPES
 import { ToolAction } from "../../../../services/ResponseParser";
@@ -32,7 +32,7 @@ interface RunCommandRendererProps {
     string,
     { output: string; isError: boolean; terminalId?: string }
   >;
-  terminalStatus?: Record<string, "busy" | "free">;
+  terminalStatus?: Record<string, TerminalStatus>;
   nextUserMessage?: Message;
   rootPath?: string;
   onToolClick: (
@@ -107,9 +107,9 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
   const isTerminalBusy =
     !isRejected &&
     (hasOutput
-      ? terminalStatus?.[terminalId] === "busy"
+      ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY
       : terminalId
-        ? terminalStatus?.[terminalId] === "busy" ||
+        ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY ||
           (isActionClicked && terminalStatus?.[terminalId] === undefined)
         : isActionClicked);
   const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);

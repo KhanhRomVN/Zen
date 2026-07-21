@@ -1,6 +1,7 @@
 import React from "react";
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
+import { FileMutationTool } from "@/features/chat/constants/constants";
 
 interface ChatFooterProps {
   message: string;
@@ -152,7 +153,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         {
           additions: number;
           deletions: number;
-          toolType?: "write_to_file" | "replace_in_file" | "revert_file";
+          toolType?: FileMutationTool;
           content?: string;
           oldContent?: string;
           newContent?: string;
@@ -194,7 +195,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
               {
                 additions: number;
                 deletions: number;
-                toolType?: "write_to_file" | "replace_in_file" | "revert_file";
+                toolType?: FileMutationTool;
                 content?: string;
                 oldContent?: string;
                 newContent?: string;
@@ -381,7 +382,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       {
         additions: number;
         deletions: number;
-        toolType?: "write_to_file" | "replace_in_file" | "revert_file";
+        toolType?: FileMutationTool;
       }
     >();
 

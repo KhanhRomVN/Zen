@@ -16,7 +16,7 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { getToolTimeout, TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
+import { getToolTimeout, TOOL_ACTION_TYPES, EXECUTION_STATUS, TERMINAL_STATUS } from "../../constants/constants";
 import type { PermissionMode } from "../../types/tag-types";
 
 interface UseToolExecutionProps {
@@ -76,7 +76,7 @@ export const useToolExecution = ({
   >({});
 
   const [terminalStatus, setTerminalStatus] = useState<
-    Record<string, "busy" | "free">
+    Record<string, typeof TERMINAL_STATUS[keyof typeof TERMINAL_STATUS]>
   >({});
 
   const [clickedActions, setClickedActions] = useState<Set<string>>(new Set());
@@ -185,7 +185,7 @@ export const useToolExecution = ({
       } else if (message.command === "terminalStatusChanged") {
         setTerminalStatus((prev) => ({
           ...prev,
-          [message.terminalId]: message.status,
+          [message.terminalId]: message.status as typeof TERMINAL_STATUS[keyof typeof TERMINAL_STATUS],
         }));
       } else if (message.command === "restoreSingleLineReviewActions") {
         if (message.actions && Object.keys(message.actions).length > 0) {
@@ -204,7 +204,7 @@ export const useToolExecution = ({
           // Initially set to busy when command is run
           setTerminalStatus((prev) => ({
             ...prev,
-            [message.terminalId]: "busy",
+            [message.terminalId]: TERMINAL_STATUS.BUSY,
           }));
         }
       } else if (message.command === "gitStatusResult") {
