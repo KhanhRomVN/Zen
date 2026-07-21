@@ -15,7 +15,7 @@ import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
 import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
@@ -69,7 +69,7 @@ export const MoveFileRenderer: React.FC<BaseRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "2px",
       }}
     >
-      <ToolHeader
+      <TagHeader
         title={
           <div
             style={{

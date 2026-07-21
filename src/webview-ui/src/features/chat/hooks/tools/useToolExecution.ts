@@ -1187,12 +1187,6 @@ export const useToolExecution = ({
         }
 
         case "commit_message": {
-          // commit_message is a display-only block handled by ToolRouter UI
-          // User clicks Accept/Reject buttons to send acceptCommitMessage/rejectCommitMessage
-          // Return special marker to skip auto-flush (same as git_status)
-          const messageContent =
-            action.params?.message || action.params?.content || "";
-          resolve("__DISPLAY_ONLY__");
           break;
         }
 

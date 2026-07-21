@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { ToolHeader } from "../../ToolHeader";
 import {
   Question,
   QuestionAnswer,
@@ -350,22 +349,112 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   // --- Legacy rendering ---
   if (isLegacyMode) {
     const legacySelected = selectedOptionProp || null;
+    const statusColor = legacyAnswered
+      ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+      : "var(--vscode-descriptionForeground)";
+
     return (
       <div style={wrapperStyle}>
-        <ToolHeader
-          title="QUESTION"
-          statusColor={
-            legacyAnswered
-              ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-              : "var(--vscode-descriptionForeground)"
-          }
-          icon={
-            <span
-              className="codicon codicon-question"
-              style={{ fontSize: "14px" }}
-            />
-          }
-        />
+        <div
+          className="terminal-block-header"
+          style={{
+            paddingTop: "4px",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            width: "100%",
+          }}
+        >
+          <div className="terminal-info" style={{ flex: 1, minWidth: 0 }}>
+            <div className="terminal-header-top">
+              <div
+                style={{
+                  marginTop: "1px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2px",
+                  flex: 1,
+                  minWidth: 0,
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    flexWrap: "nowrap",
+                  }}
+                >
+                  {/* Status dot */}
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "16px",
+                      height: "16px",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginTop: "2px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "50%",
+                        border: `2px solid ${statusColor}`,
+                        opacity: 0.4,
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        backgroundColor: statusColor,
+                      }}
+                    />
+                  </div>
+
+                  {/* Content */}
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "2px",
+                      marginTop: "2px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        className="codicon codicon-question"
+                        style={{
+                          fontSize: "14px",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      />
+                      <span className="terminal-name">QUESTION</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div style={{ paddingLeft: "36px", marginTop: "4px" }}>
           {title && (
             <div
@@ -1173,16 +1262,47 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
 
     return (
       <div style={wrapperStyle}>
-        <ToolHeader
-          title=""
-          statusColor={undefined}
-          icon={
-            <span
-              className="codicon codicon-question"
-              style={{ fontSize: "14px" }}
-            />
-          }
-        />
+        <div
+          className="terminal-block-header"
+          style={{
+            paddingTop: "4px",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            width: "100%",
+          }}
+        >
+          <div className="terminal-info" style={{ flex: 1, minWidth: 0 }}>
+            <div className="terminal-header-top">
+              <div
+                style={{
+                  marginTop: "1px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2px",
+                  flex: 1,
+                  minWidth: 0,
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    flexWrap: "nowrap",
+                  }}
+                >
+                  <span
+                    className="codicon codicon-question"
+                    style={{ fontSize: "14px", marginTop: "2px" }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div>
           {title && (
             <div
@@ -1292,17 +1412,55 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
 
   return (
     <div style={wrapperStyle}>
-      <ToolHeader
-        title=""
-        statusColor={undefined}
-        icon={
-          <span
-            className="codicon codicon-question"
-            style={{ fontSize: "14px" }}
-          />
-        }
-        headerActions={isAllAnswered ? renderNavIcons() : undefined}
-      />
+      <div
+        className="terminal-block-header"
+        style={{
+          paddingTop: "4px",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          width: "100%",
+        }}
+      >
+        <div className="terminal-info" style={{ flex: 1, minWidth: 0 }}>
+          <div className="terminal-header-top">
+            <div
+              style={{
+                marginTop: "1px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "2px",
+                flex: 1,
+                minWidth: 0,
+                width: "100%",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "8px",
+                  flexWrap: "nowrap",
+                }}
+              >
+                <span
+                  className="codicon codicon-question"
+                  style={{ fontSize: "14px", marginTop: "2px" }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        {isAllAnswered && (
+          <div
+            className="header-actions"
+            style={{ flexShrink: 0, marginLeft: "8px" }}
+          >
+            {renderNavIcons()}
+          </div>
+        )}
+      </div>
+
       <div style={{ marginTop: "8px" }}>
         {/* Question Label */}
         <div

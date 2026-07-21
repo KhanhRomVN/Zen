@@ -1,8 +1,5 @@
 import React from "react";
 
-// ICONS
-import FileIcon from "@/icons/FileIcon";
-
 // CONSTANTS
 import {
   EXECUTION_STATUS,
@@ -14,12 +11,7 @@ import { Message, Question } from "@/features/chat/types/message";
 import { ParsedResponse } from "@/features/chat/services/ResponseParser";
 
 // COMPONENTS
-import CodeBlock from "./blocks/code/CodeBlock";
-import MarkdownBlock from "./blocks/markdown/MarkdownBlock";
-import QuestionBlock from "./blocks/question/QuestionBlock";
-import ErrorBlock from "./blocks/error/ErrorBlock";
-import WarningBlock from "./blocks/warning/WarningBlock";
-import ToolAction from "./ContentRouter";
+import TagRouter from "./TagRouter";
 import ResponseMetadataBar from "./ResponseMetadataBar";
 
 // STYLES
@@ -112,43 +104,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
-
-  const translateError = (raw: string): string => {
-    const normalized = raw.trim().toLowerCase();
-    if (/provider returned empty response/i.test(normalized))
-      return "Provider returned empty response";
-    if (/no response body/i.test(normalized)) return "No response body";
-    if (/no workspace/i.test(normalized))
-      return "No workspace folder is open. Open a folder to use file operations.";
-    if (/path.*argument.*string|path.*required/i.test(normalized))
-      return "Path argument must be a string and is required.";
-    if (/file.*path.*required|missing file path/i.test(normalized))
-      return "File path is required.";
-    if (/folder.*path.*required/i.test(normalized))
-      return "Folder path is required.";
-    if (/security validation failed/i.test(normalized))
-      return "Security validation failed: path is outside workspace.";
-    if (/out of scope.*ignored/i.test(normalized))
-      return "Path is out of scope and will be ignored.";
-    if (/invalid diff format/i.test(normalized)) return "Invalid diff format.";
-    if (/search text not found/i.test(normalized))
-      return "Search text not found in file.";
-    if (/no change made/i.test(normalized)) return "No changes were made.";
-    if (/command validation failed/i.test(normalized))
-      return "Command validation failed.";
-    if (
-      /unknown upload error|upload.*failed|upload api returned/i.test(
-        normalized,
-      )
-    )
-      return "File upload failed.";
-    if (/no active account|no.*account.*selected/i.test(normalized))
-      return "No active account. Please select an account first.";
-    if (/file not found/i.test(normalized)) return "File not found.";
-    if (/invalid conversation log format/i.test(normalized))
-      return "Invalid conversation log format.";
-    return raw;
-  };
 
   //   Cache previousUserMessage lookup. Only recompute when the message
   // list length changes or the current message id changes (not on every render
@@ -277,7 +232,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       {(() => {
         const groups: Array<
           | { type: "markdown"; content: string; key: string }
-          | { type: "mixed_content"; segments: any[]; key: string }
           | {
               type: "tools";
               items: { action: any; index: number }[];
@@ -386,13 +340,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 questions: block.questions,
                 key: `question-${idx}`,
               });
-            } else if (block.type === "mixed_content") {
-              flushTools();
-              groups.push({
-                type: "mixed_content",
-                segments: block.segments,
-                key: `mixed_content-${idx}`,
-              });
             }
           });
           flushTools();
@@ -417,189 +364,63 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
         const renderGroups = groups;
 
         return renderGroups.map((group, index) => {
-          let content = null;
           const isLastGroup = index === renderGroups.length - 1;
 
           if (group.type === "response_number") {
-            content = (
-              <ResponseMetadataBar
-                responseNumber={responseNumber!}
-                message={message}
-                previousUserMessage={previousUserMessage}
-              />
-            );
-          } else if (group.type === "markdown") {
-            content = (
-              <div
-                style={{
-                  paddingTop: "4px",
-                  fontSize: "var(--font-size-sm)",
-                  color: "var(--primary-text)",
-                }}
-              >
-                <MarkdownBlock
-                  content={group.content}
-                  knownFilePaths={knownFilePaths}
+            return (
+              <React.Fragment key={group.key}>
+                <ResponseMetadataBar
+                  responseNumber={responseNumber!}
+                  message={message}
+                  previousUserMessage={previousUserMessage}
                 />
-              </div>
+              </React.Fragment>
             );
-          } else if (group.type === "mixed_content") {
-            content = (
-              <div style={{ paddingTop: "4px" }}>
-                {group.segments.map((seg: any, i: number) => {
-                  if (seg.type === "code") {
-                    return (
-                      <CodeBlock
-                        key={i}
-                        code={seg.content}
-                        language={seg.language}
-                        enableWordWrap={true}
-                      />
-                    );
-                  } else if (seg.type === "markdown") {
-                    return (
-                      <MarkdownBlock
-                        key={i}
-                        content={seg.content}
-                        className="markdown-content-inline"
-                        knownFilePaths={knownFilePaths}
-                      />
-                    );
-                  } else {
-                    return (
-                      <MarkdownBlock
-                        key={i}
-                        content={seg.content}
-                        className="markdown-content-inline"
-                        knownFilePaths={knownFilePaths}
-                      />
-                    );
-                  }
-                })}
-              </div>
-            );
-          } else if (group.type === "question") {
+          }
+
+          // Pass all other groups to TagRouter (tools, markdown, question, error, warning)
+          const content = (
+            <TagRouter
+              group={group}
+              messageId={message.id}
+              clickedActions={clickedActions}
+              failedActions={failedActions}
+              rejectedActions={rejectedActions}
+              onToolClick={(action, msgId, actionIndex, type) =>
+                onToolClick(action, message, actionIndex, type)
+              }
+              executionState={executionState}
+              isLastMessage={isLastMessage}
+              isLastGroup={isLastGroup}
+              toolOutputs={toolOutputs}
+              terminalStatus={terminalStatus}
+              nextUserMessage={nextUserMessage}
+              allMessages={allMessages}
+              conversationId={conversationId}
+              allActions={parsedContent.actions}
+              isBlockedByPrecedingInteraction={isInteractionBlocked}
+              singleLineReviewActions={singleLineReviewActions}
+              onConfirmSingleLineAction={onConfirmSingleLineAction}
+              onRejectSingleLineAction={onRejectSingleLineAction}
+              onGitConfirm={onGitConfirm}
+              onGitCancel={onGitCancel}
+              gitStatusItems={gitStatusItems}
+              gitStatusBranch={gitStatusBranch}
+              isGitProcessing={isGitProcessing}
+              isGitStatusVisible={isGitStatusVisible}
+              onBackToHome={onBackToHome}
+              knownFilePaths={knownFilePaths}
+              isGenerating={isGenerating}
+              onSelectOption={onSelectOption}
+              onSendMessage={onSendMessage}
+            />
+          );
+
+          // Update isInteractionBlocked based on group
+          if (group.type === "question") {
             const isAnswered = !!message.selectedOption;
-            const isThisActive = isLastMessage && !isInteractionBlocked;
-            const hasQuestions = group.questions && group.questions.length > 0;
-            content = (
-              <QuestionBlock
-                questions={hasQuestions ? group.questions : undefined}
-                options={!hasQuestions ? group.options : undefined}
-                title={group.title}
-                optional={group.optional}
-                selectedOption={
-                  !hasQuestions ? message.selectedOption : undefined
-                }
-                questionAnswers={
-                  hasQuestions ? message.questionAnswers : undefined
-                }
-                disabled={!!nextUserMessage || isGenerating}
-                onAnswer={(questionId, value) => {
-                  if (!hasQuestions) return;
-                  if (onSelectOption) {
-                    onSelectOption(
-                      message.id,
-                      JSON.stringify({ questionId, value }),
-                    );
-                  }
-                }}
-                onAllAnswered={(answers) => {
-                  if (!hasQuestions) return;
-                  if (onSelectOption) {
-                    onSelectOption(
-                      message.id,
-                      JSON.stringify({
-                        allAnswered: true,
-                        answers,
-                        questions: group.questions || [],
-                      }),
-                    );
-                  }
-                }}
-                onOptionSelect={(option: string) => {
-                  if (hasQuestions) return;
-                  if (onSelectOption) {
-                    onSelectOption(message.id, option);
-                  }
-                  const hasTools = (parsedContent.actions?.length || 0) > 0;
-                  if (onSendMessage && !hasTools) {
-                    onSendMessage(
-                      `[question: "${group.title || "Question"}"] Answer: ${option}`,
-                      undefined,
-                      undefined,
-                      undefined,
-                      true,
-                    );
-                  }
-                }}
-              />
-            );
             if (!isAnswered) isInteractionBlocked = true;
-          } else if (group.type === "error") {
-            const errorText = group.content.replace(/^Error:\s*/i, "");
-            const translatedMessage = translateError(errorText);
-
-            // If we have toolName, use it as the label (e.g., "READ FILE")
-            // Otherwise use default "ERROR"
-            const errorLabel = group.toolName
-              ? group.toolName.toUpperCase().replace(/_/g, " ")
-              : "ERROR";
-
-            content = (
-              <ErrorBlock
-                content={translatedMessage}
-                errorCode={group.errorCode}
-                isLast={isLastGroup}
-                isLastMessage={isLastMessage}
-                maxHeight="300px"
-                label={errorLabel}
-              />
-            );
-
-            return <React.Fragment key={group.key}>{content}</React.Fragment>;
-          } else if (group.type === "warning") {
-            // 🛡️ Render WarningBlock for only-thinking responses
-            content = (
-              <WarningBlock
-                label={group.label}
-                message={group.message}
-                warningColor="var(--vscode-editorWarning-foreground, #cca700)"
-                isPulsing={false}
-              />
-            );
-            return <React.Fragment key={group.key}>{content}</React.Fragment>;
-          } else {
-            content = (
-              <ToolAction
-                message={message}
-                items={group.items}
-                clickedActions={clickedActions}
-                failedActions={failedActions}
-                rejectedActions={rejectedActions}
-                onToolClick={onToolClick}
-                executionState={executionState}
-                isLastMessage={isLastMessage}
-                toolOutputs={toolOutputs}
-                terminalStatus={terminalStatus}
-                nextUserMessage={nextUserMessage}
-                allMessages={allMessages}
-                conversationId={conversationId}
-                allActions={parsedContent.actions}
-                isBlockedByPrecedingInteraction={isInteractionBlocked}
-                isVisibleTool={undefined}
-                singleLineReviewActions={singleLineReviewActions}
-                onConfirmSingleLineAction={onConfirmSingleLineAction}
-                onRejectSingleLineAction={onRejectSingleLineAction}
-                onGitConfirm={onGitConfirm}
-                onGitCancel={onGitCancel}
-                gitStatusItems={gitStatusItems}
-                gitStatusBranch={gitStatusBranch}
-                isGitProcessing={isGitProcessing}
-                isGitStatusVisible={isGitStatusVisible}
-                onBackToHome={onBackToHome}
-              />
-            );
+          } else if (group.type === "tools") {
             const hasUnclickedOrBusyAction = group.items.some((item) => {
               const actionId = `${message.id}-action-${item.index}`;
               const hasOutput = toolOutputs && toolOutputs[actionId];
@@ -627,9 +448,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             if (hasUnclickedOrBusyAction) isInteractionBlocked = true;
           }
 
-          if (group.type === "tools" || group.type === "question") {
-            return <React.Fragment key={group.key}>{content}</React.Fragment>;
-          }
           return <React.Fragment key={group.key}>{content}</React.Fragment>;
         });
       })()}

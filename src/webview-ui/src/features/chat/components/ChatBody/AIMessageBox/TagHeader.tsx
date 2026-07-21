@@ -3,7 +3,7 @@ import React, { useMemo, useRef, useState, useEffect } from "react";
 // STYLES
 import "./blocks/run_command/TerminalBlock.css";
 
-interface ToolHeaderProps {
+interface TagHeaderProps {
   title: React.ReactNode;
   subTitle?: React.ReactNode;
   subTitleClassName?: string;
@@ -55,7 +55,7 @@ const truncatePath = (fullPath: string, maxLength: number = 35): string => {
   return fullPath || "";
 };
 
-export const ToolHeader: React.FC<ToolHeaderProps> = ({
+export const TagHeader: React.FC<TagHeaderProps> = ({
   title,
   subTitle,
   subTitleClassName,

@@ -51,13 +51,6 @@ export type ContentBlock =
       /** New structured questions for pagination */
       questions?: import("../types/message").Question[];
     }
-  | {
-      type: "mixed_content";
-      segments: (
-        | { type: "markdown"; content: string }
-        | { type: "code"; content: string; language?: string }
-      )[];
-    }
   | { type: "tool"; action: ToolAction; actionIndex?: number }
   | { type: "thinking"; content: string }
   | {
@@ -284,10 +277,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       segments.push({ type: baseType, content: textAfter });
     }
 
-    if (segments.length === 1 && segments[0].type !== "code") {
-      result.contentBlocks.push(segments[0]);
-    } else if (segments.length > 0) {
-      result.contentBlocks.push({ type: "mixed_content", segments });
+    // Always push segments as individual blocks instead of mixed_content
+    for (const segment of segments) {
+      result.contentBlocks.push(segment);
     }
   };
 
@@ -695,44 +687,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             content: thinkingBlocks[thinkingIdx] ?? "",
           });
         }
-      }
-    } else if (block.type === "mixed_content") {
-      // Also expand placeholders inside mixed_content segments
-      const expandedSegments: any[] = [];
-      for (const seg of block.segments) {
-        if (seg.type === "markdown" && placeholderRegex.test(seg.content)) {
-          placeholderRegex.lastIndex = 0;
-          const parts = seg.content.split(/__THINKING_(\d+)__/);
-          for (let i = 0; i < parts.length; i++) {
-            if (i % 2 === 0) {
-              if (parts[i].trim()) {
-                expandedSegments.push({ type: "markdown", content: parts[i] });
-              }
-            } else {
-              const thinkingIdx = parseInt(parts[i], 10);
-              // Push as a standalone thinking block outside this mixed_content
-              expandedBlocks.push({
-                type: "mixed_content",
-                segments: expandedSegments.splice(0),
-              } as any);
-              expandedBlocks.push({
-                type: "thinking",
-                content: thinkingBlocks[thinkingIdx] ?? "",
-              });
-            }
-          }
-          if (expandedSegments.length > 0) {
-            expandedBlocks.push({
-              type: "mixed_content",
-              segments: expandedSegments.splice(0),
-            } as any);
-          }
-        } else {
-          expandedSegments.push(seg);
-        }
-      }
-      if (expandedSegments.length > 0) {
-        expandedBlocks.push({ ...block, segments: expandedSegments } as any);
       }
     } else {
       expandedBlocks.push(block);

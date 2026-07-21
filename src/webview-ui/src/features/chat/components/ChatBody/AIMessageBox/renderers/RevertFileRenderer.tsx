@@ -18,7 +18,7 @@ import { calculateLineDiff } from "@/utils/diffUtils";
 import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
@@ -27,7 +27,7 @@ import { extensionService } from "@/services/ExtensionService";
 
 /**
  * Renderer for revert_file tool type
- * Shows diff stats similar to ReplaceFileRenderer
+ * Shows diff stats similar to ReplaceInFileRenderer
  */
 export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
   action,
@@ -101,7 +101,7 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "2px",
       }}
     >
-      <ToolHeader
+      <TagHeader
         title={
           <div
             style={{

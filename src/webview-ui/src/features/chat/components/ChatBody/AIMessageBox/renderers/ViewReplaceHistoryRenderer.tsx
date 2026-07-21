@@ -7,7 +7,7 @@ import { BaseRendererProps } from "@/features/chat/types/renderer-types";
 import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
 /**
@@ -49,7 +49,7 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
       ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
       : "var(--vscode-textLink-foreground, #9370db)";
 
-  // Summary result for ToolHeader
+  // Summary result for TagHeader
   const summaryResult =
     isCompleted && !isError && histories.length > 0
       ? `${histories.length} ${histories.length === 1 ? "version" : "versions"}`
@@ -65,7 +65,7 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "8px",
       }}
     >
-      <ToolHeader
+      <TagHeader
         title={
           <div
             style={{

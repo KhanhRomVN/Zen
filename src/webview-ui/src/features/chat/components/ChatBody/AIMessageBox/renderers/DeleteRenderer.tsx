@@ -8,9 +8,6 @@ import {
 } from "../../../../utils/renderer-utils";
 import { BaseRendererProps } from "@/features/chat/types/renderer-types";
 
-// CONSTANTS
-import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
-
 // UTILS
 import { getFilename } from "@/features/chat/utils/toolUtils";
 
@@ -18,7 +15,7 @@ import { getFilename } from "@/features/chat/utils/toolUtils";
 import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
@@ -83,7 +80,7 @@ export const DeleteRenderer: React.FC<BaseRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "2px",
       }}
     >
-      <ToolHeader
+      <TagHeader
         title={
           <div
             style={{

@@ -4,8 +4,8 @@
  */
 
 export { ReadFileRenderer } from "./ReadFileRenderer";
-export { WriteFileRenderer } from "./WriteFileRenderer";
-export { ReplaceFileRenderer } from "./ReplaceFileRenderer";
+export { WriteToFileRenderer } from "./WriteToFileRenderer";
+export { ReplaceInFileRenderer } from "./ReplaceInFileRenderer";
 export { RevertFileRenderer } from "./RevertFileRenderer";
 export { ListFilesRenderer } from "./ListFilesRenderer";
 export { FindFilesRenderer } from "./FindFilesRenderer";

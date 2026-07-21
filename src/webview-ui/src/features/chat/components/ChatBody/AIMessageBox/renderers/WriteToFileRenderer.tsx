@@ -13,10 +13,6 @@ import {
 } from "@/features/chat/constants/constants";
 
 // TYPES
-import {
-  MergedRendererProps,
-  Diagnostic,
-} from "@/features/chat/types/renderer-types";
 
 // UTILS
 import {
@@ -24,18 +20,18 @@ import {
   getNextUserMessage,
 } from "../../../../utils/renderer-utils";
 import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
-import { parseDiff } from "@/utils/diffUtils";
 
 // ICONS
 import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
+import { MergedRendererProps } from "@/features/chat/types/renderer-types";
 
-export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
+export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
   action,
   actionIndex,
   messageId,
@@ -46,14 +42,12 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
   toolOutputs,
   allMessages,
   onToolClick,
-  mergedItems,
-  conversationId,
+  singleLineReviewActions,
+  onConfirmSingleLineAction,
+  onRejectSingleLineAction,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [showRawView, setShowRawView] = React.useState(false);
-  const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
-    Diagnostic[] | null
-  >(null);
   const { permissionMode } = useSettings();
 
   const actionId = `${messageId}-action-${actionIndex}`;
@@ -71,36 +65,7 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
   const isError = !!toolOutputs?.[actionId]?.isError;
   const errorMessage = isError ? toolOutputs?.[actionId]?.output || "" : "";
 
-  // Calculate diff stats
-  let diffStats: { added: number; removed: number } | null = null;
-
-  if (action.params.diff) {
-    const stats = parseDiff(action.params.diff).stats;
-    diffStats = { added: stats.added, removed: stats.removed };
-  } else if (action.params.old_str && action.params.new_str) {
-    const oldLines = (action.params.old_str || "").split("\n");
-    const newLines = (action.params.new_str || "").split("\n");
-
-    diffStats = {
-      added: newLines.length,
-      removed: oldLines.length,
-    };
-  }
-
-  // Handle merged items
-  if (mergedItems && mergedItems.length > 1) {
-    let totalAdded = 0,
-      totalRemoved = 0;
-    mergedItems.forEach(({ action: a }) => {
-      if (a.type === "replace_in_file" && a.params.diff) {
-        const s = parseDiff(a.params.diff).stats;
-        totalAdded += s.added;
-        totalRemoved += s.removed;
-      }
-    });
-    if (totalAdded > 0 || totalRemoved > 0)
-      diffStats = { added: totalAdded, removed: totalRemoved };
-  }
+  const linesCount = action.params.content?.split("\n").length || 0;
 
   const isCompleted = Boolean(
     !isPartial &&
@@ -109,93 +74,6 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
       !!toolOutputs?.[actionId] ||
       !!nextUserMessage),
   );
-
-  // Get diagnostics from toolOutputs
-  const mergedDiagnostics = React.useMemo(() => {
-    const shouldGetDiagnostics = isCompleted && !isPartial;
-
-    if (!shouldGetDiagnostics) return undefined;
-
-    const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics;
-
-    if (!toolOutputDiagnostics) {
-      return undefined;
-    }
-
-    const normalized = toolOutputDiagnostics.map((d) => {
-      const normalizedSeverity =
-        d.severity.toLowerCase() === "error"
-          ? "Error"
-          : d.severity.toLowerCase() === "warning"
-            ? "Warning"
-            : d.severity;
-
-      return {
-        ...d,
-        severity: normalizedSeverity,
-      };
-    });
-
-    return normalized;
-  }, [toolOutputs, actionId, isCompleted, isPartial]);
-
-  // Fetch diagnostics from extension
-  React.useEffect(() => {
-    const shouldFetchDiagnostics = rawPath && isCompleted && !isPartial;
-
-    if (!shouldFetchDiagnostics) return;
-
-    const baseRequestId = `diagnostics-${actionId}`;
-    let retryCount = 0;
-    const maxRetries = 2;
-    const retryDelay = 300;
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const handleMessage = (event: MessageEvent) => {
-      const msg = event.data;
-      if (
-        msg.command === "getDiagnosticsResult" &&
-        msg.requestId?.startsWith(baseRequestId)
-      ) {
-        if (msg.diagnostics && Array.isArray(msg.diagnostics)) {
-          if (msg.diagnostics.length > 0) {
-            setCachedDiagnostics(msg.diagnostics);
-            window.removeEventListener("message", handleMessage);
-            if (timeoutId !== null) clearTimeout(timeoutId);
-          } else {
-            if (retryCount < maxRetries) {
-              retryCount++;
-              timeoutId = setTimeout(() => {
-                extensionService.postMessage({
-                  command: "getDiagnostics",
-                  path: rawPath,
-                  requestId: `${baseRequestId}-retry-${retryCount}`,
-                });
-              }, retryDelay * retryCount);
-            } else {
-              setCachedDiagnostics([]);
-              window.removeEventListener("message", handleMessage);
-            }
-          }
-        }
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-
-    timeoutId = setTimeout(() => {
-      extensionService.postMessage({
-        command: "getDiagnostics",
-        path: rawPath,
-        requestId: baseRequestId,
-      });
-    }, 200);
-
-    return () => {
-      window.removeEventListener("message", handleMessage);
-      if (timeoutId !== null) clearTimeout(timeoutId);
-    };
-  }, [rawPath, isCompleted, isPartial, actionId]);
 
   const shouldHideContent = false;
 
@@ -209,7 +87,7 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "2px",
       }}
     >
-      <ToolHeader
+      <TagHeader
         title={
           <div
             style={{
@@ -229,34 +107,26 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
               onClick={(e) => {
                 e.stopPropagation();
                 if (rawPath) {
-                  const oldContent =
-                    action.params.old_content || action.params.old_str || "";
-                  const newContent =
-                    action.params.new_content || action.params.new_str || "";
+                  const content = action.params.content || "";
                   extensionService.postMessage({
-                    command: "openReplaceInFileDiff",
+                    command: "openWriteToFile",
                     filePath: rawPath,
-                    oldContent,
-                    newContent,
+                    content,
                   });
                 }
               }}
             >
-              REPLACE
+              WRITE
             </span>
             <span
               onClick={(e) => {
                 e.stopPropagation();
                 if (rawPath) {
-                  const oldContent =
-                    action.params.old_content || action.params.old_str || "";
-                  const newContent =
-                    action.params.new_content || action.params.new_str || "";
+                  const content = action.params.content || "";
                   extensionService.postMessage({
-                    command: "openReplaceInFileDiff",
+                    command: "openWriteToFile",
                     filePath: rawPath,
-                    oldContent,
-                    newContent,
+                    content,
                   });
                 }
               }}
@@ -279,48 +149,27 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
               onClick={(e) => {
                 e.stopPropagation();
                 if (rawPath) {
-                  const oldContent =
-                    action.params.old_content || action.params.old_str || "";
-                  const newContent =
-                    action.params.new_content || action.params.new_str || "";
+                  const content = action.params.content || "";
                   extensionService.postMessage({
-                    command: "openReplaceInFileDiff",
+                    command: "openWriteToFile",
                     filePath: rawPath,
-                    oldContent,
-                    newContent,
+                    content,
                   });
                 }
               }}
             >
               {displayName || (isPartial && !rawPath ? "..." : "")}
             </span>
-            {diffStats && (diffStats.added > 0 || diffStats.removed > 0) && (
+            {linesCount > 0 && (
               <span
                 style={{
-                  display: "flex",
-                  gap: "6px",
-                  alignItems: "center",
+                  opacity: 0.7,
                   fontSize: "11px",
-                  fontWeight: 500,
                   marginLeft: "6px",
+                  fontWeight: 500,
                 }}
               >
-                <span
-                  style={{
-                    color:
-                      "var(--vscode-gitDecoration-addedResourceForeground)",
-                  }}
-                >
-                  +{diffStats.added}
-                </span>
-                <span
-                  style={{
-                    color:
-                      "var(--vscode-gitDecoration-deletedResourceForeground)",
-                  }}
-                >
-                  -{diffStats.removed}
-                </span>
+                +{linesCount} {linesCount === 1 ? "line" : "lines"}
               </span>
             )}
             {isPartial && (
@@ -354,10 +203,11 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
         }
         isError={isError}
         isWaitingApproval={!!isActiveGroup && !isCompleted}
-        toolType="replace_in_file"
-        diffStats={diffStats || undefined}
+        toolType="write_to_file"
+        tooltipMeta={{
+          lineCount: linesCount,
+        }}
         isPartial={isPartial}
-        diagnostics={mergedDiagnostics}
         onClick={() => {
           setIsCollapsed((v) => !v);
           if (rawPath) {
@@ -402,11 +252,133 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
         </div>
       )}
 
+      {/* Single-line review UI for write_to_file with content crammed into 1 line */}
+      {!shouldHideContent &&
+        singleLineReviewActions?.[actionId] &&
+        (() => {
+          const reviewContent = action.params.content || "";
+          return (
+            <div
+              style={{
+                marginTop: "8px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}
+            >
+              <textarea
+                readOnly
+                value={reviewContent}
+                style={{
+                  width: "100%",
+                  minHeight: "200px",
+                  maxHeight: "400px",
+                  padding: "8px 10px",
+                  fontFamily: "var(--vscode-editor-font-family, monospace)",
+                  fontSize: "11px",
+                  lineHeight: "1.5",
+                  color: "var(--vscode-editor-foreground)",
+                  backgroundColor:
+                    "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
+                  border: "1.5px dashed #e5a100",
+                  borderRadius: "4px",
+                  resize: "vertical",
+                  outline: "none",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-all",
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: "#e5a100",
+                    fontWeight: 500,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                >
+                  <span
+                    className="codicon codicon-warning"
+                    style={{ fontSize: "11px" }}
+                  />
+                  Nội dung file bị dồn vào 1 dòng ({reviewContent.length} ký tự)
+                </span>
+                <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRejectSingleLineAction?.(actionId);
+                    }}
+                    style={{
+                      padding: "4px 12px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      borderRadius: "4px",
+                      border:
+                        "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 40%, transparent)",
+                      backgroundColor:
+                        "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
+                      color: "var(--vscode-errorForeground, #f44336)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <span
+                      className="codicon codicon-close"
+                      style={{ fontSize: "11px" }}
+                    />
+                    Từ chối
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onConfirmSingleLineAction?.(actionId);
+                    }}
+                    style={{
+                      padding: "4px 12px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      borderRadius: "4px",
+                      border:
+                        "1px solid color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 40%, transparent)",
+                      backgroundColor:
+                        "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 10%, transparent)",
+                      color:
+                        "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <span
+                      className="codicon codicon-check"
+                      style={{ fontSize: "11px" }}
+                    />
+                    Xác nhận
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
       {!shouldHideContent &&
         !isCompleted &&
         !isPartial &&
         (isActiveGroup || !isLastMessage) &&
-        getPermissionDecision(permissionMode, "replace_in_file") ===
+        getPermissionDecision(permissionMode, "write_to_file") ===
           "confirm" && (
           <div style={{ marginTop: "8px", marginBottom: "8px", order: 1 }}>
             <ExecuteButton
@@ -427,20 +399,11 @@ export const ReplaceFileRenderer: React.FC<MergedRendererProps> = ({
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
       )}
 
-      {/* Streaming preview for replace_in_file */}
+      {/* Streaming preview for write_to_file */}
       {!shouldHideContent &&
         isPartial &&
         (() => {
-          const oldStr = action.params.old_str || "";
-          const newStr = action.params.new_str || "";
-          const diff = action.params.diff || "";
-
-          let streamingContent = "";
-          if (oldStr || newStr) {
-            streamingContent = `<<<<<<< OLD\n${oldStr}\n=======\n${newStr}`;
-          } else if (diff) {
-            streamingContent = diff;
-          }
+          const streamingContent = action.params.content || "";
 
           if (!streamingContent || streamingContent.trim().length === 0) {
             return null;

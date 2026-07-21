@@ -19,7 +19,7 @@ import {
 import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
 export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
@@ -184,7 +184,7 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "2px",
       }}
     >
-      <ToolHeader
+      <TagHeader
         title={
           <div
             style={{

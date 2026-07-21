@@ -5,7 +5,7 @@ import { ToolAction } from "@/features/chat/services/ResponseParser";
 import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 
 interface CommitMessageRendererProps {
   action: ToolAction;
@@ -37,8 +37,7 @@ export const CommitMessageRenderer: React.FC<CommitMessageRendererProps> = ({
   onToolClick,
   branch,
 }) => {
-  const messageContent =
-    action.params?.message || action.params?.content || "";
+  const messageContent = action.params?.message || action.params?.content || "";
 
   const [isCommitted, setIsCommitted] = React.useState(false);
 
@@ -61,7 +60,7 @@ export const CommitMessageRenderer: React.FC<CommitMessageRendererProps> = ({
         className="terminal-block commit-message-tool"
         style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
       >
-        <ToolHeader
+        <TagHeader
           title={
             <div
               style={{
@@ -165,8 +164,7 @@ export const CommitMessageRenderer: React.FC<CommitMessageRendererProps> = ({
                       background: "var(--vscode-textCodeBlock-background)",
                       padding: "2px 6px",
                       borderRadius: "4px",
-                      fontFamily:
-                        "var(--vscode-editor-font-family, monospace)",
+                      fontFamily: "var(--vscode-editor-font-family, monospace)",
                       fontSize: "11px",
                     }}
                   >

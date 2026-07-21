@@ -27,29 +27,57 @@ import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
 import {
-  WriteFileRenderer,
-  ReplaceFileRenderer,
-  ReadFileRenderer,
-  ListFilesRenderer,
-  FindFilesRenderer,
-  GrepRenderer,
-  DeleteRenderer,
-  MoveFileRenderer,
-  RevertFileRenderer,
-  ViewReplaceHistoryRenderer,
-  RunCommandRenderer,
-  GitStatusRenderer,
-  CommitMessageRenderer,
-  MarkdownRenderer,
-  QuestionRenderer,
-  ErrorRenderer,
-  WarningRenderer,
+  CommitMessageRenderer, // commit_message
+  DeleteRenderer, 
+  ErrorRenderer, // error (not tag)
+  WriteToFileRenderer, // write_to_file
+  ReplaceInFileRenderer, // replace_in_file
+  ReadFileRenderer, // read_file
+  ListFilesRenderer, // list_file
+  FindFilesRenderer, // find_files
+  GrepRenderer, // grep
+  MoveFileRenderer, // move_file
+  RevertFileRenderer, // revert_file
+  ViewReplaceHistoryRenderer, // view_replace_history
+  RunCommandRenderer, // run_command
+  GitStatusRenderer, // git_status
+  MarkdownRenderer, // markdown
+  QuestionRenderer, // question
+  WarningRenderer, // warning (not tag)
+  ThinkingRenderer, // thinking
 } from "./renderers";
 import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
 import ErrorBlock from "./blocks/error/ErrorBlock";
-import { ToolHeader } from "./ToolHeader";
-interface ToolRouterProps {
-  group: { action: ToolAction; index: number }[];
+
+// Define group types
+type GroupType =
+  | {
+      type: "tools";
+      items: { action: ToolAction; index: number }[];
+      key: string;
+    }
+  | { type: "markdown"; content: string; key: string }
+  | {
+      type: "question";
+      options: string[];
+      title?: string;
+      optional?: boolean;
+      questions?: any[];
+      key: string;
+    }
+  | {
+      type: "error";
+      content: string;
+      errorCode?: string;
+      toolName?: string;
+      toolParams?: Record<string, any>;
+      key: string;
+    }
+  | { type: "warning"; label: string; message: string; key: string }
+  | { type: "thinking"; content: string; key: string };
+
+interface TagRouterProps {
+  group: GroupType;
   messageId: string;
   clickedActions: Set<string>;
   rejectedActions?: Set<string>;
@@ -67,7 +95,7 @@ interface ToolRouterProps {
   isActiveGroup?: boolean;
   failedActions?: Set<string>;
   isLastMessage?: boolean;
-  isLastItemInList?: boolean;
+  isLastGroup?: boolean;
   toolOutputs?: Record<
     string,
     { output: string; isError: boolean; terminalId?: string }
@@ -90,9 +118,22 @@ interface ToolRouterProps {
   isGitProcessing?: boolean;
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
+  knownFilePaths?: Map<string, string>;
+  isGenerating?: boolean;
+  onSelectOption?: (messageId: string, option: string) => void;
+  onSendMessage?: (
+    content: string,
+    files?: any[],
+    model?: any,
+    account?: any,
+    skipLogic?: boolean,
+    actionIds?: string[],
+    uiHidden?: boolean,
+  ) => void;
+  isBlockedByPrecedingInteraction?: boolean;
 }
 
-const ToolRouterInternal: React.FC<ToolRouterProps> = ({
+const TagRouterInternal: React.FC<TagRouterProps> = ({
   group,
   messageId,
   clickedActions,
@@ -102,7 +143,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   isActiveGroup,
   failedActions,
   isLastMessage,
-  isLastItemInList = true,
+  isLastGroup = true,
   toolOutputs,
   terminalStatus,
   nextUserMessage,
@@ -119,8 +160,114 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   isGitProcessing,
   isGitStatusVisible = true,
   onBackToHome,
+  knownFilePaths,
+  isGenerating,
+  onSelectOption,
+  onSendMessage,
+  isBlockedByPrecedingInteraction = false,
 }) => {
   const { rootPath } = useProject();
+
+  // Handle UI blocks (markdown, question, error, warning)
+  if (group.type === "markdown") {
+    return (
+      <MarkdownRenderer
+        content={group.content}
+        knownFilePaths={knownFilePaths}
+      />
+    );
+  }
+
+  if (group.type === "question") {
+    const hasQuestions = group.questions && group.questions.length > 0;
+    return (
+      <QuestionRenderer
+        questions={hasQuestions ? group.questions : undefined}
+        options={!hasQuestions ? group.options : undefined}
+        title={group.title}
+        optional={group.optional}
+        selectedOption={undefined} // Will be handled by parent
+        questionAnswers={undefined} // Will be handled by parent
+        disabled={!!nextUserMessage || isGenerating}
+        onAnswer={(questionId, value) => {
+          if (!hasQuestions) return;
+          if (onSelectOption) {
+            onSelectOption(
+              messageId,
+              JSON.stringify({ questionId, value }),
+            );
+          }
+        }}
+        onAllAnswered={(answers) => {
+          if (!hasQuestions) return;
+          if (onSelectOption) {
+            onSelectOption(
+              messageId,
+              JSON.stringify({
+                allAnswered: true,
+                answers,
+                questions: group.questions || [],
+              }),
+            );
+          }
+        }}
+        onOptionSelect={(option: string) => {
+          if (hasQuestions) return;
+          if (onSelectOption) {
+            onSelectOption(messageId, option);
+          }
+          if (onSendMessage) {
+            onSendMessage(
+              `[question: "${group.title || "Question"}"] Answer: ${option}`,
+              undefined,
+              undefined,
+              undefined,
+              true,
+            );
+          }
+        }}
+      />
+    );
+  }
+
+  if (group.type === "error") {
+    return (
+      <ErrorRenderer
+        content={group.content}
+        errorCode={group.errorCode}
+        toolName={group.toolName}
+        isLast={isLastGroup}
+        isLastMessage={isLastMessage}
+        maxHeight="300px"
+      />
+    );
+  }
+
+  if (group.type === "warning") {
+    return (
+      <WarningRenderer
+        label={group.label}
+        message={group.message}
+        warningColor="var(--vscode-editorWarning-foreground, #cca700)"
+        isPulsing={false}
+      />
+    );
+  }
+
+  if (group.type === "thinking") {
+    return (
+      <ThinkingRenderer
+        content={group.content}
+      />
+    );
+  }
+
+  // Handle tools group - rest of the original logic
+  if (group.type !== "tools") {
+    return null;
+  }
+
+  const toolGroup = group.items;
 
   const [fuzzyStatus, setFuzzyStatus] = React.useState<{
     status: string;
@@ -149,17 +296,17 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   useEffect(() => {
     effectCollapsedCountRef.current += 1;
     const initialCollapsed = new Set<string>();
-    group.forEach((item, index) => {
+    toolGroup.forEach((item, index) => {
       const actionId = `${messageId}-action-${index}`;
       if (item.action.type !== "run_command") {
         initialCollapsed.add(actionId);
       }
     });
     setCollapsedActions(initialCollapsed);
-  }, [group, messageId]);
+  }, [toolGroup, messageId]);
 
   // Fetch terminal output from history
-  const runCommandAction = group.find((g) => g.action.type === "run_command");
+  const runCommandAction = toolGroup.find((g) => g.action.type === "run_command");
   useEffect(() => {
     if (!nextUserMessage?.content || !runCommandAction) return;
     const commandText = runCommandAction.action.params.command;
@@ -207,7 +354,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
     const _effectStartTime = performance.now();
     const cleanups: (() => void)[] = [];
 
-    group.forEach((item) => {
+    toolGroup.forEach((item) => {
       const { action, index } = item;
       const actionId = `${messageId}-action-${index}`;
 
@@ -280,7 +427,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
 
     return () => cleanups.forEach((c) => c());
   }, [
-    group,
+    toolGroup,
     messageId,
     isActiveGroup,
     clickedActions,
@@ -288,12 +435,13 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
     fileStatsMap,
   ]);
 
-  if (!group || group.length === 0) return null;
+  if (!toolGroup || toolGroup.length === 0) return null;
 
-  const firstAction = group[0].action;
+  const firstAction = toolGroup[0].action;
   const toolType = firstAction.type;
+  const isLastItemInList = isLastGroup;
 
-  // Handle malformed/error tool actions - show ToolHeader + ErrorBlock
+  // Handle malformed/error tool actions - show custom header + ErrorBlock
   if (firstAction.isError) {
     const errorColor = "var(--vscode-errorForeground, #f44336)";
 
@@ -332,45 +480,184 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
           marginBottom: isLastItemInList ? "0" : "8px",
         }}
       >
-        <ToolHeader
-          title={
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "12px",
-                color: "var(--vscode-editor-foreground)",
-              }}
-            >
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>{toolLabel}</span>
-              {fileName && (
-                <>
-                  <span style={{ display: "flex", alignItems: "center" }}>
-                    <FileIcon
-                      path={filePath}
-                      style={{ width: "16px", height: "16px" }}
-                    />
-                  </span>
-                  <span
+        <div
+          className="terminal-block-header"
+          style={{
+            paddingTop: "4px",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            width: "100%",
+          }}
+        >
+          <div className="terminal-info" style={{ flex: 1, minWidth: 0 }}>
+            <div className="terminal-header-top">
+              <div
+                style={{
+                  marginTop: "1px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2px",
+                  flex: 1,
+                  minWidth: 0,
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    flexWrap: "nowrap",
+                  }}
+                >
+                  {/* Status dot */}
+                  <div
                     style={{
-                      fontWeight: 500,
-                      opacity: 0.9,
-                      fontFamily: "var(--vscode-editor-font-family, monospace)",
-                      fontSize: "11px",
+                      position: "relative",
+                      width: "16px",
+                      height: "16px",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginTop: "2px",
+                    }}
+                    title="Error - Action failed"
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "50%",
+                        border: `2px solid ${errorColor}`,
+                        opacity: 0.4,
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        backgroundColor: errorColor,
+                      }}
+                    />
+                  </div>
+
+                  {/* Content */}
+                  <div
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "2px",
+                      marginTop: "2px",
                     }}
                   >
-                    {fileName}
-                  </span>
-                </>
-              )}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div
+                        className="terminal-name"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          fontSize: "12px",
+                          color: "var(--vscode-editor-foreground)",
+                        }}
+                      >
+                        <span style={{ fontWeight: 600, opacity: 0.8 }}>
+                          {toolLabel}
+                        </span>
+                        {fileName && (
+                          <>
+                            <span
+                              style={{ display: "flex", alignItems: "center" }}
+                            >
+                              <FileIcon
+                                path={filePath}
+                                style={{ width: "16px", height: "16px" }}
+                              />
+                            </span>
+                            <span
+                              style={{
+                                fontWeight: 500,
+                                opacity: 0.9,
+                                fontFamily:
+                                  "var(--vscode-editor-font-family, monospace)",
+                                fontSize: "11px",
+                              }}
+                            >
+                              {fileName}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {filePath && (
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          alignItems: "center",
+                          paddingRight: "4px",
+                          paddingTop: "4px",
+                          marginTop: "2px",
+                          position: "relative",
+                          width: "100%",
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: "0",
+                            top: "0",
+                            width: "16px",
+                            height: "12px",
+                            borderLeft:
+                              "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                            borderBottom:
+                              "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            opacity: 0.6,
+                            color: "var(--vscode-descriptionForeground)",
+                            fontFamily:
+                              "var(--vscode-editor-font-family, monospace)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            width: "100%",
+                            padding: "0 4px 0 20px",
+                            borderRadius: "2px",
+                          }}
+                          title={filePath}
+                        >
+                          {filePath}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          }
-          path={filePath}
-          statusColor={errorColor}
-          isError={true}
-          toolType={toolType}
-        />
+          </div>
+        </div>
+
         <ErrorBlock
           content={firstAction.errorMessage || "Unknown error occurred"}
           errorCode={firstAction.errorCode}
@@ -383,126 +670,27 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
 
   // Handle view_replace_history BEFORE isFileTool check
   if (toolType === "view_replace_history") {
-    const filePath =
-      firstAction.params.file_path || firstAction.params.path || "";
-    const actionIndex = group[0].index;
-    const actionId = `${messageId}-action-${actionIndex}`;
-    const outputData = toolOutputs?.[actionId];
-    const isError = outputData?.isError || false;
-    const isCompleted = !!outputData; // No longer check isPartial since we don't use streaming parsing
-
-    // Determine color based on status
-    const historyColor = isError
-      ? "var(--vscode-errorForeground, #ff4d4d)"
-      : isCompleted
-        ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-        : "var(--vscode-textLink-foreground, #9370db)";
-
-    // Parse histories from output
-    let histories: any[] = [];
-    try {
-      if (outputData?.output && typeof outputData.output === "string") {
-        if (outputData.output === "No history") {
-          histories = [];
-        } else {
-          histories = JSON.parse(outputData.output);
-        }
-      }
-    } catch (e) {
-      // Ignore parse error - histories will remain empty array
-    }
-
-    // Summary result for ToolHeader
-    const summaryResult =
-      isCompleted && !isError && histories.length > 0
-        ? `${histories.length} ${histories.length === 1 ? "version" : "versions"}`
-        : undefined;
-
+    const action = firstAction;
+    const actionIndex = toolGroup[0].index;
     return (
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
-          marginBottom: isLastItemInList ? "0" : "8px",
-        }}
-      >
-        <ToolHeader
-          title={
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "12px",
-                color: "var(--vscode-editor-foreground)",
-              }}
-            >
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>HISTORY</span>
-              <span style={{ display: "flex", alignItems: "center" }}>
-                <FileIcon
-                  path={filePath}
-                  isFolder={false}
-                  style={{ width: "16px", height: "16px" }}
-                />
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--vscode-editor-font-family, monospace)",
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  opacity: 0.9,
-                }}
-              >
-                {filePath.split("/").pop() || filePath}
-              </span>
-              {summaryResult && (
-                <span
-                  style={{
-                    opacity: 0.5,
-                    fontSize: "10px",
-                    color: "var(--vscode-descriptionForeground)",
-                  }}
-                >
-                  {summaryResult}
-                </span>
-              )}
-            </div>
-          }
-          path={filePath}
-          statusColor={historyColor}
-          isPartial={false}
-          isError={isError}
-          toolType="view_replace_history"
-          tooltipMeta={{
-            fileCount: histories.length,
-          }}
-        />
-        {isError && (
-          <div
-            style={{
-              padding: "12px",
-              backgroundColor: "var(--vscode-inputValidation-errorBackground)",
-              border: "1px solid var(--vscode-inputValidation-errorBorder)",
-              borderRadius: "4px",
-              color: "var(--vscode-errorForeground)",
-              fontSize: "12px",
-              marginTop: "8px",
-            }}
-          >
-            {outputData?.output || "Failed to load history"}
-          </div>
-        )}
-      </div>
+      <ViewReplaceHistoryRenderer
+        action={action}
+        actionIndex={actionIndex}
+        messageId={messageId}
+        isActionClicked={clickedActions.has(`${messageId}-action-${actionIndex}`)}
+        isLastItemInList={isLastItemInList}
+        toolOutputs={toolOutputs}
+        fileStatsMap={fileStatsMap}
+        onToolClick={onToolClick}
+      />
     );
   }
 
   if (toolType === "write_to_file") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
-      <WriteFileRenderer
+      <WriteToFileRenderer
         key={actionIndex}
         action={action}
         actionIndex={actionIndex}
@@ -527,9 +715,9 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
 
   if (toolType === "replace_in_file") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
-      <ReplaceFileRenderer
+      <ReplaceInFileRenderer
         key={actionIndex}
         action={action}
         actionIndex={actionIndex}
@@ -545,7 +733,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
         fileStatsMap={fileStatsMap}
         onToolClick={onToolClick}
         conversationId={conversationId}
-        mergedItems={group}
+        mergedItems={toolGroup}
       />
     );
   }
@@ -554,13 +742,13 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
     return (
       <RunCommandRenderer
         action={firstAction}
-        actionIndex={group[0].index}
+        actionIndex={toolGroup[0].index}
         messageId={messageId}
         isActionClicked={clickedActions.has(
-          `${messageId}-action-${group[0].index}`,
+          `${messageId}-action-${toolGroup[0].index}`,
         )}
         isRejected={rejectedActions?.has(
-          `${messageId}-action-${group[0].index}`,
+          `${messageId}-action-${toolGroup[0].index}`,
         )}
         isActiveGroup={isActiveGroup}
         isLastMessage={isLastMessage}
@@ -591,10 +779,10 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
     return (
       <GitStatusRenderer
         action={firstAction}
-        actionIndex={group[0].index}
+        actionIndex={toolGroup[0].index}
         messageId={messageId}
         isActionClicked={clickedActions.has(
-          `${messageId}-action-${group[0].index}`,
+          `${messageId}-action-${toolGroup[0].index}`,
         )}
         isActiveGroup={isActiveGroup}
         isLastMessage={isLastMessage}
@@ -612,270 +800,28 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   }
 
   if (toolType === "commit_message") {
-    const messageContent =
-      firstAction.params?.message || firstAction.params?.content || "";
-    const actionIndex = group[0].index;
+    const action = firstAction;
+    const actionIndex = toolGroup[0].index;
     const actionId = `${messageId}-action-${actionIndex}`;
     const isRejected = rejectedActions?.has(actionId) || false;
-    const [isCommitted, setIsCommitted] = React.useState(false);
-    const statusColor = isRejected
-      ? "var(--vscode-errorForeground, #ff4d4d)"
-      : isCommitted
-        ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-        : "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)";
 
     return (
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
-        }}
-      >
-        <div
-          className="terminal-block commit-message-tool"
-          style={{ marginBottom: isLastItemInList ? "0" : "8px" }}
-        >
-          <ToolHeader
-            title={
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "12px",
-                  color: "var(--vscode-editor-foreground)",
-                }}
-              >
-                <span style={{ fontWeight: 600, opacity: 0.8 }}>
-                  COMMIT MESSAGE{gitStatusBranch ? `(${gitStatusBranch})` : ""}
-                </span>
-                <span
-                  className="codicon codicon-git-commit"
-                  style={{ fontSize: "14px" }}
-                />
-                {isRejected && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      color: "var(--vscode-errorForeground, #ff4d4d)",
-                      background:
-                        "color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)",
-                      padding: "2px 8px",
-                      borderRadius: "4px",
-                      marginLeft: "4px",
-                    }}
-                  >
-                    REJECTED
-                  </span>
-                )}
-                {isCommitted && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      color:
-                        "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
-                      background:
-                        "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 15%, transparent)",
-                      padding: "2px 8px",
-                      borderRadius: "4px",
-                      marginLeft: "4px",
-                    }}
-                  >
-                    ✓ COMMITTED
-                  </span>
-                )}
-              </div>
-            }
-            statusColor={statusColor}
-            isPartial={false}
-          />
-          <div style={{ padding: "4px 12px 12px 0" }}>
-            <div
-              style={{
-                padding: "12px 14px",
-                background: "var(--vscode-editor-background, #1e1e1e)",
-                borderRadius: "6px",
-                border: "1px solid var(--vscode-widget-border, #454545)",
-                fontFamily: "var(--vscode-editor-font-family, monospace)",
-                fontSize: "13px",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                color: "var(--vscode-foreground, #cccccc)",
-                maxHeight: "auto",
-                overflowY: "visible",
-              }}
-            >
-              {messageContent}
-              {isCommitted && (
-                <div
-                  style={{
-                    marginTop: "12px",
-                    padding: "10px 14px",
-                    background:
-                      "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 10%, transparent)",
-                    border:
-                      "1px solid color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 30%, transparent)",
-                    borderRadius: "6px",
-                    fontSize: "12px",
-                    color: "var(--vscode-foreground)",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      color:
-                        "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    Commit thành công!
-                  </div>
-                  <div style={{ opacity: 0.8, fontSize: "11px" }}>
-                    Hãy chạy{" "}
-                    <code
-                      style={{
-                        background: "var(--vscode-textCodeBlock-background)",
-                        padding: "2px 6px",
-                        borderRadius: "4px",
-                        fontFamily:
-                          "var(--vscode-editor-font-family, monospace)",
-                        fontSize: "11px",
-                      }}
-                    >
-                      git push
-                    </code>{" "}
-                    để đẩy commit lên remote.
-                  </div>
-                </div>
-              )}
-            </div>
-            {!isCommitted && !isRejected && (
-              <div
-                style={{
-                  display: "flex",
-                  gap: "6px",
-                  padding: "8px 0 4px 0",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <button
-                  onClick={() => {
-                    const vscodeApi = (window as any).vscodeApi;
-                    if (vscodeApi) {
-                      setIsCommitted(true);
-                      vscodeApi.postMessage({
-                        command: "acceptCommitMessage",
-                        message: messageContent,
-                      });
-                    }
-                  }}
-                  style={{
-                    background: `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`,
-                    color:
-                      "var(--vscode-editorBracketHighlight-foreground2, #4ec9b0)",
-                    border: `1px solid color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 30%, transparent)`,
-                    padding: "4px 10px",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    height: "24px",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 25%, transparent)`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #4ec9b0) 15%, transparent)`;
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                  Accept
-                </button>
-                <button
-                  onClick={() => {
-                    // Mark action as rejected locally
-                    onToolClick(firstAction, messageId, actionIndex, "reject");
-                    // Also notify extension
-                    const vscodeApi = (window as any).vscodeApi;
-                    if (vscodeApi) {
-                      vscodeApi.postMessage({
-                        command: "rejectCommitMessage",
-                      });
-                    }
-                  }}
-                  style={{
-                    background: `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`,
-                    color: "var(--vscode-errorForeground, #ff4d4d)",
-                    border: `1px solid color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 30%, transparent)`,
-                    padding: "4px 10px",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: isRejected ? "default" : "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    height: "24px",
-                    opacity: isRejected ? 0.5 : 1,
-                  }}
-                  disabled={isRejected}
-                  onMouseEnter={(e) => {
-                    if (!isRejected) {
-                      e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 25%, transparent)`;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isRejected) {
-                      e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground, #ff4d4d) 15%, transparent)`;
-                    }
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M18 6 6 18" />
-                    <path d="m6 6 12 12" />
-                  </svg>
-                  {isRejected ? "Rejected" : "Reject"}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <CommitMessageRenderer
+        action={action}
+        actionIndex={actionIndex}
+        messageId={messageId}
+        isActionClicked={clickedActions.has(actionId)}
+        isRejected={isRejected}
+        isLastItemInList={isLastItemInList}
+        onToolClick={onToolClick}
+        branch={gitStatusBranch}
+      />
     );
   }
 
   if (toolType === "git_diff") {
     const filePath = firstAction.params.file_path || "";
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     const actionId = `${messageId}-action-${actionIndex}`;
 
     // Check if we already have the diff result in toolOutputs
@@ -979,7 +925,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   // Handle read_file tool type
   if (toolType === "read_file") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
       <ReadFileRenderer
         key={actionIndex}
@@ -1004,7 +950,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   // Handle list_files tool type
   if (toolType === "list_files") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
       <ListFilesRenderer
         key={actionIndex}
@@ -1029,7 +975,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   // Handle find_files tool type
   if (toolType === "find_files") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
       <FindFilesRenderer
         key={actionIndex}
@@ -1054,7 +1000,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   // Handle grep tool type
   if (toolType === "grep") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
       <GrepRenderer
         key={actionIndex}
@@ -1079,7 +1025,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   // Handle delete_file and delete_folder tool types
   if (toolType === "delete_file" || toolType === "delete_folder") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
       <DeleteRenderer
         key={actionIndex}
@@ -1104,7 +1050,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   // Handle move_file tool type
   if (toolType === "move_file") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
       <MoveFileRenderer
         key={actionIndex}
@@ -1129,7 +1075,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   // Handle revert_file tool type
   if (toolType === "revert_file") {
     const action = firstAction;
-    const actionIndex = group[0].index;
+    const actionIndex = toolGroup[0].index;
     return (
       <RevertFileRenderer
         key={actionIndex}
@@ -1154,7 +1100,7 @@ const ToolRouterInternal: React.FC<ToolRouterProps> = ({
   // Fallback for non-styled tools
   return (
     <>
-      {group.map(({ action, index }) => (
+      {toolGroup.map(({ action, index }) => (
         <div key={index} style={{ marginBottom: "8px" }}>
           <div
             style={{
@@ -1369,8 +1315,8 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
 
       return (
         <React.Fragment key={key}>
-          <ToolRouterInternal
-            group={group}
+          <TagRouterInternal
+            group={{ type: "tools", items: group, key }}
             messageId={message.id}
             clickedActions={clickedActions}
             rejectedActions={rejectedActions}
@@ -1381,7 +1327,7 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
             isActiveGroup={isActiveGroup}
             failedActions={failedActions}
             isLastMessage={isLastMessage}
-            isLastItemInList={groupIdx === groups.length - 1}
+            isLastGroup={groupIdx === groups.length - 1}
             toolOutputs={toolOutputs}
             terminalStatus={terminalStatus}
             nextUserMessage={nextUserMessage}
@@ -1427,4 +1373,4 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
   );
 };
 
-export default ToolActionsList;
+export default TagRouterInternal;

@@ -11,7 +11,7 @@ import { GitStatusItem } from "@/features/chat/types/tool-types";
 import { parseGitStatusOutput } from "@/features/chat/utils/gitUtils";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 import { GitStatusBlock } from "../blocks/git_status/GitStatusBlock";
 
 // STYLES
@@ -158,7 +158,7 @@ export const GitStatusRenderer: React.FC<GitStatusRendererProps> = ({
         overflow: "visible",
       }}
     >
-      <ToolHeader
+      <TagHeader
         title={
           <div
             style={{

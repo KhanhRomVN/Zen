@@ -553,7 +553,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       return false;
     }
 
-    // Check other blocks (code, file, markdown, mixed_content) - skip thinking
+    // Check other blocks (code, file, markdown) - skip thinking
     const hasOtherBlocks =
       parsed.contentBlocks &&
       parsed.contentBlocks.some((b: any) => {
@@ -568,8 +568,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
           case "file":
           case "markdown":
             return (b as any).content?.trim().length > 0;
-          case "mixed_content":
-            return (b as any).segments?.length > 0;
           default:
             return false;
         }

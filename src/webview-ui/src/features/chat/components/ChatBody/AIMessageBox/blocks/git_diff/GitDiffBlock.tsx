@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { ToolHeader } from "../../ToolHeader";
 import FileIcon from "@/icons/FileIcon";
 import "../run_command/TerminalBlock.css";
 import "./GitDiffBlock.css";
@@ -249,17 +248,178 @@ const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
         overflow: "visible",
       }}
     >
-      <ToolHeader
-        title={headerTitle}
-        statusColor={statusColor}
-        isPartial={isPartial}
-        isCollapsed={isCollapsed}
+      <div
+        className="terminal-block-header"
         onClick={handleHeaderClick}
-        path={filePath}
-        onPathClick={() => {
-          if (onFileClick) onFileClick(filePath);
+        style={{
+          cursor: diffContent ? "pointer" : "default",
+          paddingTop: "4px",
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          width: "100%",
         }}
-      />
+      >
+        <div className="terminal-info" style={{ flex: 1, minWidth: 0 }}>
+          <div className="terminal-header-top">
+            <div
+              style={{
+                marginTop: "1px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "2px",
+                flex: 1,
+                minWidth: 0,
+                width: "100%",
+                maxWidth: "100%",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "8px",
+                  flexWrap: "nowrap",
+                }}
+              >
+                {/* Status dot */}
+                {statusColor && (
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "16px",
+                      height: "16px",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginTop: "2px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        width: "16px",
+                        height: "16px",
+                        borderRadius: "50%",
+                        border: `2px solid ${statusColor}`,
+                        opacity: isPartial ? 0.8 : 0.4,
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        backgroundColor: statusColor,
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Content */}
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "2px",
+                    marginTop: "2px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {diffContent && (
+                      <span
+                        className={`collapse-icon codicon codicon-chevron-${isCollapsed ? "right" : "down"}`}
+                        style={{ fontSize: "12px", marginRight: "4px" }}
+                      />
+                    )}
+                    {headerTitle}
+                  </div>
+
+                  {filePath && (
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        alignItems: "center",
+                        paddingRight: "4px",
+                        paddingTop: "4px",
+                        marginTop: "2px",
+                        position: "relative",
+                        width: "100%",
+                        maxWidth: "100%",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: "0",
+                          top: "0",
+                          width: "16px",
+                          height: "12px",
+                          borderLeft:
+                            "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                          borderBottom:
+                            "1px solid color-mix(in srgb, var(--vscode-descriptionForeground) 20%, transparent)",
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          opacity: 0.6,
+                          color: "var(--vscode-descriptionForeground)",
+                          fontFamily:
+                            "var(--vscode-editor-font-family, monospace)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          width: "100%",
+                          padding: "0 4px 0 20px",
+                          borderRadius: "2px",
+                          transition: "text-decoration 0.15s ease",
+                          cursor: onFileClick ? "pointer" : "default",
+                          textDecoration: "none",
+                        }}
+                        title={filePath}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onFileClick) {
+                            onFileClick(filePath);
+                          }
+                        }}
+                        onMouseEnter={(e) => {
+                          if (onFileClick) {
+                            e.currentTarget.style.textDecoration = "underline";
+                            e.currentTarget.style.textDecorationColor =
+                              "var(--vscode-focusBorder, rgba(0, 122, 204, 0.6))";
+                            e.currentTarget.style.textUnderlineOffset = "2px";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.textDecoration = "none";
+                        }}
+                      >
+                        {filePath}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {!isCollapsed && diffContent && (
         <div

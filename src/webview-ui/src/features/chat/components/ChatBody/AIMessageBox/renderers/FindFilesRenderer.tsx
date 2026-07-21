@@ -16,7 +16,7 @@ import {
 import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
-import { ToolHeader } from "../ToolHeader";
+import { TagHeader } from "../TagHeader";
 import { TreeBlock } from "../blocks/tree/TreeBlock";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
@@ -76,7 +76,7 @@ export const FindFilesRenderer: React.FC<BaseRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "2px",
       }}
     >
-      <ToolHeader
+      <TagHeader
         title={
           <div
             style={{
