@@ -24,8 +24,6 @@ export const useFileStats = (
   >(new Map());
 
   const conversationFileStats = useMemo(() => {
-    const startTime = performance.now();
-
     // If we have loaded stats from history and no new messages, use loaded stats
     if (
       loadedConversationFileStats &&

@@ -32,7 +32,31 @@ export type GroupType =
       key: string;
     }
   | { type: "warning"; label: string; message: string; key: string }
-  | { type: "thinking"; content: string; key: string };
+  | { type: "thinking"; content: string; key: string }
+  | { type: "response_number"; content: string; key: string };
+
+/**
+ * ContentBlock for parser - same as GroupType but without 'key' field
+ * Used by ResponseParser to build content blocks before key assignment
+ */
+export type ContentBlock =
+  | { type: "markdown"; content: string }
+  | {
+      type: "question";
+      options: string[];
+      title?: string;
+      optional?: boolean;
+      questions?: Question[];
+    }
+  | { type: "tool"; action: ToolAction; actionIndex?: number }
+  | { type: "thinking"; content: string }
+  | {
+      type: "error";
+      content: string;
+      errorCode?: string;
+      toolName?: string;
+      toolParams?: Record<string, any>;
+    };
 
 // ============= RENDERER PROPS =============
 

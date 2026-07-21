@@ -41,25 +41,7 @@ export interface ToolAction {
   errorCode?: string;
 }
 
-export type ContentBlock =
-  { type: "markdown"; content: string }
-  | {
-      type: "question";
-      options: string[];
-      title?: string;
-      optional?: boolean;
-      /** New structured questions for pagination */
-      questions?: import("../types/message").Question[];
-    }
-  | { type: "tool"; action: ToolAction; actionIndex?: number }
-  | { type: "thinking"; content: string }
-  | {
-      type: "error";
-      content: string;
-      errorCode?: string;
-      toolName?: string;
-      toolParams?: Record<string, any>;
-    };
+import type { ContentBlock } from "../types/renderer-types";
 
 /**
  * Parse AI response to extract tool actions

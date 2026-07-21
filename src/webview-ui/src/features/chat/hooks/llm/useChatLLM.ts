@@ -18,6 +18,7 @@ import { useMessageHandlers } from "./useMessageHandlers";
 import { PromptBuilder } from "../../services/PromptBuilder";
 import { StreamingService } from "../../services/StreamingService";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
+import { XML_TOOL_SYNTAX_REMINDER } from "../../prompts/reminder";
 
 interface UseChatLLMProps {
   apiUrl: string;
@@ -725,10 +726,6 @@ export const useChatLLM = ({
                 return `\n[${toolName}${forPart}] Result: Error - ${errorCode}: ${errorMsg}`;
               },
             );
-
-            // Import XML syntax reminder
-            const { XML_TOOL_SYNTAX_REMINDER } =
-              await import("../../prompts/reminder");
 
             // Append errors and reminder to content
             assistantMessage.content +=

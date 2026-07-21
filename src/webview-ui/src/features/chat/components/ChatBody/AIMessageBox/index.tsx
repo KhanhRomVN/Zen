@@ -11,6 +11,7 @@ import {
 // TYPES
 import { Message, Question } from "@/features/chat/types/message";
 import { ParsedResponse } from "@/features/chat/services/ResponseParser";
+import { GroupType } from "@/features/chat/types/renderer-types";
 
 // COMPONENTS
 import TagRouter from "./TagRouter";
@@ -232,32 +233,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       }}
     >
       {(() => {
-        const groups: Array<
-          | { type: "markdown"; content: string; key: string }
-          | {
-              type: "tools";
-              items: { action: any; index: number }[];
-              key: string;
-            }
-          | {
-              type: "question";
-              options: string[];
-              title?: string;
-              optional?: boolean;
-              questions?: Question[];
-              key: string;
-            }
-          | {
-              type: "error";
-              content: string;
-              errorCode?: string;
-              toolName?: string;
-              toolParams?: Record<string, any>;
-              key: string;
-            }
-          | { type: "response_number"; content: string; key: string }
-          | { type: "warning"; label: string; message: string; key: string }
-        > = [];
+        const groups: GroupType[] = [];
 
         if (
           responseNumber !== null &&

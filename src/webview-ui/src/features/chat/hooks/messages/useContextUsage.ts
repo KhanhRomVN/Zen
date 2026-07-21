@@ -22,8 +22,6 @@ export const useContextUsage = (messages: Message[]): ContextUsage => {
   });
 
   const contextUsage = useMemo(() => {
-    const startTime = performance.now();
-
     const canUseIncremental =
       messages.length >= lastContextUsageLengthRef.current;
 

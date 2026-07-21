@@ -14,10 +14,7 @@ export const useWorkspaceData = () => {
 
   // Listen for workspace files/folders responses from extension
   useEffect(() => {
-    const setupStartTime = performance.now();
-
     const handleWorkspaceResponse = (event: MessageEvent) => {
-      const eventStartTime = performance.now();
       const data = event.data;
 
       if (data.command === "workspaceFilesResponse") {
@@ -48,7 +45,6 @@ export const useWorkspaceData = () => {
 
   // Load rules from localStorage
   useEffect(() => {
-    const loadStartTime = performance.now();
     const stored = localStorage.getItem("zen-rules");
 
     if (stored) {

@@ -17,12 +17,10 @@ export const useMessageHandlers = ({
   backendConversationIdRef,
 }: UseMessageHandlersProps) => {
   useEffect(() => {
-    const handlerStart = performance.now();
     let handlerCallCount = 0;
 
     const handleMessage = (event: MessageEvent) => {
       handlerCallCount++;
-      const eventStart = performance.now();
       const { command, actionId } = event.data;
 
       if (
@@ -105,5 +103,10 @@ export const useMessageHandlers = ({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [selectedTab, setMessages, currentConversationIdRef, backendConversationIdRef]);
+  }, [
+    selectedTab,
+    setMessages,
+    currentConversationIdRef,
+    backendConversationIdRef,
+  ]);
 };
