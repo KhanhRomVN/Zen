@@ -20,7 +20,6 @@ import { parseMarkdown } from "./parsers/MarkdownParser";
 
 import { extractThinkingBlocks } from "./parsers/ThinkingParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
-import { parseCode } from "./parsers/CodeParser";
 
 export interface ParsedResponse {
   followupQuestion: string | null;
@@ -30,7 +29,6 @@ export interface ParsedResponse {
   contentBlocks: ContentBlock[];
   displayText: string;
   question: ContentBlock | null;
-  /** True if response contains ONLY thinking blocks, no other content or tools */
   onlyThinkingDetected?: boolean;
 }
 
@@ -38,18 +36,13 @@ export interface ToolAction {
   type: TagType;
   params: Record<string, any>;
   rawXml: string;
-  /** True if this action has a parsing error (e.g., unclosed tag) */
   isError?: boolean;
-  /** Error message if isError is true */
   errorMessage?: string;
-  /** Error code if isError is true */
   errorCode?: string;
 }
 
 export type ContentBlock =
-  | { type: "code"; content: string; language?: string }
-  | { type: "file"; content: string }
-  | { type: "markdown"; content: string }
+  { type: "markdown"; content: string }
   | {
       type: "question";
       options: string[];
@@ -179,70 +172,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     }
     remainingContent = remainingContent.replace(missingBracketRegex, "$1<$2>");
   }
-
-  // Helper to find next tag
-  /**
-   * Validate that all param tags inside a tool have proper closing tags
-   * Returns the name of the first missing closing tag, or null if all are closed
-   *
-   * IMPORTANT: This validates XML param tags (like <file_path>, <content>), NOT HTML tags inside content.
-   * For display tags like <markdown>, <code>, <file>, we skip validation since their content may contain HTML.
-   * <question> is NOT skipped because it contains structured XML (<q>, <option>) that needs validation.
-   */
-  const validateParamTags = (
-    innerContent: string,
-    toolName: string,
-  ): string | null => {
-    // Skip validation for display tags - they can contain arbitrary HTML
-    const DISPLAY_TAGS = ["markdown", "code", "file"];
-    if (DISPLAY_TAGS.includes(toolName)) {
-      return null; // Don't validate HTML tags inside display content
-    }
-
-    // Extract all opening param tags (excluding self-closing tags like <q ... />)
-    const openTagRegex = /<([a-zA-Z_][a-zA-Z0-9_]*?)(?:\s+[^>]*)?>(?!\/)/g;
-    const selfClosingRegex = /<([a-zA-Z_][a-zA-Z0-9_]*?)(?:\s+[^>]*)?\/>/g;
-    const closeTagRegex = /<\/([a-zA-Z_][a-zA-Z0-9_]*)>/g;
-
-    const openTags: string[] = [];
-    const selfClosingTags: Set<string> = new Set();
-    const closeTags: string[] = [];
-
-    let match;
-
-    // Find self-closing tags first
-    while ((match = selfClosingRegex.exec(innerContent)) !== null) {
-      selfClosingTags.add(match[1]);
-    }
-
-    // Find opening tags (non-self-closing)
-    while ((match = openTagRegex.exec(innerContent)) !== null) {
-      const tagName = match[1];
-      // Only count as opening tag if it's not immediately followed by />
-      const fullMatch = match[0];
-      if (!fullMatch.endsWith("/>")) {
-        openTags.push(tagName);
-      }
-    }
-
-    // Find closing tags
-    while ((match = closeTagRegex.exec(innerContent)) !== null) {
-      closeTags.push(match[1]);
-    }
-
-    // Check each opening tag has a corresponding closing tag
-    // Ignore tags that are self-closing
-    for (const tag of openTags) {
-      const openCount = openTags.filter((t) => t === tag).length;
-      const closeCount = closeTags.filter((t) => t === tag).length;
-
-      if (openCount > closeCount) {
-        return tag; // This tag is missing closing tag(s)
-      }
-    }
-
-    return null;
-  };
 
   const findNextTag = (str: string) => {
     let minIndex = -1;
@@ -418,25 +347,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           );
         }
 
-        if (toolName === "code") {
-          // Explicit <code> tag - use CodeParser
-          const codeData = parseCode(innerContent || "");
-          if (codeData.content) {
-            result.contentBlocks.push({
-              type: "code",
-              content: codeData.content,
-              language: codeData.language || "text",
-            });
-          }
-        } else if (toolName === "file") {
-          // Explicit <file> tag
-          if (innerContent && innerContent.trim()) {
-            result.contentBlocks.push({
-              type: "file",
-              content: innerContent.trim(),
-            });
-          }
-        } else if (toolName === "markdown") {
+        if (toolName === "markdown") {
           // Explicit <markdown> tag - use MarkdownParser
           const content = parseMarkdown(innerContent || "");
           if (content) {

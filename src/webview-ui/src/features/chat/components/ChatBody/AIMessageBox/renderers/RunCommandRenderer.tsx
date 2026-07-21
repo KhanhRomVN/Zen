@@ -1,26 +1,26 @@
 import React from "react";
 
 // HOOKS
-import { useSettings } from "../../../../../context/SettingsContext";
+import { useSettings } from "../../../../../../context/SettingsContext";
 
 // SERVICES
-import { extensionService } from "../../../../../services/ExtensionService";
+import { extensionService } from "../../../../../../services/ExtensionService";
 
 // CONSTANTS
-import { TOOL_ACTION_TYPES } from "../../../constants/constants";
+import { TOOL_ACTION_TYPES } from "../../../../constants/constants";
 
 // TYPES
-import { ToolAction } from "../../../services/ResponseParser";
-import { Message } from "../../../types/message";
+import { ToolAction } from "../../../../services/ResponseParser";
+import { Message } from "../../../../types/message";
 
 // UTILS
-import { getPermissionDecision } from "../../../utils/permissionUtils";
+import { getPermissionDecision } from "../../../../utils/permissionUtils";
 
 // COMPONENTS
-import { TerminalBlock } from "./blocks/run_command/TerminalBlock";
-import ExecuteButton from "./ExecuteButton";
+import { TerminalBlock } from "../blocks/run_command/TerminalBlock";
+import ExecuteButton from "../ExecuteButton";
 
-interface TerminalToolRendererProps {
+interface RunCommandRendererProps {
   action: ToolAction;
   actionIndex: number;
   messageId: string;
@@ -44,7 +44,7 @@ interface TerminalToolRendererProps {
   storedOutput?: string | null;
 }
 
-const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
+export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
   action,
   actionIndex,
   messageId,
@@ -313,5 +313,3 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
     </div>
   );
 };
-
-export default TerminalToolRenderer;

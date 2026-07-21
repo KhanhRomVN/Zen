@@ -324,10 +324,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
   },
 
   // ===== UI TAGS (category: "ui") =====
-  code: {
-    id: "code",
-    category: "ui",
-  },
   markdown: {
     id: "markdown",
     category: "ui",

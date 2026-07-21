@@ -1,0 +1,79 @@
+/* ThinkingBlock.css - Styles for thinking/reasoning display */
+
+.thinking-block-container {
+  padding-bottom: 8px;
+}
+
+.thinking-block-wrapper {
+  padding-top: 4px;
+}
+
+.thinking-block-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.thinking-block-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vscode-editorBracketHighlight-foreground2, #a855f7);
+  opacity: 0.85;
+}
+
+.thinking-block-content {
+  padding: 6px 10px;
+  background: var(
+    --vscode-editor-background,
+    var(--vscode-textCodeBlock-background)
+  );
+  border-radius: 4px;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%,
+      var(--vscode-widget-border, rgba(255, 255, 255, 0.08))
+    );
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, var(--vscode-editor-foreground));
+  opacity: 0.85;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+}
+
+.thinking-block-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.thinking-block-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thinking-block-content::-webkit-scrollbar-thumb {
+  background: var(
+    --vscode-scrollbarSlider-background,
+    rgba(121, 121, 121, 0.4)
+  );
+  border-radius: 3px;
+}
+
+.thinking-block-content::-webkit-scrollbar-thumb:hover {
+  background: var(
+    --vscode-scrollbarSlider-hoverBackground,
+    rgba(100, 100, 100, 0.7)
+  );
+}
+
+/* Hide scrollbar for thinking block scroll container */
+.thinking-block-scroll::-webkit-scrollbar {
+  display: none;
+}

@@ -1,23 +1,23 @@
 import React, { useMemo } from "react";
 
 // CONSTANTS
-import { TOOL_ACTION_TYPES } from "../../../constants/constants";
+import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
 
 // TYPES
-import { ToolAction } from "../../../services/ResponseParser";
-import { GitStatusItem } from "../../../types/tool-types";
+import { ToolAction } from "@/features/chat/services/ResponseParser";
+import { GitStatusItem } from "@/features/chat/types/tool-types";
 
 // UTILS
-import { parseGitStatusOutput } from "../../../utils/gitUtils";
+import { parseGitStatusOutput } from "@/features/chat/utils/gitUtils";
 
 // COMPONENTS
-import { ToolHeader } from "./ToolHeader";
-import { GitStatusBlock } from "./blocks/git_status/GitStatusBlock";
+import { ToolHeader } from "../ToolHeader";
+import { GitStatusBlock } from "../blocks/git_status/GitStatusBlock";
 
 // STYLES
-import "./blocks/run_command/TerminalBlock.css";
+import "../blocks/run_command/TerminalBlock.css";
 
-interface GitToolRendererProps {
+interface GitStatusRendererProps {
   action: ToolAction;
   actionIndex: number;
   messageId: string;
@@ -40,7 +40,11 @@ interface GitToolRendererProps {
   branch?: string;
 }
 
-const GitToolRenderer: React.FC<GitToolRendererProps> = ({
+/**
+ * Renderer for git_status tool type
+ * Displays git repository status with file changes
+ */
+export const GitStatusRenderer: React.FC<GitStatusRendererProps> = ({
   action,
   actionIndex,
   messageId,
@@ -63,6 +67,7 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
   if (!isVisible) {
     return null;
   }
+
   const hasOutput = toolOutputs && toolOutputs[actionId];
 
   // Parse git output from toolOutputs or from action params (for restored conversations)
@@ -118,7 +123,7 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
         0,
       );
       return {
-        label: `GIT STATUS${branch ? `(${branch})` : ""}`,
+        label: `GIT STATUS${branch ? ` (${branch})` : ""}`,
         stats: `${effectiveItems.length} changes +${totalAdded} -${totalDeleted}`,
         totalAdded,
         totalDeleted,
@@ -132,7 +137,7 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
       onConfirm(effectiveItems);
     } else {
       console.warn(
-        "[GitToolRenderer] Cannot confirm - no onConfirm or no items",
+        "[GitStatusRenderer] Cannot confirm - no onConfirm or no items",
       );
     }
   };
@@ -226,5 +231,3 @@ const GitToolRenderer: React.FC<GitToolRendererProps> = ({
     </div>
   );
 };
-
-export default GitToolRenderer;

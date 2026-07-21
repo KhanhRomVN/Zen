@@ -12,7 +12,7 @@ import { useToolActions } from "../../hooks/tools/useToolActions";
 import { useScrollBehavior } from "../../hooks/ui/useScrollBehavior";
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import SearchBar from "./SearchBar";
-import ThinkingRenderer from "./ThinkingRenderer";
+import { ThinkingRenderer } from "./AIMessageBox/renderers/ThinkingRenderer";
 import ContinuingIndicator from "./ContinuingIndicatorBox";
 import ProcessingIndicator from "./ProcessingIndicator";
 import UserMessageBox from "./UserMessageBox";

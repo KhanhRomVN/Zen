@@ -13,16 +13,13 @@ import {
 import { Message, Question } from "@/features/chat/types/message";
 import { ParsedResponse } from "@/features/chat/services/ResponseParser";
 
-// UTILS
-import { isDiff, parseDiff } from "@/utils/diffUtils";
-
 // COMPONENTS
 import CodeBlock from "./blocks/code/CodeBlock";
 import MarkdownBlock from "./blocks/markdown/MarkdownBlock";
 import QuestionBlock from "./blocks/question/QuestionBlock";
 import ErrorBlock from "./blocks/error/ErrorBlock";
 import WarningBlock from "./blocks/warning/WarningBlock";
-import ToolAction from "./ToolAction";
+import ToolAction from "./ContentRouter";
 import ResponseMetadataBar from "./ResponseMetadataBar";
 
 // STYLES
@@ -279,8 +276,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
     >
       {(() => {
         const groups: Array<
-          | { type: "code"; content: string; language: string; key: string }
-          | { type: "file"; content: string; key: string }
           | { type: "markdown"; content: string; key: string }
           | { type: "mixed_content"; segments: any[]; key: string }
           | {
@@ -372,13 +367,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 toolParams: block.toolParams,
                 key: `error-${idx}`,
               });
-            } else if (block.type === "file") {
-              flushTools();
-              groups.push({
-                type: "file",
-                content: block.content,
-                key: `file-${idx}`,
-              });
             } else if (block.type === "markdown") {
               flushTools();
               groups.push({
@@ -405,16 +393,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 segments: block.segments,
                 key: `mixed_content-${idx}`,
               });
-            } else {
-              flushTools();
-              if (block.type === "code") {
-                groups.push({
-                  type: "code",
-                  content: block.content,
-                  language: block.language || "text",
-                  key: `code-${groups.length}`,
-                });
-              }
             }
           });
           flushTools();
@@ -449,63 +427,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 message={message}
                 previousUserMessage={previousUserMessage}
               />
-            );
-          } else if (group.type === "code") {
-            const isDiffBlock = isDiff(group.content, group.language);
-            let displayCode = group.content;
-            let diffStats: { added: number; removed: number } | undefined =
-              undefined;
-            let prefix: string | undefined = undefined;
-            let statusColor: string | undefined =
-              "var(--vscode-descriptionForeground, #6a737d)";
-            if (isDiffBlock) {
-              const diffResult = parseDiff(group.content);
-              displayCode = diffResult.code;
-              diffStats = diffResult.stats;
-              prefix = "Edit";
-              statusColor =
-                "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
-            }
-            content = (
-              <CodeBlock
-                code={displayCode}
-                language={isDiffBlock ? "python" : group.language}
-                diffStats={diffStats}
-                isDiffBlock={isDiffBlock}
-                prefix={prefix}
-                statusColor={statusColor}
-              />
-            );
-          } else if (group.type === "file") {
-            content = (
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "4px 8px",
-                  borderRadius: "4px",
-                  backgroundColor: "var(--vscode-badge-background)",
-                  color: "var(--vscode-badge-foreground)",
-                  fontSize: "12px",
-                  cursor: "pointer",
-                }}
-                onClick={() => {
-                  const vscodeApi = (window as any).vscodeApi;
-                  if (vscodeApi) {
-                    vscodeApi.postMessage({
-                      command: "openFile",
-                      path: group.content,
-                    });
-                  }
-                }}
-              >
-                <FileIcon
-                  path={group.content}
-                  style={{ width: "14px", height: "14px" }}
-                />
-                <span>{group.content}</span>
-              </div>
             );
           } else if (group.type === "markdown") {
             content = (
