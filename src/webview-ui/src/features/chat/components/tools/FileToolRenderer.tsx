@@ -1,10 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { ToolAction } from "../../services/ResponseParser";
 import FileIcon from "@/icons/FileIcon";
 import { ToolHeader } from "./ToolHeader";
 import { parseDiff, calculateLineDiff } from "../../../../utils/diffUtils";
 import { getFilename } from "../../utils/toolUtils";
-import { getDisplayPath, collectConvFilePaths } from "../../utils/pathUtils";
 import { extensionService } from "../../../../services/ExtensionService";
 import { Message } from "../../types/message";
 import ExecuteButton from "./ExecuteButton";
@@ -16,53 +15,42 @@ import { getPermissionDecision } from "../../utils/permissionUtils";
 import { ToolOutputs } from "../../types/tool-outputs";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
 import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
+import { STREAM_BOX_HEIGHT } from "../../constants/constants";
 
-// Fixed-height streaming preview box shown while write_to_file / replace_in_file is streaming.
-// Auto-scrolls to bottom as new content arrives. Hidden once streaming finishes.
-const STREAM_BOX_HEIGHT = 154; // px — 120 base + 2 extra lines (≈17px/line)
+export const getDisplayPath = (
+  fullPath: string,
+  allPaths: string[],
+): string => {
+  const sep = /[/\\]/;
+  const parts = fullPath.split(sep).filter(Boolean);
+  if (parts.length === 0) return fullPath;
 
-const StreamingPreviewBox: React.FC<{ content: string }> = ({ content }) => {
-  const boxRef = useRef<HTMLDivElement>(null);
-  const streamCountRef = useRef(0);
+  for (let depth = 1; depth <= parts.length; depth++) {
+    const candidate = parts.slice(-depth).join("/");
+    const conflicts = allPaths.filter((p) => {
+      const ps = p.split(sep).filter(Boolean);
+      return ps.slice(-depth).join("/") === candidate && p !== fullPath;
+    });
+    if (conflicts.length === 0) return candidate;
+  }
+  return parts.join("/");
+};
 
-  // Auto-scroll to bottom whenever content grows
-  useEffect(() => {
-    streamCountRef.current += 1;
-    if (boxRef.current) {
-      boxRef.current.scrollTop = boxRef.current.scrollHeight;
+/**
+ * Collects all file paths referenced by file-type tool actions across all messages.
+ */
+export const collectConvFilePaths = (allMessages: Message[]): string[] => {
+  const paths: string[] = [];
+  const filePathRegex = /<file_path>([\s\S]*?)<\/file_path>/g;
+  for (const msg of allMessages) {
+    if (msg.role !== "assistant") continue;
+    let m: RegExpExecArray | null;
+    while ((m = filePathRegex.exec(msg.content)) !== null) {
+      if (m[1].trim()) paths.push(m[1].trim());
     }
-  }, [content]);
-
-  return (
-    <div
-      ref={boxRef}
-      style={{
-        height: `${STREAM_BOX_HEIGHT}px`,
-        overflowY: "hidden", // no scrollbar visible — just auto-scroll
-        overflowX: "hidden",
-        background:
-          "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-        borderRadius: "4px",
-        border: "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-        marginTop: "4px",
-        padding: "6px 10px",
-        fontFamily: "var(--vscode-editor-font-family, monospace)",
-        fontSize: "11px",
-        lineHeight: "1.5",
-        color: "var(--vscode-editor-foreground)",
-        whiteSpace: "pre",
-        wordBreak: "break-all",
-        opacity: 0.85,
-        position: "relative",
-        // Fade out the top so it looks like a scrolling ticker
-        maskImage: "linear-gradient(to bottom, transparent 0%, black 30%)",
-        WebkitMaskImage:
-          "linear-gradient(to bottom, transparent 0%, black 30%)",
-      }}
-    >
-      {content}
-    </div>
-  );
+    filePathRegex.lastIndex = 0;
+  }
+  return paths;
 };
 
 interface FileToolRendererProps {
@@ -214,7 +202,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
       ? action.params.content?.split("\n").length || 0
       : 0;
 
-  // Extract line range info for read_file - will be calculated after isCompleted
   let lineRangeText: string | null = null;
 
   if (mergedItems && mergedItems.length > 1) {
@@ -346,7 +333,6 @@ const FileToolRenderer: React.FC<FileToolRendererProps> = ({
   // Get diagnostics from toolOutputs ONLY (single source of truth)
   // No cache, no merge - prioritize consistency over performance
   const mergedDiagnostics = React.useMemo(() => {
-    const _diagStartTime = performance.now();
     const shouldGetDiagnostics =
       (toolType === "read_file" ||
         toolType === "write_to_file" ||

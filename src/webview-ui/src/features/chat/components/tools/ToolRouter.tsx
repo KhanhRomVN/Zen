@@ -7,7 +7,7 @@ import {
   shouldValidateFuzzyMatch,
   getToolDef,
   isToolClickable,
-  TOOL_REGISTRY,
+  TOOL_TAG_REGISTRY,
   TOOL_ACTION_TYPES,
   EXECUTION_STATUS,
 } from "../../constants/constants";
@@ -1025,9 +1025,7 @@ const ToolRouter: React.FC<ToolRouterProps> = ({
               backgroundColor: "var(--secondary-bg)",
               border: "2px solid var(--vscode-descriptionForeground, #6b7280)",
               borderRadius: "var(--border-radius-lg)",
-              cursor: isToolClickable(action.type)
-                ? "pointer"
-                : "default",
+              cursor: isToolClickable(action.type) ? "pointer" : "default",
               transition: "all 0.2s",
               display: "flex",
               alignItems: "center",

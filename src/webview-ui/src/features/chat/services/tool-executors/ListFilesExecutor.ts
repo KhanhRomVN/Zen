@@ -41,7 +41,7 @@ export async function executeListFiles(
         // Return raw JSON array - let the UI format it
         resolve(listResults);
       },
-      TOOL_TIMEOUT,
+      getToolTimeout('list_files'),
       () => resolve(null),
     );
   });

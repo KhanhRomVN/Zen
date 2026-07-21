@@ -1,6 +1,6 @@
 import {
   PermissionMode,
-  TOOL_REGISTRY,
+  TOOL_TAG_REGISTRY,
   type PermissionValue,
 } from "../constants/constants";
 
@@ -14,7 +14,7 @@ export const getPermissionDecision = (
   mode: PermissionMode,
   toolType: string,
 ): "allow" | "confirm" | "reject" => {
-  const toolDef = TOOL_REGISTRY[toolType];
+  const toolDef = TOOL_TAG_REGISTRY[toolType];
   if (!toolDef) {
     return "reject";
   }

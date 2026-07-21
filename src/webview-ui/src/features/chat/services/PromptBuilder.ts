@@ -1,5 +1,10 @@
-import { getDefaultPrompt, combinePrompts, buildPermissionModeTag, CHECKPOINT_REMINDER, CHECKPOINT_INTERVAL } from "../prompts";
-import { getShallowTree } from "../utils/messageParser";
+import {
+  getDefaultPrompt,
+  combinePrompts,
+  buildPermissionModeTag,
+  CHECKPOINT_REMINDER,
+  CHECKPOINT_INTERVAL,
+} from "../prompts";
 import { extensionService } from "@/services/ExtensionService";
 
 export interface PromptBuilderOptions {
@@ -13,6 +18,38 @@ export interface PromptBuilderOptions {
   files?: any[];
   userRequestCount: number;
 }
+
+export const getShallowTree = (tree: string): string => {
+  const lines = tree.split("\n");
+  const result: string[] = [];
+  let currentFolder: string | null = null;
+  let fileCount = 0;
+
+  const flush = () => {
+    if (currentFolder !== null) {
+      result.push(`${currentFolder} (${fileCount} files)`);
+      currentFolder = null;
+      fileCount = 0;
+    }
+  };
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const isTopLevel = !/^ /.test(line);
+    if (isTopLevel) {
+      flush();
+      if (line.trimEnd().endsWith("/")) {
+        currentFolder = line.trimEnd();
+      } else {
+        result.push(line);
+      }
+    } else if (currentFolder !== null) {
+      if (!line.trimEnd().endsWith("/")) fileCount++;
+    }
+  }
+  flush();
+  return result.join("\n");
+};
 
 export class PromptBuilder {
   static async buildPrompt(options: PromptBuilderOptions): Promise<string> {
@@ -58,7 +95,10 @@ export class PromptBuilder {
 
     // Checkpoint reminder
     let checkpointReminder = "";
-    if (!skipFirstRequestLogic && userRequestCount % CHECKPOINT_INTERVAL === 0) {
+    if (
+      !skipFirstRequestLogic &&
+      userRequestCount % CHECKPOINT_INTERVAL === 0
+    ) {
       checkpointReminder = `\n\n${CHECKPOINT_REMINDER}`;
     }
 
@@ -113,7 +153,10 @@ export class PromptBuilder {
     return systemPrompt;
   }
 
-  private static buildProjectContext(treeView: string, workspace: string): string {
+  private static buildProjectContext(
+    treeView: string,
+    workspace: string,
+  ): string {
     let projectContextStr = "";
 
     if (treeView && treeView.trim()) {
@@ -142,9 +185,15 @@ export class PromptBuilder {
 
     const fileItems = attachedItems.filter((f: any) => f.type === "file");
     const folderItems = attachedItems.filter((f: any) => f.type === "folder");
-    const terminalItems = attachedItems.filter((f: any) => f.type === "terminal");
-    const snippetItems = attachedItems.filter((f: any) => f.type === "text-snippet"); // 🚀 NEW
-    const externalItems = attachedItems.filter((f: any) => f.type === "external"); // 🚀 NEW
+    const terminalItems = attachedItems.filter(
+      (f: any) => f.type === "terminal",
+    );
+    const snippetItems = attachedItems.filter(
+      (f: any) => f.type === "text-snippet",
+    ); // 🚀 NEW
+    const externalItems = attachedItems.filter(
+      (f: any) => f.type === "external",
+    ); // 🚀 NEW
 
     if (fileItems.length > 0) {
       attachedContextStr += "\n### Files\n";

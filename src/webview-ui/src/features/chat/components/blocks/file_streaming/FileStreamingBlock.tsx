@@ -7,12 +7,6 @@ export interface FileStreamingBlockProps {
   className?: string;
 }
 
-/**
- * FileStreamingBlock - Hiển thị nội dung file đang được streaming.
- * - Không có border-top
- * - Có shadow-top (bóng mờ phía trên) để báo hiệu có thể scroll
- * - Auto-scroll xuống cuối khi có nội dung mới
- */
 const FileStreamingBlock: React.FC<FileStreamingBlockProps> = ({
   content,
   maxHeight = 200,

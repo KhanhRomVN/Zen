@@ -4,10 +4,10 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import "./TerminalBlock.css";
 import { useProject } from "../../../../../context/ProjectContext";
+import { Copy, Check } from "lucide-react";
 
 interface TerminalBlockProps {
   logs: string;
-  status?: "busy" | "idle" | "free";
   maxHeight?: number;
   rows?: number;
   initialCommand?: string;
@@ -16,42 +16,6 @@ interface TerminalBlockProps {
   rejectedOutline?: boolean;
 }
 
-const CopyIcon: React.FC = () => (
-  <svg
-    width="13"
-    height="13"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-  </svg>
-);
-
-const CheckIcon: React.FC = () => (
-  <svg
-    width="13"
-    height="13"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-
-/** Copy button:
- *  - hidden (opacity 0) by default, shown (opacity 1) via parent CSS class
- *  - no background in resting state, subtle bg on hover
- *  - shows checkmark for 1.5 s after copy
- */
 const CopyButton: React.FC<{ getText: () => string; title?: string }> = ({
   getText,
   title,
@@ -111,7 +75,7 @@ const CopyButton: React.FC<{ getText: () => string; title?: string }> = ({
         transition: "background 0.15s, color 0.15s, opacity 0.15s",
       }}
     >
-      {copied ? <CheckIcon /> : <CopyIcon />}
+      {copied ? <Check size={13} /> : <Copy size={13} />}
     </button>
   );
 };
@@ -190,33 +154,16 @@ const getCSSVar = (name: string, fallback: string): string => {
 };
 
 /** Build xterm.js theme object by reading VS Code CSS variables from the DOM.
- *  This ensures xterm receives actual resolved color values,
- *  so terminal output colors match the current VS Code theme. */
+ *  Simplified version — only foreground/background/cursor are needed
+ *  since terminal output is monochrome (no ANSI color codes). */
 const buildXtermTheme = () => ({
   background: "transparent",
   foreground: getCSSVar("--vscode-terminal-foreground", "#cccccc"),
   cursor: getCSSVar("--vscode-terminal-foreground", "#cccccc"),
-  black: getCSSVar("--vscode-terminal-ansiBlack", "#000000"),
-  red: getCSSVar("--vscode-terminal-ansiRed", "#cd3131"),
-  green: getCSSVar("--vscode-terminal-ansiGreen", "#0dbc79"),
-  yellow: getCSSVar("--vscode-terminal-ansiYellow", "#e5e510"),
-  blue: getCSSVar("--vscode-terminal-ansiBlue", "#2472c8"),
-  magenta: getCSSVar("--vscode-terminal-ansiMagenta", "#bc3fbc"),
-  cyan: getCSSVar("--vscode-terminal-ansiCyan", "#11a8cd"),
-  white: getCSSVar("--vscode-terminal-ansiWhite", "#e5e5e5"),
-  brightBlack: getCSSVar("--vscode-terminal-ansiBrightBlack", "#666666"),
-  brightRed: getCSSVar("--vscode-terminal-ansiBrightRed", "#f14c4c"),
-  brightGreen: getCSSVar("--vscode-terminal-ansiBrightGreen", "#23d18b"),
-  brightYellow: getCSSVar("--vscode-terminal-ansiBrightYellow", "#f5f543"),
-  brightBlue: getCSSVar("--vscode-terminal-ansiBrightBlue", "#3b8eea"),
-  brightMagenta: getCSSVar("--vscode-terminal-ansiBrightMagenta", "#d670d6"),
-  brightCyan: getCSSVar("--vscode-terminal-ansiBrightCyan", "#29b8db"),
-  brightWhite: getCSSVar("--vscode-terminal-ansiBrightWhite", "#e5e5e5"),
 });
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   logs,
-  status,
   maxHeight = 400,
   initialCommand,
   cwd,
@@ -255,13 +202,13 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   const visibleEffectCountRef = useRef(0);
   useEffect(() => {
     visibleEffectCountRef.current += 1;
-    const shouldShow = !!(logs || status === "busy");
+    const shouldShow = !!logs;
     if (shouldShow) {
       setIsXtermVisible(true);
     } else {
       setIsXtermVisible(false);
     }
-  }, [logs, status]);
+  }, [logs]);
 
   const initTermCountRef = useRef(0);
   useEffect(() => {
@@ -350,7 +297,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
         cursor: "transparent",
       };
     }
-  }, [logs, status, isXtermVisible, rows]);
+  }, [logs, isXtermVisible, rows]);
 
   const getCleanLogs = () => stripAnsi(logs || "");
   const getCommand = () => initialCommand || "";

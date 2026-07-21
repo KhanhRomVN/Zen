@@ -31,7 +31,7 @@ export const executeDeleteFolder = (
           `[delete_folder for '${folderPath}'] Result: Folder deleted successfully`,
         );
       },
-      TOOL_TIMEOUT,
+      getToolTimeout('delete_folder'),
       () => resolve(null),
     );
   });

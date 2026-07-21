@@ -15,11 +15,9 @@ interface QuestionAnswerBlockProps {
   onAllAnswered?: (answers: Record<string, QuestionAnswer>) => void;
   disabled?: boolean;
   title?: string;
-  /** Legacy props for single-question mode */
   selectedOption?: string;
   onOptionSelect?: (option: string) => void;
   optional?: boolean;
-  /** Pre-filled answers from message state (injected after user submits) */
   questionAnswers?: Record<string, QuestionAnswer>;
 }
 
@@ -436,15 +434,6 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
       default:
         return "";
     }
-  };
-
-  // Determine status color for ToolHeader dot
-  const getStatusColor = () => {
-    if (isAllAnswered)
-      return "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
-    if (isCurrentAnswered())
-      return "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
-    return "var(--vscode-descriptionForeground)";
   };
 
   // Render single question type

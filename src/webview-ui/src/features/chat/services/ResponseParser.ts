@@ -1,8 +1,6 @@
-import { normalizeTagVariants } from "../utils/TagNormalizer";
+import { decodeHtmlEntities } from "../utils/HtmlEntitiesDecoder";
 import { parseToolAction } from "../utils/ToolParser";
 import { getAllToolTypes, type ToolType } from "../constants/constants";
-// REMOVED: validateToolParams import - validation now happens in useChatLLM after stream completes
-// import { validateToolParams, type ToolParamValidation } from "../utils/ToolParamValidator";
 // Tag parsers
 import { parseReadFile } from "./parsers/ReadFileParser";
 import { parseWriteToFile } from "./parsers/WriteToFileParser";
@@ -18,7 +16,6 @@ import { parseViewReplaceHistory } from "./parsers/ViewReplaceHistoryParser";
 import { parseRunCommand } from "./parsers/RunCommandParser";
 import { parseGitStatus } from "./parsers/GitStatusParser";
 import { parseGitDiff } from "./parsers/GitDiffParser";
-import { parseCommitMessage } from "./parsers/CommitMessageParser";
 import { parseMarkdown } from "./parsers/MarkdownParser";
 
 import { extractThinkingBlocks } from "./parsers/ThinkingParser";
@@ -117,9 +114,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
   // Hide </no_response> markers
   remainingContent = remainingContent.replace(/<\/no_response\s*>/gi, "");
-
-  // Normalize all tag name variants to canonical forms
-  remainingContent = normalizeTagVariants(remainingContent);
 
   // Pre-extract <thinking> blocks BEFORE any tool scanning so that tool tags
   // inside a thinking block are never mistaken for real tool calls.

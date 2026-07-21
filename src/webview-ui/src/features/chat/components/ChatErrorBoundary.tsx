@@ -50,7 +50,6 @@ export class ChatErrorBoundary extends React.Component<
             gap: "8px",
           }}
         >
-          {/* Header matching ToolHeader style */}
           <div
             style={{
               display: "flex",

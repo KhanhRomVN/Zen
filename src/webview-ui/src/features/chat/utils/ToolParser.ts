@@ -1,4 +1,4 @@
-import { decodeHtmlEntities } from "./TagNormalizer";
+import { decodeHtmlEntities } from "./HtmlEntitiesDecoder";
 
 /**
  * Params that carry multi-line file content — must NOT be trimmed so that

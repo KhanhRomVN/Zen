@@ -5,7 +5,6 @@
   overflow: visible;
 }
 
-/* Remove divider between ToolHeader and content */
 .error-block .terminal-block-header {
   border-bottom: none;
 }
@@ -22,12 +21,22 @@
   overflow-wrap: break-word;
   max-height: 400px;
   overflow-y: auto;
-  border: 1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 40%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--vscode-errorForeground, #f44336) 40%, transparent);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 6%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--vscode-errorForeground, #f44336) 6%,
+    transparent
+  );
   margin: 4px 12px 8px 0;
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 50%, transparent) transparent;
+  scrollbar-color: color-mix(
+      in srgb,
+      var(--vscode-errorForeground, #f44336) 50%,
+      transparent
+    )
+    transparent;
 }
 
 .error-block-content::-webkit-scrollbar {
@@ -39,12 +48,20 @@
 }
 
 .error-block-content::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 50%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--vscode-errorForeground, #f44336) 50%,
+    transparent
+  );
   border-radius: 2px;
 }
 
 .error-block-content::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 80%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--vscode-errorForeground, #f44336) 80%,
+    transparent
+  );
 }
 
 /* Red scrollbar for error blocks */
@@ -62,5 +79,9 @@
 }
 
 .error-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--vscode-errorForeground, #f44336) 120%, black);
+  background: color-mix(
+    in srgb,
+    var(--vscode-errorForeground, #f44336) 120%,
+    black
+  );
 }

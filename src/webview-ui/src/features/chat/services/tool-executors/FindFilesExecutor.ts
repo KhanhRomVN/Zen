@@ -5,8 +5,6 @@ import {
 import { getToolTimeout } from "../../constants/constants";
 import { FindFilesParams } from "../parsers/FindFilesParser";
 
-const FIND_FILES_TIMEOUT_MS = TOOL_TIMEOUT;
-
 export interface FindFilesResult {
   fileName: string;
   matches: string[];
@@ -66,7 +64,7 @@ export async function executeFindFiles(params: FindFilesParams): Promise<{
           });
         }
       },
-      FIND_FILES_TIMEOUT_MS,
+      getToolTimeout("find_files"),
       () => {
         console.warn(`[find_files] Timeout`, { requestId, fileNames });
         resolve(null);

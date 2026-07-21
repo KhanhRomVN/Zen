@@ -4,8 +4,6 @@ import {
 } from "@/services/ExtensionService";
 import { getToolTimeout } from "../../constants/constants";
 
-const VIEW_REPLACE_HISTORY_TIMEOUT_MS = TOOL_TIMEOUT;
-
 export interface ViewReplaceHistoryParams {
   file_path?: string;
   filePath?: string;
@@ -68,7 +66,7 @@ export async function executeViewReplaceHistory(
           resolve(result);
         }
       },
-      VIEW_REPLACE_HISTORY_TIMEOUT_MS,
+      getToolTimeout("view_replace_history"),
       () => {
         console.warn(`[view_replace_history] Timeout`, { requestId, filePath });
         resolve(null);

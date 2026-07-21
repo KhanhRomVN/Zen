@@ -9,10 +9,6 @@ export interface CommitMessageBlockProps {
   isProcessing?: boolean;
 }
 
-/**
- * Pure content block for commit message.
- * Header is managed by ToolRouter/ToolHeader (consistent with other tools).
- */
 const CommitMessageBlock: React.FC<CommitMessageBlockProps> = ({
   message,
   onAccept,

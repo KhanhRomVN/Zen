@@ -246,7 +246,6 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
           logs=""
           initialCommand={action.params.command}
           cwd={action.params.cwd || rootPath}
-          status={undefined}
           rejectedOutline
         />
       ) : (
@@ -255,7 +254,6 @@ const TerminalToolRenderer: React.FC<TerminalToolRendererProps> = ({
             logs={outputData?.output || extractedOutput || storedOutput || ""}
             initialCommand={action.params.command}
             cwd={action.params.cwd || rootPath}
-            status={isTerminalBusy ? "busy" : hasOutput ? "free" : undefined}
             onInput={
               isTerminalBusy
                 ? (data: any) => {

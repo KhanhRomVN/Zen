@@ -23,7 +23,6 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   isCompleted,
   isActive,
   isFailed,
-  isLastMessage,
   onExecute,
   toolColor = "var(--vscode-descriptionForeground, #6b7280)",
   title,

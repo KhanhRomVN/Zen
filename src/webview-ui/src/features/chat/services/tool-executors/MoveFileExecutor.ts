@@ -33,7 +33,7 @@ export const executeMoveFile = (
           `[move_file from '${filePath}' to '${targetFolderPath}'] Result: File moved successfully to '${msg.newPath || targetFolderPath}'`,
         );
       },
-      TOOL_TIMEOUT,
+      getToolTimeout('move_file'),
       () => resolve(null),
     );
   });

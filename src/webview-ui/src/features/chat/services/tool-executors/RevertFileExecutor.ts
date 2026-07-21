@@ -46,7 +46,7 @@ export async function executeRevertFile(
           );
         }
       },
-      TOOL_TIMEOUT,
+      getToolTimeout('revert_file'),
       () => {
         console.warn(`[revert_file] Timeout`, { requestId, filePath });
         resolve(null);

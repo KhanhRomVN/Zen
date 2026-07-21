@@ -5,7 +5,6 @@ import { ParsedResponse } from "../../services/ResponseParser";
 import ToolActionsList from "../tools/index";
 import FileIcon from "@/icons/FileIcon";
 import { isDiff, parseDiff } from "../../../../utils/diffUtils";
-import { ToolHeader } from "../tools/ToolHeader";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { WarningBlock } from "../blocks/warning/WarningBlock";
 import "../blocks/run_command/TerminalBlock.css";
@@ -291,9 +290,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               questions?: import("../../types/message").Question[];
               key: string;
             }
-          | { 
-              type: "error"; 
-              content: string; 
+          | {
+              type: "error";
+              content: string;
               errorCode?: string;
               toolName?: string;
               toolParams?: Record<string, any>;
@@ -861,13 +860,13 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           } else if (group.type === "error") {
             const errorText = group.content.replace(/^Error:\s*/i, "");
             const translatedMessage = translateError(errorText);
-            
+
             // If we have toolName, use it as the label (e.g., "READ FILE")
             // Otherwise use default "ERROR"
             const errorLabel = group.toolName
               ? group.toolName.toUpperCase().replace(/_/g, " ")
               : "ERROR";
-            
+
             content = (
               <ErrorBlock
                 content={translatedMessage}
@@ -878,7 +877,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 label={errorLabel}
               />
             );
-            
+
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           } else if (group.type === "warning") {
             // 🛡️ Render WarningBlock for only-thinking responses

@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { ToolHeader } from "../../tools/ToolHeader";
 import "./ErrorBlock.css";
 
 export interface ErrorBlockProps {
@@ -8,21 +7,15 @@ export interface ErrorBlockProps {
   isPartial?: boolean;
   isLast?: boolean;
   isLastMessage?: boolean;
-  /** Whether to show the ToolHeader (default: true) */
   showHeader?: boolean;
-  /** Padding left for content when header is hidden */
   contentPaddingLeft?: string;
-  /** Use compact inline style (like GrepBlock error) instead of full header style */
   compact?: boolean;
-  /** Maximum height for error content */
   maxHeight?: string;
-  /** Custom label for ToolHeader (default: "ERROR") */
   label?: string;
 }
 
 // Parse error message to extract meaningful information
 const parseErrorMessage = (msg: string): string => {
-  // ENOENT: no such file or directory, open '/path/to/file'
   const enoentMatch = msg.match(
     /ENOENT: no such file or directory, open '([^']+)'/,
   );
@@ -161,43 +154,62 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
         }}
       >
         {showHeader && (
-          <ToolHeader
-            title={
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "12px",
-                  color: "var(--vscode-editor-foreground)",
-                }}
-              >
-                <span
-                  style={{ fontWeight: 600, opacity: 0.8, color: errorColor }}
-                >
-                  {label}
-                </span>
-                {displayErrorCode && (
-                  <span
-                    style={{
-                      fontWeight: 500,
-                      opacity: 0.7,
-                      fontSize: "11px",
-                      color: errorColor,
-                    }}
-                  >
-                    {displayErrorCode}
-                  </span>
-                )}
-              </div>
-            }
-            statusColor={errorColor}
-            isPartial={isPartial}
-            isCollapsed={isCollapsed}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "6px 6px",
+              background: "var(--vscode-editor-background)",
+              borderBottom:
+                "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+              borderRadius: "4px 4px 0 0",
+              minHeight: "32px",
+              cursor: content ? "pointer" : "default",
+            }}
             onClick={() => {
               if (content) setIsCollapsed(!isCollapsed);
             }}
-          />
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "12px",
+                color: "var(--vscode-editor-foreground)",
+              }}
+            >
+              <span
+                style={{ fontWeight: 600, opacity: 0.8, color: errorColor }}
+              >
+                {label}
+              </span>
+              {displayErrorCode && (
+                <span
+                  style={{
+                    fontWeight: 500,
+                    opacity: 0.7,
+                    fontSize: "11px",
+                    color: errorColor,
+                  }}
+                >
+                  {displayErrorCode}
+                </span>
+              )}
+            </div>
+            {content && (
+              <span
+                style={{
+                  fontSize: "11px",
+                  opacity: 0.5,
+                  color: "var(--vscode-descriptionForeground)",
+                }}
+              >
+                {isCollapsed ? "▶" : "▼"}
+              </span>
+            )}
+          </div>
         )}
 
         {!isCollapsed && (

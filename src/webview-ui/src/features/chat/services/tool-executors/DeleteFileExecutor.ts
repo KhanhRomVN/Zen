@@ -31,7 +31,7 @@ export const executeDeleteFile = (
           `[delete_file for '${filePath}'] Result: File deleted successfully`,
         );
       },
-      TOOL_TIMEOUT,
+      getToolTimeout("delete_file"),
       () => resolve(null),
     );
   });

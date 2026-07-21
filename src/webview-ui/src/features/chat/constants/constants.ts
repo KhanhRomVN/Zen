@@ -1,6 +1,8 @@
 import React from "react";
 import { Zap, ShieldCheck, Eye } from "lucide-react";
 
+export const STREAM_BOX_HEIGHT = 154;
+
 // Whitelist of allowed file extensions for external files
 export const ALLOWED_FILE_EXTENSIONS = [
   ".txt",
@@ -100,9 +102,10 @@ export interface ToolDefinition {
 }
 
 // ============= TOOL REGISTRY =============
-export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
+export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
   read_file: {
     id: "read_file",
+    timeout: 60000,
     permissions: {
       readOnly: "allow",
       approval: "allow",
@@ -119,6 +122,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   write_to_file: {
     id: "write_to_file",
+    timeout: 60000,
     permissions: {
       readOnly: "reject",
       approval: "confirm",
@@ -134,6 +138,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   replace_in_file: {
     id: "replace_in_file",
+    timeout: 60000,
     permissions: {
       readOnly: "reject",
       approval: "confirm",
@@ -149,24 +154,27 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   revert_file: {
     id: "revert_file",
+    timeout: 60000,
     permissions: {
       readOnly: "reject",
       approval: "confirm",
       fullAccess: "allow",
     },
-    },
+  },
 
   view_replace_history: {
     id: "view_replace_history",
+    timeout: 60000,
     permissions: {
       readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
-    },
+  },
 
   list_files: {
     id: "list_files",
+    timeout: 60000,
     permissions: {
       readOnly: "allow",
       approval: "allow",
@@ -180,6 +188,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   find_files: {
     id: "find_files",
+    timeout: 60000,
     permissions: {
       readOnly: "allow",
       approval: "allow",
@@ -192,6 +201,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   grep: {
     id: "grep",
+    timeout: 60000,
     permissions: {
       readOnly: "allow",
       approval: "allow",
@@ -205,6 +215,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   delete_file: {
     id: "delete_file",
+    timeout: 60000,
     permissions: {
       readOnly: "reject",
       approval: "confirm",
@@ -217,6 +228,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   delete_folder: {
     id: "delete_folder",
+    timeout: 60000,
     permissions: {
       readOnly: "reject",
       approval: "confirm",
@@ -229,6 +241,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   move_file: {
     id: "move_file",
+    timeout: 60000,
     permissions: {
       readOnly: "reject",
       approval: "confirm",
@@ -241,6 +254,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   run_command: {
     id: "run_command",
+    timeout: 60000,
     permissions: {
       readOnly: "reject",
       approval: "confirm",
@@ -254,6 +268,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   git_status: {
     id: "git_status",
+    timeout: 60000,
     permissions: {
       readOnly: "allow",
       approval: "allow",
@@ -263,6 +278,7 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   commit_message: {
     id: "commit_message",
+    timeout: 60000,
     permissions: {
       readOnly: "allow",
       approval: "allow",
@@ -275,12 +291,13 @@ export const TOOL_REGISTRY: Record<string, ToolDefinition> = {
 
   git_diff: {
     id: "git_diff",
+    timeout: 60000,
     permissions: {
       readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
-    
+
     params: {
       required: [],
       optional: ["file_path"],
@@ -312,7 +329,7 @@ export const UI_TAG_REGISTRY: Record<string, UITagDefinition> = {
 // ============= HELPER FUNCTIONS =============
 
 export const getToolDef = (type: string): ToolDefinition | undefined => {
-  return TOOL_REGISTRY[type];
+  return TOOL_TAG_REGISTRY[type];
 };
 
 export const getUITagDef = (type: string): UITagDefinition | undefined => {
@@ -320,7 +337,7 @@ export const getUITagDef = (type: string): UITagDefinition | undefined => {
 };
 
 export const getAllToolTypes = (): string[] => {
-  return Object.keys(TOOL_REGISTRY);
+  return Object.keys(TOOL_TAG_REGISTRY);
 };
 
 export const getAllUITagTypes = (): string[] => {
@@ -356,13 +373,13 @@ export const shouldShowApprovalUI = (
  * Get all tools that have user-configurable permissions (non-git, non-ui tools)
  */
 export const getConfigurableTools = (): string[] => {
-  return Object.values(TOOL_REGISTRY).map((def) => def.id);
+  return Object.values(TOOL_TAG_REGISTRY).map((def) => def.id);
 };
 
 /**
  * Type-safe tool type union generated from registry
  */
-export type ToolType = keyof typeof TOOL_REGISTRY;
+export type ToolType = keyof typeof TOOL_TAG_REGISTRY;
 
 /**
  * Type-safe UI tag type union generated from registry
@@ -388,9 +405,9 @@ export const getToolTimeout = (toolType: string): number => {
 };
 
 /**
- * Check if a tool type is clickable (i.e., it's in TOOL_REGISTRY)
+ * Check if a tool type is clickable (i.e., it's in TOOL_TAG_REGISTRY)
  * UI tags are not clickable because they're just display content
  */
 export const isToolClickable = (type: string): boolean => {
-  return type in TOOL_REGISTRY;
+  return type in TOOL_TAG_REGISTRY;
 };

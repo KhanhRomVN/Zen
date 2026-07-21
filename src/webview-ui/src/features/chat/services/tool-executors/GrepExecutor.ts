@@ -6,8 +6,6 @@ import { formatGrepResultCompact } from "../../utils/grepFormatter";
 import { getToolTimeout } from "../../constants/constants";
 import { GrepParams } from "../../types/tool-types";
 
-const TIMEOUT_MS = TOOL_TIMEOUT;
-
 /**
  * Execute grep tool
  * Searches for a term in files
@@ -61,7 +59,7 @@ export async function executeGrep(params: GrepParams): Promise<string | null> {
           );
         }
       },
-      TIMEOUT_MS,
+      getToolTimeout("grep"),
       () => {
         console.warn(
           `[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`,

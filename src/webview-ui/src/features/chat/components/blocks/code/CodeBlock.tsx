@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { ToolHeader } from "../../tools/ToolHeader";
 import { getFileIconPath } from "../../../../../utils/fileIconMapper";
 
 interface CodeBlockHeaderProps {
@@ -188,47 +187,9 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       }}
     >
       {useSimpleHeader ? (
-        <>
-          <CodeBlockHeader language={language} onCopy={handleCopy} />
-        </>
+        <CodeBlockHeader language={language} onCopy={handleCopy} />
       ) : (
-        language && (
-          <>
-            <ToolHeader
-              title={prefix || language || "code"}
-              statusColor={statusColor}
-              diffStats={diffStats}
-              isCollapsed={isCollapsed}
-              onToggleCollapse={
-                isDiffBlock ? () => setIsCollapsed(!isCollapsed) : undefined
-              }
-              headerActions={
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCopy();
-                  }}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--vscode-foreground)",
-                    cursor: "pointer",
-                    opacity: 0.7,
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "2px",
-                  }}
-                  title="Copy Code"
-                >
-                  <div
-                    className="codicon codicon-copy"
-                    style={{ fontSize: "14px" }}
-                  />
-                </button>
-              }
-            />
-          </>
-        )
+        language && <CodeBlockHeader language={language} onCopy={handleCopy} />
       )}
       {!isCollapsed && (
         <div style={{ paddingLeft: useSimpleHeader ? "0" : "0" }}>

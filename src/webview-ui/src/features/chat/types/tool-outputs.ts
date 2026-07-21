@@ -1,7 +1,3 @@
-/**
- * Type definition for tool execution outputs
- * Includes optional diagnostics for tools that support them (e.g., read_file)
- */
 export interface ToolOutput {
   output: string;
   isError: boolean;

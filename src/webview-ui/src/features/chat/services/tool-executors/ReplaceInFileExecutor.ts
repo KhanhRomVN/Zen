@@ -51,7 +51,7 @@ export async function executeReplaceInFile(
           resolve(result);
         }
       },
-      TOOL_TIMEOUT,
+      getToolTimeout('replace_in_file'),
       () => {
         console.warn(`[replace_in_file] Timeout`, { requestId, filePath });
         resolve(null);

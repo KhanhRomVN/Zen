@@ -4,7 +4,6 @@ import {
 } from "@/services/ExtensionService";
 import { getToolTimeout } from "../../constants/constants";
 
-const GIT_DIFF_TIMEOUT_MS = TOOL_TIMEOUT;
 /**
  * Execute git_diff tool
  * Requests git diff for a specific file from the extension
@@ -43,7 +42,7 @@ export async function executeGitDiff(
           );
         }
       },
-      GIT_DIFF_TIMEOUT_MS,
+      getToolTimeout("git_diff"),
       () => {
         resolve(null);
       },

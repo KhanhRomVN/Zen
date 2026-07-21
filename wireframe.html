@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatBody Component Hierarchy Wireframe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #4ec9b0;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .legend {
+            background: #252526;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #3e3e42;
+        }
+        
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            margin-right: 20px;
+            margin-bottom: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 8px;
+            border: 1px solid #fff3;
+        }
+        
+        .component {
+            position: relative;
+            border: 2px solid #3e3e42;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .component:hover {
+            border-color: #4ec9b0;
+            transform: translateX(4px);
+        }
+        
+        .component-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            opacity: 0.9;
+        }
+        
+        .component-name {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        
+        .nested {
+            margin-left: 20px;
+            border-left: 2px solid #3e3e42;
+            padding-left: 12px;
+        }
+        
+        .tooltip {
+            position: fixed;
+            background: #2d2d30;
+            border: 1px solid #4ec9b0;
+            border-radius: 6px;
+            padding: 12px;
+            max-width: 400px;
+            z-index: 1000;
+            pointer-events: none;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        
+        .tooltip-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4ec9b0;
+            margin-bottom: 8px;
+        }
+        
+        .tooltip-desc {
+            font-size: 12px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+            color: #d4d4d4;
+        }
+        
+        .tooltip-file {
+            font-size: 11px;
+            color: #858585;
+            font-family: 'Courier New', monospace;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #3e3e42;
+        }
+        
+        .tooltip-imports {
+            font-size: 11px;
+            color: #ce9178;
+            margin-top: 4px;
+        }
+        
+        /* Component Colors */
+        .chatbody { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+        .user-message { background: linear-gradient(135deg, #0f3460 0%, #16537e 100%); }
+        .ai-message { background: linear-gradient(135deg, #1a472a 0%, #2a5c3f 100%); }
+        .metadata { background: linear-gradient(135deg, #3a3a5c 0%, #4a4a7c 100%); }
+        .markdown { background: linear-gradient(135deg, #2d4a2d 0%, #3d5a3d 100%); }
+        .code-block { background: linear-gradient(135deg, #3d3d5c 0%, #4d4d7c 100%); }
+        .question-block { background: linear-gradient(135deg, #5c3d3d 0%, #7c4d4d 100%); }
+        .warning-block { background: linear-gradient(135deg, #5c4d2d 0%, #7c6d3d 100%); }
+        .tool-actions { background: linear-gradient(135deg, #2d3d5c 0%, #3d4d7c 100%); }
+        .tool-router { background: linear-gradient(135deg, #3d2d5c 0%, #4d3d7c 100%); }
+        .file-tool { background: linear-gradient(135deg, #2d5c4d 0%, #3d7c6d 100%); }
+        .git-tool { background: linear-gradient(135deg, #5c2d4d 0%, #7c3d6d 100%); }
+        .terminal-tool { background: linear-gradient(135deg, #4d5c2d 0%, #6d7c3d 100%); }
+        .git-diff { background: linear-gradient(135deg, #5c4d2d 0%, #7c6d3d 100%); }
+        .tool-header { background: linear-gradient(135deg, #d63384 20%, #e85d75 100%); border: 2px solid #ff6b9d; }
+        
+        .highlight-toolheader {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(214, 51, 132, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(214, 51, 132, 0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 ChatBody Component Hierarchy Wireframe</h1>
+        
+        <div class="legend">
+            <div style="margin-bottom: 10px; font-weight: 600; color: #4ec9b0;">Legend:</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #d63384;"></div>
+                <span>ToolHeader (được gọi ở 7 files)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #1a472a;"></div>
+                <span>AIMessageBox</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2d3d5c;"></div>
+                <span>Tool Components</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #5c3d3d;"></div>
+                <span>Block Components</span>
+            </div>
+        </div>
+
+        <!-- ChatBody -->
+        <div class="component chatbody" 
+             data-name="ChatBody"
+             data-desc="Root container hiển thị toàn bộ conversation. Render danh sách messages, phân loại User vs AI."
+             data-file="src/webview-ui/src/features/chat/components/ChatBody.tsx"
+             data-imports="MessageBox">
+            <div class="component-label">Root</div>
+            <div class="component-name">📦 ChatBody</div>
+            
+            <div class="nested">
+                <!-- User Message -->
+                <div class="component user-message"
+                     data-name="UserMessageBox"
+                     data-desc="Hiển thị tin nhắn từ user. Chỉ chứa text content và file attachments."
+                     data-file="src/webview-ui/src/features/chat/components/messages/UserMessageBox.tsx"
+                     data-imports="None">
+                    <div class="component-label">User</div>
+                    <div class="component-name">👤 UserMessageBox</div>
+                    <div style="font-size: 11px; opacity: 0.6; margin-top: 4px;">Simple text display - no ToolHeader</div>
+                </div>
+
+                <!-- AI Message -->
+                <div class="component ai-message"
+                     data-name="AIMessageBox"
+                     data-desc="Container chính cho AI response. Parse content thành các blocks và render theo type. Đây là component chứa TẤT CẢ các UI elements của AI."
+                     data-file="src/webview-ui/src/features/chat/components/messages/AIMessageBox.tsx"
+                     data-imports="ToolActionsList, QuestionBlock, WarningBlock, MarkdownBlock, CodeBlock">
+                    <div class="component-label">AI Response Container</div>
+                    <div class="component-name">🤖 AIMessageBox</div>
+
+                    <div class="nested">
+                        <!-- Metadata -->
+                        <div class="component metadata"
+                             data-name="ModelUsageInfo"
+                             data-desc="Hiển thị thông tin model/provider đang dùng (OpenAI, Claude, etc.)"
+                             data-file="src/webview-ui/src/features/chat/components/ModelUsageInfo.tsx"
+                             data-imports="None">
+                            <div class="component-label">Info</div>
+                            <div class="component-name">ℹ️ Metadata Block</div>
+                        </div>
+
+                        <!-- Markdown -->
+                        <div class="component markdown"
+                             data-name="MarkdownBlock"
+                             data-desc="Render markdown text từ AI (paragraphs, lists, links, etc.)"
+                             data-file="src/webview-ui/src/features/chat/components/blocks/markdown/MarkdownBlock.tsx"
+                             data-imports="None">
+                            <div class="component-label">Content</div>
+                            <div class="component-name">📝 Markdown Block</div>
+                        </div>
+
+                        <!-- Code Block -->
+                        <div class="component code-block"
+                             data-name="CodeBlock"
+                             data-desc="Render code snippets với syntax highlighting"
+                             data-file="src/webview-ui/src/features/chat/components/blocks/code/CodeBlock.tsx"
+                             data-imports="None">
+                            <div class="component-label">Content</div>
+                            <div class="component-name">💻 Code Block</div>
+                        </div>
+
+                        <!-- Question Block -->
+                        <div class="component question-block"
+                             data-name="QuestionBlock"
+                             data-desc="Hiển thị câu hỏi từ AI với các options để user chọn. Dùng ToolHeader để hiển thị status."
+                             data-file="src/webview-ui/src/features/chat/components/blocks/question/QuestionBlock.tsx"
+                             data-imports="ToolHeader ❗">
+                            <div class="component-label">Interactive Block</div>
+                            <div class="component-name">❓ Question Block</div>
+                            
+                            <div class="nested">
+                                <div class="component tool-header highlight-toolheader"
+                                     data-name="ToolHeader"
+                                     data-desc="🎯 HEADER: Hiển thị title='QUESTION', statusColor, icon. Được import TỪ QuestionBlock."
+                                     data-file="src/webview-ui/src/features/chat/components/tools/ToolHeader.tsx"
+                                     data-imports="None">
+                                    <div class="component-label">🔥 Imported Here</div>
+                                    <div class="component-name">🎯 ToolHeader (1/7)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Warning Block -->
+                        <div class="component warning-block"
+                             data-name="WarningBlock"
+                             data-desc="Hiển thị warning messages (partial response, errors, etc.). Dùng ToolHeader cho consistent UI."
+                             data-file="src/webview-ui/src/features/chat/components/blocks/warning/WarningBlock.tsx"
+                             data-imports="ToolHeader ❗">
+                            <div class="component-label">Alert Block</div>
+                            <div class="component-name">⚠️ Warning Block</div>
+                            
+                            <div class="nested">
+                                <div class="component tool-header highlight-toolheader"
+                                     data-name="ToolHeader"
+                                     data-desc="🎯 HEADER: Hiển thị warning label, pulsing animation. Được import TỪ WarningBlock."
+                                     data-file="src/webview-ui/src/features/chat/components/tools/ToolHeader.tsx"
+                                     data-imports="None">
+                                    <div class="component-label">🔥 Imported Here</div>
+                                    <div class="component-name">🎯 ToolHeader (2/7)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tool Actions List -->
+                        <div class="component tool-actions"
+                             data-name="ToolActionsList"
+                             data-desc="Container cho nhóm tool actions. Group các tools cùng file/type. Delegate render cho ToolRouter."
+                             data-file="src/webview-ui/src/features/chat/components/tools/index.tsx"
+                             data-imports="ToolRouter">
+                            <div class="component-label">Tools Container</div>
+                            <div class="component-name">🛠️ ToolActionsList</div>
+
+                            <div class="nested">
+                                <!-- Tool Router -->
+                                <div class="component tool-router"
+                                     data-name="ToolRouter"
+                                     data-desc="Router quyết định render tool nào (File/Git/Terminal). Xử lý grouping, merging, error handling. Import ToolHeader cho error cases và special tools."
+                                     data-file="src/webview-ui/src/features/chat/components/tools/ToolRouter.tsx"
+                                     data-imports="FileToolRenderer, GitToolRenderer, TerminalToolRenderer, GitDiffBlock, ToolHeader ❗">
+                                    <div class="component-label">Router/Orchestrator</div>
+                                    <div class="component-name">🔀 ToolRouter</div>
+
+                                    <div class="nested">
+                                        <!-- ToolHeader in ToolRouter -->
+                                        <div class="component tool-header highlight-toolheader"
+                                             data-name="ToolHeader"
+                                             data-desc="🎯 HEADER: Dùng cho error tools, view_replace_history, commit_message. Được import TỪ ToolRouter."
+                                             data-file="src/webview-ui/src/features/chat/components/tools/ToolHeader.tsx"
+                                             data-imports="None">
+                                            <div class="component-label">🔥 Imported Here</div>
+                                            <div class="component-name">🎯 ToolHeader (3/7)</div>
+                                        </div>
+
+                                        <!-- File Tool Renderer -->
+                                        <div class="component file-tool"
+                                             data-name="FileToolRenderer"
+                                             data-desc="Render file operations: read_file, write_to_file, replace_in_file, list_files, grep, find_files. Mỗi tool type có header riêng."
+                                             data-file="src/webview-ui/src/features/chat/components/tools/FileToolRenderer.tsx"
+                                             data-imports="ToolHeader ❗">
+                                            <div class="component-label">Tool Type</div>
+                                            <div class="component-name">📄 FileToolRenderer</div>
+                                            
+                                            <div class="nested">
+                                                <div class="component tool-header highlight-toolheader"
+                                                     data-name="ToolHeader"
+                                                     data-desc="🎯 HEADER: Hiển thị READ/WRITE/GREP/LIST với file icon, path, stats, diagnostics. Được import TỪ FileToolRenderer."
+                                                     data-file="src/webview-ui/src/features/chat/components/tools/ToolHeader.tsx"
+                                                     data-imports="None">
+                                                    <div class="component-label">🔥 Imported Here</div>
+                                                    <div class="component-name">🎯 ToolHeader (4/7)</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Git Tool Renderer -->
+                                        <div class="component git-tool"
+                                             data-name="GitToolRenderer"
+                                             data-desc="Render git_status tool. Hiển thị changed files với add/delete counts."
+                                             data-file="src/webview-ui/src/features/chat/components/tools/GitToolRenderer.tsx"
+                                             data-imports="ToolHeader ❗, GitStatusBlock">
+                                            <div class="component-label">Tool Type</div>
+                                            <div class="component-name">🔧 GitToolRenderer</div>
+                                            
+                                            <div class="nested">
+                                                <div class="component tool-header highlight-toolheader"
+                                                     data-name="ToolHeader"
+                                                     data-desc="🎯 HEADER: Hiển thị GIT STATUS với branch name, file counts, +/- stats. Được import TỪ GitToolRenderer."
+                                                     data-file="src/webview-ui/src/features/chat/components/tools/ToolHeader.tsx"
+                                                     data-imports="None">
+                                                    <div class="component-label">🔥 Imported Here</div>
+                                                    <div class="component-name">🎯 ToolHeader (5/7)</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Terminal Tool Renderer -->
+                                        <div class="component terminal-tool"
+                                             data-name="TerminalToolRenderer"
+                                             data-desc="Render run_command tool. Hiển thị command execution với output. (Có thể dùng ToolHeader - cần verify)"
+                                             data-file="src/webview-ui/src/features/chat/components/tools/TerminalToolRenderer.tsx"
+                                             data-imports="ToolHeader? (need verify)">
+                                            <div class="component-label">Tool Type</div>
+                                            <div class="component-name">⚡ TerminalToolRenderer</div>
+                                        </div>
+
+                                        <!-- Git Diff Block -->
+                                        <div class="component git-diff"
+                                             data-name="GitDiffBlock"
+                                             data-desc="Hiển thị git diff cho file changes. Dùng ToolHeader với branch info và diff stats."
+                                             data-file="src/webview-ui/src/features/chat/components/blocks/git_diff/GitDiffBlock.tsx"
+                                             data-imports="ToolHeader ❗">
+                                            <div class="component-label">Block Type</div>
+                                            <div class="component-name">🔀 GitDiffBlock</div>
+                                            
+                                            <div class="nested">
+                                                <div class="component tool-header highlight-toolheader"
+                                                     data-name="ToolHeader"
+                                                     data-desc="🎯 HEADER: Hiển thị DIFF với file icon, branch, +added -deleted counts. Được import TỪ GitDiffBlock."
+                                                     data-file="src/webview-ui/src/features/chat/components/tools/ToolHeader.tsx"
+                                                     data-imports="None">
+                                                    <div class="component-label">🔥 Imported Here</div>
+                                                    <div class="component-name">🎯 ToolHeader (6/7)</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #252526; border-radius: 8px; border: 2px solid #d63384;">
+            <h2 style="color: #d63384; margin-bottom: 15px;">🎯 Vấn đề: ToolHeader được import ở 7 files khác nhau</h2>
+            <ul style="line-height: 1.8; color: #d4d4d4;">
+                <li>1️⃣ <code style="color: #ce9178;">QuestionBlock.tsx</code> - Hiển thị question header</li>
+                <li>2️⃣ <code style="color: #ce9178;">WarningBlock.tsx</code> - Hiển thị warning header</li>
+                <li>3️⃣ <code style="color: #ce9178;">ToolRouter.tsx</code> - Hiển thị error/special tool headers</li>
+                <li>4️⃣ <code style="color: #ce9178;">FileToolRenderer.tsx</code> - Hiển thị file operation headers</li>
+                <li>5️⃣ <code style="color: #ce9178;">GitToolRenderer.tsx</code> - Hiển thị git status header</li>
+                <li>6️⃣ <code style="color: #ce9178;">GitDiffBlock.tsx</code> - Hiển thị git diff header</li>
+                <li>7️⃣ <code style="color: #ce9178;">TerminalToolRenderer.tsx</code> - Có thể dùng ToolHeader (cần verify)</li>
+            </ul>
+            <div style="margin-top: 15px; padding: 12px; background: #1e1e1e; border-radius: 4px; border-left: 3px solid #4ec9b0;">
+                <strong style="color: #4ec9b0;">💡 Mục tiêu:</strong> Giảm số lượng files import trực tiếp ToolHeader, tạo abstraction layer để dễ maintain và mở rộng.
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-desc"></div>
+        <div class="tooltip-file"></div>
+        <div class="tooltip-imports"></div>
+    </div>
+
+    <script>
+        const tooltip = document.getElementById('tooltip');
+        const components = document.querySelectorAll('.component');
+
+        components.forEach(comp => {
+            comp.addEventListener('mouseenter', (e) => {
+                const name = comp.dataset.name;
+                const desc = comp.dataset.desc;
+                const file = comp.dataset.file;
+                const imports = comp.dataset.imports;
+
+                tooltip.querySelector('.tooltip-title').textContent = name;
+                tooltip.querySelector('.tooltip-desc').textContent = desc;
+                tooltip.querySelector('.tooltip-file').textContent = file ? `📁 ${file}` : '';
+                tooltip.querySelector('.tooltip-imports').textContent = imports ? `📥 Imports: ${imports}` : '';
+
+                tooltip.style.display = 'block';
+            });
+
+            comp.addEventListener('mousemove', (e) => {
+                tooltip.style.left = e.clientX + 15 + 'px';
+                tooltip.style.top = e.clientY + 15 + 'px';
+            });
+
+            comp.addEventListener('mouseleave', () => {
+                tooltip.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>

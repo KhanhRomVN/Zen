@@ -50,7 +50,7 @@ export async function executeWriteToFile(
           resolve(result);
         }
       },
-      TOOL_TIMEOUT,
+      getToolTimeout('write_to_file'),
       () => {
         console.warn(`[write_to_file] Timeout`, { requestId, filePath });
         resolve(null);
