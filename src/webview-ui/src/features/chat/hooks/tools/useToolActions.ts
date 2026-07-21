@@ -3,7 +3,7 @@ import { ToolAction } from "../../services/ResponseParser";
 import { Message } from "../../types/message";
 import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "./useToolExecution";
-import { getToolDef, isToolClickable, TOOL_ACTION_TYPES } from "../../constants/constants";
+import { isToolClickable, TOOL_ACTION_TYPES } from "../../constants/constants";
 
 interface UseToolActionsProps {
   onSendToolRequest?: (
@@ -155,7 +155,12 @@ export const useToolActions = ({
         const actions = Array.isArray(actionOrActions)
           ? actionOrActions.map((a) => ({ ...a, _index: actionIndex }))
           : [{ ...actionOrActions, _index: actionIndex }];
-        onSendToolRequest(actions as any, message, false, TOOL_ACTION_TYPES.REJECT);
+        onSendToolRequest(
+          actions as any,
+          message,
+          false,
+          TOOL_ACTION_TYPES.REJECT,
+        );
         return;
       }
 
@@ -175,7 +180,12 @@ export const useToolActions = ({
         });
 
         if (actionsToProcess.length > 0) {
-          onSendToolRequest(actionsToProcess as any, message, false, TOOL_ACTION_TYPES.ACCEPT);
+          onSendToolRequest(
+            actionsToProcess as any,
+            message,
+            false,
+            TOOL_ACTION_TYPES.ACCEPT,
+          );
         }
       } else {
         // Handle Single

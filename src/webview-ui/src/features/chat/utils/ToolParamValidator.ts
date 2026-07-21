@@ -3,7 +3,7 @@
  * Validates that required parameters are present and suggests corrections for common mistakes
  */
 
-import { TOOL_TAG_REGISTRY, type ToolType } from "../constants/constants";
+import { TAG_REGISTRY, type ToolType } from "../constants/constants";
 
 export interface ToolParamValidation {
   isValid: boolean;
@@ -20,8 +20,13 @@ export const validateToolParams = (
   toolName: ToolType | string,
   params: Record<string, any>,
 ): ToolParamValidation => {
-  const toolDef = TOOL_TAG_REGISTRY[toolName];
-  const schema = toolDef?.params;
+  const toolDef = TAG_REGISTRY[toolName];
+  // Chỉ validate nếu là tool (không phải ui tag)
+  if (!toolDef || toolDef.category !== "tool") {
+    return { isValid: true };
+  }
+
+  const schema = toolDef.params;
   if (!schema) {
     // No schema defined - assume valid (for tools we don't validate yet)
     return { isValid: true };

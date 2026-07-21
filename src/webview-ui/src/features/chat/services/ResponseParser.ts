@@ -1,6 +1,6 @@
 import { decodeHtmlEntities } from "../utils/HtmlEntitiesDecoder";
 import { parseToolAction } from "../utils/ToolParser";
-import { getAllToolTypes, type ToolType } from "../constants/constants";
+import { getAllToolTypes, type TagType } from "../constants/constants";
 // Tag parsers
 import { parseReadFile } from "./parsers/ReadFileParser";
 import { parseWriteToFile } from "./parsers/WriteToFileParser";
@@ -35,7 +35,7 @@ export interface ParsedResponse {
 }
 
 export interface ToolAction {
-  type: ToolType | "thinking" | "question";
+  type: TagType;
   params: Record<string, any>;
   rawXml: string;
   /** True if this action has a parsing error (e.g., unclosed tag) */

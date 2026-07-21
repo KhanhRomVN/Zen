@@ -78,11 +78,14 @@ export const PERMISSION_MODE: Record<
 // ============= TYPES =============
 export type PermissionMode = "fullAccess" | "approval" | "readOnly";
 export type PermissionValue = "allow" | "confirm" | "reject" | RegExp;
+export type TagCategory = "tool" | "ui";
 
-export interface ToolDefinition {
+export interface TagDefinition {
   id: string;
+  category: TagCategory;
 
-  permissions: {
+  // Chỉ có tool mới có permissions
+  permissions?: {
     readOnly: PermissionValue;
     approval: PermissionValue;
     fullAccess: PermissionValue;
@@ -101,10 +104,12 @@ export interface ToolDefinition {
   };
 }
 
-// ============= TOOL REGISTRY =============
-export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
+// ============= UNIFIED TAG REGISTRY =============
+export const TAG_REGISTRY: Record<string, TagDefinition> = {
+  // ===== TOOLS (category: "tool") =====
   read_file: {
     id: "read_file",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "allow",
@@ -122,6 +127,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   write_to_file: {
     id: "write_to_file",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "reject",
@@ -138,6 +144,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   replace_in_file: {
     id: "replace_in_file",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "reject",
@@ -154,6 +161,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   revert_file: {
     id: "revert_file",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "reject",
@@ -164,6 +172,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   view_replace_history: {
     id: "view_replace_history",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "allow",
@@ -174,6 +183,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   list_files: {
     id: "list_files",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "allow",
@@ -188,6 +198,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   find_files: {
     id: "find_files",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "allow",
@@ -201,6 +212,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   grep: {
     id: "grep",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "allow",
@@ -215,6 +227,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   delete_file: {
     id: "delete_file",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "reject",
@@ -228,6 +241,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   delete_folder: {
     id: "delete_folder",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "reject",
@@ -241,6 +255,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   move_file: {
     id: "move_file",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "reject",
@@ -254,6 +269,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   run_command: {
     id: "run_command",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "reject",
@@ -268,6 +284,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   git_status: {
     id: "git_status",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "allow",
@@ -278,6 +295,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   commit_message: {
     id: "commit_message",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "allow",
@@ -291,6 +309,7 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
 
   git_diff: {
     id: "git_diff",
+    category: "tool",
     timeout: 60000,
     permissions: {
       readOnly: "allow",
@@ -303,45 +322,60 @@ export const TOOL_TAG_REGISTRY: Record<string, ToolDefinition> = {
       optional: ["file_path"],
     },
   },
-};
 
-// ============= UI TAG REGISTRY =============
-// Các thẻ XML/UI để render nội dung, không phải tools thực thi
-export interface UITagDefinition {
-  id: string;
-}
-
-export const UI_TAG_REGISTRY: Record<string, UITagDefinition> = {
+  // ===== UI TAGS (category: "ui") =====
   code: {
     id: "code",
+    category: "ui",
   },
   markdown: {
     id: "markdown",
+    category: "ui",
   },
   thinking: {
     id: "thinking",
+    category: "ui",
   },
   question: {
     id: "question",
+    category: "ui",
   },
 };
 
+
+
 // ============= HELPER FUNCTIONS =============
 
-export const getToolDef = (type: string): ToolDefinition | undefined => {
-  return TOOL_TAG_REGISTRY[type];
+/**
+ * Lấy tag definition (bao gồm cả tool và ui tag)
+ */
+export const getTagDef = (type: string): TagDefinition | undefined => {
+  return TAG_REGISTRY[type];
 };
 
-export const getUITagDef = (type: string): UITagDefinition | undefined => {
-  return UI_TAG_REGISTRY[type];
-};
-
+/**
+ * Lấy tất cả tool types (chỉ tools)
+ */
 export const getAllToolTypes = (): string[] => {
-  return Object.keys(TOOL_TAG_REGISTRY);
+  return Object.entries(TAG_REGISTRY)
+    .filter(([_, def]) => def.category === "tool")
+    .map(([key]) => key);
 };
 
+/**
+ * Lấy tất cả UI tag types (chỉ ui tags)
+ */
 export const getAllUITagTypes = (): string[] => {
-  return Object.keys(UI_TAG_REGISTRY);
+  return Object.entries(TAG_REGISTRY)
+    .filter(([_, def]) => def.category === "ui")
+    .map(([key]) => key);
+};
+
+/**
+ * Lấy tất cả tag types (bao gồm cả tool và ui)
+ */
+export const getAllTagTypes = (): string[] => {
+  return Object.keys(TAG_REGISTRY);
 };
 
 /**
@@ -351,10 +385,10 @@ export const requiresConfirmation = (
   type: string,
   mode: "readOnly" | "approval" | "fullAccess" = "approval",
 ): boolean => {
-  const toolDef = getToolDef(type);
-  if (!toolDef) return false;
+  const tag = getTagDef(type);
+  if (!tag || tag.category !== "tool" || !tag.permissions) return false;
 
-  const permission = toolDef.permissions[mode];
+  const permission = tag.permissions[mode];
   return permission === "confirm";
 };
 
@@ -373,41 +407,56 @@ export const shouldShowApprovalUI = (
  * Get all tools that have user-configurable permissions (non-git, non-ui tools)
  */
 export const getConfigurableTools = (): string[] => {
-  return Object.values(TOOL_TAG_REGISTRY).map((def) => def.id);
+  return Object.entries(TAG_REGISTRY)
+    .filter(([_, def]) => def.category === "tool")
+    .map(([_, def]) => def.id);
 };
 
 /**
- * Type-safe tool type union generated from registry
+ * Type-safe tool type union (chỉ tools)
  */
-export type ToolType = keyof typeof TOOL_TAG_REGISTRY;
+export type ToolType = {
+  [K in keyof typeof TAG_REGISTRY]: (typeof TAG_REGISTRY)[K]["category"] extends "tool" ? K : never;
+}[keyof typeof TAG_REGISTRY];
 
 /**
- * Type-safe UI tag type union generated from registry
+ * Type-safe UI tag type union (chỉ ui tags)
  */
-export type UITagType = keyof typeof UI_TAG_REGISTRY;
+export type UITagType = {
+  [K in keyof typeof TAG_REGISTRY]: (typeof TAG_REGISTRY)[K]["category"] extends "ui" ? K : never;
+}[keyof typeof TAG_REGISTRY];
+
+/**
+ * Type-safe unified tag type union (tất cả tags)
+ */
+export type TagType = keyof typeof TAG_REGISTRY;
 
 export const shouldShowFileStats = (toolType: string): boolean => {
-  return getToolDef(toolType)?.features?.showFileStats ?? false;
+  const tag = getTagDef(toolType);
+  return tag?.category === "tool" ? (tag.features?.showFileStats ?? false) : false;
 };
 
 /**
  * Check if a tool should validate fuzzy match before execution
  */
 export const shouldValidateFuzzyMatch = (toolType: string): boolean => {
-  return getToolDef(toolType)?.features?.validateFuzzyMatch ?? false;
+  const tag = getTagDef(toolType);
+  return tag?.category === "tool" ? (tag.features?.validateFuzzyMatch ?? false) : false;
 };
 
 /**
  * Get timeout (ms) for a tool. Default: 60000ms (60s)
  */
 export const getToolTimeout = (toolType: string): number => {
-  return getToolDef(toolType)?.timeout ?? 60000;
+  const tag = getTagDef(toolType);
+  return tag?.category === "tool" ? (tag.timeout ?? 60000) : 60000;
 };
 
 /**
- * Check if a tool type is clickable (i.e., it's in TOOL_TAG_REGISTRY)
+ * Check if a tool type is clickable (i.e., it's a tool, not a UI tag)
  * UI tags are not clickable because they're just display content
  */
 export const isToolClickable = (type: string): boolean => {
-  return type in TOOL_TAG_REGISTRY;
+  const tag = getTagDef(type);
+  return tag?.category === "tool";
 };

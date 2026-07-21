@@ -1,6 +1,6 @@
 import {
   PermissionMode,
-  TOOL_TAG_REGISTRY,
+  TAG_REGISTRY,
   type PermissionValue,
 } from "../constants/constants";
 
@@ -14,8 +14,10 @@ export const getPermissionDecision = (
   mode: PermissionMode,
   toolType: string,
 ): "allow" | "confirm" | "reject" => {
-  const toolDef = TOOL_TAG_REGISTRY[toolType];
-  if (!toolDef) {
+  const tagDef = TAG_REGISTRY[toolType];
+  
+  // Nếu không tìm thấy hoặc không phải tool hoặc không có permissions
+  if (!tagDef || tagDef.category !== "tool" || !tagDef.permissions) {
     return "reject";
   }
 
@@ -23,13 +25,13 @@ export const getPermissionDecision = (
 
   switch (mode) {
     case "fullAccess":
-      permissionValue = toolDef.permissions.fullAccess;
+      permissionValue = tagDef.permissions.fullAccess;
       break;
     case "approval":
-      permissionValue = toolDef.permissions.approval;
+      permissionValue = tagDef.permissions.approval;
       break;
     case "readOnly":
-      permissionValue = toolDef.permissions.readOnly;
+      permissionValue = tagDef.permissions.readOnly;
       break;
     default:
       return "confirm";
