@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
-
-export type PermissionMode = "fullAccess" | "approval" | "readOnly";
+import { PermissionMode } from "@/features/chat/types/tag-types";
 
 interface SettingsContextType {
   aiLanguage: string;

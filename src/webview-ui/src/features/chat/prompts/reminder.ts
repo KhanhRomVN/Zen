@@ -69,7 +69,6 @@ export const XML_TOOL_SYNTAX_REMINDER = `<xml_tool_syntax_reminder>
    - \`list_files\`: \`folder_path\`, \`depth\` (optional)
    - \`find_files\`: \`file_name\` (can have multiple)
    - \`delete_file\`: \`file_path\`
-   - \`delete_folder\`: \`folder_path\`
    - \`move_file\`: \`file_path\`, \`target_folder_path\`, \`target_file_name\` (optional)
    - \`run_command\`: \`command\`, \`cwd\` (optional)
    - \`revert_file\`: \`file_path\`, \`version\` (optional)

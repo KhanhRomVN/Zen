@@ -11,7 +11,6 @@ The following XML tags are the ONLY valid tool tags. Using any other tag names w
 - \`<list_files>\` - List directory contents
 - \`<grep>\` - Search for text patterns in files
 - \`<delete_file>\` - Delete a file
-- \`<delete_folder>\` - Delete a folder
 - \`<move_file>\` - Move or rename a file
 - \`<run_command>\` - Execute shell command
 - \`<git_status>\` - Check git status

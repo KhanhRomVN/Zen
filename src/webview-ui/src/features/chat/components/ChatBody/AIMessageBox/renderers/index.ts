@@ -10,7 +10,7 @@ export { RevertFileRenderer } from "./RevertFileRenderer";
 export { ListFilesRenderer } from "./ListFilesRenderer";
 export { FindFilesRenderer } from "./FindFilesRenderer";
 export { GrepRenderer } from "./GrepRenderer";
-export { DeleteRenderer } from "./DeleteRenderer";
+export { DeleteFileRenderer } from "./DeleteFileRenderer";
 export { MoveFileRenderer } from "./MoveFileRenderer";
 export { ViewReplaceHistoryRenderer } from "./ViewReplaceHistoryRenderer";
 export { RunCommandRenderer } from "./RunCommandRenderer";

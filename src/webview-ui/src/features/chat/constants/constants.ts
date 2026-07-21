@@ -1,5 +1,25 @@
 import React from "react";
 import { Zap, ShieldCheck, Eye } from "lucide-react";
+import type {
+  PermissionMode,
+  PermissionValue,
+  TagCategory,
+  TagDefinition,
+  ToolType,
+  UITagType,
+  TagType,
+} from "../types/tag-types";
+
+// Re-export types for backward compatibility
+export type {
+  PermissionMode,
+  PermissionValue,
+  TagCategory,
+  TagDefinition,
+  ToolType,
+  UITagType,
+  TagType,
+};
 
 export const STREAM_BOX_HEIGHT = 154;
 
@@ -74,35 +94,6 @@ export const PERMISSION_MODE: Record<
     color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
   },
 };
-
-// ============= TYPES =============
-export type PermissionMode = "fullAccess" | "approval" | "readOnly";
-export type PermissionValue = "allow" | "confirm" | "reject" | RegExp;
-export type TagCategory = "tool" | "ui";
-
-export interface TagDefinition {
-  id: string;
-  category: TagCategory;
-
-  // Chỉ có tool mới có permissions
-  permissions?: {
-    readOnly: PermissionValue;
-    approval: PermissionValue;
-    fullAccess: PermissionValue;
-  };
-
-  timeout?: number;
-
-  features?: {
-    showFileStats?: boolean;
-    validateFuzzyMatch?: boolean;
-  };
-
-  params?: {
-    required: string[];
-    optional?: string[];
-  };
-}
 
 // ============= UNIFIED TAG REGISTRY =============
 export const TAG_REGISTRY: Record<string, TagDefinition> = {
@@ -236,20 +227,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     },
     params: {
       required: ["file_path"],
-    },
-  },
-
-  delete_folder: {
-    id: "delete_folder",
-    category: "tool",
-    timeout: 60000,
-    permissions: {
-      readOnly: "reject",
-      approval: "confirm",
-      fullAccess: "allow",
-    },
-    params: {
-      required: ["folder_path"],
     },
   },
 
@@ -408,24 +385,7 @@ export const getConfigurableTools = (): string[] => {
     .map(([_, def]) => def.id);
 };
 
-/**
- * Type-safe tool type union (chỉ tools)
- */
-export type ToolType = {
-  [K in keyof typeof TAG_REGISTRY]: (typeof TAG_REGISTRY)[K]["category"] extends "tool" ? K : never;
-}[keyof typeof TAG_REGISTRY];
-
-/**
- * Type-safe UI tag type union (chỉ ui tags)
- */
-export type UITagType = {
-  [K in keyof typeof TAG_REGISTRY]: (typeof TAG_REGISTRY)[K]["category"] extends "ui" ? K : never;
-}[keyof typeof TAG_REGISTRY];
-
-/**
- * Type-safe unified tag type union (tất cả tags)
- */
-export type TagType = keyof typeof TAG_REGISTRY;
+// ============= HELPER FUNCTIONS FOR FILE STATS =============
 
 export const shouldShowFileStats = (toolType: string): boolean => {
   const tag = getTagDef(toolType);

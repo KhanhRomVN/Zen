@@ -1,10 +1,12 @@
-import type { Question } from "../../types/message";
+import type { Question, QuestionType } from "../../types/message";
 
 /**
  * Parse question tag content into structured question data.
  * Supports both legacy (options array) and new (questions array with <q> elements) formats.
  */
-export const parseQuestion = (innerContent: string): {
+export const parseQuestion = (
+  innerContent: string,
+): {
   options: string[];
   title?: string;
   optional?: boolean;
@@ -15,7 +17,9 @@ export const parseQuestion = (innerContent: string): {
   const questions: Question[] = [];
 
   // Extract title if present (legacy)
-  const titleMatch = /<question_title>([\s\S]*?)<\/question_title>/i.exec(innerContent);
+  const titleMatch = /<question_title>([\s\S]*?)<\/question_title>/i.exec(
+    innerContent,
+  );
   if (titleMatch) {
     title = titleMatch[1].trim();
   }
@@ -65,12 +69,16 @@ export const parseQuestion = (innerContent: string): {
 
     hasNewSchema = true;
     const qId = idMatch[1].trim();
-    const qType = typeMatch[1].trim() as "single" | "multi" | "text" | "confirm";
-    
+    const qType = typeMatch[1].trim() as QuestionType;
+
     // Extract and decode HTML entities in label
-    let qLabel = doubleQuoteMatch ? doubleQuoteMatch[1].trim() : singleQuoteMatch ? singleQuoteMatch[1].trim() : `Question ${questions.length + 1}`;
+    let qLabel = doubleQuoteMatch
+      ? doubleQuoteMatch[1].trim()
+      : singleQuoteMatch
+        ? singleQuoteMatch[1].trim()
+        : `Question ${questions.length + 1}`;
     if (qLabel && qLabel !== `Question ${questions.length + 1}`) {
-      const textarea = document.createElement('textarea');
+      const textarea = document.createElement("textarea");
       textarea.innerHTML = qLabel;
       qLabel = textarea.value;
     }

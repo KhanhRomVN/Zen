@@ -18,6 +18,7 @@ import {
 // TYPES
 import { ToolAction } from "../../../services/ResponseParser";
 import { Message } from "../../../types/message";
+import { GroupType } from "../../../types/renderer-types";
 
 // UTILS
 import { formatActionForDisplay } from "../../../services/ResponseParser";
@@ -28,7 +29,7 @@ import FileIcon from "@/icons/FileIcon";
 // COMPONENTS
 import {
   CommitMessageRenderer, // commit_message
-  DeleteRenderer, 
+  DeleteFileRenderer, // delete_file
   ErrorRenderer, // error (not tag)
   WriteToFileRenderer, // write_to_file
   ReplaceInFileRenderer, // replace_in_file
@@ -48,33 +49,6 @@ import {
 } from "./renderers";
 import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
 import ErrorBlock from "./blocks/error/ErrorBlock";
-
-// Define group types
-type GroupType =
-  | {
-      type: "tools";
-      items: { action: ToolAction; index: number }[];
-      key: string;
-    }
-  | { type: "markdown"; content: string; key: string }
-  | {
-      type: "question";
-      options: string[];
-      title?: string;
-      optional?: boolean;
-      questions?: any[];
-      key: string;
-    }
-  | {
-      type: "error";
-      content: string;
-      errorCode?: string;
-      toolName?: string;
-      toolParams?: Record<string, any>;
-      key: string;
-    }
-  | { type: "warning"; label: string; message: string; key: string }
-  | { type: "thinking"; content: string; key: string };
 
 interface TagRouterProps {
   group: GroupType;
@@ -454,7 +428,6 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
       find_files: "FIND",
       grep: "GREP",
       delete_file: "DELETE",
-      delete_folder: "DELETE",
       move_file: "MOVE",
       revert_file: "REVERT",
       run_command: "RUN",
@@ -1022,12 +995,12 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
     );
   }
 
-  // Handle delete_file and delete_folder tool types
-  if (toolType === "delete_file" || toolType === "delete_folder") {
+  // Handle delete_file tool type
+  if (toolType === "delete_file") {
     const action = firstAction;
     const actionIndex = toolGroup[0].index;
     return (
-      <DeleteRenderer
+      <DeleteFileRenderer
         key={actionIndex}
         action={action}
         actionIndex={actionIndex}

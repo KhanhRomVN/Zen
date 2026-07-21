@@ -1,7 +1,40 @@
 import { ToolAction } from "@/features/chat/services/ResponseParser";
-import { Message } from "@/features/chat/types/message";
+import { Message, Question } from "@/features/chat/types/message";
 import { ToolOutputs } from "@/features/chat/types/tool-outputs";
 import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
+
+// ============= GROUP TYPES =============
+
+/**
+ * Represents different types of content groups that can be rendered in the chat
+ */
+export type GroupType =
+  | {
+      type: "tools";
+      items: { action: ToolAction; index: number }[];
+      key: string;
+    }
+  | { type: "markdown"; content: string; key: string }
+  | {
+      type: "question";
+      options: string[];
+      title?: string;
+      optional?: boolean;
+      questions?: Question[];
+      key: string;
+    }
+  | {
+      type: "error";
+      content: string;
+      errorCode?: string;
+      toolName?: string;
+      toolParams?: Record<string, any>;
+      key: string;
+    }
+  | { type: "warning"; label: string; message: string; key: string }
+  | { type: "thinking"; content: string; key: string };
+
+// ============= RENDERER PROPS =============
 
 /**
  * Common props shared across all renderer components

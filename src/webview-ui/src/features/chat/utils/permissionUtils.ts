@@ -1,8 +1,5 @@
-import {
-  PermissionMode,
-  TAG_REGISTRY,
-  type PermissionValue,
-} from "../constants/constants";
+import { TAG_REGISTRY } from "../constants/constants";
+import { PermissionMode, PermissionValue } from "../types/tag-types";
 
 /**
  * Returns the permission decision for a given tool type and permission mode.
@@ -15,7 +12,7 @@ export const getPermissionDecision = (
   toolType: string,
 ): "allow" | "confirm" | "reject" => {
   const tagDef = TAG_REGISTRY[toolType];
-  
+
   // Nếu không tìm thấy hoặc không phải tool hoặc không có permissions
   if (!tagDef || tagDef.category !== "tool" || !tagDef.permissions) {
     return "reject";

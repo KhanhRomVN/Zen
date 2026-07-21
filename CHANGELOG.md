@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### ✨ Added
 - **`read_file` tool now shows line range in UI**: The file tool item displays `(start-end)` after the filename when a line range is requested. If no range is specified, shows `(1-N)` where N is the total line count of the file
-- **Error message display for file tools**: When `replace_in_file`, `write_to_file`, `search_files`, `list_files`, `delete_file`, or `delete_folder` fail, the error message is now shown inline below the tool header in a red error box — previously only the dot color changed to red with no visible message
+- **Error message display for file tools**: When `replace_in_file`, `write_to_file`, `search_files`, `list_files`, or `delete_file` fail, the error message is now shown inline below the tool header in a red error box — previously only the dot color changed to red with no visible message
 - **Auto-format document after file writes**: `write_to_file` and `replace_in_file` now trigger VSCode's built-in `editor.action.formatDocument` command after writing, then save the file. This respects the project's existing Prettier/ESLint formatter config. Formatting failures are silently ignored if no formatter is installed
 
 ### 🐛 Fixed

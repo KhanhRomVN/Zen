@@ -1,6 +1,6 @@
 import { decodeHtmlEntities } from "../utils/HtmlEntitiesDecoder";
 import { parseToolAction } from "../utils/ToolParser";
-import { getAllToolTypes, type TagType } from "../constants/constants";
+import { getAllToolTypes } from "../constants/constants";
 // Tag parsers
 import { parseReadFile } from "./parsers/ReadFileParser";
 import { parseWriteToFile } from "./parsers/WriteToFileParser";
@@ -9,7 +9,6 @@ import { parseListFiles } from "./parsers/ListFilesParser";
 import { parseFindFiles } from "./parsers/FindFilesParser";
 import { parseGrep } from "./parsers/GrepParser";
 import { parseDeleteFile } from "./parsers/DeleteFileParser";
-import { parseDeleteFolder } from "./parsers/DeleteFolderParser";
 import { parseMoveFile } from "./parsers/MoveFileParser";
 import { parseRevertFile } from "./parsers/RevertFileParser";
 import { parseViewReplaceHistory } from "./parsers/ViewReplaceHistoryParser";
@@ -20,6 +19,7 @@ import { parseMarkdown } from "./parsers/MarkdownParser";
 
 import { extractThinkingBlocks } from "./parsers/ThinkingParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
+import { TagType } from "../types/tag-types";
 
 export interface ParsedResponse {
   followupQuestion: string | null;
@@ -576,11 +576,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             case "delete_file": {
               const params = parseDeleteFile(innerContent || "");
               action = { type: "delete_file" as const, params, rawXml };
-              break;
-            }
-            case "delete_folder": {
-              const params = parseDeleteFolder(innerContent || "");
-              action = { type: "delete_folder" as const, params, rawXml };
               break;
             }
             case "move_file": {

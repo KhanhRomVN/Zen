@@ -3,7 +3,8 @@
  * Validates that required parameters are present and suggests corrections for common mistakes
  */
 
-import { TAG_REGISTRY, type ToolType } from "../constants/constants";
+import { TAG_REGISTRY } from "../constants/constants";
+import type { ToolType } from "../types/tag-types";
 
 export interface ToolParamValidation {
   isValid: boolean;

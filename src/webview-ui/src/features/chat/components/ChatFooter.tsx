@@ -141,7 +141,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
 
   // Calculate response ranges per manual user message
   const responseRanges = React.useMemo(() => {
-    const computeStart = performance.now();
     const ranges: Array<{
       start: number;
       end: number;

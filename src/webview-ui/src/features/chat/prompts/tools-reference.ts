@@ -18,7 +18,6 @@ Use XML tags for all tool calls:
 <grep><search_term>string</search_term><file_path>path/to/file</file_path></grep>
 <grep><search_term>string</search_term><folder_path>path/to/folder</folder_path></grep>
 <delete_file><file_path>path/to/file</file_path></delete_file>
-<delete_folder><folder_path>path/to/folder</folder_path></delete_folder>
 <move_file><file_path>path/to/source/file.ts</file_path><target_folder_path>path/to/destination/folder</target_folder_path></move_file>
 <move_file><file_path>path/to/source/file.ts</file_path><target_folder_path>path/to/destination/folder</target_folder_path><target_file_name>new-name.ts</target_file_name></move_file>
 <run_command><command>your command here</command></run_command>

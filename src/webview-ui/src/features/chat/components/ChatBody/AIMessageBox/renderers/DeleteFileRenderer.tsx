@@ -20,9 +20,9 @@ import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
 /**
- * Renderer for delete_file and delete_folder tool types
+ * Renderer for delete_file tool type
  */
-export const DeleteRenderer: React.FC<BaseRendererProps> = ({
+export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
   action,
   actionIndex,
   messageId,
@@ -51,7 +51,6 @@ export const DeleteRenderer: React.FC<BaseRendererProps> = ({
   );
 
   const displayName = rawPath ? rawPath.split("/").pop() || rawPath : "";
-  const isFolder = toolType === "delete_folder";
 
   const nextUserMessage = getNextUserMessage(allMessages || [], messageId);
 
@@ -62,7 +61,7 @@ export const DeleteRenderer: React.FC<BaseRendererProps> = ({
   const isError = !!toolOutputs?.[actionId]?.isError;
   const errorMessage = isError ? toolOutputs?.[actionId]?.output || "" : "";
 
-  const prefix = isFolder ? "DELETE FOLDER" : "DELETE FILE";
+  const prefix = "DELETE FILE";
 
   const statusColor = isError
     ? "var(--vscode-errorForeground, #f14c4c)"
@@ -94,7 +93,7 @@ export const DeleteRenderer: React.FC<BaseRendererProps> = ({
             <span style={{ fontWeight: 600, opacity: 0.8 }}>{prefix}</span>
             <FileIcon
               path={rawPath}
-              isFolder={isFolder}
+              isFolder={false}
               style={{ width: "14px", height: "14px" }}
             />
             <span
@@ -145,7 +144,7 @@ export const DeleteRenderer: React.FC<BaseRendererProps> = ({
             onExecute={(e, type) =>
               onToolClick(action, messageId, actionIndex, type)
             }
-            title={`Delete ${isFolder ? "Folder" : "File"}`}
+            title="Delete File"
           />
         </div>
       )}

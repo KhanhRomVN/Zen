@@ -16,7 +16,8 @@ import {
   extensionService,
   messageDispatcher,
 } from "@/services/ExtensionService";
-import { PermissionMode, getToolTimeout, TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
+import { getToolTimeout, TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
+import type { PermissionMode } from "../../types/tag-types";
 
 interface UseToolExecutionProps {
   sendMessage: (
@@ -996,38 +997,6 @@ export const useToolExecution = ({
               const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to delete file.`;
               resolve(
                 `[delete_file for '${filePath}'] Result: Error - ${timeoutError}`,
-              );
-            },
-          );
-          break;
-        }
-
-        case "delete_folder": {
-          const requestId = `delete-folder-${Date.now()}-${Math.random()}`;
-          const folderPath = action.params.folder_path;
-          extensionService.postMessage({
-            command: "deleteFolder",
-            folder_path: folderPath,
-            requestId,
-          });
-          messageDispatcher.register(
-            requestId,
-            (msg) => {
-              if (msg.error) {
-                resolve(
-                  `[delete_folder for '${folderPath}'] Result: Error - ${msg.error}`,
-                );
-                return;
-              }
-              resolve(
-                `[delete_folder for '${folderPath}'] Result: Folder deleted successfully`,
-              );
-            },
-            getToolTimeout(action.type),
-            () => {
-              const timeoutError = `Operation timed out after ${getToolTimeout(action.type) / 1000}s. Failed to delete folder.`;
-              resolve(
-                `[delete_folder for '${folderPath}'] Result: Error - ${timeoutError}`,
               );
             },
           );

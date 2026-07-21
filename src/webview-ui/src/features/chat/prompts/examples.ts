@@ -403,7 +403,7 @@ Pass 2 (Verify): Per PARTIAL-BATCH, do not redo the whole batch. Report success/
 
 \`\`\`xml
 <thinking>
-Pass 1 (Plan): The fix requires replace_in_file, but the current permission mode is readOnly, which blocks replace_in_file, write_to_file, delete_file, delete_folder, move_file, run_command.
+Pass 1 (Plan): The fix requires replace_in_file, but the current permission mode is readOnly, which blocks replace_in_file, write_to_file, delete_file, move_file, run_command.
 Pass 2 (Verify): Per PERMISSION MODE rules, I must not call a blocked tool. State clearly that the action is blocked by mode, not "impossible" in general, and ask the user to switch mode.
 </thinking>
 <markdown>

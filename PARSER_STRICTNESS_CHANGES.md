@@ -12,7 +12,7 @@ Enforce strict compliance with `tools-reference.ts` schema:
 ✅ **Removed all tag name variants** - Set `variants: []` for all tools:
 - `read_file`, `write_to_file`, `replace_in_file`, `revert_file`
 - `view_replace_history`, `list_files`, `find_files`, `grep`
-- `delete_file`, `delete_folder`, `move_file`, `run_command`
+- `delete_file`, `move_file`, `run_command`
 - `git_diff`, `context_compression`
 
 ✅ **Removed `attributeAliases` field** from:
