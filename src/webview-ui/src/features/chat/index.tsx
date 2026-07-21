@@ -28,7 +28,6 @@ import { useContextUsage } from "./hooks/messages/useContextUsage";
 import { useFileStats } from "./hooks/messages/useFileStats";
 import { useMessageHandlers } from "./hooks/handlers/useMessageHandlers";
 import { useTextareaHandlers } from "./hooks/handlers/useTextareaHandlers";
-import { useModelSwitch } from "./hooks/handlers/useModelSwitch";
 import { useExternalMessages } from "./hooks/events/useExternalMessages";
 import { useConversationCache } from "./hooks/cache/useConversationCache";
 import { useConversationPersistence } from "./hooks/persistence/useConversationPersistence";
@@ -488,15 +487,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       handleDraftKeyDown,
     });
 
-  // --- Model Switch ---
-  const { handleModelSwitch } = useModelSwitch({
-    messages,
-    currentConversationId,
-    currentChat,
-    providers,
-    setMessages,
-  });
-
   // --- Handle Back to Home ---
   const handleBackToHome = useCallback(
     (summary: string) => {
@@ -711,42 +701,42 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       <ChatBody
         messages={parsedMessages}
         isProcessing={isProcessing}
-          isContinuing={isContinuing}
-          onSendToolRequest={memoizedHandleToolRequest}
-          onSendMessage={memoizedWrappedSendMessage}
-          executionState={executionState}
-          toolOutputs={toolOutputs}
-          terminalStatus={terminalStatus}
-          firstRequestMessageId={firstRequestMessage?.id}
-          onLoadConversation={onLoadConversation}
-          conversationId={currentConversationId}
-          onToolAction={handleToolAction}
-          onSelectOption={handleSelectOption}
-          isRestored={isRestored}
-          onContinue={() => setIsRestored(false)}
-          hasInitialMessage={!!initialMessageData}
-          onRevertConversation={handleRevertConversation}
-          onAutoScrollPausedChange={setAutoScrollPaused}
-          scrollToBottomRef={scrollToBottomRef}
-          singleLineReviewActions={singleLineReviewActions}
-          onConfirmSingleLineAction={confirmSingleLineAction}
-          onRejectSingleLineAction={rejectSingleLineAction}
-          isSearchOpen={isSearchOpen}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          onCloseSearch={() => {
-            setIsSearchOpen(false);
-            setSearchQuery("");
-          }}
-          onGitConfirm={handleGitConfirm}
-          onGitCancel={handleGitCancel}
-          gitStatusItems={gitStatus?.items || []}
-          gitStatusBranch={gitStatus?.branch || ""}
-          isGitProcessing={gitCommitLoading}
-          isGitStatusVisible={showGitStatusBlock}
-          onBackToHome={handleBackToHome}
-          isLoadingConversation={isLoadingConversation}
-        />
+        isContinuing={isContinuing}
+        onSendToolRequest={memoizedHandleToolRequest}
+        onSendMessage={memoizedWrappedSendMessage}
+        executionState={executionState}
+        toolOutputs={toolOutputs}
+        terminalStatus={terminalStatus}
+        firstRequestMessageId={firstRequestMessage?.id}
+        onLoadConversation={onLoadConversation}
+        conversationId={currentConversationId}
+        onToolAction={handleToolAction}
+        onSelectOption={handleSelectOption}
+        isRestored={isRestored}
+        onContinue={() => setIsRestored(false)}
+        hasInitialMessage={!!initialMessageData}
+        onRevertConversation={handleRevertConversation}
+        onAutoScrollPausedChange={setAutoScrollPaused}
+        scrollToBottomRef={scrollToBottomRef}
+        singleLineReviewActions={singleLineReviewActions}
+        onConfirmSingleLineAction={confirmSingleLineAction}
+        onRejectSingleLineAction={rejectSingleLineAction}
+        isSearchOpen={isSearchOpen}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onCloseSearch={() => {
+          setIsSearchOpen(false);
+          setSearchQuery("");
+        }}
+        onGitConfirm={handleGitConfirm}
+        onGitCancel={handleGitCancel}
+        gitStatusItems={gitStatus?.items || []}
+        gitStatusBranch={gitStatus?.branch || ""}
+        isGitProcessing={gitCommitLoading}
+        isGitStatusVisible={showGitStatusBlock}
+        onBackToHome={handleBackToHome}
+        isLoadingConversation={isLoadingConversation}
+      />
 
       {/* ─── ChatFooter ─── */}
       {(() => {
@@ -799,7 +789,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         gitStatus={gitStatus}
         onOpenGitStatus={() => setShowGitStatusBlock(true)}
         loadedConversationFileStats={loadedConversationFileStats}
-        onModelSwitch={handleModelSwitch}
         onRevertConversation={handleRevertConversation}
         autoScrollPaused={autoScrollPaused}
         scrollToBottom={scrollToBottomRef.current || undefined}
