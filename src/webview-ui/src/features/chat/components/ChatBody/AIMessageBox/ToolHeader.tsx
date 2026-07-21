@@ -1,4 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
+
+// STYLES
 import "./blocks/run_command/TerminalBlock.css";
 
 interface ToolHeaderProps {

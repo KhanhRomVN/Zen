@@ -1,20 +1,33 @@
 import React from "react";
+
+// ICONS
 import FileIcon from "@/icons/FileIcon";
-import "./blocks/run_command/TerminalBlock.css";
-import "./blocks/markdown/MarkdownBlock.css";
-import { Message, Question } from "@/features/chat/types/message";
-import { ParsedResponse } from "@/features/chat/services/ResponseParser";
+
+// CONSTANTS
 import {
   EXECUTION_STATUS,
   TOOL_ACTION_TYPES,
 } from "@/features/chat/constants/constants";
+
+// TYPES
+import { Message, Question } from "@/features/chat/types/message";
+import { ParsedResponse } from "@/features/chat/services/ResponseParser";
+
+// UTILS
 import { isDiff, parseDiff } from "@/utils/diffUtils";
+
+// COMPONENTS
 import CodeBlock from "./blocks/code/CodeBlock";
 import MarkdownBlock from "./blocks/markdown/MarkdownBlock";
 import QuestionBlock from "./blocks/question/QuestionBlock";
 import ErrorBlock from "./blocks/error/ErrorBlock";
-import { WarningBlock } from "./blocks/warning/WarningBlock";
-import ToolActionsList from "./ToolAction";
+import WarningBlock from "./blocks/warning/WarningBlock";
+import ToolAction from "./ToolAction";
+import ResponseMetadataBar from "./ResponseMetadataBar";
+
+// STYLES
+import "./blocks/run_command/TerminalBlock.css";
+import "./blocks/markdown/MarkdownBlock.css";
 
 interface AIMessageBoxProps {
   message: Message;
@@ -139,9 +152,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
       return "Invalid conversation log format.";
     return raw;
   };
-
-  const [requestChecked, setRequestChecked] = React.useState(false);
-  const [responseChecked, setResponseChecked] = React.useState(false);
 
   //   Cache previousUserMessage lookup. Only recompute when the message
   // list length changes or the current message id changes (not on every render
@@ -433,219 +443,12 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           const isLastGroup = index === renderGroups.length - 1;
 
           if (group.type === "response_number") {
-            const showRaw = requestChecked || responseChecked;
-            const reqTokens =
-              previousUserMessage?.token_usage ??
-              previousUserMessage?.usage?.prompt_tokens ??
-              0;
-            const resTokens =
-              message.usage?.completion_tokens ?? message.token_usage ?? 0;
-
-            // Request/Response icons (upload/download)
-            const RequestIcon = (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0 }}
-              >
-                <path d="M12 3v12" />
-                <path d="m17 8-5-5-5 5" />
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              </svg>
-            );
-
-            const ResponseIcon = (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ flexShrink: 0 }}
-              >
-                <path d="M12 15V3" />
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <path d="m7 10 5 5 5-5" />
-              </svg>
-            );
-
             content = (
-              <div>
-                <div
-                  style={{
-                    position: "relative",
-                    paddingTop: "6px",
-                    paddingBottom: "6px",
-                    fontSize: "11px",
-                    fontFamily: "var(--vscode-editor-font-family, monospace)",
-                    lineHeight: 1.6,
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    alignItems: "center",
-                    gap: "12px",
-                    userSelect: "none",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {/* Request Badge */}
-                  <div
-                    onClick={() => setRequestChecked(!requestChecked)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: "pointer",
-                      textDecoration: requestChecked ? "underline" : "none",
-                      textUnderlineOffset: "3px",
-                      transition: "opacity 0.2s ease",
-                      opacity: requestChecked ? 1 : 0.8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--vscode-charts-green, #89d185)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      {RequestIcon}
-                    </span>
-                    <span
-                      style={{
-                        color: "var(--vscode-foreground)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {reqTokens.toLocaleString()}
-                    </span>
-                  </div>
-
-                  {/* Response Badge */}
-                  <div
-                    onClick={() => setResponseChecked(!responseChecked)}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      cursor: "pointer",
-                      textDecoration: responseChecked ? "underline" : "none",
-                      textUnderlineOffset: "3px",
-                      transition: "opacity 0.2s ease",
-                      opacity: responseChecked ? 1 : 0.8,
-                    }}
-                  >
-                    <span
-                      style={{
-                        color: "var(--vscode-charts-red, #f48771)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      {ResponseIcon}
-                    </span>
-                    <span
-                      style={{
-                        color: "var(--vscode-foreground)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {resTokens.toLocaleString()}
-                    </span>
-                  </div>
-
-                  {/* Response Number */}
-                  <span
-                    style={{
-                      color: "var(--vscode-descriptionForeground)",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    [{responseNumber}]
-                  </span>
-                </div>
-                {showRaw && (
-                  <div
-                    style={{
-                      marginTop: "4px",
-                      marginBottom: "8px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "8px",
-                    }}
-                  >
-                    {requestChecked && previousUserMessage?.rawRequest && (
-                      <div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            color: "var(--vscode-descriptionForeground)",
-                            marginBottom: "4px",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.5px",
-                          }}
-                        >
-                          Request (User Content)
-                        </div>
-                        <CodeBlock
-                          code={previousUserMessage.rawRequest}
-                          language="text"
-                          maxHeight="400px"
-                        />
-                      </div>
-                    )}
-                    {responseChecked && message.rawResponse && (
-                      <div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            color: "var(--vscode-descriptionForeground)",
-                            marginBottom: "4px",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.5px",
-                          }}
-                        >
-                          Response (Assistant Content)
-                        </div>
-                        <CodeBlock
-                          code={message.rawResponse}
-                          language="text"
-                          maxHeight="400px"
-                        />
-                      </div>
-                    )}
-                    {showRaw &&
-                      !previousUserMessage?.rawRequest &&
-                      !message.rawResponse && (
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--vscode-descriptionForeground)",
-                            fontStyle: "italic",
-                            padding: "8px",
-                          }}
-                        >
-                          Raw data not available for this response (may have
-                          been loaded from history before this feature was
-                          added).
-                        </div>
-                      )}
-                  </div>
-                )}
-              </div>
+              <ResponseMetadataBar
+                responseNumber={responseNumber!}
+                message={message}
+                previousUserMessage={previousUserMessage}
+              />
             );
           } else if (group.type === "code") {
             const isDiffBlock = isDiff(group.content, group.language);
@@ -847,7 +650,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             return <React.Fragment key={group.key}>{content}</React.Fragment>;
           } else {
             content = (
-              <ToolActionsList
+              <ToolAction
                 message={message}
                 items={group.items}
                 clickedActions={clickedActions}

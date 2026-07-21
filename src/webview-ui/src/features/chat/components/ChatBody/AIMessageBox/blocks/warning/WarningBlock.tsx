@@ -13,7 +13,7 @@ interface WarningBlockProps {
  * WarningBlock component with ToolHeader-style layout.
  * Used for displaying warning messages like response continuation, partial tool assembly, etc.
  */
-export const WarningBlock: React.FC<WarningBlockProps> = ({
+const WarningBlock: React.FC<WarningBlockProps> = ({
   label,
   message,
   warningColor = "var(--vscode-editorWarning-foreground, #cca700)",
@@ -48,3 +48,5 @@ export const WarningBlock: React.FC<WarningBlockProps> = ({
     </div>
   );
 };
+
+export default WarningBlock;

@@ -1,5 +1,7 @@
 import React from "react";
 import { Check, X } from "lucide-react";
+
+// CONSTANTS
 import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
 
 export interface ExecuteButtonProps {

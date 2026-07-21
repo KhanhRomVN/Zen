@@ -1,18 +1,32 @@
+import React from "react";
+
+// HOOKS
 import { useSettings } from "@/context/SettingsContext";
+
+// SERVICES
+import { extensionService } from "@/services/ExtensionService";
+
+// CONSTANTS
 import {
   STREAM_BOX_HEIGHT,
   TOOL_ACTION_TYPES,
 } from "@/features/chat/constants/constants";
+
+// TYPES
 import { ToolAction } from "@/features/chat/services/ResponseParser";
 import { Message } from "@/features/chat/types/message";
 import { ToolOutputs } from "@/features/chat/types/tool-outputs";
+
+// UTILS
 import { getFilename } from "@/features/chat/utils/toolUtils";
-import FileIcon from "@/icons/FileIcon";
-import { calculateLineDiff, parseDiff } from "@/utils/diffUtils";
-import React from "react";
-import { ToolHeader } from "./ToolHeader";
-import { extensionService } from "@/services/ExtensionService";
 import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
+import { calculateLineDiff, parseDiff } from "@/utils/diffUtils";
+
+// ICONS
+import FileIcon from "@/icons/FileIcon";
+
+// COMPONENTS
+import { ToolHeader } from "./ToolHeader";
 import { TreeBlock } from "./blocks/tree/TreeBlock";
 import ExecuteButton from "./ExecuteButton";
 import ErrorBlock from "./blocks/error/ErrorBlock";

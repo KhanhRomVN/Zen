@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { ToolAction } from "../../../services/ResponseParser";
-import { formatActionForDisplay } from "../../../services/ResponseParser";
 
+// HOOKS
+import { useProject } from "../../../../../context/ProjectContext";
+
+// SERVICES
+import { extensionService } from "../../../../../services/ExtensionService";
+
+// CONSTANTS
 import {
   shouldShowFileStats,
   shouldValidateFuzzyMatch,
@@ -9,15 +14,22 @@ import {
   TOOL_ACTION_TYPES,
   EXECUTION_STATUS,
 } from "../../../constants/constants";
-import { extensionService } from "../../../../../services/ExtensionService";
+
+// TYPES
+import { ToolAction } from "../../../services/ResponseParser";
 import { Message } from "../../../types/message";
-import { useProject } from "../../../../../context/ProjectContext";
+
+// UTILS
+import { formatActionForDisplay } from "../../../services/ResponseParser";
+
+// ICONS
+import FileIcon from "@/icons/FileIcon";
+
+// COMPONENTS
 import FileToolRenderer from "./FileToolRenderer";
 import TerminalToolRenderer from "./TerminalToolRenderer";
 import GitToolRenderer from "./GitToolRenderer";
 import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
-
-import FileIcon from "@/icons/FileIcon";
 import ErrorBlock from "./blocks/error/ErrorBlock";
 import { ToolHeader } from "./ToolHeader";
 interface ToolRouterProps {

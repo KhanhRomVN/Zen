@@ -1,13 +1,24 @@
 import React from "react";
-import { TOOL_ACTION_TYPES } from "../../../constants/constants";
-import { ToolAction } from "../../../services/ResponseParser";
-import { TerminalBlock } from "./blocks/run_command/TerminalBlock";
 
-import { extensionService } from "../../../../../services/ExtensionService";
-import { Message } from "../../../types/message";
-import ExecuteButton from "./ExecuteButton";
+// HOOKS
 import { useSettings } from "../../../../../context/SettingsContext";
+
+// SERVICES
+import { extensionService } from "../../../../../services/ExtensionService";
+
+// CONSTANTS
+import { TOOL_ACTION_TYPES } from "../../../constants/constants";
+
+// TYPES
+import { ToolAction } from "../../../services/ResponseParser";
+import { Message } from "../../../types/message";
+
+// UTILS
 import { getPermissionDecision } from "../../../utils/permissionUtils";
+
+// COMPONENTS
+import { TerminalBlock } from "./blocks/run_command/TerminalBlock";
+import ExecuteButton from "./ExecuteButton";
 
 interface TerminalToolRendererProps {
   action: ToolAction;
