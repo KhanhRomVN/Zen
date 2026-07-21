@@ -1,21 +1,24 @@
 import React from "react";
-import { ToolAction } from "../../services/ResponseParser";
+import { ToolAction } from "../../../../services/ResponseParser";
 import FileIcon from "@/icons/FileIcon";
 import { ToolHeader } from "./ToolHeader";
-import { parseDiff, calculateLineDiff } from "../../../../utils/diffUtils";
-import { getFilename } from "../../utils/toolUtils";
-import { extensionService } from "../../../../services/ExtensionService";
-import { Message } from "../../types/message";
+import {
+  parseDiff,
+  calculateLineDiff,
+} from "../../../../../../utils/diffUtils";
+import { getFilename } from "../../../../utils/toolUtils";
+import { extensionService } from "../../../../../../services/ExtensionService";
+import { Message } from "../../../../types/message";
 import ExecuteButton from "./ExecuteButton";
-import { useSettings } from "../../../../context/SettingsContext";
+import { useSettings } from "../../../../../../context/SettingsContext";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { GrepBlock } from "../blocks/grep/GrepBlock";
 import { TreeBlock } from "../blocks/tree/TreeBlock";
-import { getPermissionDecision } from "../../utils/permissionUtils";
-import { ToolOutputs } from "../../types/tool-outputs";
-import { TOOL_ACTION_TYPES } from "../../constants/constants";
+import { getPermissionDecision } from "../../../../utils/permissionUtils";
+import { ToolOutputs } from "../../../../types/tool-outputs";
+import { TOOL_ACTION_TYPES } from "../../../../constants/constants";
 import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
-import { STREAM_BOX_HEIGHT } from "../../constants/constants";
+import { STREAM_BOX_HEIGHT } from "../../../../constants/constants";
 
 export const getDisplayPath = (
   fullPath: string,

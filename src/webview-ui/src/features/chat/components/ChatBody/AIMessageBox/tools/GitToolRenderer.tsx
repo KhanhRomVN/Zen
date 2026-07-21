@@ -1,12 +1,12 @@
 import React, { useMemo } from "react";
-import { TOOL_ACTION_TYPES } from "../../constants/constants";
+import { TOOL_ACTION_TYPES } from "../../../../constants/constants";
 import { ToolHeader } from "./ToolHeader";
-import { ToolAction } from "../../services/ResponseParser";
+import { ToolAction } from "../../../../services/ResponseParser";
 import "../blocks/run_command/TerminalBlock.css";
 
-import { parseGitStatusOutput } from "../../utils/gitUtils";
+import { parseGitStatusOutput } from "../../../../utils/gitUtils";
 import { GitStatusBlock } from "../blocks/git_status/GitStatusBlock";
-import { GitStatusItem } from "../../types/tool-types";
+import { GitStatusItem } from "../../../../types/tool-types";
 
 interface GitToolRendererProps {
   action: ToolAction;

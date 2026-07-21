@@ -3,20 +3,19 @@ import {
   parseAIResponse,
   ParsedResponse,
   ToolAction,
-} from "../services/ResponseParser";
-import { useSettings } from "../../../context/SettingsContext";
-import { useCollapseSections } from "../hooks/ui/useCollapseSections";
-import { useToolActions } from "../hooks/tools/useToolActions";
-import { useScrollBehavior } from "../hooks/ui/useScrollBehavior";
-import { Message } from "../types/message";
-import ProcessingIndicator from "./messages/ProcessingIndicator";
-import { ThinkingRenderer } from "./blocks/thinking/ThinkingBlock";
-import MessageBox from "./messages/MessageBox";
-import SearchBar from "./SearchBar";
-import { ChatErrorBoundary } from "./ChatErrorBoundary";
+} from "../../services/ResponseParser";
+import { Message } from "../../types/message";
+import { EXECUTION_STATUS, TOOL_ACTION_TYPES } from "../../constants/constants";
+import { useSettings } from "@/context/SettingsContext";
+import { useCollapseSections } from "../../hooks/ui/useCollapseSections";
+import { useToolActions } from "../../hooks/tools/useToolActions";
+import { useScrollBehavior } from "../../hooks/ui/useScrollBehavior";
 import ChatBodySkeleton from "./ChatBodySkeleton";
-import { WarningBlock } from "./blocks/warning/WarningBlock";
-import { TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../constants/constants";
+import SearchBar from "./SearchBar";
+import ThinkingRenderer from "./AIMessageBox/blocks/thinking/ThinkingBlock";
+import { WarningBlock } from "./AIMessageBox/blocks/warning/WarningBlock";
+import ProcessingIndicator from "./ProcessingIndicator";
+import MessageBox from "./MessageBox";
 
 interface ChatBodyProps {
   messages: Message[];
@@ -59,7 +58,6 @@ interface ChatBodyProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   onAutoScrollPausedChange?: (paused: boolean) => void;
   scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
-  /** DeepSeek incomplete SSE continuation flags. */
   isContinuing?: boolean;
   onGitConfirm?: (items: any[]) => void;
   onGitCancel?: () => void;
@@ -301,10 +299,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     if (!parsedMessage || !parsedMessage.parsed) return false;
     const parsed = parsedMessage.parsed;
 
-    // Hide ProcessingIndicator nếu có bất kỳ content nào (kể cả thinking blocks)
     // Kiểm tra message.thinking (SSE stream)
     if (lastMessage.thinking && lastMessage.thinking.trim().length > 0) {
-      return false; // Ẩn ProcessingIndicator (đã có thinking)
+      return false;
     }
 
     // Kiểm tra thinking blocks trong contentBlocks
@@ -312,19 +309,19 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       parsed.contentBlocks &&
       parsed.contentBlocks.some((b: any) => b.type === "thinking");
     if (hasThinkingBlock) {
-      return false; // Ẩn ProcessingIndicator (đã có thinking blocks)
+      return false;
     }
 
     // Kiểm tra text content
     const hasText = parsed.displayText && parsed.displayText.trim().length > 0;
     if (hasText) {
-      return false; // Ẩn ProcessingIndicator (đã có text)
+      return false;
     }
 
     // Kiểm tra actions
     const hasActions = parsed.actions && parsed.actions.length > 0;
     if (hasActions) {
-      return false; // Ẩn ProcessingIndicator (đã có actions)
+      return false;
     }
 
     // Kiểm tra other blocks (code, file, markdown, mixed_content) - skip thinking
@@ -350,10 +347,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       });
 
     if (hasOtherBlocks) {
-      return false; // Ẩn ProcessingIndicator (đã có content blocks)
+      return false;
     }
 
-    // Show ProcessingIndicator chỉ khi chưa có content nào
     return true;
   }, [isProcessing, visibleMessages, parsedMessages]);
 
@@ -423,63 +419,60 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                 nextVisibleMessage?.role === "assistant";
 
               return (
-                <ChatErrorBoundary key={message.id}>
-                  <MessageBox
-                    key={message.id}
-                    message={message}
-                    parsedContent={parsedContent}
-                    nextUserMessage={nextUserMessage}
-                    responseNumber={currentResponseNumber}
-                    isGenerating={
-                      isProcessing && index === visibleMessages.length - 1
-                    }
-                    isCollapsed={
-                      message.role === "user"
-                        ? collapsedSections.has(`prompt-${message.id}`)
-                        : false
-                    }
-                    onToggleCollapse={() =>
-                      toggleCollapse(`prompt-${message.id}`)
-                    }
-                    clickedActions={clickedActions}
-                    failedActions={failedActions}
-                    rejectedActions={rejectedActions}
-                    onToolClick={handleToolClick}
-                    executionState={executionState}
-                    isLastMessage={
-                      message.role === "assistant" &&
-                      (index === visibleMessages.length - 1 ||
-                        index === lastAssistantIndex) &&
-                      hasNextAssistantMessage === false
-                    }
-                    hasNextAssistantMessage={hasNextAssistantMessage}
-                    toolOutputs={toolOutputs}
-                    terminalStatus={terminalStatus}
-                    allMessages={messages}
-                    activeTerminalIds={activeTerminalIds}
-                    attachedTerminalIds={attachedTerminalIds}
-                    conversationId={conversationId}
-                    previousAssistantMessage={previousAssistantMessage}
-                    onSendMessage={onSendMessage}
-                    onSelectOption={onSelectOption}
-                    onRevertConversation={onRevertConversation}
-                    singleLineReviewActions={singleLineReviewActions}
-                    onConfirmSingleLineAction={onConfirmSingleLineAction}
-                    onRejectSingleLineAction={onRejectSingleLineAction}
-                    onGitConfirm={onGitConfirm}
-                    onGitCancel={onGitCancel}
-                    gitStatusItems={gitStatusItems}
-                    gitStatusBranch={gitStatusBranch}
-                    isGitProcessing={isGitProcessing}
-                    isGitStatusVisible={isGitStatusVisible}
-                    onBackToHome={onBackToHome}
-                  />
-                </ChatErrorBoundary>
+                <MessageBox
+                  key={message.id}
+                  message={message}
+                  parsedContent={parsedContent}
+                  nextUserMessage={nextUserMessage}
+                  responseNumber={currentResponseNumber}
+                  isGenerating={
+                    isProcessing && index === visibleMessages.length - 1
+                  }
+                  isCollapsed={
+                    message.role === "user"
+                      ? collapsedSections.has(`prompt-${message.id}`)
+                      : false
+                  }
+                  onToggleCollapse={() =>
+                    toggleCollapse(`prompt-${message.id}`)
+                  }
+                  clickedActions={clickedActions}
+                  failedActions={failedActions}
+                  rejectedActions={rejectedActions}
+                  onToolClick={handleToolClick}
+                  executionState={executionState}
+                  isLastMessage={
+                    message.role === "assistant" &&
+                    (index === visibleMessages.length - 1 ||
+                      index === lastAssistantIndex) &&
+                    hasNextAssistantMessage === false
+                  }
+                  hasNextAssistantMessage={hasNextAssistantMessage}
+                  toolOutputs={toolOutputs}
+                  terminalStatus={terminalStatus}
+                  allMessages={messages}
+                  activeTerminalIds={activeTerminalIds}
+                  attachedTerminalIds={attachedTerminalIds}
+                  conversationId={conversationId}
+                  previousAssistantMessage={previousAssistantMessage}
+                  onSendMessage={onSendMessage}
+                  onSelectOption={onSelectOption}
+                  onRevertConversation={onRevertConversation}
+                  singleLineReviewActions={singleLineReviewActions}
+                  onConfirmSingleLineAction={onConfirmSingleLineAction}
+                  onRejectSingleLineAction={onRejectSingleLineAction}
+                  onGitConfirm={onGitConfirm}
+                  onGitCancel={onGitCancel}
+                  gitStatusItems={gitStatusItems}
+                  gitStatusBranch={gitStatusBranch}
+                  isGitProcessing={isGitProcessing}
+                  isGitStatusVisible={isGitStatusVisible}
+                  onBackToHome={onBackToHome}
+                />
               );
             });
           })()}
 
-          {/* Thinking Block - render before ProcessingIndicator */}
           {(() => {
             const lastMessage = visibleMessages[visibleMessages.length - 1];
             const isRenderingThinking =

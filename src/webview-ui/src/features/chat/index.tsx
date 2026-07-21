@@ -40,7 +40,6 @@ import { ChatSession } from "./types/chat";
 import ChatHeader from "./components/ChatHeader";
 import ChatBody from "./components/ChatBody";
 import ChatFooter from "./components/ChatFooter";
-import { ChatErrorBoundary } from "./components/ChatErrorBoundary";
 
 interface ChatPanelProps {
   currentChat: ChatSession | null;
@@ -709,10 +708,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       />
 
       {/* ─── ChatBody ─── */}
-      <ChatErrorBoundary>
-        <ChatBody
-          messages={parsedMessages}
-          isProcessing={isProcessing}
+      <ChatBody
+        messages={parsedMessages}
+        isProcessing={isProcessing}
           isContinuing={isContinuing}
           onSendToolRequest={memoizedHandleToolRequest}
           onSendMessage={memoizedWrappedSendMessage}
@@ -749,7 +747,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           onBackToHome={handleBackToHome}
           isLoadingConversation={isLoadingConversation}
         />
-      </ChatErrorBoundary>
 
       {/* ─── ChatFooter ─── */}
       {(() => {

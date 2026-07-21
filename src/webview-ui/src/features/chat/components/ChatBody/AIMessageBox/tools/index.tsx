@@ -1,7 +1,10 @@
 import React, { useMemo } from "react";
-import { TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
-import { ToolAction } from "../../services/ResponseParser";
-import { Message } from "../../types/message";
+import {
+  TOOL_ACTION_TYPES,
+  EXECUTION_STATUS,
+} from "../../../../constants/constants";
+import { ToolAction } from "../../../../services/ResponseParser";
+import { Message } from "../../../../types/message";
 import ToolRouter from "./ToolRouter";
 
 interface ToolActionsListProps {

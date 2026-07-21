@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getFileIconPath } from "../../../../../utils/fileIconMapper";
+import { getFileIconPath } from "../../../../../../../utils/fileIconMapper";
 
 interface CodeBlockHeaderProps {
   language: string;

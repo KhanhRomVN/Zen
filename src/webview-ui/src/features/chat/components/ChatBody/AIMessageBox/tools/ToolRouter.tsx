@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { ToolAction } from "../../services/ResponseParser";
-import { formatActionForDisplay } from "../../services/ResponseParser";
+import { ToolAction } from "../../../../services/ResponseParser";
+import { formatActionForDisplay } from "../../../../services/ResponseParser";
 
 import {
   shouldShowFileStats,
@@ -10,10 +10,10 @@ import {
   TOOL_TAG_REGISTRY,
   TOOL_ACTION_TYPES,
   EXECUTION_STATUS,
-} from "../../constants/constants";
-import { extensionService } from "../../../../services/ExtensionService";
-import { Message } from "../../types/message";
-import { useProject } from "../../../../context/ProjectContext";
+} from "../../../../constants/constants";
+import { extensionService } from "../../../../../../services/ExtensionService";
+import { Message } from "../../../../types/message";
+import { useProject } from "../../../../../../context/ProjectContext";
 import FileToolRenderer from "./FileToolRenderer";
 import TerminalToolRenderer from "./TerminalToolRenderer";
 import GitToolRenderer from "./GitToolRenderer";

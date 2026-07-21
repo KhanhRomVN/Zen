@@ -1,17 +1,20 @@
 import React from "react";
-import { TOOL_ACTION_TYPES, EXECUTION_STATUS } from "../../constants/constants";
-import { Message } from "../../types/message";
-import { ParsedResponse } from "../../services/ResponseParser";
-import ToolActionsList from "../tools/index";
 import FileIcon from "@/icons/FileIcon";
-import { isDiff, parseDiff } from "../../../../utils/diffUtils";
-import ErrorBlock from "../blocks/error/ErrorBlock";
-import { WarningBlock } from "../blocks/warning/WarningBlock";
-import "../blocks/run_command/TerminalBlock.css";
-import "../blocks/markdown/MarkdownBlock.css";
-import { MarkdownBlock } from "../blocks/markdown/MarkdownBlock";
-import { QuestionBlock } from "../blocks/question/QuestionBlock";
-import { CodeBlock } from "../blocks/code/CodeBlock";
+import "./blocks/run_command/TerminalBlock.css";
+import "./blocks/markdown/MarkdownBlock.css";
+import { Message, Question } from "@/features/chat/types/message";
+import { ParsedResponse } from "@/features/chat/services/ResponseParser";
+import {
+  EXECUTION_STATUS,
+  TOOL_ACTION_TYPES,
+} from "@/features/chat/constants/constants";
+import { isDiff, parseDiff } from "@/utils/diffUtils";
+import CodeBlock from "./blocks/code/CodeBlock";
+import MarkdownBlock from "./blocks/markdown/MarkdownBlock";
+import QuestionBlock from "./blocks/question/QuestionBlock";
+import ErrorBlock from "./blocks/error/ErrorBlock";
+import { WarningBlock } from "./blocks/warning/WarningBlock";
+import ToolActionsList from "./tools";
 import { ModelUsageInfo } from "../ModelUsageInfo";
 
 interface AIMessageBoxProps {
@@ -287,7 +290,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               options: string[];
               title?: string;
               optional?: boolean;
-              questions?: import("../../types/message").Question[];
+              questions?: Question[];
               key: string;
             }
           | {
