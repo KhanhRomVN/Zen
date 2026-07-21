@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
-import "./ThinkingBlock.css";
 
 interface ThinkingRendererProps {
   content: string;
@@ -7,6 +6,11 @@ interface ThinkingRendererProps {
   isStreaming?: boolean;
 }
 
+/**
+ * ThinkingRenderer displays AI thinking/reasoning content with virtual scrolling
+ * for performance optimization. It's a standalone component used in ChatBody
+ * to render thinking blocks independently from AI message boxes.
+ */
 export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
   content,
   maxHeight = 240,
@@ -15,7 +19,9 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const autoScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Virtual scrolling configuration
   const LINE_HEIGHT = 18; // 12px font * 1.5 line-height
@@ -100,30 +106,27 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        style={
-          {
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            fontSize: "12px",
-            lineHeight: "1.5",
-            color:
-              "var(--vscode-descriptionForeground, var(--vscode-editor-foreground))",
-            opacity: 0.75,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            maxHeight: `${maxHeightPx}px`,
-            overflowY:
-              totalLines * LINE_HEIGHT > maxHeightPx ? "auto" : "hidden",
-            padding: 0,
-            border: "none",
-            background: "transparent",
-            outline: "none",
-            flex: 1,
-            position: "relative",
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-          } as React.CSSProperties
-        }
-        className="thinking-block-scroll"
+        style={{
+          fontFamily: "var(--vscode-editor-font-family, monospace)",
+          fontSize: "12px",
+          lineHeight: "1.5",
+          color:
+            "var(--vscode-descriptionForeground, var(--vscode-editor-foreground))",
+          opacity: 0.75,
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          maxHeight: `${maxHeightPx}px`,
+          overflowY:
+            totalLines * LINE_HEIGHT > maxHeightPx ? "auto" : "hidden",
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          outline: "none",
+          flex: 1,
+          position: "relative",
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
       >
         {/* Spacer to maintain scroll height */}
         <div
@@ -144,6 +147,13 @@ export const ThinkingRenderer: React.FC<ThinkingRendererProps> = ({
             {visibleLines.join("\n")}
           </div>
         </div>
+
+        {/* Inline styles for hiding scrollbar */}
+        <style>{`
+          div[style*="scrollbar-width: none"]::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
       </div>
     </div>
   );

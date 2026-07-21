@@ -65,7 +65,6 @@ export const useModelSwitch = ({
       // Update contextData with user messages
       contextData.userMessages = recentUserMessages;
 
-      // Create ModelUsageInfo message as a system message
       const modelSwitchMessage: Message = {
         id: `model-switch-${Date.now()}`,
         role: "system" as const,

@@ -14,8 +14,7 @@ import MarkdownBlock from "./blocks/markdown/MarkdownBlock";
 import QuestionBlock from "./blocks/question/QuestionBlock";
 import ErrorBlock from "./blocks/error/ErrorBlock";
 import { WarningBlock } from "./blocks/warning/WarningBlock";
-import ToolActionsList from "./tools";
-import { ModelUsageInfo } from "../ModelUsageInfo";
+import ToolActionsList from "./ToolAction";
 
 interface AIMessageBoxProps {
   message: Message;
@@ -270,12 +269,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
     >
       {(() => {
         const groups: Array<
-          | {
-              type: "metadata";
-              content: string;
-              faviconUrl?: string;
-              key: string;
-            }
           | { type: "code"; content: string; language: string; key: string }
           | { type: "file"; content: string; key: string }
           | { type: "markdown"; content: string; key: string }
@@ -320,38 +313,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
         const isCommitMessage =
           message.content?.includes("[COMMIT_MESSAGE_REQUEST]") ||
           message.content?.includes("<commit_message>");
-        const metaChanged =
-          !previousAssistantMessage ||
-          message.conversationId !== previousAssistantMessage.conversationId ||
-          message.providerId !== previousAssistantMessage.providerId ||
-          message.modelId !== previousAssistantMessage.modelId ||
-          message.accountId !== previousAssistantMessage.accountId ||
-          message.email !== previousAssistantMessage.email;
-
-        if (
-          !isCommitMessage &&
-          metaChanged &&
-          (message.providerId || message.modelId || message.email)
-        ) {
-          const providerStr = message.providerId
-            ? `${message.providerId}/`
-            : "";
-          const modelStr = message.modelId || "unknown-model";
-          const emailStr = message.email ? ` by ${message.email}` : "";
-          let faviconUrl: string | undefined = undefined;
-          if (message.websiteUrl) {
-            try {
-              const url = new URL(message.websiteUrl);
-              faviconUrl = `${url.origin}/favicon.ico`;
-            } catch (e) {}
-          }
-          groups.push({
-            type: "metadata",
-            content: `Used ${providerStr}${modelStr}${emailStr}`,
-            faviconUrl,
-            key: "metadata-info",
-          });
-        }
 
         let currentToolGroup: { action: any; index: number }[] = [];
         const blocks = parsedContent.contentBlocks || [];
@@ -685,15 +646,6 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                   </div>
                 )}
               </div>
-            );
-          } else if (group.type === "metadata") {
-            content = (
-              <ModelUsageInfo
-                providerId={message.providerId}
-                modelId={message.modelId || "unknown-model"}
-                email={message.email}
-                websiteUrl={message.websiteUrl}
-              />
             );
           } else if (group.type === "code") {
             const isDiffBlock = isDiff(group.content, group.language);

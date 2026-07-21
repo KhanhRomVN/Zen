@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ToolHeader } from "../../tools/ToolHeader";
+import { ToolHeader } from "../../ToolHeader";
 import FileIcon from "@/icons/FileIcon";
 import "../run_command/TerminalBlock.css";
 import "./GitDiffBlock.css";

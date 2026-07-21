@@ -1,27 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { ToolAction } from "../../../../services/ResponseParser";
-import { formatActionForDisplay } from "../../../../services/ResponseParser";
+import { ToolAction } from "../../../services/ResponseParser";
+import { formatActionForDisplay } from "../../../services/ResponseParser";
 
 import {
   shouldShowFileStats,
   shouldValidateFuzzyMatch,
-  getToolDef,
   isToolClickable,
-  TOOL_TAG_REGISTRY,
   TOOL_ACTION_TYPES,
   EXECUTION_STATUS,
-} from "../../../../constants/constants";
-import { extensionService } from "../../../../../../services/ExtensionService";
-import { Message } from "../../../../types/message";
-import { useProject } from "../../../../../../context/ProjectContext";
+} from "../../../constants/constants";
+import { extensionService } from "../../../../../services/ExtensionService";
+import { Message } from "../../../types/message";
+import { useProject } from "../../../../../context/ProjectContext";
 import FileToolRenderer from "./FileToolRenderer";
 import TerminalToolRenderer from "./TerminalToolRenderer";
 import GitToolRenderer from "./GitToolRenderer";
-import { ToolHeader } from "./ToolHeader";
-import { GitDiffBlock } from "../blocks/git_diff/GitDiffBlock";
+import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
 
 import FileIcon from "@/icons/FileIcon";
-import ErrorBlock from "../blocks/error/ErrorBlock";
+import ErrorBlock from "./blocks/error/ErrorBlock";
+import { ToolHeader } from "./ToolHeader";
 interface ToolRouterProps {
   group: { action: ToolAction; index: number }[];
   messageId: string;

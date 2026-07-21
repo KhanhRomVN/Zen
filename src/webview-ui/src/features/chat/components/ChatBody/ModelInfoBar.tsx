@@ -1,24 +1,39 @@
 import React from "react";
+import { Message } from "../../types/message";
 
-interface ModelUsageInfoProps {
-  providerId?: string;
-  modelId: string;
-  email?: string;
-  websiteUrl?: string;
+interface ModelInfoBarProps {
+  message: Message;
 }
 
 /**
- * ModelUsageInfo displays information about which model and account was used
- * for an AI response. Features a prominent design with favicon/icon, model name,
- * and user account.
+ * ModelInfoBar is a standalone message box component that displays
+ * model information (provider, model ID, email, website URL).
+ * It appears as an independent bar in the chat, similar to UserMessageBox and AIMessageBox.
  */
-export const ModelUsageInfo: React.FC<ModelUsageInfoProps> = ({
-  providerId,
-  modelId,
-  email,
-  websiteUrl,
-}) => {
+const ModelInfoBar: React.FC<ModelInfoBarProps> = ({ message }) => {
   const [faviconError, setFaviconError] = React.useState(false);
+
+  // Parse the system message content
+  if (!message.content.startsWith("__MODEL_SWITCH__::")) {
+    return null;
+  }
+
+  let providerId: string | undefined;
+  let modelId: string;
+  let email: string | undefined;
+  let websiteUrl: string | undefined;
+
+  try {
+    const dataStr = message.content.replace("__MODEL_SWITCH__::", "");
+    const data = JSON.parse(dataStr);
+    providerId = data.providerId;
+    modelId = data.modelId;
+    email = data.email;
+    websiteUrl = data.websiteUrl;
+  } catch (e) {
+    console.error("Failed to parse model switch message:", e);
+    return null;
+  }
 
   // Extract favicon URL from website
   let faviconUrl: string | undefined = undefined;
@@ -34,9 +49,14 @@ export const ModelUsageInfo: React.FC<ModelUsageInfoProps> = ({
   // Build display text
   const providerPrefix = providerId ? `${providerId}/` : "";
   const modelText = `${providerPrefix}${modelId}`;
-  const accountText = email ? ` by ${email}` : "";
 
   // Inline styles
+  const wrapperStyle: React.CSSProperties = {
+    padding: "12px 0",
+    display: "flex",
+    flexDirection: "column",
+  };
+
   const containerStyle: React.CSSProperties = {
     position: "relative",
     display: "flex",
@@ -138,37 +158,41 @@ export const ModelUsageInfo: React.FC<ModelUsageInfoProps> = ({
   };
 
   return (
-    <div style={containerStyle}>
-      {/* Pseudo-element ::before */}
-      <div style={beforeStyle} />
-      {/* Pseudo-element ::after */}
-      <div style={afterStyle} />
+    <div style={wrapperStyle}>
+      <div style={containerStyle}>
+        {/* Pseudo-element ::before */}
+        <div style={beforeStyle} />
+        {/* Pseudo-element ::after */}
+        <div style={afterStyle} />
 
-      <div style={iconStyle}>
-        {faviconUrl && !faviconError ? (
-          <img
-            src={faviconUrl}
-            alt="Model provider icon"
-            style={faviconStyle}
-            onError={() => setFaviconError(true)}
-          />
-        ) : (
-          <span
-            className="codicon codicon-server-process"
-            style={codiconStyle}
-          />
-        )}
-      </div>
+        <div style={iconStyle}>
+          {faviconUrl && !faviconError ? (
+            <img
+              src={faviconUrl}
+              alt="Model provider icon"
+              style={faviconStyle}
+              onError={() => setFaviconError(true)}
+            />
+          ) : (
+            <span
+              className="codicon codicon-server-process"
+              style={codiconStyle}
+            />
+          )}
+        </div>
 
-      <div style={contentStyle}>
-        <span style={modelNameStyle}>{modelText}</span>
-        {accountText && (
-          <>
-            <span style={separatorStyle}>•</span>
-            <span style={accountStyle}>{email}</span>
-          </>
-        )}
+        <div style={contentStyle}>
+          <span style={modelNameStyle}>{modelText}</span>
+          {email && (
+            <>
+              <span style={separatorStyle}>•</span>
+              <span style={accountStyle}>{email}</span>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
 };
+
+export default ModelInfoBar;

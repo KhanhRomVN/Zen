@@ -1,24 +1,23 @@
-import React from "react";
-import { ToolAction } from "../../../../services/ResponseParser";
-import FileIcon from "@/icons/FileIcon";
-import { ToolHeader } from "./ToolHeader";
+import { useSettings } from "@/context/SettingsContext";
 import {
-  parseDiff,
-  calculateLineDiff,
-} from "../../../../../../utils/diffUtils";
-import { getFilename } from "../../../../utils/toolUtils";
-import { extensionService } from "../../../../../../services/ExtensionService";
-import { Message } from "../../../../types/message";
+  STREAM_BOX_HEIGHT,
+  TOOL_ACTION_TYPES,
+} from "@/features/chat/constants/constants";
+import { ToolAction } from "@/features/chat/services/ResponseParser";
+import { Message } from "@/features/chat/types/message";
+import { ToolOutputs } from "@/features/chat/types/tool-outputs";
+import { getFilename } from "@/features/chat/utils/toolUtils";
+import FileIcon from "@/icons/FileIcon";
+import { calculateLineDiff, parseDiff } from "@/utils/diffUtils";
+import React from "react";
+import { ToolHeader } from "./ToolHeader";
+import { extensionService } from "@/services/ExtensionService";
+import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
+import { TreeBlock } from "./blocks/tree/TreeBlock";
 import ExecuteButton from "./ExecuteButton";
-import { useSettings } from "../../../../../../context/SettingsContext";
-import ErrorBlock from "../blocks/error/ErrorBlock";
-import { GrepBlock } from "../blocks/grep/GrepBlock";
-import { TreeBlock } from "../blocks/tree/TreeBlock";
-import { getPermissionDecision } from "../../../../utils/permissionUtils";
-import { ToolOutputs } from "../../../../types/tool-outputs";
-import { TOOL_ACTION_TYPES } from "../../../../constants/constants";
-import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
-import { STREAM_BOX_HEIGHT } from "../../../../constants/constants";
+import ErrorBlock from "./blocks/error/ErrorBlock";
+import GrepBlock from "./blocks/grep/GrepBlock";
+import FileStreamingBlock from "./blocks/file_streaming/FileStreamingBlock";
 
 export const getDisplayPath = (
   fullPath: string,

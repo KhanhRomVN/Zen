@@ -1,6 +1,6 @@
 import React from "react";
 import { Check, X } from "lucide-react";
-import { TOOL_ACTION_TYPES } from "../../../../constants/constants";
+import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
 
 export interface ExecuteButtonProps {
   isCompleted: boolean;

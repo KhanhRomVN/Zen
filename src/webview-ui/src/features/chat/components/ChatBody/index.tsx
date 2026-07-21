@@ -12,10 +12,12 @@ import { useToolActions } from "../../hooks/tools/useToolActions";
 import { useScrollBehavior } from "../../hooks/ui/useScrollBehavior";
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import SearchBar from "./SearchBar";
-import ThinkingRenderer from "./AIMessageBox/blocks/thinking/ThinkingBlock";
-import { WarningBlock } from "./AIMessageBox/blocks/warning/WarningBlock";
+import ThinkingRenderer from "./ThinkingRenderer";
+import ContinuingIndicator from "./ContinuingIndicatorBox";
 import ProcessingIndicator from "./ProcessingIndicator";
-import MessageBox from "./MessageBox";
+import UserMessageBox from "./UserMessageBox";
+import AIMessageBox from "./AIMessageBox";
+import ModelInfoBar from "./ModelInfoBar";
 
 interface ChatBodyProps {
   messages: Message[];
@@ -97,6 +99,276 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
   onCloseSearch?: () => void;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Error Boundary for Message Rendering
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+/**
+ * Error boundary for MessageBox.
+ * Catches render errors and shows a recoverable error UI instead of crashing.
+ */
+class MessageBoxErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[MessageBox] Render error caught:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      const errorColor = "var(--vscode-errorForeground, #f44336)";
+
+      return (
+        <div
+          style={{
+            padding: "12px 16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              width: "100%",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+                flex: 1,
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  width: "16px",
+                  height: "16px",
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginTop: "2px",
+                }}
+                title="Error - Render failed"
+              >
+                <div
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    backgroundColor: errorColor,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                flexShrink: 0,
+                marginLeft: "8px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: errorColor,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                ERROR
+              </span>
+            </div>
+          </div>
+
+          {this.state.error && (
+            <div
+              style={{
+                padding: "12px 16px",
+                borderRadius: "6px",
+                border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
+                background: `color-mix(in srgb, ${errorColor} 5%, transparent)`,
+              }}
+            >
+              <pre
+                style={{
+                  fontSize: "11px",
+                  color: "var(--vscode-descriptionForeground)",
+                  margin: 0,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  maxHeight: "120px",
+                  overflowY: "auto",
+                  fontFamily: "var(--vscode-editor-font-family, monospace)",
+                }}
+              >
+                {this.state.error.message}
+              </pre>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return <>{this.props.children}</>;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MessageBox Props Interface
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface MessageBoxProps {
+  message: Message;
+  parsedContent: ParsedResponse;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  clickedActions: Set<string>;
+  failedActions?: Set<string>;
+  rejectedActions?: Set<string>;
+  onToolClick: (
+    action: any,
+    message: Message,
+    index: number,
+    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
+  ) => void;
+  requestNumber?: number | null;
+  executionState?: {
+    total: number;
+    completed: number;
+    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
+  };
+  isLastMessage?: boolean;
+  hasNextAssistantMessage?: boolean;
+  toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  terminalStatus?: Record<string, "busy" | "free">;
+  nextUserMessage?: Message;
+  allMessages?: Message[];
+  activeTerminalIds?: Set<string>;
+  attachedTerminalIds?: Set<string>;
+  conversationId?: string;
+  previousAssistantMessage?: Message;
+  isGenerating?: boolean;
+  onSendMessage?: (
+    content: string,
+    files?: any[],
+    model?: any,
+    account?: any,
+    skipLogic?: boolean,
+    actionIds?: string[],
+    uiHidden?: boolean,
+  ) => void;
+  onSelectOption?: (messageId: string, option: string) => void;
+  onRevertConversation?: (messageId: string, timestamp: number) => void;
+  singleLineReviewActions?: Record<
+    string,
+    { action: any; actionId: string; messageId: string }
+  >;
+  onConfirmSingleLineAction?: (actionId: string) => void;
+  onRejectSingleLineAction?: (actionId: string) => void;
+  onGitConfirm?: (items: any[]) => void;
+  onGitCancel?: () => void;
+  gitStatusItems?: any[];
+  gitStatusBranch?: string;
+  isGitProcessing?: boolean;
+  isGitStatusVisible?: boolean;
+  onBackToHome?: (summary: string) => void;
+  responseNumber?: number | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MessageBox Component (Inline - previously in MessageBox.tsx)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
+  const { message, onRevertConversation } = props;
+
+  if (message.role === "user") {
+    return (
+      <UserMessageBox
+        message={message}
+        onRevertConversation={onRevertConversation}
+      />
+    );
+  }
+
+  // Handle system messages (e.g., model switch)
+  if (message.role === "system") {
+    // Check if it's a model switch message
+    if (message.content.startsWith("__MODEL_SWITCH__::")) {
+      return <ModelInfoBar message={message} />;
+    }
+
+    // Other system messages
+    return null;
+  }
+
+  return <AIMessageBox {...props} />;
+};
+
+// Memoize to prevent unnecessary re-renders
+const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
+  const isStreaming =
+    prevProps.isGenerating === true && nextProps.isGenerating === true;
+
+  // During streaming, only check props that actually change per chunk
+  if (isStreaming) {
+    const streamingPropsEqual =
+      prevProps.message.id === nextProps.message.id &&
+      prevProps.message.content === nextProps.message.content &&
+      prevProps.message.thinking === nextProps.message.thinking &&
+      prevProps.clickedActions === nextProps.clickedActions &&
+      prevProps.failedActions === nextProps.failedActions &&
+      prevProps.rejectedActions === nextProps.rejectedActions;
+    return streamingPropsEqual;
+  }
+
+  // Full comparison when not streaming
+  const propsAreEqual =
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.thinking === nextProps.message.thinking &&
+    prevProps.clickedActions === nextProps.clickedActions &&
+    prevProps.failedActions === nextProps.failedActions &&
+    prevProps.rejectedActions === nextProps.rejectedActions &&
+    prevProps.isGenerating === nextProps.isGenerating &&
+    prevProps.toolOutputs === nextProps.toolOutputs;
+  return propsAreEqual; // true = skip re-render, false = do re-render
+});
+
+// Wrap with error boundary
+const MessageBoxWithErrorBoundary: React.FC<MessageBoxProps> = (props) => (
+  <MessageBoxErrorBoundary>
+    <MessageBox {...props} />
+  </MessageBoxErrorBoundary>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ChatBody Component
+// ─────────────────────────────────────────────────────────────────────────────
+
 const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   messages,
   isProcessing,
@@ -139,46 +411,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  // Track re-renders and prop changes
-  const renderCountRef = useRef(0);
-  const prevPropsRef = useRef<any>({});
-  renderCountRef.current += 1;
-
-  const messagesChanged = prevPropsRef.current.messages !== messages;
-  const contentChanged =
-    messagesChanged &&
-    (prevPropsRef.current.messages?.length !== messages.length ||
-      prevPropsRef.current.messages?.some(
-        (m: any, i: number) =>
-          messages[i] &&
-          (m.id !== messages[i].id || m.content !== messages[i].content),
-      ));
-
-  // Track which props changed
-  const propsChanges = {
-    messages: prevPropsRef.current.messages !== messages,
-    isProcessing: prevPropsRef.current.isProcessing !== isProcessing,
-    executionState: prevPropsRef.current.executionState !== executionState,
-    toolOutputs: prevPropsRef.current.toolOutputs !== toolOutputs,
-    terminalStatus: prevPropsRef.current.terminalStatus !== terminalStatus,
-    clickedActions: prevPropsRef.current.clickedActions !== undefined, // will track in useToolActions
-    onSendToolRequest:
-      prevPropsRef.current.onSendToolRequest !== onSendToolRequest,
-    onSendMessage: prevPropsRef.current.onSendMessage !== onSendMessage,
-    onToolAction: prevPropsRef.current.onToolAction !== onToolAction,
-  };
-
-  prevPropsRef.current = {
-    messages,
-    isProcessing,
-    executionState,
-    toolOutputs,
-    terminalStatus,
-    onSendToolRequest,
-    onSendMessage,
-    onToolAction,
-  };
-
   const parseCacheRef = useRef<Map<string, ParsedResponse>>(new Map());
   const lastParsedMessagesRef = useRef<any[]>([]);
 
@@ -188,9 +420,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     // Check if messages are already parsed (from ChatPanel)
     if (messages.length > 0 && messages[0].parsed !== undefined) {
       // STREAMING FIX: During streaming, always check content changes for last message
-      const lastMsg = messages[messages.length - 1];
-      const lastParsed = lastParsedMessagesRef.current[messages.length - 1];
-
       const messagesUnchanged =
         lastParsedMessagesRef.current.length === messages.length &&
         messages.every(
@@ -211,7 +440,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     // Fallback: parse messages if not already parsed
     const cache = parseCacheRef.current;
 
-    const result = messages.map((msg, index) => {
+    const result = messages.map((msg) => {
       const cached = cache.get(msg.content);
       if (!cached || cached === undefined) {
         const parsed = parseAIResponse(msg.content);
@@ -265,7 +494,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     const parsed = parseAIResponse(lastMessage.content);
     if (!parsed.actions || parsed.actions.length === 0) return false;
     const firstPendingAction = parsed.actions.find(
-      (action: any, idx: number) => {
+      (_action: any, idx: number) => {
         const actionId = `${lastMessage.id}-action-${idx}`;
         const hasOutput = toolOutputs && toolOutputs[actionId];
         const isClicked = clickedActions.has(actionId);
@@ -299,12 +528,12 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     if (!parsedMessage || !parsedMessage.parsed) return false;
     const parsed = parsedMessage.parsed;
 
-    // Kiểm tra message.thinking (SSE stream)
+    // Check message.thinking (SSE stream)
     if (lastMessage.thinking && lastMessage.thinking.trim().length > 0) {
       return false;
     }
 
-    // Kiểm tra thinking blocks trong contentBlocks
+    // Check thinking blocks in contentBlocks
     const hasThinkingBlock =
       parsed.contentBlocks &&
       parsed.contentBlocks.some((b: any) => b.type === "thinking");
@@ -312,19 +541,19 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       return false;
     }
 
-    // Kiểm tra text content
+    // Check text content
     const hasText = parsed.displayText && parsed.displayText.trim().length > 0;
     if (hasText) {
       return false;
     }
 
-    // Kiểm tra actions
+    // Check actions
     const hasActions = parsed.actions && parsed.actions.length > 0;
     if (hasActions) {
       return false;
     }
 
-    // Kiểm tra other blocks (code, file, markdown, mixed_content) - skip thinking
+    // Check other blocks (code, file, markdown, mixed_content) - skip thinking
     const hasOtherBlocks =
       parsed.contentBlocks &&
       parsed.contentBlocks.some((b: any) => {
@@ -419,7 +648,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                 nextVisibleMessage?.role === "assistant";
 
               return (
-                <MessageBox
+                <MessageBoxWithErrorBoundary
                   key={message.id}
                   message={message}
                   parsedContent={parsedContent}
@@ -584,13 +813,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
             </div>
           )}
 
-          {isContinuing && (
-            <WarningBlock
-              label="CONTINUING RESPONSE"
-              message="AI response was interrupted. Fetching the remaining content…"
-              isPulsing={true}
-            />
-          )}
+          {isContinuing && <ContinuingIndicator />}
 
           {(isProcessing || hasInitialMessage) && (
             <ProcessingIndicator isResponding={isResponding} />

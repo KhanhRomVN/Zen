@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
-import "../blocks/run_command/TerminalBlock.css";
+import "./blocks/run_command/TerminalBlock.css";
 
 interface ToolHeaderProps {
   title: React.ReactNode;
@@ -384,9 +384,18 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                   />
                 </div>
               )}
-              
+
               {/* Right column: All other content */}
-              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "2px", marginTop: "2px" }}>
+              <div
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2px",
+                  marginTop: "2px",
+                }}
+              >
                 <div
                   style={{
                     display: "flex",
@@ -409,12 +418,15 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                   {typeof title === "string" ? (
                     <span className="terminal-name">{title}</span>
                   ) : (
-                    <div className="terminal-name" style={{ display: "contents" }}>
+                    <div
+                      className="terminal-name"
+                      style={{ display: "contents" }}
+                    >
                       {title}
                     </div>
                   )}
                 </div>
-                
+
                 {displayPath && path && (
                   <div
                     ref={pathContainerRef}
@@ -450,7 +462,8 @@ export const ToolHeader: React.FC<ToolHeaderProps> = ({
                         fontSize: "10px",
                         opacity: 0.6,
                         color: pathColor,
-                        fontFamily: "var(--vscode-editor-font-family, monospace)",
+                        fontFamily:
+                          "var(--vscode-editor-font-family, monospace)",
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",

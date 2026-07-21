@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { ToolHeader } from "../../tools/ToolHeader";
+import { ToolHeader } from "../../ToolHeader";
 import {
   Question,
   QuestionAnswer,

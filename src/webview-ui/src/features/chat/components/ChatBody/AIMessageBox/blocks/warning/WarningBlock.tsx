@@ -1,5 +1,5 @@
 import React from "react";
-import { ToolHeader } from "../../tools/ToolHeader";
+import { ToolHeader } from "../../ToolHeader";
 import "./WarningBlock.css";
 
 interface WarningBlockProps {
