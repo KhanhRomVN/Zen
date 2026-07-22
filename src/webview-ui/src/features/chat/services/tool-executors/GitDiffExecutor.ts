@@ -1,10 +1,14 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 
 export class GitDiffExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { getToolTimeout, extensionService, messageDispatcher } = context;
 
@@ -23,7 +27,7 @@ export class GitDiffExecutor implements ToolExecutor {
         (msg) => {
           if (msg.error) {
             resolve(
-              `[git_diff for '${filePath}'] Result: Error - ${msg.error}`
+              `[git_diff for '${filePath}'] Result: Error - ${msg.error}`,
             );
           } else {
             let diffContent = msg.diff || "";
@@ -36,13 +40,12 @@ export class GitDiffExecutor implements ToolExecutor {
                 if (trimmed.startsWith("index ")) return false;
                 if (trimmed.startsWith("new file mode")) return false;
                 if (trimmed.startsWith("deleted file mode")) return false;
-                if (trimmed.includes("No newline at end of file"))
-                  return false;
+                if (trimmed.includes("No newline at end of file")) return false;
                 return true;
               });
             diffContent = cleanLines.join("\n");
             resolve(
-              `[git_diff for '${filePath}'] Result:\n\`\`\`diff\n${diffContent}\n\`\`\``
+              `[git_diff for '${filePath}'] Result:\n\`\`\`diff\n${diffContent}\n\`\`\``,
             );
           }
         },
@@ -52,9 +55,9 @@ export class GitDiffExecutor implements ToolExecutor {
             getToolTimeout(action.type) / 1000
           }s. Failed to get git diff.`;
           resolve(
-            `[git_diff for '${filePath}'] Result: Error - ${timeoutError}`
+            `[git_diff for '${filePath}'] Result: Error - ${timeoutError}`,
           );
-        }
+        },
       );
     });
   }

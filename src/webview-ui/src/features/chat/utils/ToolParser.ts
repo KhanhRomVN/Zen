@@ -15,6 +15,7 @@ export const extractParamValue = (
   const isContentParam = CONTENT_PARAMS.has(paramName);
 
   // Try standard XML tag (fully closed tag)
+  // More flexible regex: allows optional whitespace and newlines
   const standardRegex = new RegExp(
     `<${paramName}(?:\\s+[^>]*)?>([\\s\\S]*?)<\\/${paramName}>`,
     "i",
@@ -28,6 +29,20 @@ export const extractParamValue = (
     // For file content params: only strip a single leading/trailing newline added
     // by the XML tag boundaries — do NOT trim() which would eat real blank lines.
     // For other params (file_path, command, etc.): full trim is safe and expected.
+    return isContentParam ? decoded.replace(/^\n|\n$/g, "") : decoded.trim();
+  }
+
+  // Fallback: Try to extract with more lenient pattern
+  // This handles cases where tags might not be perfectly formatted
+  const lenientRegex = new RegExp(
+    `<${paramName}[^>]*>\\s*([\\s\\S]*?)\\s*<\\/${paramName}>`,
+    "i",
+  );
+  const lenientMatch = content.match(lenientRegex);
+  if (lenientMatch) {
+    let value = lenientMatch[1];
+    value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
+    const decoded = decodeHtmlEntities(value);
     return isContentParam ? decoded.replace(/^\n|\n$/g, "") : decoded.trim();
   }
 

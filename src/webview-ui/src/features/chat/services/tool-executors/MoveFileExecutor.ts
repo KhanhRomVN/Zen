@@ -1,10 +1,14 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 
 export class MoveFileExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { getToolTimeout, extensionService, messageDispatcher } = context;
 
@@ -25,14 +29,14 @@ export class MoveFileExecutor implements ToolExecutor {
         (msg) => {
           if (msg.error) {
             resolve(
-              `[move_file from '${filePath}' to '${targetFolderPath}'] Result: Error - ${msg.error}`
+              `[move_file from '${filePath}' to '${targetFolderPath}'] Result: Error - ${msg.error}`,
             );
             return;
           }
           resolve(
             `[move_file from '${filePath}' to '${targetFolderPath}'] Result: File moved successfully to '${
               msg.newPath || targetFolderPath
-            }'`
+            }'`,
           );
         },
         getToolTimeout(action.type),
@@ -41,9 +45,9 @@ export class MoveFileExecutor implements ToolExecutor {
             getToolTimeout(action.type) / 1000
           }s. Failed to move file.`;
           resolve(
-            `[move_file from '${filePath}' to '${targetFolderPath}'] Result: Error - ${timeoutError}`
+            `[move_file from '${filePath}' to '${targetFolderPath}'] Result: Error - ${timeoutError}`,
           );
-        }
+        },
       );
     });
   }

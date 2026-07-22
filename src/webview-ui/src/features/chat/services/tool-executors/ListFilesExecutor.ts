@@ -1,13 +1,22 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 
 export class ListFilesExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { bypassIgnore = false } = options;
-    const { setToolOutputs, getToolTimeout, extensionService, messageDispatcher } = context;
+    const {
+      setToolOutputs,
+      getToolTimeout,
+      extensionService,
+      messageDispatcher,
+    } = context;
 
     return new Promise((resolve) => {
       const requestId = `list-${Date.now()}-${Math.random()}`;
@@ -29,7 +38,7 @@ export class ListFilesExecutor implements ToolExecutor {
         (msg) => {
           if (msg.error) {
             resolve(
-              `[list_files for '${folderPath}'] Result: Error - ${msg.error}`
+              `[list_files for '${folderPath}'] Result: Error - ${msg.error}`,
             );
             return;
           }
@@ -38,12 +47,11 @@ export class ListFilesExecutor implements ToolExecutor {
           // Check if folder is empty
           if (
             !listResults ||
-            (typeof listResults === "string" &&
-              listResults.trim() === "") ||
+            (typeof listResults === "string" && listResults.trim() === "") ||
             (Array.isArray(listResults) && listResults.length === 0)
           ) {
             resolve(
-              `[list_files for '${folderPath}'] Result: The folder '${folderPath}' is empty (no files or folders inside).`
+              `[list_files for '${folderPath}'] Result: The folder '${folderPath}' is empty (no files or folders inside).`,
             );
             return;
           }
@@ -59,10 +67,7 @@ export class ListFilesExecutor implements ToolExecutor {
             }));
 
             // Format as readable tree for agent (no emojis, no tree lines)
-            const formatTree = (
-              nodes: any[],
-              indent: string = ""
-            ): string => {
+            const formatTree = (nodes: any[], indent: string = ""): string => {
               let result = "";
               nodes.forEach((node) => {
                 // Node line (no tree characters, just indentation)
@@ -88,7 +93,7 @@ export class ListFilesExecutor implements ToolExecutor {
 
             const formattedOutput = formatTree(listResults);
             resolve(
-              `[list_files for '${folderPath}'] Result:\n${formattedOutput}`
+              `[list_files for '${folderPath}'] Result:\n${formattedOutput}`,
             );
           } else {
             // Fallback
@@ -96,9 +101,7 @@ export class ListFilesExecutor implements ToolExecutor {
               typeof listResults === "string"
                 ? listResults
                 : String(listResults);
-            resolve(
-              `[list_files for '${folderPath}'] Result:\n${outputStr}`
-            );
+            resolve(`[list_files for '${folderPath}'] Result:\n${outputStr}`);
           }
         },
         getToolTimeout(action.type),
@@ -107,9 +110,9 @@ export class ListFilesExecutor implements ToolExecutor {
             getToolTimeout(action.type) / 1000
           }s. Failed to list files.`;
           resolve(
-            `[list_files for '${folderPath}'] Result: Error - ${timeoutError}`
+            `[list_files for '${folderPath}'] Result: Error - ${timeoutError}`,
           );
-        }
+        },
       );
     });
   }

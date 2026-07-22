@@ -213,6 +213,17 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
 
   const shouldHideContent = false;
 
+  // Debug logs
+  const permissionDecision = getPermissionDecision(
+    permissionMode,
+    "replace_in_file",
+  );
+  const shouldShowExecuteButton =
+    !shouldHideContent &&
+    !isCompleted &&
+    !isPartial &&
+    permissionDecision === "confirm";
+
   return (
     <div
       style={{
@@ -393,12 +404,11 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       {!shouldHideContent &&
         !isCompleted &&
         !isPartial &&
-        (isActiveGroup || !isLastMessage) &&
         getPermissionDecision(permissionMode, "replace_in_file") ===
           "confirm" && (
           <div style={{ marginTop: "8px", marginBottom: "8px", order: 1 }}>
             <ExecuteButton
-              isActive={!!isActiveGroup}
+              isActive={true}
               isCompleted={!!isCompleted}
               isLastMessage={!!isLastMessage}
               isLoading={false}
@@ -414,8 +424,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       {!shouldHideContent && isError && errorMessage && (
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
       )}
-
-      
     </div>
   );
 };

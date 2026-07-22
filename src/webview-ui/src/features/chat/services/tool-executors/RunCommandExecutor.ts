@@ -1,4 +1,8 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 
 export class RunCommandExecutor implements ToolExecutor {
   private pendingToolResolvers: Map<string, (result: string | null) => void>;
@@ -8,7 +12,7 @@ export class RunCommandExecutor implements ToolExecutor {
   constructor(
     pendingToolResolvers: Map<string, (result: string | null) => void>,
     commandStartTimes: Map<string, number>,
-    earlyCommandResults: Map<string, any>
+    earlyCommandResults: Map<string, any>,
   ) {
     this.pendingToolResolvers = pendingToolResolvers;
     this.commandStartTimes = commandStartTimes;
@@ -18,7 +22,7 @@ export class RunCommandExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { extensionService } = context;
 
@@ -42,7 +46,7 @@ export class RunCommandExecutor implements ToolExecutor {
         resolve(
           msg.error
             ? `Output: [run_command for '${cmdText}'] Error - ${msg.error}\n\`\`\`\n${outputContent}\n\`\`\``
-            : `Output: [run_command for '${cmdText}']\n\`\`\`\n${outputContent}\n\`\`\``
+            : `Output: [run_command for '${cmdText}']\n\`\`\`\n${outputContent}\n\`\`\``,
         );
         return;
       }

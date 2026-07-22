@@ -34,15 +34,13 @@ export const getPermissionDecision = (
       return "confirm";
   }
 
-  // Nếu là string, return trực tiếp
   if (typeof permissionValue === "string") {
     return permissionValue;
   }
 
-  // Nếu là regex, kiểm tra match
   if (permissionValue instanceof RegExp) {
-    return permissionValue.test(toolType) ? "allow" : "reject";
+    const result = permissionValue.test(toolType) ? "allow" : "reject";
+    return result;
   }
-
   return "reject";
 };

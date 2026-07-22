@@ -158,11 +158,23 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
       // Find closing tag using backtick-aware search
       const closingTagPattern = `</${toolName}>`;
-      const closingPos = findClosingTagPosition(
+      let closingPos = findClosingTagPosition(
         str,
         startContentPos,
         closingTagPattern,
       );
+
+      // Fallback: If backtick-aware search fails, try simple search
+      // This helps when content has unbalanced backticks or complex nesting
+      if (closingPos === -1) {
+        const simpleClosingIndex = str.indexOf(
+          closingTagPattern,
+          startContentPos,
+        );
+        if (simpleClosingIndex !== -1) {
+          closingPos = simpleClosingIndex;
+        }
+      }
 
       if (closingPos !== -1) {
         if (minIndex === -1 || openIndex < minIndex) {

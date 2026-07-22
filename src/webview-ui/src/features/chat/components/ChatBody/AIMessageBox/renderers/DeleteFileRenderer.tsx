@@ -91,7 +91,9 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
               color: "var(--vscode-editor-foreground)",
             }}
           >
-            <span style={{ fontWeight: 600, opacity: 0.8 }}>{getToolLabel("delete_file")}</span>
+            <span style={{ fontWeight: 600, opacity: 0.8 }}>
+              {getToolLabel("delete_file")}
+            </span>
             <FileIcon
               path={rawPath}
               isFolder={false}

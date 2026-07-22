@@ -1,7 +1,10 @@
 import React from "react";
 
 // CONSTANTS
-import { TOOL_ACTION_TYPES, getToolLabel } from "@/features/chat/constants/constants";
+import {
+  TOOL_ACTION_TYPES,
+  getToolLabel,
+} from "@/features/chat/constants/constants";
 
 // TYPES
 import { BaseRendererProps } from "@/features/chat/types/renderer-types";
@@ -82,7 +85,9 @@ export const MoveFileRenderer: React.FC<BaseRendererProps> = ({
           >
             {/* First row: MOVE label */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>{getToolLabel("move_file")}</span>
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>
+                {getToolLabel("move_file")}
+              </span>
               {isCompleted && !isError && (
                 <span
                   style={{

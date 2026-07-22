@@ -307,7 +307,11 @@ export const useToolExecution = ({
 
         const isReject = actionType === TOOL_ACTION_TYPES.REJECT;
         const isAlreadyClicked = clickedActionsRef.current.has(actionId);
-        if (!isReject && isAlreadyClicked) {
+
+        // FIXED: Only skip if already clicked AND this is an auto-trigger
+        // When manually clicked (hasActionId = true), we should NOT skip even if already in clickedActions
+        // because the first call just paused, and the second call after user click should execute
+        if (!isReject && isAlreadyClicked && isAutoTrigger) {
           skippedCount++;
           continue;
         }
@@ -353,7 +357,8 @@ export const useToolExecution = ({
         const shouldPauseForManual =
           decision === "confirm" && !isConversationAuto;
 
-        if (isAutoTrigger && shouldPauseForManual) {
+        // When manual confirmation is required and tool hasn't been clicked yet, pause
+        if (shouldPauseForManual && !isAlreadyClicked) {
           wasInterruptedByManual = true;
           setExecutionState({
             total: actions.length,

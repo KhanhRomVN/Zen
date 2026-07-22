@@ -1,10 +1,14 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 
 export class DeleteFileExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { getToolTimeout, extensionService, messageDispatcher } = context;
 
@@ -23,12 +27,12 @@ export class DeleteFileExecutor implements ToolExecutor {
         (msg) => {
           if (msg.error) {
             resolve(
-              `[delete_file for '${filePath}'] Result: Error - ${msg.error}`
+              `[delete_file for '${filePath}'] Result: Error - ${msg.error}`,
             );
             return;
           }
           resolve(
-            `[delete_file for '${filePath}'] Result: File deleted successfully`
+            `[delete_file for '${filePath}'] Result: File deleted successfully`,
           );
         },
         getToolTimeout(action.type),
@@ -37,9 +41,9 @@ export class DeleteFileExecutor implements ToolExecutor {
             getToolTimeout(action.type) / 1000
           }s. Failed to delete file.`;
           resolve(
-            `[delete_file for '${filePath}'] Result: Error - ${timeoutError}`
+            `[delete_file for '${filePath}'] Result: Error - ${timeoutError}`,
           );
-        }
+        },
       );
     });
   }

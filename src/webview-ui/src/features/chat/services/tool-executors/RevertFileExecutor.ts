@@ -1,13 +1,23 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 
 export class RevertFileExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { bypassIgnore = false } = options;
-    const { setToolOutputs, conversationIdRef, getToolTimeout, extensionService, messageDispatcher } = context;
+    const {
+      setToolOutputs,
+      conversationIdRef,
+      getToolTimeout,
+      extensionService,
+      messageDispatcher,
+    } = context;
 
     return new Promise((resolve) => {
       const requestId = `revert-${Date.now()}-${Math.random()}`;
@@ -42,7 +52,7 @@ export class RevertFileExecutor implements ToolExecutor {
               },
             }));
             resolve(
-              `[revert_file for '${filePath}'] Result: Error - ${msg.error}`
+              `[revert_file for '${filePath}'] Result: Error - ${msg.error}`,
             );
           } else {
             const versionMsg =
@@ -50,10 +60,7 @@ export class RevertFileExecutor implements ToolExecutor {
             const result = `[revert_file for '${filePath}'] Result: File reverted successfully${versionMsg}`;
 
             // Store old/new content in action params for diff view
-            if (
-              msg.oldContent !== undefined &&
-              msg.newContent !== undefined
-            ) {
+            if (msg.oldContent !== undefined && msg.newContent !== undefined) {
               action.params.old_content = msg.oldContent;
               action.params.new_content = msg.newContent;
             }
@@ -85,9 +92,9 @@ export class RevertFileExecutor implements ToolExecutor {
             },
           }));
           resolve(
-            `[revert_file for '${filePath}'] Result: Error - ${timeoutError}`
+            `[revert_file for '${filePath}'] Result: Error - ${timeoutError}`,
           );
-        }
+        },
       );
     });
   }

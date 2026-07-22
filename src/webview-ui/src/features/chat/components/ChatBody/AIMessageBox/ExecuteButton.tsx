@@ -40,13 +40,20 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
       : toolColor;
   const isClickable = !isLoading && (!isCompleted || isFailed || isActive);
 
+  const handleExecuteClick = React.useCallback(
+    (e: React.MouseEvent, type: any) => {
+      e.stopPropagation();
+      if (isClickable) {
+        onExecute(e, type);
+      }
+    },
+    [isClickable, isCompleted, isActive, isLoading, title, onExecute],
+  );
+
   if (isCompleted || isLoading || !isActive) {
     return (
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          if (isClickable) onExecute(e, TOOL_ACTION_TYPES.ACCEPT);
-        }}
+        onClick={(e) => handleExecuteClick(e, TOOL_ACTION_TYPES.ACCEPT)}
         disabled={isLoading || (isCompleted && !isFailed && !isActive)}
         style={{
           background: isCompleted ? "transparent" : `${toolColor}20`,
@@ -142,10 +149,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
       ].map(({ type, color, icon, label, title: btnTitle }) => (
         <button
           key={type}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (isClickable) onExecute(e, type);
-          }}
+          onClick={(e) => handleExecuteClick(e, type)}
           disabled={isLoading}
           style={{
             background: `color-mix(in srgb, ${color} 15%, transparent)`,

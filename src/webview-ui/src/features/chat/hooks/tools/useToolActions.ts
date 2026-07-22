@@ -151,7 +151,6 @@ export const useToolActions = ({
       const actionIdBase = `${message.id}-action-`;
 
       if (type === TOOL_ACTION_TYPES.REJECT) {
-        // 🐛 FIX: Truyền đúng _index cho action để không bị nhầm actionId
         const actions = Array.isArray(actionOrActions)
           ? actionOrActions.map((a) => ({ ...a, _index: actionIndex }))
           : [{ ...actionOrActions, _index: actionIndex }];
@@ -190,11 +189,11 @@ export const useToolActions = ({
       } else {
         // Handle Single
         const action = actionOrActions;
-        if (isToolClickable(action.type)) {
-          // Mark as clicked
-          const actionId = `${actionIdBase}${actionIndex}`;
-          setClickedActions((prev: Set<string>) => new Set(prev).add(actionId));
+        const actionId = `${actionIdBase}${actionIndex}`;
 
+        if (isToolClickable(action.type)) {
+          // DON'T mark as clicked here - let handleToolRequest do it
+          // This prevents the "already clicked" skip logic from triggering
           // Also attach _index for ChatPanel logic to track completion
           const actionWithId = { ...action, actionId, _index: actionIndex };
           onSendToolRequest(actionWithId, message, false, type);

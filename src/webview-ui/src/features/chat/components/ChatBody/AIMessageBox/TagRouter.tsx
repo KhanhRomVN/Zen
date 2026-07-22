@@ -169,10 +169,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         onAnswer={(questionId, value) => {
           if (!hasQuestions) return;
           if (onSelectOption) {
-            onSelectOption(
-              messageId,
-              JSON.stringify({ questionId, value }),
-            );
+            onSelectOption(messageId, JSON.stringify({ questionId, value }));
           }
         }}
         onAllAnswered={(answers) => {
@@ -232,11 +229,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   }
 
   if (group.type === "thinking") {
-    return (
-      <ThinkingRenderer
-        content={group.content}
-      />
-    );
+    return <ThinkingRenderer content={group.content} />;
   }
 
   // Handle tools group - rest of the original logic
@@ -283,7 +276,9 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   }, [toolGroup, messageId]);
 
   // Fetch terminal output from history
-  const runCommandAction = toolGroup.find((g) => g.action.type === "run_command");
+  const runCommandAction = toolGroup.find(
+    (g) => g.action.type === "run_command",
+  );
   useEffect(() => {
     if (!nextUserMessage?.content || !runCommandAction) return;
     const commandText = runCommandAction.action.params.command;
@@ -424,7 +419,8 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
 
     // Determine label based on tool type from TAG_REGISTRY
     const toolLabel =
-      TAG_REGISTRY[toolType]?.title ?? toolType.toUpperCase().replace(/_/g, " ");
+      TAG_REGISTRY[toolType]?.title ??
+      toolType.toUpperCase().replace(/_/g, " ");
 
     // Extract file path or relevant info from params
     const filePath =
@@ -641,7 +637,9 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         action={action}
         actionIndex={actionIndex}
         messageId={messageId}
-        isActionClicked={clickedActions.has(`${messageId}-action-${actionIndex}`)}
+        isActionClicked={clickedActions.has(
+          `${messageId}-action-${actionIndex}`,
+        )}
         isLastItemInList={isLastItemInList}
         toolOutputs={toolOutputs}
         fileStatsMap={fileStatsMap}
@@ -896,12 +894,13 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(
-              `${messageId}-action-${index}`,
-            )}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
-            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
             toolOutputs={toolOutputs}
             allMessages={allMessages}
             fileStatsMap={fileStatsMap}
@@ -923,12 +922,13 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(
-              `${messageId}-action-${index}`,
-            )}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
-            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
             toolOutputs={toolOutputs}
             allMessages={allMessages}
             fileStatsMap={fileStatsMap}
@@ -950,12 +950,13 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(
-              `${messageId}-action-${index}`,
-            )}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
-            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
             toolOutputs={toolOutputs}
             allMessages={allMessages}
             fileStatsMap={fileStatsMap}
@@ -977,12 +978,13 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(
-              `${messageId}-action-${index}`,
-            )}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
-            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
             toolOutputs={toolOutputs}
             allMessages={allMessages}
             fileStatsMap={fileStatsMap}
@@ -1004,12 +1006,13 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(
-              `${messageId}-action-${index}`,
-            )}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
-            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
             toolOutputs={toolOutputs}
             allMessages={allMessages}
             fileStatsMap={fileStatsMap}
@@ -1031,12 +1034,13 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(
-              `${messageId}-action-${index}`,
-            )}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
-            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
             toolOutputs={toolOutputs}
             allMessages={allMessages}
             fileStatsMap={fileStatsMap}
@@ -1058,12 +1062,13 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(
-              `${messageId}-action-${index}`,
-            )}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
-            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
             toolOutputs={toolOutputs}
             allMessages={allMessages}
             fileStatsMap={fileStatsMap}

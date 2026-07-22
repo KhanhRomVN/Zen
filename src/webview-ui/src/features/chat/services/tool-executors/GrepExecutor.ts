@@ -1,11 +1,15 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 import { formatGrepResultCompact } from "../../utils/grepFormatter";
 
 export class GrepExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { getToolTimeout, extensionService, messageDispatcher } = context;
 
@@ -19,10 +23,10 @@ export class GrepExecutor implements ToolExecutor {
       if (action.params._validationError) {
         const errMsg = action.params._validationError;
         console.warn(
-          `[Zen][grep] Validation error | pattern="${searchTerm}" | error="${errMsg}"`
+          `[Zen][grep] Validation error | pattern="${searchTerm}" | error="${errMsg}"`,
         );
         resolve(
-          `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`
+          `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`,
         );
         return;
       }
@@ -49,30 +53,30 @@ export class GrepExecutor implements ToolExecutor {
             // Format as compact XML-like text to minimize token usage
             const resultText = formatGrepResultCompact(data);
             resolve(
-              `[grep for '${searchTerm}' in '${targetDesc}'] Result:\n${resultText}`
+              `[grep for '${searchTerm}' in '${targetDesc}'] Result:\n${resultText}`,
             );
           } else {
             const errMsg = msg.result?.error || "Unknown error";
             console.warn(
-              `[Zen][grep] Error | requestId=${requestId} | error="${errMsg}"`
+              `[Zen][grep] Error | requestId=${requestId} | error="${errMsg}"`,
             );
             resolve(
-              `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`
+              `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`,
             );
           }
         },
         getToolTimeout(action.type),
         () => {
           console.warn(
-            `[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`
+            `[Zen][grep] Timeout | requestId=${requestId} | search_term="${searchTerm}" | target="${targetDesc}"`,
           );
           const timeoutError = `Operation timed out after ${
             getToolTimeout(action.type) / 1000
           }s. Search took too long to complete.`;
           resolve(
-            `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${timeoutError}`
+            `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${timeoutError}`,
           );
-        }
+        },
       );
     });
   }

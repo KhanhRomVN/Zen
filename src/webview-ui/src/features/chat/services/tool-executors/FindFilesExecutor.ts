@@ -1,10 +1,14 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 
 export class FindFilesExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
     const { getToolTimeout, extensionService, messageDispatcher } = context;
 
@@ -55,12 +59,12 @@ export class FindFilesExecutor implements ToolExecutor {
                       const parts: string[] = [];
                       if (errorCount > 0) {
                         parts.push(
-                          `${errorCount} error${errorCount > 1 ? "s" : ""}`
+                          `${errorCount} error${errorCount > 1 ? "s" : ""}`,
                         );
                       }
                       if (warningCount > 0) {
                         parts.push(
-                          `${warningCount} warning${warningCount > 1 ? "s" : ""}`
+                          `${warningCount} warning${warningCount > 1 ? "s" : ""}`,
                         );
                       }
                       diagnosticInfo = ` (${parts.join(", ")})`;
@@ -83,7 +87,7 @@ export class FindFilesExecutor implements ToolExecutor {
             getToolTimeout(action.type) / 1000
           }s. Failed to find files.`;
           resolve(`[find_files] Result: Error - ${timeoutError}`);
-        }
+        },
       );
     });
   }

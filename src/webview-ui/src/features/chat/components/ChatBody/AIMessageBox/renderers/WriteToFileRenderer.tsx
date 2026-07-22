@@ -76,6 +76,24 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
 
   const shouldHideContent = false;
 
+  // Debug logs
+  const permissionDecision = getPermissionDecision(
+    permissionMode,
+    "write_to_file",
+  );
+  const shouldShowExecuteButton =
+    !shouldHideContent &&
+    !isCompleted &&
+    !isPartial &&
+    permissionDecision === "confirm";
+
+  const handleToolClickWithLog = React.useCallback(
+    (e: React.MouseEvent, type: any) => {
+      onToolClick(action, messageId, actionIndex, type);
+    },
+    [action, messageId, actionIndex, onToolClick, actionId, rawPath],
+  );
+
   return (
     <div
       style={{
@@ -350,20 +368,17 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
       {!shouldHideContent &&
         !isCompleted &&
         !isPartial &&
-        (isActiveGroup || !isLastMessage) &&
         getPermissionDecision(permissionMode, "write_to_file") ===
           "confirm" && (
           <div style={{ marginTop: "8px", marginBottom: "8px", order: 1 }}>
             <ExecuteButton
-              isActive={!!isActiveGroup}
+              isActive={true}
               isCompleted={!!isCompleted}
               isLastMessage={!!isLastMessage}
               isLoading={false}
               title="Approve action"
               labelText="Approve"
-              onExecute={(e, type) => {
-                onToolClick(action, messageId, actionIndex, type);
-              }}
+              onExecute={handleToolClickWithLog}
             />
           </div>
         )}
@@ -371,8 +386,6 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
       {!shouldHideContent && isError && errorMessage && (
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
       )}
-
-      
     </div>
   );
 };

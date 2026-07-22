@@ -1,12 +1,22 @@
-import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
+import {
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
 
 export class ViewReplaceHistoryExecutor implements ToolExecutor {
   async execute(
     action: any,
     context: ExecutorContext,
-    options: ExecutorOptions = {}
+    options: ExecutorOptions = {},
   ): Promise<string | null> {
-    const { setToolOutputs, conversationIdRef, getToolTimeout, extensionService, messageDispatcher } = context;
+    const {
+      setToolOutputs,
+      conversationIdRef,
+      getToolTimeout,
+      extensionService,
+      messageDispatcher,
+    } = context;
 
     return new Promise((resolve) => {
       const requestId = `view-history-${Date.now()}-${Math.random()}`;
@@ -37,7 +47,7 @@ export class ViewReplaceHistoryExecutor implements ToolExecutor {
               },
             }));
             resolve(
-              `[view_replace_history for '${filePath}'] Result: Error - ${msg.error}`
+              `[view_replace_history for '${filePath}'] Result: Error - ${msg.error}`,
             );
           } else {
             const histories = msg.histories || [];
@@ -65,14 +75,14 @@ export class ViewReplaceHistoryExecutor implements ToolExecutor {
                   warningCount: number;
                   lineCount: number;
                 },
-                index: number
+                index: number,
               ) => {
                 result += `**Version ${h.version}**\n`;
                 result += `- Lines: ${h.lineCount}, Errors: ${h.errorCount}, Warnings: ${h.warningCount}\n`;
                 if (index < histories.length - 1) {
                   result += `\n`;
                 }
-              }
+              },
             );
 
             const stringified = JSON.stringify(histories);
@@ -104,9 +114,9 @@ export class ViewReplaceHistoryExecutor implements ToolExecutor {
             },
           }));
           resolve(
-            `[view_replace_history for '${filePath}'] Result: Error - ${timeoutError}`
+            `[view_replace_history for '${filePath}'] Result: Error - ${timeoutError}`,
           );
-        }
+        },
       );
     });
   }

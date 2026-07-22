@@ -7,7 +7,12 @@ import { useSettings } from "../../../../../../context/SettingsContext";
 import { extensionService } from "../../../../../../services/ExtensionService";
 
 // CONSTANTS
-import { TOOL_ACTION_TYPES, TERMINAL_STATUS, type TerminalStatus, getToolLabel } from "../../../../constants/constants";
+import {
+  TOOL_ACTION_TYPES,
+  TERMINAL_STATUS,
+  type TerminalStatus,
+  getToolLabel,
+} from "../../../../constants/constants";
 
 // TYPES
 import { ToolAction } from "../../../../services/ResponseParser";
@@ -90,14 +95,17 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
   const needsPrompt =
     getPermissionDecision(permissionMode, "run_command") === "confirm";
   const commandText = action.params.command || "";
-  const folderPath = action.params.folder_path || action.params.cwd || rootPath || "";
-  
+  const folderPath =
+    action.params.folder_path || action.params.cwd || rootPath || "";
+
   // Determine if folderPath is within workspace (relative) or outside (system path)
   const isRelativePath = rootPath && folderPath.startsWith(rootPath);
-  const displayFolderPath = isRelativePath 
-    ? folderPath.substring(rootPath.length).replace(/^\//, '') || '.'
+  const displayFolderPath = isRelativePath
+    ? folderPath.substring(rootPath.length).replace(/^\//, "") || "."
     : folderPath;
-  const folderName = folderPath ? folderPath.split("/").filter(Boolean).pop() || folderPath : "";
+  const folderName = folderPath
+    ? folderPath.split("/").filter(Boolean).pop() || folderPath
+    : "";
 
   let extractedOutput: string | undefined;
   if (!outputData?.output && nextUserMessage?.content) {
@@ -262,7 +270,10 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
         onPathClick={(clickedPath) => {
           extensionService.postMessage({
             command: "openFile",
-            path: isRelativePath && rootPath ? `${rootPath}/${clickedPath}` : clickedPath,
+            path:
+              isRelativePath && rootPath
+                ? `${rootPath}/${clickedPath}`
+                : clickedPath,
           });
         }}
         onClick={() => {
@@ -320,38 +331,35 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 : undefined
             }
           />
-          {needsPrompt &&
-            !isTerminalBusy &&
-            !isCompleted &&
-            (isActiveGroup || isLoading) && (
-              <ExecuteButton
-                isActive={isActiveGroup || false}
-                isCompleted={isCompleted}
-                isLastMessage={isLastMessage}
-                isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
-                isLoading={isLoading}
-                title={
-                  isCompleted
-                    ? "Completed"
-                    : isLoading
-                      ? "Executing..."
-                      : "Execute action"
+          {needsPrompt && !isTerminalBusy && !isCompleted && (
+            <ExecuteButton
+              isActive={true}
+              isCompleted={isCompleted}
+              isLastMessage={isLastMessage}
+              isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
+              isLoading={isLoading}
+              title={
+                isCompleted
+                  ? "Completed"
+                  : isLoading
+                    ? "Executing..."
+                    : "Execute action"
+              }
+              onExecute={(e, type) => {
+                if (!isCompleted && !isLoading) {
+                  onToolClick(
+                    {
+                      ...action,
+                      params: { ...action.params, terminal_id: terminalId },
+                    },
+                    messageId,
+                    actionIndex,
+                    type,
+                  );
                 }
-                onExecute={(e, type) => {
-                  if (!isCompleted && !isLoading) {
-                    onToolClick(
-                      {
-                        ...action,
-                        params: { ...action.params, terminal_id: terminalId },
-                      },
-                      messageId,
-                      actionIndex,
-                      type,
-                    );
-                  }
-                }}
-              />
-            )}
+              }}
+            />
+          )}
         </>
       )}
     </div>
