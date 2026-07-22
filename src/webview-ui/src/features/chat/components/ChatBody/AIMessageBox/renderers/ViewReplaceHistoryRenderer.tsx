@@ -1,5 +1,8 @@
 import React from "react";
 
+// CONSTANTS
+import { getToolLabel } from "@/features/chat/constants/constants";
+
 // TYPES
 import { BaseRendererProps } from "@/features/chat/types/renderer-types";
 
@@ -76,7 +79,7 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
               color: "var(--vscode-editor-foreground)",
             }}
           >
-            <span style={{ fontWeight: 600, opacity: 0.8 }}>HISTORY</span>
+            <span style={{ fontWeight: 600, opacity: 0.8 }}>{getToolLabel("view_replace_history")}</span>
             <span style={{ display: "flex", alignItems: "center" }}>
               <FileIcon
                 path={filePath}

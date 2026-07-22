@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 
 // CONSTANTS
-import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
+import { TOOL_ACTION_TYPES, getToolLabel } from "@/features/chat/constants/constants";
 
 // TYPES
 import { ToolAction } from "@/features/chat/services/ResponseParser";
@@ -113,7 +113,7 @@ export const GitStatusRenderer: React.FC<GitStatusRendererProps> = ({
   const getTitleParts = () => {
     if (hasOutput) {
       const output = toolOutputs[actionId];
-      if (output.isError) return { label: "GIT STATUS", stats: "Error" };
+      if (output.isError) return { label: getToolLabel("git_status"), stats: "Error" };
       const totalAdded = effectiveItems.reduce(
         (sum, item) => sum + (item.added || 0),
         0,
@@ -123,13 +123,13 @@ export const GitStatusRenderer: React.FC<GitStatusRendererProps> = ({
         0,
       );
       return {
-        label: `GIT STATUS${branch ? ` (${branch})` : ""}`,
+        label: `${getToolLabel("git_status")}${branch ? ` (${branch})` : ""}`,
         stats: `${effectiveItems.length} changes +${totalAdded} -${totalDeleted}`,
         totalAdded,
         totalDeleted,
       };
     }
-    return { label: "GIT STATUS", stats: "" };
+    return { label: getToolLabel("git_status"), stats: "" };
   };
 
   const handleConfirm = () => {

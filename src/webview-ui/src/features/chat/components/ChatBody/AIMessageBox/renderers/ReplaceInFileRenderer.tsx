@@ -10,6 +10,7 @@ import { extensionService } from "@/services/ExtensionService";
 import {
   STREAM_BOX_HEIGHT,
   TOOL_ACTION_TYPES,
+  getToolLabel,
 } from "@/features/chat/constants/constants";
 
 // TYPES
@@ -50,7 +51,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
   conversationId,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
-  const [showRawView, setShowRawView] = React.useState(false);
   const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
     Diagnostic[] | null
   >(null);
@@ -77,14 +77,27 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
   if (action.params.diff) {
     const stats = parseDiff(action.params.diff).stats;
     diffStats = { added: stats.added, removed: stats.removed };
-  } else if (action.params.old_str && action.params.new_str) {
-    const oldLines = (action.params.old_str || "").split("\n");
-    const newLines = (action.params.new_str || "").split("\n");
+  } else {
+    const oldContent = action.params.old_content || action.params.old_str;
+    const newContent = action.params.new_content || action.params.new_str;
 
-    diffStats = {
-      added: newLines.length,
-      removed: oldLines.length,
-    };
+    if (oldContent !== undefined && newContent !== undefined) {
+      const oldLines = String(oldContent).split("\n");
+      const newLines = String(newContent).split("\n");
+
+      diffStats = {
+        added: newLines.length,
+        removed: oldLines.length,
+      };
+    } else {
+      console.warn("[ReplaceInFileRenderer] No diff data available:", {
+        filePath: rawPath,
+        hasParams: !!action.params,
+        paramKeys: Object.keys(action.params || {}),
+        oldContentUndefined: oldContent === undefined,
+        newContentUndefined: newContent === undefined,
+      });
+    }
   }
 
   // Handle merged items
@@ -98,8 +111,9 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
         totalRemoved += s.removed;
       }
     });
-    if (totalAdded > 0 || totalRemoved > 0)
+    if (totalAdded > 0 || totalRemoved > 0) {
       diffStats = { added: totalAdded, removed: totalRemoved };
+    }
   }
 
   const isCompleted = Boolean(
@@ -242,7 +256,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
                 }
               }}
             >
-              REPLACE
+              {getToolLabel("replace_in_file")}
             </span>
             <span
               onClick={(e) => {
@@ -355,7 +369,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
         isError={isError}
         isWaitingApproval={!!isActiveGroup && !isCompleted}
         toolType="replace_in_file"
-        diffStats={diffStats || undefined}
+        diffStats={undefined}
         isPartial={isPartial}
         diagnostics={mergedDiagnostics}
         onClick={() => {
@@ -374,33 +388,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
             path: clickedPath,
           });
         }}
-        onDotClick={() => {
-          setShowRawView(!showRawView);
-        }}
       />
-
-      {showRawView && (
-        <div
-          style={{
-            marginTop: "4px",
-            padding: "8px 12px",
-            backgroundColor:
-              "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-            border:
-              "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderRadius: "4px",
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            fontSize: "11px",
-            lineHeight: "1.5",
-            color: "var(--vscode-editor-foreground)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            overflowX: "auto",
-          }}
-        >
-          {action.rawXml || JSON.stringify(action, null, 2)}
-        </div>
-      )}
 
       {!shouldHideContent &&
         !isCompleted &&

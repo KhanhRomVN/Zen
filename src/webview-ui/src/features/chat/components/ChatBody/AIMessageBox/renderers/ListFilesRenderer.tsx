@@ -1,5 +1,8 @@
 import React from "react";
 
+// CONSTANTS
+import { getToolLabel } from "@/features/chat/constants/constants";
+
 // SERVICES
 import { extensionService } from "@/services/ExtensionService";
 
@@ -35,7 +38,6 @@ export const ListFilesRenderer: React.FC<BaseRendererProps> = ({
   conversationId,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
-  const [showRawView, setShowRawView] = React.useState(false);
 
   const actionId = `${messageId}-action-${actionIndex}`;
   const rawPath = action.params.folder_path || action.params.path || "";
@@ -154,7 +156,7 @@ export const ListFilesRenderer: React.FC<BaseRendererProps> = ({
                 }
               }}
             >
-              LIST
+              {getToolLabel("list_files")}
             </span>
             <span
               onClick={(e) => {
@@ -271,33 +273,7 @@ export const ListFilesRenderer: React.FC<BaseRendererProps> = ({
             path: clickedPath,
           });
         }}
-        onDotClick={() => {
-          setShowRawView(!showRawView);
-        }}
       />
-
-      {showRawView && (
-        <div
-          style={{
-            marginTop: "4px",
-            padding: "8px 12px",
-            backgroundColor:
-              "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-            border:
-              "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderRadius: "4px",
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            fontSize: "11px",
-            lineHeight: "1.5",
-            color: "var(--vscode-editor-foreground)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            overflowX: "auto",
-          }}
-        >
-          {action.rawXml || JSON.stringify(action, null, 2)}
-        </div>
-      )}
 
       {isError && errorMessage && (
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />

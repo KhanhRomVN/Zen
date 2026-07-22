@@ -178,8 +178,14 @@
 .terminal-content-wrapper {
   padding: 8px 8px 8px 12px;
   overflow-y: auto;
+  overflow-x: hidden;
   background-color: var(--vscode-terminal-background);
   scrollbar-width: thin;
+  scrollbar-color: transparent transparent; /* Hidden by default */
+}
+
+/* Show scrollbar only when there's overflow */
+.terminal-content-wrapper:hover {
   scrollbar-color: var(
       --vscode-scrollbarSlider-background,
       rgba(121, 121, 121, 0.4)
@@ -187,12 +193,11 @@
     transparent;
 }
 
-.terminal-content-wrapper:hover {
-  scrollbar-color: var(
-      --vscode-scrollbarSlider-hoverBackground,
-      rgba(100, 100, 100, 0.7)
-    )
-    transparent;
+.terminal-content-wrapper:hover::-webkit-scrollbar-thumb {
+  background: var(
+    --vscode-scrollbarSlider-background,
+    rgba(121, 121, 121, 0.4)
+  );
 }
 
 .terminal-richtext-fallback {
@@ -213,26 +218,36 @@
 /* Adjust xterm styles for VS Code integration */
 .xterm .xterm-viewport {
   background-color: transparent !important;
+  /* DO NOT hide overflow - it breaks text wrapping and layout calculation */
 }
 
 .xterm .xterm-screen {
   padding: 4px;
 }
 
+/* Hide xterm cursor completely */
+.xterm .xterm-cursor-layer {
+  display: none !important;
+}
+
+.xterm .xterm-cursor {
+  display: none !important;
+}
+
 .terminal-content-wrapper::-webkit-scrollbar {
-  width: 6px;
+  width: 8px; /* Slightly wider for better visibility when shown */
 }
 
 .terminal-content-wrapper::-webkit-scrollbar-track {
   background: transparent;
+  margin: 0; /* Sát viền - no margin */
 }
 
 .terminal-content-wrapper::-webkit-scrollbar-thumb {
-  background: var(
-    --vscode-scrollbarSlider-background,
-    rgba(121, 121, 121, 0.4)
-  );
-  border-radius: 3px;
+  background: transparent; /* Hidden by default */
+  border-radius: 4px;
+  border: 2px solid transparent; /* Sát viền - using border for inset effect */
+  background-clip: padding-box;
 }
 
 .terminal-content-wrapper::-webkit-scrollbar-thumb:hover {
@@ -240,6 +255,7 @@
     --vscode-scrollbarSlider-hoverBackground,
     rgba(100, 100, 100, 0.7)
   );
+  background-clip: padding-box;
 }
 
 /* Timeline Styles - REMOVED */

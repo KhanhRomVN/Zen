@@ -1,5 +1,8 @@
 import React from "react";
 
+// CONSTANTS
+import { getToolLabel } from "@/features/chat/constants/constants";
+
 // TYPES
 import {
   BaseRendererProps,
@@ -141,7 +144,7 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
                 (e.target as HTMLElement).style.textDecoration = "none";
               }}
             >
-              REVERT
+              {getToolLabel("revert_file")}
             </span>
             <FileIcon
               path={rawPath}

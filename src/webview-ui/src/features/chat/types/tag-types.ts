@@ -1,6 +1,6 @@
 /**
  * Tag and Tool Type Definitions
- * 
+ *
  * This file contains all type definitions related to tags, tools, and permissions.
  * Extracted from constants.ts for better separation of concerns.
  */
@@ -16,6 +16,7 @@ export type TagCategory = "tool" | "ui";
 
 export interface TagDefinition {
   id: string;
+  title?: string | null;
   category: TagCategory;
 
   // Only tools have permissions

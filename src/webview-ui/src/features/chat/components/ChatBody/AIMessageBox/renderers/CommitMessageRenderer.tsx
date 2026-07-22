@@ -1,8 +1,10 @@
 import React from "react";
 
+// CONSTANTS
+import { TOOL_ACTION_TYPES, getToolLabel } from "@/features/chat/constants/constants";
+
 // TYPES
 import { ToolAction } from "@/features/chat/services/ResponseParser";
-import { TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -72,7 +74,7 @@ export const CommitMessageRenderer: React.FC<CommitMessageRendererProps> = ({
               }}
             >
               <span style={{ fontWeight: 600, opacity: 0.8 }}>
-                COMMIT MESSAGE{branch ? ` (${branch})` : ""}
+                {getToolLabel("commit_message")}{branch ? ` (${branch})` : ""}
               </span>
               <span
                 className="codicon codicon-git-commit"

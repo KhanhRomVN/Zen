@@ -1,5 +1,8 @@
 import React from "react";
 
+// CONSTANTS
+import { getToolLabel } from "@/features/chat/constants/constants";
+
 // SERVICES
 import { extensionService } from "@/services/ExtensionService";
 
@@ -34,7 +37,6 @@ export const FindFilesRenderer: React.FC<BaseRendererProps> = ({
   conversationId,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
-  const [showRawView, setShowRawView] = React.useState(false);
 
   const actionId = `${messageId}-action-${actionIndex}`;
 
@@ -90,7 +92,7 @@ export const FindFilesRenderer: React.FC<BaseRendererProps> = ({
             onClick={isCompleted ? () => setIsCollapsed((v) => !v) : undefined}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>FIND</span>
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>{getToolLabel("find_files")}</span>
               {isPartial && !isCompleted && (
                 <span
                   style={{
@@ -199,33 +201,7 @@ export const FindFilesRenderer: React.FC<BaseRendererProps> = ({
         isWaitingApproval={!!isActiveGroup && !isCompleted}
         toolType="find_files"
         isPartial={isPartial}
-        onDotClick={() => {
-          setShowRawView(!showRawView);
-        }}
       />
-
-      {showRawView && (
-        <div
-          style={{
-            marginTop: "4px",
-            padding: "8px 12px",
-            backgroundColor:
-              "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-            border:
-              "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderRadius: "4px",
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            fontSize: "11px",
-            lineHeight: "1.5",
-            color: "var(--vscode-editor-foreground)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            overflowX: "auto",
-          }}
-        >
-          {action.rawXml || JSON.stringify(action, null, 2)}
-        </div>
-      )}
 
       {isError && errorMessage && (
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />

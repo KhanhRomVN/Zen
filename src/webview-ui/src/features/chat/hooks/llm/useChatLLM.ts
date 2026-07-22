@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Message, QuestionAnswer } from "../../types/message";
 import { ToolAction, parseAIResponse } from "../../services/ResponseParser";
 import {
@@ -48,31 +48,37 @@ export const parseQuestionAnswerTag = (
   const innerContent = match[1].trim();
   const answers: Record<string, QuestionAnswer> = {};
 
-  // Parse each line: "1. {questionId}: {answer}"
+  // Parse each line: "N. answer" (without questionId)
   const lines = innerContent.split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed === "No answer") continue;
-
-    // Match pattern: "N. questionId: answer"
-    const lineMatch = /^\d+\.\s+([^:]+):\s+(.+)$/i.exec(trimmed);
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    
+    // Match pattern: "N. answer" or "N. " (empty answer)
+    const lineMatch = /^(\d+)\.\s*(.*)$/i.exec(trimmed);
     if (!lineMatch) continue;
 
-    const questionId = lineMatch[1].trim();
-    const answerValue = lineMatch[2].trim();
+    const lineNumber = parseInt(lineMatch[1], 10);
+    const answerText = lineMatch[2].trim();
+    
+    // Use line number as questionId (matching question.id format: "1", "2", "3", etc.)
+    const questionId = String(lineNumber);
 
-    // Parse answer value (could be array for multi-choice)
-    let parsedValue: string | string[] | boolean = answerValue;
-
-    // Check if it's a boolean (for confirm type)
-    if (answerValue.toLowerCase() === "true") {
-      parsedValue = true;
-    } else if (answerValue.toLowerCase() === "false") {
-      parsedValue = false;
-    } else if (answerValue.includes(",")) {
-      // Array for multi-choice
-      parsedValue = answerValue.split(",").map((v) => v.trim());
+    // Skip if empty answer (no value provided)
+    if (!answerText) {
+      continue;
     }
+
+    // Keep answer as string - QuestionBlock will handle type conversion based on question type
+    let parsedValue: string | string[] | boolean = answerText;
+
+    // Only convert explicit "true"/"false" literals to boolean
+    if (answerText.toLowerCase() === "true") {
+      parsedValue = true;
+    } else if (answerText.toLowerCase() === "false") {
+      parsedValue = false;
+    }
+    // Note: "Yes" and "No" remain as strings
+    // Note: Do NOT split by comma - QuestionBlock will handle multi-choice parsing
 
     answers[questionId] = {
       questionId,
@@ -112,6 +118,9 @@ export const useChatLLM = ({
     renderCountRef,
     prevDepsRef,
   } = useConversationRefs();
+
+  // Flag to trigger tool syntax reminder in next request
+  const needsToolSyntaxReminderRef = useRef(false);
 
   // Track render performance
   const renderStartTime = performance.now();
@@ -262,6 +271,7 @@ export const useChatLLM = ({
       }
 
       // Build prompt using PromptBuilder
+      const needsReminder = needsToolSyntaxReminderRef.current;
       const promptPayload = await PromptBuilder.buildPrompt({
         content,
         isReq1,
@@ -272,7 +282,12 @@ export const useChatLLM = ({
         workspace,
         files,
         userRequestCount: userRequestCountRef.current,
+        needsToolSyntaxReminder: needsReminder,
       });
+      // Reset flag after building prompt
+      if (needsReminder) {
+        needsToolSyntaxReminderRef.current = false;
+      }
 
       const userMessage: Message = {
         id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
@@ -340,17 +355,8 @@ export const useChatLLM = ({
       setMessages(updatedMessages);
       setIsProcessingSync(true);
 
-      // Save conversation
-      saveConversation(
-        sessionId,
-        folderPath,
-        updatedMessages,
-        effectiveChatUuid,
-        selectedTab || undefined,
-        false,
-        undefined,
-        backendConversationIdRef.current,
-      );
+      // NOTE: Conversation will be saved after receiving successful response
+      // No longer saving here to avoid saving request without response
 
       // Resolve model and account
       const oldModel = lastUsedModelRef.current;
@@ -727,9 +733,9 @@ export const useChatLLM = ({
               },
             );
 
-            // Append errors and reminder to content
-            assistantMessage.content +=
-              errorTexts.join("") + "\n\n" + XML_TOOL_SYNTAX_REMINDER;
+            // Append errors to content and set flag for reminder in next request
+            needsToolSyntaxReminderRef.current = true;
+            assistantMessage.content += errorTexts.join("");
 
             // Update messages array with appended errors
             setMessages((prev) =>
@@ -822,21 +828,7 @@ export const useChatLLM = ({
         setMessages(messagesWithError);
         messagesRef.current = messagesWithError;
 
-        if (effectiveChatUuid) {
-          try {
-            saveConversation(
-              sessionId,
-              folderPath,
-              messagesWithError,
-              effectiveChatUuid,
-              selectedTab || undefined,
-              false,
-              undefined,
-              backendConversationIdRef.current,
-            );
-          } catch (saveErr) {}
-        }
-
+        // NOTE: Do NOT save conversation on error - only save successful request+response pairs
         setIsProcessingSync(false);
       }
     },
@@ -950,14 +942,21 @@ export const useChatLLM = ({
                 const answer = answers[qId];
                 const number = index + 1;
 
-                if (!answer || !answer.value) {
-                  return `${number}. No answer`;
+                // Check if answer is missing or empty (but allow boolean false)
+                if (!answer || (answer.value !== false && !answer.value)) {
+                  return `${number}. `;
                 }
 
+                // Handle boolean values for confirm type
+                if (typeof answer.value === "boolean") {
+                  return `${number}. ${answer.value ? "Yes" : "No"}`;
+                }
+
+                // Handle array values for multi-choice
                 const value = Array.isArray(answer.value)
                   ? answer.value.join(", ")
                   : String(answer.value);
-                return `${number}. ${qId}: ${value}`;
+                return `${number}. ${value}`;
               })
               .join("\n");
 

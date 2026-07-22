@@ -9,7 +9,23 @@ export class TerminalHandler {
   public async handleRunCommand(message: any, webviewView: vscode.WebviewView) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      const cwd = workspaceFolder?.uri.fsPath || os.homedir();
+      const workspacePath = workspaceFolder?.uri.fsPath || os.homedir();
+
+      // Support folder_path param for custom working directory
+      let cwd = workspacePath;
+      if (message.folderPath) {
+        // Check if folderPath is absolute or relative
+        const isAbsolute =
+          message.folderPath.startsWith("/") ||
+          message.folderPath.match(/^[a-zA-Z]:\\/); // Windows absolute path
+
+        if (isAbsolute) {
+          cwd = message.folderPath;
+        } else {
+          // Relative to workspace
+          cwd = `${workspacePath}/${message.folderPath}`;
+        }
+      }
 
       // Security Check
       const securityCheck = SecurityValidator.validateCommand(
@@ -37,7 +53,10 @@ export class TerminalHandler {
     } catch (e: any) {
       console.error(`[TerminalHandler] handleRunCommand ERROR`, {
         actionId: message.actionId,
+        command: message.commandText,
+        folderPath: message.folderPath,
         error: e.message,
+        stack: e.stack,
       });
       webviewView.webview.postMessage({
         command: "runCommandResult",

@@ -15,6 +15,7 @@ import {
   EXECUTION_STATUS,
   TERMINAL_STATUS,
   type TerminalStatus,
+  TAG_REGISTRY,
 } from "../../../constants/constants";
 
 // TYPES
@@ -162,8 +163,8 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         options={!hasQuestions ? group.options : undefined}
         title={group.title}
         optional={group.optional}
-        selectedOption={undefined} // Will be handled by parent
-        questionAnswers={undefined} // Will be handled by parent
+        selectedOption={group.selectedOption}
+        questionAnswers={group.questionAnswers}
         disabled={!!nextUserMessage || isGenerating}
         onAnswer={(questionId, value) => {
           if (!hasQuestions) return;
@@ -421,21 +422,9 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   if (firstAction.isError) {
     const errorColor = "var(--vscode-errorForeground, #f44336)";
 
-    // Determine label based on tool type
-    const toolLabelMap: Record<string, string> = {
-      read_file: "READ",
-      write_to_file: "WRITE",
-      replace_in_file: "REPLACE",
-      list_files: "LIST",
-      find_files: "FIND",
-      grep: "GREP",
-      delete_file: "DELETE",
-      move_file: "MOVE",
-      revert_file: "REVERT",
-      run_command: "RUN",
-    };
+    // Determine label based on tool type from TAG_REGISTRY
     const toolLabel =
-      toolLabelMap[toolType] ?? toolType.toUpperCase().replace(/_/g, " ");
+      TAG_REGISTRY[toolType]?.title ?? toolType.toUpperCase().replace(/_/g, " ");
 
     // Extract file path or relevant info from params
     const filePath =
@@ -899,176 +888,190 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
 
   // Handle read_file tool type
   if (toolType === "read_file") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <ReadFileRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <ReadFileRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(
+              `${messageId}-action-${index}`,
+            )}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+          />
+        ))}
+      </>
     );
   }
 
   // Handle list_files tool type
   if (toolType === "list_files") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <ListFilesRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <ListFilesRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(
+              `${messageId}-action-${index}`,
+            )}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+          />
+        ))}
+      </>
     );
   }
 
   // Handle find_files tool type
   if (toolType === "find_files") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <FindFilesRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <FindFilesRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(
+              `${messageId}-action-${index}`,
+            )}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+          />
+        ))}
+      </>
     );
   }
 
   // Handle grep tool type
   if (toolType === "grep") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <GrepRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <GrepRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(
+              `${messageId}-action-${index}`,
+            )}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+          />
+        ))}
+      </>
     );
   }
 
   // Handle delete_file tool type
   if (toolType === "delete_file") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <DeleteFileRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <DeleteFileRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(
+              `${messageId}-action-${index}`,
+            )}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+          />
+        ))}
+      </>
     );
   }
 
   // Handle move_file tool type
   if (toolType === "move_file") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <MoveFileRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <MoveFileRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(
+              `${messageId}-action-${index}`,
+            )}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+          />
+        ))}
+      </>
     );
   }
 
   // Handle revert_file tool type
   if (toolType === "revert_file") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <RevertFileRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <RevertFileRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(
+              `${messageId}-action-${index}`,
+            )}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={isLastItemInList && index === toolGroup[toolGroup.length - 1].index}
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+          />
+        ))}
+      </>
     );
   }
 

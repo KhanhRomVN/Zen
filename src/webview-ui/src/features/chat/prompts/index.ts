@@ -20,6 +20,7 @@ export {
   CHECKPOINT_REMINDER,
   CHECKPOINT_INTERVAL,
   buildPermissionModeTag,
+  XML_TOOL_SYNTAX_REMINDER,
 } from "./reminder";
 export { TOOL_VALIDATION } from "./tool-validation";
 

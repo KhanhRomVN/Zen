@@ -4,7 +4,6 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import "./TerminalBlock.css";
 import { useProject } from "../../../../../../../context/ProjectContext";
-import { Copy, Check } from "lucide-react";
 
 interface TerminalBlockProps {
   logs: string;
@@ -15,70 +14,6 @@ interface TerminalBlockProps {
   onInput?: (data: string) => void;
   rejectedOutline?: boolean;
 }
-
-const CopyButton: React.FC<{ getText: () => string; title?: string }> = ({
-  getText,
-  title,
-}) => {
-  const [copied, setCopied] = useState(false);
-  const [hovered, setHovered] = useState(false);
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const text = getText();
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      })
-      .catch(() => {
-        const el = document.createElement("textarea");
-        el.value = text;
-        el.style.position = "fixed";
-        el.style.opacity = "0";
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand("copy");
-        document.body.removeChild(el);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      });
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      title={title || "Copy"}
-      className="terminal-copy-btn"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "22px",
-        height: "22px",
-        padding: 0,
-        border: "none",
-        borderRadius: "4px",
-        background: copied
-          ? "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground) 15%, transparent)"
-          : hovered
-            ? "color-mix(in srgb, var(--vscode-foreground) 22%, transparent)"
-            : "transparent",
-        color: copied
-          ? "var(--vscode-gitDecoration-addedResourceForeground)"
-          : "var(--vscode-terminal-foreground)",
-        cursor: "pointer",
-        flexShrink: 0,
-        transition: "background 0.15s, color 0.15s, opacity 0.15s",
-      }}
-    >
-      {copied ? <Check size={13} /> : <Copy size={13} />}
-    </button>
-  );
-};
 
 const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({
   onInput,
@@ -299,9 +234,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     }
   }, [logs, isXtermVisible, rows]);
 
-  const getCleanLogs = () => stripAnsi(logs || "");
-  const getCommand = () => initialCommand || "";
-
   // Shared text style — same font/size/color for both command and output areas
   const terminalTextStyle: React.CSSProperties = {
     fontFamily:
@@ -366,7 +298,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
             {initialCommand ? formatCommand(initialCommand) : "Terminal"}
           </div>
 
-          {/* Right actions: copy + chevron */}
+          {/* Right actions: chevron only */}
           <div
             style={{
               display: "flex",
@@ -377,8 +309,6 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* CSS class on parent (.terminal-cmd-area) controls opacity */}
-            <CopyButton getText={getCommand} title="Copy command" />
             {canExpand && (
               <div
                 className={`codicon codicon-chevron-${isExpanded ? "up" : "down"}`}
@@ -398,22 +328,8 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
         </div>
       )}
 
-      {/* ── OUTPUT AREA ── Copy button hidden by default, shown on hover via CSS */}
+      {/* ── OUTPUT AREA ── */}
       <div className="terminal-output-area" style={{ position: "relative" }}>
-        {isXtermVisible && logs && (
-          <div
-            className="terminal-output-copy-btn"
-            style={{
-              position: "absolute",
-              top: "6px",
-              right: "8px",
-              zIndex: 10,
-            }}
-          >
-            <CopyButton getText={getCleanLogs} title="Copy output" />
-          </div>
-        )}
-
         <div
           className="terminal-content-wrapper"
           style={{

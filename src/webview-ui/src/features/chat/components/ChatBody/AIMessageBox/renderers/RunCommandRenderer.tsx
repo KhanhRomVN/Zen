@@ -7,7 +7,7 @@ import { useSettings } from "../../../../../../context/SettingsContext";
 import { extensionService } from "../../../../../../services/ExtensionService";
 
 // CONSTANTS
-import { TOOL_ACTION_TYPES, TERMINAL_STATUS, type TerminalStatus } from "../../../../constants/constants";
+import { TOOL_ACTION_TYPES, TERMINAL_STATUS, type TerminalStatus, getToolLabel } from "../../../../constants/constants";
 
 // TYPES
 import { ToolAction } from "../../../../services/ResponseParser";
@@ -16,7 +16,11 @@ import { Message } from "../../../../types/message";
 // UTILS
 import { getPermissionDecision } from "../../../../utils/permissionUtils";
 
+// ICONS
+import FileIcon from "@/icons/FileIcon";
+
 // COMPONENTS
+import { TagHeader } from "../TagHeader";
 import { TerminalBlock } from "../blocks/run_command/TerminalBlock";
 import ExecuteButton from "../ExecuteButton";
 
@@ -81,14 +85,19 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [messageId, actionIndex]);
+  }, [actionId]);
+
   const needsPrompt =
     getPermissionDecision(permissionMode, "run_command") === "confirm";
   const commandText = action.params.command || "";
-  const displayCommand =
-    commandText.length > 50
-      ? `${commandText.substring(0, 48)}...`
-      : commandText;
+  const folderPath = action.params.folder_path || action.params.cwd || rootPath || "";
+  
+  // Determine if folderPath is within workspace (relative) or outside (system path)
+  const isRelativePath = rootPath && folderPath.startsWith(rootPath);
+  const displayFolderPath = isRelativePath 
+    ? folderPath.substring(rootPath.length).replace(/^\//, '') || '.'
+    : folderPath;
+  const folderName = folderPath ? folderPath.split("/").filter(Boolean).pop() || folderPath : "";
 
   let extractedOutput: string | undefined;
   if (!outputData?.output && nextUserMessage?.content) {
@@ -114,117 +123,152 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
         : isActionClicked);
   const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
   const isCompleted = hasOutput && !isTerminalBusy;
-  const dotColor = isRejected
-    ? "var(--vscode-errorForeground, #ff4d4d)"
-    : isCompleted
-      ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-      : isTerminalBusy || (isActionClicked && !outputData)
-        ? "var(--vscode-editorWarning-foreground, #e3b341)"
-        : isActiveGroup
-          ? "var(--vscode-button-background)"
-          : "var(--vscode-descriptionForeground)";
+
+  // Calculate execution time (if completed)
+  const [executionTime, setExecutionTime] = React.useState<string>("");
+  React.useEffect(() => {
+    if (isCompleted && outputData) {
+      // Try to extract time from output or calculate from timestamps if available
+      // For now, we'll just show "completed" without time
+      // This can be enhanced later if we track start/end times
+      setExecutionTime("");
+    }
+  }, [isCompleted, outputData]);
 
   return (
-    <div style={{ marginTop: "4px", paddingLeft: "0" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "4px 0 6px 0",
-        }}
-      >
-        <div
-          onClick={() => {
-            if (isCompleted || hasOutput) setIsCollapsed((v) => !v);
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            minWidth: 0,
-            flex: 1,
-            cursor: isCompleted || hasOutput ? "pointer" : "default",
-          }}
-        >
-          {(isCompleted || hasOutput) && (
-            <span
-              className={`codicon codicon-chevron-${isCollapsed ? "right" : "down"}`}
-              style={{ fontSize: "12px", opacity: 0.8, flexShrink: 0 }}
-            />
-          )}
-          <span
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        paddingBottom: "4px",
+        marginBottom: "2px",
+      }}
+    >
+      <TagHeader
+        title={
+          <div
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
               fontSize: "12px",
-              fontWeight: 700,
               color: "var(--vscode-editor-foreground)",
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              flexShrink: 0,
+              flex: 1,
             }}
           >
-            Execute
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-            flexShrink: 0,
-          }}
-        >
-          {isTerminalBusy && (
-            <button
-              className="stop-terminal-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                extensionService.postMessage({
-                  command: "stopCommand",
-                  actionId,
-                  terminalId,
-                });
-                if (terminalId)
+            <span style={{ fontWeight: 600, opacity: 0.8, flexShrink: 0 }}>
+              {getToolLabel("run_command")}
+            </span>
+            {folderName && (
+              <>
+                <FileIcon
+                  path={folderPath}
+                  isFolder={true}
+                  style={{ width: "14px", height: "14px", flexShrink: 0 }}
+                />
+                <span
+                  style={{
+                    fontWeight: 500,
+                    opacity: 0.8,
+                    fontFamily: "var(--vscode-editor-font-family, monospace)",
+                    fontSize: "11px",
+                    flexShrink: 0,
+                  }}
+                >
+                  {folderName}
+                </span>
+              </>
+            )}
+            {isCompleted && executionTime && (
+              <span
+                style={{
+                  opacity: 0.5,
+                  fontSize: "10px",
+                  color: "var(--vscode-descriptionForeground)",
+                  flexShrink: 0,
+                }}
+              >
+                {executionTime}
+              </span>
+            )}
+            {isTerminalBusy && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
                   extensionService.postMessage({
-                    command: "stopTerminal",
+                    command: "stopCommand",
+                    actionId,
                     terminalId,
                   });
-              }}
-              title="Finalize output, kill process and delete terminal"
-              style={{
-                background:
-                  "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
-                border:
-                  "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 30%, transparent)",
-                cursor: "pointer",
-                color: "var(--vscode-errorForeground, #f44336)",
-                padding: "4px 8px",
-                borderRadius: "6px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "11px",
-                fontWeight: 600,
-                gap: "6px",
-                height: "24px",
-                textTransform: "uppercase",
-              }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="currentColor"
+                  if (terminalId)
+                    extensionService.postMessage({
+                      command: "stopTerminal",
+                      terminalId,
+                    });
+                }}
+                title="Finalize output, kill process and delete terminal"
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
+                  border:
+                    "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 30%, transparent)",
+                  cursor: "pointer",
+                  color: "var(--vscode-errorForeground, #f44336)",
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  gap: "6px",
+                  height: "24px",
+                  textTransform: "uppercase",
+                  marginLeft: "auto",
+                  flexShrink: 0,
+                }}
               >
-                <rect x="6" y="6" width="12" height="12" />
-              </svg>
-              Finalize
-            </button>
-          )}
-        </div>
-      </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <rect x="6" y="6" width="12" height="12" />
+                </svg>
+                Finalize
+              </button>
+            )}
+          </div>
+        }
+        statusColor={
+          isRejected
+            ? "var(--vscode-errorForeground)"
+            : isCompleted
+              ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+              : isTerminalBusy || (isActionClicked && !outputData)
+                ? "var(--vscode-editorWarning-foreground, #e3b341)"
+                : isActiveGroup
+                  ? "var(--vscode-descriptionForeground)"
+                  : "var(--vscode-descriptionForeground)"
+        }
+        isError={isRejected}
+        isWaitingApproval={!!isActiveGroup && !isCompleted && !isTerminalBusy}
+        toolType="run_command"
+        isPartial={isTerminalBusy}
+        path={displayFolderPath}
+        onPathClick={(clickedPath) => {
+          extensionService.postMessage({
+            command: "openFile",
+            path: isRelativePath && rootPath ? `${rootPath}/${clickedPath}` : clickedPath,
+          });
+        }}
+        onClick={() => {
+          if (isCompleted || hasOutput) setIsCollapsed((v) => !v);
+        }}
+      />
 
       {isCollapsed ? (
         <div

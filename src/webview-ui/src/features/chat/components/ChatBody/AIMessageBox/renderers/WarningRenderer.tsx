@@ -2,6 +2,7 @@ import React from "react";
 
 // COMPONENTS
 import WarningBlock from "../blocks/warning/WarningBlock";
+import { TagHeader } from "../TagHeader";
 
 interface WarningRendererProps {
   label: string;
@@ -21,11 +22,17 @@ export const WarningRenderer: React.FC<WarningRendererProps> = ({
   isPulsing = false,
 }) => {
   return (
-    <WarningBlock
-      label={label}
-      message={message}
-      warningColor={warningColor}
-      isPulsing={isPulsing}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+      <TagHeader
+        title={label}
+        statusColor={warningColor}
+        isPartial={isPulsing}
+        statusTooltip="Warning"
+      />
+      <WarningBlock
+        message={message}
+        warningColor={warningColor}
+      />
+    </div>
   );
 };

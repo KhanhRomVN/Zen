@@ -3,6 +3,9 @@ import React from "react";
 // SERVICES
 import { extensionService } from "@/services/ExtensionService";
 
+// CONSTANTS
+import { getToolLabel } from "@/features/chat/constants/constants";
+
 // TYPES
 import {
   BaseRendererProps,
@@ -36,7 +39,6 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
   conversationId,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
-  const [showRawView, setShowRawView] = React.useState(false);
   const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
     Diagnostic[] | null
   >(null);
@@ -211,7 +213,7 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
                 }
               }}
             >
-              READ
+              {getToolLabel("read_file")}
             </span>
             <span
               onClick={(e) => {
@@ -299,33 +301,7 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
             path: clickedPath,
           });
         }}
-        onDotClick={() => {
-          setShowRawView(!showRawView);
-        }}
       />
-
-      {showRawView && (
-        <div
-          style={{
-            marginTop: "4px",
-            padding: "8px 12px",
-            backgroundColor:
-              "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-            border:
-              "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderRadius: "4px",
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            fontSize: "11px",
-            lineHeight: "1.5",
-            color: "var(--vscode-editor-foreground)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            overflowX: "auto",
-          }}
-        >
-          {action.rawXml || JSON.stringify(action, null, 2)}
-        </div>
-      )}
 
       {isError && errorMessage && (
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />

@@ -10,6 +10,7 @@ import { extensionService } from "@/services/ExtensionService";
 import {
   STREAM_BOX_HEIGHT,
   TOOL_ACTION_TYPES,
+  getToolLabel,
 } from "@/features/chat/constants/constants";
 
 // TYPES
@@ -47,7 +48,6 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
   onRejectSingleLineAction,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
-  const [showRawView, setShowRawView] = React.useState(false);
   const { permissionMode } = useSettings();
 
   const actionId = `${messageId}-action-${actionIndex}`;
@@ -116,7 +116,7 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
                 }
               }}
             >
-              WRITE
+              {getToolLabel("write_to_file")}
             </span>
             <span
               onClick={(e) => {
@@ -224,33 +224,7 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
             path: clickedPath,
           });
         }}
-        onDotClick={() => {
-          setShowRawView(!showRawView);
-        }}
       />
-
-      {showRawView && (
-        <div
-          style={{
-            marginTop: "4px",
-            padding: "8px 12px",
-            backgroundColor:
-              "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-            border:
-              "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderRadius: "4px",
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            fontSize: "11px",
-            lineHeight: "1.5",
-            color: "var(--vscode-editor-foreground)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            overflowX: "auto",
-          }}
-        >
-          {action.rawXml || JSON.stringify(action, null, 2)}
-        </div>
-      )}
 
       {/* Single-line review UI for write_to_file with content crammed into 1 line */}
       {!shouldHideContent &&

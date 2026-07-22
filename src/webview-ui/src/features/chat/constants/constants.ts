@@ -109,6 +109,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
   // ===== TOOLS (category: "tool") =====
   read_file: {
     id: "read_file",
+    title: "READ",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -127,6 +128,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   write_to_file: {
     id: "write_to_file",
+    title: "WRITE",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -145,6 +147,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   replace_in_file: {
     id: "replace_in_file",
+    title: "UPDATE",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -163,6 +166,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   revert_file: {
     id: "revert_file",
+    title: "REVERT",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -177,6 +181,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   view_replace_history: {
     id: "view_replace_history",
+    title: "UPDATE HISTORY",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -188,6 +193,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   list_files: {
     id: "list_files",
+    title: "LIST",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -203,6 +209,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   find_files: {
     id: "find_files",
+    title: "FIND",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -217,6 +224,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   grep: {
     id: "grep",
+    title: "GREP",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -232,6 +240,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   delete_file: {
     id: "delete_file",
+    title: "DELETE",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -246,6 +255,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   move_file: {
     id: "move_file",
+    title: "MOVE",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -260,6 +270,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   run_command: {
     id: "run_command",
+    title: "EXECUTE",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -275,6 +286,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   git_status: {
     id: "git_status",
+    title: "GIT STATUS",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -286,6 +298,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   commit_message: {
     id: "commit_message",
+    title: "COMMIT MESSAGE",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -300,6 +313,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   git_diff: {
     id: "git_diff",
+    title: "DIFF",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -307,7 +321,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       approval: "allow",
       fullAccess: "allow",
     },
-
     params: {
       required: [],
       optional: ["file_path"],
@@ -317,14 +330,17 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
   // ===== UI TAGS (category: "ui") =====
   markdown: {
     id: "markdown",
+    title: null,
     category: "ui",
   },
   thinking: {
     id: "thinking",
+    title: null,
     category: "ui",
   },
   question: {
     id: "question",
+    title: "QUESTION",
     category: "ui",
   },
 };
@@ -449,4 +465,12 @@ export const getToolTimeout = (toolType: string): number => {
 export const isToolClickable = (type: string): boolean => {
   const tag = getTagDef(type);
   return tag?.category === "tool";
+};
+
+/**
+ * Get the display label for a tool type from TAG_REGISTRY
+ * Returns the title field, or a formatted version of the tool type if not found
+ */
+export const getToolLabel = (toolType: string): string => {
+  return TAG_REGISTRY[toolType]?.title ?? toolType.toUpperCase().replace(/_/g, " ");
 };

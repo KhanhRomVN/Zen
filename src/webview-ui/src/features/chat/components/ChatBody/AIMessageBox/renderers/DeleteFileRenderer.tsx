@@ -1,5 +1,8 @@
 import React from "react";
 
+// CONSTANTS
+import { getToolLabel } from "@/features/chat/constants/constants";
+
 // TYPES
 import {
   getDisplayPath,
@@ -61,8 +64,6 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
   const isError = !!toolOutputs?.[actionId]?.isError;
   const errorMessage = isError ? toolOutputs?.[actionId]?.output || "" : "";
 
-  const prefix = "DELETE FILE";
-
   const statusColor = isError
     ? "var(--vscode-errorForeground, #f14c4c)"
     : isCompleted
@@ -90,7 +91,7 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
               color: "var(--vscode-editor-foreground)",
             }}
           >
-            <span style={{ fontWeight: 600, opacity: 0.8 }}>{prefix}</span>
+            <span style={{ fontWeight: 600, opacity: 0.8 }}>{getToolLabel("delete_file")}</span>
             <FileIcon
               path={rawPath}
               isFolder={false}

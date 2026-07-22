@@ -316,6 +316,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 title: block.title,
                 optional: block.optional,
                 questions: block.questions,
+                questionAnswers: message.questionAnswers, // 🔍 Pass questionAnswers from message
                 key: `question-${idx}`,
               });
             }

@@ -129,6 +129,7 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   const initEffectCountRef = useRef(0);
   useEffect(() => {
     initEffectCountRef.current += 1;
+
     if (questionAnswersProp && Object.keys(questionAnswersProp).length > 0) {
       // Pre-fill answers state
       setAnswers(questionAnswersProp);
@@ -142,7 +143,9 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
 
       questions.forEach((q) => {
         const answer = questionAnswersProp[q.id];
-        if (!answer) return;
+        if (!answer) {
+          return;
+        }
 
         if (q.type === "single") {
           const value = answer.value as string;
@@ -153,7 +156,24 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
             newCustomValues[q.id] = value.replace("Other:", "").trim();
           }
         } else if (q.type === "multi") {
-          const values = answer.value as string[];
+          let values: string[];
+          // Handle both array and comma-separated string formats
+          if (Array.isArray(answer.value)) {
+            values = answer.value as string[];
+          } else if (typeof answer.value === "string") {
+            // Split by comma for multi-choice (from formatted answer string)
+            values = answer.value
+              .split(",")
+              .map((v) => v.trim())
+              .filter(Boolean);
+          } else {
+            console.warn(
+              `${logPrefix.current} Unexpected value type for multi question ${q.id}:`,
+              answer.value,
+            );
+            return;
+          }
+
           newSelectedOptions[q.id] = values;
 
           // Extract custom value from multi-choice
@@ -207,8 +227,10 @@ const QuestionAnswerBlock: React.FC<QuestionAnswerBlockProps> = ({
   const currentQuestion = isPaginated ? questions[currentIndex] : null;
 
   const isLastQuestion = currentIndex === totalQuestions - 1;
+  // isAllAnswered should only be true when in summary mode (after final submission)
+  // NOT when user is still answering questions (even if all have been answered)
   const isAllAnswered = isPaginated
-    ? Object.keys(answers).length === totalQuestions
+    ? isSummaryModeRef.current // Use summary mode as source of truth
     : legacyAnswered;
 
   // Check if current question is answered

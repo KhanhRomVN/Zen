@@ -21,6 +21,8 @@ export type GroupType =
       title?: string;
       optional?: boolean;
       questions?: Question[];
+      selectedOption?: string;
+      questionAnswers?: Record<string, any>;
       key: string;
     }
   | {
@@ -47,6 +49,8 @@ export type ContentBlock =
       title?: string;
       optional?: boolean;
       questions?: Question[];
+      selectedOption?: string;
+      questionAnswers?: Record<string, any>;
     }
   | { type: "tool"; action: ToolAction; actionIndex?: number }
   | { type: "thinking"; content: string }

@@ -1,5 +1,8 @@
 import React from "react";
 
+// CONSTANTS
+import { getToolLabel } from "@/features/chat/constants/constants";
+
 // SERVICES
 import { extensionService } from "@/services/ExtensionService";
 
@@ -34,7 +37,6 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
   conversationId,
 }) => {
   const [isGrepCollapsed, setIsGrepCollapsed] = React.useState(true);
-  const [showRawView, setShowRawView] = React.useState(false);
 
   const actionId = `${messageId}-action-${actionIndex}`;
 
@@ -83,7 +85,7 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
               grepCompleted ? () => setIsGrepCollapsed((v) => !v) : undefined
             }
           >
-            <span style={{ fontWeight: 600, opacity: 0.8 }}>GREP</span>
+            <span style={{ fontWeight: 600, opacity: 0.8, flexShrink: 0 }}>{getToolLabel("grep")}</span>
             <span
               style={{
                 fontFamily: "var(--vscode-editor-font-family, monospace)",
@@ -94,7 +96,13 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
                 backgroundColor:
                   "color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent)",
                 borderRadius: "3px",
+                maxWidth: "200px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                flexShrink: 1,
               }}
+              title={action.params.search_term || action.params.searchTerm || ""}
             >
               {action.params.search_term || action.params.searchTerm || ""}
             </span>
@@ -110,11 +118,11 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
               if (segments.length === 0) return null;
               return (
                 <>
-                  <span style={{ opacity: 0.4, fontSize: "11px" }}>in</span>
+                  <span style={{ opacity: 0.4, fontSize: "11px", flexShrink: 0 }}>in</span>
                   <FileIcon
                     path={targetPath}
                     isFolder={isFolder}
-                    style={{ width: "14px", height: "14px" }}
+                    style={{ width: "14px", height: "14px", flexShrink: 0 }}
                   />
                   <span
                     style={{
@@ -122,7 +130,13 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
                       opacity: 0.8,
                       fontFamily: "var(--vscode-editor-font-family, monospace)",
                       fontSize: "11px",
+                      maxWidth: "150px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      flexShrink: 1,
                     }}
+                    title={targetPath}
                   >
                     {getDisplayPath(targetPath, allPaths) || "..."}
                   </span>
@@ -137,6 +151,8 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
+                  flexShrink: 0,
+                  marginLeft: "auto",
                 }}
               >
                 <span
@@ -165,6 +181,8 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
                         fontSize: "10px",
                         color: "var(--vscode-descriptionForeground)",
                         fontStyle: "italic",
+                        flexShrink: 0,
+                        marginLeft: "auto",
                       }}
                     >
                       no matches
@@ -177,6 +195,9 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
                       opacity: 0.5,
                       fontSize: "10px",
                       color: "var(--vscode-descriptionForeground)",
+                      flexShrink: 0,
+                      marginLeft: "auto",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {totalMatches} {totalMatches === 1 ? "match" : "matches"} in{" "}
@@ -187,7 +208,7 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
             {grepCompleted && (
               <span
                 className={`codicon codicon-chevron-${isGrepCollapsed ? "right" : "down"}`}
-                style={{ fontSize: "10px", opacity: 0.5, marginLeft: "2px" }}
+                style={{ fontSize: "10px", opacity: 0.5, marginLeft: "2px", flexShrink: 0 }}
               />
             )}
           </div>
@@ -204,6 +225,19 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
         isError={isError}
         isWaitingApproval={!!isActiveGroup && !grepCompleted}
         toolType="grep"
+        path={(() => {
+          const folderPath =
+            action.params.folder_path || action.params.folderPath || "";
+          const filePath =
+            action.params.file_path || action.params.filePath || "";
+          return folderPath || filePath || "";
+        })()}
+        onPathClick={(clickedPath) => {
+          extensionService.postMessage({
+            command: "openFile",
+            path: clickedPath,
+          });
+        }}
         tooltipMeta={(() => {
           const meta: {
             matchCount?: number;
@@ -223,9 +257,6 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
           return meta;
         })()}
         isPartial={isPartial}
-        onDotClick={() => {
-          setShowRawView(!showRawView);
-        }}
       />
 
       <GrepBlock
@@ -241,29 +272,6 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
         isCollapsed={isGrepCollapsed}
         onToggleCollapse={() => setIsGrepCollapsed((v) => !v)}
       />
-
-      {showRawView && (
-        <div
-          style={{
-            marginTop: "4px",
-            padding: "8px 12px",
-            backgroundColor:
-              "var(--vscode-editor-background, var(--vscode-textCodeBlock-background))",
-            border:
-              "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            borderRadius: "4px",
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            fontSize: "11px",
-            lineHeight: "1.5",
-            color: "var(--vscode-editor-foreground)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-            overflowX: "auto",
-          }}
-        >
-          {action.rawXml || JSON.stringify(action, null, 2)}
-        </div>
-      )}
     </div>
   );
 };

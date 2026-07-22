@@ -2,6 +2,7 @@ import React from "react";
 
 // COMPONENTS
 import ErrorBlock from "../blocks/error/ErrorBlock";
+import { TagHeader } from "../TagHeader";
 
 interface ErrorRendererProps {
   content: string;
@@ -73,14 +74,24 @@ export const ErrorRenderer: React.FC<ErrorRendererProps> = ({
     ? toolName.toUpperCase().replace(/_/g, " ")
     : label || "ERROR";
 
+  const errorColor = "var(--vscode-errorForeground, #f44336)";
+
   return (
-    <ErrorBlock
-      content={translatedMessage}
-      errorCode={errorCode}
-      isLast={isLast}
-      isLastMessage={isLastMessage}
-      maxHeight={maxHeight}
-      label={errorLabel}
-    />
+    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+      <TagHeader
+        title={errorLabel}
+        statusColor={errorColor}
+        isError={true}
+        statusTooltip={`Error${errorCode ? `: ${errorCode}` : ""}`}
+      />
+      <ErrorBlock
+        content={translatedMessage}
+        errorCode={errorCode}
+        isLast={isLast}
+        isLastMessage={isLastMessage}
+        maxHeight={maxHeight}
+        showHeader={false}
+      />
+    </div>
   );
 };

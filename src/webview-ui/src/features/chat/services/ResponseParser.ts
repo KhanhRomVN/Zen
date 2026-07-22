@@ -15,6 +15,7 @@ import { parseViewReplaceHistory } from "./parsers/ViewReplaceHistoryParser";
 import { parseRunCommand } from "./parsers/RunCommandParser";
 import { parseGitStatus } from "./parsers/GitStatusParser";
 import { parseGitDiff } from "./parsers/GitDiffParser";
+import { parseCommitMessage } from "./parsers/CommitMessageParser";
 import { parseMarkdown } from "./parsers/MarkdownParser";
 
 import { extractThinkingBlocks } from "./parsers/ThinkingParser";
@@ -55,14 +56,6 @@ const DEBUG_PARSER =
 export const parseAIResponse = (content: string): ParsedResponse => {
   const _parseStartTime = performance.now();
 
-  if (DEBUG_PARSER) {
-    console.log("[Zen][Parser] 🚀 Starting parse", {
-      contentLength: content.length,
-      contentPreview:
-        content.substring(0, 200) + (content.length > 200 ? "..." : ""),
-    });
-  }
-
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -88,17 +81,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   const { remainingContent: contentAfterThinking, thinkingBlocks } =
     extractThinkingBlocks(remainingContent);
 
-  if (DEBUG_PARSER && thinkingBlocks.length > 0) {
-    console.log("[Zen][Parser] 💭 Extracted thinking blocks", {
-      count: thinkingBlocks.length,
-      totalThinkingChars: thinkingBlocks.reduce((sum, b) => sum + b.length, 0),
-      remainingContentLength: contentAfterThinking.length,
-    });
-  }
-
   remainingContent = contentAfterThinking;
 
-  // 🔍 ALWAYS log if content is stripped completely
   // BUT skip if this is likely a streaming intermediate state
   const isLikelyStreaming =
     remainingContent.trim().length === 0 &&
@@ -142,9 +126,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     `^([ \t]*(?:•[ \t]*)?)(${toolNamesPattern})>`,
   );
   if (missingBracketRegex.test(remainingContent)) {
-    if (DEBUG_PARSER) {
-      console.log("[Zen][Parser] 🔧 Fixed missing opening bracket");
-    }
     remainingContent = remainingContent.replace(missingBracketRegex, "$1<$2>");
   }
 
@@ -308,18 +289,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
           tag: toolName,
           ...(subTags.length > 0 ? { subTags } : {}),
         });
-
-        if (DEBUG_PARSER) {
-          const subTagInfo =
-            subTags.length > 0 ? ` (${subTags.join(", ")})` : "";
-          console.log(
-            `[Zen][Parser] 📦 Parsing closed tag: <${toolName}>${subTagInfo}`,
-            {
-              innerContentLength: (innerContent || "").length,
-              rawXmlLength: rawXml.length,
-            },
-          );
-        }
 
         if (toolName === "markdown") {
           // Explicit <markdown> tag - use MarkdownParser
@@ -594,6 +563,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               action = { type: "git_diff" as const, params, rawXml };
               break;
             }
+            case "commit_message": {
+              const params = parseCommitMessage(innerContent || "");
+              action = { type: "commit_message" as const, params, rawXml };
+              break;
+            }
             default:
               // Fallback to ToolParser for any unhandled tools
               action = parseToolAction(toolName, innerContent || "", rawXml);
@@ -707,35 +681,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       totalBlocks: result.contentBlocks.length,
       nonThinkingBlocks: nonThinkingBlocks.length,
     });
-  }
-
-  // 📊 Final parse summary
-  if (DEBUG_PARSER) {
-    const parseTime = performance.now() - _parseStartTime;
-    const errorActions = result.actions.filter((a) => a.isError);
-    console.log("[Zen][Parser] ✅ Parse complete", {
-      parseTimeMs: parseTime.toFixed(2),
-      totalActions: result.actions.length,
-      errorActions: errorActions.length,
-      validActions: result.actions.length - errorActions.length,
-      contentBlocks: result.contentBlocks.length,
-      thinkingBlocks: thinkingBlocks.length,
-      onlyThinkingDetected: result.onlyThinkingDetected || false,
-      parsingSequence: parsingSequence.length > 0 ? parsingSequence : undefined,
-    });
-
-    if (errorActions.length > 0) {
-      console.warn(
-        "[Zen][Parser] ⚠️ Error actions summary:",
-        errorActions.map((a) => ({
-          type: a.type,
-          errorCode: a.errorCode,
-          errorMessage:
-            a.errorMessage?.substring(0, 100) +
-            (a.errorMessage && a.errorMessage.length > 100 ? "..." : ""),
-        })),
-      );
-    }
   }
 
   return result;

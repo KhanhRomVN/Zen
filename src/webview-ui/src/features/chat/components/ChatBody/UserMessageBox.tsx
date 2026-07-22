@@ -1,12 +1,49 @@
 import React from "react";
 import RevertConfirmModal from "@/components/RevertConfirmModal";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
-import { Message } from "@/features/chat/types/message";
+import { Message, QuestionAnswer } from "@/features/chat/types/message";
 
 interface UserMessageBoxProps {
   message: Message;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
 }
+
+/**
+ * Parse <question-answer> tag from user message content
+ * Returns: { answers: Record<string, string>, cleanedContent: string }
+ */
+const parseQuestionAnswerFromContent = (
+  content: string,
+): { answers: Record<string, string>; cleanedContent: string } => {
+  const regex = /<question-answer>([\s\S]*?)<\/question-answer>/i;
+  const match = regex.exec(content);
+
+  if (!match) {
+    return { answers: {}, cleanedContent: content };
+  }
+
+  const innerContent = match[1].trim();
+  const answers: Record<string, string> = {};
+
+  // Parse each line: "N. answer"
+  const lines = innerContent.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const lineMatch = /^(\d+)\.\s*(.*)$/i.exec(trimmed);
+    if (!lineMatch) continue;
+
+    const questionNumber = lineMatch[1];
+    const answerText = lineMatch[2].trim();
+
+    // Store answer (even if empty)
+    answers[`q${questionNumber}`] = answerText || "(no answer)";
+  }
+
+  // Remove <question-answer> block from content
+  const cleanedContent = content.replace(regex, "").trim();
+
+  return { answers, cleanedContent };
+};
 
 const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   message,
@@ -37,6 +74,16 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
     displayContent = displayContent
       .replace(/^<zen-user-content>\n?/, "")
       .replace(/\n?<\/zen-user-content>[\s\S]*$/, "");
+  }
+
+  // Parse <question-answer> tag from content
+  const { answers: questionAnswers, cleanedContent } =
+    parseQuestionAnswerFromContent(displayContent);
+  const hasQuestionAnswers = Object.keys(questionAnswers).length > 0;
+
+  // Use cleaned content (without <question-answer> tag) for display
+  if (hasQuestionAnswers) {
+    displayContent = cleanedContent;
   }
 
   const handleCopy = () => {
@@ -103,6 +150,73 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           position: "relative",
         }}
       >
+        {/* Question Answers Summary - Show if parsed from content */}
+        {hasQuestionAnswers && (
+          <div
+            style={{
+              marginBottom: "var(--spacing-sm)",
+              padding: "var(--spacing-sm)",
+              borderRadius: "4px",
+              backgroundColor:
+                "color-mix(in srgb, var(--vscode-button-background) 10%, transparent)",
+              border:
+                "1px solid color-mix(in srgb, var(--vscode-button-background) 20%, transparent)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                color: "var(--vscode-descriptionForeground)",
+                marginBottom: "8px",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Question Answers
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}
+            >
+              {Object.entries(questionAnswers).map(([qId, answer]) => {
+                const questionNumber = qId.replace("q", "");
+                return (
+                  <div
+                    key={qId}
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--vscode-foreground)",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "var(--vscode-button-background)",
+                        fontWeight: 600,
+                        marginRight: "6px",
+                      }}
+                    >
+                      {questionNumber}.
+                    </span>
+                    <span
+                      style={{
+                        opacity: answer === "(no answer)" ? 0.5 : 1,
+                        fontStyle: answer === "(no answer)" ? "italic" : "normal",
+                      }}
+                    >
+                      {answer}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div
           style={{
             fontSize: "var(--font-size-sm)",

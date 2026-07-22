@@ -947,6 +947,7 @@ export const useToolExecution = ({
           extensionService.postMessage({
             command: "runCommand",
             commandText: action.params.command,
+            folderPath: action.params.folder_path || action.params.cwd,
             actionId: actionId,
           });
 

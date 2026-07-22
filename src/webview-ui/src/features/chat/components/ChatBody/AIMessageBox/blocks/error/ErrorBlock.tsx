@@ -134,7 +134,7 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
     );
   }
 
-  // Full header style (original ErrorBlock)
+  // Full header style (original ErrorBlock) - header removed, only error content remains
   return (
     <div
       style={{
@@ -153,65 +153,6 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
           overflow: "visible",
         }}
       >
-        {showHeader && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "6px 6px",
-              background: "var(--vscode-editor-background)",
-              borderBottom:
-                "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-              borderRadius: "4px 4px 0 0",
-              minHeight: "32px",
-              cursor: content ? "pointer" : "default",
-            }}
-            onClick={() => {
-              if (content) setIsCollapsed(!isCollapsed);
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                fontSize: "12px",
-                color: "var(--vscode-editor-foreground)",
-              }}
-            >
-              <span
-                style={{ fontWeight: 600, opacity: 0.8, color: errorColor }}
-              >
-                {label}
-              </span>
-              {displayErrorCode && (
-                <span
-                  style={{
-                    fontWeight: 500,
-                    opacity: 0.7,
-                    fontSize: "11px",
-                    color: errorColor,
-                  }}
-                >
-                  {displayErrorCode}
-                </span>
-              )}
-            </div>
-            {content && (
-              <span
-                style={{
-                  fontSize: "11px",
-                  opacity: 0.5,
-                  color: "var(--vscode-descriptionForeground)",
-                }}
-              >
-                {isCollapsed ? "▶" : "▼"}
-              </span>
-            )}
-          </div>
-        )}
-
         {!isCollapsed && (
           <div
             style={{
