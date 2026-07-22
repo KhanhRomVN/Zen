@@ -118,9 +118,6 @@ export class ConversationHistoryHandler {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
       if (!workspaceFolder) {
-        console.warn(
-          `[Zen][ConversationHandler] ⚠️ No workspace folder found for conversation ${message.conversationId}`,
-        );
         return;
       }
       const { conversationId } = message;

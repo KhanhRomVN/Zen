@@ -40,10 +40,6 @@ export class AgentHandler {
           result: { success: false, error: e.message },
         });
       }
-    } else {
-      console.warn(
-        `[Zen][AgentHandler] ⚠️ No agentManager available for requestId: ${requestId}`,
-      );
     }
   }
 }

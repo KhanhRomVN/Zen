@@ -34,7 +34,7 @@ import FileIcon from "@/icons/FileIcon";
 import { TagHeader } from "../TagHeader";
 import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
-import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
+// FileStreamingBlock removed - no longer used (isPartial is false)
 
 export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
   action,
@@ -415,34 +415,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
       )}
 
-      {/* Streaming preview for replace_in_file */}
-      {!shouldHideContent &&
-        isPartial &&
-        (() => {
-          const oldStr = action.params.old_str || "";
-          const newStr = action.params.new_str || "";
-          const diff = action.params.diff || "";
-
-          let streamingContent = "";
-          if (oldStr || newStr) {
-            streamingContent = `<<<<<<< OLD\n${oldStr}\n=======\n${newStr}`;
-          } else if (diff) {
-            streamingContent = diff;
-          }
-
-          if (!streamingContent || streamingContent.trim().length === 0) {
-            return null;
-          }
-
-          return (
-            <div style={{}}>
-              <FileStreamingBlock
-                content={streamingContent}
-                maxHeight={STREAM_BOX_HEIGHT}
-              />
-            </div>
-          );
-        })()}
+      
     </div>
   );
 };

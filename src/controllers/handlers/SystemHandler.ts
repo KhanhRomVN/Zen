@@ -141,7 +141,6 @@ export class SystemHandler {
     const filePath = message.path;
 
     if (!filePath) {
-      console.warn("[SystemHandler] handleOpenFile: No path provided");
       return;
     }
 
@@ -362,9 +361,6 @@ export class SystemHandler {
 
       // Verify we have different content
       if (beforeContent === afterContent) {
-        console.warn(
-          `[handleOpenReplaceInFileDiff] Before and after content are identical`,
-        );
         vscode.window.showWarningMessage(
           `Diff view: before and after content are identical`,
         );
@@ -566,69 +562,49 @@ export class SystemHandler {
       // First, open the file in the editor
       try {
         const document = await vscode.workspace.openTextDocument(uri);
-        const editor = await vscode.window.showTextDocument(document);
-      } catch (error) {
-        console.warn("[SystemHandler] Failed to open file:", error);
-      }
+      } catch (error) {}
 
       // Method 1: Use git.openChange (specifically for showing changes)
       try {
         await vscode.commands.executeCommand("git.openChange", uri, "HEAD");
         return;
-      } catch (error) {
-        console.warn("[SystemHandler] git.openChange failed:", error);
-      }
+      } catch (error) {}
 
       // Method 2: Use git.openResource with HEAD as revision
       try {
         await vscode.commands.executeCommand("git.openResource", uri, "HEAD");
         return;
-      } catch (error) {
-        console.warn(
-          "[SystemHandler] git.openResource (with HEAD) failed:",
-          error,
-        );
-      }
+      } catch (error) {}
 
       // Method 3: Use git.openResource without revision
       try {
         await vscode.commands.executeCommand("git.openResource", uri);
         return;
-      } catch (error) {
-        console.warn("[SystemHandler] git.openResource failed:", error);
-      }
+      } catch (error) {}
 
       // Method 4: Use git.show (opens the file in a diff view)
       try {
         await vscode.commands.executeCommand("git.show", uri);
         return;
-      } catch (error) {
-        console.warn("[SystemHandler] git.show failed:", error);
-      }
+      } catch (error) {}
 
       // Method 5: Use git.openFile (opens the file with git diff)
       try {
         await vscode.commands.executeCommand("git.openFile", uri);
         return;
-      } catch (error) {
-        console.warn("[SystemHandler] git.openFile failed:", error);
-      }
+      } catch (error) {}
 
       // Method 6: Use git.openFile2 (alternative)
       try {
         await vscode.commands.executeCommand("git.openFile2", uri);
         return;
-      } catch (error) {
-        console.warn("[SystemHandler] git.openFile2 failed:", error);
-      }
+      } catch (error) {}
 
       // Method 7: Use git.stage with the file (to show diff in Source Control)
       try {
         await vscode.commands.executeCommand("git.stage", uri);
         return;
-      } catch (error) {
-        console.warn("[SystemHandler] git.stage failed:", error);
-      }
+      } catch (error) {}
 
       // Method 8: Fallback - open the file directly
       try {

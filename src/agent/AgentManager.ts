@@ -37,10 +37,6 @@ export class AgentManager {
     const validation = this.validator.validate(action);
 
     if (!validation.allowed) {
-      console.warn(`[Zen][AgentManager] 🚫 Permission denied:`, {
-        type: action.type,
-        reason: validation.reason,
-      });
       return {
         success: false,
         error: validation.reason || "Permission denied",

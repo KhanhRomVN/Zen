@@ -1,4 +1,3 @@
-import { decodeHtmlEntities } from "../utils/HtmlEntitiesDecoder";
 import { parseToolAction } from "../utils/ToolParser";
 import { getAllToolTypes } from "../constants/constants";
 // Tag parsers
@@ -17,8 +16,7 @@ import { parseGitStatus } from "./parsers/GitStatusParser";
 import { parseGitDiff } from "./parsers/GitDiffParser";
 import { parseCommitMessage } from "./parsers/CommitMessageParser";
 import { parseMarkdown } from "./parsers/MarkdownParser";
-
-import { extractThinkingBlocks } from "./parsers/ThinkingParser";
+import { parseThinking } from "./parsers/ThinkingParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
 import { TagType } from "../types/tag-types";
 
@@ -54,8 +52,6 @@ const DEBUG_PARSER =
   window.localStorage?.getItem("zen_debug_parser") === "true";
 
 export const parseAIResponse = (content: string): ParsedResponse => {
-  const _parseStartTime = performance.now();
-
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -79,7 +75,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Pre-extract <thinking> blocks BEFORE any tool scanning so that tool tags
   // inside a thinking block are never mistaken for real tool calls.
   const { remainingContent: contentAfterThinking, thinkingBlocks } =
-    extractThinkingBlocks(remainingContent);
+    parseThinking(remainingContent);
 
   remainingContent = contentAfterThinking;
 
@@ -647,21 +643,21 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Replace contentBlocks with expanded version
   result.contentBlocks = expandedBlocks;
 
-  // 🔍 ALWAYS log if contentBlocks is empty (potential bug)
+  //  ALWAYS log if contentBlocks is empty (potential bug)
   const isPartialTag = /^<[\/]?[a-zA-Z0-9_]*$/.test(content.trim());
   if (
     result.contentBlocks.length === 0 &&
     content.trim().length > 0 &&
     !isPartialTag
   ) {
-    console.warn("[Zen][Parser] ⚠️ No contentBlocks generated!", {
+    console.warn("[Zen][Parser] No contentBlocks generated!", {
       contentLength: content.length,
       contentPreview: content.substring(0, 200),
       remainingAfterThinking: remainingContent.substring(0, 100),
     });
   }
 
-  // 🛡️ DETECT ONLY-THINKING RESPONSE (fallback mechanism)
+  // DETECT ONLY-THINKING RESPONSE (fallback mechanism)
   // If response has thinking blocks BUT no other content or tools, mark it
   const hasThinkingBlocks = thinkingBlocks.length > 0;
 

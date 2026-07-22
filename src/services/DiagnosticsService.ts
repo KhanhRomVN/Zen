@@ -19,10 +19,28 @@ export class DiagnosticsService {
    * Non-code file extensions that don't have language servers.
    */
   private static readonly NON_CODE_EXTENSIONS = [
-    ".md", ".txt", ".log", ".csv", ".xml", ".html", ".css",
-    ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf",
-    ".env", ".gitignore", ".dockerignore", ".editorconfig",
-    ".properties", ".lock", ".sum", ".mod",
+    ".md",
+    ".txt",
+    ".log",
+    ".csv",
+    ".xml",
+    ".html",
+    ".css",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".conf",
+    ".env",
+    ".gitignore",
+    ".dockerignore",
+    ".editorconfig",
+    ".properties",
+    ".lock",
+    ".sum",
+    ".mod",
   ];
 
   /**
@@ -96,21 +114,12 @@ export class DiagnosticsService {
         (doc) => doc.uri.fsPath === uri.fsPath,
       );
       if (isAlreadyOpen) {
-        logger.info("[DiagnosticsService] File already open, skipping", {
-          file: uri.fsPath,
-        });
         return;
       }
-      logger.info("[DiagnosticsService] Opening file for the first time", {
-        file: uri.fsPath,
-      });
       const doc = await vscode.workspace.openTextDocument(uri);
       await vscode.window.showTextDocument(doc, {
         preview: true,
         viewColumn: vscode.ViewColumn.Active,
-      });
-      logger.info("[DiagnosticsService] File opened successfully", {
-        file: uri.fsPath,
       });
     } catch (e) {
       logger.error("[DiagnosticsService] Error opening file", {
@@ -139,17 +148,8 @@ export class DiagnosticsService {
       let stableTimeout: NodeJS.Timeout | null = null;
       let hasReceivedEvent = false;
 
-      logger.info(
-        `[DiagnosticsService] ⏳ Waiting for diagnostics`,
-        { path: pathValue, fallbackTimeout, maxTimeout: maxTimeoutMs },
-      );
-
       const fallbackHandle = setTimeout(() => {
         if (!hasReceivedEvent) {
-          logger.info(
-            `[DiagnosticsService] ⚡ No events, proceeding (fallback)`,
-            { path: pathValue, elapsedTime: Date.now() - startTime },
-          );
           clearTimeout(timeoutHandle);
           if (stableTimeout) clearTimeout(stableTimeout);
           disposable?.dispose();
@@ -158,10 +158,11 @@ export class DiagnosticsService {
       }, fallbackTimeout);
 
       const timeoutHandle = setTimeout(() => {
-        logger.warn(
-          `[DiagnosticsService] ⏱️ Safety timeout reached`,
-          { path: pathValue, elapsedTime: Date.now() - startTime, hasReceivedEvent },
-        );
+        logger.warn(`[DiagnosticsService] ⏱️ Safety timeout reached`, {
+          path: pathValue,
+          elapsedTime: Date.now() - startTime,
+          hasReceivedEvent,
+        });
         clearTimeout(fallbackHandle);
         if (stableTimeout) clearTimeout(stableTimeout);
         disposable?.dispose();
@@ -173,10 +174,6 @@ export class DiagnosticsService {
           if (!hasReceivedEvent) {
             hasReceivedEvent = true;
             clearTimeout(fallbackHandle);
-            logger.info(
-              `[DiagnosticsService] 🔔 First event received`,
-              { path: pathValue, elapsedTime: Date.now() - startTime },
-            );
           }
           if (stableTimeout) clearTimeout(stableTimeout);
           stableTimeout = setTimeout(() => {
@@ -184,10 +181,6 @@ export class DiagnosticsService {
             clearTimeout(timeoutHandle);
             clearTimeout(fallbackHandle);
             disposable.dispose();
-            logger.info(
-              `[DiagnosticsService] ✅ Diagnostics stable`,
-              { path: pathValue, elapsedTime: elapsed, count: this.getDiagnostics(uri).length },
-            );
             resolve();
           }, stableWaitTime);
         }

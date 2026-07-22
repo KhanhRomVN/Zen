@@ -1,109 +1,93 @@
 import {
-  extensionService,
-  messageDispatcher,
-} from "@/services/ExtensionService";
-import { getToolTimeout } from "../../constants/constants";
-import { ReadFileParams } from "../../types/tool-types";
+  ExecutorContext,
+  ExecutorOptions,
+  ToolExecutor,
+} from "../../types/executor-types";
+import { formatDiagnostics } from "../../utils/diagnostic-utils";
 
-/**
- * Execute read_file tool
- * Reads file content from the extension
- */
-export async function executeReadFile(
-  params: ReadFileParams,
-  bypassIgnore: boolean = false,
-): Promise<{
-  output: string;
-  diagnostics?: Array<{
-    severity: string;
-    message: string;
-    line: number;
-    column: number;
-    source?: string;
-    code?: string | number;
-  }>;
-} | null> {
-  return new Promise((resolve) => {
-    const requestId = `read-${Date.now()}-${Math.random()}`;
-    const filePath = params.path || params.file_path || "";
+export class ReadFileExecutor implements ToolExecutor {
+  async execute(
+    action: any,
+    context: ExecutorContext,
+    options: ExecutorOptions = {},
+  ): Promise<string | null> {
+    const { bypassIgnore = false } = options;
+    const {
+      setToolOutputs,
+      getToolTimeout,
+      extensionService,
+      messageDispatcher,
+    } = context;
 
-    extensionService.postMessage({
-      command: "readFile",
-      path: filePath,
-      start_line: params.start_line,
-      end_line: params.end_line,
-      requestId,
-      bypassIgnore,
-    });
+    return new Promise((resolve) => {
+      const requestId = `read-${Date.now()}-${Math.random()}`;
+      const filePath = action.params.path || action.params.file_path;
+      const actionId = action.actionId;
 
-    messageDispatcher.register(
-      requestId,
-      (msg) => {
-        if (msg.error) {
-          resolve({
-            output: `[read_file for '${filePath}'] Result: Error - ${msg.error}`,
-          });
-        } else {
-          const content = msg.content || "";
-          let output = `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}`;
+      extensionService.postMessage({
+        command: "readFile",
+        path: filePath,
+        start_line: action.params.start_line,
+        end_line: action.params.end_line,
+        requestId,
+        bypassIgnore,
+      });
 
-          // Add diagnostics section if there are any warnings or errors
-          if (msg.diagnostics && msg.diagnostics.length > 0) {
-            const errorCount = msg.diagnostics.filter(
-              (d: any) => d.severity === "error",
-            ).length;
-            const warningCount = msg.diagnostics.filter(
-              (d: any) => d.severity === "warning",
-            ).length;
-
-            // Add diagnostics inside the code block
-            output += `\n\n**Summary:** ${errorCount} error(s), ${warningCount} warning(s)\n\n`;
-
-            // Get file content lines for context
-            const contentLines = content.split("\n");
-
-            // Group by severity
-            const errors = msg.diagnostics.filter(
-              (d: any) => d.severity === "error",
+      messageDispatcher.register(
+        requestId,
+        (msg) => {
+          if (msg.error) {
+            setToolOutputs((prev) => ({
+              ...prev,
+              [actionId]: {
+                output: `Error - ${msg.error}`,
+                isError: true,
+              },
+            }));
+            resolve(
+              `[read_file for '${filePath}'] Result: Error - ${msg.error}`,
             );
-            const warnings = msg.diagnostics.filter(
-              (d: any) => d.severity === "warning",
-            );
+          } else {
+            const content = msg.content || "";
+            let output = `[read_file for '${filePath}'] Result:\n\`\`\`\n${content}\n\`\`\``;
 
-            if (errors.length > 0) {
-              output += `### Errors (${errors.length})\n`;
-              errors.forEach((d: any, index: number) => {
-                const lineContent = contentLines[d.line - 1] || "";
-                const trimmedLine = lineContent.trim();
-                output += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
-              });
-              output += "\n";
+            // Add diagnostics section if there are any warnings or errors
+            if (msg.diagnostics && msg.diagnostics.length > 0) {
+              const contentLines = content.split("\n");
+              output += formatDiagnostics(msg.diagnostics, contentLines);
             }
 
-            if (warnings.length > 0) {
-              output += `### Warnings (${warnings.length})\n`;
-              warnings.forEach((d: any, index: number) => {
-                const lineContent = contentLines[d.line - 1] || "";
-                const trimmedLine = lineContent.trim();
-                output += `${index + 1}.  \`${trimmedLine}\` **Line ${d.line}**${d.source ? ` [${d.source}${d.code ? `:${d.code}` : ""}]` : ""}: ${d.message}\n`;
-              });
-            }
+            // Store output AND diagnostics in toolOutputs
+            setToolOutputs((prev) => ({
+              ...prev,
+              [actionId]: {
+                output: content,
+                isError: false,
+                diagnostics: msg.diagnostics || undefined,
+              },
+            }));
+
+            resolve(output);
           }
-
-          // Close the code block
-          output += `\`\`\``;
-
-          resolve({
-            output,
-            diagnostics: msg.diagnostics || undefined,
-          });
-        }
-      },
-      getToolTimeout("read_file"),
-      () => {
-        console.warn(`[read_file] Timeout`, { requestId, filePath });
-        resolve(null);
-      },
-    );
-  });
+        },
+        getToolTimeout(action.type),
+        () => {
+          console.warn(`[read_file] Timeout`, { requestId, filePath });
+          const timeoutError = `Operation timed out after ${
+            getToolTimeout(action.type) / 1000
+          }s. The file operation took too long to complete.`;
+          setToolOutputs((prev) => ({
+            ...prev,
+            [actionId]: {
+              output: timeoutError,
+              isError: true,
+            },
+          }));
+          resolve(
+            `[read_file for '${filePath}'] Result: Error - ${timeoutError}`,
+          );
+        },
+      );
+    });
+  }
 }

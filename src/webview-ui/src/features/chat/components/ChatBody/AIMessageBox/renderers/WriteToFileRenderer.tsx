@@ -9,7 +9,6 @@ import { extensionService } from "@/services/ExtensionService";
 // CONSTANTS
 import {
   STREAM_BOX_HEIGHT,
-  TOOL_ACTION_TYPES,
   getToolLabel,
 } from "@/features/chat/constants/constants";
 
@@ -29,7 +28,7 @@ import FileIcon from "@/icons/FileIcon";
 import { TagHeader } from "../TagHeader";
 import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
-import FileStreamingBlock from "../blocks/file_streaming/FileStreamingBlock";
+// FileStreamingBlock removed - no longer used (isPartial is false)
 import { MergedRendererProps } from "@/features/chat/types/renderer-types";
 
 export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
@@ -373,25 +372,7 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
       )}
 
-      {/* Streaming preview for write_to_file */}
-      {!shouldHideContent &&
-        isPartial &&
-        (() => {
-          const streamingContent = action.params.content || "";
-
-          if (!streamingContent || streamingContent.trim().length === 0) {
-            return null;
-          }
-
-          return (
-            <div style={{}}>
-              <FileStreamingBlock
-                content={streamingContent}
-                maxHeight={STREAM_BOX_HEIGHT}
-              />
-            </div>
-          );
-        })()}
+      
     </div>
   );
 };

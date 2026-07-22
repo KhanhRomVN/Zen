@@ -1,15 +1,6 @@
 import { findClosingTagPosition } from "../../utils/TagClosingFinder";
 import { getAllToolTypes } from "../../constants/constants";
 
-/**
- * Thinking content is extracted from the tag content.
- * The thinking blocks are pre-extracted by extractThinkingBlocks
- * and replaced with placeholders. This parser handles the placeholders.
- */
-export const parseThinking = (innerContent: string): string => {
-  return innerContent.trim();
-};
-
 export interface ThinkingExtractResult {
   remainingContent: string;
   thinkingBlocks: string[];
@@ -31,9 +22,7 @@ export interface ThinkingExtractResult {
  * NOTE: Since we no longer parse during streaming, unclosed thinking blocks
  * should not occur. All content is complete when this function is called.
  */
-export const extractThinkingBlocks = (
-  content: string,
-): ThinkingExtractResult => {
+export const parseThinking = (content: string): ThinkingExtractResult => {
   const thinkingBlocks: string[] = [];
 
   // Tool tags that should NOT have their content scanned for thinking blocks

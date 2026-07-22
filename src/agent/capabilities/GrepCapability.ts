@@ -30,13 +30,6 @@ export class GrepCapability {
       const filePath = action.file_path;
       const folderPath = action.folder_path;
 
-      logger.debug(`[GREP] Execute called with:`, {
-        searchTerm,
-        filePath,
-        folderPath,
-        actionType: action.type,
-      });
-
       if (!searchTerm || searchTerm.trim().length === 0) {
         throw new Error("Missing search term");
       }
@@ -46,16 +39,19 @@ export class GrepCapability {
       }
 
       if (filePath && folderPath) {
-        throw new Error("Provide only one of file_path or folder_path, not both");
+        throw new Error(
+          "Provide only one of file_path or folder_path, not both",
+        );
       }
 
       // Use search_term as literal regex
       let regex: RegExp;
       try {
         regex = new RegExp(searchTerm, "i");
-        logger.debug(`[GREP] 🔍 Regex mode: pattern="${regex.source}", flags="i"`);
       } catch (regexError) {
-        throw new Error(`Invalid regex pattern: ${searchTerm} - ${regexError instanceof Error ? regexError.message : String(regexError)}`);
+        throw new Error(
+          `Invalid regex pattern: ${searchTerm} - ${regexError instanceof Error ? regexError.message : String(regexError)}`,
+        );
       }
 
       let filesToSearch: string[] = [];
@@ -65,23 +61,19 @@ export class GrepCapability {
         const resolvedPath = path.isAbsolute(filePath)
           ? filePath
           : path.resolve(this.workspaceRoot, filePath);
-        logger.debug(`[GREP] 📄 Resolved file path: ${resolvedPath}`);
         if (!fs.existsSync(resolvedPath)) {
           throw new Error(`File not found: ${filePath}`);
         }
         filesToSearch = [resolvedPath];
-        logger.debug(`[GREP] 📄 Searching 1 file: ${resolvedPath}`);
       } else if (folderPath) {
         // Recursive folder search — resolve relative to workspaceRoot
         const resolvedFolder = path.isAbsolute(folderPath)
           ? folderPath
           : path.resolve(this.workspaceRoot, folderPath);
-        logger.debug(`[GREP] 📁 Resolved folder path: ${resolvedFolder}`);
         if (!fs.existsSync(resolvedFolder)) {
           throw new Error(`Folder not found: ${folderPath}`);
         }
         filesToSearch = this.getAllFiles(resolvedFolder);
-        logger.debug(`[GREP] 📁 Found ${filesToSearch.length} files to search in folder (excluding node_modules, .git, binary files)`);
       }
 
       const results: Record<string, FileMatchResult> = {};
@@ -89,9 +81,12 @@ export class GrepCapability {
       let totalLinesScanned = 0;
 
       for (const file of filesToSearch) {
-        const { matches, linesScanned } = await this.searchInFileWithStats(file, regex);
+        const { matches, linesScanned } = await this.searchInFileWithStats(
+          file,
+          regex,
+        );
         const diagnosticCount = this.getDiagnosticCountForFile(file);
-        
+
         totalLinesScanned += linesScanned;
         if (matches.length > 0) {
           results[file] = {
@@ -100,9 +95,6 @@ export class GrepCapability {
             warningCount: diagnosticCount.warningCount,
           };
           filesWithMatches++;
-          logger.debug(`[GREP] ✅ ${file} → ${matches.length} matches (scanned ${linesScanned} lines)`);
-        } else {
-          logger.debug(`[GREP] ❌ ${file} → 0 matches (scanned ${linesScanned} lines)`);
         }
       }
 
@@ -111,9 +103,10 @@ export class GrepCapability {
         0,
       );
 
-      logger.info(`[GREP] 🎯 Search completed: ${filesWithMatches}/${filesToSearch.length} files matched, ${totalMatches} total matches, ${totalLinesScanned} lines scanned`);
       if (filesWithMatches === 0) {
-        logger.warn(`[GREP] ⚠️ No matches found for "${searchTerm}" in ${filesToSearch.length} files`);
+        logger.warn(
+          `[GREP] ⚠️ No matches found for "${searchTerm}" in ${filesToSearch.length} files`,
+        );
       }
 
       return {
@@ -145,7 +138,9 @@ export class GrepCapability {
     errorCount: number;
     warningCount: number;
   } {
-    return DiagnosticsService.getInstance().getDiagnosticCount(vscode.Uri.file(filePath));
+    return DiagnosticsService.getInstance().getDiagnosticCount(
+      vscode.Uri.file(filePath),
+    );
   }
 
   /**
@@ -172,18 +167,72 @@ export class GrepCapability {
    */
   private removeDiacritics(str: string): string {
     const diacriticsMap: Record<string, string> = {
-      à: "a", á: "a", ả: "a", ã: "a", ạ: "a",
-      ă: "a", ằ: "a", ắ: "a", ẳ: "a", ẵ: "a", ặ: "a",
-      â: "a", ầ: "a", ấ: "a", ẩ: "a", ẫ: "a", ậ: "a",
-      è: "e", é: "e", ẻ: "e", ẽ: "e", ẹ: "e",
-      ê: "e", ề: "e", ế: "e", ể: "e", ễ: "e", ệ: "e",
-      ì: "i", í: "i", ỉ: "i", ĩ: "i", ị: "i",
-      ò: "o", ó: "o", ỏ: "o", õ: "o", ọ: "o",
-      ô: "o", ồ: "o", ố: "o", ổ: "o", ỗ: "o", ộ: "o",
-      ơ: "o", ờ: "o", ớ: "o", ở: "o", ỡ: "o", ợ: "o",
-      ù: "u", ú: "u", ủ: "u", ũ: "u", ụ: "u",
-      ư: "u", ừ: "u", ứ: "u", ử: "u", ữ: "u", ự: "u",
-      ỳ: "y", ý: "y", ỷ: "y", ỹ: "y", ỵ: "y",
+      à: "a",
+      á: "a",
+      ả: "a",
+      ã: "a",
+      ạ: "a",
+      ă: "a",
+      ằ: "a",
+      ắ: "a",
+      ẳ: "a",
+      ẵ: "a",
+      ặ: "a",
+      â: "a",
+      ầ: "a",
+      ấ: "a",
+      ẩ: "a",
+      ẫ: "a",
+      ậ: "a",
+      è: "e",
+      é: "e",
+      ẻ: "e",
+      ẽ: "e",
+      ẹ: "e",
+      ê: "e",
+      ề: "e",
+      ế: "e",
+      ể: "e",
+      ễ: "e",
+      ệ: "e",
+      ì: "i",
+      í: "i",
+      ỉ: "i",
+      ĩ: "i",
+      ị: "i",
+      ò: "o",
+      ó: "o",
+      ỏ: "o",
+      õ: "o",
+      ọ: "o",
+      ô: "o",
+      ồ: "o",
+      ố: "o",
+      ổ: "o",
+      ỗ: "o",
+      ộ: "o",
+      ơ: "o",
+      ờ: "o",
+      ớ: "o",
+      ở: "o",
+      ỡ: "o",
+      ợ: "o",
+      ù: "u",
+      ú: "u",
+      ủ: "u",
+      ũ: "u",
+      ụ: "u",
+      ư: "u",
+      ừ: "u",
+      ứ: "u",
+      ử: "u",
+      ữ: "u",
+      ự: "u",
+      ỳ: "y",
+      ý: "y",
+      ỷ: "y",
+      ỹ: "y",
+      ỵ: "y",
       đ: "d",
     };
 
@@ -281,7 +330,6 @@ export class GrepCapability {
       }
     } catch (error) {
       // Skip binary files or files that can't be read
-      console.warn(`Could not read file: ${filePath}`, error);
     }
 
     return matches;
@@ -313,7 +361,6 @@ export class GrepCapability {
       }
     } catch (error) {
       // Skip binary files or files that can't be read
-      console.warn(`Could not read file: ${filePath}`, error);
     }
 
     return { matches, linesScanned };

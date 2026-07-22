@@ -1,38 +1,46 @@
-import {
-  extensionService,
-  messageDispatcher,
-} from "@/services/ExtensionService";
-import { getToolTimeout } from "../../constants/constants";
-import { DeleteFileParams } from "../../types/tool-types";
+import { ToolExecutor, ExecutorContext, ExecutorOptions } from "./types";
 
-export const executeDeleteFile = (
-  params: DeleteFileParams,
-): Promise<string | null> => {
-  return new Promise((resolve) => {
-    const requestId = `delete-file-${Date.now()}-${Math.random()}`;
-    const filePath = params.file_path;
+export class DeleteFileExecutor implements ToolExecutor {
+  async execute(
+    action: any,
+    context: ExecutorContext,
+    options: ExecutorOptions = {}
+  ): Promise<string | null> {
+    const { getToolTimeout, extensionService, messageDispatcher } = context;
 
-    extensionService.postMessage({
-      command: "deleteFile",
-      file_path: filePath,
-      requestId,
-    });
+    return new Promise((resolve) => {
+      const requestId = `delete-file-${Date.now()}-${Math.random()}`;
+      const filePath = action.params.file_path;
 
-    messageDispatcher.register(
-      requestId,
-      (msg) => {
-        if (msg.error) {
+      extensionService.postMessage({
+        command: "deleteFile",
+        file_path: filePath,
+        requestId,
+      });
+
+      messageDispatcher.register(
+        requestId,
+        (msg) => {
+          if (msg.error) {
+            resolve(
+              `[delete_file for '${filePath}'] Result: Error - ${msg.error}`
+            );
+            return;
+          }
           resolve(
-            `[delete_file for '${filePath}'] Result: Error - ${msg.error}`,
+            `[delete_file for '${filePath}'] Result: File deleted successfully`
           );
-          return;
+        },
+        getToolTimeout(action.type),
+        () => {
+          const timeoutError = `Operation timed out after ${
+            getToolTimeout(action.type) / 1000
+          }s. Failed to delete file.`;
+          resolve(
+            `[delete_file for '${filePath}'] Result: Error - ${timeoutError}`
+          );
         }
-        resolve(
-          `[delete_file for '${filePath}'] Result: File deleted successfully`,
-        );
-      },
-      getToolTimeout("delete_file"),
-      () => resolve(null),
-    );
-  });
-};
+      );
+    });
+  }
+}
