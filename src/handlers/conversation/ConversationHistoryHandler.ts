@@ -1,8 +1,24 @@
 import * as vscode from "vscode";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Quản lý lịch sử hội thoại: đọc/ghi file JSON, giới hạn 30 file, xóa, mở thư mục conversation.
+ *
+ *? Function:
+ *    handleGetHistory()            : Trả về danh sách lịch sử hội thoại (đã sắp xếp theo thời gian).
+ *    handleGetConversation()       : Đọc nội dung một cuộc hội thoại từ file JSON.
+ *    handleDeleteConversation()    : Xóa file JSON + thư mục của một cuộc hội thoại.
+ *    handleDeleteAllConversations(): Xóa toàn bộ file JSON trong thư mục context.
+ *    handleOpenConversationFolder(): Mở thư mục chứa file hội thoại trong OS.
+ *    enforceHistoryLimit()         : Giới hạn số lượng file JSON (tối đa 30), xóa file cũ nhất.
+ */
 import * as fs from "fs";
-import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
+import * as path from "path";
+
+// SERVICES
 import { PathService } from "../../services/PathService";
+
+// STORAGE
+import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
 
 export class ConversationHistoryHandler {
   private pathService: PathService;

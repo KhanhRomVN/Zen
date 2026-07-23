@@ -1,6 +1,14 @@
 import * as vscode from "vscode";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Xử lý lệnh git: git status (porcelain + diff stats + branch + unpushed) và git diff cho từng file.
+ *
+ *? Function:
+ *    handleRunGitStatus(): Trả về trạng thái git (porcelain, diff --numstat, branch, unpushed commits).
+ *    handleGitDiff()     : Trả về diff của một file (hỗ trợ cả file chưa tracked).
+ */
 import * as fs from "fs";
+import * as path from "path";
 
 export class GitHandler {
   constructor() {}

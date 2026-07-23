@@ -1,10 +1,19 @@
-// * GrepCapability.ts - Tìm kiếm regex trong file/thư mục. Hỗ trợ tìm kiếm mờ (fuzzy) với xử lý tiếng Việt, tự động bỏ qua thư mục không liên quan.
-import * as vscode from "vscode";
+/**
+ *? Usage:
+ *    Tìm kiếm regex trong file hoặc thư mục (đệ quy). Hỗ trợ fuzzy matching, tự động bỏ dấu tiếng Việt, bỏ qua thư mục/thư viện nhị phân.
+ *
+ *? Function:
+ *    execute(): Thực thi tìm kiếm, trả về kết quả theo file.
+ */
 import * as fs from "fs";
 import * as path from "path";
-import { AgentAction, AgentExecutionResult } from "../../types";
+import * as vscode from "vscode";
+
+// SERVICES
 import { LoggerService } from "../../services/LoggerService";
-import { DiagnosticsService } from "../../services/DiagnosticsService";
+
+// TYPES
+import { AgentAction, AgentExecutionResult } from "../../types";
 
 interface MatchResult {
   lineNumber: number;
@@ -13,20 +22,15 @@ interface MatchResult {
 
 interface FileMatchResult {
   matches: MatchResult[];
-  errorCount: number;
-  warningCount: number;
 }
 
-// * Capability tìm kiếm: hỗ trợ regex, fuzzy search, bỏ qua thư mục nhị phân/không liên quan, giới hạn độ sâu và số lượng file.
 export class GrepCapability {
   private workspaceRoot: string;
 
-  // * Khởi tạo với thư mục gốc của workspace (mặc định là CWD).
   constructor(workspaceRoot: string = process.cwd()) {
     this.workspaceRoot = workspaceRoot;
   }
 
-  // * Thực thi tìm kiếm: nhận search_term và file_path hoặc folder_path, trả về danh sách kết quả khớp.
   async execute(action: AgentAction): Promise<AgentExecutionResult> {
     const logger = LoggerService.getInstance();
     try {
@@ -90,14 +94,11 @@ export class GrepCapability {
           file,
           regex,
         );
-        const diagnosticCount = this.getDiagnosticCountForFile(file);
 
         totalLinesScanned += linesScanned;
         if (matches.length > 0) {
           results[file] = {
             matches,
-            errorCount: diagnosticCount.errorCount,
-            warningCount: diagnosticCount.warningCount,
           };
           filesWithMatches++;
         }
@@ -137,23 +138,9 @@ export class GrepCapability {
   }
 
   /**
-   * Get diagnostic count for a file
-   * Lấy số lượng lỗi và cảnh báo từ DiagnosticsService cho một file.
-   */
-  private getDiagnosticCountForFile(filePath: string): {
-    errorCount: number;
-    warningCount: number;
-  } {
-    return DiagnosticsService.getInstance().getDiagnosticCount(
-      vscode.Uri.file(filePath),
-    );
-  }
-
-  /**
    * Creates a regex pattern for fuzzy string matching.
    * "searchBar" -> "search[\\s_-]*bar"
    * "hello world" -> "hello[\\s_-]*world"
-   * Tạo pattern regex cho tìm kiếm mờ: tách từ, cho phép phân cách giữa các từ.
    */
   private createSearchPattern(searchTerm: string): string {
     // Convert to lowercase
@@ -171,7 +158,6 @@ export class GrepCapability {
 
   /**
    * Remove diacritics from string (basic support for Vietnamese and other accents)
-   * Loại bỏ dấu tiếng Việt và các dấu thanh khác để hỗ trợ tìm kiếm không dấu.
    */
   private removeDiacritics(str: string): string {
     const diacriticsMap: Record<string, string> = {
@@ -252,7 +238,6 @@ export class GrepCapability {
 
   /**
    * Split string into words, handling camelCase, snake_case, kebab-case, and spaces
-   * Tách chuỗi thành các từ, xử lý camelCase, snake_case, kebab-case.
    */
   private splitIntoWords(str: string): string[] {
     // Handle camelCase: "searchBar" -> ["search", "bar"]
@@ -265,7 +250,6 @@ export class GrepCapability {
 
   /**
    * Escape regex special characters
-   * Thoát các ký tự đặc biệt trong regex để tìm kiếm chính xác.
    */
   private escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -274,7 +258,6 @@ export class GrepCapability {
   /**
    * Recursively get all files in a directory (excluding node_modules, .git, etc.)
    * WARNING: This can be expensive for large directories!
-   * Quét đệ quy tất cả file trong thư mục, bỏ qua thư mục hệ thống và file nhị phân.
    */
   private getAllFiles(
     dirPath: string,
@@ -354,7 +337,6 @@ export class GrepCapability {
 
   /**
    * Search for pattern in a single file
-   * Tìm kiếm regex trong một file, trả về danh sách dòng khớp.
    */
   private async searchInFile(
     filePath: string,
@@ -384,7 +366,6 @@ export class GrepCapability {
 
   /**
    * Search for pattern in a single file with statistics
-   * Tìm kiếm regex trong một file kèm thống kê số dòng đã quét.
    */
   private async searchInFileWithStats(
     filePath: string,

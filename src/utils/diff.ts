@@ -1,3 +1,10 @@
+/**
+ *? Usage:
+ *    Tính số dòng thêm/xóa giữa 2 chuỗi bằng thuật toán Myers diff (có fallback cho file >5000 dòng).
+ *
+ *? Function:
+ *    calculateLineDiff(): Trả về { additions, deletions }.
+ */
 export function calculateLineDiff(
   oldStr: string,
   newStr: string,

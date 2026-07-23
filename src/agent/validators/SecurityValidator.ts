@@ -1,4 +1,11 @@
-// * SecurityValidator.ts - Kiểm tra bảo mật cho đường dẫn file và lệnh shell. Chặn truy cập file nhạy cảm và lệnh nguy hiểm.
+/**
+ *? Usage:
+ *    Kiểm tra bảo mật tĩnh: chặn truy cập file nhạy cảm (.env, .pem, credentials...), thư mục hệ thống, và lệnh nguy hiểm (rm -rf, sudo, curl | sh...).
+ *
+ *? Function:
+ *    validatePath()   : Kiểm tra đường dẫn file có an toàn không.
+ *    validateCommand(): Kiểm tra lệnh shell có chứa pattern nguy hiểm không.
+ */
 import * as path from "path";
 
 export interface SecurityResult {
@@ -6,7 +13,6 @@ export interface SecurityResult {
   reason?: string;
 }
 
-// * Lớp kiểm tra bảo mật tĩnh: chặn file nhạy cảm (.env, credentials...), thư mục hệ thống, và lệnh nguy hiểm (rm -rf, sudo, curl|sh...).
 export class SecurityValidator {
   private static readonly SENSITIVE_PATTERNS = [
     /\.env$/,
@@ -60,9 +66,11 @@ export class SecurityValidator {
 
   /**
    * Validate a file path for safety.
-   * Kiểm tra đường dẫn file: chặn null byte injection, file nhạy cảm, và thư mục hệ thống (với thao tác ghi).
    */
-  public static validatePath(filePath: string, isWrite: boolean = false): SecurityResult {
+  public static validatePath(
+    filePath: string,
+    isWrite: boolean = false,
+  ): SecurityResult {
     if (!filePath || filePath.trim().length === 0) {
       return { safe: false, reason: "Empty or invalid path" };
     }
@@ -78,7 +86,10 @@ export class SecurityValidator {
     // Check sensitive file patterns
     for (const pattern of this.SENSITIVE_PATTERNS) {
       if (pattern.test(resolved) || pattern.test(basename)) {
-        return { safe: false, reason: `Access to sensitive file blocked for security: ${basename}` };
+        return {
+          safe: false,
+          reason: `Access to sensitive file blocked for security: ${basename}`,
+        };
       }
     }
 
@@ -86,7 +97,10 @@ export class SecurityValidator {
     if (isWrite) {
       for (const dir of this.PROTECTED_DIRS) {
         if (resolved.startsWith(dir + "/") || resolved === dir) {
-          return { safe: false, reason: `Writing to protected system directory is blocked: ${dir}` };
+          return {
+            safe: false,
+            reason: `Writing to protected system directory is blocked: ${dir}`,
+          };
         }
       }
     }
@@ -96,7 +110,6 @@ export class SecurityValidator {
 
   /**
    * Validate a command for safety.
-   * Kiểm tra lệnh shell: chặn lệnh nguy hiểm (rm -rf /, fork bomb, curl|sh...) và lệnh nâng quyền (sudo, su, doas).
    */
   public static validateCommand(command: string): SecurityResult {
     if (!command || typeof command !== "string") {
@@ -106,14 +119,21 @@ export class SecurityValidator {
     // Check dangerous patterns
     for (const { pattern, label } of this.DANGEROUS_COMMAND_PATTERNS) {
       if (pattern.test(command)) {
-        return { safe: false, reason: `Command rejected: dangerous pattern detected (${label})` };
+        return {
+          safe: false,
+          reason: `Command rejected: dangerous pattern detected (${label})`,
+        };
       }
     }
 
     // Check elevated privilege patterns
     for (const pattern of this.ELEVATION_PATTERNS) {
       if (pattern.test(command)) {
-        return { safe: false, reason: "Command rejected: elevated privilege commands (sudo, su, doas) are blocked" };
+        return {
+          safe: false,
+          reason:
+            "Command rejected: elevated privilege commands (sudo, su, doas) are blocked",
+        };
       }
     }
 

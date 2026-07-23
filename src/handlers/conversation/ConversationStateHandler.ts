@@ -1,8 +1,21 @@
 import * as vscode from "vscode";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Lưu và khôi phục trạng thái hội thoại: debounce save, revert về message cũ, rollback số lượng message.
+ *
+ *? Function:
+ *    handleSaveConversationState() : Lưu trạng thái hội thoại với debounce 1s, chỉ ghi khi có thay đổi.
+ *    handleRevertConversation()    : Khôi phục hội thoại về trước một message, kèm checkpoint.
+ *    handleRollbackConversationLog(): Cắt bớt log, chỉ giữ lại N message đầu tiên.
+ */
 import * as fs from "fs";
-import { FileLockManager } from "../../managers/FileLockManager";
+import * as path from "path";
+
+// MANAGERS
 import { CheckpointManager } from "../../managers/CheckpointManager";
+import { FileLockManager } from "../../managers/FileLockManager";
+
+// SERVICES
 import { PathService } from "../../services/PathService";
 
 export class ConversationStateHandler {

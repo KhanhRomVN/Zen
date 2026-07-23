@@ -1,4 +1,10 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { Message, QuestionAnswer } from "../../types/message";
 import { ToolAction, parseAIResponse } from "../../services/ResponseParser";
 import {
@@ -52,14 +58,14 @@ export const parseQuestionAnswerTag = (
   const lines = innerContent.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    
+
     // Match pattern: "N. answer" or "N. " (empty answer)
     const lineMatch = /^(\d+)\.\s*(.*)$/i.exec(trimmed);
     if (!lineMatch) continue;
 
     const lineNumber = parseInt(lineMatch[1], 10);
     const answerText = lineMatch[2].trim();
-    
+
     // Use line number as questionId (matching question.id format: "1", "2", "3", etc.)
     const questionId = String(lineNumber);
 
@@ -654,12 +660,6 @@ export const useChatLLM = ({
             })
             .filter(Boolean)
             .join(" ");
-
-          console.log(
-            `[Stream Complete] Parsed blocks: ${toolSequence || "none"}`,
-          );
-
-          console.log("[Raw Content]:", assistantMessage.content);
 
           // 🔧 VALIDATION: Now that stream is complete, validate all tool actions
           // Import validator

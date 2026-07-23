@@ -1,24 +1,38 @@
-// * ChatController.ts - Controller trung tâm điều phối tất cả message từ webview đến các handler tương ứng.
+/**
+ *? Usage:
+ *    Controller trung tâm nhận message từ webview, điều phối đến các handler tương ứng (file, terminal, git, agent, storage, conversation...).
+ *
+ *? Function:
+ *    handleMessage()              : Routing chính, phân phối message theo command.
+ *    updateTheme()                : Gửi theme hiện tại cho webview.
+ *    handleGenerateCommitMessage(): Tạo commit message từ danh sách file thay đổi.
+ */
 import * as vscode from "vscode";
-import { GlobalStorageManager } from "../storage/GlobalStorageManager";
-import { AgentManager } from "../agent/AgentManager";
-import { ProcessManager } from "../managers/ProcessManager";
-import { FileLockManager } from "../managers/FileLockManager";
 
+// AGENT
+import { AgentManager } from "../agent/AgentManager";
+
+// HANDLERS
+import { AgentHandler } from "../handlers/AgentHandler";
+import { ProjectContextHandler } from "../handlers/ProjectContextHandler";
+import { StorageHandler } from "../handlers/StorageHandler";
+import { SystemHandler } from "../handlers/SystemHandler";
+import { TerminalHandler } from "../handlers/TerminalHandler";
 import { ConversationHistoryHandler } from "../handlers/conversation/ConversationHistoryHandler";
 import { ConversationStateHandler } from "../handlers/conversation/ConversationStateHandler";
+import { FileOperationHandler } from "../handlers/file/FileOperationHandler";
 import { FileReadHandler } from "../handlers/file/FileReadHandler";
 import { FileWriteHandler } from "../handlers/file/FileWriteHandler";
-import { FileOperationHandler } from "../handlers/file/FileOperationHandler";
 import { GitHandler } from "../handlers/file/GitHandler";
-import { TerminalHandler } from "../handlers/TerminalHandler";
-import { SystemHandler } from "../handlers/SystemHandler";
-import { ProjectContextHandler } from "../handlers/ProjectContextHandler";
-import { AgentHandler } from "../handlers/AgentHandler";
-import { StorageHandler } from "../handlers/StorageHandler";
-import { CheckpointManager } from "../managers/CheckpointManager";
 
-// * Controller chính của Zen: nhận message từ webview, điều phối đến đúng handler dựa trên command type.
+// MANAGERS
+import { CheckpointManager } from "../managers/CheckpointManager";
+import { FileLockManager } from "../managers/FileLockManager";
+import { ProcessManager } from "../managers/ProcessManager";
+
+// STORAGE
+import { GlobalStorageManager } from "../storage/GlobalStorageManager";
+
 export class ChatController {
   private conversationHistoryHandler: ConversationHistoryHandler;
   private conversationStateHandler: ConversationStateHandler;
@@ -32,7 +46,6 @@ export class ChatController {
   private agentHandler: AgentHandler;
   private storageHandler: StorageHandler;
 
-  // * Khởi tạo tất cả handlers với các dependency cần thiết (storage, agent, process, file lock).
   constructor(
     private storageManager: GlobalStorageManager | undefined,
     private agentManager: AgentManager | undefined,
@@ -56,9 +69,7 @@ export class ChatController {
     this.storageHandler = new StorageHandler(this.storageManager);
   }
 
-  // * Điều phối message từ webview: xác định command, gán conversationId, gọi handler tương ứng.
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
-    const startTime = Date.now();
     const command = message.command;
 
     if (message.conversationId) {
@@ -106,7 +117,10 @@ export class ChatController {
 
         // Conversation Management
         case "getHistory":
-          await this.conversationHistoryHandler.handleGetHistory(message, webviewView);
+          await this.conversationHistoryHandler.handleGetHistory(
+            message,
+            webviewView,
+          );
           break;
         case "getConversation":
           await this.conversationHistoryHandler.handleGetConversation(
@@ -128,7 +142,9 @@ export class ChatController {
           );
           break;
         case "rollbackConversationLog":
-          await this.conversationStateHandler.handleRollbackConversationLog(message);
+          await this.conversationStateHandler.handleRollbackConversationLog(
+            message,
+          );
           break;
         case "revertConversation":
           await this.conversationStateHandler.handleRevertConversation(
@@ -137,11 +153,15 @@ export class ChatController {
           );
           break;
         case "openConversationFolder":
-          await this.conversationHistoryHandler.handleOpenConversationFolder(message);
+          await this.conversationHistoryHandler.handleOpenConversationFolder(
+            message,
+          );
           break;
 
         case "saveConversationState":
-          await this.conversationStateHandler.handleSaveConversationState(message);
+          await this.conversationStateHandler.handleSaveConversationState(
+            message,
+          );
           break;
         // File Operations
         case "readFile":
@@ -154,10 +174,19 @@ export class ChatController {
           await this.fileWriteHandler.handleReplaceInFile(message, webviewView);
           break;
         case "revertFile":
-          await this.fileOperationHandler.handleRevertFile(message, webviewView);
+          await this.fileOperationHandler.handleRevertFile(
+            message,
+            webviewView,
+          );
           break;
         case "viewReplaceHistory":
-          await this.fileOperationHandler.handleViewReplaceHistory(message, webviewView);
+          await this.fileOperationHandler.handleViewReplaceHistory(
+            message,
+            webviewView,
+          );
+          break;
+        case "listFiles":
+          await this.fileOperationHandler.handleListFiles(message, webviewView);
           break;
         case "findFiles":
           await this.fileOperationHandler.handleFindFiles(message, webviewView);
@@ -166,22 +195,37 @@ export class ChatController {
           // removed
           break;
         case "validateFuzzyMatch":
-          await this.fileWriteHandler.handleValidateFuzzyMatch(message, webviewView);
+          await this.fileWriteHandler.handleValidateFuzzyMatch(
+            message,
+            webviewView,
+          );
           break;
         case "getFileStats":
-          await this.fileOperationHandler.handleGetFileStats(message, webviewView);
+          await this.fileOperationHandler.handleGetFileStats(
+            message,
+            webviewView,
+          );
           break;
         case "getDiagnostics":
-          await this.fileOperationHandler.handleGetDiagnostics(message, webviewView);
+          await this.fileOperationHandler.handleGetDiagnostics(
+            message,
+            webviewView,
+          );
           break;
         case "deleteFile":
-          await this.fileOperationHandler.handleDeleteFile(message, webviewView);
+          await this.fileOperationHandler.handleDeleteFile(
+            message,
+            webviewView,
+          );
           break;
         case "moveFile":
           await this.fileOperationHandler.handleMoveFile(message, webviewView);
           break;
         case "getSnapshot":
-          await this.fileOperationHandler.handleGetSnapshot(message, webviewView);
+          await this.fileOperationHandler.handleGetSnapshot(
+            message,
+            webviewView,
+          );
           break;
 
         // Backup
@@ -294,12 +338,10 @@ export class ChatController {
     } catch (error) {}
   }
 
-  // * Cập nhật theme CSS cho webview dựa trên theme hiện tại của VS Code.
   public async updateTheme(webview: vscode.Webview) {
     await this.systemHandler.updateTheme(webview);
   }
 
-  // * Tạo commit message từ danh sách git status, sử dụng AI model để sinh nội dung commit.
   public async handleGenerateCommitMessage(
     message: any,
     webviewView: vscode.WebviewView,

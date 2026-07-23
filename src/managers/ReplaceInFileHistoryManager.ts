@@ -1,7 +1,17 @@
 import * as fs from "fs";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Lưu lịch sử các lần replace_in_file thành công, hỗ trợ xem và revert về version cũ.
+ *
+ *? Function:
+ *    saveHistory()        : Lưu phiên bản mới sau mỗi lần replace.
+ *    getHistoryList()     : Trả về danh sách version kèm error/warning/line count.
+ *    getHistoryVersion()  : Lấy nội dung đầy đủ của một version.
+ *    deleteVersionsAfter(): Xóa các version cao hơn version chỉ định (dùng khi revert).
+ */
 import * as crypto from "crypto";
 import * as os from "os";
+import * as path from "path";
 import * as vscode from "vscode";
 
 export interface ReplaceInFileHistory {

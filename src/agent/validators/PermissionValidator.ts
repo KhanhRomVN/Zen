@@ -1,24 +1,28 @@
-// * PermissionValidator.ts - Kiểm tra quyền cho các action của agent: đọc, sửa, tạo file, chạy lệnh, tìm kiếm.
+/**
+ *? Usage:
+ *    Xác thực quyền của agent trước khi thực thi action (read/edit/add/execute/grep). Gọi SecurityValidator để kiểm tra bảo mật trước.
+ *
+ *? Function:
+ *    validate()         : Kiểm tra quyền cho một action, trả về ValidationResult.
+ *    updatePermissions(): Cập nhật bộ quyền mới.
+ */
 import * as path from "path";
-import {
-  AgentPermissions,
-  AgentAction,
-  ValidationResult,
-} from "../../types";
+
+// TYPES
+import { AgentAction, AgentPermissions, ValidationResult } from "../../types";
+
+// VALIDATORS
 import { SecurityValidator } from "./SecurityValidator";
 
-// * Lớp kiểm tra quyền: kết hợp security validation và user permission settings để quyết định action có được phép thực thi không.
 export class PermissionValidator {
   private permissions: AgentPermissions;
   private workspaceRoot: string;
 
-  // * Khởi tạo với cài đặt quyền từ người dùng và đường dẫn gốc workspace.
   constructor(permissions: AgentPermissions, workspaceRoot: string) {
     this.permissions = permissions;
     this.workspaceRoot = workspaceRoot;
   }
 
-  // * Kiểm tra tổng hợp: chạy security check trước, sau đó kiểm tra quyền theo loại action.
   public validate(action: AgentAction): ValidationResult {
     // Perform strict security validation before checking user permission settings
     if (action.path) {
@@ -54,7 +58,6 @@ export class PermissionValidator {
     }
   }
 
-  // * Kiểm tra quyền đọc file: phân biệt file trong project và file ngoài.
   private validateRead(action: AgentAction): ValidationResult {
     if (!action.path) {
       return { allowed: false, reason: "Missing file path" };
@@ -78,7 +81,6 @@ export class PermissionValidator {
     };
   }
 
-  // * Kiểm tra quyền sửa file: chỉ cho phép sửa file trong project.
   private validateEdit(action: AgentAction): ValidationResult {
     if (!action.path) {
       return { allowed: false, reason: "Missing file path" };
@@ -103,7 +105,6 @@ export class PermissionValidator {
     };
   }
 
-  // * Kiểm tra quyền tạo file mới: chỉ cho phép tạo trong project.
   private validateAdd(action: AgentAction): ValidationResult {
     if (!action.path) {
       return { allowed: false, reason: "Missing file path" };
@@ -128,7 +129,6 @@ export class PermissionValidator {
     };
   }
 
-  // * Kiểm tra quyền chạy lệnh: phân biệt lệnh an toàn và lệnh nguy hiểm, có thể yêu cầu xác nhận.
   private validateExecute(action: AgentAction): ValidationResult {
     if (!action.command) {
       return { allowed: false, reason: "Missing command" };
@@ -155,14 +155,12 @@ export class PermissionValidator {
     };
   }
 
-  // * Kiểm tra xem file có nằm trong workspace không.
   private isProjectFile(filePath: string): boolean {
     const normalizedPath = path.normalize(filePath);
     const normalizedRoot = path.normalize(this.workspaceRoot);
     return normalizedPath.startsWith(normalizedRoot);
   }
 
-  // * Kiểm tra xem lệnh có nằm trong danh sách lệnh an toàn không.
   private isSafeCommand(command: string): boolean {
     const safeCommands = [
       "git status",
@@ -181,23 +179,24 @@ export class PermissionValidator {
     return safeCommands.some((safe) => commandLower.startsWith(safe));
   }
 
-  // * Kiểm tra quyền tìm kiếm (grep): yêu cầu search_term và file_path hoặc folder_path.
   private validateSmartSearch(action: AgentAction): ValidationResult {
     if (!action.search_term) {
       // More detailed error message
       const hasPattern = !!(action as any).pattern;
       const hasQuery = !!(action as any).query;
-      
+
       if (hasPattern || hasQuery) {
-        return { 
-          allowed: false, 
-          reason: "search_term field is required (found pattern/query but search_term is missing or empty)" 
+        return {
+          allowed: false,
+          reason:
+            "search_term field is required (found pattern/query but search_term is missing or empty)",
         };
       }
-      
-      return { 
-        allowed: false, 
-        reason: "search_term is required but was not provided or is empty. Check XML parsing or pattern extraction." 
+
+      return {
+        allowed: false,
+        reason:
+          "search_term is required but was not provided or is empty. Check XML parsing or pattern extraction.",
       };
     }
 
@@ -207,7 +206,8 @@ export class PermissionValidator {
     if (!hasFilePath && !hasFolderPath) {
       return {
         allowed: false,
-        reason: "Either file_path or folder_path must be provided (both are missing)",
+        reason:
+          "Either file_path or folder_path must be provided (both are missing)",
       };
     }
 
@@ -228,7 +228,6 @@ export class PermissionValidator {
     return this.validateRead({ ...action, path: resolvedPath });
   }
 
-  // * Cập nhật cài đặt quyền mới (khi người dùng thay đổi trong settings).
   public updatePermissions(newPermissions: AgentPermissions): void {
     this.permissions = newPermissions;
   }

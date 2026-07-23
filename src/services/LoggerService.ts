@@ -1,3 +1,13 @@
+/**
+ /**
+ *? Usage:
+ *    Ghi log ra OutputChannel "Zen Chat" trong VS Code, hỗ trợ 4 mức: DEBUG, INFO, WARN, ERROR.
+ *
+ *? Function:
+ *    debug/info/warn/error(...): Ghi log ở mức tương ứng.
+ *    log(level, msg, ...)      : Logic ghi log nội bộ (private).
+ */
+
 import * as vscode from "vscode";
 
 export enum LogLevel {

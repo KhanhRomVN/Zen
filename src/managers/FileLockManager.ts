@@ -1,3 +1,10 @@
+/**
+ *? Usage:
+ *    Quản lý khóa file tuần tự (mutex queue) — đảm bảo các thao tác ghi trên cùng một file không chạy đồng thời.
+ *
+ *? Function:
+ *    acquire(): Chờ đến lượt, khóa file, trả về hàm release để mở khóa.
+ */
 export class FileLockManager {
   private locks = new Map<string, Promise<void>>();
 

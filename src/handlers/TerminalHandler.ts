@@ -1,7 +1,23 @@
-import * as vscode from "vscode";
+/**
+ *? Usage:
+ *    Quản lý terminal: chạy lệnh shell (có kiểm tra bảo mật), gửi input, dừng, liệt kê, xóa terminal.
+ *
+ *? Function:
+ *    handleRunCommand()    : Chạy lệnh shell với security check, hỗ trợ folder_path tùy chỉnh.
+ *    handleStopCommand()   : Dừng lệnh đang chạy (theo actionId hoặc terminalId).
+ *    handleTerminalInput() : Gửi input đến terminal đang chạy.
+ *    handleListTerminals() : Trả về danh sách terminal đang hoạt động.
+ *    handleRemoveTerminal(): Đóng terminal.
+ *    handleStopTerminal()  : Dừng terminal.
+ */
 import * as os from "os";
-import { ProcessManager } from "../managers/ProcessManager";
+import * as vscode from "vscode";
+
+// AGENT
 import { SecurityValidator } from "../agent/validators/SecurityValidator";
+
+// MANAGERS
+import { ProcessManager } from "../managers/ProcessManager";
 
 export class TerminalHandler {
   constructor(private processManager: ProcessManager) {}

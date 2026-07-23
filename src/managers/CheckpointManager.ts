@@ -1,7 +1,16 @@
 import * as fs from "fs";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Quản lý checkpoint cho thao tác file: lưu trạng thái trước khi sửa/xóa, hỗ trợ revert về checkpoint cũ. Bỏ qua thư mục hệ thống (.git, node_modules...).
+ *
+ *? Function:
+ *    createCheckpoint()        : Tạo checkpoint (lưu nội dung file trước khi thay đổi).
+ *    getLastCheckpointForFile(): Lấy checkpoint gần nhất cho một file.
+ *    revertToCheckpoint()      : Khôi phục file về trạng thái trước timestamp chỉ định.
+ */
 import * as crypto from "crypto";
 import * as os from "os";
+import * as path from "path";
 import * as vscode from "vscode";
 
 export interface Checkpoint {
@@ -36,6 +45,7 @@ export class CheckpointManager {
   public async getLastCheckpointForFile(
     filePath: string,
   ): Promise<Checkpoint | null> {
+    const debugStart = Date.now();
     try {
       if (!this.activeConversationId) {
         return null;
@@ -51,6 +61,7 @@ export class CheckpointManager {
       let lastCheckpoint: Checkpoint | null = null;
       let lastTimestamp = 0;
       let filesChecked = 0;
+      let filesRead = 0;
 
       for (const file of files) {
         if (file.startsWith("ckpt_") && file.endsWith(".json")) {
@@ -58,6 +69,7 @@ export class CheckpointManager {
           try {
             filesChecked++;
             const raw = await fs.promises.readFile(checkpointPath, "utf-8");
+            filesRead++;
             const ckpt: Checkpoint = JSON.parse(raw);
 
             // Match by absolute path
@@ -97,6 +109,8 @@ export class CheckpointManager {
     filePath: string,
     type: "create" | "modify" | "delete",
   ) {
+    // [DEBUG] Đo thời gian tạo checkpoint — xóa sau khi xác minh
+    const debugStart = Date.now();
     if (!this.activeConversationId) {
       return;
     }
@@ -155,6 +169,7 @@ export class CheckpointManager {
     conversationId: string,
     revertTimestamp: number,
   ) {
+    const debugStart = Date.now();
     try {
       const ckptDir = this.getCheckpointsDir(conversationId);
       if (!fs.existsSync(ckptDir)) {
@@ -184,6 +199,7 @@ export class CheckpointManager {
       // Sort by timestamp descending to revert in reverse chronological order (newest first)
       checkpoints.sort((a, b) => b.timestamp - a.timestamp);
 
+      let revertedCount = 0;
       for (const ckpt of checkpoints) {
         try {
           if (ckpt.type === "create") {
@@ -201,6 +217,7 @@ export class CheckpointManager {
           // Clean up checkpoint file
           const ckptJsonPath = path.join(ckptDir, ckpt.id);
           await fs.promises.unlink(ckptJsonPath).catch(() => {});
+          revertedCount++;
         } catch (err: any) {}
       }
     } catch (error) {}

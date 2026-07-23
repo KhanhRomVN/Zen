@@ -1,24 +1,41 @@
 import * as vscode from "vscode";
-import * as path from "path";
-import { ChatController } from "../controllers/ChatController";
-import { GlobalStorageManager } from "../storage/GlobalStorageManager";
-import { AgentManager } from "../agent/AgentManager";
-import { AgentPermissions } from "../types";
-import { ProcessManager } from "../managers/ProcessManager";
-import { FileLockManager } from "../managers/FileLockManager";
-
+/**
+ *? Usage:
+ *    WebviewViewProvider chính của Zen Chat: khởi tạo webview, ChatController, AgentManager, lắng nghe sự kiện terminal/theme và điều phối message.
+ *
+ *? Function:
+ *    getProcessManager()   : Trả về ProcessManager instance.
+ *    initializeAgentManager(): Khởi tạo AgentManager với quyền mặc định.
+ *    resolveWebviewView()  : Thiết lập webview, khởi tạo ChatController, đăng ký listener.
+ *    postMessageToWebview(): Gửi message đến webview (chỉ khi đang hiển thị).
+ */
 import * as crypto from "crypto";
 import * as os from "os";
+import * as path from "path";
 
-export class ZenChatViewProvider implements vscode.WebviewViewProvider {
+// AGENT
+import { AgentManager } from "../agent/AgentManager";
+
+// CONTROLLERS
+import { ChatController } from "../controllers/ChatController";
+
+// MANAGERS
+import { FileLockManager } from "../managers/FileLockManager";
+import { ProcessManager } from "../managers/ProcessManager";
+
+// STORAGE
+import { GlobalStorageManager } from "../storage/GlobalStorageManager";
+
+// TYPES
+import { AgentPermissions } from "../types";
+
+export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
   private _view?: vscode.WebviewView;
   private chatController?: ChatController;
-  private _extensionContext?: vscode.ExtensionContext;
   private _agentManager?: AgentManager;
   private _processManager: ProcessManager;
   private _fileLockManager: FileLockManager;
-  
 
   // Throttle terminal list updates to reduce redundant messages
   private terminalListUpdateTimer: NodeJS.Timeout | null = null;
@@ -90,14 +107,9 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
       this._processManager,
       this._fileLockManager,
     );
-    const controllerDuration = Date.now() - controllerStart;
 
-    const htmlStart = Date.now();
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
-    const htmlDuration = Date.now() - htmlStart;
-
     webviewView.webview.onDidReceiveMessage(async (data) => {
-      const messageStart = Date.now();
       if (this.chatController) {
         await this.chatController.handleMessage(data, webviewView);
       }
@@ -122,7 +134,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
           (result as any).then((sent: boolean) => {
             if (!sent)
               console.warn(
-                `[ZenChatViewProvider] commandExecuted NOT delivered (webview hidden/disposed?)`,
+                `[ChatViewProvider] commandExecuted NOT delivered (webview hidden/disposed?)`,
                 { actionId: event.actionId },
               );
           });

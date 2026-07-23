@@ -1,10 +1,20 @@
-import * as vscode from "vscode";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Đọc nội dung file trong workspace, hỗ trợ đọc theo dòng (start_line/end_line), tích hợp security check, diagnostics, và hàng đợi tuần tự.
+ *
+ *? Function:
+ *    handleReadFile(): Đọc file với queue, chờ diagnostics từ language server, trả về nội dung + lỗi/cảnh báo.
+ */
 import * as fs from "fs";
+import * as path from "path";
+import * as vscode from "vscode";
 
+// AGENT
 import { SecurityValidator } from "../../agent/validators/SecurityValidator";
-import { LoggerService } from "../../services/LoggerService";
+
+// SERVICES
 import { DiagnosticsService } from "../../services/DiagnosticsService";
+import { LoggerService } from "../../services/LoggerService";
 import { PathService } from "../../services/PathService";
 
 export class FileReadHandler {

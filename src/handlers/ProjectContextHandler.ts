@@ -1,9 +1,18 @@
-import * as vscode from "vscode";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Cung cấp thông tin ngữ cảnh dự án: cây thư mục và nội dung workspace.md cho webview.
+ *
+ *? Function:
+ *    handleGetFolderTree()    : Tạo cây thư mục dạng text, bỏ qua thư mục ẩn.
+ *    handleGetProjectContext(): Đọc workspace.md từ thư mục context và trả về cho webview.
+ */
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as os from "os";
-import * as crypto from "crypto";
+import * as path from "path";
+import * as vscode from "vscode";
 
+// SERVICES
 import { PathService } from "../services/PathService";
 
 export class ProjectContextHandler {

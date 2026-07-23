@@ -1,5 +1,14 @@
-import * as vscode from "vscode";
+/**
+ *? Usage:
+ *    Xử lý thao tác storage (get/set/delete/list) với cơ chế workspace-scoped keys — tự động thêm prefix hash workspace để cô lập dữ liệu giữa các dự án.
+ *
+ *? Function:
+ *    handleStorageOperation(): Điều phối các lệnh storageGet/Set/Delete/List, tự động resolve key theo workspace.
+ */
 import * as crypto from "crypto";
+import * as vscode from "vscode";
+
+// STORAGE
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 
 /**

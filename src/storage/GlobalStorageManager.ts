@@ -1,4 +1,14 @@
 import * as vscode from "vscode";
+/**
+ *? Usage:
+ *    Quản lý storage toàn cục của extension: đọc/ghi/xóa key-value dạng file JSON, hỗ trợ cache (get 2s, list 5min), migrate từ globalState cũ.
+ *
+ *? Function:
+ *    initialize()                  : Tạo thư mục storage nếu chưa tồn tại.
+ *    migrateFromGlobalState()      : Di chuyển dữ liệu từ globalState sang file storage.
+ *    exists/get/set/delete/list()  : CRUD cơ bản với cache.
+ *    getToolOutputsForConversation(): Tìm toolOutputs của conversation từ storage.
+ */
 import * as path from "path";
 import { TextDecoder, TextEncoder } from "util";
 
@@ -190,16 +200,20 @@ export class GlobalStorageManager {
     | Record<string, { output: string; isError: boolean; terminalId?: string }>
     | undefined
   > {
+    // [DEBUG] Đo thời gian quét toolOutputs — xóa sau khi xác minh
+    const debugStart = Date.now();
     try {
       const allKeys = await this.list("zen-chat:");
       const matchingKeys = allKeys.filter((k) =>
         k.endsWith(`:${conversationId}`),
       );
+      let parsedCount = 0;
       for (const key of matchingKeys) {
         const raw = await this.get(key);
         if (!raw) continue;
         try {
           const parsed = JSON.parse(raw);
+          parsedCount++;
           if (
             parsed.toolOutputs &&
             Object.keys(parsed.toolOutputs).length > 0

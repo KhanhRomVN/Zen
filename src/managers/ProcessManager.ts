@@ -1,7 +1,20 @@
 import * as vscode from "vscode";
+/**
+ *? Usage:
+ *    Quản lý tiến trình shell: tạo terminal ảo, chạy lệnh, pipe stdin/stdout, throttle data, auto-cleanup. Phát hiện lệnh long-running (dev/start/serve/watch...).
+ *
+ *? Function:
+ *    startInteractive(): Tạo terminal mới, trả về id.
+ *    sendInput()       : Gửi lệnh đến terminal (hoặc pipe stdin nếu đang chạy).
+ *    list()            : Trả về danh sách terminal đang hoạt động.
+ *    stop()            : Dừng tiến trình trong terminal (giữ terminal).
+ *    close()           : Đóng và xóa terminal.
+ *    stopAll()         : Đóng tất cả terminal.
+ *    dispose()         : Dọn dẹp toàn bộ timer, buffer, emitter.
+ */
+import { ChildProcess, spawn, SpawnOptions } from "child_process";
 import * as crypto from "crypto";
 import * as os from "os";
-import { spawn, ChildProcess, SpawnOptions } from "child_process";
 
 const LONG_RUNNING_PATTERNS =
   /\b(dev|start|serve|watch|preview|run dev|run start|run serve|run watch|run preview)\b/i;

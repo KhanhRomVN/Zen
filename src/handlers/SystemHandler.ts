@@ -1,9 +1,35 @@
-import * as vscode from "vscode";
-import * as path from "path";
-import * as fs from "fs";
+/**
+ *? Usage:
+ *    Xử lý các lệnh hệ thống: theme, thông tin hệ thống, mở file/folder/diff, preview, confirmation dialog, git diff, accept commit message.
+ *
+ *? Function:
+ *    updateTheme() / handleRequestTheme()      : Gửi theme hiện tại cho webview.
+ *    handleGetSystemInfo()                     : Trả về thông tin OS, IDE, shell, home, cwd.
+ *    handleOpenWorkspaceFolder()               : Mở thư mục workspace.
+ *    handleOpenDiffView()                      : Mở diff view giữa file hiện tại và bản cũ.
+ *    handleOpenFile() / handleOpenFileAtLine() : Mở file trong editor (có thể kèm dòng).
+ *    handleOpenPreview() / handleOpenTempImage(): Mở nội dung tạm / ảnh base64.
+ *    handleOpenExternal()                      : Mở URL ngoài.
+ *    handleOpenFolder()                        : Mở thư mục trong OS file manager.
+ *    handleConfirmation()                      : Hiển thị dialog xác nhận.
+ *    handleOpenDiff()                          : Mở diff giữa 2 file.
+ *    handleOpenReplaceInFileDiff()             : Mở diff cho thao tác replace_in_file.
+ *    handleOpenWriteToFile()                   : Mở nội dung file mới sẽ được ghi.
+ *    handleOpenSnapshotDiff()                  : Mở diff snapshot (create/rewrite/replace).
+ *    handleShowGitDiff()                       : Mở git diff cho file.
+ *    handleAcceptCommitMessage()               : Thực thi git commit với message được chấp nhận.
+ */
+
 import * as crypto from "crypto";
+import * as fs from "fs";
 import * as os from "os";
-import { ZenDiffProvider } from "../providers/ZenDiffProvider";
+import * as path from "path";
+import * as vscode from "vscode";
+
+// PROVIDERS
+import { DiffProvider } from "../providers/DiffProvider";
+
+// SERVICES
 import { PathService } from "../services/PathService";
 
 export class SystemHandler {
@@ -176,12 +202,10 @@ export class SystemHandler {
       const document = await vscode.workspace.openTextDocument(uri);
       const editor = await vscode.window.showTextDocument(document);
 
-      // Convert 1-based line to 0-based position
       const lineIndex = Math.max(0, line - 1);
       const lineText = document.lineAt(lineIndex);
       const position = new vscode.Position(lineIndex, 0);
 
-      // If selection is provided, use it; otherwise select the whole line
       if (selection && selection.startLine && selection.endLine) {
         const startPos = new vscode.Position(
           Math.max(0, selection.startLine - 1),
@@ -199,7 +223,6 @@ export class SystemHandler {
           vscode.TextEditorRevealType.InCenter,
         );
       } else {
-        // Select the entire line
         const endPosition = new vscode.Position(
           lineIndex,
           lineText.text.length,
@@ -245,13 +268,11 @@ export class SystemHandler {
     if (!folderPath) return;
 
     try {
-      // Reveal the folder in the OS file manager
       await vscode.commands.executeCommand(
         "revealFileInOS",
         vscode.Uri.file(folderPath),
       );
     } catch (error) {
-      // Fallback: open via openExternal for OS file manager
       try {
         await vscode.env.openExternal(vscode.Uri.file(folderPath));
       } catch (e) {}
@@ -295,7 +316,6 @@ export class SystemHandler {
     const filePath = message.filePath;
     const basename = path.basename(filePath || "file");
 
-    // Build absolute path
     const absPath = path.isAbsolute(filePath)
       ? filePath
       : path.join(workspaceFolder.uri.fsPath, filePath);
@@ -307,31 +327,25 @@ export class SystemHandler {
       let beforeContent: string;
       let afterContent: string;
 
-      // Try to read CURRENT file content (might be already replaced, or might not exist)
       let currentContent: string | null = null;
       try {
         currentContent = await fs.promises.readFile(absPath, "utf8");
       } catch (readError: any) {
         if (readError.code === "ENOENT") {
         } else {
-          throw readError; // Re-throw non-ENOENT errors
+          throw readError;
         }
       }
 
       if (currentContent) {
-        // File exists - check if file still has old_str (not replaced yet)
         if (oldStr && currentContent.includes(oldStr)) {
-          // File not replaced yet - current is "before", calculate "after"
           beforeContent = currentContent;
           const index = currentContent.indexOf(oldStr);
           afterContent =
             currentContent.substring(0, index) +
             newStr +
             currentContent.substring(index + oldStr.length);
-        }
-        // Check if file has new_str (already replaced)
-        else if (newStr && currentContent.includes(newStr)) {
-          // File already replaced - reverse to get "before"
+        } else if (newStr && currentContent.includes(newStr)) {
           afterContent = currentContent;
           const index = currentContent.indexOf(newStr);
           beforeContent =
@@ -339,7 +353,6 @@ export class SystemHandler {
             oldStr +
             currentContent.substring(index + newStr.length);
         } else {
-          // Cannot find either old or new - show error
           console.error(
             `[handleOpenReplaceInFileDiff] Cannot find old_str or new_str in file`,
             {
@@ -355,40 +368,32 @@ export class SystemHandler {
           return;
         }
       } else {
-        // File doesn't exist - use message content directly
         beforeContent = oldStr;
         afterContent = newStr;
       }
 
-      // Verify we have different content
       if (beforeContent === afterContent) {
         vscode.window.showWarningMessage(
           `Diff view: before and after content are identical`,
         );
       }
 
-      // Add _TEMP to basename before extension
       const ext = path.extname(basename);
       const nameWithoutExt = path.basename(basename, ext);
       const tempBasename = `${nameWithoutExt}_TEMP${ext}`;
 
-      // Use stable keys based on filePath to prevent duplicate tabs
-      // CRITICAL: VSCode lowercases URI authority, so we must lowercase the key
       const stableId = `replace_${Buffer.from(filePath).toString("base64").replace(/[/+=]/g, "_").toLowerCase()}`;
       const beforeKey = `${stableId}_before`;
       const afterKey = `${stableId}_after`;
 
-      // Store content (will overwrite if keys already exist)
-      ZenDiffProvider.instance.store(beforeKey, beforeContent);
-      ZenDiffProvider.instance.store(afterKey, afterContent);
+      DiffProvider.instance.store(beforeKey, beforeContent);
+      DiffProvider.instance.store(afterKey, afterContent);
 
-      const beforeUri = ZenDiffProvider.toUri(beforeKey, tempBasename);
-      const afterUri = ZenDiffProvider.toUri(afterKey, tempBasename);
+      const beforeUri = DiffProvider.toUri(beforeKey, tempBasename);
+      const afterUri = DiffProvider.toUri(afterKey, tempBasename);
 
-      // Don't close existing tabs - just let VSCode reuse them or create new ones
       const diffTitle = `${tempBasename} (Before ↔ After)`;
 
-      // Open diff view
       await vscode.commands.executeCommand(
         "vscode.diff",
         beforeUri,
@@ -413,26 +418,20 @@ export class SystemHandler {
     const content = message.content || "";
 
     try {
-      // Add _TEMP to basename before extension
       const ext = path.extname(basename);
       const nameWithoutExt = path.basename(basename, ext);
       const tempBasename = `${nameWithoutExt}_TEMP${ext}`;
 
-      // Use stable key based on filePath to prevent duplicate tabs
-      // CRITICAL: VSCode lowercases URI authority, so we must lowercase the key
       const stableId = `write_${Buffer.from(filePath).toString("base64").replace(/[/+=]/g, "_").toLowerCase()}`;
 
-      // CRITICAL: Store content FIRST
-      ZenDiffProvider.instance.store(stableId, content);
+      DiffProvider.instance.store(stableId, content);
 
-      const uri = ZenDiffProvider.toUri(stableId, tempBasename);
+      const uri = DiffProvider.toUri(stableId, tempBasename);
 
-      // Check if this document is already open - if so, just focus it
       for (const tabGroup of vscode.window.tabGroups.all) {
         for (const tab of tabGroup.tabs) {
           const input = tab.input as any;
           if (input?.uri?.toString() === uri.toString()) {
-            // Document already open, just focus it
             await vscode.window.showTextDocument(uri, {
               preview: false,
               preserveFocus: false,
@@ -442,7 +441,6 @@ export class SystemHandler {
         }
       }
 
-      // Open the virtual document (not already open)
       await vscode.window.showTextDocument(uri, {
         preview: false,
         preserveFocus: false,
@@ -459,7 +457,6 @@ export class SystemHandler {
     const basename = path.basename(filePath || "file");
 
     if (operation === "write" && beforeContent === null) {
-      // CREATE: just open the actual file in editor
       try {
         const uri = path.isAbsolute(filePath)
           ? vscode.Uri.file(filePath)
@@ -470,7 +467,6 @@ export class SystemHandler {
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(doc, { preview: false });
       } catch {
-        // File might not exist yet, open virtual doc with content
         const doc = await vscode.workspace.openTextDocument({
           content: afterContent || "",
           language: this._getLanguageId(filePath),
@@ -480,7 +476,6 @@ export class SystemHandler {
       return;
     }
 
-    // REWRITE or REPLACE: open diff view with before ↔ after
     const safeId = (actionId || Date.now())
       .toString()
       .replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -488,11 +483,11 @@ export class SystemHandler {
     const beforeKey = `${safeId}_before`;
     const afterKey = `${safeId}_after`;
 
-    ZenDiffProvider.instance.store(beforeKey, beforeContent || "");
-    ZenDiffProvider.instance.store(afterKey, afterContent || "");
+    DiffProvider.instance.store(beforeKey, beforeContent || "");
+    DiffProvider.instance.store(afterKey, afterContent || "");
 
-    const beforeUri = ZenDiffProvider.toUri(beforeKey, basename);
-    const afterUri = ZenDiffProvider.toUri(afterKey, basename);
+    const beforeUri = DiffProvider.toUri(beforeKey, basename);
+    const afterUri = DiffProvider.toUri(afterKey, basename);
 
     const label =
       operation === "write"
@@ -540,6 +535,8 @@ export class SystemHandler {
   }
 
   public async handleShowGitDiff(message: any) {
+    // [DEBUG] Đo thời gian mở git diff — xóa sau khi xác minh
+    const debugStart = Date.now();
     const filePath = message.filePath;
     if (!filePath) {
       console.error("[SystemHandler] showGitDiff: No filePath provided");
@@ -554,60 +551,49 @@ export class SystemHandler {
         return;
       }
 
-      // Build URI for the file
       const uri = path.isAbsolute(filePath)
         ? vscode.Uri.file(filePath)
         : vscode.Uri.joinPath(workspaceFolder.uri, filePath);
 
-      // Try to open git diff using VSCode's git extension
-      // First, open the file in the editor
       try {
         const document = await vscode.workspace.openTextDocument(uri);
       } catch (error) {}
 
-      // Method 1: Use git.openChange (specifically for showing changes)
       try {
         await vscode.commands.executeCommand("git.openChange", uri, "HEAD");
         return;
       } catch (error) {}
 
-      // Method 2: Use git.openResource with HEAD as revision
       try {
         await vscode.commands.executeCommand("git.openResource", uri, "HEAD");
         return;
       } catch (error) {}
 
-      // Method 3: Use git.openResource without revision
       try {
         await vscode.commands.executeCommand("git.openResource", uri);
         return;
       } catch (error) {}
 
-      // Method 4: Use git.show (opens the file in a diff view)
       try {
         await vscode.commands.executeCommand("git.show", uri);
         return;
       } catch (error) {}
 
-      // Method 5: Use git.openFile (opens the file with git diff)
       try {
         await vscode.commands.executeCommand("git.openFile", uri);
         return;
       } catch (error) {}
 
-      // Method 6: Use git.openFile2 (alternative)
       try {
         await vscode.commands.executeCommand("git.openFile2", uri);
         return;
       } catch (error) {}
 
-      // Method 7: Use git.stage with the file (to show diff in Source Control)
       try {
         await vscode.commands.executeCommand("git.stage", uri);
         return;
       } catch (error) {}
 
-      // Method 8: Fallback - open the file directly
       try {
         const document = await vscode.workspace.openTextDocument(uri);
         await vscode.window.showTextDocument(document);
@@ -646,10 +632,8 @@ export class SystemHandler {
       const cwd = workspaceFolder.uri.fsPath;
       const { exec } = require("child_process");
 
-      // Escape the commit message for shell (single quotes)
       const escapedMessage = commitMessage.replace(/'/g, "'\\''");
 
-      // git commit -m "..."
       const commitResult = await new Promise<{
         stdout: string;
         stderr: string;
@@ -667,18 +651,15 @@ export class SystemHandler {
         );
       });
 
-      // Check if there was nothing to commit
       if (commitResult.stderr.includes("nothing to commit")) {
         return;
       }
 
-      // Optionally copy to clipboard as backup
       await vscode.env.clipboard.writeText(commitMessage);
     } catch (error) {
       console.error("[SystemHandler] acceptCommitMessage error:", error);
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // Send error to webview to display in chat
       if (webviewView?.webview) {
         webviewView.webview.postMessage({
           command: "commitError",
@@ -686,7 +667,6 @@ export class SystemHandler {
           timestamp: Date.now(),
         });
       } else {
-        // Fallback: try to find the webview via the active tab
         try {
           const activeTab = vscode.window.tabGroups.activeTabGroup?.activeTab;
           if (activeTab && "webview" in activeTab) {
@@ -699,9 +679,7 @@ export class SystemHandler {
               });
             }
           }
-        } catch (e) {
-          // Silently ignore fallback failure
-        }
+        } catch (e) {}
       }
     }
   }

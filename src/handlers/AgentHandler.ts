@@ -1,4 +1,14 @@
+/**
+ *? Usage:
+ *    Xử lý các lệnh liên quan đến AI agent: cập nhật quyền và thực thi action.
+ *
+ *? Function:
+ *    handleUpdateAgentPermissions(): Cập nhật bộ quyền cho AgentManager.
+ *    handleExecuteAgentAction()    : Thực thi action và trả kết quả về webview.
+ */
 import * as vscode from "vscode";
+
+// AGENT
 import { AgentManager } from "../agent/AgentManager";
 
 export class AgentHandler {

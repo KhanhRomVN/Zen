@@ -1,12 +1,18 @@
-// * FileReadCapability.ts - Đọc nội dung file, hỗ trợ cả đường dẫn tương đối và tuyệt đối.
+/**
+ *? Usage:
+ *    Đọc nội dung file trong workspace, hỗ trợ cả đường dẫn tuyệt đối và tương đối.
+ *
+ *? Function:
+ *    execute(): Đọc file từ action.path, trả về nội dung và kích thước.
+ */
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+
+// TYPES
 import { AgentAction, AgentExecutionResult } from "../../types";
 
-// * Capability đọc file: thử nhiều đường dẫn ứng viên, trả về nội dung và kích thước file.
 export class FileReadCapability {
-  // * Đọc nội dung file theo action.path, thử cả đường dẫn tương đối lẫn tuyệt đối.
   async execute(action: AgentAction): Promise<AgentExecutionResult> {
     try {
       if (!action.path) {

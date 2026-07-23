@@ -106,6 +106,4 @@ RULE:
 3/ ko tự tạo các file .md thừa ko cần thiết
 4/ ko tự chạy các lệnh terminal khi chưa cho phép
 
-quét qua toàn bộ file trong src (noại trừ src/webview-ui). ta sẽ tạo các comment code (có dùng better comment của vscode) với ngôn ngữ việt cho đầu các file và đầu các hàm trong file. các log ko quá chi tiết nhưng cũng ko quá sơ sài, đơn giản
-
 quét qua toàn bộ file trong src (noại trừ src/webview-ui). ta sẽ tạo các comment code (có dùng better comment của vscode) với ngôn ngữ tiếng việt cho dòng đầu tiên của các file. log sẽ có mô tả chức năng, liệt kê các hàm và mô tả ngắn chức năng các hàm

@@ -1,7 +1,15 @@
-import * as fs from "fs";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Lưu và truy xuất snapshot trước/sau của thao tác file (write/replace/revert) để mở diff view.
+ *
+ *? Function:
+ *    saveSnapshot(): Lưu snapshot (beforeContent, afterContent) theo actionId.
+ *    getSnapshot() : Lấy snapshot theo conversationId + actionId.
+ */
 import * as crypto from "crypto";
+import * as fs from "fs";
 import * as os from "os";
+import * as path from "path";
 import * as vscode from "vscode";
 
 export interface Snapshot {

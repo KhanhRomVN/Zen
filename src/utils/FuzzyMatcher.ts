@@ -1,5 +1,12 @@
 import Fuse from "fuse.js";
 
+/**
+ *? Usage:
+ *    Tìm kiếm fuzzy trong nội dung file: dùng Fuse.js để tìm anchor line, sau đó xác minh toàn bộ block.
+ *
+ *? Function:
+ *    findMatch(): Tìm vị trí khớp gần đúng nhất của searchBlock trong fileContent.
+ */
 interface MatchResult {
   startIndex: number;
   endIndex: number; // Verification end index in file content
@@ -17,6 +24,9 @@ export class FuzzyMatcher {
     fileContent: string,
     searchBlock: string,
   ): MatchResult | null {
+    // [DEBUG] Đo thời gian fuzzy match — xóa sau khi xác minh
+    const debugStart = Date.now();
+    const fileSizeKB = (fileContent.length / 1024).toFixed(1);
     // 1. Pre-process strings
     const fileLines = fileContent.split(/\r?\n/);
     const searchLines = searchBlock.split(/\r?\n/);
@@ -107,6 +117,8 @@ export class FuzzyMatcher {
       }
     }
 
+    // [DEBUG] Log kết quả fuzzy match
+    const debugDuration = Date.now() - debugStart;
     return bestMatch;
   }
 

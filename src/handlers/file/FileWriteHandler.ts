@@ -1,14 +1,31 @@
 import * as vscode from "vscode";
-import * as path from "path";
+/**
+ *? Usage:
+ *    Ghi file và replace nội dung trong workspace: write_to_file, replace_in_file, validate fuzzy match. Có queue, lock, checkpoint, snapshot, history.
+ *
+ *? Function:
+ *    handleWriteToFile()       : Ghi nội dung mới vào file (tạo hoặc ghi đè).
+ *    handleReplaceInFile()     : Thay thế nội dung trong file (dùng old_str/new_str hoặc diff format).
+ *    handleValidateFuzzyMatch(): Kiểm tra fuzzy match giữa search block và nội dung file.
+ */
 import * as fs from "fs";
-import { FileLockManager } from "../../managers/FileLockManager";
-import { CheckpointManager } from "../../managers/CheckpointManager";
-import { SnapshotManager } from "../../managers/SnapshotManager";
-import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
+import * as path from "path";
+
+// AGENT
 import { SecurityValidator } from "../../agent/validators/SecurityValidator";
-import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
+
+// MANAGERS
+import { CheckpointManager } from "../../managers/CheckpointManager";
+import { FileLockManager } from "../../managers/FileLockManager";
+import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
+import { SnapshotManager } from "../../managers/SnapshotManager";
+
+// SERVICES
 import { LoggerService } from "../../services/LoggerService";
 import { PathService } from "../../services/PathService";
+
+// UTILS
+import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
 
 export class FileWriteHandler {
   private _writeFileQueue: Promise<void> = Promise.resolve();
@@ -159,21 +176,30 @@ export class FileWriteHandler {
   private async waitForDiagnosticsWithFallback(
     uri: vscode.Uri,
     pathValue: string,
-    maxTimeoutMs: number = 50000, // 50 giây - đủ buffer trong 1 phút timeout của frontend
+    maxTimeoutMs: number = 50000,
   ): Promise<void> {
+    // [DEBUG] Đo thời gian chờ diagnostics — xóa sau khi xác minh
+    const debugStart = Date.now();
     return new Promise<void>((resolve) => {
       const fallbackTimeout = 2000;
       const stableWaitTime = 800;
-      const startTime = Date.now();
       let stableTimeout: NodeJS.Timeout | null = null;
       let hasEvent = false;
+      let resolved = false;
+
+      const finish = (reason: string) => {
+        if (resolved) return;
+        resolved = true;
+        const elapsed = Date.now() - debugStart;
+        resolve();
+      };
 
       const fallback = setTimeout(() => {
         if (!hasEvent) {
           clearTimeout(timeout);
           if (stableTimeout) clearTimeout(stableTimeout);
           disposable?.dispose();
-          resolve();
+          finish("fallback_no_event");
         }
       }, fallbackTimeout);
 
@@ -181,7 +207,7 @@ export class FileWriteHandler {
         clearTimeout(fallback);
         if (stableTimeout) clearTimeout(stableTimeout);
         disposable?.dispose();
-        resolve();
+        finish("timeout");
       }, maxTimeoutMs);
 
       const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
@@ -195,7 +221,7 @@ export class FileWriteHandler {
             clearTimeout(timeout);
             clearTimeout(fallback);
             disposable.dispose();
-            resolve();
+            finish("stable");
           }, stableWaitTime);
         }
       });
@@ -301,7 +327,7 @@ export class FileWriteHandler {
             absolutePath,
             pathValue,
             50000,
-          ); // 50 giây
+          );
         }
         webviewView.webview.postMessage({
           command: "writeFileResult",
@@ -387,7 +413,6 @@ export class FileWriteHandler {
       return;
     }
 
-    // Kiểm tra file tồn tại trước khi replace
     try {
       await vscode.workspace.fs.stat(absPath);
     } catch {
@@ -474,7 +499,6 @@ export class FileWriteHandler {
     }
     release();
 
-    // Lấy diagnostics trước khi gửi response
     let diagnostics: Array<{
       severity: string;
       message: string;
@@ -489,12 +513,11 @@ export class FileWriteHandler {
         try {
           await vscode.workspace.openTextDocument(absPath);
         } catch {}
-        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000); // 50 giây
+        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000);
       }
       diagnostics = this.getDiagnosticsForFile(absPath);
     }
 
-    // Lưu lịch sử replace_in_file thành công
     if (message.conversationId && newContent !== undefined) {
       const errorCount = diagnostics.filter(
         (d) => d.severity === "Error",
@@ -513,7 +536,6 @@ export class FileWriteHandler {
       );
     }
 
-    // Gửi response
     webviewView.webview.postMessage({
       command: "replaceInFileResult",
       requestId: message.requestId,

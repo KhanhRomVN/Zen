@@ -1,10 +1,19 @@
 import * as vscode from "vscode";
+/**
+ *? Usage:
+ *    Dịch vụ tập trung xử lý diagnostics từ language server: lọc error/warning, đếm, chờ ổn định. Dùng chung bởi FileReadHandler, FileWriteHandler, GrepCapability.
+ *
+ *? Function:
+ *    getDiagnostics()       : Trả về danh sách error/warning cho một file.
+ *    getDiagnosticCount()   : Trả về số lượng error và warning.
+ *    isNonCodeFile()        : Kiểm tra file có phải non-code (không có language server).
+ *    ensureFileOpened()     : Mở file trong editor để kích hoạt language server.
+ *    waitForDiagnostics()   : Chờ diagnostics ổn định (hybrid: fallback 2s + stable 800ms).
+ */
+
+// SERVICES
 import { LoggerService } from "./LoggerService";
 
-/**
- * Centralized diagnostics logic — used by FileReadHandler, FileWriteHandler,
- * FileSystemAnalyzer, and GrepCapability to avoid ~200 lines of duplication.
- */
 export class DiagnosticsService {
   private static instance: DiagnosticsService;
 

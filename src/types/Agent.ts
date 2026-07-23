@@ -1,3 +1,7 @@
+/**
+ *? Usage:
+ *    Định nghĩa các type cho AI agent: quyền (AgentPermissions), action (AgentAction), kết quả validation và execution.
+ */
 export interface AgentPermissions {
   readProjectFile: boolean;
   readAllFile: boolean;
