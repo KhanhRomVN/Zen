@@ -1,27 +1,22 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import * as os from "os";
-import * as crypto from "crypto";
-import { FileLockManager } from "../../../managers/FileLockManager";
-import { GlobalStorageManager } from "../../../storage/GlobalStorageManager";
+import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
+import { PathService } from "../../services/PathService";
 
 export class ConversationHistoryHandler {
-  constructor(
-    private fileLockManager: FileLockManager,
-    private storageManager?: GlobalStorageManager,
-  ) {}
+  private pathService: PathService;
+
+  constructor(private storageManager?: GlobalStorageManager) {
+    this.pathService = PathService.getInstance();
+  }
 
   public getContextRoot(): string {
-    return path.join(os.homedir(), "khanhromvn-zen");
+    return this.pathService.getContextRoot();
   }
 
   public getProjectContextDir(workspaceFolderPath: string): string {
-    const hash = crypto
-      .createHash("md5")
-      .update(workspaceFolderPath)
-      .digest("hex");
-    return path.join(this.getContextRoot(), "projects", hash);
+    return this.pathService.getProjectContextDir(workspaceFolderPath);
   }
 
   public async handleGetHistory(message: any, webviewView: vscode.WebviewView) {
@@ -315,42 +310,6 @@ export class ConversationHistoryHandler {
     }
   }
 
-  public async handleRenameConversationLog(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) return;
-      const dir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
-      const oldPath = path.join(dir, `${message.oldConversationId}.json`);
-      const newPath = path.join(dir, `${message.newConversationId}.json`);
-
-      let retries = 10;
-      while (retries > 0) {
-        if (fs.existsSync(oldPath)) break;
-        await new Promise((r) => setTimeout(r, 200));
-        retries--;
-      }
-
-      if (fs.existsSync(oldPath)) {
-        await fs.promises.rename(oldPath, newPath);
-        webviewView.webview.postMessage({
-          command: "renameConversationLogResult",
-          success: true,
-          oldConversationId: message.oldConversationId,
-          newConversationId: message.newConversationId,
-        });
-      }
-    } catch (e) {
-      webviewView.webview.postMessage({
-        command: "renameConversationLogResult",
-        success: false,
-        error: String(e),
-      });
-    }
-  }
-
   public async handleOpenConversationFolder(message: any) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -367,13 +326,6 @@ export class ConversationHistoryHandler {
         vscode.Uri.file(folderPath),
       );
     } catch (e) {}
-  }
-
-  public async handleSendMessage(
-    _message: any,
-    _webviewView: vscode.WebviewView,
-  ) {
-    // Basic messaging logic if needed
   }
 
   public async enforceHistoryLimit(projectContextDir: string) {

@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import * as crypto from "crypto";
-import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
+import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 
 /**
  * Keys that are scoped per-workspace.

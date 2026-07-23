@@ -1,3 +1,4 @@
+// * SecurityValidator.ts - Kiểm tra bảo mật cho đường dẫn file và lệnh shell. Chặn truy cập file nhạy cảm và lệnh nguy hiểm.
 import * as path from "path";
 
 export interface SecurityResult {
@@ -5,6 +6,7 @@ export interface SecurityResult {
   reason?: string;
 }
 
+// * Lớp kiểm tra bảo mật tĩnh: chặn file nhạy cảm (.env, credentials...), thư mục hệ thống, và lệnh nguy hiểm (rm -rf, sudo, curl|sh...).
 export class SecurityValidator {
   private static readonly SENSITIVE_PATTERNS = [
     /\.env$/,
@@ -58,6 +60,7 @@ export class SecurityValidator {
 
   /**
    * Validate a file path for safety.
+   * Kiểm tra đường dẫn file: chặn null byte injection, file nhạy cảm, và thư mục hệ thống (với thao tác ghi).
    */
   public static validatePath(filePath: string, isWrite: boolean = false): SecurityResult {
     if (!filePath || filePath.trim().length === 0) {
@@ -93,6 +96,7 @@ export class SecurityValidator {
 
   /**
    * Validate a command for safety.
+   * Kiểm tra lệnh shell: chặn lệnh nguy hiểm (rm -rf /, fork bomb, curl|sh...) và lệnh nâng quyền (sudo, su, doas).
    */
   public static validateCommand(command: string): SecurityResult {
     if (!command || typeof command !== "string") {

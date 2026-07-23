@@ -773,7 +773,7 @@ export const useChatLLM = ({
           );
         }
 
-        // Save final conversation
+        // Save final conversation (only on successful response)
         saveConversation(
           sessionId,
           folderPath,
@@ -783,6 +783,10 @@ export const useChatLLM = ({
           false,
           undefined,
           backendConversationId || backendConversationIdRef.current,
+          undefined,
+          undefined,
+          undefined,
+          false, // skipSave = false → lưu khi response thành công
         );
 
         // Trigger tool request only if parsing succeeded

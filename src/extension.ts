@@ -1,33 +1,30 @@
+// * extension.ts - Entry point của Zen extension. Khởi tạo storage, providers, và đăng ký tất cả commands cho VS Code.
 import * as vscode from "vscode";
-import { ContextManager } from "./context/ContextManager";
 import { GlobalStorageManager } from "./storage/GlobalStorageManager";
 import { ZenChatViewProvider } from "./providers/ZenChatViewProvider";
 import { ZenDiffProvider } from "./providers/ZenDiffProvider";
 
 let activeProvider: ZenChatViewProvider | null = null;
 
+// * Kích hoạt extension: khởi tạo GlobalStorageManager, ZenChatViewProvider, đăng ký webview provider và tất cả commands.
 export async function activate(extContext: vscode.ExtensionContext) {
   // Initialize Managers
   const storageManager = new GlobalStorageManager(extContext);
   await storageManager.initialize();
   await storageManager.migrateFromGlobalState();
 
-  const contextManager = new ContextManager();
-
+  const providerStart = Date.now();
   const provider = new ZenChatViewProvider(
     extContext.extensionUri,
-    contextManager,
     storageManager,
   );
-  provider.setExtensionContext(extContext);
-
-  // Also pass context to ProcessManager and restore persistent terminals
-  provider.getProcessManager().setExtensionContext(extContext);
   provider.getProcessManager().stopAll(); // clean up any leftover processes from previous session
 
   provider.initializeAgentManager();
   activeProvider = provider;
+  const providerDuration = Date.now() - providerStart;
 
+  const registrationStart = Date.now();
   extContext.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       ZenChatViewProvider.viewType,
@@ -35,8 +32,10 @@ export async function activate(extContext: vscode.ExtensionContext) {
     ),
     ZenDiffProvider.register(extContext),
   );
+  const registrationDuration = Date.now() - registrationStart;
 
   // Register Commands
+  const commandsStart = Date.now();
   const openChatCommand = vscode.commands.registerCommand(
     "zen.openChat",
     () => {
@@ -55,9 +54,12 @@ export async function activate(extContext: vscode.ExtensionContext) {
     provider.postMessageToWebview({ command: "showHistory" });
   });
 
-  const accountsCommand = vscode.commands.registerCommand("zen.openAccounts", () => {
-    provider.postMessageToWebview({ command: "showAccounts" });
-  });
+  const accountsCommand = vscode.commands.registerCommand(
+    "zen.openAccounts",
+    () => {
+      provider.postMessageToWebview({ command: "showAccounts" });
+    },
+  );
 
   const newChatCommand = vscode.commands.registerCommand("zen.newChat", () => {
     provider.postMessageToWebview({ command: "newChat" });
@@ -123,6 +125,7 @@ export async function activate(extContext: vscode.ExtensionContext) {
   );
 }
 
+// * Dọn dẹp khi extension bị vô hiệu hóa: hủy ProcessManager và xóa tham chiếu provider.
 export function deactivate() {
   activeProvider?.getProcessManager().dispose();
   activeProvider = null;

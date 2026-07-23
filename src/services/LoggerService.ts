@@ -23,10 +23,6 @@ export class LoggerService {
     return LoggerService.instance;
   }
 
-  public setLogLevel(level: LogLevel): void {
-    this.logLevel = level;
-  }
-
   public debug(message: string, ...args: any[]): void {
     this.log(LogLevel.DEBUG, message, ...args);
   }
@@ -41,10 +37,6 @@ export class LoggerService {
 
   public error(message: string, ...args: any[]): void {
     this.log(LogLevel.ERROR, message, ...args);
-  }
-
-  public show(): void {
-    this.outputChannel.show();
   }
 
   private log(level: LogLevel, message: string, ...args: any[]): void {

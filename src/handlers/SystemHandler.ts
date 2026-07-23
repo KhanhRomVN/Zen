@@ -3,21 +3,22 @@ import * as path from "path";
 import * as fs from "fs";
 import * as crypto from "crypto";
 import * as os from "os";
-import { ZenDiffProvider } from "../../providers/ZenDiffProvider";
+import { ZenDiffProvider } from "../providers/ZenDiffProvider";
+import { PathService } from "../services/PathService";
 
 export class SystemHandler {
-  constructor() {}
+  private pathService: PathService;
+
+  constructor() {
+    this.pathService = PathService.getInstance();
+  }
 
   private getContextRoot(): string {
-    return path.join(os.homedir(), "khanhromvn-zen");
+    return this.pathService.getContextRoot();
   }
 
   private getProjectContextDir(workspaceFolderPath: string): string {
-    const hash = crypto
-      .createHash("md5")
-      .update(workspaceFolderPath)
-      .digest("hex");
-    return path.join(this.getContextRoot(), "projects", hash);
+    return this.pathService.getProjectContextDir(workspaceFolderPath);
   }
 
   private _getTempDir(workspaceFolderPath: string): string {
@@ -704,6 +705,4 @@ export class SystemHandler {
       }
     }
   }
-
-  public async handleRejectCommitMessage(message: any) {}
 }

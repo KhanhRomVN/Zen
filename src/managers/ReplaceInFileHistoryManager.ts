@@ -32,10 +32,6 @@ export class ReplaceInFileHistoryManager {
     this.activeConversationId = conversationId;
   }
 
-  public getActiveConversationId(): string | null {
-    return this.activeConversationId;
-  }
-
   private getHistoryDir(conversationId: string): string {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) throw new Error("No workspace folder open");
@@ -61,20 +57,25 @@ export class ReplaceInFileHistoryManager {
     errorCount: number,
     warningCount: number,
   ): Promise<void> {
-    if (!this.activeConversationId) return;
+    const startTime = Date.now();
+    if (!this.activeConversationId) {
+      return;
+    }
 
     try {
       const historyDir = this.getHistoryDir(this.activeConversationId);
       await fs.promises.mkdir(historyDir, { recursive: true });
 
       // Lấy version hiện tại của file này
+      const versionStart = Date.now();
       const currentVersion = await this.getCurrentVersion(filePath);
+      const versionDuration = Date.now() - versionStart;
       const newVersion = currentVersion + 1;
 
       const timestamp = Date.now();
       const id = `replace_${timestamp}_${crypto.randomBytes(4).toString("hex")}`;
-      const lineCount = fullContent.split('\n').length;
-      
+      const lineCount = fullContent.split("\n").length;
+
       const history: ReplaceInFileHistory = {
         id,
         filePath,
@@ -95,13 +96,17 @@ export class ReplaceInFileHistoryManager {
       const historyFileName = `${fileHash}_v${newVersion}.json`;
       const historyFilePath = path.join(historyDir, historyFileName);
 
+      const writeStart = Date.now();
       await fs.promises.writeFile(
         historyFilePath,
         JSON.stringify(history, null, 2),
         "utf-8",
       );
     } catch (error) {
-      console.error("[ReplaceInFileHistoryManager] Error saving history:", error);
+      console.error(
+        "[ReplaceInFileHistoryManager] Error saving history:",
+        error,
+      );
     }
   }
 
@@ -184,7 +189,7 @@ export class ReplaceInFileHistoryManager {
               // Calculate lineCount with multiple fallbacks for old data
               let lineCount = history.lineCount;
               if (!lineCount && history.fullContent) {
-                lineCount = history.fullContent.split('\n').length;
+                lineCount = history.fullContent.split("\n").length;
               }
               if (!lineCount) {
                 lineCount = 0; // Default for very old data without fullContent

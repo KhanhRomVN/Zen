@@ -1,3 +1,4 @@
+// * AgentManager.ts - Quản lý trung tâm các agent capabilities. Điều phối thực thi action, kiểm tra và cập nhật quyền.
 import { PermissionValidator } from "./validators/PermissionValidator";
 import {
   FileReadCapability,
@@ -13,6 +14,7 @@ import {
   ValidationResult,
 } from "../types";
 
+// * Lớp quản lý trung tâm của agent: khởi tạo capabilities, kiểm tra quyền và điều phối thực thi các action.
 export class AgentManager {
   private validator: PermissionValidator;
   private fileReadCapability: FileReadCapability;
@@ -21,6 +23,7 @@ export class AgentManager {
   private commandExecutor: CommandExecutor;
   private grepCapability: GrepCapability;
 
+  // * Khởi tạo PermissionValidator và tất cả capabilities (đọc, sửa, ghi file, chạy lệnh, grep).
   constructor(permissions: AgentPermissions, workspaceRoot: string) {
     this.validator = new PermissionValidator(permissions, workspaceRoot);
     this.fileReadCapability = new FileReadCapability();
@@ -30,6 +33,7 @@ export class AgentManager {
     this.grepCapability = new GrepCapability(workspaceRoot);
   }
 
+  // * Thực thi một action của agent: kiểm tra quyền trước, sau đó gọi capability tương ứng theo loại action.
   public async executeAction(
     action: AgentAction,
   ): Promise<AgentExecutionResult> {
@@ -88,10 +92,12 @@ export class AgentManager {
     }
   }
 
+  // * Kiểm tra quyền cho một action trước khi thực thi.
   public validateAction(action: AgentAction): ValidationResult {
     return this.validator.validate(action);
   }
 
+  // * Cập nhật quyền mới cho agent (gọi khi người dùng thay đổi cài đặt quyền).
   public updatePermissions(newPermissions: AgentPermissions): void {
     this.validator.updatePermissions(newPermissions);
   }

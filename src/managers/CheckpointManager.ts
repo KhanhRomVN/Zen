@@ -27,17 +27,15 @@ export class CheckpointManager {
 
   public setActiveConversationId(conversationId: string | null) {
     this.activeConversationId = conversationId;
-  } 
-
-  public getActiveConversationId(): string | null {
-    return this.activeConversationId;
   }
 
   /**
    * Get the last checkpoint for a specific file path
    * Used by revert_file to restore previous content
    */
-  public async getLastCheckpointForFile(filePath: string): Promise<Checkpoint | null> {
+  public async getLastCheckpointForFile(
+    filePath: string,
+  ): Promise<Checkpoint | null> {
     try {
       if (!this.activeConversationId) {
         return null;
@@ -49,16 +47,19 @@ export class CheckpointManager {
       }
 
       const files = await fs.promises.readdir(ckptDir);
+
       let lastCheckpoint: Checkpoint | null = null;
       let lastTimestamp = 0;
+      let filesChecked = 0;
 
       for (const file of files) {
         if (file.startsWith("ckpt_") && file.endsWith(".json")) {
           const checkpointPath = path.join(ckptDir, file);
           try {
+            filesChecked++;
             const raw = await fs.promises.readFile(checkpointPath, "utf-8");
             const ckpt: Checkpoint = JSON.parse(raw);
-            
+
             // Match by absolute path
             if (ckpt.filePath === filePath && ckpt.timestamp > lastTimestamp) {
               lastCheckpoint = { ...ckpt, id: file };
@@ -96,7 +97,9 @@ export class CheckpointManager {
     filePath: string,
     type: "create" | "modify" | "delete",
   ) {
-    if (!this.activeConversationId) return;
+    if (!this.activeConversationId) {
+      return;
+    }
 
     try {
       // Avoid checkpointing internal configuration directories or git files
@@ -113,13 +116,15 @@ export class CheckpointManager {
       await fs.promises.mkdir(ckptDir, { recursive: true });
 
       let content: string | null = null;
+      let contentSize = 0;
+
       if (type === "modify" || type === "delete") {
         if (fs.existsSync(filePath)) {
           const stats = await fs.promises.stat(filePath);
           if (stats.isFile()) {
             content = await fs.promises.readFile(filePath, "utf-8");
+            contentSize = content.length;
           } else {
-            // Only checkpoint files, directories are ignored (we will recurse files in directories during delete)
             return;
           }
         } else {

@@ -79,6 +79,7 @@ export const saveConversation = async (
     totalAdditions: number;
     totalDeletions: number;
   },
+  skipSave: boolean = false,
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
@@ -189,17 +190,20 @@ export const saveConversation = async (
     await storage.set(key, JSON.stringify(data), false);
 
     // Sync conversation state to file JSON (for backend restore)
-    extensionService.postMessage({
-      command: "saveConversationState",
-      conversationId: convId,
-      messages: messagesToSave,
-      backendConversationId:
-        backendConversationId || existingBackendConversationId,
-      toolOutputs: mergedToolOutputs,
-      singleLineReviewActions: mergedSingleLineReviewActions,
-      conversationFileStats: conversationFileStats,
-      metadata: data.metadata,
-    });
+    // Only save if skipSave is false (default) - this prevents saving during request sending
+    if (!skipSave) {
+      extensionService.postMessage({
+        command: "saveConversationState",
+        conversationId: convId,
+        messages: messagesToSave,
+        backendConversationId:
+          backendConversationId || existingBackendConversationId,
+        toolOutputs: mergedToolOutputs,
+        singleLineReviewActions: mergedSingleLineReviewActions,
+        conversationFileStats: conversationFileStats,
+        metadata: data.metadata,
+      });
+    }
 
     // Update cache
     const cacheData = {

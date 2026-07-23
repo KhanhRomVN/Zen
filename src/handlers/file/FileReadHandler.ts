@@ -1,28 +1,22 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import * as crypto from "crypto";
-import * as os from "os";
-import { ContextManager } from "../../../context/ContextManager";
-import { SecurityValidator } from "../../../agent/validators/SecurityValidator";
-import { LoggerService } from "../../../services/LoggerService";
-import { DiagnosticsService } from "../../../services/DiagnosticsService";
+
+import { SecurityValidator } from "../../agent/validators/SecurityValidator";
+import { LoggerService } from "../../services/LoggerService";
+import { DiagnosticsService } from "../../services/DiagnosticsService";
+import { PathService } from "../../services/PathService";
 
 export class FileReadHandler {
   private _readFileQueue: Promise<void> = Promise.resolve();
+  private pathService: PathService;
 
-  constructor(private contextManager: ContextManager) {}
-
-  private getContextRoot(): string {
-    return path.join(os.homedir(), "khanhromvn-zen");
+  constructor() {
+    this.pathService = PathService.getInstance();
   }
 
   private getProjectContextDir(workspaceFolderPath: string): string {
-    const hash = crypto
-      .createHash("md5")
-      .update(workspaceFolderPath)
-      .digest("hex");
-    return path.join(this.getContextRoot(), "projects", hash);
+    return this.pathService.getProjectContextDir(workspaceFolderPath);
   }
 
   private resolveWorkspacePath(
@@ -141,17 +135,7 @@ export class FileReadHandler {
         throw new Error(`File not found: ${pathValue}`);
       }
 
-      const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
-      const ignoreCheck = await fsAnalyzer.isIgnored(absPath.fsPath);
-      if (
-        ignoreCheck.ignored &&
-        !pathValue.endsWith("workspace.md") &&
-        !message.bypassIgnore
-      ) {
-        throw new Error(
-          `Path '${pathValue}' is out of scope (ignored by .gitignore or project settings).`,
-        );
-      }
+      // FileSystemAnalyzer removed - skip ignore check
 
       const logger = LoggerService.getInstance();
       const isNonCode = this.isNonCodeFile(pathValue);

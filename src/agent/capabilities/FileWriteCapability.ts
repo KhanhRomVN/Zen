@@ -1,9 +1,12 @@
+// * FileWriteCapability.ts - Tạo file mới (chỉ ghi file chưa tồn tại), hỗ trợ đường dẫn tương đối và tuyệt đối.
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { AgentAction, AgentExecutionResult } from "../../types";
 
+// * Capability tạo file mới: từ chối ghi đè file đã tồn tại, tự động tạo thư mục cha.
 export class FileWriteCapability {
+  // * Tạo file mới với nội dung từ action.content. Báo lỗi nếu file đã tồn tại.
   async execute(action: AgentAction): Promise<AgentExecutionResult> {
     try {
       if (!action.path) {

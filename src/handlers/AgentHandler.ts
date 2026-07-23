@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { AgentManager } from "../../agent/AgentManager";
+import { AgentManager } from "../agent/AgentManager";
 
 export class AgentHandler {
   constructor(private agentManager: AgentManager | undefined) {}

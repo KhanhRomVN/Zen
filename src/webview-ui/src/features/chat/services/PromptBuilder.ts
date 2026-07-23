@@ -68,7 +68,6 @@ export class PromptBuilder {
     } = options;
 
     let systemPrompt = "";
-    let projectContextStr = "";
     let attachedContextStr = "";
 
     // Build system prompt for first request
@@ -79,7 +78,6 @@ export class PromptBuilder {
         treeView,
         workspace,
       );
-      projectContextStr = this.buildProjectContext(treeView, workspace);
     }
 
     // Build attached context
@@ -112,7 +110,7 @@ export class PromptBuilder {
 
     // Combine all parts
     const promptPayload = isReq1
-      ? `${systemPrompt}${projectContextStr}${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}${toolSyntaxReminder}\n\n${fullContent}`
+      ? `${systemPrompt}${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}${toolSyntaxReminder}\n\n${fullContent}`
       : `${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}${toolSyntaxReminder}\n\n${fullContent}`;
 
     return promptPayload;
@@ -165,11 +163,9 @@ export class PromptBuilder {
     treeView: string,
     workspace: string,
   ): string {
+    // Project Structure removed - no longer used
     let projectContextStr = "";
 
-    if (treeView && treeView.trim()) {
-      projectContextStr += `\n\n## Project Structure\n\`\`\`\n${getShallowTree(treeView)}\n\`\`\``;
-    }
     if (workspace && workspace.trim()) {
       projectContextStr += `\n\n## WORKSPACE EXPERIENCE (workspace.md)\n\`\`\`\n${workspace}\n\`\`\``;
     }

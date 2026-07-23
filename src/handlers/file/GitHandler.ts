@@ -1,17 +1,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { LoggerService } from "../../../services/LoggerService";
 
 export class GitHandler {
   constructor() {}
-
-  public async handleGetGitChanges(
-    _message: any,
-    _webviewView: vscode.WebviewView,
-  ) {
-    // Git changes logic via git extension or simple shell
-  }
 
   public async handleRunGitStatus(
     message: any,

@@ -19,7 +19,6 @@ Every single response from you MUST start with a \`<thinking>...</thinking>\` bl
 ## Execution Steps:
 1. **ORIENT** — Is the task clear and file paths known?
    - If not clear → ask before acting.
-   - If FILE_STRUCTURE is missing from context → run \`<list_files><folder_path>.</folder_path><depth>1</depth></list_files>\` before proceeding. // [OPT#5] đồng bộ tên biến với system-context.ts (trước đây gọi nhầm là PROJECT STRUCTURE)
    - If the request involves a module or file you have never seen in this conversation → explore it before assuming its structure.
 2. **EXPLORE** — Batch all exploration (list_files, grep) in one message, within TOOL-BATCH-LIMIT. Max 2 search attempts → ask user.
    - After EXPLORE results return: check if any finding contradicts the original request, has multiple valid interpretations, or expands scope. If yes → trigger CONTRADICTION-CLARIFY (see CONSTRAINTS). // [OPT#6] cập nhật tên rule đã gộp

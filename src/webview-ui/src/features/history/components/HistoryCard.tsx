@@ -23,44 +23,71 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   const [messageFetchError, setMessageFetchError] = React.useState<
     string | null
   >(null);
+  const [shouldLoad, setShouldLoad] = React.useState(false);
+  const loadTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch messages when component mounts
+  // Lazy load messages only when user hovers or clicks
+  const triggerLoad = React.useCallback(() => {
+    if (shouldLoad || isLoadingMessages || messages.length > 0) return;
+    setShouldLoad(true);
+  }, [shouldLoad, isLoadingMessages, messages.length]);
+
+  // Fetch messages when shouldLoad becomes true
   React.useEffect(() => {
-    const fetchMessages = () => {
-      setIsLoadingMessages(true);
-      setMessageFetchError(null);
-      const requestId = `hist-card-${Date.now()}`;
-      extensionService.postMessage({
-        command: "getConversation",
-        conversationId: item.id,
-        requestId,
-      });
+    if (!shouldLoad) return;
 
-      const handler = (event: MessageEvent) => {
-        const data = event.data;
-        if (
-          data.command === "conversationResult" &&
-          data.requestId === requestId
-        ) {
-          window.removeEventListener("message", handler);
-          if (data.data?.messages) {
-            setMessages(data.data.messages);
-          } else {
-            setMessageFetchError("No messages found");
-          }
-          setIsLoadingMessages(false);
-        }
-      };
+    // Check cache first
+    const cached = (window as any).ConversationCache?.get(item.id);
+    if (cached && cached.messages && cached.messages.length > 0) {
+      setMessages(cached.messages);
+      setIsLoadingMessages(false);
+      return;
+    }
 
-      window.addEventListener("message", handler);
-      setTimeout(() => {
+    setIsLoadingMessages(true);
+    setMessageFetchError(null);
+    const requestId = `hist-card-${Date.now()}`;
+    extensionService.postMessage({
+      command: "getConversation",
+      conversationId: item.id,
+      requestId,
+    });
+
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        data.command === "conversationResult" &&
+        data.requestId === requestId
+      ) {
         window.removeEventListener("message", handler);
+        if (data.data?.messages) {
+          setMessages(data.data.messages);
+          // Update cache if available
+          if ((window as any).ConversationCache) {
+            (window as any).ConversationCache.set(item.id, {
+              messages: data.data.messages,
+              conversationId: item.id,
+            });
+          }
+        } else {
+          setMessageFetchError("No messages found");
+        }
         setIsLoadingMessages(false);
-      }, 5000);
+      }
     };
 
-    fetchMessages();
-  }, [item.id]);
+    window.addEventListener("message", handler);
+    const timeout = setTimeout(() => {
+      window.removeEventListener("message", handler);
+      setIsLoadingMessages(false);
+    }, 5000);
+    loadTimeoutRef.current = timeout;
+
+    return () => {
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+      window.removeEventListener("message", handler);
+    };
+  }, [shouldLoad, item.id]);
 
   React.useEffect(() => {
     const close = () => setMenuVisible(false);
@@ -154,8 +181,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 
   // Parse user content from XML
   const parseUserContent = (content: string): string => {
-    const regex =
-      /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
+    const regex = /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
     const match = content.match(regex);
     if (match) {
       return match[1];
@@ -245,9 +271,14 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
     <div className="history-card-container">
       <div
         className="history-card-inner"
-        onClick={onClick}
+        onClick={() => {
+          triggerLoad();
+          onClick();
+        }}
+        onMouseEnter={triggerLoad}
         onContextMenu={(e) => {
           e.preventDefault();
+          triggerLoad();
           setMenuPosition({ x: e.clientX, y: e.clientY });
           setMenuVisible(true);
         }}

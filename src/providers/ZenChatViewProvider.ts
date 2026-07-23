@@ -1,13 +1,12 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { ChatController } from "../controllers/ChatController";
-import { ContextManager } from "../context/ContextManager";
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 import { AgentManager } from "../agent/AgentManager";
 import { AgentPermissions } from "../types";
 import { ProcessManager } from "../managers/ProcessManager";
 import { FileLockManager } from "../managers/FileLockManager";
-import { RecentItemsManager } from "../context/RecentItemsManager";
+
 import * as crypto from "crypto";
 import * as os from "os";
 
@@ -19,7 +18,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
   private _agentManager?: AgentManager;
   private _processManager: ProcessManager;
   private _fileLockManager: FileLockManager;
-  private _recentItemsManager?: RecentItemsManager;
+  
 
   // Throttle terminal list updates to reduce redundant messages
   private terminalListUpdateTimer: NodeJS.Timeout | null = null;
@@ -27,18 +26,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly _contextManager: ContextManager,
     private readonly _storageManager: GlobalStorageManager,
   ) {
     this._processManager = new ProcessManager();
     this._fileLockManager = new FileLockManager();
-  }
-
-  public setExtensionContext(context: vscode.ExtensionContext) {
-    this._extensionContext = context;
-    if (this._extensionContext) {
-      this._recentItemsManager = new RecentItemsManager(this._extensionContext);
-    }
   }
 
   public getProcessManager(): ProcessManager {
@@ -59,9 +50,6 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         hash,
       );
 
-      // Set project directory in ProcessManager to enable project-specific terminals
-      this._processManager.setProjectDir(projectDir);
-
       vscode.commands.executeCommand(
         "setContext",
         "zen.workspaceFolderPath",
@@ -77,10 +65,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
         executeAllCommands: false, // executeAllCommands stays false by default for safety
       };
 
-      this._agentManager = new AgentManager(
-        defaultPermissions,
-        folderPath,
-      );
+      this._agentManager = new AgentManager(defaultPermissions, folderPath);
     }
   }
 
@@ -89,6 +74,7 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ) {
+    const startTime = Date.now();
     this._view = webviewView;
 
     webviewView.webview.options = {
@@ -97,19 +83,21 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     };
 
     // Initialize ChatController
+    const controllerStart = Date.now();
     this.chatController = new ChatController(
-      this._contextManager,
       this._storageManager,
       this._agentManager,
       this._processManager,
       this._fileLockManager,
-      this._recentItemsManager,
-      this._extensionUri,
     );
+    const controllerDuration = Date.now() - controllerStart;
 
+    const htmlStart = Date.now();
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+    const htmlDuration = Date.now() - htmlStart;
 
     webviewView.webview.onDidReceiveMessage(async (data) => {
+      const messageStart = Date.now();
       if (this.chatController) {
         await this.chatController.handleMessage(data, webviewView);
       }
@@ -118,7 +106,10 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     // Listen for Command Finished
     const cmdFinishedDisposable = this._processManager.onCommandFinished(
       (event) => {
-        const isError = event.exitCode !== null && event.exitCode !== undefined && event.exitCode !== 0;
+        const isError =
+          event.exitCode !== null &&
+          event.exitCode !== undefined &&
+          event.exitCode !== 0;
         const result = webviewView.webview.postMessage({
           command: "commandExecuted",
           actionId: event.actionId,
@@ -211,14 +202,15 @@ export class ZenChatViewProvider implements vscode.WebviewViewProvider {
     const imagesUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this._extensionUri, "images"),
     );
-    
+
     // Escape HTML entities in URI to prevent decoding issues with special characters like &
-    const escapedImagesUri = imagesUri.toString()
-      .replace(/&/g, '&amp;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    const escapedImagesUri = imagesUri
+      .toString()
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
 
     const nonce = this.getNonce();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];

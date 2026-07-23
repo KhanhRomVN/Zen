@@ -177,7 +177,6 @@ export class DiagnosticsService {
           }
           if (stableTimeout) clearTimeout(stableTimeout);
           stableTimeout = setTimeout(() => {
-            const elapsed = Date.now() - startTime;
             clearTimeout(timeoutHandle);
             clearTimeout(fallbackHandle);
             disposable.dispose();

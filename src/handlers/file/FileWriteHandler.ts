@@ -1,32 +1,36 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import * as crypto from "crypto";
-import * as os from "os";
-import { FileLockManager } from "../../../managers/FileLockManager";
-import { CheckpointManager } from "../../../managers/CheckpointManager";
-import { SnapshotManager } from "../../../managers/SnapshotManager";
-import { ReplaceInFileHistoryManager } from "../../../managers/ReplaceInFileHistoryManager";
-import { SecurityValidator } from "../../../agent/validators/SecurityValidator";
-import { FuzzyMatcher } from "../../../utils/FuzzyMatcher";
-import { LoggerService } from "../../../services/LoggerService";
+import { FileLockManager } from "../../managers/FileLockManager";
+import { CheckpointManager } from "../../managers/CheckpointManager";
+import { SnapshotManager } from "../../managers/SnapshotManager";
+import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
+import { SecurityValidator } from "../../agent/validators/SecurityValidator";
+import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
+import { LoggerService } from "../../services/LoggerService";
+import { PathService } from "../../services/PathService";
 
 export class FileWriteHandler {
   private _writeFileQueue: Promise<void> = Promise.resolve();
   private _replaceFileQueue: Promise<void> = Promise.resolve();
+  private pathService: PathService;
 
-  constructor(private fileLockManager: FileLockManager) {}
+  constructor(private fileLockManager: FileLockManager) {
+    this.pathService = PathService.getInstance();
+  }
 
   private getContextRoot(): string {
-    return path.join(os.homedir(), "khanhromvn-zen");
+    return this.pathService.getContextRoot();
   }
 
   private getProjectContextDir(workspaceFolderPath: string): string {
-    const hash = crypto.createHash("md5").update(workspaceFolderPath).digest("hex");
-    return path.join(this.getContextRoot(), "projects", hash);
+    return this.pathService.getProjectContextDir(workspaceFolderPath);
   }
 
-  private resolveWorkspacePath(workspaceFolder: vscode.WorkspaceFolder, pathValue: string): vscode.Uri {
+  private resolveWorkspacePath(
+    workspaceFolder: vscode.WorkspaceFolder,
+    pathValue: string,
+  ): vscode.Uri {
     if (path.isAbsolute(pathValue)) return vscode.Uri.file(pathValue);
     return vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
   }
@@ -36,8 +40,14 @@ export class FileWriteHandler {
     pathValue: string,
   ): Promise<vscode.Uri> {
     const candidates = path.isAbsolute(pathValue)
-      ? [vscode.Uri.file(pathValue), vscode.Uri.joinPath(workspaceFolder.uri, pathValue)]
-      : [vscode.Uri.joinPath(workspaceFolder.uri, pathValue), vscode.Uri.file(pathValue)];
+      ? [
+          vscode.Uri.file(pathValue),
+          vscode.Uri.joinPath(workspaceFolder.uri, pathValue),
+        ]
+      : [
+          vscode.Uri.joinPath(workspaceFolder.uri, pathValue),
+          vscode.Uri.file(pathValue),
+        ];
     let lastError: unknown;
     for (const uri of candidates) {
       try {
@@ -88,30 +98,61 @@ export class FileWriteHandler {
           d.severity === vscode.DiagnosticSeverity.Warning,
       )
       .map((d) => ({
-        severity: d.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning",
+        severity:
+          d.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning",
         message: d.message,
         line: d.range.start.line + 1,
         column: d.range.start.character + 1,
         source: d.source,
-        code: d.code ? (typeof d.code === "object" ? d.code.value : d.code) : undefined,
+        code: d.code
+          ? typeof d.code === "object"
+            ? d.code.value
+            : d.code
+          : undefined,
       }));
   }
 
   private isNonCodeFile(pathValue: string): boolean {
     const exts = [
-      ".md", ".txt", ".log", ".csv", ".xml", ".html", ".css",
-      ".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf",
-      ".env", ".gitignore", ".dockerignore", ".editorconfig",
-      ".properties", ".lock", ".sum", ".mod",
+      ".md",
+      ".txt",
+      ".log",
+      ".csv",
+      ".xml",
+      ".html",
+      ".css",
+      ".json",
+      ".yaml",
+      ".yml",
+      ".toml",
+      ".ini",
+      ".cfg",
+      ".conf",
+      ".env",
+      ".gitignore",
+      ".dockerignore",
+      ".editorconfig",
+      ".properties",
+      ".lock",
+      ".sum",
+      ".mod",
     ];
     return exts.some((ext) => pathValue.toLowerCase().endsWith(ext));
   }
 
   private async ensureFileOpened(uri: vscode.Uri): Promise<void> {
     try {
-      if (vscode.workspace.textDocuments.some((doc) => doc.uri.fsPath === uri.fsPath)) return;
+      if (
+        vscode.workspace.textDocuments.some(
+          (doc) => doc.uri.fsPath === uri.fsPath,
+        )
+      )
+        return;
       const doc = await vscode.workspace.openTextDocument(uri);
-      await vscode.window.showTextDocument(doc, { preview: true, viewColumn: vscode.ViewColumn.Active });
+      await vscode.window.showTextDocument(doc, {
+        preview: true,
+        viewColumn: vscode.ViewColumn.Active,
+      });
     } catch (e) {}
   }
 
@@ -162,18 +203,24 @@ export class FileWriteHandler {
   }
 
   // ── Write File ──
-  public async handleWriteFile(message: any, webviewView: vscode.WebviewView) {
+  public async handleWriteToFile(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
     const logger = LoggerService.getInstance();
     try {
       await this.enqueueWriteOperation(async () => {
         await this._writeFileInternal(message, webviewView);
       });
     } catch (e: any) {
-      logger.error("[handleWriteFile] Failed", { error: e.message });
+      logger.error("[handleWriteToFile] Failed", { error: e.message });
     }
   }
 
-  private async _writeFileInternal(message: any, webviewView: vscode.WebviewView) {
+  private async _writeFileInternal(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
     const logger = LoggerService.getInstance();
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -185,24 +232,32 @@ export class FileWriteHandler {
       if (pathValue.endsWith("workspace.md")) {
         const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
         await fs.promises.mkdir(pcDir, { recursive: true });
-        absolutePath = vscode.Uri.file(path.join(pcDir, path.basename(pathValue)));
+        absolutePath = vscode.Uri.file(
+          path.join(pcDir, path.basename(pathValue)),
+        );
       } else {
         absolutePath = this.resolveWorkspacePath(workspaceFolder, pathValue);
       }
 
       const sec = SecurityValidator.validatePath(absolutePath.fsPath, true);
-      if (!sec.safe) throw new Error(sec.reason || "Security validation failed");
+      if (!sec.safe)
+        throw new Error(sec.reason || "Security validation failed");
 
       const release = await this.fileLockManager.acquire(absolutePath.fsPath);
       try {
         if (message.conversationId) {
-          CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
+          CheckpointManager.getInstance().setActiveConversationId(
+            message.conversationId,
+          );
         }
         const fileExists = fs.existsSync(absolutePath.fsPath);
         let beforeContent: string | null = null;
         if (fileExists) {
           try {
-            beforeContent = await fs.promises.readFile(absolutePath.fsPath, "utf-8");
+            beforeContent = await fs.promises.readFile(
+              absolutePath.fsPath,
+              "utf-8",
+            );
           } catch {
             beforeContent = null;
           }
@@ -211,8 +266,13 @@ export class FileWriteHandler {
           absolutePath.fsPath,
           fileExists ? "modify" : "create",
         );
-        await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(absolutePath, ".."));
-        await vscode.workspace.fs.writeFile(absolutePath, Buffer.from(message.content, "utf8"));
+        await vscode.workspace.fs.createDirectory(
+          vscode.Uri.joinPath(absolutePath, ".."),
+        );
+        await vscode.workspace.fs.writeFile(
+          absolutePath,
+          Buffer.from(message.content, "utf8"),
+        );
 
         if (message.conversationId && message.actionId) {
           await SnapshotManager.getInstance().saveSnapshot(
@@ -232,9 +292,16 @@ export class FileWriteHandler {
         if (!this.isNonCodeFile(pathValue)) {
           try {
             const doc = await vscode.workspace.openTextDocument(absolutePath);
-            await vscode.window.showTextDocument(doc, { preview: false, preserveFocus: true });
+            await vscode.window.showTextDocument(doc, {
+              preview: false,
+              preserveFocus: true,
+            });
           } catch {}
-          await this.waitForDiagnosticsWithFallback(absolutePath, pathValue, 50000); // 50 giây
+          await this.waitForDiagnosticsWithFallback(
+            absolutePath,
+            pathValue,
+            50000,
+          ); // 50 giây
         }
         webviewView.webview.postMessage({
           command: "writeFileResult",
@@ -263,7 +330,10 @@ export class FileWriteHandler {
   }
 
   // ── Replace In File ──
-  public async handleReplaceInFile(message: any, webviewView: vscode.WebviewView) {
+  public async handleReplaceInFile(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
     const logger = LoggerService.getInstance();
     try {
       await this.enqueueReplaceOperation(async () => {
@@ -274,7 +344,10 @@ export class FileWriteHandler {
     }
   }
 
-  private async _replaceInFileInternal(message: any, webviewView: vscode.WebviewView) {
+  private async _replaceInFileInternal(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
     const logger = LoggerService.getInstance();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
@@ -295,7 +368,10 @@ export class FileWriteHandler {
       absPath = vscode.Uri.file(path.join(pcDir, path.basename(pathValue)));
     } else {
       try {
-        absPath = await this.resolveWorkspacePathWithFallback(workspaceFolder, pathValue);
+        absPath = await this.resolveWorkspacePathWithFallback(
+          workspaceFolder,
+          pathValue,
+        );
       } catch {
         absPath = this.resolveWorkspacePath(workspaceFolder, pathValue);
       }
@@ -312,7 +388,9 @@ export class FileWriteHandler {
     }
 
     // Kiểm tra file tồn tại trước khi replace
-    try { await vscode.workspace.fs.stat(absPath); } catch {
+    try {
+      await vscode.workspace.fs.stat(absPath);
+    } catch {
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
         requestId: message.requestId,
@@ -322,16 +400,23 @@ export class FileWriteHandler {
     }
 
     if (message.conversationId) {
-      CheckpointManager.getInstance().setActiveConversationId(message.conversationId);
+      CheckpointManager.getInstance().setActiveConversationId(
+        message.conversationId,
+      );
     }
-    await CheckpointManager.getInstance().createCheckpoint(absPath.fsPath, "modify");
+    await CheckpointManager.getInstance().createCheckpoint(
+      absPath.fsPath,
+      "modify",
+    );
 
     const release = await this.fileLockManager.acquire(absPath.fsPath);
     let newContent: string | undefined;
     try {
       let content = "";
       try {
-        content = Buffer.from(await vscode.workspace.fs.readFile(absPath)).toString("utf8");
+        content = Buffer.from(
+          await vscode.workspace.fs.readFile(absPath),
+        ).toString("utf8");
       } catch (e: any) {
         if (!pathValue.endsWith("workspace.md")) throw e;
       }
@@ -357,12 +442,16 @@ export class FileWriteHandler {
       let target = searchArgs;
       if (content.indexOf(searchArgs) === -1) {
         const fuzzy = FuzzyMatcher.findMatch(content, searchArgs);
-        if (!fuzzy || fuzzy.score <= 1e-9) throw new Error("Search text not found");
+        if (!fuzzy || fuzzy.score <= 1e-9)
+          throw new Error("Search text not found");
         target = fuzzy.originalText;
       }
       newContent = content.replace(target, replaceArgs);
       if (newContent === content) throw new Error("No change made");
-      await vscode.workspace.fs.writeFile(absPath, Buffer.from(newContent, "utf8"));
+      await vscode.workspace.fs.writeFile(
+        absPath,
+        Buffer.from(newContent, "utf8"),
+      );
 
       if (message.conversationId && message.actionId && newContent) {
         await SnapshotManager.getInstance().saveSnapshot(
@@ -397,7 +486,9 @@ export class FileWriteHandler {
 
     if (!message.skipDiagnostics) {
       if (!this.isNonCodeFile(pathValue)) {
-        try { await vscode.workspace.openTextDocument(absPath); } catch {}
+        try {
+          await vscode.workspace.openTextDocument(absPath);
+        } catch {}
         await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000); // 50 giây
       }
       diagnostics = this.getDiagnosticsForFile(absPath);
@@ -405,9 +496,13 @@ export class FileWriteHandler {
 
     // Lưu lịch sử replace_in_file thành công
     if (message.conversationId && newContent !== undefined) {
-      const errorCount = diagnostics.filter((d) => d.severity === "Error").length;
-      const warningCount = diagnostics.filter((d) => d.severity === "Warning").length;
-      
+      const errorCount = diagnostics.filter(
+        (d) => d.severity === "Error",
+      ).length;
+      const warningCount = diagnostics.filter(
+        (d) => d.severity === "Warning",
+      ).length;
+
       const historyManager = ReplaceInFileHistoryManager.getInstance();
       historyManager.setActiveConversationId(message.conversationId);
       await historyManager.saveHistory(
@@ -427,5 +522,67 @@ export class FileWriteHandler {
       diagnostics: diagnostics,
       content: newContent,
     });
+  }
+
+  // ── Validate Fuzzy Match ──
+  public async handleValidateFuzzyMatch(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+    const absPath = vscode.Uri.joinPath(workspaceFolder.uri, message.path);
+    const content = Buffer.from(
+      await vscode.workspace.fs.readFile(absPath),
+    ).toString("utf8");
+    const match = message.diff.match(
+      /<<<<<<< SEARCH\s*\n([\s\S]*?)\n\s*=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
+    );
+    if (!match) {
+      webviewView.webview.postMessage({
+        command: "validateFuzzyMatchResult",
+        id: message.id,
+        status: "invalid_format",
+      });
+      return;
+    }
+    const clean = (text: string) =>
+      text
+        .replace(/^```[a-zA-Z]*$/gm, "")
+        .trim()
+        .replace(/\r\n/g, "\n");
+    const search = clean(match[1]);
+    const exact = content.replace(/\r\n/g, "\n").indexOf(search);
+    if (exact !== -1) {
+      webviewView.webview.postMessage({
+        command: "validateFuzzyMatchResult",
+        id: message.id,
+        status: "exact",
+        searchBlock: search,
+        foundBlock: search,
+        score: 1.0,
+        startLine: content.substring(0, exact).split(/\r?\n/).length,
+      });
+    } else {
+      const fuzzy = FuzzyMatcher.findMatch(content, search);
+      if (fuzzy) {
+        webviewView.webview.postMessage({
+          command: "validateFuzzyMatchResult",
+          id: message.id,
+          status: "fuzzy",
+          score: fuzzy.score,
+          searchBlock: search,
+          foundBlock: fuzzy.originalText,
+          startLine: fuzzy.startLine,
+        });
+      } else {
+        webviewView.webview.postMessage({
+          command: "validateFuzzyMatchResult",
+          id: message.id,
+          status: "none",
+          searchBlock: search,
+        });
+      }
+    }
   }
 }

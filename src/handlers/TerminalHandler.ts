@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as os from "os";
-import { ProcessManager } from "../../managers/ProcessManager";
-import { SecurityValidator } from "../../agent/validators/SecurityValidator";
+import { ProcessManager } from "../managers/ProcessManager";
+import { SecurityValidator } from "../agent/validators/SecurityValidator";
 
 export class TerminalHandler {
   constructor(private processManager: ProcessManager) {}
@@ -66,12 +66,6 @@ export class TerminalHandler {
     }
   }
 
-  public async handleFocusTerminal(message: any) {
-    try {
-      this.processManager.focus(message.terminalId);
-    } catch (e: any) {}
-  }
-
   public async handleStopCommand(message: any) {
     if (message.actionId === "all") {
       this.processManager.stopAll();
@@ -85,10 +79,6 @@ export class TerminalHandler {
         this.processManager.stop(target.id);
       }
     }
-  }
-
-  public handleAttachTerminalToVSCode(message: any) {
-    this.processManager.attachToVSCode(message.terminalId);
   }
 
   public handleTerminalInput(message: any) {

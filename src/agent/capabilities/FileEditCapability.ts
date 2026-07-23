@@ -1,9 +1,12 @@
+// * FileEditCapability.ts - Sửa nội dung file (tìm file theo đường dẫn tương đối hoặc tuyệt đối, tự động tạo thư mục nếu cần).
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import { AgentAction, AgentExecutionResult } from "../../types";
 
+// * Capability sửa file: hỗ trợ cả đường dẫn tương đối và tuyệt đối, tự động tạo thư mục cha nếu chưa tồn tại.
 export class FileEditCapability {
+  // * Thực thi sửa file: tìm file cần sửa, ghi nội dung mới, trả về đường dẫn và kích thước.
   async execute(action: AgentAction): Promise<AgentExecutionResult> {
     try {
       if (!action.path) {

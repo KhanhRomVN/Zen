@@ -5,6 +5,12 @@ import { TextDecoder, TextEncoder } from "util";
 export class GlobalStorageManager {
   private readonly storageUri: vscode.Uri;
   private readonly storageDir: vscode.Uri;
+  private _listCache: Map<string, { result: string[]; timestamp: number }> =
+    new Map();
+  private readonly LIST_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private _getCache: Map<string, { value: string; timestamp: number }> =
+    new Map();
+  private readonly GET_CACHE_TTL = 2000; // 2 seconds
 
   constructor(private readonly context: vscode.ExtensionContext) {
     this.storageUri = context.globalStorageUri;
@@ -89,10 +95,27 @@ export class GlobalStorageManager {
   }
 
   async get(key: string): Promise<string | undefined> {
+    const startTime = Date.now();
+
+    // Check cache first
+    const cached = this._getCache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.GET_CACHE_TTL) {
+      return cached.value;
+    }
+
+    // Check if key exists first to avoid error logs for missing keys
+    if (!(await this.exists(key))) {
+      return undefined;
+    }
     try {
       const fileUri = this.getKeyUri(key);
       const content = await vscode.workspace.fs.readFile(fileUri);
-      return new TextDecoder().decode(content);
+      const decoded = new TextDecoder().decode(content);
+
+      // Store in cache
+      this._getCache.set(key, { value: decoded, timestamp: Date.now() });
+
+      return decoded;
     } catch (error) {
       // File not found or read error
       return undefined;
@@ -100,10 +123,15 @@ export class GlobalStorageManager {
   }
 
   async set(key: string, value: string): Promise<void> {
+    const startTime = Date.now();
     try {
       const fileUri = this.getKeyUri(key);
       const content = new TextEncoder().encode(value);
       await vscode.workspace.fs.writeFile(fileUri, content);
+
+      // Invalidate cache for this key
+      this._getCache.delete(key);
+      this._listCache.clear(); // Clear list cache since data changed
     } catch (error) {
       throw new Error(`Failed to write storage for key ${key}: ${error}`);
     }
@@ -113,22 +141,39 @@ export class GlobalStorageManager {
     try {
       const fileUri = this.getKeyUri(key);
       await vscode.workspace.fs.delete(fileUri, { useTrash: false });
+
+      // Invalidate cache for this key
+      this._getCache.delete(key);
+      this._listCache.clear(); // Clear list cache since data changed
     } catch (error) {
       // Ignore if file doesn't exist
     }
   }
 
   async list(prefix?: string): Promise<string[]> {
+    const startTime = Date.now();
+    const cacheKey = prefix || "all";
+    const cached = this._listCache.get(cacheKey);
+
+    // Return cached result if still valid
+    if (cached && Date.now() - cached.timestamp < this.LIST_CACHE_TTL) {
+      return cached.result;
+    }
+
     try {
       const entries = await vscode.workspace.fs.readDirectory(this.storageDir);
       const keys = entries
         .filter(([_, type]) => type === vscode.FileType.File)
         .map(([name]) => this.filenameToKey(name));
 
-      if (prefix) {
-        return keys.filter((key) => key.startsWith(prefix));
-      }
-      return keys;
+      const result = prefix
+        ? keys.filter((key) => key.startsWith(prefix))
+        : keys;
+
+      // Store in cache
+      this._listCache.set(cacheKey, { result, timestamp: Date.now() });
+
+      return result;
     } catch (error) {
       // console.error("[Storage] Failed to list keys:", error);
       return [];

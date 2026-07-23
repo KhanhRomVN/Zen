@@ -1,35 +1,20 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import * as crypto from "crypto";
 import * as os from "os";
-import { ContextManager } from "../../context/ContextManager";
-import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
+import * as crypto from "crypto";
+
+import { PathService } from "../services/PathService";
 
 export class ProjectContextHandler {
+  private pathService: PathService;
 
-  constructor(
-    private contextManager: ContextManager,
-    private storageManager: GlobalStorageManager | undefined,
-  ) {}
-
-  private getContextRoot(): string {
-    return path.join(os.homedir(), "khanhromvn-zen");
+  constructor() {
+    this.pathService = PathService.getInstance();
   }
 
   private getProjectContextDir(workspaceFolderPath: string): string {
-    const hash = crypto
-      .createHash("md5")
-      .update(workspaceFolderPath)
-      .digest("hex");
-    return path.join(this.getContextRoot(), "projects", hash);
-  }
-
-  private getProjectContextKey(pathValue: string): string {
-    return `project-context-${crypto
-      .createHash("md5")
-      .update(pathValue)
-      .digest("hex")}`;
+    return this.pathService.getProjectContextDir(workspaceFolderPath);
   }
 
   public async handleGetFolderTree(
@@ -102,9 +87,8 @@ export class ProjectContextHandler {
         workspace = await fs.promises.readFile(workspacePath, "utf-8");
       }
 
-      const treeView = await this.contextManager
-        .getFileSystemAnalyzer()
-        .getFileTree(20);
+      // treeView removed - no longer using FileSystemAnalyzer
+      const treeView = "";
 
       webviewView.webview.postMessage({
         command: "projectContextResult",
@@ -123,42 +107,5 @@ export class ProjectContextHandler {
         error: error.message,
       });
     }
-  }
-
-  public async handleRequestContext(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    let pc = null;
-    if (workspaceFolder && this.storageManager) {
-      pc = await this.storageManager.get(
-        this.getProjectContextKey(workspaceFolder.uri.fsPath),
-      );
-      if (pc) {
-        try {
-          pc = JSON.parse(pc);
-        } catch {
-          pc = null;
-        }
-      }
-    }
-
-    this.contextManager
-      .generateContext(message.task, message.isFirstRequest, pc)
-      .then((context: any) => {
-        webviewView.webview.postMessage({
-          command: "requestContextResult",
-          requestId: message.requestId,
-          context,
-        });
-      })
-      .catch((e: any) => {
-        webviewView.webview.postMessage({
-          command: "requestContextResult",
-          requestId: message.requestId,
-          error: e.message,
-        });
-      });
   }
 }

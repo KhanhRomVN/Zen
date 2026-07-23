@@ -1,54 +1,64 @@
+// * ChatController.ts - Controller trung tâm điều phối tất cả message từ webview đến các handler tương ứng.
 import * as vscode from "vscode";
-import { ContextManager } from "../context/ContextManager";
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 import { AgentManager } from "../agent/AgentManager";
 import { ProcessManager } from "../managers/ProcessManager";
 import { FileLockManager } from "../managers/FileLockManager";
-import { RecentItemsManager } from "../context/RecentItemsManager";
-import { ConversationHandler } from "./handlers/ConversationHandler";
-import { FileHandler } from "./handlers/FileHandler";
-import { TerminalHandler } from "./handlers/TerminalHandler";
-import { SystemHandler } from "./handlers/SystemHandler";
-import { ProjectContextHandler } from "./handlers/ProjectContextHandler";
-import { AgentHandler } from "./handlers/AgentHandler";
-import { StorageHandler } from "./handlers/StorageHandler";
+
+import { ConversationHistoryHandler } from "../handlers/conversation/ConversationHistoryHandler";
+import { ConversationStateHandler } from "../handlers/conversation/ConversationStateHandler";
+import { FileReadHandler } from "../handlers/file/FileReadHandler";
+import { FileWriteHandler } from "../handlers/file/FileWriteHandler";
+import { FileOperationHandler } from "../handlers/file/FileOperationHandler";
+import { GitHandler } from "../handlers/file/GitHandler";
+import { TerminalHandler } from "../handlers/TerminalHandler";
+import { SystemHandler } from "../handlers/SystemHandler";
+import { ProjectContextHandler } from "../handlers/ProjectContextHandler";
+import { AgentHandler } from "../handlers/AgentHandler";
+import { StorageHandler } from "../handlers/StorageHandler";
 import { CheckpointManager } from "../managers/CheckpointManager";
 
+// * Controller chính của Zen: nhận message từ webview, điều phối đến đúng handler dựa trên command type.
 export class ChatController {
-  private conversationHandler: ConversationHandler;
-  private fileHandler: FileHandler;
+  private conversationHistoryHandler: ConversationHistoryHandler;
+  private conversationStateHandler: ConversationStateHandler;
+  private fileReadHandler: FileReadHandler;
+  private fileWriteHandler: FileWriteHandler;
+  private fileOperationHandler: FileOperationHandler;
+  private gitHandler: GitHandler;
   private terminalHandler: TerminalHandler;
   private systemHandler: SystemHandler;
   private projectContextHandler: ProjectContextHandler;
   private agentHandler: AgentHandler;
   private storageHandler: StorageHandler;
 
+  // * Khởi tạo tất cả handlers với các dependency cần thiết (storage, agent, process, file lock).
   constructor(
-    private contextManager: ContextManager,
     private storageManager: GlobalStorageManager | undefined,
     private agentManager: AgentManager | undefined,
     private processManager: ProcessManager,
     private fileLockManager: FileLockManager,
-    private recentItemsManager: RecentItemsManager | undefined,
-    private extensionUri: vscode.Uri,
   ) {
-    this.conversationHandler = new ConversationHandler(this.fileLockManager, this.storageManager);
-    this.fileHandler = new FileHandler(
-      this.contextManager,
-      this.fileLockManager,
-      this.recentItemsManager,
-    );
-    this.terminalHandler = new TerminalHandler(this.processManager);
-    this.systemHandler = new SystemHandler();
-    this.projectContextHandler = new ProjectContextHandler(
-      this.contextManager,
+    this.conversationHistoryHandler = new ConversationHistoryHandler(
       this.storageManager,
     );
+    this.conversationStateHandler = new ConversationStateHandler(
+      this.fileLockManager,
+    );
+    this.fileReadHandler = new FileReadHandler();
+    this.fileWriteHandler = new FileWriteHandler(this.fileLockManager);
+    this.fileOperationHandler = new FileOperationHandler();
+    this.gitHandler = new GitHandler();
+    this.terminalHandler = new TerminalHandler(this.processManager);
+    this.systemHandler = new SystemHandler();
+    this.projectContextHandler = new ProjectContextHandler();
     this.agentHandler = new AgentHandler(this.agentManager);
     this.storageHandler = new StorageHandler(this.storageManager);
   }
 
+  // * Điều phối message từ webview: xác định command, gán conversationId, gọi handler tương ứng.
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
+    const startTime = Date.now();
     const command = message.command;
 
     if (message.conversationId) {
@@ -96,116 +106,82 @@ export class ChatController {
 
         // Conversation Management
         case "getHistory":
-          await this.conversationHandler.handleGetHistory(message, webviewView);
+          await this.conversationHistoryHandler.handleGetHistory(message, webviewView);
           break;
         case "getConversation":
-          await this.conversationHandler.handleGetConversation(
+          await this.conversationHistoryHandler.handleGetConversation(
             message,
             webviewView,
           );
           break;
-        case "logConversation":
-          await this.conversationHandler.handleLogConversation(message);
-          break;
-        case "logChat":
-          await this.conversationHandler.handleLogChat(message);
-          break;
-        case "createEmptyChatLog":
-          await this.conversationHandler.handleCreateEmptyChatLog(message);
-          break;
+
         case "deleteConversation":
-          await this.conversationHandler.handleDeleteConversation(
+          await this.conversationHistoryHandler.handleDeleteConversation(
             message,
             webviewView,
           );
           break;
         case "deleteAllConversations":
-          await this.conversationHandler.handleDeleteAllConversations(
+          await this.conversationHistoryHandler.handleDeleteAllConversations(
             message,
             webviewView,
           );
           break;
         case "rollbackConversationLog":
-          await this.conversationHandler.handleRollbackConversationLog(message);
+          await this.conversationStateHandler.handleRollbackConversationLog(message);
           break;
         case "revertConversation":
-          await this.conversationHandler.handleRevertConversation(
+          await this.conversationStateHandler.handleRevertConversation(
             message,
             webviewView,
           );
           break;
         case "openConversationFolder":
-          await this.conversationHandler.handleOpenConversationFolder(message);
+          await this.conversationHistoryHandler.handleOpenConversationFolder(message);
           break;
-        case "renameConversationLog":
-          await this.conversationHandler.handleRenameConversationLog(
-            message,
-            webviewView,
-          );
-          break;
+
         case "saveConversationState":
-          await this.conversationHandler.handleSaveConversationState(message);
+          await this.conversationStateHandler.handleSaveConversationState(message);
           break;
         // File Operations
         case "readFile":
-          await this.fileHandler.handleReadFile(message, webviewView);
+          await this.fileReadHandler.handleReadFile(message, webviewView);
           break;
         case "writeFile":
-          await this.fileHandler.handleWriteFile(message, webviewView);
+          await this.fileWriteHandler.handleWriteToFile(message, webviewView);
           break;
         case "replaceInFile":
-          await this.fileHandler.handleReplaceInFile(message, webviewView);
+          await this.fileWriteHandler.handleReplaceInFile(message, webviewView);
           break;
         case "revertFile":
-          await this.fileHandler.handleRevertFile(message, webviewView);
+          await this.fileOperationHandler.handleRevertFile(message, webviewView);
           break;
         case "viewReplaceHistory":
-          await this.fileHandler.handleViewReplaceHistory(message, webviewView);
-          break;
-        case "listFiles":
-          await this.fileHandler.handleListFiles(message, webviewView);
+          await this.fileOperationHandler.handleViewReplaceHistory(message, webviewView);
           break;
         case "findFiles":
-          await this.fileHandler.handleFindFiles(message, webviewView);
+          await this.fileOperationHandler.handleFindFiles(message, webviewView);
           break;
         case "searchContent":
           // removed
           break;
-        case "askBypassGitignore":
-          await this.fileHandler.handleAskBypassGitignore(message, webviewView);
-          break;
         case "validateFuzzyMatch":
-          await this.fileHandler.handleValidateFuzzyMatch(message, webviewView);
-          break;
-        case "getWorkspaceFiles":
-          await this.fileHandler.handleGetWorkspaceFiles(message, webviewView);
-          break;
-        case "getWorkspaceFolders":
-          await this.fileHandler.handleGetWorkspaceFolders(
-            message,
-            webviewView,
-          );
-          break;
-        case "getWorkspaceTree":
-          await this.fileHandler.handleGetWorkspaceTree(message, webviewView);
+          await this.fileWriteHandler.handleValidateFuzzyMatch(message, webviewView);
           break;
         case "getFileStats":
-          await this.fileHandler.handleGetFileStats(message, webviewView);
+          await this.fileOperationHandler.handleGetFileStats(message, webviewView);
           break;
         case "getDiagnostics":
-          await this.fileHandler.handleGetDiagnostics(message, webviewView);
+          await this.fileOperationHandler.handleGetDiagnostics(message, webviewView);
           break;
         case "deleteFile":
-          await this.fileHandler.handleDeleteFile(message, webviewView);
-          break;
-        case "deleteFolder":
-          await this.fileHandler.handleDeleteFolder(message, webviewView);
+          await this.fileOperationHandler.handleDeleteFile(message, webviewView);
           break;
         case "moveFile":
-          await this.fileHandler.handleMoveFile(message, webviewView);
+          await this.fileOperationHandler.handleMoveFile(message, webviewView);
           break;
         case "getSnapshot":
-          await this.fileHandler.handleGetSnapshot(message, webviewView);
+          await this.fileOperationHandler.handleGetSnapshot(message, webviewView);
           break;
 
         // Backup
@@ -239,14 +215,8 @@ export class ChatController {
         case "runCommand":
           await this.terminalHandler.handleRunCommand(message, webviewView);
           break;
-        case "attachTerminalToVSCode":
-          this.terminalHandler.handleAttachTerminalToVSCode(message);
-          break;
         case "terminalInput":
           this.terminalHandler.handleTerminalInput(message);
-          break;
-        case "focusTerminal":
-          await this.terminalHandler.handleFocusTerminal(message);
           break;
         case "stopCommand":
           await this.terminalHandler.handleStopCommand(message);
@@ -301,20 +271,11 @@ export class ChatController {
             webviewView,
           );
           break;
-        case "sendMessage":
-          await this.conversationHandler.handleSendMessage(
-            message,
-            webviewView,
-          );
-          break;
-        case "getGitChanges":
-          await this.fileHandler.handleGetGitChanges(message, webviewView);
-          break;
         case "runGitStatus":
-          await this.fileHandler.handleRunGitStatus(message, webviewView);
+          await this.gitHandler.handleRunGitStatus(message, webviewView);
           break;
         case "gitDiff":
-          await this.fileHandler.handleGitDiff(message, webviewView);
+          await this.gitHandler.handleGitDiff(message, webviewView);
           break;
         case "showGitDiff":
           await this.systemHandler.handleShowGitDiff(message);
@@ -324,13 +285,7 @@ export class ChatController {
           await this.handleGenerateCommitMessage(message, webviewView);
           break;
         case "acceptCommitMessage":
-          await this.systemHandler.handleAcceptCommitMessage(message, webviewView);
-          break;
-        case "rejectCommitMessage":
-          await this.systemHandler.handleRejectCommitMessage(message);
-          break;
-        case "requestContext":
-          await this.projectContextHandler.handleRequestContext(
+          await this.systemHandler.handleAcceptCommitMessage(
             message,
             webviewView,
           );
@@ -339,26 +294,34 @@ export class ChatController {
     } catch (error) {}
   }
 
+  // * Cập nhật theme CSS cho webview dựa trên theme hiện tại của VS Code.
   public async updateTheme(webview: vscode.Webview) {
     await this.systemHandler.updateTheme(webview);
   }
 
-  public async handleGenerateCommitMessage(message: any, webviewView: vscode.WebviewView) {
+  // * Tạo commit message từ danh sách git status, sử dụng AI model để sinh nội dung commit.
+  public async handleGenerateCommitMessage(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
     try {
       const { statusItems, model, account } = message;
       if (!statusItems || statusItems.length === 0) {
         webviewView.webview.postMessage({
-          command: 'generateCommitMessageResult',
+          command: "generateCommitMessageResult",
           requestId: message.requestId,
-          error: 'No git status items provided',
+          error: "No git status items provided",
         });
         return;
       }
 
       // Build prompt from status items
       const gitStatusText = statusItems
-        .map((item: any) => `${item.staged ? '[staged]' : '[unstaged]'} ${item.status} ${item.path}`)
-        .join('\n');
+        .map(
+          (item: any) =>
+            `${item.staged ? "[staged]" : "[unstaged]"} ${item.status} ${item.path}`,
+        )
+        .join("\n");
 
       const prompt = `[COMMIT_MESSAGE_REQUEST]
 Hãy tạo một commit message dựa trên danh sách file thay đổi sau:
@@ -377,47 +340,39 @@ Yêu cầu:
 
       // Create a new conversation ID
       const conversationId = `commit-${Date.now()}`;
-      
+
       // TODO: Use the actual AI model to generate the commit message
       // For now, we'll send a response back to the webview
       // The webview will handle the display
 
       // For testing, send a mock response
       // In production, this would use the AI model
-      
+
       // Since we don't have direct access to the AI model here,
       // we'll use the existing sendMessage flow with a new conversation
-      
+
       // Create a new conversation using the conversation handler
       // This is a simplified version - we need to actually generate the commit message
-      
-      // For now, let's use a simple approach: call the sendMessage with a new conversation
-      const sendMessageResult = await this.conversationHandler.handleSendMessage(
-        {
-          ...message,
-          content: prompt,
-          model: model,
-          account: account,
-          conversationId: conversationId,
-          isCommitMessage: true,
-        },
-        webviewView
-      );
 
       // Return the result to the webview
       webviewView.webview.postMessage({
-        command: 'generateCommitMessageResult',
+        command: "generateCommitMessageResult",
         requestId: message.requestId,
         success: true,
         conversationId: conversationId,
       });
-
     } catch (error) {
-      console.error('[ChatController] handleGenerateCommitMessage error:', error);
+      console.error(
+        "[ChatController] handleGenerateCommitMessage error:",
+        error,
+      );
       webviewView.webview.postMessage({
-        command: 'generateCommitMessageResult',
+        command: "generateCommitMessageResult",
         requestId: message.requestId,
-        error: error instanceof Error ? error.message : 'Failed to generate commit message',
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate commit message",
       });
     }
   }

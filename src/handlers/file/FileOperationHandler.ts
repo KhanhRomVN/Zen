@@ -1,35 +1,13 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { ContextManager } from "../../../context/ContextManager";
-import { FileLockManager } from "../../../managers/FileLockManager";
-import { RecentItemsManager } from "../../../context/RecentItemsManager";
-import { CheckpointManager } from "../../../managers/CheckpointManager";
-import { SnapshotManager } from "../../../managers/SnapshotManager";
-import { ReplaceInFileHistoryManager } from "../../../managers/ReplaceInFileHistoryManager";
-import { SecurityValidator } from "../../../agent/validators/SecurityValidator";
-import { LoggerService } from "../../../services/LoggerService";
+import { CheckpointManager } from "../../managers/CheckpointManager";
+import { SnapshotManager } from "../../managers/SnapshotManager";
+import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
+import { SecurityValidator } from "../../agent/validators/SecurityValidator";
+import { LoggerService } from "../../services/LoggerService";
 
 export class FileOperationHandler {
-  private _workspaceFilesCache: any[] | null = null;
-  private _workspaceFoldersCache: any[] | null = null;
-  private _lastCacheUpdate: number = 0;
-  private readonly CACHE_TTL = 5 * 60 * 1000;
-
-  constructor(
-    private contextManager: ContextManager,
-    private fileLockManager: FileLockManager,
-    private recentItemsManager: RecentItemsManager | undefined,
-  ) {}
-
-  private resolveWorkspacePath(
-    workspaceFolder: vscode.WorkspaceFolder,
-    pathValue: string,
-  ): vscode.Uri {
-    if (path.isAbsolute(pathValue)) return vscode.Uri.file(pathValue);
-    return vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
-  }
-
   private async resolveWorkspacePathWithFallback(
     workspaceFolder: vscode.WorkspaceFolder,
     pathValue: string,
@@ -55,9 +33,7 @@ export class FileOperationHandler {
     throw lastError;
   }
 
-  private getDiagnosticsForFile(
-    uri: vscode.Uri,
-  ): Array<{
+  private getDiagnosticsForFile(uri: vscode.Uri): Array<{
     severity: string;
     message: string;
     line: number;
@@ -100,63 +76,6 @@ export class FileOperationHandler {
         (d) => d.severity === vscode.DiagnosticSeverity.Warning,
       ).length,
     };
-  }
-
-  // ── List Files ──
-  public async handleListFiles(message: any, webviewView: vscode.WebviewView) {
-    try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) return;
-      const pathValue = message.path || message.folder_path || message.filePath;
-      const dirPath = pathValue || ".";
-      const absolutePath = await this.resolveWorkspacePathWithFallback(
-        workspaceFolder,
-        dirPath,
-      ).catch(() => this.resolveWorkspacePath(workspaceFolder, dirPath));
-
-      let maxDepth = 1;
-      if (message.depth !== undefined && message.depth !== null) {
-        if (String(message.depth).toLowerCase() === "max") maxDepth = 999;
-        else maxDepth = parseInt(String(message.depth), 10) || 1;
-      } else if (message.recursive === "true" || message.recursive === true)
-        maxDepth = 20;
-      else if (message.recursive)
-        maxDepth = parseInt(String(message.recursive), 10) || 1;
-
-      const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
-      const ignoreCheck = await fsAnalyzer.isIgnored(absolutePath.fsPath);
-      if (ignoreCheck.ignored && !message.bypassIgnore) {
-        throw new Error(
-          `Path '${dirPath}' is out of scope (ignored by .gitignore or project settings).`,
-        );
-      }
-
-      const treeNode = await fsAnalyzer.getFileTreeJson(
-        maxDepth,
-        absolutePath.fsPath,
-        true,
-      );
-      const convertType = (node: any): any => ({
-        ...node,
-        type: node.type === "directory" ? "folder" : node.type,
-        children: node.children?.map(convertType),
-      });
-      const tree = (treeNode.children || []).map(convertType);
-
-      webviewView.webview.postMessage({
-        command: "listFilesResult",
-        requestId: message.requestId,
-        path: pathValue,
-        files: tree,
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "listFilesResult",
-        requestId: message.requestId,
-        path: message.path || message.folder_path,
-        error: e.message,
-      });
-    }
   }
 
   // ── Get File Stats ──
@@ -232,118 +151,6 @@ export class FileOperationHandler {
         error: e.message,
       });
     }
-  }
-
-  // ── Workspace Files/Folders/Tree ──
-  public async handleGetWorkspaceFiles(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const now = Date.now();
-    if (
-      this._workspaceFilesCache &&
-      now - this._lastCacheUpdate < this.CACHE_TTL
-    ) {
-      webviewView.webview.postMessage({
-        command: "workspaceFilesResponse",
-        requestId: message.requestId,
-        files: this._workspaceFilesCache,
-      });
-      return;
-    }
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-    const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
-    const recentFiles = this.recentItemsManager
-      ? this.recentItemsManager.getRecentFiles()
-      : [];
-    const files = await vscode.workspace.findFiles("**/*");
-    const stats = await Promise.all(
-      files.map(async (f) => {
-        const relativePath = vscode.workspace.asRelativePath(f);
-        try {
-          const s = await vscode.workspace.fs.stat(f);
-          const lines = await fsAnalyzer.getFileLineCount(f.fsPath);
-          return {
-            path: relativePath,
-            lastModified: s.mtime,
-            type: "file",
-            size: s.size,
-            lines,
-            isRecent: recentFiles.includes(relativePath),
-          };
-        } catch {
-          return null;
-        }
-      }),
-    );
-    const result = stats
-      .filter((x) => x)
-      .sort((a: any, b: any) => b.lastModified - a.lastModified);
-    this._workspaceFilesCache = result;
-    this._lastCacheUpdate = now;
-    webviewView.webview.postMessage({
-      command: "workspaceFilesResponse",
-      requestId: message.requestId,
-      files: result,
-    });
-  }
-
-  public async handleGetWorkspaceFolders(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const now = Date.now();
-    if (
-      this._workspaceFoldersCache &&
-      now - this._lastCacheUpdate < this.CACHE_TTL
-    ) {
-      webviewView.webview.postMessage({
-        command: "workspaceFoldersResponse",
-        requestId: message.requestId,
-        folders: this._workspaceFoldersCache,
-      });
-      return;
-    }
-    const fsAnalyzer = this.contextManager.getFileSystemAnalyzer();
-    const foldersWithCounts = await fsAnalyzer.getFolderPaths();
-    const recentFolders = this.recentItemsManager
-      ? this.recentItemsManager.getRecentFolders()
-      : [];
-    const result = foldersWithCounts.map((f) => ({
-      name: path.basename(f.path),
-      path: f.path,
-      type: "folder",
-      isRecent: recentFolders.includes(f.path),
-      fileCount: f.count,
-    }));
-    this._workspaceFoldersCache = result;
-    webviewView.webview.postMessage({
-      command: "workspaceFoldersResponse",
-      requestId: message.requestId,
-      folders: result,
-    });
-  }
-
-  public async handleGetWorkspaceTree(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
-    const raw = await this.contextManager.getRawFileTree();
-    const normalize = (node: any): any => ({
-      ...node,
-      path: path
-        .relative(workspaceFolder.uri.fsPath, node.path)
-        .replace(/\\/g, "/"),
-      children: node.children?.map(normalize),
-    });
-    webviewView.webview.postMessage({
-      command: "workspaceTreeResult",
-      requestId: message.requestId,
-      tree: raw ? normalize(raw) : null,
-    });
   }
 
   // ── Find Files ──
@@ -424,43 +231,6 @@ export class FileOperationHandler {
     }
   }
 
-  public async handleDeleteFolder(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) throw new Error("No workspace");
-      const folderPath = message.folder_path;
-      if (!folderPath) throw new Error("'folder_path' is required");
-      const absPath = path.isAbsolute(folderPath)
-        ? folderPath
-        : path.join(workspaceFolder.uri.fsPath, folderPath);
-      const cpm = CheckpointManager.getInstance();
-      const collectFiles = async (dir: string) => {
-        const entries = await fs.promises.readdir(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const full = path.join(dir, entry.name);
-          if (entry.isDirectory()) await collectFiles(full);
-          else await cpm.createCheckpoint(full, "delete");
-        }
-      };
-      await collectFiles(absPath);
-      await fs.promises.rm(absPath, { recursive: true, force: true });
-      webviewView.webview.postMessage({
-        command: "deleteFolderResult",
-        requestId: message.requestId,
-        success: true,
-      });
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "deleteFolderResult",
-        requestId: message.requestId,
-        error: e.message,
-      });
-    }
-  }
-
   // ── Move File ──
   public async handleMoveFile(message: any, webviewView: vscode.WebviewView) {
     const logger = LoggerService.getInstance();
@@ -527,7 +297,7 @@ export class FileOperationHandler {
     }
   }
 
-  // ── Revert File ──
+  // revert_file
   public async handleRevertFile(message: any, webviewView: vscode.WebviewView) {
     const logger = LoggerService.getInstance();
     try {
@@ -715,30 +485,6 @@ export class FileOperationHandler {
         command: "viewReplaceHistoryResult",
         requestId: message.requestId,
         error: e.message,
-      });
-    }
-  }
-
-  // ── Bypass Gitignore ──
-  public async handleAskBypassGitignore(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      const { path: pathValue, requestId } = message;
-      if (!pathValue) throw new Error("Path is required");
-      this.contextManager.getFileSystemAnalyzer().addBypassPath(pathValue);
-      webviewView.webview.postMessage({
-        command: "askBypassGitignoreResult",
-        requestId,
-        path: pathValue,
-        success: true,
-      });
-    } catch (error: any) {
-      webviewView.webview.postMessage({
-        command: "askBypassGitignoreResult",
-        requestId: message.requestId,
-        error: String(error),
       });
     }
   }

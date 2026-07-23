@@ -3,18 +3,9 @@ import * as crypto from "crypto";
 import * as os from "os";
 import { spawn, ChildProcess, SpawnOptions } from "child_process";
 
-// Long-running command patterns — these terminals persist until user stops them
 const LONG_RUNNING_PATTERNS =
   /\b(dev|start|serve|watch|preview|run dev|run start|run serve|run watch|run preview)\b/i;
 
-/** Resolve the shell and spawn args for the current OS.
- *
- *  - Windows: use `cmd.exe /d /s /c` so all standard Windows commands work,
- *    or PowerShell if `COMSPEC` is not set.
- *  - macOS / Linux: use the user's login shell (`$SHELL`) falling back to `/bin/sh`.
- *
- *  Returns `{ shell, args, spawnOptions }` ready to pass to `spawn()`.
- */
 function resolveShell(cwd: string): {
   shell: string;
   shellArgs: string[];
@@ -92,20 +83,22 @@ export class ProcessManager {
   public onTerminalStatusChanged = this.onTerminalStatusChangedEmitter.event;
 
   // Throttle terminal data events to reduce IPC overhead
-  private dataBuffers = new Map<string, { data: string; timer: NodeJS.Timeout | null }>();
+  private dataBuffers = new Map<
+    string,
+    { data: string; timer: NodeJS.Timeout | null }
+  >();
   private readonly DATA_FLUSH_INTERVAL = 100; // ms
 
   // Debounce terminals changed events
   private terminalsChangedTimer: NodeJS.Timeout | null = null;
   private readonly TERMINALS_CHANGED_DEBOUNCE = 50; // ms
 
-  public setProjectDir(_dir: string) {}
-  public setExtensionContext(_ctx: vscode.ExtensionContext) {}
-
   async startInteractive(
     cwd: string,
     terminalId?: string,
   ): Promise<{ id: string; name: string }> {
+    const startTime = Date.now();
+
     const id = terminalId || crypto.randomUUID();
     if (this.terminalMap.has(id)) {
       return { id, name: this.terminalMap.get(id)!.name };
@@ -125,6 +118,7 @@ export class ProcessManager {
     };
     this.terminalMap.set(id, entry);
     this.fireTerminalsChanged();
+
     return { id, name };
   }
 
@@ -146,7 +140,7 @@ export class ProcessManager {
       terminalId,
       data: buffer.data,
     });
-    
+
     buffer.data = "";
     buffer.timer = null;
   }
@@ -170,8 +164,11 @@ export class ProcessManager {
   }
 
   sendInput(id: string, commandText: string, actionId?: string) {
+    const startTime = Date.now();
     const entry = this.terminalMap.get(id);
-    if (!entry) return;
+    if (!entry) {
+      return;
+    }
 
     // If a process is running and no actionId, pipe input into its stdin
     if (!actionId && entry.process && entry.isBusy) {
@@ -213,7 +210,12 @@ export class ProcessManager {
     const child = spawn(shell, [...shellArgs, cleanCmd], spawnOpts);
     entry.process = child;
 
+    let dataChunks = 0;
+    let totalDataSize = 0;
+
     const onData = (chunk: Buffer) => {
+      dataChunks++;
+      totalDataSize += chunk.length;
       const clean = chunk
         .toString("utf8")
         .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "")
@@ -289,6 +291,7 @@ export class ProcessManager {
       this.flushDataBuffer(id);
       entry.process = null;
       entry.isBusy = false;
+
       if (actionId) {
         entry.activeActionId = null;
         console.error(
@@ -312,26 +315,22 @@ export class ProcessManager {
   }
 
   private _cleanup(id: string) {
+    const startTime = Date.now();
     const entry = this.terminalMap.get(id);
     if (!entry) return;
-    
+
+    const outputSize = entry.output.length;
+
     // Clear any pending data buffer
     const buffer = this.dataBuffers.get(id);
     if (buffer?.timer) {
       clearTimeout(buffer.timer);
     }
     this.dataBuffers.delete(id);
-    
+
     entry.writeEmitter.dispose();
     this.terminalMap.delete(id);
     this.fireTerminalsChanged();
-  }
-
-  attachToVSCode(_id: string) {}
-  focus(_id: string) {}
-
-  getOutput(id: string): string {
-    return this.terminalMap.get(id)?.output ?? "";
   }
 
   list() {
@@ -353,9 +352,9 @@ export class ProcessManager {
   stop(id: string) {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
-    
+
     this.flushDataBuffer(id);
-    
+
     if (entry.process) {
       try {
         if (os.platform() === "win32") {
@@ -388,9 +387,9 @@ export class ProcessManager {
   close(id: string) {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
-    
+
     this.flushDataBuffer(id);
-    
+
     if (entry.process) {
       try {
         if (os.platform() === "win32") {
@@ -401,14 +400,14 @@ export class ProcessManager {
       } catch (_) {}
     }
     entry.writeEmitter.dispose();
-    
+
     // Clear buffer
     const buffer = this.dataBuffers.get(id);
     if (buffer?.timer) {
       clearTimeout(buffer.timer);
     }
     this.dataBuffers.delete(id);
-    
+
     this.terminalMap.delete(id);
     this.fireTerminalsChanged();
   }
