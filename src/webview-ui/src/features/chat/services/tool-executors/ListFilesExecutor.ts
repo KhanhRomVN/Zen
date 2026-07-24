@@ -4,6 +4,12 @@ import {
   ToolExecutor,
 } from "../../types/executor-types";
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export class ListFilesExecutor implements ToolExecutor {
   async execute(
     action: any,
@@ -82,8 +88,8 @@ export class ListFilesExecutor implements ToolExecutor {
                   }
                 } else {
                   result += `${indent}${node.name}`;
-                  if (node.lines !== undefined) {
-                    result += ` (${node.lines} lines)`;
+                  if (node.size !== undefined) {
+                    result += ` (${formatSize(node.size)})`;
                   }
                   result += "\n";
                 }

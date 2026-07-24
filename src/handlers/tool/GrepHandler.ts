@@ -15,6 +15,13 @@ import { LoggerService } from "../../services/LoggerService";
 // VALIDATORS
 import { SecurityValidator } from "../../utils/security";
 
+// ─── Constants ────────────────────────────────────────────────────
+
+const MAX_GREP_FILES = 500;
+const MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB — bỏ qua file lớn hơn
+const EXCLUDE_GREP_PATTERN =
+  "{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/.next/**,**/__pycache__/**,**/.venv/**,**/venv/**,**/target/**,**/out/**,**/.idea/**,**/.vscode/**}";
+
 // ─── Types ────────────────────────────────────────────────────────
 
 interface GrepAction {
@@ -67,7 +74,10 @@ export class GrepHandler {
         const resolvedPath = path.isAbsolute(rawPath)
           ? rawPath
           : path.resolve(this.workspaceRoot, rawPath);
-        const securityCheck = SecurityValidator.validatePath(resolvedPath, false);
+        const securityCheck = SecurityValidator.validatePath(
+          resolvedPath,
+          false,
+        );
         if (!securityCheck.safe) {
           webviewView.webview.postMessage({
             command: "agentActionResult",
@@ -105,7 +115,7 @@ export class GrepHandler {
     }
   }
 
-  // ─── Grep logic (from GrepCapability) ────────────────────────────
+  // ─── Grep logic ──────────────────────────────────────────────────
 
   private async executeGrep(action: GrepAction): Promise<GrepResult> {
     const logger = LoggerService.getInstance();
@@ -133,13 +143,17 @@ export class GrepHandler {
         regex = new RegExp(searchTerm, "i");
       } catch (regexError) {
         throw new Error(
-          `Invalid regex pattern: ${searchTerm} - ${regexError instanceof Error ? regexError.message : String(regexError)}`,
+          `Invalid regex pattern: ${searchTerm} - ${
+            regexError instanceof Error ? regexError.message : String(regexError)
+          }`,
         );
       }
 
       let filesToSearch: string[] = [];
+      let skippedLargeFiles = 0;
 
       if (filePath) {
+        // ── Single file mode ──
         const resolvedPath = path.isAbsolute(filePath)
           ? filePath
           : path.resolve(this.workspaceRoot, filePath);
@@ -148,20 +162,49 @@ export class GrepHandler {
         }
         filesToSearch = [resolvedPath];
       } else if (folderPath) {
+        // ── Folder mode: dùng VSCode API bất đồng bộ thay vì duyệt thủ công ──
         const resolvedFolder = path.isAbsolute(folderPath)
           ? folderPath
           : path.resolve(this.workspaceRoot, folderPath);
-        if (!fs.existsSync(resolvedFolder)) {
+
+        try {
+          await vscode.workspace.fs.stat(vscode.Uri.file(resolvedFolder));
+        } catch {
           throw new Error(`Folder not found: ${folderPath}`);
         }
-        filesToSearch = this.getAllFiles(resolvedFolder);
+
+        const uris = await vscode.workspace.findFiles(
+          new vscode.RelativePattern(resolvedFolder, "**/*"),
+          EXCLUDE_GREP_PATTERN,
+          MAX_GREP_FILES,
+        );
+
+        filesToSearch = uris.map((uri) => uri.fsPath);
+
+        if (filesToSearch.length === 0) {
+          logger.warn(
+            `[GREP] ⚠️ No searchable files found in "${folderPath}"`,
+          );
+        }
       }
 
       const results: Record<string, FileMatchResult> = {};
       let filesWithMatches = 0;
       let totalLinesScanned = 0;
+      let filesSkippedSize = 0;
 
       for (const file of filesToSearch) {
+        // Kiểm tra kích thước file trước khi đọc — bỏ qua file > MAX_FILE_SIZE_BYTES
+        try {
+          const stat = await fs.promises.stat(file);
+          if (stat.size > MAX_FILE_SIZE_BYTES) {
+            filesSkippedSize++;
+            continue;
+          }
+        } catch {
+          continue; // Không thể stat → bỏ qua
+        }
+
         const { matches, linesScanned } = await this.searchInFileWithStats(
           file,
           regex,
@@ -181,7 +224,10 @@ export class GrepHandler {
 
       if (filesWithMatches === 0) {
         logger.warn(
-          `[GREP] ⚠️ No matches found for "${searchTerm}" in ${filesToSearch.length} files`,
+          `[GREP] ⚠️ No matches found for "${searchTerm}" in ${filesToSearch.length} files` +
+            (filesSkippedSize > 0
+              ? ` (${filesSkippedSize} large files skipped)`
+              : ""),
         );
       }
 
@@ -193,6 +239,7 @@ export class GrepHandler {
           results,
           totalFilesSearched: filesToSearch.length,
           totalMatches,
+          ...(filesSkippedSize > 0 ? { filesSkippedSize } : {}),
         },
         timestamp: Date.now(),
       };
@@ -207,54 +254,7 @@ export class GrepHandler {
     }
   }
 
-  private getAllFiles(
-    dirPath: string,
-    fileList: string[] = [],
-    depth: number = 0,
-  ): string[] {
-    const MAX_DEPTH = 20;
-    const MAX_FILES = 10000;
-
-    if (depth > MAX_DEPTH || fileList.length > MAX_FILES) {
-      return fileList;
-    }
-
-    const files = fs.readdirSync(dirPath);
-
-    const excludeDirs = new Set([
-      "node_modules", ".git", "dist", "build", ".next",
-      "__pycache__", ".venv", "venv", "target", "out",
-      ".idea", ".vscode",
-    ]);
-    const excludeExtensions = new Set([
-      ".exe", ".dll", ".so", ".dylib", ".bin", ".pyc", ".class",
-      ".jpg", ".jpeg", ".png", ".gif", ".ico",
-      ".woff", ".woff2", ".ttf", ".eot",
-    ]);
-
-    for (const file of files) {
-      const fullPath = path.join(dirPath, file);
-
-      try {
-        const stat = fs.statSync(fullPath);
-
-        if (stat.isDirectory()) {
-          if (!excludeDirs.has(file) && !file.startsWith(".")) {
-            this.getAllFiles(fullPath, fileList, depth + 1);
-          }
-        } else {
-          const ext = path.extname(file).toLowerCase();
-          if (!excludeExtensions.has(ext)) {
-            fileList.push(fullPath);
-          }
-        }
-      } catch (err) {
-        // Skip files that can't be accessed
-      }
-    }
-
-    return fileList;
-  }
+  // ─── Search in single file ───────────────────────────────────────
 
   private async searchInFileWithStats(
     filePath: string,

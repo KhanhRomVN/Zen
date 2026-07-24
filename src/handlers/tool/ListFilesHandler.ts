@@ -100,17 +100,17 @@ export class ListFilesHandler {
               children,
             });
           } else {
-            let lines: number | undefined;
+            let size: number | undefined;
             try {
-              const content = await vscode.workspace.fs.readFile(entryUri);
-              lines = Buffer.from(content).toString("utf8").split("\n").length;
+              const stat = await vscode.workspace.fs.stat(entryUri);
+              size = stat.size;
             } catch {
-              lines = undefined;
+              size = undefined;
             }
             results.push({
               name,
               type: "file",
-              lines,
+              size,
             });
           }
         }

@@ -17,6 +17,12 @@ interface TreeBlockProps {
   onFileClick?: (path: string) => void;
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 const TreeNode: React.FC<{
   node: FileNode;
   level: number;
@@ -83,8 +89,8 @@ const TreeNode: React.FC<{
           }}
         />
         <span className="tree-node-name">{node.name}</span>
-        {node.type === "file" && node.lines !== undefined && (
-          <span className="tree-node-meta">{node.lines} lines</span>
+        {node.type === "file" && node.size !== undefined && (
+          <span className="tree-node-meta">{formatFileSize(node.size)}</span>
         )}
       </div>
       {node.type === "folder" && isExpanded && hasChildren && (
