@@ -13,6 +13,9 @@ import {
 } from "@/features/chat/constants/constants";
 
 // TYPES
+import {
+  Diagnostic,
+} from "@/features/chat/types/renderer-types";
 
 // UTILS
 import {
@@ -47,6 +50,9 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
   onRejectSingleLineAction,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
+  const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
+    Diagnostic[] | null
+  >(null);
   const { permissionMode } = useSettings();
 
   const actionId = `${messageId}-action-${actionIndex}`;
@@ -75,6 +81,93 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
   );
 
   const shouldHideContent = false;
+
+  // Get diagnostics from toolOutputs
+  const mergedDiagnostics = React.useMemo(() => {
+    const shouldGetDiagnostics = isCompleted && !isPartial;
+
+    if (!shouldGetDiagnostics) return undefined;
+
+    const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics;
+
+    if (!toolOutputDiagnostics) {
+      return undefined;
+    }
+
+    const normalized = toolOutputDiagnostics.map((d: any) => {
+      const normalizedSeverity =
+        d.severity.toLowerCase() === "error"
+          ? "Error"
+          : d.severity.toLowerCase() === "warning"
+            ? "Warning"
+            : d.severity;
+
+      return {
+        ...d,
+        severity: normalizedSeverity,
+      };
+    });
+
+    return normalized;
+  }, [toolOutputs, actionId, isCompleted, isPartial]);
+
+  // Fetch diagnostics from extension
+  React.useEffect(() => {
+    const shouldFetchDiagnostics = rawPath && isCompleted && !isPartial;
+
+    if (!shouldFetchDiagnostics) return;
+
+    const baseRequestId = `diagnostics-${actionId}`;
+    let retryCount = 0;
+    const maxRetries = 2;
+    const retryDelay = 300;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const handleMessage = (event: MessageEvent) => {
+      const msg = event.data;
+      if (
+        msg.command === "getDiagnosticsResult" &&
+        msg.requestId?.startsWith(baseRequestId)
+      ) {
+        if (msg.diagnostics && Array.isArray(msg.diagnostics)) {
+          if (msg.diagnostics.length > 0) {
+            setCachedDiagnostics(msg.diagnostics);
+            window.removeEventListener("message", handleMessage);
+            if (timeoutId !== null) clearTimeout(timeoutId);
+          } else {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              timeoutId = setTimeout(() => {
+                extensionService.postMessage({
+                  command: "getDiagnostics",
+                  path: rawPath,
+                  requestId: `${baseRequestId}-retry-${retryCount}`,
+                });
+              }, retryDelay * retryCount);
+            } else {
+              setCachedDiagnostics([]);
+              window.removeEventListener("message", handleMessage);
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    timeoutId = setTimeout(() => {
+      extensionService.postMessage({
+        command: "getDiagnostics",
+        path: rawPath,
+        requestId: baseRequestId,
+      });
+    }, 200);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      if (timeoutId !== null) clearTimeout(timeoutId);
+    };
+  }, [rawPath, isCompleted, isPartial, actionId]);
 
   // Check if action has validation error
   const hasValidationError = !!action.isError;
@@ -243,6 +336,7 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
           lineCount: linesCount,
         }}
         isPartial={isPartial}
+        diagnostics={mergedDiagnostics}
         onClick={() => {
           setIsCollapsed((v) => !v);
           if (rawPath) {
