@@ -28,6 +28,7 @@ import FileIcon from "@/icons/FileIcon";
 import { TagHeader } from "../TagHeader";
 import { TerminalBlock } from "../blocks/run_command/TerminalBlock";
 import ExecuteButton from "../ExecuteButton";
+import ErrorBlock from "../blocks/error/ErrorBlock";
 
 interface RunCommandRendererProps {
   action: ToolAction;
@@ -92,9 +93,26 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
     return () => window.removeEventListener("message", handler);
   }, [actionId]);
 
+  // Check if action has validation error
+  const hasValidationError = !!action.isError;
+
   const needsPrompt =
     getPermissionDecision(permissionMode, "run_command") === "confirm";
   const commandText = action.params.command || "";
+
+  // Debug logging for validation errors
+  React.useEffect(() => {
+    if (hasValidationError) {
+      console.log("[RunCommandRenderer] Validation error detected:", {
+        actionId,
+        command: commandText,
+        errorCode: action.errorCode,
+        errorMessage: action.errorMessage,
+        needsPrompt,
+        actionParams: action.params,
+      });
+    }
+  }, [hasValidationError, actionId, commandText, action.errorCode, action.errorMessage, needsPrompt]);
   const folderPath =
     action.params.folder_path || action.params.cwd || rootPath || "";
 
@@ -326,7 +344,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 : undefined
             }
           />
-          {needsPrompt && !isTerminalBusy && !isCompleted && (
+          {needsPrompt && !isTerminalBusy && !isCompleted && !hasValidationError && (
             <ExecuteButton
               isActive={true}
               isCompleted={isCompleted}
@@ -356,6 +374,13 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
             />
           )}
         </>
+      )}
+      {hasValidationError && action.errorMessage && (
+        <ErrorBlock 
+          content={`Validation Error: ${action.errorMessage}`} 
+          compact={true} 
+          maxHeight="300px" 
+        />
       )}
     </div>
   );

@@ -173,6 +173,21 @@ export const useToolActions = ({
           const idx = action._index !== undefined ? action._index : actionIndex;
           const actionId = `${actionIdBase}${idx}`;
 
+          // 🔧 FIX: Skip actions with validation errors
+          if (action.isError) {
+            console.warn(
+              `[Zen][handleToolClick] Skipping execution for action with error:`,
+              {
+                actionId,
+                toolName: action.type,
+                errorCode: action.errorCode,
+                errorMessage: action.errorMessage,
+                reason: "Batch execution - validation error detected",
+              },
+            );
+            return;
+          }
+
           if (!clickedActions.has(actionId)) {
             actionsToProcess.push({ ...action, actionId });
           }
@@ -190,6 +205,21 @@ export const useToolActions = ({
         // Handle Single
         const action = actionOrActions;
         const actionId = `${actionIdBase}${actionIndex}`;
+
+        // 🔧 FIX: Block execution if action has validation error
+        if (action.isError) {
+          console.warn(
+            `[Zen][handleToolClick] Blocked execution for malformed tool action:`,
+            {
+              actionId,
+              toolName: action.type,
+              errorCode: action.errorCode,
+              errorMessage: action.errorMessage,
+              reason: "Single execution - validation error detected, execution blocked",
+            },
+          );
+          return;
+        }
 
         if (isToolClickable(action.type)) {
           // DON'T mark as clicked here - let handleToolRequest do it
@@ -237,6 +267,21 @@ export const useToolActions = ({
 
     lastMessage.parsed.actions.forEach((action: ToolAction, idx: number) => {
       const actionId = `${lastMessage.id}-action-${idx}`;
+
+      // 🔧 FIX: Skip actions with validation errors (malformed XML, missing params)
+      if (action.isError) {
+        console.warn(
+          `[Zen][Auto-execute] Skipping malformed action:`,
+          {
+            actionId,
+            toolName: action.type,
+            errorCode: action.errorCode,
+            errorMessage: action.errorMessage,
+            reason: "Validation error - action will not be auto-executed",
+          },
+        );
+        return;
+      }
 
       // Skip display-only tools - they should not be auto-executed
       if (action.type === "git_status" || action.type === "commit_message") {

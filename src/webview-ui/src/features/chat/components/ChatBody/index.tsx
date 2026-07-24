@@ -306,6 +306,7 @@ interface MessageBoxProps {
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
   responseNumber?: number | null;
+  onRetryRequest?: (messageId: string) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -694,6 +695,40 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   isGitProcessing={isGitProcessing}
                   isGitStatusVisible={isGitStatusVisible}
                   onBackToHome={onBackToHome}
+                  onRetryRequest={(messageId: string) => {
+                    // Find the user message before this assistant message
+                    const msgIndex = messages.findIndex((m) => m.id === messageId);
+                    if (msgIndex <= 0) return;
+                    
+                    let prevUserMsg: Message | null = null;
+                    for (let i = msgIndex - 1; i >= 0; i--) {
+                      if (messages[i].role === "user") {
+                        prevUserMsg = messages[i];
+                        break;
+                      }
+                    }
+                    
+                    if (!prevUserMsg) return;
+                    
+                    // First revert to this message (removes all messages after)
+                    if (onRevertConversation) {
+                      onRevertConversation(messageId, message.timestamp);
+                    }
+                    
+                    // Then resend the user message
+                    if (onSendMessage && prevUserMsg.rawRequest) {
+                      // Small delay to let revert complete
+                      setTimeout(() => {
+                        onSendMessage(
+                          prevUserMsg!.rawRequest || prevUserMsg!.content,
+                          prevUserMsg!.uploadedFiles,
+                          undefined,
+                          undefined,
+                          false,
+                        );
+                      }, 100);
+                    }
+                  }}
                 />
               );
             });

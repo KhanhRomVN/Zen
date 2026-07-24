@@ -242,7 +242,25 @@ export const useChatLLM = ({
 
       // Filter cancelled messages
       const currentMessages = messagesRef.current;
-      const filteredMessages = currentMessages.filter((m) => !m.isCancelled);
+      let filteredMessages = currentMessages.filter((m) => !m.isCancelled);
+
+      // Check if last message pair is complete; clean up incomplete pairs before sending
+      if (!skipFirstRequestLogic && filteredMessages.length > 0) {
+        const lastMsg = filteredMessages[filteredMessages.length - 1];
+
+        if (lastMsg.role === "user") {
+          // Last message is a user request without assistant response → remove it
+          filteredMessages = filteredMessages.slice(0, -1);
+          messagesRef.current = filteredMessages;
+          setMessages(filteredMessages);
+        } else if (lastMsg.role === "assistant" && lastMsg.isError) {
+          // Last message is an error assistant → remove both the error + preceding user request
+          filteredMessages = filteredMessages.slice(0, -2);
+          messagesRef.current = filteredMessages;
+          setMessages(filteredMessages);
+        }
+        // If last message is assistant (success) → pair is complete, proceed normally
+      }
 
       let effectiveChatUuid = currentConversationIdRef.current;
       const isNewSession = !effectiveChatUuid;
@@ -359,8 +377,18 @@ export const useChatLLM = ({
       setMessages(updatedMessages);
       setIsProcessingSync(true);
 
-      // NOTE: Conversation will be saved after receiving successful response
-      // No longer saving here to avoid saving request without response
+      // Save conversation immediately when sending request (user message only)
+      saveConversation(
+        sessionId,
+        folderPath,
+        updatedMessages,
+        effectiveChatUuid,
+        selectedTab || undefined,
+        false,
+        undefined,
+        backendConversationIdRef.current || undefined,
+      );
+
 
       // Resolve model and account
       const oldModel = lastUsedModelRef.current;
@@ -692,6 +720,13 @@ export const useChatLLM = ({
                     toolName: action.type,
                     errorCode: validation.errorCode,
                     errorMessage: validation.errorMessage,
+                    params: action.params,
+                    missingParams: validation.missingParams,
+                    actionWillBeBlocked: true,
+                  });
+                } else {
+                  console.log("[Zen][useChatLLM] Tool validation passed:", {
+                    toolName: action.type,
                     params: action.params,
                   });
                 }

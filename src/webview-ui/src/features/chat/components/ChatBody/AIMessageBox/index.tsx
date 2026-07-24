@@ -71,6 +71,7 @@ interface AIMessageBoxProps {
   isGitStatusVisible?: boolean;
   onBackToHome?: (summary: string) => void;
   responseNumber?: number | null;
+  onRetryRequest?: (messageId: string) => void;
 }
 
 const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
@@ -103,6 +104,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   isGitStatusVisible = true,
   onBackToHome,
   responseNumber,
+  onRetryRequest,
 }) => {
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
@@ -352,6 +354,11 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                   responseNumber={responseNumber!}
                   message={message}
                   previousUserMessage={previousUserMessage}
+                  onRetryRequest={
+                    onRetryRequest
+                      ? () => onRetryRequest(message.id)
+                      : undefined
+                  }
                 />
               </React.Fragment>
             );

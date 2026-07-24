@@ -5,11 +5,13 @@ import { Message } from "@/features/chat/types/message";
 
 // COMPONENTS
 import CodeBlock from "./blocks/code/CodeBlock";
+import RevertConfirmModal from "@/components/RevertConfirmModal";
 
 interface ResponseMetadataBarProps {
   responseNumber: number;
   message: Message;
   previousUserMessage: Message | null;
+  onRetryRequest?: () => void;
 }
 
 /**
@@ -20,9 +22,13 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
   responseNumber,
   message,
   previousUserMessage,
+  onRetryRequest,
 }) => {
   const [requestChecked, setRequestChecked] = React.useState(false);
   const [responseChecked, setResponseChecked] = React.useState(false);
+  const [showRetryModal, setShowRetryModal] = React.useState(false);
+  const [isRetryHovered, setIsRetryHovered] = React.useState(false);
+  const [isRequestAreaHovered, setIsRequestAreaHovered] = React.useState(false);
 
   const showRaw = requestChecked || responseChecked;
   const reqTokens =
@@ -71,6 +77,35 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
     </svg>
   );
 
+  const RetryIcon = (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+    >
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+      <path d="M21 3v5h-5" />
+    </svg>
+  );
+
+  const handleRetryClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowRetryModal(true);
+  };
+
+  const handleConfirmRetry = () => {
+    if (onRetryRequest) {
+      onRetryRequest();
+    }
+  };
+
   return (
     <div>
       <div
@@ -91,35 +126,67 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
       >
         {/* Request Badge */}
         <div
-          onClick={() => setRequestChecked(!requestChecked)}
+          onMouseEnter={() => setIsRequestAreaHovered(true)}
+          onMouseLeave={() => setIsRequestAreaHovered(false)}
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: "6px",
-            cursor: "pointer",
-            textDecoration: requestChecked ? "underline" : "none",
-            textUnderlineOffset: "3px",
-            transition: "opacity 0.2s ease",
-            opacity: requestChecked ? 1 : 0.8,
           }}
         >
-          <span
+          <div
+            onClick={() => setRequestChecked(!requestChecked)}
             style={{
-              color: "var(--vscode-charts-green, #89d185)",
               display: "inline-flex",
               alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+              textDecoration: requestChecked ? "underline" : "none",
+              textUnderlineOffset: "3px",
+              transition: "opacity 0.2s ease",
+              opacity: requestChecked ? 1 : 0.8,
             }}
           >
-            {RequestIcon}
-          </span>
-          <span
-            style={{
-              color: "var(--vscode-foreground)",
-              fontWeight: 600,
-            }}
-          >
-            {reqTokens.toLocaleString()}
-          </span>
+            <span
+              style={{
+                color: "var(--vscode-charts-green, #89d185)",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              {RequestIcon}
+            </span>
+            <span
+              style={{
+                color: "var(--vscode-foreground)",
+                fontWeight: 600,
+              }}
+            >
+              {reqTokens.toLocaleString()}
+            </span>
+          </div>
+
+          {/* Retry Icon - Only show when hovering over request area */}
+          {onRetryRequest && previousUserMessage && isRequestAreaHovered && (
+            <div
+              onClick={handleRetryClick}
+              onMouseEnter={() => setIsRetryHovered(true)}
+              onMouseLeave={() => setIsRetryHovered(false)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                cursor: "pointer",
+                color: "var(--vscode-charts-yellow, #f9dd66)",
+                textDecoration: isRetryHovered ? "underline" : "none",
+                textUnderlineOffset: "3px",
+                transition: "opacity 0.2s ease",
+                opacity: isRetryHovered ? 1 : 0.7,
+              }}
+              title="Retry this request"
+            >
+              {RetryIcon}
+            </div>
+          )}
         </div>
 
         {/* Response Badge */}
@@ -235,6 +302,15 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
             )}
         </div>
       )}
+
+      {/* Retry Confirmation Modal */}
+      <RevertConfirmModal
+        isOpen={showRetryModal}
+        onClose={() => setShowRetryModal(false)}
+        onConfirm={handleConfirmRetry}
+        title="Retry this request?"
+        description="This will resend the request from this point. If there are messages after this one, they will be removed and any file changes from those messages will be reverted."
+      />
     </div>
   );
 };

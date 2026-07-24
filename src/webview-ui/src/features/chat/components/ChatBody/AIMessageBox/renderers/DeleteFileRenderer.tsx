@@ -64,12 +64,27 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
   const isError = !!toolOutputs?.[actionId]?.isError;
   const errorMessage = isError ? toolOutputs?.[actionId]?.output || "" : "";
 
+  // Check if action has validation error
+  const hasValidationError = !!action.isError;
+
   const statusColor = isError
     ? "var(--vscode-errorForeground, #f14c4c)"
     : isCompleted
       ? "var(--vscode-gitDecoration-deletedResourceForeground, #f85149)"
       : "var(--vscode-textLink-foreground, #3794ff)";
 
+  // Debug logging for validation errors
+  React.useEffect(() => {
+    if (hasValidationError) {
+      console.log("[DeleteFileRenderer] Validation error detected:", {
+        actionId,
+        filePath: rawPath,
+        errorCode: action.errorCode,
+        errorMessage: action.errorMessage,
+        actionParams: action.params,
+      });
+    }
+  }, [hasValidationError, actionId, rawPath, action.errorCode, action.errorMessage]);
   return (
     <div
       style={{
@@ -137,7 +152,7 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
         />
       )}
 
-      {!isCompleted && !isError && (
+      {!isCompleted && !isError && !hasValidationError && (
         <div style={{ padding: "0 12px 8px 0" }}>
           <ExecuteButton
             isCompleted={isCompleted}
@@ -150,6 +165,13 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
             title="Delete File"
           />
         </div>
+      )}
+      {hasValidationError && action.errorMessage && (
+        <ErrorBlock 
+          content={`Validation Error: ${action.errorMessage}`} 
+          compact={true} 
+          maxHeight="300px" 
+        />
       )}
     </div>
   );

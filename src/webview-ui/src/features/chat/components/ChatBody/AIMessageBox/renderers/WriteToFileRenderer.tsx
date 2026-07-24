@@ -76,6 +76,9 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
 
   const shouldHideContent = false;
 
+  // Check if action has validation error
+  const hasValidationError = !!action.isError;
+
   // Debug logs
   const permissionDecision = getPermissionDecision(
     permissionMode,
@@ -85,7 +88,22 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
     !shouldHideContent &&
     !isCompleted &&
     !isPartial &&
+    !hasValidationError &&
     permissionDecision === "confirm";
+
+  // Debug logging for validation errors
+  React.useEffect(() => {
+    if (hasValidationError) {
+      console.log("[WriteToFileRenderer] Validation error detected:", {
+        actionId,
+        filePath: rawPath,
+        errorCode: action.errorCode,
+        errorMessage: action.errorMessage,
+        shouldShowExecuteButton,
+        actionParams: action.params,
+      });
+    }
+  }, [hasValidationError, actionId, rawPath, action.errorCode, action.errorMessage, shouldShowExecuteButton]);
 
   const handleToolClickWithLog = React.useCallback(
     (e: React.MouseEvent, type: any) => {
@@ -385,6 +403,14 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
 
       {!shouldHideContent && isError && errorMessage && (
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
+      )}
+
+      {!shouldHideContent && hasValidationError && action.errorMessage && (
+        <ErrorBlock 
+          content={`Validation Error: ${action.errorMessage}`} 
+          compact={true} 
+          maxHeight="300px" 
+        />
       )}
     </div>
   );
