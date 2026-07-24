@@ -10,12 +10,12 @@ import * as path from "path";
 import * as vscode from "vscode";
 
 // AGENT
-import { SecurityValidator } from "../../agent/validators/SecurityValidator";
 
 // SERVICES
 import { DiagnosticsService } from "../../services/DiagnosticsService";
 import { LoggerService } from "../../services/LoggerService";
 import { PathService } from "../../services/PathService";
+import { SecurityValidator } from "../../utils/security";
 
 export class ReadFileHandler {
   private _readFileQueue: Promise<void> = Promise.resolve();

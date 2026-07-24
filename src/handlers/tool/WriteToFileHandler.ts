@@ -10,7 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 // AGENT
-import { SecurityValidator } from "../../agent/validators/SecurityValidator";
+import { SecurityValidator } from "../../utils/security";
 
 // MANAGERS
 import { CheckpointManager } from "../../managers/CheckpointManager";

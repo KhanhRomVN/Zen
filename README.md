@@ -106,19 +106,5 @@ RULE:
 3/ ko tự tạo các file .md thừa ko cần thiết
 4/ ko tự chạy các lệnh terminal khi chưa cho phép
 
-vậy cần đổi tên case "executeAgentAction" từ tên case phù hợp cho file
-src/webview-ui/src/features/chat/services/tool-executors/GrepExecutor.ts:36-46:
-```
-      extensionService.postMessage({
-        command: "executeAgentAction",
-        action: {
-          type: "grep",
-          search_term: searchTerm,
-          file_path: filePath,
-          folder_path: folderPath,
-          requestId,
-          timestamp: Date.now(),
-        },
-      });
-```
-cũng đổi tên handler handleExecuteAgentAction thành tên hnader khác 
+đưa vào folder src/handlers/tool với file GrepHandler.ts thì sao?
+ngoài ra folder src/agent chỉ phục vụ 1 mình grep à?

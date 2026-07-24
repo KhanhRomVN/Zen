@@ -123,7 +123,7 @@ export const useGitOperations = ({
       });
 
       vscodeApi.postMessage({
-        command: "runGitStatus",
+        command: "gitStatus",
         requestId,
       });
 

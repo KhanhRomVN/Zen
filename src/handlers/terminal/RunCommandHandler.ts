@@ -9,7 +9,7 @@ import * as os from "os";
 import * as vscode from "vscode";
 
 // AGENT
-import { SecurityValidator } from "../../agent/validators/SecurityValidator";
+import { SecurityValidator } from "../../utils/security";
 
 // MANAGERS
 import { ProcessManager } from "../../managers/ProcessManager";

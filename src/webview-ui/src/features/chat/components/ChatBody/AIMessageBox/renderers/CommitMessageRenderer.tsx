@@ -1,7 +1,10 @@
 import React from "react";
 
 // CONSTANTS
-import { TOOL_ACTION_TYPES, getToolLabel } from "@/features/chat/constants/constants";
+import {
+  TOOL_ACTION_TYPES,
+  getToolLabel,
+} from "@/features/chat/constants/constants";
 
 // TYPES
 import { ToolAction } from "@/features/chat/services/ResponseParser";
@@ -74,7 +77,8 @@ export const CommitMessageRenderer: React.FC<CommitMessageRendererProps> = ({
               }}
             >
               <span style={{ fontWeight: 600, opacity: 0.8 }}>
-                {getToolLabel("commit_message")}{branch ? ` (${branch})` : ""}
+                {getToolLabel("commit_message")}
+                {branch ? ` (${branch})` : ""}
               </span>
               <span
                 className="codicon codicon-git-commit"
@@ -192,7 +196,7 @@ export const CommitMessageRenderer: React.FC<CommitMessageRendererProps> = ({
                   if (vscodeApi) {
                     setIsCommitted(true);
                     vscodeApi.postMessage({
-                      command: "acceptCommitMessage",
+                      command: "gitCommit",
                       message: messageContent,
                     });
                   }

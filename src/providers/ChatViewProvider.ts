@@ -1,20 +1,5 @@
 import * as vscode from "vscode";
-/**
- *? Usage:
- *    WebviewViewProvider chính của Zen Chat: khởi tạo webview, ChatController, AgentManager, lắng nghe sự kiện terminal/theme và điều phối message.
- *
- *? Function:
- *    getProcessManager()   : Trả về ProcessManager instance.
- *    initializeAgentManager(): Khởi tạo AgentManager với quyền mặc định.
- *    resolveWebviewView()  : Thiết lập webview, khởi tạo ChatController, đăng ký listener.
- *    postMessageToWebview(): Gửi message đến webview (chỉ khi đang hiển thị).
- */
-import * as crypto from "crypto";
-import * as os from "os";
-import * as path from "path";
 
-// AGENT
-import { AgentManager } from "../agent/AgentManager";
 
 // CONTROLLERS
 import { ChatController } from "../controllers/ChatController";
@@ -27,13 +12,12 @@ import { ProcessManager } from "../managers/ProcessManager";
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 
 // TYPES
-import { AgentPermissions } from "../types/Agent";
+// (none currently needed from types/Agent)
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
   private _view?: vscode.WebviewView;
   private chatController?: ChatController;
-  private _agentManager?: AgentManager;
   private _processManager: ProcessManager;
   private _fileLockManager: FileLockManager;
 
@@ -53,39 +37,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     return this._processManager;
   }
 
-  public initializeAgentManager() {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (workspaceFolder) {
-      const folderPath = workspaceFolder.uri.fsPath;
-
-      // Compute project directory (matching ChatController logic)
-      const hash = crypto.createHash("md5").update(folderPath).digest("hex");
-      const projectDir = path.join(
-        os.homedir(),
-        "khanhromvn-zen",
-        "projects",
-        hash,
-      );
-
-      vscode.commands.executeCommand(
-        "setContext",
-        "zen.workspaceFolderPath",
-        folderPath,
-      );
-
-      const defaultPermissions: AgentPermissions = {
-        readProjectFile: true,
-        readAllFile: true,
-        editProjectFiles: true,
-        editAddFile: true,
-        executeSafeCommand: true,
-        executeAllCommands: false, // executeAllCommands stays false by default for safety
-      };
-
-      this._agentManager = new AgentManager(defaultPermissions, folderPath);
-    }
-  }
-
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
@@ -100,10 +51,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     };
 
     // Initialize ChatController
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const workspaceRoot = workspaceFolder?.uri.fsPath || "";
+
+    vscode.commands.executeCommand(
+      "setContext",
+      "zen.workspaceFolderPath",
+      workspaceRoot,
+    );
+
     const controllerStart = Date.now();
     this.chatController = new ChatController(
       this._storageManager,
-      this._agentManager,
+      workspaceRoot,
       this._processManager,
       this._fileLockManager,
     );

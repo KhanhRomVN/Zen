@@ -26,7 +26,6 @@ export async function activate(extContext: vscode.ExtensionContext) {
   );
   provider.getProcessManager().stopAll(); // clean up any leftover processes from previous session
 
-  provider.initializeAgentManager();
   activeProvider = provider;
 
   const registrationStart = Date.now();

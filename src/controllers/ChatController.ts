@@ -8,11 +8,7 @@
  */
 import * as vscode from "vscode";
 
-// AGENT
-import { AgentManager } from "../agent/AgentManager";
-
 // HANDLERS
-import { AgentHandler } from "../handlers/AgentHandler";
 import { ProjectContextHandler } from "../handlers/system/ProjectContextHandler";
 import { StorageHandler } from "../handlers/storage/StorageHandler";
 import { ThemeHandler } from "../handlers/system/ThemeHandler";
@@ -44,6 +40,7 @@ import { ViewReplaceHistoryHandler } from "../handlers/tool/ViewReplaceHistoryHa
 import { WriteToFileHandler } from "../handlers/tool/WriteToFileHandler";
 import { GitDiffHandler } from "../handlers/tool/GitDiffHandler";
 import { GitStatusHandler } from "../handlers/tool/GitStatusHandler";
+import { GrepHandler } from "../handlers/tool/GrepHandler";
 
 // MANAGERS
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -84,12 +81,12 @@ export class ChatController {
   private previewHandler: PreviewHandler;
   private gitCommitHandler: GitCommitHandler;
   private projectContextHandler: ProjectContextHandler;
-  private agentHandler: AgentHandler;
+  private grepHandler: GrepHandler;
   private storageHandler: StorageHandler;
 
   constructor(
     private storageManager: GlobalStorageManager | undefined,
-    private agentManager: AgentManager | undefined,
+    private workspaceRoot: string,
     private processManager: ProcessManager,
     private fileLockManager: FileLockManager,
   ) {
@@ -129,7 +126,7 @@ export class ChatController {
     this.previewHandler = new PreviewHandler();
     this.gitCommitHandler = new GitCommitHandler();
     this.projectContextHandler = new ProjectContextHandler();
-    this.agentHandler = new AgentHandler(this.agentManager);
+    this.grepHandler = new GrepHandler(this.workspaceRoot);
     this.storageHandler = new StorageHandler(this.storageManager);
   }
 
@@ -283,7 +280,7 @@ export class ChatController {
           vscode.window.showErrorMessage(message.message);
           break;
         case "executeGrep":
-          await this.agentHandler.handleExecuteGrep(message, webviewView);
+          await this.grepHandler.handleGrep(message, webviewView);
           break;
         case "storageGet":
         case "storageSet":
@@ -294,7 +291,7 @@ export class ChatController {
             webviewView,
           );
           break;
-        case "runGitStatus":
+        case "gitStatus":
           await this.gitStatusHandler.handleRunGitStatus(message, webviewView);
           break;
         case "gitDiff":
@@ -304,7 +301,7 @@ export class ChatController {
           await this.diffViewHandler.handleShowGitDiff(message);
           break;
 
-        case "acceptCommitMessage":
+        case "gitCommit":
           await this.gitCommitHandler.handleGitCommit(message, webviewView);
           break;
       }
