@@ -130,7 +130,7 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
                   const newContent =
                     action.params.new_content || action.params.new_str || "";
                   extensionService.postMessage({
-                    command: "openReplaceInFileDiff",
+                    command: "openFileDiff",
                     filePath: rawPath,
                     oldContent,
                     newContent,

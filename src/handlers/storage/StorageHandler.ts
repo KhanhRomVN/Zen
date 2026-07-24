@@ -9,7 +9,7 @@ import * as crypto from "crypto";
 import * as vscode from "vscode";
 
 // STORAGE
-import { GlobalStorageManager } from "../storage/GlobalStorageManager";
+import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
 
 /**
  * Keys that are scoped per-workspace.
@@ -17,11 +17,7 @@ import { GlobalStorageManager } from "../storage/GlobalStorageManager";
  * prefixes them with a hash of the current workspace root so that each
  * workspace has its own independent value.
  */
-const WORKSPACE_SCOPED_KEYS = new Set([
-  "zen_permission_mode",
-  "zen_tool_permissions",
-  "zen-simple-mode",
-]);
+const WORKSPACE_SCOPED_KEYS = new Set(["zen_permission_mode"]);
 
 export class StorageHandler {
   constructor(private storageManager: GlobalStorageManager | undefined) {}

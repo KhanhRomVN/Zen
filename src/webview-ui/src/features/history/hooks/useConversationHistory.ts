@@ -48,33 +48,6 @@ export const useConversationHistory = (isOpen: boolean) => {
           prev.filter((c) => c.id !== message.conversationId),
         );
       } else if (
-        message.command === "deleteConfirmed" &&
-        message.conversationId
-      ) {
-        const vscodeApi = (window as any).vscodeApi;
-        if (vscodeApi) {
-          vscodeApi.postMessage({
-            command: "deleteConversation",
-            conversationId: message.conversationId,
-          });
-        } else {
-          extensionService.postMessage({
-            command: "deleteConversation",
-            conversationId: message.conversationId,
-          });
-        }
-      } else if (message.command === "clearAllConfirmed") {
-        const vscodeApi = (window as any).vscodeApi;
-        if (vscodeApi) {
-          vscodeApi.postMessage({
-            command: "deleteAllConversations",
-          });
-        } else {
-          extensionService.postMessage({
-            command: "deleteAllConversations",
-          });
-        }
-      } else if (
         message.command === "deleteAllConversationsResult" &&
         message.success
       ) {
@@ -88,14 +61,14 @@ export const useConversationHistory = (isOpen: boolean) => {
 
   const deleteConversation = useCallback((id: string) => {
     extensionService.postMessage({
-      command: "confirmDelete",
+      command: "deleteConversation",
       conversationId: id,
     });
   }, []);
 
   const clearAllHistory = useCallback(() => {
     extensionService.postMessage({
-      command: "confirmClearAll",
+      command: "deleteAllConversations",
     });
   }, []);
 

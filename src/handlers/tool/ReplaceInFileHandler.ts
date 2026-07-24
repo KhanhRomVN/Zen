@@ -1,13 +1,12 @@
-import * as vscode from "vscode";
 /**
  *? Usage:
- *    Ghi file và replace nội dung trong workspace: write_to_file, replace_in_file, validate fuzzy match. Có queue, lock, checkpoint, snapshot, history.
+ *    Thay thế nội dung trong file: replace_in_file và validate fuzzy match. Có queue, lock, checkpoint, snapshot, history.
  *
  *? Function:
- *    handleWriteToFile()       : Ghi nội dung mới vào file (tạo hoặc ghi đè).
  *    handleReplaceInFile()     : Thay thế nội dung trong file (dùng old_str/new_str hoặc diff format).
  *    handleValidateFuzzyMatch(): Kiểm tra fuzzy match giữa search block và nội dung file.
  */
+import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -27,8 +26,7 @@ import { PathService } from "../../services/PathService";
 // UTILS
 import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
 
-export class FileWriteHandler {
-  private _writeFileQueue: Promise<void> = Promise.resolve();
+export class ReplaceInFileHandler {
   private _replaceFileQueue: Promise<void> = Promise.resolve();
   private pathService: PathService;
 
@@ -36,20 +34,8 @@ export class FileWriteHandler {
     this.pathService = PathService.getInstance();
   }
 
-  private getContextRoot(): string {
-    return this.pathService.getContextRoot();
-  }
-
   private getProjectContextDir(workspaceFolderPath: string): string {
     return this.pathService.getProjectContextDir(workspaceFolderPath);
-  }
-
-  private resolveWorkspacePath(
-    workspaceFolder: vscode.WorkspaceFolder,
-    pathValue: string,
-  ): vscode.Uri {
-    if (path.isAbsolute(pathValue)) return vscode.Uri.file(pathValue);
-    return vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
   }
 
   private async resolveWorkspacePathWithFallback(
@@ -75,17 +61,6 @@ export class FileWriteHandler {
       }
     }
     throw lastError;
-  }
-
-  private enqueueWriteOperation<T>(operation: () => Promise<T>): Promise<T> {
-    const logger = LoggerService.getInstance();
-    this._writeFileQueue = this._writeFileQueue
-      .then(() => operation())
-      .catch((err) => {
-        logger.error("[enqueueWriteOperation] Error", { error: err.message });
-        throw err;
-      }) as Promise<void>;
-    return this._writeFileQueue as Promise<T>;
   }
 
   private enqueueReplaceOperation<T>(operation: () => Promise<T>): Promise<T> {
@@ -157,28 +132,11 @@ export class FileWriteHandler {
     return exts.some((ext) => pathValue.toLowerCase().endsWith(ext));
   }
 
-  private async ensureFileOpened(uri: vscode.Uri): Promise<void> {
-    try {
-      if (
-        vscode.workspace.textDocuments.some(
-          (doc) => doc.uri.fsPath === uri.fsPath,
-        )
-      )
-        return;
-      const doc = await vscode.workspace.openTextDocument(uri);
-      await vscode.window.showTextDocument(doc, {
-        preview: true,
-        viewColumn: vscode.ViewColumn.Active,
-      });
-    } catch (e) {}
-  }
-
   private async waitForDiagnosticsWithFallback(
     uri: vscode.Uri,
     pathValue: string,
     maxTimeoutMs: number = 50000,
   ): Promise<void> {
-    // [DEBUG] Đo thời gian chờ diagnostics — xóa sau khi xác minh
     const debugStart = Date.now();
     return new Promise<void>((resolve) => {
       const fallbackTimeout = 2000;
@@ -228,133 +186,6 @@ export class FileWriteHandler {
     });
   }
 
-  // ── Write File ──
-  public async handleWriteToFile(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const logger = LoggerService.getInstance();
-    try {
-      await this.enqueueWriteOperation(async () => {
-        await this._writeFileInternal(message, webviewView);
-      });
-    } catch (e: any) {
-      logger.error("[handleWriteToFile] Failed", { error: e.message });
-    }
-  }
-
-  private async _writeFileInternal(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    const logger = LoggerService.getInstance();
-    try {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) throw new Error("No workspace");
-      const pathValue = message.path || message.filePath || message.file_path;
-      if (!pathValue) throw new Error("'path' must be of type string.");
-
-      let absolutePath: vscode.Uri;
-      if (pathValue.endsWith("workspace.md")) {
-        const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
-        await fs.promises.mkdir(pcDir, { recursive: true });
-        absolutePath = vscode.Uri.file(
-          path.join(pcDir, path.basename(pathValue)),
-        );
-      } else {
-        absolutePath = this.resolveWorkspacePath(workspaceFolder, pathValue);
-      }
-
-      const sec = SecurityValidator.validatePath(absolutePath.fsPath, true);
-      if (!sec.safe)
-        throw new Error(sec.reason || "Security validation failed");
-
-      const release = await this.fileLockManager.acquire(absolutePath.fsPath);
-      try {
-        if (message.conversationId) {
-          CheckpointManager.getInstance().setActiveConversationId(
-            message.conversationId,
-          );
-        }
-        const fileExists = fs.existsSync(absolutePath.fsPath);
-        let beforeContent: string | null = null;
-        if (fileExists) {
-          try {
-            beforeContent = await fs.promises.readFile(
-              absolutePath.fsPath,
-              "utf-8",
-            );
-          } catch {
-            beforeContent = null;
-          }
-        }
-        await CheckpointManager.getInstance().createCheckpoint(
-          absolutePath.fsPath,
-          fileExists ? "modify" : "create",
-        );
-        await vscode.workspace.fs.createDirectory(
-          vscode.Uri.joinPath(absolutePath, ".."),
-        );
-        await vscode.workspace.fs.writeFile(
-          absolutePath,
-          Buffer.from(message.content, "utf8"),
-        );
-
-        if (message.conversationId && message.actionId) {
-          await SnapshotManager.getInstance().saveSnapshot(
-            message.conversationId,
-            message.actionId,
-            absolutePath.fsPath,
-            "write",
-            beforeContent,
-            message.content,
-          );
-        }
-      } finally {
-        release();
-      }
-
-      if (!message.skipDiagnostics) {
-        if (!this.isNonCodeFile(pathValue)) {
-          try {
-            const doc = await vscode.workspace.openTextDocument(absolutePath);
-            await vscode.window.showTextDocument(doc, {
-              preview: false,
-              preserveFocus: true,
-            });
-          } catch {}
-          await this.waitForDiagnosticsWithFallback(
-            absolutePath,
-            pathValue,
-            50000,
-          );
-        }
-        webviewView.webview.postMessage({
-          command: "writeFileResult",
-          requestId: message.requestId,
-          path: pathValue,
-          success: true,
-          diagnostics: this.getDiagnosticsForFile(absolutePath),
-        });
-      } else {
-        webviewView.webview.postMessage({
-          command: "writeFileResult",
-          requestId: message.requestId,
-          path: pathValue,
-          success: true,
-          diagnostics: [],
-        });
-      }
-    } catch (e: any) {
-      webviewView.webview.postMessage({
-        command: "writeFileResult",
-        requestId: message.requestId,
-        path: message.path || message.filePath || message.file_path,
-        error: e.message,
-      });
-    }
-  }
-
   // ── Replace In File ──
   public async handleReplaceInFile(
     message: any,
@@ -388,19 +219,16 @@ export class FileWriteHandler {
     }
 
     let absPath: vscode.Uri;
-    if (pathValue.endsWith("workspace.md")) {
-      const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
-      await fs.promises.mkdir(pcDir, { recursive: true });
-      absPath = vscode.Uri.file(path.join(pcDir, path.basename(pathValue)));
-    } else {
-      try {
-        absPath = await this.resolveWorkspacePathWithFallback(
-          workspaceFolder,
-          pathValue,
-        );
-      } catch {
-        absPath = this.resolveWorkspacePath(workspaceFolder, pathValue);
-      }
+    try {
+      absPath = await this.resolveWorkspacePathWithFallback(
+        workspaceFolder,
+        pathValue,
+      );
+    } catch {
+      const resolvedPath = path.isAbsolute(pathValue)
+        ? vscode.Uri.file(pathValue)
+        : vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
+      absPath = resolvedPath;
     }
 
     const sec = SecurityValidator.validatePath(absPath.fsPath, true);
@@ -443,7 +271,7 @@ export class FileWriteHandler {
           await vscode.workspace.fs.readFile(absPath),
         ).toString("utf8");
       } catch (e: any) {
-        if (!pathValue.endsWith("workspace.md")) throw e;
+        throw e;
       }
 
       let searchArgs: string;

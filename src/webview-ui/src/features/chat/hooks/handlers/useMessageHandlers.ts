@@ -230,16 +230,8 @@ export const useMessageHandlers = ({
     isStoppedRef,
   ]);
 
-  const handleClearChat = useCallback(() => {
-    extensionService.postMessage({
-      command: "confirmClearChat",
-      conversationId: currentConversationId,
-    });
-  }, [currentConversationId]);
-
   return {
     handleSend,
     handleStopGeneration,
-    handleClearChat,
   };
 };

@@ -3,9 +3,8 @@
  *    Controller trung tâm nhận message từ webview, điều phối đến các handler tương ứng (file, terminal, git, agent, storage, conversation...).
  *
  *? Function:
- *    handleMessage()              : Routing chính, phân phối message theo command.
- *    updateTheme()                : Gửi theme hiện tại cho webview.
- *    handleGenerateCommitMessage(): Tạo commit message từ danh sách file thay đổi.
+ *    handleMessage() : Routing chính, phân phối message theo command.
+ *    updateTheme()   : Gửi theme hiện tại cho webview.
  */
 import * as vscode from "vscode";
 
@@ -14,16 +13,37 @@ import { AgentManager } from "../agent/AgentManager";
 
 // HANDLERS
 import { AgentHandler } from "../handlers/AgentHandler";
-import { ProjectContextHandler } from "../handlers/ProjectContextHandler";
-import { StorageHandler } from "../handlers/StorageHandler";
-import { SystemHandler } from "../handlers/SystemHandler";
-import { TerminalHandler } from "../handlers/TerminalHandler";
-import { ConversationHistoryHandler } from "../handlers/conversation/ConversationHistoryHandler";
-import { ConversationStateHandler } from "../handlers/conversation/ConversationStateHandler";
-import { FileOperationHandler } from "../handlers/file/FileOperationHandler";
-import { FileReadHandler } from "../handlers/file/FileReadHandler";
-import { FileWriteHandler } from "../handlers/file/FileWriteHandler";
-import { GitHandler } from "../handlers/file/GitHandler";
+import { ProjectContextHandler } from "../handlers/system/ProjectContextHandler";
+import { StorageHandler } from "../handlers/storage/StorageHandler";
+import { ThemeHandler } from "../handlers/system/ThemeHandler";
+import { FileOpenHandler } from "../handlers/system/FileOpenHandler";
+import { DiffViewHandler } from "../handlers/system/DiffViewHandler";
+import { PreviewHandler } from "../handlers/system/PreviewHandler";
+import { GitCommitHandler } from "../handlers/git/GitCommitHandler";
+import { RemoveTerminalHandler } from "../handlers/terminal/RemoveTerminalHandler";
+import { RunCommandHandler } from "../handlers/terminal/RunCommandHandler";
+import { StopCommandHandler } from "../handlers/terminal/StopCommandHandler";
+import { StopTerminalHandler } from "../handlers/terminal/StopTerminalHandler";
+import { TerminalInputHandler } from "../handlers/terminal/TerminalInputHandler";
+import { DeleteAllConversationsHandler } from "../handlers/conversation/DeleteAllConversationsHandler";
+import { DeleteConversationHandler } from "../handlers/conversation/DeleteConversationHandler";
+import { GetConversationHandler } from "../handlers/conversation/GetConversationHandler";
+import { GetHistoryHandler } from "../handlers/conversation/GetHistoryHandler";
+import { OpenConversationFolderHandler } from "../handlers/conversation/OpenConversationFolderHandler";
+import { RevertConversationHandler } from "../handlers/conversation/RevertConversationHandler";
+import { SaveConversationStateHandler } from "../handlers/conversation/SaveConversationStateHandler";
+import { DeleteFileHandler } from "../handlers/tool/DeleteFileHandler";
+import { FileMiscHandler } from "../handlers/tool/FileMiscHandler";
+import { FindFilesHandler } from "../handlers/tool/FindFilesHandler";
+import { ListFilesHandler } from "../handlers/tool/ListFilesHandler";
+import { MoveFileHandler } from "../handlers/tool/MoveFileHandler";
+import { ReadFileHandler } from "../handlers/tool/ReadFileHandler";
+import { ReplaceInFileHandler } from "../handlers/tool/ReplaceInFileHandler";
+import { RevertFileHandler } from "../handlers/tool/RevertFileHandler";
+import { ViewReplaceHistoryHandler } from "../handlers/tool/ViewReplaceHistoryHandler";
+import { WriteToFileHandler } from "../handlers/tool/WriteToFileHandler";
+import { GitDiffHandler } from "../handlers/tool/GitDiffHandler";
+import { GitStatusHandler } from "../handlers/tool/GitStatusHandler";
 
 // MANAGERS
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -34,14 +54,35 @@ import { ProcessManager } from "../managers/ProcessManager";
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 
 export class ChatController {
-  private conversationHistoryHandler: ConversationHistoryHandler;
-  private conversationStateHandler: ConversationStateHandler;
-  private fileReadHandler: FileReadHandler;
-  private fileWriteHandler: FileWriteHandler;
-  private fileOperationHandler: FileOperationHandler;
-  private gitHandler: GitHandler;
-  private terminalHandler: TerminalHandler;
-  private systemHandler: SystemHandler;
+  private getHistoryHandler: GetHistoryHandler;
+  private getConversationHandler: GetConversationHandler;
+  private deleteConversationHandler: DeleteConversationHandler;
+  private deleteAllConversationsHandler: DeleteAllConversationsHandler;
+  private openConversationFolderHandler: OpenConversationFolderHandler;
+  private saveConversationStateHandler: SaveConversationStateHandler;
+  private revertConversationHandler: RevertConversationHandler;
+  private readFileHandler: ReadFileHandler;
+  private writeToFileHandler: WriteToFileHandler;
+  private replaceInFileHandler: ReplaceInFileHandler;
+  private deleteFileHandler: DeleteFileHandler;
+  private moveFileHandler: MoveFileHandler;
+  private revertFileHandler: RevertFileHandler;
+  private viewReplaceHistoryHandler: ViewReplaceHistoryHandler;
+  private listFilesHandler: ListFilesHandler;
+  private findFilesHandler: FindFilesHandler;
+  private fileMiscHandler: FileMiscHandler;
+  private gitStatusHandler: GitStatusHandler;
+  private gitDiffHandler: GitDiffHandler;
+  private runCommandHandler: RunCommandHandler;
+  private stopCommandHandler: StopCommandHandler;
+  private terminalInputHandler: TerminalInputHandler;
+  private removeTerminalHandler: RemoveTerminalHandler;
+  private stopTerminalHandler: StopTerminalHandler;
+  private themeHandler: ThemeHandler;
+  private fileOpenHandler: FileOpenHandler;
+  private diffViewHandler: DiffViewHandler;
+  private previewHandler: PreviewHandler;
+  private gitCommitHandler: GitCommitHandler;
   private projectContextHandler: ProjectContextHandler;
   private agentHandler: AgentHandler;
   private storageHandler: StorageHandler;
@@ -52,18 +93,41 @@ export class ChatController {
     private processManager: ProcessManager,
     private fileLockManager: FileLockManager,
   ) {
-    this.conversationHistoryHandler = new ConversationHistoryHandler(
+    this.getHistoryHandler = new GetHistoryHandler(this.storageManager);
+    this.getConversationHandler = new GetConversationHandler(
       this.storageManager,
     );
-    this.conversationStateHandler = new ConversationStateHandler(
+    this.deleteConversationHandler = new DeleteConversationHandler();
+    this.deleteAllConversationsHandler = new DeleteAllConversationsHandler();
+    this.openConversationFolderHandler = new OpenConversationFolderHandler();
+    this.saveConversationStateHandler = new SaveConversationStateHandler(
       this.fileLockManager,
     );
-    this.fileReadHandler = new FileReadHandler();
-    this.fileWriteHandler = new FileWriteHandler(this.fileLockManager);
-    this.fileOperationHandler = new FileOperationHandler();
-    this.gitHandler = new GitHandler();
-    this.terminalHandler = new TerminalHandler(this.processManager);
-    this.systemHandler = new SystemHandler();
+    this.revertConversationHandler = new RevertConversationHandler(
+      this.fileLockManager,
+    );
+    this.readFileHandler = new ReadFileHandler();
+    this.writeToFileHandler = new WriteToFileHandler(this.fileLockManager);
+    this.replaceInFileHandler = new ReplaceInFileHandler(this.fileLockManager);
+    this.deleteFileHandler = new DeleteFileHandler();
+    this.moveFileHandler = new MoveFileHandler();
+    this.revertFileHandler = new RevertFileHandler();
+    this.viewReplaceHistoryHandler = new ViewReplaceHistoryHandler();
+    this.listFilesHandler = new ListFilesHandler();
+    this.findFilesHandler = new FindFilesHandler();
+    this.fileMiscHandler = new FileMiscHandler();
+    this.gitStatusHandler = new GitStatusHandler();
+    this.gitDiffHandler = new GitDiffHandler();
+    this.runCommandHandler = new RunCommandHandler(this.processManager);
+    this.stopCommandHandler = new StopCommandHandler(this.processManager);
+    this.terminalInputHandler = new TerminalInputHandler(this.processManager);
+    this.removeTerminalHandler = new RemoveTerminalHandler(this.processManager);
+    this.stopTerminalHandler = new StopTerminalHandler(this.processManager);
+    this.themeHandler = new ThemeHandler();
+    this.fileOpenHandler = new FileOpenHandler();
+    this.diffViewHandler = new DiffViewHandler();
+    this.previewHandler = new PreviewHandler();
+    this.gitCommitHandler = new GitCommitHandler();
     this.projectContextHandler = new ProjectContextHandler();
     this.agentHandler = new AgentHandler(this.agentManager);
     this.storageHandler = new StorageHandler(this.storageManager);
@@ -84,227 +148,142 @@ export class ChatController {
       switch (command) {
         // Theme & System
         case "requestTheme":
-          await this.systemHandler.handleRequestTheme(webviewView);
+          await this.themeHandler.handleRequestTheme(webviewView);
           break;
         case "getSystemInfo":
-          this.systemHandler.handleGetSystemInfo(message, webviewView);
-          break;
-        case "openWorkspaceFolder":
-          await this.systemHandler.handleOpenWorkspaceFolder(message);
-          break;
-        case "openDiffView":
-          await this.systemHandler.handleOpenDiffView(message);
+          this.projectContextHandler.handleGetSystemInfo(message, webviewView);
           break;
         case "openFile":
-        case "openWorkspaceFile":
-          await this.systemHandler.handleOpenFile(message);
-          break;
-        case "openFileAtLine":
-          await this.systemHandler.handleOpenFileAtLine(message);
+          await this.fileOpenHandler.handleOpenFile(message);
           break;
         case "openFolder":
-          await this.systemHandler.handleOpenFolder(message);
-          break;
-        case "openPreview":
-          await this.systemHandler.handleOpenPreview(message);
+          await this.fileOpenHandler.handleOpenFolder(message);
           break;
         case "openTempImage":
-          await this.systemHandler.handleOpenTempImage(message);
-          break;
-        case "openExternal":
-          this.systemHandler.handleOpenExternal(message);
+          await this.previewHandler.handleOpenTempImage(message);
           break;
 
         // Conversation Management
         case "getHistory":
-          await this.conversationHistoryHandler.handleGetHistory(
-            message,
-            webviewView,
-          );
+          await this.getHistoryHandler.handleGetHistory(message, webviewView);
           break;
         case "getConversation":
-          await this.conversationHistoryHandler.handleGetConversation(
+          await this.getConversationHandler.handleGetConversation(
             message,
             webviewView,
           );
           break;
 
         case "deleteConversation":
-          await this.conversationHistoryHandler.handleDeleteConversation(
+          await this.deleteConversationHandler.handleDeleteConversation(
             message,
             webviewView,
           );
           break;
         case "deleteAllConversations":
-          await this.conversationHistoryHandler.handleDeleteAllConversations(
+          await this.deleteAllConversationsHandler.handleDeleteAllConversations(
             message,
             webviewView,
           );
           break;
-        case "rollbackConversationLog":
-          await this.conversationStateHandler.handleRollbackConversationLog(
-            message,
-          );
-          break;
         case "revertConversation":
-          await this.conversationStateHandler.handleRevertConversation(
+          await this.revertConversationHandler.handleRevertConversation(
             message,
             webviewView,
           );
           break;
         case "openConversationFolder":
-          await this.conversationHistoryHandler.handleOpenConversationFolder(
+          await this.openConversationFolderHandler.handleOpenConversationFolder(
             message,
           );
           break;
 
         case "saveConversationState":
-          await this.conversationStateHandler.handleSaveConversationState(
+          await this.saveConversationStateHandler.handleSaveConversationState(
             message,
           );
           break;
         // File Operations
         case "readFile":
-          await this.fileReadHandler.handleReadFile(message, webviewView);
+          await this.readFileHandler.handleReadFile(message, webviewView);
           break;
         case "writeFile":
-          await this.fileWriteHandler.handleWriteToFile(message, webviewView);
+          await this.writeToFileHandler.handleWriteToFile(message, webviewView);
           break;
         case "replaceInFile":
-          await this.fileWriteHandler.handleReplaceInFile(message, webviewView);
-          break;
-        case "revertFile":
-          await this.fileOperationHandler.handleRevertFile(
+          await this.replaceInFileHandler.handleReplaceInFile(
             message,
             webviewView,
           );
           break;
+        case "revertFile":
+          await this.revertFileHandler.handleRevertFile(message, webviewView);
+          break;
         case "viewReplaceHistory":
-          await this.fileOperationHandler.handleViewReplaceHistory(
+          await this.viewReplaceHistoryHandler.handleViewReplaceHistory(
             message,
             webviewView,
           );
           break;
         case "listFiles":
-          await this.fileOperationHandler.handleListFiles(message, webviewView);
+          await this.listFilesHandler.handleListFiles(message, webviewView);
           break;
         case "findFiles":
-          await this.fileOperationHandler.handleFindFiles(message, webviewView);
+          await this.findFilesHandler.handleFindFiles(message, webviewView);
           break;
-        case "searchContent":
-          // removed
-          break;
+
         case "validateFuzzyMatch":
-          await this.fileWriteHandler.handleValidateFuzzyMatch(
+          await this.replaceInFileHandler.handleValidateFuzzyMatch(
             message,
             webviewView,
           );
           break;
         case "getFileStats":
-          await this.fileOperationHandler.handleGetFileStats(
-            message,
-            webviewView,
-          );
+          await this.fileMiscHandler.handleGetFileStats(message, webviewView);
           break;
         case "getDiagnostics":
-          await this.fileOperationHandler.handleGetDiagnostics(
-            message,
-            webviewView,
-          );
-          break;
         case "deleteFile":
-          await this.fileOperationHandler.handleDeleteFile(
-            message,
-            webviewView,
-          );
+          await this.deleteFileHandler.handleDeleteFile(message, webviewView);
           break;
         case "moveFile":
-          await this.fileOperationHandler.handleMoveFile(message, webviewView);
+          await this.moveFileHandler.handleMoveFile(message, webviewView);
           break;
-        case "getSnapshot":
-          await this.fileOperationHandler.handleGetSnapshot(
-            message,
-            webviewView,
-          );
-          break;
-
-        // Backup
-        case "startBackupWatch":
-        case "stopBackupWatch":
-        case "getBackupTimeline":
-        case "getBackupSnapshot":
-        case "getBackupBlacklist":
-        case "addToBackupBlacklist":
-        case "removeFromBackupBlacklist":
-        case "deleteBackupFile":
-        case "backupBinaryFileDecision":
-        case "revertToSnapshot":
-        case "openSnapshotDiffWithCurrent":
-          // Backup feature removed
-          break;
-        case "openDiff":
-          await this.systemHandler.handleOpenDiff(message);
-          break;
-        case "openReplaceInFileDiff":
-          await this.systemHandler.handleOpenReplaceInFileDiff(message);
+        case "openFileDiff":
+          await this.diffViewHandler.handleFileDiff(message);
           break;
         case "openWriteToFile":
-          await this.systemHandler.handleOpenWriteToFile(message);
-          break;
-        case "openSnapshotDiff":
-          await this.systemHandler.handleOpenSnapshotDiff(message);
+          await this.previewHandler.handleOpenWriteToFile(message);
           break;
 
         // Terminal
         case "runCommand":
-          await this.terminalHandler.handleRunCommand(message, webviewView);
+          await this.runCommandHandler.handleRunCommand(message, webviewView);
           break;
         case "terminalInput":
-          this.terminalHandler.handleTerminalInput(message);
+          this.terminalInputHandler.handleTerminalInput(message);
           break;
         case "stopCommand":
-          await this.terminalHandler.handleStopCommand(message);
-          break;
-        case "listTerminals":
-          this.terminalHandler.handleListTerminals(message, webviewView);
+          await this.stopCommandHandler.handleStopCommand(message);
           break;
         case "removeTerminal":
-          this.terminalHandler.handleRemoveTerminal(message, webviewView);
+          this.removeTerminalHandler.handleRemoveTerminal(message, webviewView);
           break;
         case "stopTerminal":
-          this.terminalHandler.handleStopTerminal(message);
+          this.stopTerminalHandler.handleStopTerminal(message);
           break;
 
         // Project Context
-        case "getFolderTree":
-          await this.projectContextHandler.handleGetFolderTree(
-            message,
-            webviewView,
-          );
-          break;
         case "getProjectContext":
           await this.projectContextHandler.handleGetProjectContext(
             message,
             webviewView,
           );
           break;
-        // Misc & Core (kept in Controller for now if simple)
-        case "confirmDelete":
-        case "confirmClearAll":
-        case "confirmClearChat":
-          await this.systemHandler.handleConfirmation(message, webviewView);
-          break;
         case "showError":
           vscode.window.showErrorMessage(message.message);
           break;
-        case "updateAgentPermissions":
-          this.agentHandler.handleUpdateAgentPermissions(message);
-          break;
-        case "executeAgentAction":
-          await this.agentHandler.handleExecuteAgentAction(
-            message,
-            webviewView,
-          );
+        case "executeGrep":
+          await this.agentHandler.handleExecuteGrep(message, webviewView);
           break;
         case "storageGet":
         case "storageSet":
@@ -316,106 +295,25 @@ export class ChatController {
           );
           break;
         case "runGitStatus":
-          await this.gitHandler.handleRunGitStatus(message, webviewView);
+          await this.gitStatusHandler.handleRunGitStatus(message, webviewView);
           break;
         case "gitDiff":
-          await this.gitHandler.handleGitDiff(message, webviewView);
+          await this.gitDiffHandler.handleGitDiff(message, webviewView);
           break;
         case "showGitDiff":
-          await this.systemHandler.handleShowGitDiff(message);
+          await this.diffViewHandler.handleShowGitDiff(message);
           break;
-        case "generateCommitMessage":
-          // Handle commit message generation directly in ChatController
-          await this.handleGenerateCommitMessage(message, webviewView);
-          break;
+
         case "acceptCommitMessage":
-          await this.systemHandler.handleAcceptCommitMessage(
-            message,
-            webviewView,
-          );
+          await this.gitCommitHandler.handleGitCommit(message, webviewView);
           break;
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("[ChatController] handleMessage error:", error);
+    }
   }
 
   public async updateTheme(webview: vscode.Webview) {
-    await this.systemHandler.updateTheme(webview);
-  }
-
-  public async handleGenerateCommitMessage(
-    message: any,
-    webviewView: vscode.WebviewView,
-  ) {
-    try {
-      const { statusItems, model, account } = message;
-      if (!statusItems || statusItems.length === 0) {
-        webviewView.webview.postMessage({
-          command: "generateCommitMessageResult",
-          requestId: message.requestId,
-          error: "No git status items provided",
-        });
-        return;
-      }
-
-      // Build prompt from status items
-      const gitStatusText = statusItems
-        .map(
-          (item: any) =>
-            `${item.staged ? "[staged]" : "[unstaged]"} ${item.status} ${item.path}`,
-        )
-        .join("\n");
-
-      const prompt = `[COMMIT_MESSAGE_REQUEST]
-Hãy tạo một commit message dựa trên danh sách file thay đổi sau:
-
-\`\`\`
-${gitStatusText}
-\`\`\`
-
-Yêu cầu:
-- Sử dụng cấu trúc: <emoji> <type>(<scope>): <subject>
-- Liệt kê các thay đổi chi tiết với dấu "-" ở đầu dòng
-- Viết bằng tiếng Việt
-- Commit message ngắn gọn, rõ ràng, có ý nghĩa
-- Trả lời chỉ với commit message, không thêm nội dung khác
-- Đặt commit message trong thẻ <commit_message>...</commit_message>`;
-
-      // Create a new conversation ID
-      const conversationId = `commit-${Date.now()}`;
-
-      // TODO: Use the actual AI model to generate the commit message
-      // For now, we'll send a response back to the webview
-      // The webview will handle the display
-
-      // For testing, send a mock response
-      // In production, this would use the AI model
-
-      // Since we don't have direct access to the AI model here,
-      // we'll use the existing sendMessage flow with a new conversation
-
-      // Create a new conversation using the conversation handler
-      // This is a simplified version - we need to actually generate the commit message
-
-      // Return the result to the webview
-      webviewView.webview.postMessage({
-        command: "generateCommitMessageResult",
-        requestId: message.requestId,
-        success: true,
-        conversationId: conversationId,
-      });
-    } catch (error) {
-      console.error(
-        "[ChatController] handleGenerateCommitMessage error:",
-        error,
-      );
-      webviewView.webview.postMessage({
-        command: "generateCommitMessageResult",
-        requestId: message.requestId,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to generate commit message",
-      });
-    }
+    await this.themeHandler.updateTheme(webview);
   }
 }

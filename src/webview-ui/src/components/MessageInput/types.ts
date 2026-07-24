@@ -22,7 +22,6 @@ export interface MessageInputProps {
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   handleDragOver: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent) => void;
-  setShowAtMenu: (show: boolean) => void;
   handleFileSelect: () => void;
   fileInputRef?: React.RefObject<HTMLInputElement>;
   onOpenProjectStructure: () => void;
@@ -110,7 +109,6 @@ export interface MessageInputProps {
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   handleDragOver: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent) => void;
-  setShowAtMenu: (show: boolean) => void;
   handleFileSelect: () => void;
   fileInputRef?: React.RefObject<HTMLInputElement>;
   onOpenProjectStructure: () => void;

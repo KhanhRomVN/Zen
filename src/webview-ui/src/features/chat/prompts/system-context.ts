@@ -23,5 +23,5 @@ OS: ${info.os}, IDE: ${info.ide}, Shell: ${info.shell}, Home: ${info.homeDir}, C
 ## Auto-Injected Per Message
 - **FILE_STRUCTURE**: Current project file tree
 - **ACTIVE_TERMINALS**: Running processes — check before starting new dev servers/watch commands (see CHECK-RUNNING-PROCESSES in CONSTRAINTS)
-- **PROJECT_CONTEXT**: \`workspace.md\` content (bullet list: \`- <point>\`)`;
+`;
 };

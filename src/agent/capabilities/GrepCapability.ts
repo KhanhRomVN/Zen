@@ -3,17 +3,22 @@
  *    Tìm kiếm regex trong file hoặc thư mục (đệ quy). Hỗ trợ fuzzy matching, tự động bỏ dấu tiếng Việt, bỏ qua thư mục/thư viện nhị phân.
  *
  *? Function:
- *    execute(): Thực thi tìm kiếm, trả về kết quả theo file.
+ *    execute()              : Thực thi tìm kiếm, trả về kết quả theo file.
+ *    createSearchPattern()  : Tạo regex pattern cho fuzzy matching (xử lý camelCase, snake_case, kebab-case).
+ *    removeDiacritics()     : Loại bỏ dấu tiếng Việt và các ký tự có dấu khác.
+ *    splitIntoWords()       : Tách chuỗi thành các từ, xử lý camelCase/snake_case/kebab-case.
+ *    escapeRegex()          : Escape các ký tự đặc biệt trong regex.
+ *    getAllFiles()          : Đệ quy lấy tất cả file trong thư mục (loại trừ thư mục hệ thống, file nhị phân).
+ *    searchInFileWithStats(): Tìm kiếm regex trong một file, trả về matches + số dòng đã quét.
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as vscode from "vscode";
 
 // SERVICES
 import { LoggerService } from "../../services/LoggerService";
 
 // TYPES
-import { AgentAction, AgentExecutionResult } from "../../types";
+import { AgentAction, AgentExecutionResult } from "../../types/Agent";
 
 interface MatchResult {
   lineNumber: number;
@@ -333,35 +338,6 @@ export class GrepCapability {
     }
 
     return fileList;
-  }
-
-  /**
-   * Search for pattern in a single file
-   */
-  private async searchInFile(
-    filePath: string,
-    regex: RegExp,
-  ): Promise<MatchResult[]> {
-    const matches: MatchResult[] = [];
-
-    try {
-      const content = await fs.promises.readFile(filePath, "utf-8");
-      const lines = content.split(/\r?\n/);
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (regex.test(line)) {
-          matches.push({
-            lineNumber: i + 1, // 1-indexed line numbers
-            lineContent: line.trim(),
-          });
-        }
-      }
-    } catch (error) {
-      // Skip binary files or files that can't be read
-    }
-
-    return matches;
   }
 
   /**

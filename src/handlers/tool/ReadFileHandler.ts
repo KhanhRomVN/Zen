@@ -17,7 +17,7 @@ import { DiagnosticsService } from "../../services/DiagnosticsService";
 import { LoggerService } from "../../services/LoggerService";
 import { PathService } from "../../services/PathService";
 
-export class FileReadHandler {
+export class ReadFileHandler {
   private _readFileQueue: Promise<void> = Promise.resolve();
   private pathService: PathService;
 
@@ -27,14 +27,6 @@ export class FileReadHandler {
 
   private getProjectContextDir(workspaceFolderPath: string): string {
     return this.pathService.getProjectContextDir(workspaceFolderPath);
-  }
-
-  private resolveWorkspacePath(
-    workspaceFolder: vscode.WorkspaceFolder,
-    pathValue: string,
-  ): vscode.Uri {
-    if (path.isAbsolute(pathValue)) return vscode.Uri.file(pathValue);
-    return vscode.Uri.joinPath(workspaceFolder.uri, pathValue);
   }
 
   private async resolveWorkspacePathWithFallback(
@@ -120,16 +112,10 @@ export class FileReadHandler {
         throw new Error("The 'path' argument must be of type string.");
 
       let absPath: vscode.Uri;
-      if (pathValue.endsWith("workspace.md")) {
-        const pcDir = this.getProjectContextDir(workspaceFolder.uri.fsPath);
-        await fs.promises.mkdir(pcDir, { recursive: true });
-        absPath = vscode.Uri.file(path.join(pcDir, path.basename(pathValue)));
-      } else {
-        absPath = await this.resolveWorkspacePathWithFallback(
-          workspaceFolder,
-          pathValue,
-        );
-      }
+      absPath = await this.resolveWorkspacePathWithFallback(
+        workspaceFolder,
+        pathValue,
+      );
 
       const securityCheck = SecurityValidator.validatePath(
         absPath.fsPath,
@@ -138,14 +124,9 @@ export class FileReadHandler {
       if (!securityCheck.safe)
         throw new Error(securityCheck.reason || "Security validation failed");
 
-      if (
-        !pathValue.endsWith("workspace.md") &&
-        !fs.existsSync(absPath.fsPath)
-      ) {
+      if (!fs.existsSync(absPath.fsPath)) {
         throw new Error(`File not found: ${pathValue}`);
       }
-
-      // FileSystemAnalyzer removed - skip ignore check
 
       const logger = LoggerService.getInstance();
       const isNonCode = this.isNonCodeFile(pathValue);
@@ -153,7 +134,7 @@ export class FileReadHandler {
 
       if (!shouldSkipDiagnostics) {
         await this.ensureFileOpened(absPath);
-        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000); // 50 giây - phù hợp với 60s timeout frontend
+        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000);
       }
 
       let content = "";
@@ -162,7 +143,7 @@ export class FileReadHandler {
           await vscode.workspace.fs.readFile(absPath),
         ).toString("utf8");
       } catch (e: any) {
-        if (!pathValue.endsWith("workspace.md")) throw e;
+        throw e;
       }
 
       const startLine = message.start_line ?? message.startLine;

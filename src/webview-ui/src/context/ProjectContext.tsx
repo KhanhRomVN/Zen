@@ -4,7 +4,6 @@ import { extensionService } from "../services/ExtensionService";
 interface ProjectContextType {
   rootPath: string;
   homedir: string;
-  workspace: string;
   treeView: string;
 }
 
@@ -13,7 +12,6 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [rootPath, setRootPath] = useState("");
   const [homedir, setHomedir] = useState("");
-  const [workspace, setWorkspace] = useState("");
   const [treeView, setTreeView] = useState("");
 
   useEffect(() => {
@@ -22,7 +20,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (message.command === "projectContextResult" && message.data) {
         setRootPath(message.data.rootPath || "");
         setHomedir(message.data.homedir || "");
-        setWorkspace(message.data.workspace || "");
         setTreeView(message.data.treeView || "");
       }
     };
@@ -34,7 +31,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   return (
-    <ProjectContext.Provider value={{ rootPath, homedir, workspace, treeView }}>
+    <ProjectContext.Provider value={{ rootPath, homedir, treeView }}>
       {children}
     </ProjectContext.Provider>
   );

@@ -145,7 +145,7 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
   const folderPath =
     action.params.folder_path || action.params.folderPath || "";
   const filePath = action.params.file_path || action.params.filePath || "";
-  
+
   // Check for validation error from parser
   const validationError = action.params._validationError;
 
@@ -160,7 +160,11 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
     }
 
     // Check for error messages first (before attempting JSON parse)
-    if (output.startsWith('Error - ') || output.startsWith('Error:') || output.includes('not found')) {
+    if (
+      output.startsWith("Error - ") ||
+      output.startsWith("Error:") ||
+      output.includes("not found")
+    ) {
       // This is an error message, not grep results - will be handled by ErrorBlock
       return null;
     }
@@ -169,7 +173,7 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
       const result = parseCompactGrepOutput(output);
       return result;
     }
-    
+
     try {
       const parsed = JSON.parse(output);
       if (parsed.searchTerm !== undefined) {
@@ -198,10 +202,10 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
     });
   };
 
-  const openFileAtLine = (filePathLine: string, lineNumber: number) => {
+  const openFile = (filePathLine: string, lineNumber: number) => {
     const fullPath = filePathLine;
     extensionService.postMessage({
-      command: "openFileAtLine",
+      command: "openFile",
       path: fullPath,
       line: lineNumber,
       selection: { startLine: lineNumber, endLine: lineNumber },
@@ -210,12 +214,12 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
       extensionService.postMessage({ command: "openFile", path: fullPath });
     }, 200);
   };
-  
+
   // Validation error state: show error message immediately
   if (validationError && !toolOutputs?.[actionId]) {
     return (
-      <ErrorBlock 
-        content={`Invalid Search Pattern: ${validationError}\nPattern: ${searchTerm}`} 
+      <ErrorBlock
+        content={`Invalid Search Pattern: ${validationError}\nPattern: ${searchTerm}`}
         compact={true}
         maxHeight="300px"
       />
@@ -248,19 +252,27 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
 
   // Error state: show error message
   if (isError && errorMessage) {
-    return <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />;
+    return (
+      <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
+    );
   }
-  
+
   // Check if output is an error message (not grep results)
   const output = toolOutputs?.[actionId]?.output;
-  const isOutputError = output && (
-    output.startsWith('Error - ') || 
-    output.startsWith('Error:') || 
-    output.includes('not found')
-  );
-  
+  const isOutputError =
+    output &&
+    (output.startsWith("Error - ") ||
+      output.startsWith("Error:") ||
+      output.includes("not found"));
+
   if (isOutputError && !grepResult) {
-    return <ErrorBlock content={output || 'Search failed'} compact={true} maxHeight="300px" />;
+    return (
+      <ErrorBlock
+        content={output || "Search failed"}
+        compact={true}
+        maxHeight="300px"
+      />
+    );
   }
 
   if (!grepResult || !isCompleted) return null;
@@ -394,7 +406,7 @@ const GrepBlock: React.FC<GrepBlockProps> = ({
                   <div
                     key={`${filePathKey}-${match.lineNumber}-${idx}`}
                     onClick={() => {
-                      openFileAtLine(filePathKey, match.lineNumber);
+                      openFile(filePathKey, match.lineNumber);
                     }}
                     style={{
                       display: "flex",

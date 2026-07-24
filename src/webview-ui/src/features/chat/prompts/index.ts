@@ -47,9 +47,6 @@ export const combinePrompts = (config: PromptConfig): string => {
   return sections.join("\n\n---\n\n");
 };
 
-/**
- * Fallback prompt — real values should come from window.api.app.getSystemInfo()
- */
 export const getDefaultPrompt = (language: string = "English"): string => {
   return combinePrompts({
     language,

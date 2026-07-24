@@ -98,12 +98,11 @@ export async function activate(extContext: vscode.ExtensionContext) {
       const selectedUris = uris && uris.length > 0 ? uris : [uri];
       for (const selectedUri of selectedUris) {
         try {
-          const stat = await vscode.workspace.fs.stat(selectedUri);
-          const isFolder = stat.type === vscode.FileType.Directory;
+          await vscode.workspace.fs.stat(selectedUri);
           provider.postMessageToWebview({
             command: "addAttachedItem",
             uri: selectedUri.fsPath,
-            itemType: isFolder ? "folder" : "file",
+            itemType: "file",
           });
         } catch (e) {
           provider.postMessageToWebview({

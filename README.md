@@ -106,4 +106,19 @@ RULE:
 3/ ko tự tạo các file .md thừa ko cần thiết
 4/ ko tự chạy các lệnh terminal khi chưa cho phép
 
-quét qua toàn bộ file trong src (noại trừ src/webview-ui). ta sẽ tạo các comment code (có dùng better comment của vscode) với ngôn ngữ tiếng việt cho dòng đầu tiên của các file. log sẽ có mô tả chức năng, liệt kê các hàm và mô tả ngắn chức năng các hàm
+vậy cần đổi tên case "executeAgentAction" từ tên case phù hợp cho file
+src/webview-ui/src/features/chat/services/tool-executors/GrepExecutor.ts:36-46:
+```
+      extensionService.postMessage({
+        command: "executeAgentAction",
+        action: {
+          type: "grep",
+          search_term: searchTerm,
+          file_path: filePath,
+          folder_path: folderPath,
+          requestId,
+          timestamp: Date.now(),
+        },
+      });
+```
+cũng đổi tên handler handleExecuteAgentAction thành tên hnader khác 

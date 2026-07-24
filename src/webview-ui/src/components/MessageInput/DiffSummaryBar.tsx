@@ -100,7 +100,7 @@ const DiffSummaryBar: React.FC<DiffSummaryBarProps> = ({
       fileData.newContent
     ) {
       vscodeApi.postMessage({
-        command: "openReplaceInFileDiff",
+        command: "openFileDiff",
         filePath: filePath,
         oldContent: fileData.oldContent,
         newContent: fileData.newContent,

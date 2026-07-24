@@ -134,7 +134,7 @@ export const useChatLLM = ({
 
   // Get context values
   const { aiLanguage, permissionMode } = useSettings();
-  const { workspace, treeView } = useProject();
+  const { treeView } = useProject();
   const { uploadFiles } = useFileUpload(apiUrl);
 
   // Local state
@@ -285,7 +285,6 @@ export const useChatLLM = ({
         aiLanguage,
         permissionMode,
         treeView,
-        workspace,
         files,
         userRequestCount: userRequestCountRef.current,
         needsToolSyntaxReminder: needsReminder,
@@ -319,7 +318,6 @@ export const useChatLLM = ({
           ?.filter(
             (f: any) =>
               f.type === "file" ||
-              f.type === "folder" ||
               f.type === "external" ||
               f.type === "text-snippet",
           )
@@ -842,7 +840,6 @@ export const useChatLLM = ({
       aiLanguage,
       permissionMode,
       treeView,
-      workspace,
       uploadFiles,
       setIsProcessingSync,
       setIsContinuingSync,

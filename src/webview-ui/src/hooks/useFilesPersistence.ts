@@ -15,7 +15,7 @@ interface UploadedFile {
 interface AttachedItem {
   id: string;
   path: string;
-  type: "file" | "folder" | "external" | "text-snippet";
+  type: "file" | "external" | "text-snippet";
   content?: string;
   lineCount?: number;
 }

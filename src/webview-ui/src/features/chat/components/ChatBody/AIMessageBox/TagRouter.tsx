@@ -323,12 +323,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
 
   // Validate fuzzy match & fetch file stats
   React.useEffect(() => {
-    const _effectStartTime = performance.now();
     const cleanups: (() => void)[] = [];
 
     toolGroup.forEach((item) => {
       const { action, index } = item;
-      const actionId = `${messageId}-action-${index}`;
 
       // Check if tool needs fuzzy match validation
       if (shouldValidateFuzzyMatch(action.type) && action.params.diff) {

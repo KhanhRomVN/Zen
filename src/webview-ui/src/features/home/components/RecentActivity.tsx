@@ -22,7 +22,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
     e.stopPropagation();
     const vscodeApi = (window as any).vscodeApi;
     if (vscodeApi) {
-      vscodeApi.postMessage({ command: "confirmDelete", conversationId: id });
+      vscodeApi.postMessage({ command: "deleteConversation", conversationId: id });
     }
   };
 

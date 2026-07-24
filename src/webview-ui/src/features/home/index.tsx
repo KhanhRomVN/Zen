@@ -254,14 +254,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
             prev.filter((c) => c.id !== msg.conversationId),
           );
         }
-      } else if (msg.command === "deleteConfirmed" && msg.conversationId) {
-        const vscodeApi = (window as any).vscodeApi;
-        if (vscodeApi) {
-          vscodeApi.postMessage({
-            command: "deleteConversation",
-            conversationId: msg.conversationId,
-          });
-        }
       }
     };
     window.addEventListener("message", handleMessage);
@@ -670,7 +662,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
         handlePaste={handlePaste}
         handleDragOver={handleDragOver}
         handleDrop={handleDrop}
-        setShowAtMenu={() => {}}
         handleFileSelect={handleFileSelect}
         onOpenProjectStructure={() => {}}
         showChangesDropdown={false}

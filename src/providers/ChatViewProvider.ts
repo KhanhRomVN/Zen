@@ -27,7 +27,7 @@ import { ProcessManager } from "../managers/ProcessManager";
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 
 // TYPES
-import { AgentPermissions } from "../types";
+import { AgentPermissions } from "../types/Agent";
 
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";

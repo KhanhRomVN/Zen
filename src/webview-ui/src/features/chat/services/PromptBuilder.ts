@@ -15,7 +15,6 @@ export interface PromptBuilderOptions {
   aiLanguage: string;
   permissionMode: string;
   treeView: string;
-  workspace: string;
   files?: any[];
   userRequestCount: number;
   needsToolSyntaxReminder?: boolean;
@@ -62,7 +61,6 @@ export class PromptBuilder {
       aiLanguage,
       permissionMode,
       treeView,
-      workspace,
       files,
       userRequestCount,
     } = options;
@@ -76,7 +74,6 @@ export class PromptBuilder {
         aiLanguage,
         permissionMode,
         treeView,
-        workspace,
       );
     }
 
@@ -120,7 +117,6 @@ export class PromptBuilder {
     aiLanguage: string,
     permissionMode: string,
     treeView: string,
-    workspace: string,
   ): Promise<string> {
     let systemInfo = {
       os: "Unknown OS",
@@ -159,20 +155,6 @@ export class PromptBuilder {
     return systemPrompt;
   }
 
-  private static buildProjectContext(
-    treeView: string,
-    workspace: string,
-  ): string {
-    // Project Structure removed - no longer used
-    let projectContextStr = "";
-
-    if (workspace && workspace.trim()) {
-      projectContextStr += `\n\n## WORKSPACE EXPERIENCE (workspace.md)\n\`\`\`\n${workspace}\n\`\`\``;
-    }
-
-    return projectContextStr;
-  }
-
   private static async buildAttachedContext(files: any[]): Promise<string> {
     const attachedItems = files.filter(
       (f: any) =>
@@ -188,7 +170,6 @@ export class PromptBuilder {
     let attachedContextStr = "\n\n## Attached Context\n";
 
     const fileItems = attachedItems.filter((f: any) => f.type === "file");
-    const folderItems = attachedItems.filter((f: any) => f.type === "folder");
     const terminalItems = attachedItems.filter(
       (f: any) => f.type === "terminal",
     );
@@ -204,34 +185,6 @@ export class PromptBuilder {
       fileItems.forEach((f: any) => {
         attachedContextStr += `- ${f.path}\n`;
       });
-    }
-
-    if (folderItems.length > 0) {
-      attachedContextStr += "\n### Folders (Tree Structure)\n";
-      for (const f of folderItems) {
-        const requestId = `folder-tree-${Date.now()}-${Math.random()}`;
-        const treeData: any = await new Promise((resolve) => {
-          const timeoutId = setTimeout(() => resolve(null), 3000);
-          const handler = (event: MessageEvent) => {
-            const msg = event.data;
-            if (
-              msg.command === "getFolderTreeResult" &&
-              msg.requestId === requestId
-            ) {
-              clearTimeout(timeoutId);
-              window.removeEventListener("message", handler);
-              resolve(msg.tree);
-            }
-          };
-          window.addEventListener("message", handler);
-          extensionService.postMessage({
-            command: "getFolderTree",
-            requestId,
-            path: f.path,
-          });
-        });
-        attachedContextStr += `#### ${f.path}\n\`\`\`\n${treeData || "Error fetching tree structure"}\n\`\`\`\n`;
-      }
     }
 
     if (terminalItems.length > 0) {

@@ -15,7 +15,7 @@ import { useWorkspaceData } from "./hooks/workspace/useWorkspaceData";
 import { useGitOperations } from "./hooks/workspace/useGitOperations";
 import { useConversationRestore } from "./hooks/conversation/useConversationRestore";
 import { useFileHandling } from "../../hooks/useFileHandling";
-import { useMentionSystem } from "./hooks/ui/useMentionSystem";
+
 import { useBrowserSession } from "./hooks/llm/useBrowserSession";
 import { useDraftManagement } from "./hooks/conversation/useDraftManagement";
 import { useModelAccount } from "../../hooks/useModelAccount";
@@ -200,8 +200,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // (Previously had debug useEffect here - removed for performance)
 
   // --- Workspace Data ---
-  const { availableFiles, availableFolders, availableRules } =
-    useWorkspaceData();
+  useWorkspaceData();
 
   // --- Draft Management ---
   const {
@@ -214,41 +213,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     undoIndexRef,
   } = useDraftManagement(currentConversationId, revertInput);
 
-  // --- Mention System ---
-  const {
-    showAtMenu,
-    setShowAtMenu,
-    showMentionDropdown,
-    setShowMentionDropdown,
-    mentionType,
-    setMentionType,
-    attachedItems,
-    checkMentions,
-    handleMentionOptionSelect,
-    handleWorkspaceItemSelect,
-    handleRuleSelect,
-    removeAttachedItem,
-    clearAttachedItems,
-    addAttachedItem,
-  } = useMentionSystem({
-    message,
-    setMessage,
-    textareaRef,
-    availableFiles,
-    availableFolders,
-    onRequestWorkspaceFiles: () => {
-      const vscodeApi = (window as any).vscodeApi;
-      if (vscodeApi) {
-        vscodeApi.postMessage({ command: "getWorkspaceFiles" });
-      }
-    },
-    onRequestWorkspaceFolders: () => {
-      const vscodeApi = (window as any).vscodeApi;
-      if (vscodeApi) {
-        vscodeApi.postMessage({ command: "getWorkspaceFolders" });
-      }
-    },
-  });
+  // --- Attached Items ---
+  const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
+
+  const removeAttachedItem = useCallback((itemId: string) => {
+    setAttachedItems((prev) => prev.filter((item) => item.id !== itemId));
+  }, []);
+
+  const clearAttachedItems = useCallback(() => {
+    setAttachedItems([]);
+  }, []);
+
+  const addAttachedItem = useCallback((item: any) => {
+    setAttachedItems((prev) => [...prev, item]);
+  }, []);
 
   // --- File Handling ---
   const {
@@ -274,7 +252,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     folderPath: currentChat?.folderPath || null,
     onAddAttachedItem: (item) => {
       addAttachedItem(item);
-      setShowAtMenu(false);
     },
   });
 
@@ -454,7 +431,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [parsedMessages]);
 
   // --- Message Handlers ---
-  const { handleSend, handleStopGeneration, handleClearChat } =
+  const { handleSend, handleStopGeneration } =
     useMessageHandlers({
       message,
       setMessage,
@@ -483,7 +460,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const { handleTextareaChange, handleKeyDown, handleOpenImage } =
     useTextareaHandlers({
       setMessage,
-      checkMentions,
       handleDraftKeyDown,
     });
 
@@ -614,40 +590,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, [message]);
 
-  // Click outside for dropdowns
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (showAtMenu) {
-        const menu = document.querySelector('[data-at-menu="true"]');
-        if (menu && !menu.contains(target) && target !== textareaRef.current) {
-          setShowAtMenu(false);
-        }
-      }
-      if (showMentionDropdown) {
-        const dropdown = document.querySelector(
-          '[data-mention-dropdown="true"]',
-        );
-        if (dropdown && !dropdown.contains(target)) {
-          setShowMentionDropdown(false);
-          setMentionType(null);
-        }
-      }
-    };
-    if (showAtMenu || showMentionDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [
-    showAtMenu,
-    showMentionDropdown,
-    setShowAtMenu,
-    setShowMentionDropdown,
-    setMentionType,
-  ]);
-
   // Listen for Git commit message detection
   const prevGitMessagesLengthRef = useRef(0);
   useEffect(() => {
@@ -754,7 +696,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         handlePaste={handlePaste}
         handleDragOver={handleDragOver}
         handleDrop={handleDrop}
-        setShowAtMenu={setShowAtMenu}
         handleFileSelect={handleFileSelect}
         fileInputRef={fileInputRef}
         onOpenProjectStructure={() => setShowProjectStructureDrawer(true)}

@@ -1,10 +1,9 @@
 /**
  *? Usage:
- *    Xử lý các lệnh liên quan đến AI agent: cập nhật quyền và thực thi action.
+ *    Xử lý thực thi grep của AI agent.
  *
  *? Function:
- *    handleUpdateAgentPermissions(): Cập nhật bộ quyền cho AgentManager.
- *    handleExecuteAgentAction()    : Thực thi action và trả kết quả về webview.
+ *    handleExecuteGrep(): Thực thi grep và trả kết quả về webview.
  */
 import * as vscode from "vscode";
 
@@ -14,22 +13,15 @@ import { AgentManager } from "../agent/AgentManager";
 export class AgentHandler {
   constructor(private agentManager: AgentManager | undefined) {}
 
-  public handleUpdateAgentPermissions(message: any) {
-    if (this.agentManager) {
-      this.agentManager.updatePermissions(message.permissions);
-    }
-  }
-
-  public async handleExecuteAgentAction(
+  public async handleExecuteGrep(
     message: any,
     webviewView: vscode.WebviewView,
   ) {
     const requestId = message.action?.requestId;
-    const actionType = message.action?.type;
 
     if (this.agentManager) {
       try {
-        const result = await this.agentManager.executeAction(message.action);
+        const result = await this.agentManager.executeGrep(message.action);
 
         webviewView.webview.postMessage({
           command: "agentActionResult",
@@ -37,9 +29,8 @@ export class AgentHandler {
           result,
         });
       } catch (e: any) {
-        console.error(`[Zen][AgentHandler] ❌ Action failed:`, {
+        console.error(`[Zen][AgentHandler] ❌ Grep failed:`, {
           requestId,
-          actionType,
           error: e.message,
           stack: e.stack,
         });

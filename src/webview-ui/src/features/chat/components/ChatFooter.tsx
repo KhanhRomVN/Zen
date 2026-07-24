@@ -15,7 +15,6 @@ interface ChatFooterProps {
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   handleDragOver: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent) => void;
-  setShowAtMenu: (value: boolean) => void;
   handleFileSelect: () => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onOpenProjectStructure: () => void;
@@ -85,7 +84,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   handlePaste,
   handleDragOver,
   handleDrop,
-  setShowAtMenu,
   handleFileSelect,
   fileInputRef,
   onOpenProjectStructure,
@@ -563,18 +561,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           if (!vscodeApi) return;
           if (item.type === "file") {
             vscodeApi.postMessage({
-              command: "openWorkspaceFile",
+              command: "openFile",
               path: item.path,
-            });
-          } else if (item.type === "folder") {
-            vscodeApi.postMessage({
-              command: "openWorkspaceFolder",
-              path: item.path,
-            });
-          } else if (item.type === ("terminal" as any)) {
-            vscodeApi.postMessage({
-              command: "focusTerminal",
-              terminalId: item.path,
             });
           } else if (item.type === "text-snippet") {
             // Show text snippet content in a modal or copy to clipboard
@@ -595,7 +583,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           handlePaste={handlePaste}
           handleDragOver={handleDragOver}
           handleDrop={handleDrop}
-          setShowAtMenu={setShowAtMenu}
           handleFileSelect={handleFileSelect}
           fileInputRef={fileInputRef}
           onOpenProjectStructure={onOpenProjectStructure}

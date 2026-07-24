@@ -260,11 +260,6 @@ export const useConversationRestore = ({
           });
         }
       } else if (
-        data.command === "clearChatConfirmed" &&
-        data.conversationId === currentConversationId
-      ) {
-        handleClearConfirmed();
-      } else if (
         data.command === "conversationRevertedError" &&
         data.conversationId === currentConversationId
       ) {

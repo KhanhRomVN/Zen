@@ -34,7 +34,7 @@ export class GrepExecutor implements ToolExecutor {
       const requestId = `grep-${Date.now()}-${Math.random()}`;
 
       extensionService.postMessage({
-        command: "executeAgentAction",
+        command: "executeGrep",
         action: {
           type: "grep",
           search_term: searchTerm,

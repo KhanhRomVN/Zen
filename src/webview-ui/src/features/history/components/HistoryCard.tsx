@@ -24,7 +24,9 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
     string | null
   >(null);
   const [shouldLoad, setShouldLoad] = React.useState(false);
-  const loadTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Lazy load messages only when user hovers or clicks
   const triggerLoad = React.useCallback(() => {
@@ -126,7 +128,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
     setTimeout(() => window.removeEventListener("message", handler), 5000);
   };
 
-  const handleOpenFolder = () => {
+  const handleOpenCoversationFolder = () => {
     extensionService.postMessage({
       command: "openConversationFolder",
       conversationId: item.id,
@@ -181,7 +183,8 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 
   // Parse user content from XML
   const parseUserContent = (content: string): string => {
-    const regex = /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
+    const regex =
+      /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
     const match = content.match(regex);
     if (match) {
       return match[1];
@@ -506,7 +509,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
               hoverBg: "var(--hover-bg)",
               action: () => {
                 setMenuVisible(false);
-                handleOpenFolder();
+                handleOpenCoversationFolder();
               },
             },
           ].map((menuItem, i) => (

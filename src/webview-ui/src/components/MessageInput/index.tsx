@@ -712,7 +712,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     handlePaste,
     handleDragOver,
     handleDrop,
-    setShowAtMenu,
     handleFileSelect,
     fileInputRef,
     onOpenProjectStructure,

@@ -64,14 +64,10 @@ export const useExternalMessages = ({
       } else if (message.command === "addAttachedItem") {
         attachCountRef.current += 1;
 
-        const isFolder =
-          message.itemType === "folder" ||
-          (!message.uri.includes(".") && !message.itemType);
-
         addAttachedItemRef.current({
           id: Math.random().toString(36).substring(7),
           path: message.uri,
-          type: isFolder ? "folder" : "file",
+          type: "file",
         });
       }
     };

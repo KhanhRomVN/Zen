@@ -9,7 +9,11 @@
 import * as path from "path";
 
 // TYPES
-import { AgentAction, AgentPermissions, ValidationResult } from "../../types";
+import {
+  AgentAction,
+  AgentPermissions,
+  ValidationResult,
+} from "../../types/Agent";
 
 // VALIDATORS
 import { SecurityValidator } from "./SecurityValidator";

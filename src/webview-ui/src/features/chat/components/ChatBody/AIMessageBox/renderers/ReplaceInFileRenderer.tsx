@@ -259,7 +259,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
                   const newContent =
                     action.params.new_content || action.params.new_str || "";
                   extensionService.postMessage({
-                    command: "openReplaceInFileDiff",
+                    command: "openFileDiff",
                     filePath: rawPath,
                     oldContent,
                     newContent,
@@ -278,7 +278,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
                   const newContent =
                     action.params.new_content || action.params.new_str || "";
                   extensionService.postMessage({
-                    command: "openReplaceInFileDiff",
+                    command: "openFileDiff",
                     filePath: rawPath,
                     oldContent,
                     newContent,
@@ -309,7 +309,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
                   const newContent =
                     action.params.new_content || action.params.new_str || "";
                   extensionService.postMessage({
-                    command: "openReplaceInFileDiff",
+                    command: "openFileDiff",
                     filePath: rawPath,
                     oldContent,
                     newContent,
