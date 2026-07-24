@@ -1,4 +1,3 @@
-import * as fs from "fs";
 /**
  *? Usage:
  *    Quản lý checkpoint cho thao tác file: lưu trạng thái trước khi sửa/xóa, hỗ trợ revert về checkpoint cũ. Bỏ qua thư mục hệ thống (.git, node_modules...).
@@ -8,6 +7,8 @@ import * as fs from "fs";
  *    getLastCheckpointForFile(): Lấy checkpoint gần nhất cho một file.
  *    revertToCheckpoint()      : Khôi phục file về trạng thái trước timestamp chỉ định.
  */
+
+import * as fs from "fs";
 import * as crypto from "crypto";
 import * as os from "os";
 import * as path from "path";

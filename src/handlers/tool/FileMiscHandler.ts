@@ -9,6 +9,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
+// SERVICES
+import { DiagnosticsService } from "../../services/DiagnosticsService";
+
 export class FileMiscHandler {
   private async resolveWorkspacePathWithFallback(
     workspaceFolder: vscode.WorkspaceFolder,
@@ -33,36 +36,6 @@ export class FileMiscHandler {
       }
     }
     throw lastError;
-  }
-
-  private getDiagnosticsForFile(uri: vscode.Uri): Array<{
-    severity: string;
-    message: string;
-    line: number;
-    column: number;
-    source?: string;
-    code?: string | number;
-  }> {
-    return vscode.languages
-      .getDiagnostics(uri)
-      .filter(
-        (d) =>
-          d.severity === vscode.DiagnosticSeverity.Error ||
-          d.severity === vscode.DiagnosticSeverity.Warning,
-      )
-      .map((d) => ({
-        severity:
-          d.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning",
-        message: d.message,
-        line: d.range.start.line + 1,
-        column: d.range.start.character + 1,
-        source: d.source,
-        code: d.code
-          ? typeof d.code === "object"
-            ? d.code.value
-            : d.code
-          : undefined,
-      }));
   }
 
   // ── Get File Stats ──
@@ -127,7 +100,10 @@ export class FileMiscHandler {
         command: "getDiagnosticsResult",
         requestId: message.requestId,
         path: message.path,
-        diagnostics: this.getDiagnosticsForFile(uri),
+        diagnostics: await DiagnosticsService.getInstance().getDiagnostics(
+          uri,
+          message.path,
+        ),
       });
     } catch (e: any) {
       webviewView.webview.postMessage({
@@ -139,5 +115,4 @@ export class FileMiscHandler {
       });
     }
   }
-
-  }
+}

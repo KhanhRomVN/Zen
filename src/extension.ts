@@ -4,7 +4,7 @@
  *
  *? Function:
  *    activate()  : Kích hoạt extension, khởi tạo GlobalStorageManager, ChatViewProvider, đăng ký webview và commands.
- *    deactivate(): Dọn dẹp khi extension bị vô hiệu hóa, hủy ProcessManager.
+ *    deactivate(): Dọn dẹp khi extension bị vô hiệu hóa, hủy TerminalManager.
  */
 import * as vscode from "vscode";
 import { GlobalStorageManager } from "./storage/GlobalStorageManager";
@@ -24,7 +24,7 @@ export async function activate(extContext: vscode.ExtensionContext) {
     extContext.extensionUri,
     storageManager,
   );
-  provider.getProcessManager().stopAll(); // clean up any leftover processes from previous session
+  provider.getTerminalManager().stopAll(); // clean up any leftover processes from previous session
 
   activeProvider = provider;
 
@@ -127,6 +127,6 @@ export async function activate(extContext: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-  activeProvider?.getProcessManager().dispose();
+  activeProvider?.getTerminalManager().dispose();
   activeProvider = null;
 }

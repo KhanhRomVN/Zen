@@ -12,10 +12,10 @@ import * as vscode from "vscode";
 import { SecurityValidator } from "../../utils/security";
 
 // MANAGERS
-import { ProcessManager } from "../../managers/ProcessManager";
+import { TerminalManager } from "../../managers/TerminalManager";
 
 export class RunCommandHandler {
-  constructor(private processManager: ProcessManager) {}
+  constructor(private terminalManager: TerminalManager) {}
 
   public async handleRunCommand(message: any, webviewView: vscode.WebviewView) {
     try {
@@ -42,7 +42,7 @@ export class RunCommandHandler {
         throw new Error(securityCheck.reason || "Command validation failed");
       }
 
-      const result = await this.processManager.startInteractive(cwd);
+      const result = await this.terminalManager.startInteractive(cwd);
       const terminalId = result.id;
 
       webviewView.webview.postMessage({
@@ -52,7 +52,7 @@ export class RunCommandHandler {
         actionId: message.actionId,
       });
 
-      this.processManager.sendInput(
+      this.terminalManager.sendInput(
         terminalId,
         `${message.commandText}\n`,
         message.actionId,

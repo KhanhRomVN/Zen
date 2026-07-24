@@ -1,17 +1,11 @@
-import * as vscode from "vscode";
 /**
  *? Usage:
- *    Quản lý tiến trình shell: tạo terminal ảo, chạy lệnh, pipe stdin/stdout, throttle data, auto-cleanup. Phát hiện lệnh long-running (dev/start/serve/watch...).
+ *    Quản lý terminal ảo: tạo, chạy lệnh shell, pipe stdin/stdout, throttle data, auto-cleanup. Phát hiện lệnh long-running (dev/start/serve/watch...).
  *
- *? Function:
- *    startInteractive(): Tạo terminal mới, trả về id.
- *    sendInput()       : Gửi lệnh đến terminal (hoặc pipe stdin nếu đang chạy).
- *    list()            : Trả về danh sách terminal đang hoạt động.
- *    stop()            : Dừng tiến trình trong terminal (giữ terminal).
- *    close()           : Đóng và xóa terminal.
- *    stopAll()         : Đóng tất cả terminal.
- *    dispose()         : Dọn dẹp toàn bộ timer, buffer, emitter.
+ 
  */
+
+import * as vscode from "vscode";
 import { ChildProcess, spawn, SpawnOptions } from "child_process";
 import * as crypto from "crypto";
 import * as os from "os";
@@ -68,11 +62,8 @@ interface TerminalEntry {
 
 const MAX_OUTPUT = 1 * 1024 * 1024; // 1 MB cap
 
-export class ProcessManager {
+export class TerminalManager {
   private terminalMap = new Map<string, TerminalEntry>();
-
-  private onTerminalsChangedEmitter = new vscode.EventEmitter<void>();
-  public onTerminalsChanged = this.onTerminalsChangedEmitter.event;
 
   private onCommandFinishedEmitter = new vscode.EventEmitter<{
     actionId: string;
@@ -102,16 +93,10 @@ export class ProcessManager {
   >();
   private readonly DATA_FLUSH_INTERVAL = 100; // ms
 
-  // Debounce terminals changed events
-  private terminalsChangedTimer: NodeJS.Timeout | null = null;
-  private readonly TERMINALS_CHANGED_DEBOUNCE = 50; // ms
-
   async startInteractive(
     cwd: string,
     terminalId?: string,
   ): Promise<{ id: string; name: string }> {
-    const startTime = Date.now();
-
     const id = terminalId || crypto.randomUUID();
     if (this.terminalMap.has(id)) {
       return { id, name: this.terminalMap.get(id)!.name };
@@ -130,19 +115,8 @@ export class ProcessManager {
       isLongRunning: false,
     };
     this.terminalMap.set(id, entry);
-    this.fireTerminalsChanged();
 
     return { id, name };
-  }
-
-  private fireTerminalsChanged() {
-    if (this.terminalsChangedTimer) {
-      clearTimeout(this.terminalsChangedTimer);
-    }
-    this.terminalsChangedTimer = setTimeout(() => {
-      this.onTerminalsChangedEmitter.fire();
-      this.terminalsChangedTimer = null;
-    }, this.TERMINALS_CHANGED_DEBOUNCE);
   }
 
   private flushDataBuffer(terminalId: string) {
@@ -177,7 +151,6 @@ export class ProcessManager {
   }
 
   sendInput(id: string, commandText: string, actionId?: string) {
-    const startTime = Date.now();
     const entry = this.terminalMap.get(id);
     if (!entry) {
       return;
@@ -216,19 +189,13 @@ export class ProcessManager {
       terminalId: id,
       status: "busy",
     });
-    this.fireTerminalsChanged();
 
     entry.writeEmitter.fire(`$ ${cleanCmd}\r\n`);
 
     const child = spawn(shell, [...shellArgs, cleanCmd], spawnOpts);
     entry.process = child;
 
-    let dataChunks = 0;
-    let totalDataSize = 0;
-
     const onData = (chunk: Buffer) => {
-      dataChunks++;
-      totalDataSize += chunk.length;
       const clean = chunk
         .toString("utf8")
         .replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "")
@@ -278,7 +245,6 @@ export class ProcessManager {
         terminalId: id,
         status: "free",
       });
-      this.fireTerminalsChanged();
 
       // Auto-cleanup after command finishes to free resources
       this._cleanup(id);
@@ -308,7 +274,7 @@ export class ProcessManager {
       if (actionId) {
         entry.activeActionId = null;
         console.error(
-          `[ProcessManager] process error → firing onCommandFinished`,
+          `[TerminalManager] process error → firing onCommandFinished`,
           { actionId, terminalId: id, error: err.message },
         );
         this.onCommandFinishedEmitter.fire({
@@ -322,17 +288,13 @@ export class ProcessManager {
         terminalId: id,
         status: "free",
       });
-      this.fireTerminalsChanged();
       this._cleanup(id);
     });
   }
 
   private _cleanup(id: string) {
-    const startTime = Date.now();
     const entry = this.terminalMap.get(id);
     if (!entry) return;
-
-    const outputSize = entry.output.length;
 
     // Clear any pending data buffer
     const buffer = this.dataBuffers.get(id);
@@ -343,58 +305,6 @@ export class ProcessManager {
 
     entry.writeEmitter.dispose();
     this.terminalMap.delete(id);
-    this.fireTerminalsChanged();
-  }
-
-  list() {
-    return Array.from(this.terminalMap.entries()).map(([id, e]) => ({
-      id,
-      name: e.name,
-      state: e.isBusy ? "busy" : "free",
-      shellType: "shell",
-      cwd: e.cwd,
-      lastLog: e.output.slice(-500),
-      currentCommand: "",
-      isAttached: false,
-      promptPrefix: "",
-      activeActionId: e.activeActionId,
-      isLongRunning: e.isLongRunning,
-    }));
-  }
-
-  stop(id: string) {
-    const entry = this.terminalMap.get(id);
-    if (!entry) return;
-
-    this.flushDataBuffer(id);
-
-    if (entry.process) {
-      try {
-        if (os.platform() === "win32") {
-          // SIGTERM is not supported on Windows; use SIGKILL or taskkill
-          entry.process.kill();
-        } else {
-          entry.process.kill("SIGTERM");
-        }
-      } catch (_) {}
-      entry.process = null;
-    }
-    const actionId = entry.activeActionId;
-    entry.activeActionId = null;
-    entry.isBusy = false;
-    if (actionId) {
-      this.onCommandFinishedEmitter.fire({
-        actionId,
-        output: entry.output,
-        terminalId: id,
-      });
-    }
-    this.onTerminalStatusChangedEmitter.fire({
-      terminalId: id,
-      status: "free",
-    });
-    this.fireTerminalsChanged();
-    this._cleanup(id);
   }
 
   close(id: string) {
@@ -422,22 +332,20 @@ export class ProcessManager {
     this.dataBuffers.delete(id);
 
     this.terminalMap.delete(id);
-    this.fireTerminalsChanged();
   }
 
-  stopAll() {
+  /**
+   * Đóng tất cả terminal. Chỉ được dùng nội bộ bởi extension:
+   * - dispose(): khi extension bị vô hiệu hóa
+   * - extension.ts activate(): dọn terminal cũ từ session trước
+   */
+  closeAll() {
     for (const id of [...this.terminalMap.keys()]) {
       this.close(id);
     }
   }
 
   dispose() {
-    // Clear all timers
-    if (this.terminalsChangedTimer) {
-      clearTimeout(this.terminalsChangedTimer);
-      this.terminalsChangedTimer = null;
-    }
-
     for (const buffer of this.dataBuffers.values()) {
       if (buffer.timer) {
         clearTimeout(buffer.timer);
@@ -446,10 +354,9 @@ export class ProcessManager {
     this.dataBuffers.clear();
 
     // Stop all terminals
-    this.stopAll();
+    this.closeAll();
 
     // Dispose all event emitters
-    this.onTerminalsChangedEmitter.dispose();
     this.onCommandFinishedEmitter.dispose();
     this.onDidWriteDataEmitter.dispose();
     this.onTerminalStatusChangedEmitter.dispose();

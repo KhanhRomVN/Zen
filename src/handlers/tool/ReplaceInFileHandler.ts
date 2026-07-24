@@ -16,9 +16,9 @@ import { SecurityValidator } from "../../utils/security";
 import { CheckpointManager } from "../../managers/CheckpointManager";
 import { FileLockManager } from "../../managers/FileLockManager";
 import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
-import { SnapshotManager } from "../../managers/SnapshotManager";
 
 // SERVICES
+import { DiagnosticsService } from "../../services/DiagnosticsService";
 import { LoggerService } from "../../services/LoggerService";
 import { PathService } from "../../services/PathService";
 
@@ -71,118 +71,6 @@ export class ReplaceInFileHandler {
         throw err;
       }) as Promise<void>;
     return this._replaceFileQueue as Promise<T>;
-  }
-
-  private getDiagnosticsForFile(uri: vscode.Uri): Array<{
-    severity: string;
-    message: string;
-    line: number;
-    column: number;
-    source?: string;
-    code?: string | number;
-  }> {
-    return vscode.languages
-      .getDiagnostics(uri)
-      .filter(
-        (d) =>
-          d.severity === vscode.DiagnosticSeverity.Error ||
-          d.severity === vscode.DiagnosticSeverity.Warning,
-      )
-      .map((d) => ({
-        severity:
-          d.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning",
-        message: d.message,
-        line: d.range.start.line + 1,
-        column: d.range.start.character + 1,
-        source: d.source,
-        code: d.code
-          ? typeof d.code === "object"
-            ? d.code.value
-            : d.code
-          : undefined,
-      }));
-  }
-
-  private isNonCodeFile(pathValue: string): boolean {
-    const exts = [
-      ".md",
-      ".txt",
-      ".log",
-      ".csv",
-      ".xml",
-      ".html",
-      ".css",
-      ".json",
-      ".yaml",
-      ".yml",
-      ".toml",
-      ".ini",
-      ".cfg",
-      ".conf",
-      ".env",
-      ".gitignore",
-      ".dockerignore",
-      ".editorconfig",
-      ".properties",
-      ".lock",
-      ".sum",
-      ".mod",
-    ];
-    return exts.some((ext) => pathValue.toLowerCase().endsWith(ext));
-  }
-
-  private async waitForDiagnosticsWithFallback(
-    uri: vscode.Uri,
-    pathValue: string,
-    maxTimeoutMs: number = 50000,
-  ): Promise<void> {
-    const debugStart = Date.now();
-    return new Promise<void>((resolve) => {
-      const fallbackTimeout = 2000;
-      const stableWaitTime = 800;
-      let stableTimeout: NodeJS.Timeout | null = null;
-      let hasEvent = false;
-      let resolved = false;
-
-      const finish = (reason: string) => {
-        if (resolved) return;
-        resolved = true;
-        const elapsed = Date.now() - debugStart;
-        resolve();
-      };
-
-      const fallback = setTimeout(() => {
-        if (!hasEvent) {
-          clearTimeout(timeout);
-          if (stableTimeout) clearTimeout(stableTimeout);
-          disposable?.dispose();
-          finish("fallback_no_event");
-        }
-      }, fallbackTimeout);
-
-      const timeout = setTimeout(() => {
-        clearTimeout(fallback);
-        if (stableTimeout) clearTimeout(stableTimeout);
-        disposable?.dispose();
-        finish("timeout");
-      }, maxTimeoutMs);
-
-      const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-        if (e.uris.some((u) => u.fsPath === uri.fsPath)) {
-          if (!hasEvent) {
-            hasEvent = true;
-            clearTimeout(fallback);
-          }
-          if (stableTimeout) clearTimeout(stableTimeout);
-          stableTimeout = setTimeout(() => {
-            clearTimeout(timeout);
-            clearTimeout(fallback);
-            disposable.dispose();
-            finish("stable");
-          }, stableWaitTime);
-        }
-      });
-    });
   }
 
   // ── Replace In File ──
@@ -304,17 +192,6 @@ export class ReplaceInFileHandler {
         absPath,
         Buffer.from(newContent, "utf8"),
       );
-
-      if (message.conversationId && message.actionId && newContent) {
-        await SnapshotManager.getInstance().saveSnapshot(
-          message.conversationId,
-          message.actionId,
-          absPath.fsPath,
-          "replace",
-          content,
-          newContent,
-        );
-      }
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
@@ -336,13 +213,11 @@ export class ReplaceInFileHandler {
     }> = [];
 
     if (!message.skipDiagnostics) {
-      if (!this.isNonCodeFile(pathValue)) {
-        try {
-          await vscode.workspace.openTextDocument(absPath);
-        } catch {}
-        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000);
-      }
-      diagnostics = this.getDiagnosticsForFile(absPath);
+      diagnostics = await DiagnosticsService.getInstance().getDiagnostics(
+        absPath,
+        pathValue,
+        50000,
+      );
     }
 
     if (message.conversationId && newContent !== undefined) {

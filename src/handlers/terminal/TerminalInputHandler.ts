@@ -5,12 +5,12 @@
  *? Function:
  *    handleTerminalInput(): Gửi input đến terminal đang chạy.
  */
-import { ProcessManager } from "../../managers/ProcessManager";
+import { TerminalManager } from "../../managers/TerminalManager";
 
 export class TerminalInputHandler {
-  constructor(private processManager: ProcessManager) {}
+  constructor(private terminalManager: TerminalManager) {}
 
   public handleTerminalInput(message: any) {
-    this.processManager.sendInput(message.terminalId, message.data);
+    this.terminalManager.sendInput(message.terminalId, message.data);
   }
 }

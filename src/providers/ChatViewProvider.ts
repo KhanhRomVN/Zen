@@ -1,12 +1,11 @@
 import * as vscode from "vscode";
 
-
 // CONTROLLERS
 import { ChatController } from "../controllers/ChatController";
 
 // MANAGERS
 import { FileLockManager } from "../managers/FileLockManager";
-import { ProcessManager } from "../managers/ProcessManager";
+import { TerminalManager } from "../managers/TerminalManager";
 
 // STORAGE
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
@@ -18,23 +17,19 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
   private _view?: vscode.WebviewView;
   private chatController?: ChatController;
-  private _processManager: ProcessManager;
+  private _terminalManager: TerminalManager;
   private _fileLockManager: FileLockManager;
-
-  // Throttle terminal list updates to reduce redundant messages
-  private terminalListUpdateTimer: NodeJS.Timeout | null = null;
-  private readonly TERMINAL_LIST_UPDATE_DELAY = 100; // ms
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _storageManager: GlobalStorageManager,
   ) {
-    this._processManager = new ProcessManager();
+    this._terminalManager = new TerminalManager();
     this._fileLockManager = new FileLockManager();
   }
 
-  public getProcessManager(): ProcessManager {
-    return this._processManager;
+  public getTerminalManager(): TerminalManager {
+    return this._terminalManager;
   }
 
   public resolveWebviewView(
@@ -60,11 +55,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       workspaceRoot,
     );
 
-    const controllerStart = Date.now();
     this.chatController = new ChatController(
       this._storageManager,
       workspaceRoot,
-      this._processManager,
+      this._terminalManager,
       this._fileLockManager,
     );
 
@@ -76,7 +70,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
 
     // Listen for Command Finished
-    const cmdFinishedDisposable = this._processManager.onCommandFinished(
+    const cmdFinishedDisposable = this._terminalManager.onCommandFinished(
       (event) => {
         const isError =
           event.exitCode !== null &&
@@ -102,24 +96,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
       },
     );
 
-    // Listen for Terminal Changes
-    this._processManager.onTerminalsChanged(() => {
-      // Debounce terminal list updates
-      if (this.terminalListUpdateTimer) {
-        clearTimeout(this.terminalListUpdateTimer);
-      }
-      this.terminalListUpdateTimer = setTimeout(() => {
-        const terminals = this._processManager.list();
-        webviewView.webview.postMessage({
-          command: "listTerminalsResult",
-          terminals,
-        });
-        this.terminalListUpdateTimer = null;
-      }, this.TERMINAL_LIST_UPDATE_DELAY);
-    });
-
     // Listen for real-time terminal data
-    this._processManager.onDidWriteData((event) => {
+    this._terminalManager.onDidWriteData((event) => {
       webviewView.webview.postMessage({
         command: "terminalOutput",
         terminalId: event.terminalId,
@@ -128,7 +106,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
 
     // Listen for terminal status changes
-    this._processManager.onTerminalStatusChanged((event) => {
+    this._terminalManager.onTerminalStatusChanged((event) => {
       webviewView.webview.postMessage({
         command: "terminalStatusChanged",
         terminalId: event.terminalId,
@@ -149,10 +127,6 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     webviewView.onDidDispose(() => {
       themeDisposable.dispose();
       cmdFinishedDisposable.dispose();
-      if (this.terminalListUpdateTimer) {
-        clearTimeout(this.terminalListUpdateTimer);
-        this.terminalListUpdateTimer = null;
-      }
     });
   }
 

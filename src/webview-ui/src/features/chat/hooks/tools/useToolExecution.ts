@@ -154,7 +154,7 @@ export const useToolExecution = ({
             if (message.terminalId) {
               terminalToActionMap.current.delete(message.terminalId);
               extensionService.postMessage({
-                command: "removeTerminal",
+                command: "closeTerminal",
                 terminalId: message.terminalId,
               });
             }

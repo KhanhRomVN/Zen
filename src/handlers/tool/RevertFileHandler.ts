@@ -15,42 +15,12 @@ import { SecurityValidator } from "../../utils/security";
 // MANAGERS
 import { CheckpointManager } from "../../managers/CheckpointManager";
 import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
-import { SnapshotManager } from "../../managers/SnapshotManager";
 
 // SERVICES
+import { DiagnosticsService } from "../../services/DiagnosticsService";
 import { LoggerService } from "../../services/LoggerService";
 
 export class RevertFileHandler {
-  private getDiagnosticsForFile(uri: vscode.Uri): Array<{
-    severity: string;
-    message: string;
-    line: number;
-    column: number;
-    source?: string;
-    code?: string | number;
-  }> {
-    return vscode.languages
-      .getDiagnostics(uri)
-      .filter(
-        (d) =>
-          d.severity === vscode.DiagnosticSeverity.Error ||
-          d.severity === vscode.DiagnosticSeverity.Warning,
-      )
-      .map((d) => ({
-        severity:
-          d.severity === vscode.DiagnosticSeverity.Error ? "Error" : "Warning",
-        message: d.message,
-        line: d.range.start.line + 1,
-        column: d.range.start.character + 1,
-        source: d.source,
-        code: d.code
-          ? typeof d.code === "object"
-            ? d.code.value
-            : d.code
-          : undefined,
-      }));
-  }
-
   public async handleRevertFile(message: any, webviewView: vscode.WebviewView) {
     const logger = LoggerService.getInstance();
     try {
@@ -127,18 +97,13 @@ export class RevertFileHandler {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const diagnostics = this.getDiagnosticsForFile(fileUri);
+      const diagnosticsService = DiagnosticsService.getInstance();
+      const diagnostics = await diagnosticsService.getDiagnostics(
+        fileUri,
+        absPath,
+        30000,
+      );
 
-      if (message.conversationId && message.actionId) {
-        await SnapshotManager.getInstance().saveSnapshot(
-          message.conversationId,
-          message.actionId,
-          absPath,
-          "revert",
-          beforeContent,
-          afterContent,
-        );
-      }
       webviewView.webview.postMessage({
         command: "revertFileResult",
         requestId: message.requestId,

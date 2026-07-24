@@ -1,15 +1,12 @@
-import * as vscode from "vscode";
 /**
  *? Usage:
- *    Dịch vụ tập trung xử lý diagnostics từ language server: lọc error/warning, đếm, chờ ổn định. Dùng chung bởi FileReadHandler, FileWriteHandler, GrepCapability.
+ *    Dịch vụ tập trung xử lý diagnostics từ language server.
+ *    Dùng chung bởi ReadFileHandler, ReplaceInFileHandler, WriteToFileHandler, RevertFileHandler, FileMiscHandler.
  *
  *? Function:
- *    getDiagnostics()       : Trả về danh sách error/warning cho một file.
- *    getDiagnosticCount()   : Trả về số lượng error và warning.
- *    isNonCodeFile()        : Kiểm tra file có phải non-code (không có language server).
- *    ensureFileOpened()     : Mở file trong editor để kích hoạt language server.
- *    waitForDiagnostics()   : Chờ diagnostics ổn định (hybrid: fallback 2s + stable 800ms).
+ *    getDiagnostics(): Mở file (nếu cần) → chờ diagnostics ổn định → trả về danh sách error/warning.
  */
+import * as vscode from "vscode";
 
 // SERVICES
 import { LoggerService } from "./LoggerService";
@@ -24,9 +21,6 @@ export class DiagnosticsService {
     return DiagnosticsService.instance;
   }
 
-  /**
-   * Non-code file extensions that don't have language servers.
-   */
   private static readonly NON_CODE_EXTENSIONS = [
     ".md",
     ".txt",
@@ -52,10 +46,13 @@ export class DiagnosticsService {
     ".mod",
   ];
 
-  /**
-   * Get filtered diagnostics (errors + warnings only) for a file URI.
-   */
-  public getDiagnostics(uri: vscode.Uri): Array<{
+  private isNonCodeFile(pathValue: string): boolean {
+    return DiagnosticsService.NON_CODE_EXTENSIONS.some((ext) =>
+      pathValue.toLowerCase().endsWith(ext),
+    );
+  }
+
+  private filterDiagnostics(diagnostics: vscode.Diagnostic[]): Array<{
     severity: string;
     message: string;
     line: number;
@@ -63,7 +60,6 @@ export class DiagnosticsService {
     source?: string;
     code?: string | number;
   }> {
-    const diagnostics = vscode.languages.getDiagnostics(uri);
     return diagnostics
       .filter(
         (d) =>
@@ -85,38 +81,7 @@ export class DiagnosticsService {
       }));
   }
 
-  /**
-   * Get error/warning counts for a file URI.
-   */
-  public getDiagnosticCount(uri: vscode.Uri): {
-    errorCount: number;
-    warningCount: number;
-  } {
-    const diagnostics = vscode.languages.getDiagnostics(uri);
-    return {
-      errorCount: diagnostics.filter(
-        (d) => d.severity === vscode.DiagnosticSeverity.Error,
-      ).length,
-      warningCount: diagnostics.filter(
-        (d) => d.severity === vscode.DiagnosticSeverity.Warning,
-      ).length,
-    };
-  }
-
-  /**
-   * Check if a file path belongs to a non-code file (no language server).
-   */
-  public isNonCodeFile(pathValue: string): boolean {
-    return DiagnosticsService.NON_CODE_EXTENSIONS.some((ext) =>
-      pathValue.toLowerCase().endsWith(ext),
-    );
-  }
-
-  /**
-   * Ensure a file is opened in VS Code to trigger language server analysis.
-   * Safe to call multiple times — skips if already open.
-   */
-  public async ensureFileOpened(uri: vscode.Uri): Promise<void> {
+  private async ensureFileOpened(uri: vscode.Uri): Promise<void> {
     const logger = LoggerService.getInstance();
     try {
       const isAlreadyOpen = vscode.workspace.textDocuments.some(
@@ -138,13 +103,7 @@ export class DiagnosticsService {
     }
   }
 
-  /**
-   * Wait for diagnostics to stabilize with a hybrid approach:
-   * - Returns immediately if no diagnostic events after 2s (fallback)
-   * - Waits for stable diagnostics if events are received
-   * - Safety timeout of maxTimeoutMs (default 30s)
-   */
-  public async waitForDiagnostics(
+  private async waitForDiagnostics(
     uri: vscode.Uri,
     pathValue: string,
     maxTimeoutMs: number = 30000,
@@ -194,5 +153,47 @@ export class DiagnosticsService {
         }
       });
     });
+  }
+
+  /**
+   * Open file → wait for diagnostics to stabilize → return filtered diagnostics.
+   * Skips non-code files automatically (returns empty array).
+   * This is the single entry point for all diagnostic needs.
+   */
+  public async getDiagnostics(
+    uri: vscode.Uri,
+    pathValue: string,
+    maxTimeoutMs: number = 30000,
+  ): Promise<
+    Array<{
+      severity: string;
+      message: string;
+      line: number;
+      column: number;
+      source?: string;
+      code?: string | number;
+    }>
+  > {
+    if (this.isNonCodeFile(pathValue)) {
+      return [];
+    }
+    await this.ensureFileOpened(uri);
+    await this.waitForDiagnostics(uri, pathValue, maxTimeoutMs);
+    return this.filterDiagnostics(vscode.languages.getDiagnostics(uri));
+  }
+
+  /**
+   * Same as getDiagnostics but returns counts instead of full list.
+   */
+  public async getDiagnosticCountStabilized(
+    uri: vscode.Uri,
+    pathValue: string,
+    maxTimeoutMs: number = 30000,
+  ): Promise<{ errorCount: number; warningCount: number }> {
+    const diagnostics = await this.getDiagnostics(uri, pathValue, maxTimeoutMs);
+    return {
+      errorCount: diagnostics.filter((d) => d.severity === "Error").length,
+      warningCount: diagnostics.filter((d) => d.severity === "Warning").length,
+    };
   }
 }

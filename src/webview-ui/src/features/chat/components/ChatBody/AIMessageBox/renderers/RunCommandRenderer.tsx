@@ -205,15 +205,10 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   extensionService.postMessage({
-                    command: "stopCommand",
+                    command: "closeTerminal",
                     actionId,
                     terminalId,
                   });
-                  if (terminalId)
-                    extensionService.postMessage({
-                      command: "stopTerminal",
-                      terminalId,
-                    });
                 }}
                 title="Finalize output, kill process and delete terminal"
                 style={{

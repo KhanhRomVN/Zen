@@ -1,28 +1,13 @@
 /**
  *? Usage:
- *    Tìm file theo tên (glob pattern) trong workspace, trả về danh sách kèm error/warning count.
+ *    Tìm file theo tên (glob pattern) trong workspace, trả về danh sách đường dẫn.
  *
  *? Function:
- *    handleFindFiles(): Tìm file theo tên (glob pattern), trả về danh sách kèm error/warning count.
+ *    handleFindFiles(): Tìm file theo tên (glob pattern), trả về danh sách đường dẫn.
  */
 import * as vscode from "vscode";
 
 export class FindFilesHandler {
-  private getDiagnosticCountForFile(uri: vscode.Uri): {
-    errorCount: number;
-    warningCount: number;
-  } {
-    const diagnostics = vscode.languages.getDiagnostics(uri);
-    return {
-      errorCount: diagnostics.filter(
-        (d) => d.severity === vscode.DiagnosticSeverity.Error,
-      ).length,
-      warningCount: diagnostics.filter(
-        (d) => d.severity === vscode.DiagnosticSeverity.Warning,
-      ).length,
-    };
-  }
-
   public async handleFindFiles(message: any, webviewView: vscode.WebviewView) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -32,11 +17,7 @@ export class FindFilesHandler {
         throw new Error("No file names provided");
       const results: {
         fileName: string;
-        matches: Array<{
-          path: string;
-          errorCount?: number;
-          warningCount?: number;
-        }>;
+        matches: Array<{ path: string }>;
       }[] = [];
       for (const fileName of fileNames) {
         const globPattern = `**/${fileName}`;
@@ -45,15 +26,9 @@ export class FindFilesHandler {
             globPattern,
             "**/node_modules/**",
           );
-          const matches = files.map((fileUri) => {
-            const relativePath = vscode.workspace.asRelativePath(fileUri);
-            const dc = this.getDiagnosticCountForFile(fileUri);
-            return {
-              path: relativePath,
-              errorCount: dc.errorCount,
-              warningCount: dc.warningCount,
-            };
-          });
+          const matches = files.map((fileUri) => ({
+            path: vscode.workspace.asRelativePath(fileUri),
+          }));
           results.push({ fileName, matches });
         } catch (error: any) {
           results.push({ fileName, matches: [] });

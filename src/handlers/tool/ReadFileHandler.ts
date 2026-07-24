@@ -65,30 +65,6 @@ export class ReadFileHandler {
     return this._readFileQueue as Promise<T>;
   }
 
-  private getDiagnosticsForFile(uri: vscode.Uri) {
-    return DiagnosticsService.getInstance().getDiagnostics(uri);
-  }
-
-  private isNonCodeFile(pathValue: string): boolean {
-    return DiagnosticsService.getInstance().isNonCodeFile(pathValue);
-  }
-
-  private async ensureFileOpened(uri: vscode.Uri): Promise<void> {
-    return DiagnosticsService.getInstance().ensureFileOpened(uri);
-  }
-
-  private async waitForDiagnosticsWithFallback(
-    uri: vscode.Uri,
-    pathValue: string,
-    maxTimeoutMs: number = 30000,
-  ): Promise<void> {
-    return DiagnosticsService.getInstance().waitForDiagnostics(
-      uri,
-      pathValue,
-      maxTimeoutMs,
-    );
-  }
-
   public async handleReadFile(message: any, webviewView: vscode.WebviewView) {
     const logger = LoggerService.getInstance();
     try {
@@ -129,12 +105,23 @@ export class ReadFileHandler {
       }
 
       const logger = LoggerService.getInstance();
-      const isNonCode = this.isNonCodeFile(pathValue);
-      const shouldSkipDiagnostics = message.skipDiagnostics || isNonCode;
+      const diagnosticsService = DiagnosticsService.getInstance();
 
-      if (!shouldSkipDiagnostics) {
-        await this.ensureFileOpened(absPath);
-        await this.waitForDiagnosticsWithFallback(absPath, pathValue, 50000);
+      let diagnostics: Array<{
+        severity: string;
+        message: string;
+        line: number;
+        column: number;
+        source?: string;
+        code?: string | number;
+      }> = [];
+
+      if (!message.skipDiagnostics) {
+        diagnostics = await diagnosticsService.getDiagnostics(
+          absPath,
+          pathValue,
+          50000,
+        );
       }
 
       let content = "";
@@ -154,7 +141,6 @@ export class ReadFileHandler {
         content = lines.slice(startLine || 0, end).join("\n");
       }
 
-      const diagnostics = this.getDiagnosticsForFile(absPath);
       webviewView.webview.postMessage({
         command: "fileContent",
         requestId: message.requestId,

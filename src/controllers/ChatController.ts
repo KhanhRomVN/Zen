@@ -15,11 +15,9 @@ import { ThemeHandler } from "../handlers/system/ThemeHandler";
 import { FileOpenHandler } from "../handlers/system/FileOpenHandler";
 import { DiffViewHandler } from "../handlers/system/DiffViewHandler";
 import { PreviewHandler } from "../handlers/system/PreviewHandler";
-import { GitCommitHandler } from "../handlers/git/GitCommitHandler";
-import { RemoveTerminalHandler } from "../handlers/terminal/RemoveTerminalHandler";
+import { GitCommitHandler } from "../handlers/tool/GitCommitHandler";
+import { CloseTerminalHandler } from "../handlers/terminal/CloseTerminalHandler";
 import { RunCommandHandler } from "../handlers/terminal/RunCommandHandler";
-import { StopCommandHandler } from "../handlers/terminal/StopCommandHandler";
-import { StopTerminalHandler } from "../handlers/terminal/StopTerminalHandler";
 import { TerminalInputHandler } from "../handlers/terminal/TerminalInputHandler";
 import { DeleteAllConversationsHandler } from "../handlers/conversation/DeleteAllConversationsHandler";
 import { DeleteConversationHandler } from "../handlers/conversation/DeleteConversationHandler";
@@ -45,7 +43,7 @@ import { GrepHandler } from "../handlers/tool/GrepHandler";
 // MANAGERS
 import { CheckpointManager } from "../managers/CheckpointManager";
 import { FileLockManager } from "../managers/FileLockManager";
-import { ProcessManager } from "../managers/ProcessManager";
+import { TerminalManager } from "../managers/TerminalManager";
 
 // STORAGE
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
@@ -71,10 +69,8 @@ export class ChatController {
   private gitStatusHandler: GitStatusHandler;
   private gitDiffHandler: GitDiffHandler;
   private runCommandHandler: RunCommandHandler;
-  private stopCommandHandler: StopCommandHandler;
+  private closeTerminalHandler: CloseTerminalHandler;
   private terminalInputHandler: TerminalInputHandler;
-  private removeTerminalHandler: RemoveTerminalHandler;
-  private stopTerminalHandler: StopTerminalHandler;
   private themeHandler: ThemeHandler;
   private fileOpenHandler: FileOpenHandler;
   private diffViewHandler: DiffViewHandler;
@@ -87,7 +83,7 @@ export class ChatController {
   constructor(
     private storageManager: GlobalStorageManager | undefined,
     private workspaceRoot: string,
-    private processManager: ProcessManager,
+    private terminalManager: TerminalManager,
     private fileLockManager: FileLockManager,
   ) {
     this.getHistoryHandler = new GetHistoryHandler(this.storageManager);
@@ -115,11 +111,9 @@ export class ChatController {
     this.fileMiscHandler = new FileMiscHandler();
     this.gitStatusHandler = new GitStatusHandler();
     this.gitDiffHandler = new GitDiffHandler();
-    this.runCommandHandler = new RunCommandHandler(this.processManager);
-    this.stopCommandHandler = new StopCommandHandler(this.processManager);
-    this.terminalInputHandler = new TerminalInputHandler(this.processManager);
-    this.removeTerminalHandler = new RemoveTerminalHandler(this.processManager);
-    this.stopTerminalHandler = new StopTerminalHandler(this.processManager);
+    this.runCommandHandler = new RunCommandHandler(this.terminalManager);
+    this.closeTerminalHandler = new CloseTerminalHandler(this.terminalManager);
+    this.terminalInputHandler = new TerminalInputHandler(this.terminalManager);
     this.themeHandler = new ThemeHandler();
     this.fileOpenHandler = new FileOpenHandler();
     this.diffViewHandler = new DiffViewHandler();
@@ -259,14 +253,8 @@ export class ChatController {
         case "terminalInput":
           this.terminalInputHandler.handleTerminalInput(message);
           break;
-        case "stopCommand":
-          await this.stopCommandHandler.handleStopCommand(message);
-          break;
-        case "removeTerminal":
-          this.removeTerminalHandler.handleRemoveTerminal(message, webviewView);
-          break;
-        case "stopTerminal":
-          this.stopTerminalHandler.handleStopTerminal(message);
+        case "closeTerminal":
+          this.closeTerminalHandler.handleCloseTerminal(message, webviewView);
           break;
 
         // Project Context
