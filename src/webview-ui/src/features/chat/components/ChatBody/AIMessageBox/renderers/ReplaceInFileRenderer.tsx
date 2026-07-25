@@ -124,6 +124,10 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       !!nextUserMessage),
   );
 
+  // Get version from toolOutputs
+  const toolOutput = toolOutputs?.[actionId];
+  const version = toolOutput?.version;
+
   // Get diagnostics from toolOutputs
   const mergedDiagnostics = React.useMemo(() => {
     const shouldGetDiagnostics = isCompleted && !isPartial;
@@ -227,20 +231,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
     !isPartial &&
     !hasValidationError &&
     permissionDecision === "confirm";
-
-  // Debug logging for validation errors
-  React.useEffect(() => {
-    if (hasValidationError) {
-      console.log("[ReplaceInFileRenderer] Validation error detected:", {
-        actionId,
-        filePath: rawPath,
-        errorCode: action.errorCode,
-        errorMessage: action.errorMessage,
-        shouldShowExecuteButton,
-        actionParams: action.params,
-      });
-    }
-  }, [hasValidationError, actionId, rawPath, action.errorCode, action.errorMessage, shouldShowExecuteButton]);
 
   return (
     <div
@@ -364,6 +354,20 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
                 >
                   -{diffStats.removed}
                 </span>
+                {(() => {
+                  return version && isCompleted ? (
+                    <span
+                      style={{
+                        marginLeft: "6px",
+                        opacity: 0.7,
+                        fontSize: "10px",
+                        fontWeight: 400,
+                      }}
+                    >
+                      #{version}
+                    </span>
+                  ) : null;
+                })()}
               </span>
             )}
             {isPartial && (
@@ -445,10 +449,10 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       )}
 
       {!shouldHideContent && hasValidationError && action.errorMessage && (
-        <ErrorBlock 
-          content={`Validation Error: ${action.errorMessage}`} 
-          compact={true} 
-          maxHeight="300px" 
+        <ErrorBlock
+          content={`Validation Error: ${action.errorMessage}`}
+          compact={true}
+          maxHeight="300px"
         />
       )}
     </div>

@@ -235,7 +235,26 @@ export class ReplaceInFileHandler {
         newContent,
         errorCount,
         warningCount,
+        message.messageId, // Pass messageId
+        message.messageTimestamp, // Pass messageTimestamp
+        message.responseNumber, // Pass responseNumber for precise revert tracking
       );
+
+      // Get current version after saving
+      const currentVersion = await historyManager.getCurrentVersion(
+        absPath.fsPath,
+      );
+
+      webviewView.webview.postMessage({
+        command: "replaceInFileResult",
+        requestId: message.requestId,
+        path: message.path,
+        success: true,
+        diagnostics: diagnostics,
+        content: newContent,
+        version: currentVersion,
+      });
+      return;
     }
 
     webviewView.webview.postMessage({

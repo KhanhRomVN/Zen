@@ -10,6 +10,7 @@ export interface ToolOutput {
     source?: string;
     code?: string | number;
   }>;
+  version?: number;
 }
 
 export type ToolOutputs = Record<string, ToolOutput>;

@@ -12,9 +12,41 @@ import * as path from "path";
 // MANAGERS
 import { CheckpointManager } from "../../managers/CheckpointManager";
 import { FileLockManager } from "../../managers/FileLockManager";
+import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
 
 // SERVICES
 import { PathService } from "../../services/PathService";
+
+/**
+ * Parse actions from message content (markdown format)
+ * Extracts tool actions like [replace_in_file for 'file.txt']
+ */
+function parseActionsFromContent(content: string): Array<{
+  type: string;
+  filePath?: string;
+  actionId?: string;
+}> {
+  const actions: Array<{ type: string; filePath?: string; actionId?: string }> =
+    [];
+
+  // Pattern: [tool_name for 'file_path']
+  const toolPattern = /\[(\w+)\s+for\s+'([^']+)'\]/g;
+  let match;
+
+  while ((match = toolPattern.exec(content)) !== null) {
+    const toolName = match[1];
+    const filePath = match[2];
+
+    if (toolName === "replace_in_file") {
+      actions.push({
+        type: "replace_in_file",
+        filePath,
+      });
+    }
+  }
+
+  return actions;
+}
 
 export class RevertConversationHandler {
   private pathService: PathService;
@@ -25,6 +57,19 @@ export class RevertConversationHandler {
 
   private getProjectContextDir(workspaceFolderPath: string): string {
     return this.pathService.getProjectContextDir(workspaceFolderPath);
+  }
+
+  /**
+   * Resolve a file path (possibly relative) to an absolute path using the workspace folder.
+   */
+  private resolveToAbsolute(
+    workspaceFolder: vscode.WorkspaceFolder,
+    filePath: string,
+  ): string {
+    if (path.isAbsolute(filePath)) {
+      return filePath;
+    }
+    return path.join(workspaceFolder.uri.fsPath, filePath);
   }
 
   public async handleRevertConversation(
@@ -110,6 +155,46 @@ export class RevertConversationHandler {
             ? new Date(targetMsg.timestamp).getTime()
             : targetMsg.timestamp || timestamp;
 
+        // Calculate revertResponseNumber: count assistant messages up to and including the target message
+        let revertResponseNumber = 0;
+        for (let i = 0; i <= index; i++) {
+          if (content[i].role === "assistant") {
+            revertResponseNumber++;
+          }
+        }
+
+        const messagesToDelete = content.slice(index);
+        const filePaths = new Set<string>();
+        // Track response number while iterating (continuing from revertResponseNumber for deleted messages)
+        let currentResponseNumber = revertResponseNumber;
+
+        for (const msg of messagesToDelete) {
+          // Check tool result messages (role=user with -tool in id)
+          const isToolMessage = msg.role === "user" && msg.id.includes("-tool");
+
+          // Also check assistant messages that might contain actions
+          const isAssistantMessage = msg.role === "assistant";
+
+          if (isAssistantMessage) {
+            currentResponseNumber++;
+          }
+
+          if ((isToolMessage || isAssistantMessage) && msg.content) {
+            const parsedActions = parseActionsFromContent(msg.content);
+
+            for (const action of parsedActions) {
+              if (action.type === "replace_in_file" && action.filePath) {
+                // Resolve relative path to absolute for consistent hashing with saveHistory
+                const absolutePath = this.resolveToAbsolute(
+                  workspaceFolder,
+                  action.filePath,
+                );
+                filePaths.add(absolutePath);
+              }
+            }
+          }
+        }
+
         content = content.slice(0, index);
 
         if (!Array.isArray(parsed)) {
@@ -127,6 +212,21 @@ export class RevertConversationHandler {
           conversationId,
           revertTimestamp,
         );
+
+        // Clean up replace_in_file history using responseNumber-based deletion
+        const historyManager = ReplaceInFileHistoryManager.getInstance();
+        historyManager.setActiveConversationId(conversationId);
+
+        if (filePaths.size === 0) {
+        } else {
+          // Delete versions for each file based on responseNumber
+          for (const filePath of filePaths) {
+            await historyManager.deleteVersionsFromResponseNumber(
+              filePath,
+              revertResponseNumber,
+            );
+          }
+        }
       } finally {
         release();
       }

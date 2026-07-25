@@ -229,7 +229,7 @@ export const useToolExecution = ({
   }, []);
 
   // Build executor context
-  const buildExecutorContext = useCallback((): ExecutorContext => {
+  const buildExecutorContext = useCallback((responseNumber?: number): ExecutorContext => {
     return {
       setToolOutputs,
       conversationIdRef,
@@ -240,6 +240,7 @@ export const useToolExecution = ({
       pendingToolResolvers: pendingToolResolvers.current,
       commandStartTimes: commandStartTimes.current,
       earlyCommandResults: earlyCommandResults.current,
+      responseNumber,
     };
   }, [setToolOutputs, conversationIdRef]);
 
@@ -249,7 +250,7 @@ export const useToolExecution = ({
       skipDiagnostics: boolean = false,
       bypassIgnore: boolean = false,
     ): Promise<string | null> => {
-      const context = buildExecutorContext();
+      const context = buildExecutorContext(action.responseNumber);
       const options: ExecutorOptions = { skipDiagnostics, bypassIgnore };
 
       // Special handling for git_status and commit_message (display-only)
@@ -283,6 +284,7 @@ export const useToolExecution = ({
       actionType?: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
     ) => {
       const currentPermissionMode = permissionModeRef.current;
+      const responseNumber = message.role === "assistant" ? (messagesRef?.current?.filter(m => m.role === "assistant" && m.timestamp <= message.timestamp).length ?? undefined) : undefined;
       let wasInterruptedByManual = false;
 
       const actions = (
@@ -330,7 +332,7 @@ export const useToolExecution = ({
             setSingleLineReviewActions((prev) => ({
               ...prev,
               [actionId]: {
-                action: { ...action, actionId },
+                action: { ...action, actionId, responseNumber },
                 actionId,
                 messageId: message.id,
                 messageObj: message,
@@ -380,7 +382,7 @@ export const useToolExecution = ({
           result = `Output: [${action.type}] Tool execution blocked by permission policy (${permissionModeRef.current}).`;
         } else {
           result = await executeSingleAction(
-            { ...action, actionId },
+            { ...action, actionId, responseNumber },
             skipDiagnostics,
             decision === "allow" || isConversationAuto,
           );
@@ -428,6 +430,7 @@ export const useToolExecution = ({
                     isError,
                     terminalId: (action as any).params?.terminal_id,
                     diagnostics: existing?.diagnostics,
+                    version: (existing as any)?.version,
                   },
                 };
               });

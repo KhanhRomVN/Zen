@@ -100,19 +100,6 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
     getPermissionDecision(permissionMode, "run_command") === "confirm";
   const commandText = action.params.command || "";
 
-  // Debug logging for validation errors
-  React.useEffect(() => {
-    if (hasValidationError) {
-      console.log("[RunCommandRenderer] Validation error detected:", {
-        actionId,
-        command: commandText,
-        errorCode: action.errorCode,
-        errorMessage: action.errorMessage,
-        needsPrompt,
-        actionParams: action.params,
-      });
-    }
-  }, [hasValidationError, actionId, commandText, action.errorCode, action.errorMessage, needsPrompt]);
   const folderPath =
     action.params.folder_path || action.params.cwd || rootPath || "";
 
@@ -344,42 +331,45 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 : undefined
             }
           />
-          {needsPrompt && !isTerminalBusy && !isCompleted && !hasValidationError && (
-            <ExecuteButton
-              isActive={true}
-              isCompleted={isCompleted}
-              isLastMessage={isLastMessage}
-              isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
-              isLoading={isLoading}
-              title={
-                isCompleted
-                  ? "Completed"
-                  : isLoading
-                    ? "Executing..."
-                    : "Execute action"
-              }
-              onExecute={(e, type) => {
-                if (!isCompleted && !isLoading) {
-                  onToolClick(
-                    {
-                      ...action,
-                      params: { ...action.params, terminal_id: terminalId },
-                    },
-                    messageId,
-                    actionIndex,
-                    type,
-                  );
+          {needsPrompt &&
+            !isTerminalBusy &&
+            !isCompleted &&
+            !hasValidationError && (
+              <ExecuteButton
+                isActive={true}
+                isCompleted={isCompleted}
+                isLastMessage={isLastMessage}
+                isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
+                isLoading={isLoading}
+                title={
+                  isCompleted
+                    ? "Completed"
+                    : isLoading
+                      ? "Executing..."
+                      : "Execute action"
                 }
-              }}
-            />
-          )}
+                onExecute={(e, type) => {
+                  if (!isCompleted && !isLoading) {
+                    onToolClick(
+                      {
+                        ...action,
+                        params: { ...action.params, terminal_id: terminalId },
+                      },
+                      messageId,
+                      actionIndex,
+                      type,
+                    );
+                  }
+                }}
+              />
+            )}
         </>
       )}
       {hasValidationError && action.errorMessage && (
-        <ErrorBlock 
-          content={`Validation Error: ${action.errorMessage}`} 
-          compact={true} 
-          maxHeight="300px" 
+        <ErrorBlock
+          content={`Validation Error: ${action.errorMessage}`}
+          compact={true}
+          maxHeight="300px"
         />
       )}
     </div>

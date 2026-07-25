@@ -96,19 +96,6 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
       ? "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)"
       : "var(--vscode-textLink-foreground, #3794ff)";
 
-  // Debug logging for validation errors
-  React.useEffect(() => {
-    if (hasValidationError) {
-      console.log("[RevertFileRenderer] Validation error detected:", {
-        actionId,
-        filePath: rawPath,
-        errorCode: action.errorCode,
-        errorMessage: action.errorMessage,
-        actionParams: action.params,
-      });
-    }
-  }, [hasValidationError, actionId, rawPath, action.errorCode, action.errorMessage]);
-
   return (
     <div
       style={{
@@ -244,10 +231,10 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
         </div>
       )}
       {hasValidationError && action.errorMessage && (
-        <ErrorBlock 
-          content={`Validation Error: ${action.errorMessage}`} 
-          compact={true} 
-          maxHeight="300px" 
+        <ErrorBlock
+          content={`Validation Error: ${action.errorMessage}`}
+          compact={true}
+          maxHeight="300px"
         />
       )}
     </div>

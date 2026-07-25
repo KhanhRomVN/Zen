@@ -24,6 +24,8 @@ export class ReplaceInFileExecutor implements ToolExecutor {
       const requestId = `replace-${Date.now()}-${Math.random()}`;
       const filePath = action.params.path || action.params.file_path;
       const actionId = action.actionId;
+      const messageTimestamp = Date.now(); // Current timestamp for this tool execution
+      const responseNumber = action.responseNumber; // Response number from the triggering message
 
       extensionService.postMessage({
         command: "replaceInFile",
@@ -35,6 +37,9 @@ export class ReplaceInFileExecutor implements ToolExecutor {
         bypassIgnore,
         conversationId: conversationIdRef?.current,
         actionId: actionId,
+        messageId: actionId, // Use actionId as messageId for tracking
+        messageTimestamp: messageTimestamp, // Timestamp for revert tracking
+        responseNumber: responseNumber, // Response number for precise revert tracking
       });
 
       messageDispatcher.register(
@@ -57,7 +62,10 @@ export class ReplaceInFileExecutor implements ToolExecutor {
               `[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`,
             );
           } else {
-            let result = `[replace_in_file for '${filePath}'] Result: File updated successfully`;
+            // Build version info if available
+            const versionInfo = msg.version ? ` (version #${msg.version})` : "";
+
+            let result = `[replace_in_file for '${filePath}'] Result: File updated successfully${versionInfo}`;
 
             // Add diagnostics if any
             if (msg.diagnostics && msg.diagnostics.length > 0) {
@@ -69,7 +77,7 @@ export class ReplaceInFileExecutor implements ToolExecutor {
                   d.severity === "Warning" || d.severity === "warning",
               ).length;
 
-              result = `[replace_in_file for '${filePath}'] Result: File updated successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
+              result = `[replace_in_file for '${filePath}'] Result: File updated successfully${versionInfo} with ${errorCount} error(s), ${warningCount} warning(s)`;
 
               const contentLines = (
                 msg.content ||
@@ -79,13 +87,13 @@ export class ReplaceInFileExecutor implements ToolExecutor {
               result += formatDiagnostics(msg.diagnostics, contentLines);
             }
 
-            // Store output AND diagnostics in toolOutputs
             setToolOutputs((prev) => ({
               ...prev,
               [actionId]: {
                 output: msg.content || action.params.new_content || "",
                 isError: false,
                 diagnostics: msg.diagnostics || undefined,
+                version: msg.version || undefined,
               },
             }));
 

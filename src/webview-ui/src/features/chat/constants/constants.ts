@@ -181,7 +181,7 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
 
   view_replace_history: {
     id: "view_replace_history",
-    title: "UPDATE HISTORY",
+    title: "HISTORY REPLACE",
     category: "tool",
     timeout: 60000,
     permissions: {
@@ -472,5 +472,7 @@ export const isToolClickable = (type: string): boolean => {
  * Returns the title field, or a formatted version of the tool type if not found
  */
 export const getToolLabel = (toolType: string): string => {
-  return TAG_REGISTRY[toolType]?.title ?? toolType.toUpperCase().replace(/_/g, " ");
+  return (
+    TAG_REGISTRY[toolType]?.title ?? toolType.toUpperCase().replace(/_/g, " ")
+  );
 };

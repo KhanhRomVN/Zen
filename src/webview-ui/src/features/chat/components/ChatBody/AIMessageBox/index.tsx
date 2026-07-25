@@ -302,12 +302,14 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 key: `error-${idx}`,
               });
             } else if (block.type === "markdown") {
-              flushTools();
-              groups.push({
-                type: "markdown",
-                content: block.content,
-                key: `markdown-${idx}`,
-              });
+              if (block.content.trim().length > 0) {
+                flushTools();
+                groups.push({
+                  type: "markdown",
+                  content: block.content,
+                  key: `markdown-${idx}`,
+                });
+              }
             } else if (block.type === "thinking") {
               // Skip
             } else if (block.type === "question") {

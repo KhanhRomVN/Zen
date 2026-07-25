@@ -23,6 +23,9 @@ export interface ReplaceInFileHistory {
   warningCount: number;
   lineCount: number;
   timestamp: number;
+  messageId?: string; // Message ID that created this version
+  messageTimestamp?: number; // Message timestamp for revert comparison
+  responseNumber?: number; // Response number (1-based) for precise revert tracking
 }
 
 export class ReplaceInFileHistoryManager {
@@ -66,6 +69,9 @@ export class ReplaceInFileHistoryManager {
     fullContent: string,
     errorCount: number,
     warningCount: number,
+    messageId?: string,
+    messageTimestamp?: number,
+    responseNumber?: number,
   ): Promise<void> {
     const startTime = Date.now();
     if (!this.activeConversationId) {
@@ -95,6 +101,9 @@ export class ReplaceInFileHistoryManager {
         warningCount,
         lineCount,
         timestamp,
+        messageId,
+        messageTimestamp,
+        responseNumber,
       };
 
       // Lưu file JSON theo pattern: {filePath_hash}_v{version}.json
@@ -113,17 +122,19 @@ export class ReplaceInFileHistoryManager {
         "utf-8",
       );
     } catch (error) {
-      console.error(
-        "[ReplaceInFileHistoryManager] Error saving history:",
-        error,
-      );
+      console.error("[HISTORY-SAVE] Error saving history:", {
+        filePath,
+        messageId,
+        messageTimestamp,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   /**
    * Lấy version hiện tại cao nhất của file
    */
-  private async getCurrentVersion(filePath: string): Promise<number> {
+  public async getCurrentVersion(filePath: string): Promise<number> {
     if (!this.activeConversationId) return 0;
 
     try {
@@ -266,11 +277,15 @@ export class ReplaceInFileHistoryManager {
     filePath: string,
     version: number,
   ): Promise<void> {
-    if (!this.activeConversationId) return;
+    if (!this.activeConversationId) {
+      return;
+    }
 
     try {
       const historyDir = this.getHistoryDir(this.activeConversationId);
-      if (!fs.existsSync(historyDir)) return;
+      if (!fs.existsSync(historyDir)) {
+        return;
+      }
 
       const fileHash = crypto
         .createHash("md5")
@@ -279,6 +294,8 @@ export class ReplaceInFileHistoryManager {
         .substring(0, 8);
 
       const files = await fs.promises.readdir(historyDir);
+      let deletedCount = 0;
+      const deletedVersions: number[] = [];
 
       for (const file of files) {
         if (file.startsWith(fileHash) && file.endsWith(".json")) {
@@ -288,13 +305,127 @@ export class ReplaceInFileHistoryManager {
             if (fileVersion > version) {
               const historyFilePath = path.join(historyDir, file);
               await fs.promises.unlink(historyFilePath);
+              deletedCount++;
+              deletedVersions.push(fileVersion);
             }
           }
         }
       }
     } catch (error) {
+      console.error("[HISTORY-DELETE] Error deleting versions:", error);
+    }
+  }
+
+  /**
+   * Xóa các version có messageTimestamp >= revertTimestamp (dùng khi revert message)
+   */
+  public async deleteVersionsFromTimestamp(
+    filePath: string,
+    revertTimestamp: number,
+  ): Promise<void> {
+    if (!this.activeConversationId) {
+      return;
+    }
+
+    try {
+      const historyDir = this.getHistoryDir(this.activeConversationId);
+      if (!fs.existsSync(historyDir)) {
+        return;
+      }
+
+      const fileHash = crypto
+        .createHash("md5")
+        .update(filePath)
+        .digest("hex")
+        .substring(0, 8);
+
+      const files = await fs.promises.readdir(historyDir);
+      let deletedCount = 0;
+      const deletedVersions: number[] = [];
+
+      for (const file of files) {
+        if (file.startsWith(fileHash) && file.endsWith(".json")) {
+          try {
+            const historyFilePath = path.join(historyDir, file);
+            const raw = await fs.promises.readFile(historyFilePath, "utf-8");
+            const history: ReplaceInFileHistory = JSON.parse(raw);
+
+            // Delete if messageTimestamp >= revertTimestamp
+            if (
+              history.filePath === filePath &&
+              history.messageTimestamp &&
+              history.messageTimestamp >= revertTimestamp
+            ) {
+              await fs.promises.unlink(historyFilePath);
+              deletedCount++;
+              deletedVersions.push(history.version);
+            }
+          } catch (e) {
+            // Skip invalid files
+          }
+        }
+      }
+    } catch (error) {
       console.error(
-        "[ReplaceInFileHistoryManager] Error deleting versions:",
+        "[HISTORY-DELETE-TIMESTAMP] Error deleting versions:",
+        error,
+      );
+    }
+  }
+
+  /**
+   * Xóa các version có responseNumber >= revertResponseNumber (dùng khi revert message)
+   * Chính xác hơn deleteVersionsFromTimestamp vì không phụ thuộc vào clock skew.
+   */
+  public async deleteVersionsFromResponseNumber(
+    filePath: string,
+    revertResponseNumber: number,
+  ): Promise<void> {
+    if (!this.activeConversationId) {
+      return;
+    }
+
+    try {
+      const historyDir = this.getHistoryDir(this.activeConversationId);
+      if (!fs.existsSync(historyDir)) {
+        return;
+      }
+
+      const fileHash = crypto
+        .createHash("md5")
+        .update(filePath)
+        .digest("hex")
+        .substring(0, 8);
+
+      const files = await fs.promises.readdir(historyDir);
+      let deletedCount = 0;
+      const deletedVersions: number[] = [];
+
+      for (const file of files) {
+        if (file.startsWith(fileHash) && file.endsWith(".json")) {
+          try {
+            const historyFilePath = path.join(historyDir, file);
+            const raw = await fs.promises.readFile(historyFilePath, "utf-8");
+            const history: ReplaceInFileHistory = JSON.parse(raw);
+
+            // Delete if responseNumber >= revertResponseNumber
+            if (
+              history.filePath === filePath &&
+              history.responseNumber !== undefined &&
+              history.responseNumber >= revertResponseNumber
+            ) {
+              await fs.promises.unlink(historyFilePath);
+              deletedCount++;
+              deletedVersions.push(history.version);
+            }
+          } catch (e) {
+            // Skip invalid files
+          }
+        }
+      }
+    } catch (error) {
+      console.error(
+        "[HISTORY-DELETE-RESPONSE] Error deleting versions:",
         error,
       );
     }

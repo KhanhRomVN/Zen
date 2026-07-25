@@ -65,20 +65,6 @@ export const MoveFileRenderer: React.FC<BaseRendererProps> = ({
       ? "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)"
       : "var(--vscode-textLink-foreground, #3794ff)";
 
-  // Debug logging for validation errors
-  React.useEffect(() => {
-    if (hasValidationError) {
-      console.log("[MoveFileRenderer] Validation error detected:", {
-        actionId,
-        sourcePath,
-        destPath,
-        errorCode: action.errorCode,
-        errorMessage: action.errorMessage,
-        actionParams: action.params,
-      });
-    }
-  }, [hasValidationError, actionId, sourcePath, destPath, action.errorCode, action.errorMessage]);
-
   return (
     <div
       style={{
@@ -188,10 +174,10 @@ export const MoveFileRenderer: React.FC<BaseRendererProps> = ({
         </div>
       )}
       {hasValidationError && action.errorMessage && (
-        <ErrorBlock 
-          content={`Validation Error: ${action.errorMessage}`} 
-          compact={true} 
-          maxHeight="300px" 
+        <ErrorBlock
+          content={`Validation Error: ${action.errorMessage}`}
+          compact={true}
+          maxHeight="300px"
         />
       )}
     </div>

@@ -389,7 +389,6 @@ export const useChatLLM = ({
         backendConversationIdRef.current || undefined,
       );
 
-
       // Resolve model and account
       const oldModel = lastUsedModelRef.current;
       const oldAccount = lastUsedAccountRef.current;
@@ -723,11 +722,6 @@ export const useChatLLM = ({
                     params: action.params,
                     missingParams: validation.missingParams,
                     actionWillBeBlocked: true,
-                  });
-                } else {
-                  console.log("[Zen][useChatLLM] Tool validation passed:", {
-                    toolName: action.type,
-                    params: action.params,
                   });
                 }
               }

@@ -219,7 +219,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
     while ((match = regex.exec(content)) !== null) {
       const textBefore = content.substring(lastIndex, match.index);
-      if (textBefore.trim()) {
+      if (textBefore.trim().length > 0) {
         segments.push({ type: baseType, content: textBefore });
       }
 
@@ -244,13 +244,15 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     }
 
     const textAfter = content.substring(lastIndex);
-    if (textAfter.trim()) {
+    if (textAfter.trim().length > 0) {
       segments.push({ type: baseType, content: textAfter });
     }
 
     // Always push segments as individual blocks instead of mixed_content
     for (const segment of segments) {
-      result.contentBlocks.push(segment);
+      if (segment.content.trim().length > 0) {
+        result.contentBlocks.push(segment);
+      }
     }
   };
 
@@ -262,7 +264,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     if (index !== -1 && match) {
       // 1. Everything before the tag is markdown
       const prefix = scanStr.substring(0, index);
-      if (prefix.trim()) {
+      if (prefix.trim().length > 0) {
         pushTextOrCodeBlocks("markdown", prefix);
       }
 
@@ -301,7 +303,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         if (toolName === "markdown") {
           // Explicit <markdown> tag - use MarkdownParser
           const content = parseMarkdown(innerContent || "");
-          if (content) {
+          if (content && content.trim().length > 0) {
             pushTextOrCodeBlocks("markdown", content);
           }
         } else if (toolName === "question") {
@@ -602,12 +604,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       const partialTagMatch = /<[\/]?[a-zA-Z0-9_]*$/.exec(scanStr);
       if (partialTagMatch) {
         const textBeforePartial = scanStr.substring(0, partialTagMatch.index);
-        if (textBeforePartial.trim()) {
+        if (textBeforePartial.trim().length > 0) {
           pushTextOrCodeBlocks("markdown", textBeforePartial);
         }
         // Don't show the partial tag itself - it will be completed in next stream chunk
       } else {
-        if (scanStr.trim()) {
+        if (scanStr.trim().length > 0) {
           pushTextOrCodeBlocks("markdown", scanStr);
         }
       }

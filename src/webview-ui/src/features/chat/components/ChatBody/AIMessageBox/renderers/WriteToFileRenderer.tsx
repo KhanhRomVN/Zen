@@ -13,9 +13,7 @@ import {
 } from "@/features/chat/constants/constants";
 
 // TYPES
-import {
-  Diagnostic,
-} from "@/features/chat/types/renderer-types";
+import { Diagnostic } from "@/features/chat/types/renderer-types";
 
 // UTILS
 import {
@@ -177,26 +175,6 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
     permissionMode,
     "write_to_file",
   );
-  const shouldShowExecuteButton =
-    !shouldHideContent &&
-    !isCompleted &&
-    !isPartial &&
-    !hasValidationError &&
-    permissionDecision === "confirm";
-
-  // Debug logging for validation errors
-  React.useEffect(() => {
-    if (hasValidationError) {
-      console.log("[WriteToFileRenderer] Validation error detected:", {
-        actionId,
-        filePath: rawPath,
-        errorCode: action.errorCode,
-        errorMessage: action.errorMessage,
-        shouldShowExecuteButton,
-        actionParams: action.params,
-      });
-    }
-  }, [hasValidationError, actionId, rawPath, action.errorCode, action.errorMessage, shouldShowExecuteButton]);
 
   const handleToolClickWithLog = React.useCallback(
     (e: React.MouseEvent, type: any) => {
@@ -500,10 +478,10 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
       )}
 
       {!shouldHideContent && hasValidationError && action.errorMessage && (
-        <ErrorBlock 
-          content={`Validation Error: ${action.errorMessage}`} 
-          compact={true} 
-          maxHeight="300px" 
+        <ErrorBlock
+          content={`Validation Error: ${action.errorMessage}`}
+          compact={true}
+          maxHeight="300px"
         />
       )}
     </div>

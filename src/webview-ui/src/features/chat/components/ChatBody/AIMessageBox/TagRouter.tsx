@@ -647,54 +647,60 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   }
 
   if (toolType === "write_to_file") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <WriteToFileRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-        singleLineReviewActions={singleLineReviewActions}
-        onConfirmSingleLineAction={onConfirmSingleLineAction}
-        onRejectSingleLineAction={onRejectSingleLineAction}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <WriteToFileRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+            singleLineReviewActions={singleLineReviewActions}
+            onConfirmSingleLineAction={onConfirmSingleLineAction}
+            onRejectSingleLineAction={onRejectSingleLineAction}
+          />
+        ))}
+      </>
     );
   }
 
   if (toolType === "replace_in_file") {
-    const action = firstAction;
-    const actionIndex = toolGroup[0].index;
     return (
-      <ReplaceInFileRenderer
-        key={actionIndex}
-        action={action}
-        actionIndex={actionIndex}
-        messageId={messageId}
-        isActionClicked={clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        isLastItemInList={isLastItemInList}
-        toolOutputs={toolOutputs}
-        allMessages={allMessages}
-        fileStatsMap={fileStatsMap}
-        onToolClick={onToolClick}
-        conversationId={conversationId}
-        mergedItems={toolGroup}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <ReplaceInFileRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+            mergedItems={undefined}
+          />
+        ))}
+      </>
     );
   }
 

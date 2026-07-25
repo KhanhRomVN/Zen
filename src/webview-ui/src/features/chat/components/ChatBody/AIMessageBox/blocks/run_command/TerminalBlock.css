@@ -314,3 +314,11 @@
   height: 14px;
   stroke-width: 2px;
 }
+
+/* Hover underline for title elements and icon */
+.terminal-name > div > span:hover,
+.terminal-name > div > img:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--vscode-focusBorder, rgba(0, 122, 204, 0.6));
+  text-underline-offset: 2px;
+}
