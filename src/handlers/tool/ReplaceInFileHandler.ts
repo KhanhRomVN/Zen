@@ -213,11 +213,12 @@ export class ReplaceInFileHandler {
     }> = [];
 
     if (!message.skipDiagnostics) {
-      diagnostics = await DiagnosticsService.getInstance().getDiagnostics(
+      const diagResult = await DiagnosticsService.getInstance().getDiagnostics(
         absPath,
         pathValue,
-        50000,
+        15000,
       );
+      diagnostics = diagResult.diagnostics;
     }
 
     if (message.conversationId && newContent !== undefined) {

@@ -29,8 +29,45 @@ import FileIcon from "@/icons/FileIcon";
 import { TagHeader } from "../TagHeader";
 import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
+import { CodeBlock } from "../blocks/code/CodeBlock";
 // FileStreamingBlock removed - no longer used (isPartial is false)
 import { MergedRendererProps } from "@/features/chat/types/renderer-types";
+
+// Helper: map file extension to language for CodeBlock header
+const getLanguageFromPath = (filePath: string): string | undefined => {
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  if (!ext) return undefined;
+  const extToLang: Record<string, string> = {
+    ts: "typescript",
+    tsx: "tsx",
+    js: "javascript",
+    jsx: "jsx",
+    py: "python",
+    java: "java",
+    cpp: "cpp",
+    c: "c",
+    go: "go",
+    rs: "rust",
+    rb: "ruby",
+    php: "php",
+    swift: "swift",
+    kt: "kotlin",
+    html: "html",
+    css: "css",
+    scss: "scss",
+    json: "json",
+    yaml: "yaml",
+    yml: "yml",
+    xml: "xml",
+    md: "markdown",
+    sql: "sql",
+    sh: "shell",
+    bash: "shell",
+    ps1: "powershell",
+    dockerfile: "dockerfile",
+  };
+  return extToLang[ext];
+};
 
 export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
   action,
@@ -332,6 +369,16 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
           });
         }}
       />
+
+      {/* Show code content in approval mode — only when not completed */}
+      {!isCompleted &&
+        getPermissionDecision(permissionMode, "write_to_file") === "confirm" && (
+          <CodeBlock
+            code={action.params.content || ""}
+            language={getLanguageFromPath(rawPath)}
+            maxHeight="400px"
+          />
+        )}
 
       {/* Single-line review UI for write_to_file with content crammed into 1 line */}
       {!shouldHideContent &&

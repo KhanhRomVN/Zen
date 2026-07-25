@@ -58,6 +58,11 @@ export class WriteToFileExecutor implements ToolExecutor {
           } else {
             let result = `[write_to_file for '${filePath}'] Result: File written successfully`;
 
+            // Add skippedReason if diagnostics were skipped (file too large / timeout)
+            if (msg.skippedReason) {
+              result += `\n⚠️ ${msg.skippedReason}`;
+            }
+
             // Add diagnostics if any
             if (msg.diagnostics && msg.diagnostics.length > 0) {
               const errorCount = msg.diagnostics.filter(
@@ -81,6 +86,7 @@ export class WriteToFileExecutor implements ToolExecutor {
                 output: action.params.content,
                 isError: false,
                 diagnostics: msg.diagnostics || undefined,
+                skippedReason: msg.skippedReason || undefined,
               },
             }));
 

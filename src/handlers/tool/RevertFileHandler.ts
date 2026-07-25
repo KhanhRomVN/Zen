@@ -97,22 +97,7 @@ export class RevertFileHandler {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const diagnosticsService = DiagnosticsService.getInstance();
-      const diagnostics = await diagnosticsService.getDiagnostics(
-        fileUri,
-        absPath,
-        30000,
-      );
-
-      webviewView.webview.postMessage({
-        command: "revertFileResult",
-        requestId: message.requestId,
-        success: true,
-        path: filePath,
-        oldContent: beforeContent,
-        newContent: afterContent,
-        diagnostics,
-      });
+      
     } catch (e: any) {
       logger.error(`[DEBUG revert_file] Error: ${e.message}`);
       webviewView.webview.postMessage({

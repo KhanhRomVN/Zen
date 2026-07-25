@@ -7,8 +7,16 @@
     "watch": "webpack --watch --mode development"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "file:../../media/@codemirror/autocomplete",
+    "@codemirror/commands": "file:../../media/@codemirror/commands",
+    "@codemirror/language": "file:../../media/@codemirror/language",
+    "@codemirror/lint": "file:../../media/@codemirror/lint",
+    "@codemirror/search": "file:../../media/@codemirror/search",
+    "@codemirror/state": "file:../../media/@codemirror/state",
+    "@codemirror/view": "file:../../media/@codemirror/view",
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "clsx": "^2.1.1",
+    "codemirror": "file:../../media/codemirror",
     "dompurify": "^3.3.1",
     "gpt-tokenizer": "^3.4.0",
     "lucide-react": "^0.564.0",

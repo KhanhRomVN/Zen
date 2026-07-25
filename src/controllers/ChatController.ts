@@ -233,6 +233,11 @@ export class ChatController {
           await this.fileMiscHandler.handleGetFileStats(message, webviewView);
           break;
         case "getDiagnostics":
+          await this.fileMiscHandler.handleGetDiagnostics(message, webviewView);
+          break;
+        case "getFileContent":
+          await this.fileMiscHandler.handleGetFileContent(message, webviewView);
+          break;
         case "deleteFile":
           await this.deleteFileHandler.handleDeleteFile(message, webviewView);
           break;

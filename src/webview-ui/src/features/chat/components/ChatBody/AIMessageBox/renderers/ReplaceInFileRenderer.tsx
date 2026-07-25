@@ -7,11 +7,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { extensionService } from "@/services/ExtensionService";
 
 // CONSTANTS
-import {
-  STREAM_BOX_HEIGHT,
-  TOOL_ACTION_TYPES,
-  getToolLabel,
-} from "@/features/chat/constants/constants";
+import { getToolLabel } from "@/features/chat/constants/constants";
 
 // TYPES
 import {
@@ -25,7 +21,7 @@ import {
   getNextUserMessage,
 } from "../../../../utils/renderer-utils";
 import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
-import { parseDiff } from "@/utils/diffUtils";
+import { parseDiff, DiffHighlight } from "@/utils/diffUtils";
 
 // ICONS
 import FileIcon from "@/icons/FileIcon";
@@ -34,7 +30,43 @@ import FileIcon from "@/icons/FileIcon";
 import { TagHeader } from "../TagHeader";
 import ExecuteButton from "../ExecuteButton";
 import ErrorBlock from "../blocks/error/ErrorBlock";
-// FileStreamingBlock removed - no longer used (isPartial is false)
+import { CodeBlock } from "../blocks/code/CodeBlock";
+
+// Helper: map file extension to language for CodeBlock header
+const getLanguageFromPath = (filePath: string): string | undefined => {
+  const ext = filePath.split(".").pop()?.toLowerCase();
+  if (!ext) return undefined;
+  const extToLang: Record<string, string> = {
+    ts: "typescript",
+    tsx: "tsx",
+    js: "javascript",
+    jsx: "jsx",
+    py: "python",
+    java: "java",
+    cpp: "cpp",
+    c: "c",
+    go: "go",
+    rs: "rust",
+    rb: "ruby",
+    php: "php",
+    swift: "swift",
+    kt: "kotlin",
+    html: "html",
+    css: "css",
+    scss: "scss",
+    json: "json",
+    yaml: "yaml",
+    yml: "yml",
+    xml: "xml",
+    md: "markdown",
+    sql: "sql",
+    sh: "shell",
+    bash: "shell",
+    ps1: "powershell",
+    dockerfile: "dockerfile",
+  };
+  return extToLang[ext];
+};
 
 export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
   action,
@@ -232,6 +264,185 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
     !hasValidationError &&
     permissionDecision === "confirm";
 
+  // Fetch full file content for approval mode
+  const [fullFileContent, setFullFileContent] = React.useState<string | null>(
+    null,
+  );
+
+  React.useEffect(() => {
+    if (permissionDecision !== "confirm" || !rawPath) {
+      console.log("[ReplaceInFileRenderer] Skipping file content fetch:", {
+        permissionDecision,
+        rawPath,
+      });
+      return;
+    }
+
+    console.log(
+      "[ReplaceInFileRenderer] Requesting file content for:",
+      rawPath,
+    );
+
+    const requestId = `file-content-${actionId}`;
+    const handleMessage = (event: MessageEvent) => {
+      const msg = event.data;
+      if (
+        msg.command === "getFileContentResult" &&
+        msg.requestId === requestId
+      ) {
+        console.log("[ReplaceInFileRenderer] Received file content:", {
+          contentLength: msg.content?.length,
+          error: msg.error,
+        });
+        setFullFileContent(msg.content || null);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    extensionService.postMessage({
+      command: "getFileContent",
+      path: rawPath,
+      requestId,
+    });
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [permissionDecision, rawPath, actionId]);
+
+  // Build diff preview data for approval mode
+  const approvalDiffData = React.useMemo(() => {
+    if (permissionDecision !== "confirm") return null;
+
+    // Calculate line highlights based on old/new content
+    const oldContent = action.params.old_content || action.params.old_str;
+    const newContent = action.params.new_content || action.params.new_str;
+
+    if (!oldContent || !newContent) return null;
+
+    // If we have full file content, show it with highlights
+    if (fullFileContent) {
+      console.log(
+        "[ReplaceInFileRenderer] Full file content loaded, length:",
+        fullFileContent.length,
+      );
+
+      // Find where old content appears in the file
+      const fileLines = fullFileContent.split("\n");
+      const oldLines = String(oldContent).trim().split("\n");
+      const newLines = String(newContent).trim().split("\n");
+
+      console.log("[ReplaceInFileRenderer] Searching for old content:", {
+        fileLineCount: fileLines.length,
+        oldLineCount: oldLines.length,
+        oldContentPreview: oldLines[0]?.substring(0, 50),
+      });
+
+      let startLineIndex = -1;
+
+      // Try exact match first
+      for (let i = 0; i <= fileLines.length - oldLines.length; i++) {
+        let matches = true;
+        for (let j = 0; j < oldLines.length; j++) {
+          if (fileLines[i + j].trim() !== oldLines[j].trim()) {
+            matches = false;
+            break;
+          }
+        }
+        if (matches) {
+          startLineIndex = i;
+          break;
+        }
+      }
+
+      console.log("[ReplaceInFileRenderer] Match result:", { startLineIndex });
+
+      if (startLineIndex !== -1) {
+        // Build new file content with both old and new lines for diff view
+        const beforeLines = fileLines.slice(0, startLineIndex);
+        const afterLines = fileLines.slice(startLineIndex + oldLines.length);
+
+        // Merge: show old lines (removed) + new lines (added)
+        const mergedLines = [
+          ...beforeLines,
+          ...oldLines,
+          ...newLines,
+          ...afterLines,
+        ];
+        const mergedContent = mergedLines.join("\n");
+
+        // Build line highlights
+        const lineHighlights: DiffHighlight[] = [];
+
+        // Mark old lines as removed
+        for (let i = 0; i < oldLines.length; i++) {
+          lineHighlights.push({
+            type: "removed",
+            startLine: beforeLines.length + i + 1, // 1-based
+            endLine: beforeLines.length + i + 1,
+          });
+        }
+
+        // Mark new lines as added (after old lines)
+        for (let i = 0; i < newLines.length; i++) {
+          lineHighlights.push({
+            type: "added",
+            startLine: beforeLines.length + oldLines.length + i + 1, // 1-based
+            endLine: beforeLines.length + oldLines.length + i + 1,
+          });
+        }
+
+        console.log(
+          "[ReplaceInFileRenderer] Returning merged file content with highlights:",
+          {
+            totalLines: mergedLines.length,
+            highlightCount: lineHighlights.length,
+            removedCount: oldLines.length,
+            addedCount: newLines.length,
+          },
+        );
+
+        return {
+          code: mergedContent,
+          lineHighlights,
+        };
+      } else {
+        console.warn(
+          "[ReplaceInFileRenderer] Old content not found in file, falling back to diff view",
+        );
+      }
+    } else {
+      console.log(
+        "[ReplaceInFileRenderer] Full file content not yet loaded, using fallback",
+      );
+    }
+
+    // Fallback: show old/new content directly if full file not available
+    const diffText =
+      action.params.diff ||
+      `<<<<<<< SEARCH\n${oldContent}\n=======\n${newContent}\n>>>>>>> REPLACE`;
+    const parsed = parseDiff(diffText);
+
+    console.log("[ReplaceInFileRenderer] Using fallback diff view:", {
+      codeLength: parsed.code.length,
+      highlightCount: parsed.lineHighlights.length,
+    });
+
+    return {
+      code: parsed.code,
+      lineHighlights: parsed.lineHighlights,
+    };
+  }, [
+    permissionDecision,
+    fullFileContent,
+    action.params.old_content,
+    action.params.old_str,
+    action.params.new_content,
+    action.params.new_str,
+    action.params.diff,
+  ]);
+
   return (
     <div
       style={{
@@ -422,6 +633,22 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
           });
         }}
       />
+
+      {/* Show diff in CodeBlock when approval mode — only when not completed */}
+      {!isCompleted && approvalDiffData && (
+        <CodeBlock
+          code={approvalDiffData.code}
+          language={getLanguageFromPath(rawPath)}
+          lineHighlights={
+            approvalDiffData.lineHighlights.length > 0
+              ? approvalDiffData.lineHighlights
+              : undefined
+          }
+          autoScrollToDiff={true}
+          maxHeight="400px"
+          hideHeader={true}
+        />
+      )}
 
       {!shouldHideContent &&
         !isCompleted &&

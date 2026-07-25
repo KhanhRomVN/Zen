@@ -46,6 +46,10 @@ export class DiagnosticsService {
     ".mod",
   ];
 
+  // Kích thước file tối đa (bytes) để mở editor lấy diagnostics.
+  // File vượt ngưỡng này sẽ bị skip để tránh crash máy do LS + UI render.
+  private static readonly MAX_FILE_SIZE_BYTES = 100 * 1024; // 100KB
+
   private isNonCodeFile(pathValue: string): boolean {
     return DiagnosticsService.NON_CODE_EXTENSIONS.some((ext) =>
       pathValue.toLowerCase().endsWith(ext),
@@ -81,25 +85,48 @@ export class DiagnosticsService {
       }));
   }
 
-  private async ensureFileOpened(uri: vscode.Uri): Promise<void> {
+  /**
+   * Mở file trong editor để kích hoạt Language Server phân tích.
+   * Trả về `true` nếu file đã được mở thành công, `false` nếu skip
+   * (file quá lớn hoặc lỗi khi mở).
+   */
+  private async ensureFileOpened(uri: vscode.Uri): Promise<boolean> {
     const logger = LoggerService.getInstance();
     try {
       const isAlreadyOpen = vscode.workspace.textDocuments.some(
         (doc) => doc.uri.fsPath === uri.fsPath,
       );
       if (isAlreadyOpen) {
-        return;
+        return true;
       }
+
+      // Kiểm tra kích thước file trước khi mở editor
+      const stat = await vscode.workspace.fs.stat(uri);
+      if (stat.size > DiagnosticsService.MAX_FILE_SIZE_BYTES) {
+        logger.info(
+          "[DiagnosticsService] File too large, skipping diagnostics",
+          {
+            file: uri.fsPath,
+            sizeBytes: stat.size,
+            thresholdBytes: DiagnosticsService.MAX_FILE_SIZE_BYTES,
+          },
+        );
+        return false;
+      }
+
       const doc = await vscode.workspace.openTextDocument(uri);
       await vscode.window.showTextDocument(doc, {
         preview: true,
+        preserveFocus: true,
         viewColumn: vscode.ViewColumn.Active,
       });
+      return true;
     } catch (e) {
       logger.error("[DiagnosticsService] Error opening file", {
         file: uri.fsPath,
         error: e,
       });
+      return false;
     }
   }
 
@@ -107,34 +134,44 @@ export class DiagnosticsService {
     uri: vscode.Uri,
     pathValue: string,
     maxTimeoutMs: number = 30000,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const logger = LoggerService.getInstance();
-    return new Promise<void>((resolve) => {
+    return new Promise<boolean>((resolve) => {
       const fallbackTimeout = 2000;
       const stableWaitTime = 800;
       const startTime = Date.now();
       let stableTimeout: NodeJS.Timeout | null = null;
       let hasReceivedEvent = false;
+      let resolved = false;
+
+      const finish = (timedOut: boolean) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(fallbackHandle);
+        clearTimeout(timeoutHandle);
+        if (stableTimeout) clearTimeout(stableTimeout);
+        disposable?.dispose();
+        if (timedOut) {
+          logger.warn(
+            `[DiagnosticsService] ⏱️ Diagnostics timeout — không lấy được diagnostics cho file này`,
+            {
+              path: pathValue,
+              elapsedTime: Date.now() - startTime,
+              hasReceivedEvent,
+            },
+          );
+        }
+        resolve(!timedOut);
+      };
 
       const fallbackHandle = setTimeout(() => {
         if (!hasReceivedEvent) {
-          clearTimeout(timeoutHandle);
-          if (stableTimeout) clearTimeout(stableTimeout);
-          disposable?.dispose();
-          resolve();
+          finish(true);
         }
       }, fallbackTimeout);
 
       const timeoutHandle = setTimeout(() => {
-        logger.warn(`[DiagnosticsService] ⏱️ Safety timeout reached`, {
-          path: pathValue,
-          elapsedTime: Date.now() - startTime,
-          hasReceivedEvent,
-        });
-        clearTimeout(fallbackHandle);
-        if (stableTimeout) clearTimeout(stableTimeout);
-        disposable?.dispose();
-        resolve();
+        finish(true);
       }, maxTimeoutMs);
 
       const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
@@ -145,10 +182,7 @@ export class DiagnosticsService {
           }
           if (stableTimeout) clearTimeout(stableTimeout);
           stableTimeout = setTimeout(() => {
-            clearTimeout(timeoutHandle);
-            clearTimeout(fallbackHandle);
-            disposable.dispose();
-            resolve();
+            finish(false);
           }, stableWaitTime);
         }
       });
@@ -158,28 +192,55 @@ export class DiagnosticsService {
   /**
    * Open file → wait for diagnostics to stabilize → return filtered diagnostics.
    * Skips non-code files automatically (returns empty array).
+   * Skips files larger than MAX_FILE_SIZE_BYTES to avoid resource spikes.
    * This is the single entry point for all diagnostic needs.
    */
   public async getDiagnostics(
     uri: vscode.Uri,
     pathValue: string,
     maxTimeoutMs: number = 30000,
-  ): Promise<
-    Array<{
+  ): Promise<{
+    diagnostics: Array<{
       severity: string;
       message: string;
       line: number;
       column: number;
       source?: string;
       code?: string | number;
-    }>
-  > {
+    }>;
+    skippedReason?: string;
+  }> {
     if (this.isNonCodeFile(pathValue)) {
-      return [];
+      return { diagnostics: [] };
     }
-    await this.ensureFileOpened(uri);
-    await this.waitForDiagnostics(uri, pathValue, maxTimeoutMs);
-    return this.filterDiagnostics(vscode.languages.getDiagnostics(uri));
+
+    const opened = await this.ensureFileOpened(uri);
+    if (!opened) {
+      return {
+        diagnostics: [],
+        skippedReason: `File quá lớn (>${DiagnosticsService.MAX_FILE_SIZE_BYTES / 1024}KB), đã skip diagnostics để tránh crash máy.`,
+      };
+    }
+
+    const gotDiagnostics = await this.waitForDiagnostics(
+      uri,
+      pathValue,
+      maxTimeoutMs,
+    );
+
+    if (!gotDiagnostics) {
+      return {
+        diagnostics: [],
+        skippedReason:
+          "Không lấy được diagnostics (timeout — Language Server không phản hồi kịp).",
+      };
+    }
+
+    return {
+      diagnostics: this.filterDiagnostics(
+        vscode.languages.getDiagnostics(uri),
+      ),
+    };
   }
 
   /**
@@ -189,11 +250,18 @@ export class DiagnosticsService {
     uri: vscode.Uri,
     pathValue: string,
     maxTimeoutMs: number = 30000,
-  ): Promise<{ errorCount: number; warningCount: number }> {
-    const diagnostics = await this.getDiagnostics(uri, pathValue, maxTimeoutMs);
+  ): Promise<{
+    errorCount: number;
+    warningCount: number;
+    skippedReason?: string;
+  }> {
+    const result = await this.getDiagnostics(uri, pathValue, maxTimeoutMs);
     return {
-      errorCount: diagnostics.filter((d) => d.severity === "Error").length,
-      warningCount: diagnostics.filter((d) => d.severity === "Warning").length,
+      errorCount: result.diagnostics.filter((d) => d.severity === "Error")
+        .length,
+      warningCount: result.diagnostics.filter((d) => d.severity === "Warning")
+        .length,
+      skippedReason: result.skippedReason,
     };
   }
 }

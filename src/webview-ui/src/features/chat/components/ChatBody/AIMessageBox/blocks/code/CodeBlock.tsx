@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { getFileIconPath } from "../../../../../../../utils/fileIconMapper";
+import { DiffHighlight } from "../../../../../../../utils/diffUtils";
 
 interface CodeBlockHeaderProps {
   language: string;
@@ -150,6 +151,12 @@ interface CodeBlockProps {
   statusColor?: string;
   enableWordWrap?: boolean;
   maxHeight?: string;
+  /** Optional: highlight specific lines as added/removed (1-based line numbers) */
+  lineHighlights?: DiffHighlight[];
+  /** Auto-scroll to the first highlighted diff line on mount */
+  autoScrollToDiff?: boolean;
+  /** Hide the code block header */
+  hideHeader?: boolean;
 }
 
 export const CodeBlock: React.FC<CodeBlockProps> = ({
@@ -161,9 +168,14 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   statusColor,
   enableWordWrap = true,
   maxHeight,
+  lineHighlights,
+  autoScrollToDiff = false,
+  hideHeader = false,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(isDiffBlock);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const firstDiffRef = useRef<HTMLDivElement>(null);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -173,6 +185,153 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
   // Use simple CodeBlockHeader when language is available and no diff/prefix
   const useSimpleHeader = language && !isDiffBlock && !prefix && !diffStats;
+
+  // Build a map: line number (1-based) → highlight type
+  const highlightMap = useMemo(() => {
+    if (!lineHighlights || lineHighlights.length === 0) return null;
+    const map = new Map<number, "added" | "removed">();
+    lineHighlights.forEach((h) => {
+      for (let i = h.startLine; i <= h.endLine; i++) {
+        map.set(i, h.type);
+      }
+    });
+    return map;
+  }, [lineHighlights]);
+
+  const hasHighlights = highlightMap !== null;
+
+  // Find the first highlighted line index (0-based)
+  const firstDiffLineIndex = useMemo(() => {
+    if (!hasHighlights) return -1;
+    const lines = code.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      if (highlightMap!.has(i + 1)) return i;
+    }
+    return -1;
+  }, [code, hasHighlights, highlightMap]);
+
+  // Auto-scroll to first diff line on mount or when highlights change
+  useEffect(() => {
+    if (!autoScrollToDiff || !hasHighlights || firstDiffLineIndex === -1) return;
+    const timer = setTimeout(() => {
+      if (firstDiffRef.current) {
+        firstDiffRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [autoScrollToDiff, hasHighlights, firstDiffLineIndex]);
+
+  // Render body: diff-highlighted lines or plain <pre><code>
+  const renderBody = () => {
+    if (hasHighlights && highlightMap) {
+      const lines = code.split("\n");
+      return (
+        <div
+          ref={bodyRef}
+          style={{
+            overflow: "auto",
+            maxHeight: maxHeight,
+            fontFamily: "var(--vscode-editor-font-family, monospace)",
+            fontSize: "12px",
+            lineHeight: "1.5",
+            background: "var(--vscode-editor-background)",
+          }}
+        >
+          {lines.map((line, index) => {
+            const lineNum = index + 1;
+            const highlightType = highlightMap.get(lineNum);
+            const isFirstDiff = index === firstDiffLineIndex;
+
+            let color = "var(--vscode-editor-foreground)";
+            let backgroundColor = "transparent";
+
+            if (highlightType === "added") {
+              color =
+                "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)";
+              backgroundColor =
+                "color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #3fb950) 10%, transparent)";
+            } else if (highlightType === "removed") {
+              color =
+                "var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c)";
+              backgroundColor =
+                "color-mix(in srgb, var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c) 10%, transparent)";
+            }
+
+            return (
+              <div
+                key={index}
+                ref={isFirstDiff ? firstDiffRef : undefined}
+                style={{
+                  padding: "0",
+                  whiteSpace: enableWordWrap ? "pre-wrap" : "pre",
+                  wordBreak: enableWordWrap ? "break-word" : "normal",
+                  overflowWrap: enableWordWrap ? "break-word" : "normal",
+                  minHeight: "20px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "0",
+                }}
+              >
+                <span
+                  style={{
+                    flexShrink: 0,
+                    width: "44px",
+                    textAlign: "right",
+                    opacity: 0.4,
+                    fontSize: "11px",
+                    userSelect: "none",
+                    paddingRight: "8px",
+                    background: "var(--vscode-editor-background)",
+                  }}
+                >
+                  {lineNum}
+                </span>
+                <span
+                  style={{
+                    flex: 1,
+                    color,
+                    backgroundColor,
+                    paddingLeft: "8px",
+                    paddingRight: "8px",
+                  }}
+                >
+                  {line}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Default: plain <pre><code>
+    return (
+      <div style={{ paddingLeft: useSimpleHeader ? "0" : "0" }}>
+        <pre
+          style={{
+            margin: 0,
+            padding: "8px",
+            overflow: "auto",
+            fontFamily: "var(--vscode-editor-font-family, monospace)",
+            fontSize: "12px",
+            background: "var(--vscode-editor-background)",
+            borderRadius: "0",
+            whiteSpace: enableWordWrap ? "pre-wrap" : "pre",
+            wordWrap: enableWordWrap ? "break-word" : "normal",
+            wordBreak: enableWordWrap ? "break-word" : "normal",
+            overflowWrap: enableWordWrap ? "break-word" : "normal",
+            overflowX: enableWordWrap ? "hidden" : "auto",
+            maxHeight: maxHeight,
+          }}
+        >
+          <code style={{ background: "none", padding: 0 }}>{code}</code>
+        </pre>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -186,34 +345,13 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         overflow: "hidden",
       }}
     >
-      {useSimpleHeader ? (
+      {!hideHeader && useSimpleHeader ? (
         <CodeBlockHeader language={language} onCopy={handleCopy} />
       ) : (
+        !hideHeader &&
         language && <CodeBlockHeader language={language} onCopy={handleCopy} />
       )}
-      {!isCollapsed && (
-        <div style={{ paddingLeft: useSimpleHeader ? "0" : "0" }}>
-          <pre
-            style={{
-              margin: 0,
-              padding: "8px",
-              overflow: "auto",
-              fontFamily: "var(--vscode-editor-font-family, monospace)",
-              fontSize: "12px",
-              background: "var(--vscode-editor-background)",
-              borderRadius: "0",
-              whiteSpace: enableWordWrap ? "pre-wrap" : "pre",
-              wordWrap: enableWordWrap ? "break-word" : "normal",
-              wordBreak: enableWordWrap ? "break-word" : "normal",
-              overflowWrap: enableWordWrap ? "break-word" : "normal",
-              overflowX: enableWordWrap ? "hidden" : "auto",
-              maxHeight: maxHeight,
-            }}
-          >
-            <code style={{ background: "none", padding: 0 }}>{code}</code>
-          </pre>
-        </div>
-      )}
+      {!isCollapsed && renderBody()}
     </div>
   );
 };

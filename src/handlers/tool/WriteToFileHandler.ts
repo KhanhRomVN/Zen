@@ -121,17 +121,18 @@ export class WriteToFileHandler {
 
       if (!message.skipDiagnostics) {
         const diagnosticsService = DiagnosticsService.getInstance();
-        const fileDiagnostics = await diagnosticsService.getDiagnostics(
+        const result = await diagnosticsService.getDiagnostics(
           absolutePath,
           pathValue,
-          50000,
+          15000,
         );
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,
           path: pathValue,
           success: true,
-          diagnostics: fileDiagnostics,
+          diagnostics: result.diagnostics,
+          skippedReason: result.skippedReason || null,
         });
       } else {
         webviewView.webview.postMessage({

@@ -117,11 +117,12 @@ export class ReadFileHandler {
       }> = [];
 
       if (!message.skipDiagnostics) {
-        diagnostics = await diagnosticsService.getDiagnostics(
+        const diagResult = await diagnosticsService.getDiagnostics(
           absPath,
           pathValue,
-          50000,
+          15000,
         );
+        diagnostics = diagResult.diagnostics;
       }
 
       let content = "";

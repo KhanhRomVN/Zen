@@ -1,10 +1,11 @@
 /**
  *? Usage:
- *    Xử lý các thao tác file linh tinh: file stats, diagnostics.
+ *    Xử lý các thao tác file linh tinh: file stats, diagnostics, file content.
  *
  *? Function:
- *    handleGetFileStats()  : Trả về thông tin file (kích thước, dòng, thời gian sửa).
- *    handleGetDiagnostics(): Trả về diagnostics (lỗi/cảnh báo) cho một file.
+ *    handleGetFileStats()   : Trả về thông tin file (kích thước, dòng, thời gian sửa).
+ *    handleGetDiagnostics() : Trả về diagnostics (lỗi/cảnh báo) cho một file.
+ *    handleGetFileContent() : Trả về nội dung đầy đủ của một file.
  */
 import * as vscode from "vscode";
 import * as path from "path";
@@ -96,14 +97,16 @@ export class FileMiscHandler {
         workspaceFolder,
         message.path,
       );
+      const diagResult = await DiagnosticsService.getInstance().getDiagnostics(
+        uri,
+        message.path,
+      );
       webviewView.webview.postMessage({
         command: "getDiagnosticsResult",
         requestId: message.requestId,
         path: message.path,
-        diagnostics: await DiagnosticsService.getInstance().getDiagnostics(
-          uri,
-          message.path,
-        ),
+        diagnostics: diagResult.diagnostics,
+        skippedReason: diagResult.skippedReason || null,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({
@@ -111,6 +114,61 @@ export class FileMiscHandler {
         requestId: message.requestId,
         path: message.path,
         diagnostics: [],
+        error: e.message,
+      });
+    }
+  }
+
+  // ── Get File Content ──
+  public async handleGetFileContent(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    console.log("[FileMiscHandler] handleGetFileContent called:", {
+      path: message.path,
+      requestId: message.requestId,
+    });
+    
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        console.log("[FileMiscHandler] No workspace folder found");
+        webviewView.webview.postMessage({
+          command: "getFileContentResult",
+          requestId: message.requestId,
+          path: message.path,
+          content: null,
+          error: "No workspace folder found",
+        });
+        return;
+      }
+      const uri = await this.resolveWorkspacePathWithFallback(
+        workspaceFolder,
+        message.path,
+      );
+      console.log("[FileMiscHandler] Resolved URI:", uri.fsPath);
+      
+      const content = Buffer.from(
+        await vscode.workspace.fs.readFile(uri),
+      ).toString("utf8");
+      
+      console.log("[FileMiscHandler] Read file content, length:", content.length);
+      
+      webviewView.webview.postMessage({
+        command: "getFileContentResult",
+        requestId: message.requestId,
+        path: message.path,
+        content,
+      });
+      
+      console.log("[FileMiscHandler] Sent response to webview");
+    } catch (e: any) {
+      console.error("[FileMiscHandler] Error reading file:", e.message);
+      webviewView.webview.postMessage({
+        command: "getFileContentResult",
+        requestId: message.requestId,
+        path: message.path,
+        content: null,
         error: e.message,
       });
     }
