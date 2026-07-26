@@ -35,13 +35,6 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   labelText,
   hasError = false, // NEW
 }) => {
-  console.log("[ExecuteButton] Props:", {
-    isCompleted,
-    isActive,
-    hasError,
-    labelText,
-    title,
-  });
   const iconColor = isCompleted
     ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
     : isFailed
@@ -68,7 +61,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
         style={{
           display: "flex",
           gap: "6px",
-          marginTop: "8px",
+          marginTop: "0px",
           marginBottom: "8px",
           flexWrap: "wrap",
           justifyContent: "flex-end",
@@ -78,12 +71,13 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
           onClick={(e) => handleExecuteClick(e, TOOL_ACTION_TYPES.REJECT)}
           disabled={isLoading}
           style={{
-            background: `color-mix(in srgb, ${errorColor} 15%, transparent)`,
+            background: `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`,
             color: errorColor,
-            border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
+            opacity: 0.85,
+            border: `1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`,
             cursor: isLoading ? "wait" : "pointer",
-            padding: "4px 10px",
-            borderRadius: "6px",
+            padding: "5px 8px",
+            borderRadius: "4px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -94,10 +88,16 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
             gap: "6px",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = `color-mix(in srgb, ${errorColor} 25%, transparent)`;
+            e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent)`;
+            e.currentTarget.style.borderColor = `color-mix(in srgb, var(--vscode-errorForeground) 35%, transparent)`;
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.color = `color-mix(in srgb, var(--vscode-errorForeground) 85%, white 15%)`;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = `color-mix(in srgb, ${errorColor} 15%, transparent)`;
+            e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`;
+            e.currentTarget.style.borderColor = `color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`;
+            e.currentTarget.style.opacity = "0.85";
+            e.currentTarget.style.color = errorColor;
           }}
           title="Skip this tool due to error and continue to next tool"
         >
@@ -188,7 +188,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
         style={{
           display: "flex",
           gap: "6px",
-          marginTop: "8px",
+          marginTop: "0px",
           marginBottom: "8px",
           flexWrap: "wrap",
           justifyContent: "flex-end",
@@ -198,12 +198,13 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
           onClick={(e) => handleExecuteClick(e, TOOL_ACTION_TYPES.REJECT)}
           disabled={isLoading}
           style={{
-            background: `color-mix(in srgb, ${errorColor} 15%, transparent)`,
+            background: `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`,
             color: errorColor,
-            border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
+            opacity: 0.85,
+            border: `1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`,
             cursor: isLoading ? "wait" : "pointer",
-            padding: "4px 10px",
-            borderRadius: "6px",
+            padding: "5px 8px",
+            borderRadius: "4px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -214,10 +215,16 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
             gap: "6px",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = `color-mix(in srgb, ${errorColor} 25%, transparent)`;
+            e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent)`;
+            e.currentTarget.style.borderColor = `color-mix(in srgb, var(--vscode-errorForeground) 35%, transparent)`;
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.color = `color-mix(in srgb, var(--vscode-errorForeground) 85%, white 15%)`;
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = `color-mix(in srgb, ${errorColor} 15%, transparent)`;
+            e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`;
+            e.currentTarget.style.borderColor = `color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`;
+            e.currentTarget.style.opacity = "0.85";
+            e.currentTarget.style.color = errorColor;
           }}
           title="Skip this tool due to error and continue to next tool"
         >
@@ -234,7 +241,7 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
       style={{
         display: "flex",
         gap: "6px",
-        marginTop: "8px",
+        marginTop: "0px",
         marginBottom: "8px",
         flexWrap: "wrap",
         justifyContent: "flex-end",
@@ -255,39 +262,63 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
           label: "Reject",
           title: "Reject this tool call",
         },
-      ].map(({ type, color, icon, label, title: btnTitle }) => (
-        <button
-          key={type}
-          onClick={(e) => handleExecuteClick(e, type)}
-          disabled={isLoading}
-          style={{
-            background: `color-mix(in srgb, ${color} 15%, transparent)`,
-            color,
-            border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
-            cursor: isLoading ? "wait" : "pointer",
-            padding: "4px 10px",
-            borderRadius: "6px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "11px",
-            fontWeight: 600,
-            height: "24px",
-            transition: "all 0.2s ease",
-            gap: "6px",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = `color-mix(in srgb, ${color} 25%, transparent)`;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = `color-mix(in srgb, ${color} 15%, transparent)`;
-          }}
-          title={btnTitle}
-        >
-          {icon}
-          <span>{label}</span>
-        </button>
-      ))}
+      ].map(({ type, color, icon, label, title: btnTitle }) => {
+        const isReject = type === TOOL_ACTION_TYPES.REJECT;
+        const buttonRef = React.useRef<HTMLButtonElement>(null);
+
+        return (
+          <button
+            key={type}
+            ref={buttonRef}
+            onClick={(e) => handleExecuteClick(e, type)}
+            disabled={isLoading}
+            style={{
+              background: isReject
+                ? `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`
+                : `color-mix(in srgb, ${color} 4%, transparent)`,
+              color,
+              border: isReject
+                ? `1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`
+                : `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
+              cursor: isLoading ? "wait" : "pointer",
+              padding: "5px 8px",
+              borderRadius: "4px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "11px",
+              fontWeight: 600,
+              height: "24px",
+              transition: "all 0.2s ease",
+              gap: "6px",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = isReject
+                ? `color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent)`
+                : `color-mix(in srgb, ${color} 12%, transparent)`;
+              e.currentTarget.style.borderColor = isReject
+                ? `color-mix(in srgb, var(--vscode-errorForeground) 35%, transparent)`
+                : `color-mix(in srgb, ${color} 35%, transparent)`;
+              e.currentTarget.style.color = isReject
+                ? `color-mix(in srgb, var(--vscode-errorForeground) 85%, white 15%)`
+                : `color-mix(in srgb, ${color} 85%, white 15%)`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = isReject
+                ? `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`
+                : `color-mix(in srgb, ${color} 4%, transparent)`;
+              e.currentTarget.style.borderColor = isReject
+                ? `color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`
+                : `color-mix(in srgb, ${color} 20%, transparent)`;
+              e.currentTarget.style.color = color;
+            }}
+            title={btnTitle}
+          >
+            {icon}
+            <span>{label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 };

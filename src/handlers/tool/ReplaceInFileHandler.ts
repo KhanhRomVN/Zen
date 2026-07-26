@@ -151,12 +151,14 @@ export class ReplaceInFileHandler {
 
     const release = await this.fileLockManager.acquire(absPath.fsPath);
     let newContent: string | undefined;
+    let oldContent: string | undefined; // Declare outside try block
     try {
       let content = "";
       try {
         content = Buffer.from(
           await vscode.workspace.fs.readFile(absPath),
         ).toString("utf8");
+        oldContent = content; // Store old content for version 0 baseline
       } catch (e: any) {
         throw e;
       }
@@ -231,6 +233,8 @@ export class ReplaceInFileHandler {
 
       const historyManager = ReplaceInFileHistoryManager.getInstance();
       historyManager.setActiveConversationId(message.conversationId);
+      
+      // Pass oldContent (content before replace) for version 0 baseline
       await historyManager.saveHistory(
         absPath.fsPath,
         newContent,
@@ -239,6 +243,7 @@ export class ReplaceInFileHandler {
         message.messageId, // Pass messageId
         message.messageTimestamp, // Pass messageTimestamp
         message.responseNumber, // Pass responseNumber for precise revert tracking
+        oldContent, // Pass oldContent for version 0 baseline
       );
 
       // Get current version after saving

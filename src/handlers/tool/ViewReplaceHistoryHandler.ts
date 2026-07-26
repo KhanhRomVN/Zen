@@ -47,4 +47,42 @@ export class ViewReplaceHistoryHandler {
       });
     }
   }
+
+  public async handleGetHistoryVersion(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ): Promise<void> {
+    try {
+      const { filePath, version, conversationId, requestId } = message;
+      if (!filePath) throw new Error("filePath is required");
+      if (version === undefined) throw new Error("version is required");
+      if (!conversationId) throw new Error("conversationId is required");
+
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) throw new Error("No workspace folder");
+
+      const absPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(workspaceFolder.uri.fsPath, filePath);
+
+      const historyManager = ReplaceInFileHistoryManager.getInstance();
+      historyManager.setActiveConversationId(conversationId);
+
+      const history = await historyManager.getHistoryVersion(absPath, version);
+
+      webviewView.webview.postMessage({
+        command: "getHistoryVersionResult",
+        requestId,
+        filePath,
+        version,
+        history,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "getHistoryVersionResult",
+        requestId: message.requestId,
+        error: e.message,
+      });
+    }
+  }
 }

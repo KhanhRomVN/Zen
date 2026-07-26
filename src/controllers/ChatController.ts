@@ -216,6 +216,12 @@ export class ChatController {
             webviewView,
           );
           break;
+        case "getHistoryVersion":
+          await this.viewReplaceHistoryHandler.handleGetHistoryVersion(
+            message,
+            webviewView,
+          );
+          break;
         case "listFiles":
           await this.listFilesHandler.handleListFiles(message, webviewView);
           break;

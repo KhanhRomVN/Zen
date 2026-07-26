@@ -7,7 +7,10 @@ import { useSettings } from "@/context/SettingsContext";
 import { extensionService } from "@/services/ExtensionService";
 
 // CONSTANTS
-import { getToolLabel, TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
+import {
+  getToolLabel,
+  TOOL_ACTION_TYPES,
+} from "@/features/chat/constants/constants";
 
 // TYPES
 import {
@@ -81,6 +84,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
   onToolClick,
   mergedItems,
   conversationId,
+  rejectedActions,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
@@ -101,7 +105,13 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
 
   const isPartial = false;
   const isError = !!toolOutputs?.[actionId]?.isError;
-  const errorMessage = isError ? toolOutputs?.[actionId]?.output || "" : "";
+
+  // Use originalError if available (preserved from validation), otherwise use current output
+  const errorMessage = isError
+    ? toolOutputs?.[actionId]?.originalError ||
+      toolOutputs?.[actionId]?.output ||
+      ""
+    : "";
 
   // Calculate diff stats
   let diffStats: { added: number; removed: number } | null = null;
@@ -252,17 +262,14 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
   // Check if action has validation error
   const hasValidationError = !!action.isError;
 
+  // Check if action has been rejected (to hide error UI after rejection)
+  const isRejected = rejectedActions?.has(actionId);
+
   // Debug logs
   const permissionDecision = getPermissionDecision(
     permissionMode,
     "replace_in_file",
   );
-  const shouldShowExecuteButton =
-    !shouldHideContent &&
-    !isCompleted &&
-    !isPartial &&
-    !hasValidationError &&
-    permissionDecision === "confirm";
 
   // Fetch full file content for approval mode
   const [fullFileContent, setFullFileContent] = React.useState<string | null>(
@@ -403,7 +410,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
+        gap: "8px",
         paddingBottom: "4px",
         marginBottom: isLastItemInList ? "0" : "2px",
       }}
@@ -606,7 +613,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       )}
 
       {/* Show error message when there's an error */}
-      {!isPartial && (hasValidationError || isError) && (
+      {!isPartial && (hasValidationError || isError) && !isRejected && (
         <ErrorBlock
           content={
             hasValidationError && action.errorMessage
@@ -644,6 +651,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       {/* Show Skip button when there's an error in approve mode */}
       {!isPartial &&
         (hasValidationError || isError) &&
+        !isRejected &&
         getPermissionDecision(permissionMode, "replace_in_file") ===
           "confirm" && (
           <ExecuteButton
@@ -656,7 +664,12 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
             hasError={true}
             onExecute={(e, type) => {
               // Execute with reject type to skip
-              onToolClick(action, messageId, actionIndex, TOOL_ACTION_TYPES.REJECT);
+              onToolClick(
+                action,
+                messageId,
+                actionIndex,
+                TOOL_ACTION_TYPES.REJECT,
+              );
             }}
           />
         )}

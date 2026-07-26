@@ -70,6 +70,7 @@ export const useToolExecution = ({
         output: string;
         isError: boolean;
         terminalId?: string;
+        originalError?: string; // Preserve original error message from validation
         diagnostics?: Array<{
           severity: string;
           message: string;
@@ -381,9 +382,15 @@ export const useToolExecution = ({
           const errorInfo = toolOutputsRef.current[actionId];
           const errorMessage = errorInfo?.isError ? errorInfo.output : null;
           
+          // Extract file path from action params for better error context
+          const filePath = action.params?.file_path || action.params?.path;
+          const toolLabel = filePath 
+            ? `${action.type} for '${filePath}'`
+            : action.type;
+          
           result = errorMessage 
-            ? `Output: [${action.type}] Tool execution rejected by user due to error:\n${errorMessage}`
-            : `Output: [${action.type}] Tool execution rejected by user.`;
+            ? `Output: [${toolLabel}] Tool execution rejected by user due to error:\n${errorMessage}`
+            : `Output: [${toolLabel}] Tool execution rejected by user.`;
           
           setRejectedActions((prev) => {
             const next = new Set(prev).add(actionId);
@@ -443,6 +450,8 @@ export const useToolExecution = ({
                     terminalId: (action as any).params?.terminal_id,
                     diagnostics: existing?.diagnostics,
                     version: (existing as any)?.version,
+                    // Preserve originalError if this is a rejection and we already have an error
+                    originalError: existing?.originalError || (existing?.isError ? existing.output : undefined),
                   },
                 };
               });

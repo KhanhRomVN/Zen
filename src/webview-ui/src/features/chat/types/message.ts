@@ -70,4 +70,27 @@ export interface Message {
     content?: string;
     lineCount?: number;
   }>;
+  /** Parse debug information for troubleshooting parse errors */
+  parseDebugInfo?: {
+    totalActions: number;
+    successfulActions: number;
+    failedActions: number;
+    actions: Array<{
+      index: number;
+      type: string;
+      params: Record<string, any>;
+      status: "success" | "error";
+      errorMessage?: string;
+      errorCode?: string;
+      extractedParams?: Array<{
+        name: string;
+        found: boolean;
+        length?: number;
+      }>;
+    }>;
+    parseError?: {
+      message: string;
+      rawContent: string;
+    };
+  };
 }

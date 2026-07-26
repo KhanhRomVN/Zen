@@ -690,9 +690,50 @@ export const useChatLLM = ({
           // Import validator
           const { validateToolParams } =
             await import("../../utils/ToolParamValidator");
+          const { TAG_REGISTRY } = await import("../../constants/constants");
+
+          // 📊 DEBUG INFO: Build parse debug info for troubleshooting (always create, even if no actions)
+          const parseDebugActions: any[] = [];
 
           // Validate each action and mark as error if validation fails
-          for (const action of parsed.actions) {
+          for (let i = 0; i < parsed.actions.length; i++) {
+            const action = parsed.actions[i];
+
+            // Build debug entry for this action
+            const debugEntry: any = {
+              index: i,
+              type: action.type,
+              params: action.params,
+              status: action.isError ? "error" : "success",
+            };
+
+            if (action.isError) {
+              debugEntry.errorMessage = action.errorMessage;
+              debugEntry.errorCode = action.errorCode;
+            }
+
+            // Extract param info for debug
+            const toolDef = TAG_REGISTRY[action.type];
+            if (toolDef?.params?.required) {
+              debugEntry.extractedParams = toolDef.params.required.map(
+                (paramName: string) => {
+                  const value = action.params[paramName];
+                  const found =
+                    value !== null && value !== undefined && value !== "";
+                  return {
+                    name: paramName,
+                    found,
+                    length:
+                      found && typeof value === "string"
+                        ? value.length
+                        : undefined,
+                  };
+                },
+              );
+            }
+
+            parseDebugActions.push(debugEntry);
+
             if (action.isError) continue; // Already marked as error by parser
 
             // Extract innerContent from rawXml for validation
@@ -715,6 +756,11 @@ export const useChatLLM = ({
                   action.errorMessage = validation.errorMessage;
                   action.errorCode = validation.errorCode;
 
+                  // Update debug entry
+                  debugEntry.status = "error";
+                  debugEntry.errorMessage = validation.errorMessage;
+                  debugEntry.errorCode = validation.errorCode;
+
                   console.warn("[Zen][useChatLLM] Tool validation failed:", {
                     toolName: action.type,
                     errorCode: validation.errorCode,
@@ -727,6 +773,21 @@ export const useChatLLM = ({
               }
             }
           }
+
+          // 📊 Attach parse debug info to assistant message
+          const successfulActions = parseDebugActions.filter(
+            (a) => a.status === "success",
+          ).length;
+          const failedActions = parseDebugActions.filter(
+            (a) => a.status === "error",
+          ).length;
+
+          assistantMessage.parseDebugInfo = {
+            totalActions: parsed.actions.length,
+            successfulActions,
+            failedActions,
+            actions: parseDebugActions,
+          };
 
           // 🔧 If there are malformed tool actions, append their errors to content
           // so they are sent in the next request for AI self-correction
@@ -762,18 +823,21 @@ export const useChatLLM = ({
 
             // Set flag for reminder in next request
             needsToolSyntaxReminderRef.current = true;
-            
+
             // ⚠️ DO NOT append errors to message content for UI display
             // Errors are already saved in toolOutputs via onMalformedTool
             // and will be included in the next request context automatically
-            
+
             // Store errors separately for next request (not in UI)
             // assistantMessage.content += errorTexts.join(""); // REMOVED
-            
-            console.warn("[Zen][useChatLLM] Malformed tools detected, errors saved to toolOutputs:", {
-              count: malformedActions.length,
-              errorSummary: errorTexts.join(""),
-            });
+
+            console.warn(
+              "[Zen][useChatLLM] Malformed tools detected, errors saved to toolOutputs:",
+              {
+                count: malformedActions.length,
+                errorSummary: errorTexts.join(""),
+              },
+            );
           }
         } catch (parseError) {
           hasParsingError = true;
@@ -792,11 +856,29 @@ export const useChatLLM = ({
           assistantMessage.content = errorContent;
           assistantMessage.isError = true;
 
+          // 📊 Create parseDebugInfo for parse errors
+          assistantMessage.parseDebugInfo = {
+            totalActions: 0,
+            successfulActions: 0,
+            failedActions: 0,
+            actions: [],
+            parseError: {
+              message: errorDetails,
+              rawContent:
+                assistantMessage.content?.substring(0, 500) || "(empty)",
+            },
+          };
+
           // Update messages array with error state
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
-                ? { ...m, content: errorContent, isError: true }
+                ? {
+                    ...m,
+                    content: errorContent,
+                    isError: true,
+                    parseDebugInfo: assistantMessage.parseDebugInfo,
+                  }
                 : m,
             ),
           );

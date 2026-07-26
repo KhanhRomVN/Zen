@@ -98,6 +98,7 @@ export interface MergedRendererProps extends BaseRendererProps {
   >;
   onConfirmSingleLineAction?: (actionId: string) => void;
   onRejectSingleLineAction?: (actionId: string) => void;
+  rejectedActions?: Set<string>;
 }
 
 /**

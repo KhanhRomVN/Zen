@@ -2,6 +2,7 @@ export interface ToolOutput {
   output: string;
   isError: boolean;
   terminalId?: string;
+  originalError?: string; // Preserve original error message from validation
   diagnostics?: Array<{
     severity: string;
     message: string;

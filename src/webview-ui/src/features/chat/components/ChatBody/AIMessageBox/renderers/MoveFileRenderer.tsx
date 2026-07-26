@@ -63,14 +63,14 @@ export const MoveFileRenderer: React.FC<BaseRendererProps> = ({
     ? "var(--vscode-errorForeground, #f14c4c)"
     : isCompleted
       ? "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)"
-      : "var(--vscode-textLink-foreground, #3794ff)";
+      : "var(--vscode-descriptionForeground)";
 
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
+        gap: "8px",
         paddingBottom: "4px",
         marginBottom: isLastItemInList ? "0" : "2px",
       }}

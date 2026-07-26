@@ -65,7 +65,7 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
+        gap: "8px",
         paddingBottom: "4px",
         marginBottom: isLastItemInList ? "0" : "2px",
       }}

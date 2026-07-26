@@ -189,6 +189,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             [actionId]: {
               output: `${errorCode}: ${errorMessage}`,
               isError: true,
+              originalError: `${errorCode}: ${errorMessage}`, // Store original error
             },
           }));
         }

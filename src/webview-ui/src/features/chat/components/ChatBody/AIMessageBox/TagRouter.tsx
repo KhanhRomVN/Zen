@@ -714,6 +714,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             onToolClick={onToolClick}
             conversationId={conversationId}
             mergedItems={undefined}
+            rejectedActions={rejectedActions}
           />
         ))}
       </>

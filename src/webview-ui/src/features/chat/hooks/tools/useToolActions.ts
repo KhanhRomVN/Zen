@@ -4,6 +4,7 @@ import { Message } from "../../types/message";
 import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "./useToolExecution";
 import { isToolClickable, TOOL_ACTION_TYPES } from "../../constants/constants";
+import { validateToolParams } from "../../utils/ToolParamValidator";
 
 interface UseToolActionsProps {
   onSendToolRequest?: (
@@ -215,7 +216,8 @@ export const useToolActions = ({
               toolName: action.type,
               errorCode: action.errorCode,
               errorMessage: action.errorMessage,
-              reason: "Single execution - validation error detected, execution blocked",
+              reason:
+                "Single execution - validation error detected, execution blocked",
             },
           );
           return;
@@ -235,17 +237,32 @@ export const useToolActions = ({
 
   // Auto-execute tools logic
   const prevParsedLengthRef = useRef(0);
+  const prevPermissionModeRef = useRef(permissionMode);
+
   useEffect(() => {
-    // Only run when parsedMessages actually changes (new message or new actions)
+    // Check if permission mode changed
+    const permissionModeChanged =
+      prevPermissionModeRef.current !== permissionMode;
+    if (permissionModeChanged) {
+      prevPermissionModeRef.current = permissionMode;
+    }
+
+    // Only run when parsedMessages actually changes (new message or new actions) OR permission mode changes
     const currentLength = parsedMessages.length;
-    if (currentLength === prevParsedLengthRef.current && !isProcessing) {
-      // No new messages, skip
+    const lengthUnchanged = currentLength === prevParsedLengthRef.current;
+
+    if (lengthUnchanged && !permissionModeChanged && !isProcessing) {
+      // No new messages and permission unchanged, skip
       return;
     }
     prevParsedLengthRef.current = currentLength;
 
     // Early returns to prevent unnecessary processing
-    if (isRestored || !onSendToolRequest || parsedMessages.length === 0) {
+    // BUT: If permission mode changed, we should still process (even if restored)
+    if (
+      !permissionModeChanged &&
+      (isRestored || !onSendToolRequest || parsedMessages.length === 0)
+    ) {
       return;
     }
 
@@ -257,29 +274,73 @@ export const useToolActions = ({
     }
 
     const lastMessage = parsedMessages[parsedMessages.length - 1];
-    if (lastMessage.role !== "assistant") return;
-    if (lastMessage.isCancelled) return;
-    if (!lastMessage.parsed || !lastMessage.parsed.actions) return;
+    if (lastMessage.role !== "assistant") {
+      return;
+    }
+    if (lastMessage.isCancelled) {
+      return;
+    }
+    if (!lastMessage.parsed || !lastMessage.parsed.actions) {
+      return;
+    }
 
     const actionsToRun: ToolAction[] = [];
     const contentBlocks = lastMessage.parsed.contentBlocks || [];
     const selectedOption = lastMessage.selectedOption;
 
+    // Collect action IDs to mark as triggered (batch state update at the end)
+    const actionsToMarkTriggered: string[] = [];
+
     lastMessage.parsed.actions.forEach((action: ToolAction, idx: number) => {
       const actionId = `${lastMessage.id}-action-${idx}`;
 
-      // 🔧 FIX: Skip actions with validation errors (malformed XML, missing params)
+      // 🔧 VALIDATE: Re-validate action params to catch errors from loaded history
+      // Import validator inline to avoid circular deps
+      const validation = validateToolParams(action.type, action.params);
+
+      // Update action.isError based on validation
+      if (!validation.isValid && !action.isError) {
+        action.isError = true;
+        action.errorMessage = validation.errorMessage;
+        action.errorCode = validation.errorCode;
+        console.warn(
+          `[useToolActions] ⚠️ Validation failed for loaded action:`,
+          {
+            actionId,
+            toolType: action.type,
+            errorCode: validation.errorCode,
+            errorMessage: validation.errorMessage,
+            params: action.params,
+          },
+        );
+      }
+
+      // 🔧 FIX: Handle actions with validation errors (malformed XML, missing params)
+      // Instead of skipping, we should REJECT them to generate error output for AI feedback
       if (action.isError) {
         console.warn(
-          `[Zen][Auto-execute] Skipping malformed action:`,
+          `[useToolActions] 🚫 Malformed action ${idx} - Will execute as REJECT:`,
           {
             actionId,
             toolName: action.type,
             errorCode: action.errorCode,
             errorMessage: action.errorMessage,
-            reason: "Validation error - action will not be auto-executed",
+            reason:
+              "Validation error - will be rejected to provide feedback to AI",
           },
         );
+
+        // Collect for batch update
+        actionsToMarkTriggered.push(actionId);
+
+        // Add to execution queue as REJECT action
+        actionsToRun.push({
+          ...action,
+          actionId,
+          _index: idx,
+          _actionType: TOOL_ACTION_TYPES.REJECT,
+        } as any);
+
         return;
       }
 
@@ -326,15 +387,50 @@ export const useToolActions = ({
       // Check if settings specify this tool runs auto or deny
       const decision = getPermissionDecision(permissionMode, action.type);
       if (decision === "allow" || decision === TOOL_ACTION_TYPES.REJECT) {
-        // Optimistic Synchronous Update
-        triggeredIdsRef.current.add(actionId);
-        setClickedActions((prev: Set<string>) => new Set(prev).add(actionId));
+        // Collect for batch update
+        actionsToMarkTriggered.push(actionId);
         actionsToRun.push({ ...action, actionId, _index: idx } as any);
       }
     });
 
-    if (actionsToRun.length > 0) {
-      onSendToolRequest(actionsToRun as any, lastMessage, true);
+    // 🔧 BATCH STATE UPDATE: Update all triggered actions at once (after loop)
+    if (actionsToMarkTriggered.length > 0) {
+      actionsToMarkTriggered.forEach((id) => triggeredIdsRef.current.add(id));
+      setClickedActions((prev: Set<string>) => {
+        const newSet = new Set(prev);
+        actionsToMarkTriggered.forEach((id) => newSet.add(id));
+        return newSet;
+      });
+    }
+
+    if (actionsToRun.length > 0 && onSendToolRequest) {
+      // Check if there are REJECT actions (malformed tools)
+      const rejectActions = actionsToRun.filter(
+        (a: any) => a._actionType === TOOL_ACTION_TYPES.REJECT,
+      );
+      const acceptActions = actionsToRun.filter(
+        (a: any) => a._actionType !== TOOL_ACTION_TYPES.REJECT,
+      );
+
+      // Send REJECT actions first (to generate error feedback)
+      if (rejectActions.length > 0) {
+        onSendToolRequest(
+          rejectActions as any,
+          lastMessage,
+          true,
+          TOOL_ACTION_TYPES.REJECT,
+        );
+      }
+
+      // Then send ACCEPT actions
+      if (acceptActions.length > 0) {
+        onSendToolRequest(
+          acceptActions as any,
+          lastMessage,
+          true,
+          TOOL_ACTION_TYPES.ACCEPT,
+        );
+      }
     }
   }, [
     parsedMessages,

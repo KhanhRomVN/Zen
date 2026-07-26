@@ -64,7 +64,7 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
         position: "relative",
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
+        gap: "8px",
         marginBottom: isLastItemInList ? "0" : "8px",
       }}
     >

@@ -153,7 +153,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
+        gap: "8px",
         paddingBottom: "4px",
         marginBottom: "2px",
       }}
