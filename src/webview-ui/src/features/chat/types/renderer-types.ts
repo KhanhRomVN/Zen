@@ -15,6 +15,7 @@ export type GroupType =
       key: string;
     }
   | { type: "markdown"; content: string; key: string }
+  | { type: "code"; content: string; language: string; key: string }
   | {
       type: "question";
       options: string[];
@@ -43,6 +44,7 @@ export type GroupType =
  */
 export type ContentBlock =
   | { type: "markdown"; content: string }
+  | { type: "code"; content: string; language: string }
   | {
       type: "question";
       options: string[];

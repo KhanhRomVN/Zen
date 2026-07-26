@@ -73,10 +73,10 @@ export class ReplaceInFileHistoryManager {
     messageTimestamp?: number,
     responseNumber?: number,
     oldContent?: string, // Add oldContent parameter for version 0 baseline
+    oldContentErrorCount?: number, // Error count of oldContent for version 0
+    oldContentWarningCount?: number, // Warning count of oldContent for version 0
   ): Promise<void> {
-    const startTime = Date.now();
     if (!this.activeConversationId) {
-      console.log("[HISTORY-SAVE] No active conversation, skipping save");
       return;
     }
 
@@ -85,37 +85,23 @@ export class ReplaceInFileHistoryManager {
       await fs.promises.mkdir(historyDir, { recursive: true });
 
       // Lấy version hiện tại của file này
-      const versionStart = Date.now();
       const currentVersion = await this.getCurrentVersion(filePath);
-      const versionDuration = Date.now() - versionStart;
-      
-      console.log("[HISTORY-SAVE] Current version check:", {
-        filePath,
-        currentVersion,
-        willCreateBaseline: currentVersion === 0,
-        hasOldContent: !!oldContent,
-      });
-      
+
       // Nếu đây là lần replace đầu tiên (currentVersion = 0), tạo version 0 baseline
       if (currentVersion === 0 && oldContent) {
-        console.log("[HISTORY-SAVE] First replace detected, creating version 0 baseline with oldContent...");
-        await this.createVersion0Baseline(filePath, oldContent);
+        await this.createVersion0Baseline(
+          filePath,
+          oldContent,
+          oldContentErrorCount ?? 0,
+          oldContentWarningCount ?? 0,
+        );
       }
-      
+
       const newVersion = currentVersion + 1;
 
       const timestamp = Date.now();
       const id = `replace_${timestamp}_${crypto.randomBytes(4).toString("hex")}`;
       const lineCount = fullContent.split("\n").length;
-
-      console.log("[HISTORY-SAVE] Saving new version:", {
-        filePath,
-        version: newVersion,
-        lineCount,
-        contentLength: fullContent.length,
-        contentPreview: fullContent.substring(0, 200),
-        firstLine: fullContent.split("\n")[0],
-      });
 
       const history: ReplaceInFileHistory = {
         id,
@@ -140,19 +126,11 @@ export class ReplaceInFileHistoryManager {
       const historyFileName = `${fileHash}_v${newVersion}.json`;
       const historyFilePath = path.join(historyDir, historyFileName);
 
-      const writeStart = Date.now();
       await fs.promises.writeFile(
         historyFilePath,
         JSON.stringify(history, null, 2),
         "utf-8",
       );
-      
-      console.log("[HISTORY-SAVE] ✅ Version saved successfully:", {
-        filePath,
-        version: newVersion,
-        historyFilePath,
-        fileHash,
-      });
     } catch (error) {
       console.error("[HISTORY-SAVE] ❌ Error saving history:", {
         filePath,
@@ -167,22 +145,17 @@ export class ReplaceInFileHistoryManager {
   /**
    * Tạo version 0 baseline - nội dung gốc của file trước khi replace lần đầu
    */
-  private async createVersion0Baseline(filePath: string, content: string): Promise<void> {
+  private async createVersion0Baseline(
+    filePath: string,
+    content: string,
+    errorCount: number,
+    warningCount: number,
+  ): Promise<void> {
     if (!this.activeConversationId) {
-      console.log("[HISTORY-BASELINE] No active conversation, skipping version 0");
       return;
     }
 
     try {
-      console.log("[HISTORY-BASELINE] Creating version 0 for:", filePath);
-      
-      console.log("[HISTORY-BASELINE] Using provided content:", {
-        filePath,
-        contentLength: content.length,
-        contentPreview: content.substring(0, 200),
-        firstLine: content.split("\n")[0],
-      });
-      
       const historyDir = this.getHistoryDir(this.activeConversationId);
       const timestamp = Date.now();
       const id = `baseline_${timestamp}_${crypto.randomBytes(4).toString("hex")}`;
@@ -193,8 +166,8 @@ export class ReplaceInFileHistoryManager {
         filePath,
         version: 0,
         fullContent: content,
-        errorCount: 0,
-        warningCount: 0,
+        errorCount,
+        warningCount,
         lineCount,
         timestamp,
       };
@@ -212,14 +185,6 @@ export class ReplaceInFileHistoryManager {
         JSON.stringify(baselineHistory, null, 2),
         "utf-8",
       );
-
-      console.log("[HISTORY-BASELINE] ✅ Version 0 created successfully:", {
-        filePath,
-        historyFilePath,
-        lineCount,
-        contentLength: content.length,
-        fileHash,
-      });
     } catch (error) {
       console.error("[HISTORY-BASELINE] ❌ Error creating version 0:", {
         filePath,
@@ -344,14 +309,12 @@ export class ReplaceInFileHistoryManager {
     version: number,
   ): Promise<ReplaceInFileHistory | null> {
     if (!this.activeConversationId) {
-      console.log("[HISTORY-GET] No active conversation");
       return null;
     }
 
     try {
       const historyDir = this.getHistoryDir(this.activeConversationId);
       if (!fs.existsSync(historyDir)) {
-        console.log("[HISTORY-GET] History directory not found:", historyDir);
         return null;
       }
 
@@ -363,30 +326,12 @@ export class ReplaceInFileHistoryManager {
       const historyFileName = `${fileHash}_v${version}.json`;
       const historyFilePath = path.join(historyDir, historyFileName);
 
-      console.log("[HISTORY-GET] Fetching version:", {
-        filePath,
-        version,
-        fileHash,
-        historyFilePath,
-        exists: fs.existsSync(historyFilePath),
-      });
-
       if (!fs.existsSync(historyFilePath)) {
-        console.log("[HISTORY-GET] Version file not found:", historyFilePath);
         return null;
       }
 
       const raw = await fs.promises.readFile(historyFilePath, "utf-8");
       const history: ReplaceInFileHistory = JSON.parse(raw);
-
-      console.log("[HISTORY-GET] ✅ Version fetched successfully:", {
-        filePath,
-        version: history.version,
-        lineCount: history.lineCount,
-        contentLength: history.fullContent?.length,
-        contentPreview: history.fullContent?.substring(0, 200),
-        firstLine: history.fullContent?.split("\n")[0],
-      });
 
       return history;
     } catch (error) {

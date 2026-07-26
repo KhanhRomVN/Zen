@@ -152,6 +152,8 @@ export class ReplaceInFileHandler {
     const release = await this.fileLockManager.acquire(absPath.fsPath);
     let newContent: string | undefined;
     let oldContent: string | undefined; // Declare outside try block
+    let oldContentErrorCount: number | undefined;
+    let oldContentWarningCount: number | undefined;
     try {
       let content = "";
       try {
@@ -233,7 +235,42 @@ export class ReplaceInFileHandler {
 
       const historyManager = ReplaceInFileHistoryManager.getInstance();
       historyManager.setActiveConversationId(message.conversationId);
-      
+
+      // Get diagnostic for oldContent if this is the first replace (version 0 will be created)
+      if (oldContent && !message.skipDiagnostics) {
+        const currentVersion = await historyManager.getCurrentVersion(
+          absPath.fsPath,
+        );
+        if (currentVersion === 0) {
+          // This is first replace, need to get diagnostic for oldContent
+          // Temporarily write oldContent to file to get diagnostics
+          await vscode.workspace.fs.writeFile(
+            absPath,
+            Buffer.from(oldContent, "utf8"),
+          );
+
+          const oldDiagResult =
+            await DiagnosticsService.getInstance().getDiagnostics(
+              absPath,
+              pathValue,
+              15000,
+            );
+
+          oldContentErrorCount = oldDiagResult.diagnostics.filter(
+            (d) => d.severity === "Error",
+          ).length;
+          oldContentWarningCount = oldDiagResult.diagnostics.filter(
+            (d) => d.severity === "Warning",
+          ).length;
+
+          // Write back newContent
+          await vscode.workspace.fs.writeFile(
+            absPath,
+            Buffer.from(newContent, "utf8"),
+          );
+        }
+      }
+
       // Pass oldContent (content before replace) for version 0 baseline
       await historyManager.saveHistory(
         absPath.fsPath,
@@ -244,6 +281,8 @@ export class ReplaceInFileHandler {
         message.messageTimestamp, // Pass messageTimestamp
         message.responseNumber, // Pass responseNumber for precise revert tracking
         oldContent, // Pass oldContent for version 0 baseline
+        oldContentErrorCount, // Pass error count of oldContent
+        oldContentWarningCount, // Pass warning count of oldContent
       );
 
       // Get current version after saving

@@ -152,6 +152,7 @@ const domNodeToReact = (
   // Handle <pre><code> blocks → use CodeBlock component
   if (tag === "pre") {
     const codeEl = el.querySelector("code");
+
     if (codeEl) {
       const codeText = codeEl.textContent || "";
       // Extract language from class (e.g., "language-javascript")
@@ -164,6 +165,18 @@ const domNodeToReact = (
           key={key}
           code={codeText}
           language={language}
+          enableWordWrap={false}
+        />
+      );
+    } else {
+      // Fallback: if no <code> inside <pre>, treat whole content as code
+      const codeText = el.textContent || "";
+
+      return (
+        <CodeBlock
+          key={key}
+          code={codeText}
+          language="text"
           enableWordWrap={false}
         />
       );
@@ -306,6 +319,7 @@ const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(
     const reactNodes = React.useMemo(() => {
       // 1. Render markdown → sanitized HTML
       const rawHtml = marked.parse(content) as string;
+
       const sanitized = DOMPurify.sanitize(rawHtml, {
         USE_PROFILES: { html: true },
         FORBID_ATTR: [

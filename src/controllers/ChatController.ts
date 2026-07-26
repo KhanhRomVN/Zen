@@ -256,6 +256,9 @@ export class ChatController {
         case "openWriteToFile":
           await this.previewHandler.handleOpenWriteToFile(message);
           break;
+        case "openViewReplaceHistoryVersion":
+          await this.previewHandler.handleOpenViewReplaceHistoryVersion(message);
+          break;
 
         // Terminal
         case "runCommand":

@@ -312,6 +312,17 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                   key: `markdown-${idx}`,
                 });
               }
+            } else if (block.type === "code") {
+              // Handle code blocks
+              if (block.content.trim().length > 0) {
+                flushTools();
+                groups.push({
+                  type: "code",
+                  content: block.content,
+                  language: block.language || "text",
+                  key: `code-${idx}`,
+                });
+              }
             } else if (block.type === "thinking") {
               // Skip
             } else if (block.type === "question") {

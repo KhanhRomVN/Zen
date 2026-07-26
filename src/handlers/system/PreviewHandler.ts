@@ -5,6 +5,7 @@
  *? Function:
  *    handleOpenTempImage()  : Mở ảnh base64 trong editor.
  *    handleOpenWriteToFile(): Mở preview nội dung file mới sẽ được ghi.
+ *    handleOpenViewReplaceHistoryVersion(): Mở nội dung của version cụ thể trong lịch sử replace.
  */
 import * as crypto from "crypto";
 import * as fs from "fs";
@@ -17,6 +18,9 @@ import { DiffProvider } from "../../providers/DiffProvider";
 
 // SERVICES
 import { PathService } from "../../services/PathService";
+
+// MANAGERS
+import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
 
 export class PreviewHandler {
   private pathService: PathService;
@@ -89,6 +93,74 @@ export class PreviewHandler {
     } catch (error) {
       console.error("[PreviewHandler] handleOpenWriteToFile error:", error);
       vscode.window.showErrorMessage(`Failed to open file: ${error}`);
+    }
+  }
+
+  public async handleOpenViewReplaceHistoryVersion(message: any) {
+    const { filePath, version } = message;
+    
+    if (!filePath || version === undefined) {
+      console.error("[PreviewHandler] Missing filePath or version");
+      return;
+    }
+
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage("No workspace folder found");
+        return;
+      }
+
+      // Convert to absolute path nếu là relative path
+      const absolutePath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(workspaceFolder.uri.fsPath, filePath);
+      
+      // Lấy nội dung từ ReplaceInFileHistoryManager
+      const historyManager = ReplaceInFileHistoryManager.getInstance();
+      const historyVersion = await historyManager.getHistoryVersion(absolutePath, version);
+      
+      if (!historyVersion) {
+        vscode.window.showErrorMessage(`Version ${version} not found for ${filePath}`);
+        return;
+      }
+
+      const basename = path.basename(absolutePath);
+      const ext = path.extname(basename);
+      const nameWithoutExt = path.basename(basename, ext);
+      const tempBasename = `${nameWithoutExt}_v${version}_TEMP${ext}`;
+
+      // Tạo stable ID cho version này
+      const stableId = `version_${Buffer.from(`${absolutePath}_v${version}`).toString("base64").replace(/[/+=]/g, "_").toLowerCase()}`;
+
+      // Store nội dung vào DiffProvider
+      DiffProvider.instance.store(stableId, historyVersion.fullContent);
+
+      // Tạo URI
+      const uri = DiffProvider.toUri(stableId, tempBasename);
+
+      // Kiểm tra xem tab đã mở chưa
+      for (const tabGroup of vscode.window.tabGroups.all) {
+        for (const tab of tabGroup.tabs) {
+          const input = tab.input as any;
+          if (input?.uri?.toString() === uri.toString()) {
+            await vscode.window.showTextDocument(uri, {
+              preview: false,
+              preserveFocus: false,
+            });
+            return;
+          }
+        }
+      }
+
+      // Mở tab mới
+      await vscode.window.showTextDocument(uri, {
+        preview: false,
+        preserveFocus: false,
+      });
+    } catch (error) {
+      console.error("[PreviewHandler] handleOpenViewReplaceHistoryVersion error:", error);
+      vscode.window.showErrorMessage(`Failed to open version ${version}: ${error}`);
     }
   }
 }

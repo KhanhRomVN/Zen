@@ -51,6 +51,7 @@ import {
   ThinkingRenderer, // thinking
 } from "./renderers";
 import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
+import { CodeBlock } from "./blocks/code/CodeBlock";
 import ErrorBlock from "./blocks/error/ErrorBlock";
 import ExecuteButton from "./ExecuteButton";
 
@@ -146,13 +147,44 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
 }) => {
   const { rootPath } = useProject();
 
-  // Handle UI blocks (markdown, question, error, warning)
+  console.log("[TagRouter] Rendering group:", {
+    type: group.type,
+    hasContent: "content" in group,
+    contentPreview: "content" in group ? (group.content as string).substring(0, 100) : "N/A",
+    language: "language" in group ? group.language : "N/A",
+  });
+
+  // Handle UI blocks (markdown, code, question, error, warning)
   if (group.type === "markdown") {
     return (
       <MarkdownRenderer
         content={group.content}
         knownFilePaths={knownFilePaths}
       />
+    );
+  }
+
+  if (group.type === "code") {
+    console.log("[TagRouter] Rendering CODE block:", {
+      language: group.language,
+      contentLength: group.content.length,
+      contentPreview: group.content.substring(0, 100),
+    });
+    
+    return (
+      <div
+        style={{
+          paddingTop: "4px",
+          fontSize: "var(--font-size-sm)",
+          color: "var(--primary-text)",
+        }}
+      >
+        <CodeBlock
+          code={group.content}
+          language={group.language}
+          enableWordWrap={false}
+        />
+      </div>
     );
   }
 

@@ -1,0 +1,103 @@
+.view-replace-history-block {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08));
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.view-replace-history-card {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08));
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.view-replace-history-card:last-child {
+  border-bottom: none;
+}
+
+.view-replace-history-card:hover {
+  background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.05));
+}
+
+.view-replace-history-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.view-replace-history-card-version {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground, #9370db);
+  min-width: 60px;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.view-replace-history-card-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.view-replace-history-card-diagnostic {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.view-replace-history-card-diagnostic-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.view-replace-history-card-diagnostic-error {
+  color: var(--vscode-errorForeground, #ff4d4d);
+}
+
+.view-replace-history-card-diagnostic-warning {
+  color: var(--vscode-editorWarning-foreground, #ffa500);
+}
+
+.view-replace-history-card-line {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.view-replace-history-card-right {
+  display: flex;
+  align-items: center;
+}
+
+.view-replace-history-badge-current {
+  padding: 2px 8px;
+  background: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
+  color: var(--vscode-editor-background);
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.view-replace-history-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  opacity: 0.7;
+}

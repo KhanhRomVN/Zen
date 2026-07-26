@@ -212,10 +212,19 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   };
 
   const pushTextOrCodeBlocks = (baseType: "markdown", content: string) => {
-    const regex = /```(\w*)\n([\s\S]*?)```/g;
+    // Updated regex to make newline optional after language identifier
+    // Matches: ```js\ncode``` OR ```js code``` (with or without newline)
+    const regex = /```(\w*)\n?([\s\S]*?)```/g;
     let lastIndex = 0;
     let match;
     const segments: any[] = [];
+
+    console.log("[ResponseParser] pushTextOrCodeBlocks called:", {
+      baseType,
+      contentLength: content.length,
+      contentPreview: content.substring(0, 200),
+      hasTripleBackticks: content.includes("```"),
+    });
 
     while ((match = regex.exec(content)) !== null) {
       const textBefore = content.substring(lastIndex, match.index);
@@ -224,7 +233,24 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       }
 
       const language = match[1] || "text";
-      const codeContent = match[2].trimEnd();
+      let codeContent = match[2].trimEnd();
+      
+      // If there was no newline after language identifier, the first char might be
+      // part of the language name, not code. Let's check and adjust.
+      // E.g., "```jsfunction" should be language="js", code="function"
+      if (match[0].match(/```\w+[^\n]/)) {
+        // No newline after language - content starts immediately
+        // The regex already captured it correctly, just trim start
+        codeContent = codeContent.trimStart();
+      }
+
+      console.log("[ResponseParser] Found code block:", {
+        language,
+        codeLength: codeContent.length,
+        codePreview: codeContent.substring(0, 50),
+        matchedText: match[0].substring(0, 50),
+      });
+      
       // If AI wraps content in ```markdown ... ```, treat it as markdown, not a code block
       // Also treat bare ``` or ```text with no-newline content as markdown
       if (
@@ -248,6 +274,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       segments.push({ type: baseType, content: textAfter });
     }
 
+    console.log("[ResponseParser] Segments created:", {
+      totalSegments: segments.length,
+      segmentTypes: segments.map(s => s.type),
+      codeSegments: segments.filter(s => s.type === "code").length,
+    });
+
     // Filter function to remove tool result text patterns
     const filterToolResultText = (text: string): string => {
       // Pattern: [tool_name for 'path'] Result: ...
@@ -266,6 +298,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         
         // Only push if there's content left after filtering
         if (filteredContent.trim().length > 0) {
+          console.log("[ResponseParser] Pushing contentBlock:", {
+            type: segment.type,
+            language: segment.language,
+            contentLength: filteredContent.length,
+            contentPreview: filteredContent.substring(0, 50),
+          });
+          
           result.contentBlocks.push({
             ...segment,
             content: filteredContent
