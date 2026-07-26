@@ -7,7 +7,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { extensionService } from "@/services/ExtensionService";
 
 // CONSTANTS
-import { getToolLabel } from "@/features/chat/constants/constants";
+import { getToolLabel, TOOL_ACTION_TYPES } from "@/features/chat/constants/constants";
 
 // TYPES
 import {
@@ -271,17 +271,8 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
 
   React.useEffect(() => {
     if (permissionDecision !== "confirm" || !rawPath) {
-      console.log("[ReplaceInFileRenderer] Skipping file content fetch:", {
-        permissionDecision,
-        rawPath,
-      });
       return;
     }
-
-    console.log(
-      "[ReplaceInFileRenderer] Requesting file content for:",
-      rawPath,
-    );
 
     const requestId = `file-content-${actionId}`;
     const handleMessage = (event: MessageEvent) => {
@@ -290,10 +281,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
         msg.command === "getFileContentResult" &&
         msg.requestId === requestId
       ) {
-        console.log("[ReplaceInFileRenderer] Received file content:", {
-          contentLength: msg.content?.length,
-          error: msg.error,
-        });
         setFullFileContent(msg.content || null);
       }
     };
@@ -323,21 +310,10 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
 
     // If we have full file content, show it with highlights
     if (fullFileContent) {
-      console.log(
-        "[ReplaceInFileRenderer] Full file content loaded, length:",
-        fullFileContent.length,
-      );
-
       // Find where old content appears in the file
       const fileLines = fullFileContent.split("\n");
       const oldLines = String(oldContent).trim().split("\n");
       const newLines = String(newContent).trim().split("\n");
-
-      console.log("[ReplaceInFileRenderer] Searching for old content:", {
-        fileLineCount: fileLines.length,
-        oldLineCount: oldLines.length,
-        oldContentPreview: oldLines[0]?.substring(0, 50),
-      });
 
       let startLineIndex = -1;
 
@@ -355,8 +331,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
           break;
         }
       }
-
-      console.log("[ReplaceInFileRenderer] Match result:", { startLineIndex });
 
       if (startLineIndex !== -1) {
         // Build new file content with both old and new lines for diff view
@@ -393,16 +367,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
           });
         }
 
-        console.log(
-          "[ReplaceInFileRenderer] Returning merged file content with highlights:",
-          {
-            totalLines: mergedLines.length,
-            highlightCount: lineHighlights.length,
-            removedCount: oldLines.length,
-            addedCount: newLines.length,
-          },
-        );
-
         return {
           code: mergedContent,
           lineHighlights,
@@ -412,10 +376,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
           "[ReplaceInFileRenderer] Old content not found in file, falling back to diff view",
         );
       }
-    } else {
-      console.log(
-        "[ReplaceInFileRenderer] Full file content not yet loaded, using fallback",
-      );
     }
 
     // Fallback: show old/new content directly if full file not available
@@ -423,11 +383,6 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       action.params.diff ||
       `<<<<<<< SEARCH\n${oldContent}\n=======\n${newContent}\n>>>>>>> REPLACE`;
     const parsed = parseDiff(diffText);
-
-    console.log("[ReplaceInFileRenderer] Using fallback diff view:", {
-      codeLength: parsed.code.length,
-      highlightCount: parsed.lineHighlights.length,
-    });
 
     return {
       code: parsed.code,
@@ -650,38 +605,61 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
         />
       )}
 
-      {!shouldHideContent &&
-        !isCompleted &&
-        !isPartial &&
-        !hasValidationError &&
-        getPermissionDecision(permissionMode, "replace_in_file") ===
-          "confirm" && (
-          <div style={{ marginTop: "8px", marginBottom: "8px", order: 1 }}>
-            <ExecuteButton
-              isActive={true}
-              isCompleted={!!isCompleted}
-              isLastMessage={!!isLastMessage}
-              isLoading={false}
-              title="Approve action"
-              labelText="Approve"
-              onExecute={(e, type) => {
-                onToolClick(action, messageId, actionIndex, type);
-              }}
-            />
-          </div>
-        )}
-
-      {!shouldHideContent && isError && errorMessage && (
-        <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />
-      )}
-
-      {!shouldHideContent && hasValidationError && action.errorMessage && (
+      {/* Show error message when there's an error */}
+      {!isPartial && (hasValidationError || isError) && (
         <ErrorBlock
-          content={`Validation Error: ${action.errorMessage}`}
+          content={
+            hasValidationError && action.errorMessage
+              ? `Validation Error: ${action.errorMessage}`
+              : isError && errorMessage
+                ? errorMessage
+                : "Unknown error occurred"
+          }
           compact={true}
           maxHeight="300px"
         />
       )}
+
+      {!shouldHideContent &&
+        !isCompleted &&
+        !isPartial &&
+        !hasValidationError &&
+        !isError &&
+        getPermissionDecision(permissionMode, "replace_in_file") ===
+          "confirm" && (
+          <ExecuteButton
+            isActive={true}
+            isCompleted={!!isCompleted}
+            isLastMessage={!!isLastMessage}
+            isLoading={false}
+            title="Approve action"
+            labelText="Approve"
+            hasError={false}
+            onExecute={(e, type) => {
+              onToolClick(action, messageId, actionIndex, type);
+            }}
+          />
+        )}
+
+      {/* Show Skip button when there's an error in approve mode */}
+      {!isPartial &&
+        (hasValidationError || isError) &&
+        getPermissionDecision(permissionMode, "replace_in_file") ===
+          "confirm" && (
+          <ExecuteButton
+            isActive={false}
+            isCompleted={false}
+            isLastMessage={!!isLastMessage}
+            isLoading={false}
+            title="Skip this tool due to error"
+            labelText="Skip this tool because of error"
+            hasError={true}
+            onExecute={(e, type) => {
+              // Execute with reject type to skip
+              onToolClick(action, messageId, actionIndex, TOOL_ACTION_TYPES.REJECT);
+            }}
+          />
+        )}
     </div>
   );
 };

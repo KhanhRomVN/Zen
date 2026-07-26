@@ -124,15 +124,9 @@ export class FileMiscHandler {
     message: any,
     webviewView: vscode.WebviewView,
   ) {
-    console.log("[FileMiscHandler] handleGetFileContent called:", {
-      path: message.path,
-      requestId: message.requestId,
-    });
-    
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) {
-        console.log("[FileMiscHandler] No workspace folder found");
         webviewView.webview.postMessage({
           command: "getFileContentResult",
           requestId: message.requestId,
@@ -146,22 +140,17 @@ export class FileMiscHandler {
         workspaceFolder,
         message.path,
       );
-      console.log("[FileMiscHandler] Resolved URI:", uri.fsPath);
-      
+
       const content = Buffer.from(
         await vscode.workspace.fs.readFile(uri),
       ).toString("utf8");
-      
-      console.log("[FileMiscHandler] Read file content, length:", content.length);
-      
+
       webviewView.webview.postMessage({
         command: "getFileContentResult",
         requestId: message.requestId,
         path: message.path,
         content,
       });
-      
-      console.log("[FileMiscHandler] Sent response to webview");
     } catch (e: any) {
       console.error("[FileMiscHandler] Error reading file:", e.message);
       webviewView.webview.postMessage({

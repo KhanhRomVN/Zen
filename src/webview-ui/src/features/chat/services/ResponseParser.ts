@@ -248,10 +248,29 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       segments.push({ type: baseType, content: textAfter });
     }
 
+    // Filter function to remove tool result text patterns
+    const filterToolResultText = (text: string): string => {
+      // Pattern: [tool_name for 'path'] Result: ...
+      // This pattern is used for tool execution results sent to LLM, not for UI display
+      const toolResultPattern = /\[[\w_]+(?:\s+for\s+'[^']*')?\]\s+Result:\s+[^\n]+/g;
+      return text.replace(toolResultPattern, '').trim();
+    };
+
     // Always push segments as individual blocks instead of mixed_content
     for (const segment of segments) {
       if (segment.content.trim().length > 0) {
-        result.contentBlocks.push(segment);
+        // Filter out tool result text from markdown blocks
+        const filteredContent = segment.type === baseType 
+          ? filterToolResultText(segment.content)
+          : segment.content;
+        
+        // Only push if there's content left after filtering
+        if (filteredContent.trim().length > 0) {
+          result.contentBlocks.push({
+            ...segment,
+            content: filteredContent
+          });
+        }
       }
     }
   };

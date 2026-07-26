@@ -72,6 +72,7 @@ interface AIMessageBoxProps {
   onBackToHome?: (summary: string) => void;
   responseNumber?: number | null;
   onRetryRequest?: (messageId: string) => void;
+  onRevertConversation?: (messageId: string, timestamp: number) => void;
 }
 
 const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
@@ -105,6 +106,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   onBackToHome,
   responseNumber,
   onRetryRequest,
+  onRevertConversation,
 }) => {
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
@@ -361,6 +363,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                       ? () => onRetryRequest(message.id)
                       : undefined
                   }
+                  onRevertConversation={onRevertConversation}
                 />
               </React.Fragment>
             );

@@ -12,6 +12,7 @@ interface ResponseMetadataBarProps {
   message: Message;
   previousUserMessage: Message | null;
   onRetryRequest?: () => void;
+  onRevertConversation?: (messageId: string, timestamp: number) => void;
 }
 
 /**
@@ -23,12 +24,14 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
   message,
   previousUserMessage,
   onRetryRequest,
+  onRevertConversation,
 }) => {
   const [requestChecked, setRequestChecked] = React.useState(false);
   const [responseChecked, setResponseChecked] = React.useState(false);
   const [showRetryModal, setShowRetryModal] = React.useState(false);
+  const [showRevertModal, setShowRevertModal] = React.useState(false);
   const [isRetryHovered, setIsRetryHovered] = React.useState(false);
-  const [isRequestAreaHovered, setIsRequestAreaHovered] = React.useState(false);
+  const [isRevertHovered, setIsRevertHovered] = React.useState(false);
 
   const showRaw = requestChecked || responseChecked;
   const reqTokens =
@@ -95,14 +98,43 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
     </svg>
   );
 
+  const RevertIcon = (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ flexShrink: 0 }}
+    >
+      <path d="M9 14 4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+    </svg>
+  );
+
   const handleRetryClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowRetryModal(true);
   };
 
+  const handleRevertClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowRevertModal(true);
+  };
+
   const handleConfirmRetry = () => {
     if (onRetryRequest) {
       onRetryRequest();
+    }
+  };
+
+  const handleConfirmRevert = () => {
+    if (onRevertConversation) {
+      onRevertConversation(message.id, message.timestamp);
     }
   };
 
@@ -126,8 +158,6 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
       >
         {/* Request Badge */}
         <div
-          onMouseEnter={() => setIsRequestAreaHovered(true)}
-          onMouseLeave={() => setIsRequestAreaHovered(false)}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -166,8 +196,8 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
             </span>
           </div>
 
-          {/* Retry Icon - Only show when hovering over request area */}
-          {onRetryRequest && previousUserMessage && isRequestAreaHovered && (
+          {/* Retry Icon - Only show when request is active (checked) */}
+          {onRetryRequest && previousUserMessage && requestChecked && (
             <div
               onClick={handleRetryClick}
               onMouseEnter={() => setIsRetryHovered(true)}
@@ -187,39 +217,69 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
               {RetryIcon}
             </div>
           )}
+
+          {/* Revert Icon - Only show when request is active (checked) */}
+          {onRevertConversation && requestChecked && (
+            <div
+              onClick={handleRevertClick}
+              onMouseEnter={() => setIsRevertHovered(true)}
+              onMouseLeave={() => setIsRevertHovered(false)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                cursor: "pointer",
+                color: "var(--vscode-charts-orange, #d18616)",
+                textDecoration: isRevertHovered ? "underline" : "none",
+                textUnderlineOffset: "3px",
+                transition: "opacity 0.2s ease",
+                opacity: isRevertHovered ? 1 : 0.7,
+              }}
+              title="Revert conversation to this point"
+            >
+              {RevertIcon}
+            </div>
+          )}
         </div>
 
         {/* Response Badge */}
         <div
-          onClick={() => setResponseChecked(!responseChecked)}
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: "6px",
-            cursor: "pointer",
-            textDecoration: responseChecked ? "underline" : "none",
-            textUnderlineOffset: "3px",
-            transition: "opacity 0.2s ease",
-            opacity: responseChecked ? 1 : 0.8,
           }}
         >
-          <span
+          <div
+            onClick={() => setResponseChecked(!responseChecked)}
             style={{
-              color: "var(--vscode-charts-red, #f48771)",
               display: "inline-flex",
               alignItems: "center",
+              gap: "6px",
+              cursor: "pointer",
+              textDecoration: responseChecked ? "underline" : "none",
+              textUnderlineOffset: "3px",
+              transition: "opacity 0.2s ease",
+              opacity: responseChecked ? 1 : 0.8,
             }}
           >
-            {ResponseIcon}
-          </span>
-          <span
-            style={{
-              color: "var(--vscode-foreground)",
-              fontWeight: 600,
-            }}
-          >
-            {resTokens.toLocaleString()}
-          </span>
+            <span
+              style={{
+                color: "var(--vscode-charts-red, #f48771)",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              {ResponseIcon}
+            </span>
+            <span
+              style={{
+                color: "var(--vscode-foreground)",
+                fontWeight: 600,
+              }}
+            >
+              {resTokens.toLocaleString()}
+            </span>
+          </div>
         </div>
 
         {/* Response Number */}
@@ -310,6 +370,15 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
         onConfirm={handleConfirmRetry}
         title="Retry this request?"
         description="This will resend the request from this point. If there are messages after this one, they will be removed and any file changes from those messages will be reverted."
+      />
+
+      {/* Revert Confirmation Modal */}
+      <RevertConfirmModal
+        isOpen={showRevertModal}
+        onClose={() => setShowRevertModal(false)}
+        onConfirm={handleConfirmRevert}
+        title="Revert conversation to this point?"
+        description="This will remove all messages after this response and revert any file changes from those messages."
       />
     </div>
   );

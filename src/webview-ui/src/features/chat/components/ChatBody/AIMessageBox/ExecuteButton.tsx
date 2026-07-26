@@ -19,6 +19,7 @@ export interface ExecuteButtonProps {
   isLoading?: boolean;
   showText?: boolean;
   labelText?: string;
+  hasError?: boolean; // NEW: indicates validation/parsing error
 }
 
 const ExecuteButton: React.FC<ExecuteButtonProps> = ({
@@ -32,7 +33,15 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   isLoading,
   showText,
   labelText,
+  hasError = false, // NEW
 }) => {
+  console.log("[ExecuteButton] Props:", {
+    isCompleted,
+    isActive,
+    hasError,
+    labelText,
+    title,
+  });
   const iconColor = isCompleted
     ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
     : isFailed
@@ -49,6 +58,56 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
     },
     [isClickable, isCompleted, isActive, isLoading, title, onExecute],
   );
+
+  // Special case: Tool has validation/parsing error in approve mode
+  // Check hasError FIRST before other conditions
+  if (hasError) {
+    const errorColor = "var(--vscode-errorForeground, #ff4d4d)";
+    return (
+      <div
+        style={{
+          display: "flex",
+          gap: "6px",
+          marginTop: "8px",
+          marginBottom: "8px",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+        }}
+      >
+        <button
+          onClick={(e) => handleExecuteClick(e, TOOL_ACTION_TYPES.REJECT)}
+          disabled={isLoading}
+          style={{
+            background: `color-mix(in srgb, ${errorColor} 15%, transparent)`,
+            color: errorColor,
+            border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
+            cursor: isLoading ? "wait" : "pointer",
+            padding: "4px 10px",
+            borderRadius: "6px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "11px",
+            fontWeight: 600,
+            height: "24px",
+            transition: "all 0.2s ease",
+            gap: "6px",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = `color-mix(in srgb, ${errorColor} 25%, transparent)`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = `color-mix(in srgb, ${errorColor} 15%, transparent)`;
+          }}
+          title="Skip this tool due to error and continue to next tool"
+        >
+          <span style={{ textTransform: "none" }}>
+            {labelText || "Skip this tool because of error"}
+          </span>
+        </button>
+      </div>
+    );
+  }
 
   if (isCompleted || isLoading || !isActive) {
     return (
@@ -117,6 +176,56 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
           </span>
         )}
       </button>
+    );
+  }
+
+  // Special case: Tool has validation/parsing error in approve mode
+  // Show only "Skip" button to move to next tool - simple text button with Reject style
+  if (hasError) {
+    const errorColor = "var(--vscode-errorForeground, #ff4d4d)";
+    return (
+      <div
+        style={{
+          display: "flex",
+          gap: "6px",
+          marginTop: "8px",
+          marginBottom: "8px",
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+        }}
+      >
+        <button
+          onClick={(e) => handleExecuteClick(e, TOOL_ACTION_TYPES.REJECT)}
+          disabled={isLoading}
+          style={{
+            background: `color-mix(in srgb, ${errorColor} 15%, transparent)`,
+            color: errorColor,
+            border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
+            cursor: isLoading ? "wait" : "pointer",
+            padding: "4px 10px",
+            borderRadius: "6px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "11px",
+            fontWeight: 600,
+            height: "24px",
+            transition: "all 0.2s ease",
+            gap: "6px",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = `color-mix(in srgb, ${errorColor} 25%, transparent)`;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = `color-mix(in srgb, ${errorColor} 15%, transparent)`;
+          }}
+          title="Skip this tool due to error and continue to next tool"
+        >
+          <span style={{ textTransform: "none" }}>
+            {labelText || "Skip this tool because of error"}
+          </span>
+        </button>
+      </div>
     );
   }
 

@@ -52,6 +52,7 @@ import {
 } from "./renderers";
 import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
 import ErrorBlock from "./blocks/error/ErrorBlock";
+import ExecuteButton from "./ExecuteButton";
 
 interface TagRouterProps {
   group: GroupType;
@@ -621,6 +622,21 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
           errorCode={firstAction.errorCode}
           showHeader={false}
           maxHeight="300px"
+        />
+
+        {/* Show Skip button for malformed tools in approve mode */}
+        <ExecuteButton
+          isActive={true}
+          isCompleted={false}
+          isLastMessage={isLastMessage}
+          isLoading={false}
+          title="Skip this tool due to error"
+          labelText="SKIP_TEST"
+          hasError={true}
+          onExecute={(e, type) => {
+            // Execute with reject type to skip
+            onToolClick(firstAction, messageId, toolGroup[0].index, TOOL_ACTION_TYPES.REJECT);
+          }}
         />
       </div>
     );

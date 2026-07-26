@@ -760,18 +760,20 @@ export const useChatLLM = ({
               },
             );
 
-            // Append errors to content and set flag for reminder in next request
+            // Set flag for reminder in next request
             needsToolSyntaxReminderRef.current = true;
-            assistantMessage.content += errorTexts.join("");
-
-            // Update messages array with appended errors
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMessageId
-                  ? { ...m, content: assistantMessage.content }
-                  : m,
-              ),
-            );
+            
+            // ⚠️ DO NOT append errors to message content for UI display
+            // Errors are already saved in toolOutputs via onMalformedTool
+            // and will be included in the next request context automatically
+            
+            // Store errors separately for next request (not in UI)
+            // assistantMessage.content += errorTexts.join(""); // REMOVED
+            
+            console.warn("[Zen][useChatLLM] Malformed tools detected, errors saved to toolOutputs:", {
+              count: malformedActions.length,
+              errorSummary: errorTexts.join(""),
+            });
           }
         } catch (parseError) {
           hasParsingError = true;

@@ -99,6 +99,7 @@ export const useToolExecution = ({
   >({});
 
   const clickedActionsRef = useRef<Set<string>>(new Set());
+  const toolOutputsRef = useRef(toolOutputs);
   const pendingToolResolvers = useRef<
     Map<string, (result: string | null) => void>
   >(new Map());
@@ -120,6 +121,10 @@ export const useToolExecution = ({
   useEffect(() => {
     clickedActionsRef.current = clickedActions;
   }, [clickedActions]);
+
+  useEffect(() => {
+    toolOutputsRef.current = toolOutputs;
+  }, [toolOutputs]);
 
   // Listen for tool execution events from extension
   useEffect(() => {
@@ -372,7 +377,14 @@ export const useToolExecution = ({
 
         let result: string | null = null;
         if (actionType === TOOL_ACTION_TYPES.REJECT) {
-          result = `Output: [${action.type}] Tool execution rejected by user.`;
+          // Get error message from toolOutputs if available
+          const errorInfo = toolOutputsRef.current[actionId];
+          const errorMessage = errorInfo?.isError ? errorInfo.output : null;
+          
+          result = errorMessage 
+            ? `Output: [${action.type}] Tool execution rejected by user due to error:\n${errorMessage}`
+            : `Output: [${action.type}] Tool execution rejected by user.`;
+          
           setRejectedActions((prev) => {
             const next = new Set(prev).add(actionId);
             return next;
