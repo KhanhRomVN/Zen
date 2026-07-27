@@ -114,6 +114,14 @@ export const useToolExecution = ({
 
   const terminalToActionMap = useRef<Map<string, string>>(new Map());
   const flushedMessageIdsRef = useRef<Set<string>>(new Set());
+  const availableToolResultsBufferRef = useRef<{
+    [messageId: string]: string[];
+  }>({});
+
+  // Sync ref với state để tránh stale closure trong handleToolRequest
+  useEffect(() => {
+    availableToolResultsBufferRef.current = availableToolResultsBuffer;
+  }, [availableToolResultsBuffer]);
 
   useEffect(() => {
     handleSendMessageRef.current = sendMessage;
@@ -308,21 +316,6 @@ export const useToolExecution = ({
         _index: a._index !== undefined ? a._index : idx,
       }));
 
-      // 🔍 DEBUG LOG
-      console.log('[useToolExecution] handleToolRequest CALLED:', {
-        messageId: message.id,
-        isAutoTrigger,
-        actionType,
-        actionsCount: actions.length,
-        actionDetails: actions.map(a => ({ 
-          type: a.type, 
-          index: a._index, 
-          actionId: a.actionId || `${message.id}-action-${a._index}`,
-        })),
-        permissionMode: currentPermissionMode,
-        timestamp: new Date().toISOString(),
-      });
-
       const validResults: string[] = [];
       let skippedCount = 0;
       setExecutionState({
@@ -338,15 +331,6 @@ export const useToolExecution = ({
 
         const isReject = actionType === TOOL_ACTION_TYPES.REJECT;
         const isAlreadyClicked = clickedActionsRef.current.has(actionId);
-
-        console.log(`[useToolExecution] Processing action ${index}:`, {
-          actionId,
-          actionType: action.type,
-          actionIndex: action._index,
-          isReject,
-          isAlreadyClicked,
-          isAutoTrigger,
-        });
 
         // BUT generate error result for auto-send in next request
         if (action.isError) {
@@ -402,20 +386,9 @@ export const useToolExecution = ({
         // When manually clicked (hasActionId = true), we should NOT skip even if already in clickedActions
         // because the first call just paused, and the second call after user click should execute
         if (!isReject && isAlreadyClicked && isAutoTrigger) {
-          console.log(`[useToolExecution] Skipping action ${index} - already clicked and auto-trigger:`, {
-            actionId,
-            isAlreadyClicked,
-            isAutoTrigger,
-          });
           skippedCount++;
           continue;
         }
-
-        console.log(`[useToolExecution] Executing action ${index}:`, {
-          actionId,
-          actionType: action.type,
-          willExecute: true,
-        });
 
         const skipDiagnostics = false;
 
@@ -453,33 +426,7 @@ export const useToolExecution = ({
         const shouldPauseForManual =
           decision === "confirm" && !isConversationAuto;
 
-        // 🔍 DEBUG LOG
-        console.log('[useToolExecution] Before pause check:', {
-          actionId,
-          actionIndex: action._index,
-          loopIndex: index,
-          decision,
-          shouldPauseForManual,
-          isAlreadyClicked,
-          isAutoTrigger,
-          willPause: shouldPauseForManual && !isAlreadyClicked && isAutoTrigger,
-          clickedActionsSet: Array.from(clickedActionsRef.current).filter(id => id.startsWith(message.id)),
-        });
-
-        // FIX: Only pause if this is an auto-trigger AND user hasn't clicked yet
-        // When user manually clicks Accept, isAutoTrigger=false, so we should NOT pause
-        // When manual confirmation is required and tool hasn't been clicked yet, pause
         if (shouldPauseForManual && !isAlreadyClicked && isAutoTrigger) {
-          // 🔍 DEBUG LOG
-          console.log('[useToolExecution] PAUSING for manual approval:', {
-            actionId,
-            actionIndex: action._index,
-            loopIndex: index,
-            totalActions: actions.length,
-            completedSoFar: index,
-            willSetWasInterruptedByManual: true,
-          });
-          
           wasInterruptedByManual = true;
           setExecutionState({
             total: actions.length,
@@ -489,9 +436,11 @@ export const useToolExecution = ({
           break;
         }
 
-        // Add to clickedActions AFTER pause check (only when not paused)
+        // Add to ref immediately (prevents re-execution of same action)
+        // State update (setClickedActions) is deferred until after result is available
+        // to keep it in the same React batch as setAvailableToolResultsBuffer,
+        // preventing useEffect from flushing with incomplete buffer
         clickedActionsRef.current.add(actionId);
-        setClickedActions(new Set(clickedActionsRef.current));
 
         let result: string | null = null;
         if (actionType === TOOL_ACTION_TYPES.REJECT) {
@@ -528,13 +477,6 @@ export const useToolExecution = ({
           const isDisplayOnly = result === "__DISPLAY_ONLY__";
 
           if (!isDisplayOnly) {
-            console.log('[useToolExecution] Adding result to validResults:', {
-              actionId,
-              actionType: action.type,
-              actionIndex: action._index,
-              resultLength: result.length,
-              currentValidResultsCount: validResults.length,
-            });
             validResults.push(result);
           }
 
@@ -566,17 +508,7 @@ export const useToolExecution = ({
             ) {
               setToolOutputs((prev) => {
                 const existing = prev[actionId];
-                
-                console.log('[useToolExecution] Saving toolOutput:', {
-                  actionId,
-                  actionType: action.type,
-                  actionIndex: action._index,
-                  hasExisting: !!existing,
-                  existingVersion: (existing as any)?.version,
-                  isError,
-                  outputLength: cleanOutput.length,
-                });
-                
+
                 return {
                   ...prev,
                   [actionId]: {
@@ -639,151 +571,85 @@ export const useToolExecution = ({
         prev.status === "error" ? prev : { ...prev, status: "done" },
       );
 
-      setAvailableToolResultsBuffer((prev) => {
-        const newBuffer = [...(prev[message.id] || []), ...validResults];
+      // Merge buffer THỦ CÔNG trước để ref có giá trị ngay lập tức
+      // (setAvailableToolResultsBuffer callback chạy bất đồng bộ, không dùng được cho flush)
+      const prevBuf = availableToolResultsBufferRef.current;
+      const mergedBuffer = [...(prevBuf[message.id] || []), ...validResults];
+      const nextBuf = { ...prevBuf, [message.id]: mergedBuffer };
+      availableToolResultsBufferRef.current = nextBuf;
 
-        console.log('[useToolExecution] Processing results buffer:', {
-          messageId: message.id,
-          wasInterruptedByManual,
-          validResultsCount: validResults.length,
-          totalActionsCount: actions.length,
-          newBufferLength: newBuffer.length,
-          actionIds: actions.map(a => `${message.id}-action-${a._index}`),
-          existingBufferLength: (prev[message.id] || []).length,
-          validResultsPreview: validResults.map(r => r.substring(0, 80) + '...'),
-          newBufferPreview: newBuffer.map(r => r.substring(0, 80) + '...'),
-        });
+      // Đồng bộ state (không cần đọc lại từ đây)
+      setAvailableToolResultsBuffer(nextBuf);
 
-        if (wasInterruptedByManual) {
-          console.log('[useToolExecution] wasInterruptedByManual=true, keeping buffer:', {
-            messageId: message.id,
-            bufferLength: newBuffer.length,
-          });
-          return { ...prev, [message.id]: newBuffer };
-        }
+      // Flush đồng bộ nếu tất cả actions đã hoàn thành
+      {
+        const buffer = mergedBuffer;
+        const hasBuffer = buffer.length > 0;
+        const alreadyFlushed = flushedMessageIdsRef.current.has(message.id);
 
-        if (validResults.length < actions.length) {
-          const textActionIds = actions.map(
-            (a) => `${message.id}-action-${a._index}`,
+        if (!hasBuffer || alreadyFlushed) {
+        } else {
+          const parsed = parseAIResponse(message.content);
+          const allActionIds = parsed.actions.map(
+            (_: any, idx: number) => `${message.id}-action-${idx}`,
+          );
+          const isAllComplete = allActionIds.every((id: string) =>
+            clickedActionsRef.current.has(id),
           );
 
-          if (
-            newBuffer.length > 0 &&
-            handleSendMessageRef.current &&
-            !isStoppedRef?.current
-          ) {
-            const finalContent = newBuffer.join("\n\n");
-            
-            console.log('[useToolExecution] Sending message with results:', {
-              messageId: message.id,
-              resultsCount: newBuffer.length,
-              actionIds: textActionIds,
-              contentLength: finalContent.length,
-            });
-            
-            handleSendMessageRef.current(
-              finalContent,
-              undefined,
-              undefined,
-              undefined,
-              true,
-              textActionIds,
+          if (!isAllComplete) {
+          } else if (!handleSendMessageRef.current) {
+          } else if (isStoppedRef?.current) {
+          } else {
+            const currentMessage = messagesRef?.current.find(
+              (m) => m.id === message.id,
             );
-            return { ...prev, [message.id]: [] };
-          }
+            const selectedOption = currentMessage?.selectedOption;
+            const hasQuestion = !!parsed.question;
+            const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
 
-          if (newBuffer.length === 0) {
-            return { ...prev, [message.id]: [] };
-          }
+            if (!isQuestionAnswered) {
+            } else {
+              flushedMessageIdsRef.current.add(message.id);
+              let finalContent = buffer.join("\n\n");
+              if (selectedOption) {
+                const questionTitle =
+                  parsed.question?.type === "question"
+                    ? (parsed.question as any).title
+                    : "Question";
+                finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
+              }
 
-          return { ...prev, [message.id]: newBuffer };
-        }
+              const hasAnyError = buffer.some(
+                (r: string) =>
+                  r.includes("Result: Error") ||
+                  r.includes("Tool execution blocked") ||
+                  r.includes("Tool execution rejected"),
+              );
 
-        const currentMessage = messagesRef?.current.find(
-          (m) => m.id === message.id,
-        );
-        const selectedOption = currentMessage?.selectedOption;
-        const parsed = parseAIResponse(message.content);
-        const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
+              handleSendMessageRef.current(
+                finalContent,
+                undefined,
+                undefined,
+                undefined,
+                !hasAnyError,
+                allActionIds,
+                !hasAnyError,
+              );
 
-        const allActionIds = parsed.actions.map(
-          (_: any, idx: number) => `${message.id}-action-${idx}`,
-        );
-        const currentBatchIds = actions.map(
-          (a) => `${message.id}-action-${a._index}`,
-        );
-
-        const isAllComplete =
-          allActionIds.every((id: string) =>
-            clickedActionsRef.current.has(id),
-          ) && isQuestionAnswered;
-
-        console.log('[useToolExecution] Checking if all actions complete:', {
-          messageId: message.id,
-          allActionIdsCount: allActionIds.length,
-          clickedActionsCount: Array.from(clickedActionsRef.current).filter(id => id.startsWith(message.id)).length,
-          isAllComplete,
-          hasQuestion,
-          isQuestionAnswered,
-          newBufferLength: newBuffer.length,
-          hasFlushed: flushedMessageIdsRef.current.has(message.id),
-        });
-
-        if (isAllComplete && !flushedMessageIdsRef.current.has(message.id)) {
-          if (handleSendMessageRef.current && !isStoppedRef?.current) {
-            flushedMessageIdsRef.current.add(message.id);
-            let finalContent = newBuffer.join("\n\n");
-            if (selectedOption) {
-              const questionTitle =
-                parsed.question?.type === "question"
-                  ? (parsed.question as any).title
-                  : "Question";
-              finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
+              // Clear buffer
+              setAvailableToolResultsBuffer((prev) => {
+                const next = { ...prev };
+                delete next[message.id];
+                availableToolResultsBufferRef.current = next;
+                return next;
+              });
             }
-
-            // 🔧 Check if any result contains error
-            const hasAnyError = newBuffer.some(
-              (result: string) =>
-                result.includes("Result: Error") ||
-                result.includes("Tool execution blocked") ||
-                result.includes("Tool execution rejected"),
-            );
-
-            console.log('[useToolExecution] All actions complete! Sending batched results:', {
-              messageId: message.id,
-              resultsCount: newBuffer.length,
-              allActionIds,
-              hasAnyError,
-            });
-
-            handleSendMessageRef.current(
-              finalContent,
-              undefined,
-              undefined,
-              undefined,
-              !hasAnyError, // 👈 skipFirstRequestLogic: false when has error (treat as normal user message)
-              allActionIds,
-              !hasAnyError, // 👈 uiHidden: false when has error
-            );
           }
-          
-          return { ...prev, [message.id]: [] };
-        } else if (flushedMessageIdsRef.current.has(message.id)) {
-          console.log('[useToolExecution] Already flushed, clearing buffer:', {
-            messageId: message.id,
-          });
-          return { ...prev, [message.id]: [] };
-        } else {
-          console.log('[useToolExecution] NOT all complete, keeping buffer:', {
-            messageId: message.id,
-            bufferLength: newBuffer.length,
-          });
-          return { ...prev, [message.id]: newBuffer };
         }
-      });
+      }
     },
-    [executeSingleAction],
+    [executeSingleAction, messagesRef],
   );
 
   const confirmSingleLineAction = useCallback(
@@ -837,54 +703,8 @@ export const useToolExecution = ({
 
         setAvailableToolResultsBuffer((prev) => {
           const newBuffer = [...(prev[messageObj.id] || []), result];
-
-          const parsed = parseAIResponse(messageObj.content);
-          const allActionIds = parsed.actions.map(
-            (_: any, idx: number) => `${messageObj.id}-action-${idx}`,
-          );
-          const currentMessage = messagesRef?.current.find(
-            (m) => m.id === messageObj.id,
-          );
-          const selectedOption = currentMessage?.selectedOption;
-          const hasQuestion = !!parsed.question;
-          const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
-
-          const isAllComplete =
-            allActionIds.every((id: string) =>
-              clickedActionsRef.current.has(id),
-            ) && isQuestionAnswered;
-
-          if (
-            isAllComplete &&
-            !flushedMessageIdsRef.current.has(messageObj.id)
-          ) {
-            if (handleSendMessageRef.current && !isStoppedRef?.current) {
-              flushedMessageIdsRef.current.add(messageObj.id);
-              let finalContent = newBuffer.join("\n\n");
-              if (selectedOption) {
-                const questionTitle =
-                  parsed.question?.type === "question"
-                    ? (parsed.question as any).title
-                    : "Question";
-                finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
-              }
-
-              handleSendMessageRef.current(
-                finalContent,
-                undefined,
-                undefined,
-                undefined,
-                true,
-                allActionIds,
-                true,
-              );
-            }
-            return { ...prev, [messageObj.id]: [] };
-          } else if (flushedMessageIdsRef.current.has(messageObj.id)) {
-            return { ...prev, [messageObj.id]: [] };
-          } else {
-            return { ...prev, [messageObj.id]: newBuffer };
-          }
+          // Chỉ merge buffer — việc flush được xử lý bởi useEffect auto-flush
+          return { ...prev, [messageObj.id]: newBuffer };
         });
       }
     },
@@ -913,52 +733,8 @@ export const useToolExecution = ({
 
       setAvailableToolResultsBuffer((prev) => {
         const newBuffer = [...(prev[messageObj.id] || []), errorResult];
-
-        const parsed = parseAIResponse(messageObj.content);
-        const allActionIds = parsed.actions.map(
-          (_: any, idx: number) => `${messageObj.id}-action-${idx}`,
-        );
-        const currentMessage = messagesRef?.current.find(
-          (m) => m.id === messageObj.id,
-        );
-        const selectedOption = currentMessage?.selectedOption;
-        const hasQuestion = !!parsed.question;
-        const isQuestionAnswered = hasQuestion ? !!selectedOption : true;
-
-        const isAllComplete =
-          allActionIds.every(
-            (id: string) =>
-              clickedActionsRef.current.has(id) || id === actionId,
-          ) && isQuestionAnswered;
-
-        if (isAllComplete && !flushedMessageIdsRef.current.has(messageObj.id)) {
-          if (handleSendMessageRef.current && !isStoppedRef?.current) {
-            flushedMessageIdsRef.current.add(messageObj.id);
-            let finalContent = newBuffer.join("\n\n");
-            if (selectedOption) {
-              const questionTitle =
-                parsed.question?.type === "question"
-                  ? (parsed.question as any).title
-                  : "Question";
-              finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
-            }
-
-            handleSendMessageRef.current(
-              finalContent,
-              undefined,
-              undefined,
-              undefined,
-              true,
-              allActionIds,
-              true,
-            );
-          }
-          return { ...prev, [messageObj.id]: [] };
-        } else if (flushedMessageIdsRef.current.has(messageObj.id)) {
-          return { ...prev, [messageObj.id]: [] };
-        } else {
-          return { ...prev, [messageObj.id]: newBuffer };
-        }
+        // Chỉ merge buffer — việc flush được xử lý bởi useEffect auto-flush
+        return { ...prev, [messageObj.id]: newBuffer };
       });
     },
     [singleLineReviewActions, messagesRef],
@@ -994,8 +770,19 @@ export const useToolExecution = ({
           clickedActionsRef.current.has(id),
         );
 
+        // CRITICAL FIX: Check buffer length matches action count
+        // clickedActionsRef updates immediately (sync), but buffer updates via setState (async)
+        // This prevents premature flush when actions are clicked but results not yet in buffer
+        const expectedResultCount = parsed.actions.filter(
+          (action: any) =>
+            action.type !== "git_status" && action.type !== "commit_message",
+        ).length; // Exclude display-only actions
+        const actualResultCount = buffer.length;
+        const hasAllResults = actualResultCount >= expectedResultCount;
+
         if (
           allToolsDone &&
+          hasAllResults &&
           isQuestionAnswered &&
           !flushedMessageIdsRef.current.has(messageId)
         ) {

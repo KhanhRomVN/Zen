@@ -45,16 +45,6 @@ const ExecuteButton: React.FC<ExecuteButtonProps> = ({
   const handleExecuteClick = React.useCallback(
     (e: React.MouseEvent, type: any) => {
       e.stopPropagation();
-      // 🔍 DEBUG LOG
-      console.log('[ExecuteButton] handleExecuteClick:', {
-        type,
-        isClickable,
-        isCompleted,
-        isActive,
-        isLoading,
-        title,
-        timestamp: new Date().toISOString(),
-      });
       if (isClickable) {
         onExecute(e, type);
       }

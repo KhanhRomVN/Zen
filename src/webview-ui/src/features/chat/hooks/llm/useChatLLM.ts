@@ -226,7 +226,9 @@ export const useChatLLM = ({
       uiHidden?: boolean,
       parentMessageId?: string,
     ) => {
-      if (isProcessingRef.current) {
+      // Cho phép tool results (skipFirstRequestLogic=true) đi qua ngay cả khi đang processing
+      // để tránh mất kết quả khi user click nhiều tool liên tiếp
+      if (isProcessingRef.current && !skipFirstRequestLogic) {
         console.warn(
           `[Zen][sendMessage] BLOCKED - already processing | skipFirstRequestLogic=${skipFirstRequestLogic} | conversationId=${currentConversationIdRef.current} | content preview: ${content.substring(0, 50)}`,
         );

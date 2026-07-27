@@ -96,14 +96,6 @@ export class ReplaceInFileExecutor implements ToolExecutor {
                 version: msg.version || undefined,
               },
             }));
-            
-            console.log('[ReplaceInFileExecutor] Saved tool output with version:', {
-              actionId,
-              filePath,
-              version: msg.version,
-              hasVersion: !!msg.version,
-              diagnosticsCount: msg.diagnostics?.length || 0,
-            });
 
             resolve(result);
           }

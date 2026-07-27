@@ -264,8 +264,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     const filterToolResultText = (text: string): string => {
       // Pattern: [tool_name for 'path'] Result: ...
       // This pattern is used for tool execution results sent to LLM, not for UI display
+      // FIXED: Support multiline results by matching everything after "Result:" until next tool result or end
       const toolResultPattern =
-        /\[[\w_]+(?:\s+for\s+'[^']*')?\]\s+Result:\s+[^\n]+/g;
+        /\[[\w_]+(?:\s+for\s+'[^']*')?\]\s+Result:[\s\S]*?(?=\n\[[\w_]+(?:\s+for\s+'[^']*')?\]\s+Result:|$)/g;
       return text.replace(toolResultPattern, "").trim();
     };
 

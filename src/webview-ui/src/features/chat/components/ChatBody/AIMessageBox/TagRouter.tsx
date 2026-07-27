@@ -697,7 +697,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
           const isClicked = clickedActions.has(`${messageId}-action-${index}`);
           const isFirstInGroup = index === toolGroup[0].index;
           const isActive = isActiveGroup && isFirstInGroup;
-          
+
           // In approval mode: hide all actions that come after the first unclicked action
           if (
             firstUnclickedActionIndex !== undefined &&
@@ -706,7 +706,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
           ) {
             return null; // Hide this action completely
           }
-          
+
           return (
             <WriteToFileRenderer
               key={index}
@@ -736,58 +736,23 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   }
 
   if (toolType === "replace_in_file") {
-    console.log('[TagRouter replace_in_file] Rendering group:', {
-      messageId,
-      toolGroupLength: toolGroup.length,
-      toolGroupItems: toolGroup.map(g => ({ 
-        index: g.index, 
-        actionId: `${messageId}-action-${g.index}`,
-        isClicked: clickedActions.has(`${messageId}-action-${g.index}`),
-      })),
-      firstUnclickedActionIndex,
-      isActiveGroup,
-      clickedActionsArray: Array.from(clickedActions).filter(id => id.startsWith(messageId)),
-      timestamp: new Date().toISOString(),
-    });
-    
     return (
       <>
         {toolGroup.map(({ action, index }) => {
           const isClicked = clickedActions.has(`${messageId}-action-${index}`);
           const isFirstInGroup = index === toolGroup[0].index;
           const isActive = isActiveGroup && isFirstInGroup;
-          
-          const willHide = firstUnclickedActionIndex !== undefined && 
-                          index > firstUnclickedActionIndex && 
-                          !isClicked;
-          
-          console.log(`[TagRouter replace_in_file] Processing action ${index}:`, {
-            index,
-            actionId: `${messageId}-action-${index}`,
-            isClicked,
-            isFirstInGroup,
-            isActive,
-            firstUnclickedActionIndex,
-            willHide,
-            hideConditions: {
-              hasFirstUnclicked: firstUnclickedActionIndex !== undefined,
-              indexGreaterThanFirst: index > (firstUnclickedActionIndex ?? -1),
-              notClicked: !isClicked,
-            },
-          });
-          
+
+          const willHide =
+            firstUnclickedActionIndex !== undefined &&
+            index > firstUnclickedActionIndex &&
+            !isClicked;
+
           // In approval mode: hide all actions that come after the first unclicked action
           if (willHide) {
-            console.log(`[TagRouter replace_in_file] HIDING action ${index}`);
             return null; // Hide this action completely
           }
-          
-          console.log(`[TagRouter replace_in_file] Rendering action ${index}:`, {
-            index,
-            isClicked,
-            mergedItemsCount: toolGroup.length,
-          });
-          
+
           return (
             <ReplaceInFileRenderer
               key={index}

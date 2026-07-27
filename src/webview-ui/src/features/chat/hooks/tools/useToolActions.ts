@@ -144,16 +144,6 @@ export const useToolActions = ({
       actionIndex: number,
       type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES] = TOOL_ACTION_TYPES.ACCEPT,
     ) => {
-      // 🔍 DEBUG LOG
-      console.log('[useToolActions] handleToolClick CALLED:', {
-        messageId: message.id,
-        actionIndex,
-        type,
-        isArray: Array.isArray(actionOrActions),
-        actionsCount: Array.isArray(actionOrActions) ? actionOrActions.length : 1,
-        timestamp: new Date().toISOString(),
-      });
-
       if (!onSendToolRequest) {
         return;
       }
@@ -179,7 +169,7 @@ export const useToolActions = ({
         // 🔧 FIX: When user clicks on a merged action group, only send the SINGLE action at actionIndex
         // This ensures approval mode requires individual approval for each merged action
         const targetAction = actionOrActions.find(
-          (a: any) => (a._index !== undefined ? a._index : 0) === actionIndex
+          (a: any) => (a._index !== undefined ? a._index : 0) === actionIndex,
         );
 
         if (!targetAction) {
@@ -189,7 +179,7 @@ export const useToolActions = ({
               actionIndex,
               availableIndices: actionOrActions.map((a: any) => a._index),
               messageId: message.id,
-            }
+            },
           );
           return;
         }
@@ -205,7 +195,8 @@ export const useToolActions = ({
               toolName: targetAction.type,
               errorCode: targetAction.errorCode,
               errorMessage: targetAction.errorMessage,
-              reason: "Merged action - validation error detected, execution blocked",
+              reason:
+                "Merged action - validation error detected, execution blocked",
             },
           );
           return;
@@ -213,13 +204,6 @@ export const useToolActions = ({
 
         // Skip if already clicked
         if (clickedActions.has(actionId)) {
-          console.log(
-            `[Zen][handleToolClick] Skipping action ${actionIndex} - already clicked`,
-            {
-              actionId,
-              actionIndex,
-            }
-          );
           return;
         }
 
@@ -230,16 +214,6 @@ export const useToolActions = ({
             actionId,
             _index: actionIndex,
           };
-          
-          console.log(
-            `[Zen][handleToolClick] Sending single merged action for approval:`,
-            {
-              actionId,
-              actionIndex,
-              toolType: targetAction.type,
-              messageId: message.id,
-            }
-          );
 
           onSendToolRequest(actionToProcess, message, false, type);
         }
