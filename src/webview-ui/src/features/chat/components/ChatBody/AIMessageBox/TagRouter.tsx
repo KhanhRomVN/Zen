@@ -147,13 +147,6 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
 }) => {
   const { rootPath } = useProject();
 
-  console.log("[TagRouter] Rendering group:", {
-    type: group.type,
-    hasContent: "content" in group,
-    contentPreview: "content" in group ? (group.content as string).substring(0, 100) : "N/A",
-    language: "language" in group ? group.language : "N/A",
-  });
-
   // Handle UI blocks (markdown, code, question, error, warning)
   if (group.type === "markdown") {
     return (
@@ -165,12 +158,6 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   }
 
   if (group.type === "code") {
-    console.log("[TagRouter] Rendering CODE block:", {
-      language: group.language,
-      contentLength: group.content.length,
-      contentPreview: group.content.substring(0, 100),
-    });
-    
     return (
       <div
         style={{
@@ -667,7 +654,12 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
           hasError={true}
           onExecute={(e, type) => {
             // Execute with reject type to skip
-            onToolClick(firstAction, messageId, toolGroup[0].index, TOOL_ACTION_TYPES.REJECT);
+            onToolClick(
+              firstAction,
+              messageId,
+              toolGroup[0].index,
+              TOOL_ACTION_TYPES.REJECT,
+            );
           }}
         />
       </div>

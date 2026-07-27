@@ -181,19 +181,24 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionType,
       ),
     onMalformedTool: (actionId, toolName, errorMessage, errorCode) => {
-      // Delay setState to avoid React "update during render" warning
-      setTimeout(() => {
-        if (setToolOutputsRef.current) {
-          setToolOutputsRef.current((prev: any) => ({
+      if (setToolOutputsRef.current) {
+        setToolOutputsRef.current((prev: any) => {
+          const updated = {
             ...prev,
             [actionId]: {
               output: `${errorCode}: ${errorMessage}`,
               isError: true,
               originalError: `${errorCode}: ${errorMessage}`, // Store original error
             },
-          }));
-        }
-      }, 0);
+          };
+
+          return updated;
+        });
+      } else {
+        console.warn(
+          "[Zen][onMalformedTool] ⚠️ setToolOutputsRef.current is null!",
+        );
+      }
     },
   });
 
@@ -432,30 +437,29 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, [parsedMessages]);
 
   // --- Message Handlers ---
-  const { handleSend, handleStopGeneration } =
-    useMessageHandlers({
-      message,
-      setMessage,
-      uploadedFiles,
-      attachedItems,
-      invalidExternalFiles,
-      currentModelRef,
-      currentAccountRef,
-      textareaRef,
-      clearDraft,
-      clearFiles,
-      clearAttachedItems,
-      clearInvalidExternalFiles,
-      undoStackRef,
-      undoIndexRef,
-      wrappedSendMessage,
-      currentConversationId,
-      currentChat,
-      stopGeneration,
-      setIsProcessing,
-      setMessages,
-      isStoppedRef,
-    });
+  const { handleSend, handleStopGeneration } = useMessageHandlers({
+    message,
+    setMessage,
+    uploadedFiles,
+    attachedItems,
+    invalidExternalFiles,
+    currentModelRef,
+    currentAccountRef,
+    textareaRef,
+    clearDraft,
+    clearFiles,
+    clearAttachedItems,
+    clearInvalidExternalFiles,
+    undoStackRef,
+    undoIndexRef,
+    wrappedSendMessage,
+    currentConversationId,
+    currentChat,
+    stopGeneration,
+    setIsProcessing,
+    setMessages,
+    isStoppedRef,
+  });
 
   // --- Textarea Handlers ---
   const { handleTextareaChange, handleKeyDown, handleOpenImage } =

@@ -120,10 +120,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     features: {
       showFileStats: true,
     },
-    params: {
-      required: ["file_path"],
-      optional: ["start_line", "end_line"],
-    },
   },
 
   write_to_file: {
@@ -140,9 +136,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       showFileStats: true,
       isFileMutation: true,
     },
-    params: {
-      required: ["file_path", "content"],
-    },
   },
 
   replace_in_file: {
@@ -158,9 +151,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     features: {
       validateFuzzyMatch: true,
       isFileMutation: true,
-    },
-    params: {
-      required: ["file_path", "old_content", "new_content"],
     },
   },
 
@@ -201,10 +191,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       approval: "allow",
       fullAccess: "allow",
     },
-    params: {
-      required: ["folder_path"],
-      optional: ["type"],
-    },
   },
 
   find_files: {
@@ -216,9 +202,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
-    },
-    params: {
-      required: ["file_name"],
     },
   },
 
@@ -232,10 +215,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       approval: "allow",
       fullAccess: "allow",
     },
-    params: {
-      required: ["search_term"],
-      optional: ["folder_path"],
-    },
   },
 
   delete_file: {
@@ -247,9 +226,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       readOnly: "reject",
       approval: "confirm",
       fullAccess: "allow",
-    },
-    params: {
-      required: ["file_path"],
     },
   },
 
@@ -263,9 +239,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       approval: "confirm",
       fullAccess: "allow",
     },
-    params: {
-      required: ["file_path", "target_folder_path"],
-    },
   },
 
   run_command: {
@@ -277,10 +250,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       readOnly: "reject",
       approval: "confirm",
       fullAccess: "confirm",
-    },
-    params: {
-      required: ["command"],
-      optional: ["cwd"],
     },
   },
 
@@ -306,9 +275,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       approval: "allow",
       fullAccess: "allow",
     },
-    params: {
-      required: ["message"],
-    },
   },
 
   git_diff: {
@@ -320,10 +286,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
       readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
-    },
-    params: {
-      required: [],
-      optional: ["file_path"],
     },
   },
 

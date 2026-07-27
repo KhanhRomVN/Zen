@@ -4,7 +4,6 @@ import { Message } from "../../types/message";
 import { useSettings } from "../../../../context/SettingsContext";
 import { getPermissionDecision } from "./useToolExecution";
 import { isToolClickable, TOOL_ACTION_TYPES } from "../../constants/constants";
-import { validateToolParams } from "../../utils/ToolParamValidator";
 
 interface UseToolActionsProps {
   onSendToolRequest?: (
@@ -294,28 +293,7 @@ export const useToolActions = ({
     lastMessage.parsed.actions.forEach((action: ToolAction, idx: number) => {
       const actionId = `${lastMessage.id}-action-${idx}`;
 
-      // 🔧 VALIDATE: Re-validate action params to catch errors from loaded history
-      // Import validator inline to avoid circular deps
-      const validation = validateToolParams(action.type, action.params);
-
-      // Update action.isError based on validation
-      if (!validation.isValid && !action.isError) {
-        action.isError = true;
-        action.errorMessage = validation.errorMessage;
-        action.errorCode = validation.errorCode;
-        console.warn(
-          `[useToolActions] ⚠️ Validation failed for loaded action:`,
-          {
-            actionId,
-            toolType: action.type,
-            errorCode: validation.errorCode,
-            errorMessage: validation.errorMessage,
-            params: action.params,
-          },
-        );
-      }
-
-      // 🔧 FIX: Handle actions with validation errors (malformed XML, missing params)
+      // Handle actions with validation errors (malformed XML, missing params)
       // Instead of skipping, we should REJECT them to generate error output for AI feedback
       if (action.isError) {
         console.warn(
@@ -325,6 +303,7 @@ export const useToolActions = ({
             toolName: action.type,
             errorCode: action.errorCode,
             errorMessage: action.errorMessage,
+            params: action.params,
             reason:
               "Validation error - will be rejected to provide feedback to AI",
           },

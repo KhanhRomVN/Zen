@@ -24,7 +24,6 @@ import { useMessageHandlers } from "./useMessageHandlers";
 import { PromptBuilder } from "../../services/PromptBuilder";
 import { StreamingService } from "../../services/StreamingService";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
-import { XML_TOOL_SYNTAX_REMINDER } from "../../prompts/reminder";
 
 interface UseChatLLMProps {
   apiUrl: string;
@@ -124,9 +123,6 @@ export const useChatLLM = ({
     renderCountRef,
     prevDepsRef,
   } = useConversationRefs();
-
-  // Flag to trigger tool syntax reminder in next request
-  const needsToolSyntaxReminderRef = useRef(false);
 
   // Track render performance
   const renderStartTime = performance.now();
@@ -295,7 +291,6 @@ export const useChatLLM = ({
       }
 
       // Build prompt using PromptBuilder
-      const needsReminder = needsToolSyntaxReminderRef.current;
       const promptPayload = await PromptBuilder.buildPrompt({
         content,
         isReq1,
@@ -305,12 +300,7 @@ export const useChatLLM = ({
         treeView,
         files,
         userRequestCount: userRequestCountRef.current,
-        needsToolSyntaxReminder: needsReminder,
       });
-      // Reset flag after building prompt
-      if (needsReminder) {
-        needsToolSyntaxReminderRef.current = false;
-      }
 
       const userMessage: Message = {
         id: `msg-${Date.now()}-${skipFirstRequestLogic ? "tool" : "user"}`,
@@ -686,159 +676,69 @@ export const useChatLLM = ({
             .filter(Boolean)
             .join(" ");
 
-          // 🔧 VALIDATION: Now that stream is complete, validate all tool actions
-          // Import validator
-          const { validateToolParams } =
-            await import("../../utils/ToolParamValidator");
-          const { TAG_REGISTRY } = await import("../../constants/constants");
+          // Attach parsed data to assistantMessage
+          assistantMessage.parsed = parsed;
 
-          // 📊 DEBUG INFO: Build parse debug info for troubleshooting (always create, even if no actions)
-          const parseDebugActions: any[] = [];
+          // 📊 Create parseDebugInfo with detailed action parsing info
+          const parseDebugActions = parsed.actions.map((action: any, index: number) => {
+            // Check if action has error markers
+            const hasError = action.isError || action.errorMessage;
+            const status = hasError ? "error" : "success";
 
-          // Validate each action and mark as error if validation fails
-          for (let i = 0; i < parsed.actions.length; i++) {
-            const action = parsed.actions[i];
+            // Extract parameter info for debugging
+            const extractedParams = Object.entries(action.params).map(([name, value]) => ({
+              name,
+              found: value !== undefined && value !== null && value !== "",
+              length: typeof value === "string" ? value.length : undefined,
+            }));
 
-            // Build debug entry for this action
-            const debugEntry: any = {
-              index: i,
+            return {
+              index,
               type: action.type,
               params: action.params,
-              status: action.isError ? "error" : "success",
+              status,
+              errorMessage: action.errorMessage,
+              errorCode: action.errorCode,
+              extractedParams,
             };
+          });
 
-            if (action.isError) {
-              debugEntry.errorMessage = action.errorMessage;
-              debugEntry.errorCode = action.errorCode;
-            }
+          const successfulActions = parseDebugActions.filter((a: any) => a.status === "success").length;
+          const failedActions = parseDebugActions.filter((a: any) => a.status === "error").length;
 
-            // Extract param info for debug
-            const toolDef = TAG_REGISTRY[action.type];
-            if (toolDef?.params?.required) {
-              debugEntry.extractedParams = toolDef.params.required.map(
-                (paramName: string) => {
-                  const value = action.params[paramName];
-                  const found =
-                    value !== null && value !== undefined && value !== "";
-                  return {
-                    name: paramName,
-                    found,
-                    length:
-                      found && typeof value === "string"
-                        ? value.length
-                        : undefined,
-                  };
-                },
-              );
-            }
-
-            parseDebugActions.push(debugEntry);
-
-            if (action.isError) continue; // Already marked as error by parser
-
-            // Extract innerContent from rawXml for validation
-            const toolOpenTag = `<${action.type}`;
-            const toolCloseTag = `</${action.type}>`;
-            const openIndex = action.rawXml.indexOf(toolOpenTag);
-            const closeIndex = action.rawXml.lastIndexOf(toolCloseTag);
-
-            if (openIndex !== -1 && closeIndex !== -1) {
-              const openTagEnd = action.rawXml.indexOf(">", openIndex);
-              if (openTagEnd !== -1 && openTagEnd < closeIndex) {
-                // Run validation
-                const validation = validateToolParams(
-                  action.type,
-                  action.params,
-                );
-                if (!validation.isValid) {
-                  // Mark action as error
-                  action.isError = true;
-                  action.errorMessage = validation.errorMessage;
-                  action.errorCode = validation.errorCode;
-
-                  // Update debug entry
-                  debugEntry.status = "error";
-                  debugEntry.errorMessage = validation.errorMessage;
-                  debugEntry.errorCode = validation.errorCode;
-
-                  console.warn("[Zen][useChatLLM] Tool validation failed:", {
-                    toolName: action.type,
-                    errorCode: validation.errorCode,
-                    errorMessage: validation.errorMessage,
-                    params: action.params,
-                    missingParams: validation.missingParams,
-                    actionWillBeBlocked: true,
-                  });
-                }
-              }
-            }
-          }
-
-          // 📊 Attach parse debug info to assistant message
-          const successfulActions = parseDebugActions.filter(
-            (a) => a.status === "success",
-          ).length;
-          const failedActions = parseDebugActions.filter(
-            (a) => a.status === "error",
-          ).length;
+          // Count content blocks by type for debugging
+          const contentBlockStats = parsed.contentBlocks.reduce((acc: any, block: any) => {
+            acc[block.type] = (acc[block.type] || 0) + 1;
+            return acc;
+          }, {});
 
           assistantMessage.parseDebugInfo = {
             totalActions: parsed.actions.length,
             successfulActions,
             failedActions,
             actions: parseDebugActions,
+            contentBlocks: parsed.contentBlocks.map((block: any, index: number) => ({
+              index,
+              type: block.type,
+              contentLength: block.content?.length || 0,
+              language: block.language,
+              actionIndex: block.actionIndex,
+            })),
+            contentBlockStats,
           };
 
-          // 🔧 If there are malformed tool actions, append their errors to content
-          // so they are sent in the next request for AI self-correction
-          const malformedActions = parsed.actions.filter((a: any) => a.isError);
-          if (malformedActions.length > 0) {
-            const errorTexts = malformedActions.map(
-              (action: any, index: number) => {
-                const toolName = action.type;
-                const errorMsg = action.errorMessage || "Malformed tool output";
-                const errorCode = action.errorCode || "UNKNOWN_ERROR";
-
-                // Extract file path or relevant context for the "for" part
-                const filePath =
-                  action.params.file_path ||
-                  action.params.folder_path ||
-                  action.params.path ||
-                  action.params.file_name ||
-                  action.params.search_term ||
-                  "";
-                const forPart = filePath ? ` for '${filePath}'` : "";
-
-                // Generate actionId for this malformed tool
-                const actionId = `${assistantMessageId}-action-${parsed.actions.indexOf(action)}`;
-
-                // Notify parent to save error in toolOutputs
-                if (onMalformedTool) {
-                  onMalformedTool(actionId, toolName, errorMsg, errorCode);
-                }
-
-                return `\n[${toolName}${forPart}] Result: Error - ${errorCode}: ${errorMsg}`;
-              },
-            );
-
-            // Set flag for reminder in next request
-            needsToolSyntaxReminderRef.current = true;
-
-            // ⚠️ DO NOT append errors to message content for UI display
-            // Errors are already saved in toolOutputs via onMalformedTool
-            // and will be included in the next request context automatically
-
-            // Store errors separately for next request (not in UI)
-            // assistantMessage.content += errorTexts.join(""); // REMOVED
-
-            console.warn(
-              "[Zen][useChatLLM] Malformed tools detected, errors saved to toolOutputs:",
-              {
-                count: malformedActions.length,
-                errorSummary: errorTexts.join(""),
-              },
-            );
-          }
+          // Update React state with the parsed data and debug info
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMessageId
+                ? { 
+                    ...m, 
+                    parsed: assistantMessage.parsed,
+                    parseDebugInfo: assistantMessage.parseDebugInfo,
+                  }
+                : m,
+            ),
+          );
         } catch (parseError) {
           hasParsingError = true;
           // Parsing failed - convert assistant message to error
@@ -899,6 +799,38 @@ export const useChatLLM = ({
           undefined,
           false, // skipSave = false → lưu khi response thành công
         );
+
+        // 🚨 DETECT ONLY-THINKING RESPONSE
+        // If response has ONLY <thinking> block with no other content or actions,
+        // automatically send a follow-up request with reminder
+        if (!hasParsingError && parsed && parsed.onlyThinkingDetected) {
+          console.warn(
+            "[Zen][sendMessage] ⚠️ Only-thinking response detected - sending auto-retry with reminder",
+          );
+
+          // Import reminder
+          const { ONLY_THINKING_REMINDER } = await import(
+            "../../prompts/reminder"
+          );
+
+          // Give UI time to update before sending follow-up
+          setTimeout(() => {
+            // Send follow-up request with reminder
+            sendMessage(
+              ONLY_THINKING_REMINDER,
+              undefined, // no files
+              undefined, // use existing model
+              undefined, // use existing account
+              true, // skipFirstRequestLogic = true (this is a continuation)
+              undefined, // no actionIds
+              false, // not UI hidden
+              undefined, // no parent message ID
+            );
+          }, 500);
+
+          // Don't trigger tool requests for only-thinking responses
+          return;
+        }
 
         // Trigger tool request only if parsing succeeded
         if (

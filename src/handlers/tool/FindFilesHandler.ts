@@ -1,9 +1,9 @@
 /**
  *? Usage:
- *    Tìm file theo tên (glob pattern) trong workspace, trả về danh sách đường dẫn.
+ *    Tìm file theo tên (glob pattern) trong workspace hoặc trong folder cụ thể, trả về danh sách đường dẫn.
  *
  *? Function:
- *    handleFindFiles(): Tìm file theo tên (glob pattern), trả về danh sách đường dẫn.
+ *    handleFindFiles(): Tìm file theo tên (glob pattern), có thể giới hạn trong folder_path nếu được cung cấp.
  */
 import * as vscode from "vscode";
 
@@ -12,34 +12,53 @@ export class FindFilesHandler {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace folder found");
-      const fileNames: string[] = message.fileNames || message.file_names || [];
-      if (!fileNames || fileNames.length === 0)
-        throw new Error("No file names provided");
-      const results: {
-        fileName: string;
-        matches: Array<{ path: string }>;
-      }[] = [];
-      for (const fileName of fileNames) {
-        const globPattern = `**/${fileName}`;
-        try {
-          const files = await vscode.workspace.findFiles(
-            globPattern,
-            "**/node_modules/**",
-          );
-          const matches = files.map((fileUri) => ({
-            path: vscode.workspace.asRelativePath(fileUri),
-          }));
-          results.push({ fileName, matches });
-        } catch (error: any) {
-          results.push({ fileName, matches: [] });
-        }
+      
+      const fileName: string = message.fileName || message.file_name || "";
+      const folderPath: string | undefined = message.folderPath || message.folder_path;
+      
+      if (!fileName) throw new Error("No file name provided");
+
+      // Build glob pattern based on whether folder_path is provided
+      let globPattern: string;
+      let excludePattern = "**/node_modules/**";
+      
+      if (folderPath) {
+        // Search only within the specified folder
+        globPattern = `${folderPath}/**/${fileName}`;
+      } else {
+        // Search entire workspace
+        globPattern = `**/${fileName}`;
       }
-      webviewView.webview.postMessage({
-        command: "findFilesResult",
-        requestId: message.requestId,
-        results,
-        totalMatches: results.reduce((sum, r) => sum + r.matches.length, 0),
-      });
+
+      try {
+        const files = await vscode.workspace.findFiles(
+          globPattern,
+          excludePattern,
+        );
+        
+        const matches = files.map((fileUri) => ({
+          path: vscode.workspace.asRelativePath(fileUri),
+        }));
+
+        webviewView.webview.postMessage({
+          command: "findFilesResult",
+          requestId: message.requestId,
+          fileName,
+          folderPath: folderPath || null,
+          matches,
+          totalMatches: matches.length,
+        });
+      } catch (error: any) {
+        webviewView.webview.postMessage({
+          command: "findFilesResult",
+          requestId: message.requestId,
+          fileName,
+          folderPath: folderPath || null,
+          matches: [],
+          totalMatches: 0,
+          error: error.message,
+        });
+      }
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "findFilesResult",

@@ -2,7 +2,7 @@
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 12px;
   color: var(--vscode-foreground);
-  padding: 8px 0;
+  padding: 0;
   user-select: none;
 }
 
@@ -19,19 +19,14 @@
   padding-right: 8px;
   /* paddingLeft is set inline via style attribute based on level */
   transition: background-color 0.15s ease;
-  cursor: default;
-}
-
-.tree-node-content.clickable {
   cursor: pointer;
 }
 
-.tree-node-content.clickable:hover {
+.tree-node-content:hover {
   background-color: var(--vscode-list-hoverBackground);
 }
 
 .tree-chevron {
-  font-size: 12px;
   cursor: pointer;
   color: var(--vscode-icon-foreground);
   flex-shrink: 0;
@@ -39,10 +34,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.tree-chevron:hover {
-  color: var(--vscode-foreground);
 }
 
 .tree-chevron-placeholder {

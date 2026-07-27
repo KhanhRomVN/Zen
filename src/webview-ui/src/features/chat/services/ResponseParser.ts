@@ -219,13 +219,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     let match;
     const segments: any[] = [];
 
-    console.log("[ResponseParser] pushTextOrCodeBlocks called:", {
-      baseType,
-      contentLength: content.length,
-      contentPreview: content.substring(0, 200),
-      hasTripleBackticks: content.includes("```"),
-    });
-
     while ((match = regex.exec(content)) !== null) {
       const textBefore = content.substring(lastIndex, match.index);
       if (textBefore.trim().length > 0) {
@@ -234,7 +227,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
       const language = match[1] || "text";
       let codeContent = match[2].trimEnd();
-      
+
       // If there was no newline after language identifier, the first char might be
       // part of the language name, not code. Let's check and adjust.
       // E.g., "```jsfunction" should be language="js", code="function"
@@ -244,13 +237,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         codeContent = codeContent.trimStart();
       }
 
-      console.log("[ResponseParser] Found code block:", {
-        language,
-        codeLength: codeContent.length,
-        codePreview: codeContent.substring(0, 50),
-        matchedText: match[0].substring(0, 50),
-      });
-      
       // If AI wraps content in ```markdown ... ```, treat it as markdown, not a code block
       // Also treat bare ``` or ```text with no-newline content as markdown
       if (
@@ -274,40 +260,29 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       segments.push({ type: baseType, content: textAfter });
     }
 
-    console.log("[ResponseParser] Segments created:", {
-      totalSegments: segments.length,
-      segmentTypes: segments.map(s => s.type),
-      codeSegments: segments.filter(s => s.type === "code").length,
-    });
-
     // Filter function to remove tool result text patterns
     const filterToolResultText = (text: string): string => {
       // Pattern: [tool_name for 'path'] Result: ...
       // This pattern is used for tool execution results sent to LLM, not for UI display
-      const toolResultPattern = /\[[\w_]+(?:\s+for\s+'[^']*')?\]\s+Result:\s+[^\n]+/g;
-      return text.replace(toolResultPattern, '').trim();
+      const toolResultPattern =
+        /\[[\w_]+(?:\s+for\s+'[^']*')?\]\s+Result:\s+[^\n]+/g;
+      return text.replace(toolResultPattern, "").trim();
     };
 
     // Always push segments as individual blocks instead of mixed_content
     for (const segment of segments) {
       if (segment.content.trim().length > 0) {
         // Filter out tool result text from markdown blocks
-        const filteredContent = segment.type === baseType 
-          ? filterToolResultText(segment.content)
-          : segment.content;
-        
+        const filteredContent =
+          segment.type === baseType
+            ? filterToolResultText(segment.content)
+            : segment.content;
+
         // Only push if there's content left after filtering
         if (filteredContent.trim().length > 0) {
-          console.log("[ResponseParser] Pushing contentBlock:", {
-            type: segment.type,
-            language: segment.language,
-            contentLength: filteredContent.length,
-            contentPreview: filteredContent.substring(0, 50),
-          });
-          
           result.contentBlocks.push({
             ...segment,
-            content: filteredContent
+            content: filteredContent,
           });
         }
       }

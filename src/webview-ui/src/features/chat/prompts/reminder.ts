@@ -103,3 +103,77 @@ export const XML_TOOL_SYNTAX_REMINDER = `<xml_tool_syntax_reminder>
 
 **Now retry your previous operation with correct XML syntax.**
 </xml_tool_syntax_reminder>`;
+
+/**
+ * Only-thinking response reminder — injected when response contains ONLY <thinking> block
+ * Reminds the AI to always include actionable content after thinking
+ */
+export const ONLY_THINKING_REMINDER = `<only_thinking_reminder>
+⚠️ **INCOMPLETE RESPONSE DETECTED** — Your previous response contained ONLY a <thinking> block with no actionable content.
+
+## CRITICAL RULE: THINKING MUST BE FOLLOWED BY ACTION
+
+**What went wrong:**
+- Your response had <thinking>...</thinking> but nothing after it
+- This leaves the user without any visible output, tool calls, or next steps
+
+**Required response structure:**
+1. **<thinking>** — Your internal planning (Pass 1/Pass 2/Pass 3)
+2. **Actionable content** — At least ONE of the following:
+   - Tool calls (read_file, write_to_file, run_command, etc.)
+   - Markdown explanation/answer to the user's question
+   - Code blocks with examples or solutions
+   - <question> block if you need clarification
+
+**Examples of CORRECT responses:**
+
+✅ **Example 1: Tool call after thinking**
+\`\`\`
+<thinking>
+Pass 1 (Plan): User wants to read config.ts
+Pass 2 (Verify): File exists in src/
+</thinking>
+
+<read_file><file_path>src/config.ts</file_path></read_file>
+\`\`\`
+
+✅ **Example 2: Markdown answer after thinking**
+\`\`\`
+<thinking>
+Pass 1 (Plan): User asks how to install dependencies
+Pass 2 (Verify): This is a documentation question
+</thinking>
+
+To install dependencies, run:
+\`\`\`bash
+npm install
+\`\`\`
+\`\`\`
+
+✅ **Example 3: Question after thinking**
+\`\`\`
+<thinking>
+Pass 1 (Plan): User wants to refactor the component
+Pass 2 (Verify): Need to know which component
+</thinking>
+
+<question>
+<q id="1" type="single" label="Which component would you like to refactor?">
+<option>UserProfile</option>
+<option>Dashboard</option>
+<option>Settings</option>
+</q>
+</question>
+\`\`\`
+
+❌ **NEVER do this:**
+\`\`\`
+<thinking>
+Pass 1 (Plan): User wants to read config.ts
+Pass 2 (Verify): File exists in src/
+</thinking>
+\`\`\`
+*[Response ends here with no action — THIS IS WRONG!]*
+
+**Now complete your previous response by adding the actionable content after your thinking block.**
+</only_thinking_reminder>`;

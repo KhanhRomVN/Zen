@@ -83,111 +83,71 @@ export const FindFilesRenderer: React.FC<BaseRendererProps> = ({
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              gap: "4px",
+              alignItems: "center",
+              gap: "8px",
               fontSize: "12px",
               color: "var(--vscode-editor-foreground)",
               cursor: isCompleted ? "pointer" : "default",
             }}
             onClick={isCompleted ? () => setIsCollapsed((v) => !v) : undefined}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>{getToolLabel("find_files")}</span>
-              {isPartial && !isCompleted && (
+            <span style={{ fontWeight: 600, opacity: 0.8 }}>
+              {getToolLabel("find_files")}
+            </span>
+            {isCompleted && (
+              <>
                 <span
                   style={{
-                    fontSize: "10px",
-                    opacity: 0.55,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
+                    fontWeight: 500,
+                    opacity: 0.9,
+                    fontFamily: "var(--vscode-editor-font-family, monospace)",
+                    fontSize: "11px",
                   }}
                 >
-                  <span
-                    className="codicon codicon-loading codicon-modifier-spin"
-                    style={{ fontSize: "10px" }}
-                  />
-                  Searching...
+                  {fileCount} {fileCount === 1 ? "file" : "files"} of
                 </span>
-              )}
-              {isCompleted && (
-                <>
-                  <span
-                    className={`codicon codicon-chevron-${isCollapsed ? "right" : "down"}`}
-                    style={{ fontSize: "10px", opacity: 0.5 }}
-                  />
-                  <span
-                    style={{
-                      opacity: 0.5,
-                      fontSize: "10px",
-                      color: "var(--vscode-descriptionForeground)",
-                    }}
-                  >
-                    {fileCount} {fileCount === 1 ? "file" : "files"}
-                  </span>
-                </>
-              )}
-            </div>
-
-            {(() => {
-              const searchFileNames =
-                action.params.file_names || action.params.file_name;
-              const fileNamesArray = Array.isArray(searchFileNames)
-                ? searchFileNames
-                : searchFileNames
-                  ? [searchFileNames]
-                  : [];
-
-              if (fileNamesArray.length > 0) {
-                return (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "6px",
-                      alignItems: "center",
-                      marginLeft: "2px",
-                    }}
-                  >
-                    {fileNamesArray.map((fileName, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                        }}
-                      >
-                        {idx > 0 && (
-                          <span style={{ opacity: 0.3, fontSize: "11px" }}>
-                            |
-                          </span>
-                        )}
-                        <FileIcon
-                          path={fileName}
-                          isFolder={false}
-                          style={{ width: "14px", height: "14px" }}
-                        />
-                        <span
-                          style={{
-                            fontFamily:
-                              "var(--vscode-editor-font-family, monospace)",
-                            fontSize: "11px",
-                            fontWeight: 500,
-                            opacity: 0.9,
-                          }}
-                        >
-                          {fileName}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-              return null;
-            })()}
+                <FileIcon
+                  path={action.params.file_name || ""}
+                  isFolder={false}
+                  style={{ width: "16px", height: "16px" }}
+                />
+                <span
+                  style={{
+                    fontWeight: 500,
+                    opacity: 0.9,
+                    fontFamily: "var(--vscode-editor-font-family, monospace)",
+                    fontSize: "11px",
+                  }}
+                >
+                  {action.params.file_name || ""}
+                </span>
+                <span
+                  className={`codicon codicon-chevron-${isCollapsed ? "right" : "down"}`}
+                  style={{ fontSize: "10px", opacity: 0.5 }}
+                />
+              </>
+            )}
+            {isPartial && !isCompleted && (
+              <span
+                style={{
+                  fontSize: "10px",
+                  opacity: 0.55,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <span
+                  className="codicon codicon-loading codicon-modifier-spin"
+                  style={{ fontSize: "10px" }}
+                />
+                Searching...
+              </span>
+            )}
           </div>
         }
+        subTitle={undefined}
+        path={isCompleted ? (action.params.folder_path || ".") : undefined}
         statusColor={
           isError
             ? "var(--vscode-errorForeground)"

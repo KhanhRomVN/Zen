@@ -449,11 +449,135 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
                   letterSpacing: "0.5px",
                 }}
               >
-                Parse Debug Info
+                Parse Debug Log
               </div>
               <CodeBlock
-                code={JSON.stringify(message.parseDebugInfo, null, 2)}
-                language="json"
+                code={(() => {
+                  const info = message.parseDebugInfo!;
+                  const lines: string[] = [];
+                  
+                  lines.push("=".repeat(60));
+                  lines.push("RESPONSE PARSE DEBUG LOG");
+                  lines.push("=".repeat(60));
+                  lines.push("");
+                  
+                  // Summary
+                  lines.push("📊 SUMMARY");
+                  lines.push("-".repeat(60));
+                  lines.push(`Total Tool Actions: ${info.totalActions}`);
+                  lines.push(`Successful: ${info.successfulActions}`);
+                  lines.push(`Failed: ${info.failedActions}`);
+                  
+                  // Content blocks summary
+                  if (info.contentBlocks && info.contentBlocks.length > 0) {
+                    lines.push("");
+                    lines.push(`Total Content Blocks: ${info.contentBlocks.length}`);
+                    if (info.contentBlockStats) {
+                      lines.push("Block Types:");
+                      Object.entries(info.contentBlockStats).forEach(([type, count]) => {
+                        lines.push(`  - ${type}: ${count}`);
+                      });
+                    }
+                  }
+                  lines.push("");
+                  
+                  // Parse Error (if exists)
+                  if (info.parseError) {
+                    lines.push("❌ PARSE ERROR");
+                    lines.push("-".repeat(60));
+                    lines.push(`Message: ${info.parseError.message}`);
+                    lines.push("");
+                    lines.push("Raw Content (first 500 chars):");
+                    lines.push(info.parseError.rawContent);
+                    lines.push("");
+                  }
+                  
+                  // Content Blocks (new section)
+                  if (info.contentBlocks && info.contentBlocks.length > 0) {
+                    lines.push("📄 CONTENT BLOCKS");
+                    lines.push("-".repeat(60));
+                    
+                    info.contentBlocks.forEach((block) => {
+                      const typeIcon = 
+                        block.type === "thinking" ? "💭" :
+                        block.type === "markdown" ? "📝" :
+                        block.type === "code" ? "💻" :
+                        block.type === "tool" ? "🔧" :
+                        block.type === "question" ? "❓" : "📦";
+                      
+                      lines.push("");
+                      lines.push(`[${block.index + 1}] ${typeIcon} ${block.type.toUpperCase()}`);
+                      lines.push(`    Content Length: ${block.contentLength} chars`);
+                      
+                      if (block.language) {
+                        lines.push(`    Language: ${block.language}`);
+                      }
+                      
+                      if (block.actionIndex !== undefined) {
+                        lines.push(`    Linked to Action: #${block.actionIndex + 1}`);
+                      }
+                    });
+                    
+                    lines.push("");
+                  }
+                  
+                  // Action Details
+                  if (info.actions.length > 0) {
+                    lines.push("🔧 TOOL ACTION DETAILS");
+                    lines.push("-".repeat(60));
+                    
+                    info.actions.forEach((action, idx) => {
+                      const statusIcon = action.status === "success" ? "✅" : "❌";
+                      lines.push("");
+                      lines.push(`[${idx + 1}] ${statusIcon} ${action.type.toUpperCase()}`);
+                      lines.push(`    Status: ${action.status}`);
+                      
+                      if (action.errorMessage) {
+                        lines.push(`    Error: ${action.errorMessage}`);
+                      }
+                      
+                      if (action.errorCode) {
+                        lines.push(`    Error Code: ${action.errorCode}`);
+                      }
+                      
+                      // Parameters
+                      if (action.extractedParams && action.extractedParams.length > 0) {
+                        lines.push("    Parameters:");
+                        action.extractedParams.forEach((param) => {
+                          const paramIcon = param.found ? "✓" : "✗";
+                          const lengthInfo = param.length !== undefined ? ` (${param.length} chars)` : "";
+                          lines.push(`      ${paramIcon} ${param.name}${lengthInfo}`);
+                        });
+                      }
+                      
+                      // Show actual param values for debugging
+                      const paramEntries = Object.entries(action.params);
+                      if (paramEntries.length > 0) {
+                        lines.push("    Values:");
+                        paramEntries.forEach(([key, value]) => {
+                          if (value === null || value === undefined || value === "") {
+                            lines.push(`      ${key}: <empty>`);
+                          } else if (typeof value === "string") {
+                            const preview = value.length > 100 
+                              ? `${value.substring(0, 100)}... (${value.length} chars total)`
+                              : value;
+                            lines.push(`      ${key}: ${preview}`);
+                          } else {
+                            lines.push(`      ${key}: ${JSON.stringify(value)}`);
+                          }
+                        });
+                      }
+                    });
+                  }
+                  
+                  lines.push("");
+                  lines.push("=".repeat(60));
+                  lines.push(`Generated at: ${new Date().toISOString()}`);
+                  lines.push("=".repeat(60));
+                  
+                  return lines.join("\n");
+                })()}
+                language="log"
                 maxHeight="400px"
               />
             </div>

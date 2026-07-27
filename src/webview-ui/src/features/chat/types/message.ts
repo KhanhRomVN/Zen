@@ -88,6 +88,14 @@ export interface Message {
         length?: number;
       }>;
     }>;
+    contentBlocks?: Array<{
+      index: number;
+      type: string;
+      contentLength: number;
+      language?: string;
+      actionIndex?: number;
+    }>;
+    contentBlockStats?: Record<string, number>;
     parseError?: {
       message: string;
       rawContent: string;

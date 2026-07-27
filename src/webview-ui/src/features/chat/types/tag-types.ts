@@ -33,11 +33,6 @@ export interface TagDefinition {
     validateFuzzyMatch?: boolean;
     isFileMutation?: boolean;
   };
-
-  params?: {
-    required: string[];
-    optional?: string[];
-  };
 }
 
 /**

@@ -235,20 +235,23 @@ export const useToolExecution = ({
   }, []);
 
   // Build executor context
-  const buildExecutorContext = useCallback((responseNumber?: number): ExecutorContext => {
-    return {
-      setToolOutputs,
-      conversationIdRef,
-      getToolTimeout,
-      extensionService,
-      messageDispatcher,
-      // Extended fields for run_command and other special executors
-      pendingToolResolvers: pendingToolResolvers.current,
-      commandStartTimes: commandStartTimes.current,
-      earlyCommandResults: earlyCommandResults.current,
-      responseNumber,
-    };
-  }, [setToolOutputs, conversationIdRef]);
+  const buildExecutorContext = useCallback(
+    (responseNumber?: number): ExecutorContext => {
+      return {
+        setToolOutputs,
+        conversationIdRef,
+        getToolTimeout,
+        extensionService,
+        messageDispatcher,
+        // Extended fields for run_command and other special executors
+        pendingToolResolvers: pendingToolResolvers.current,
+        commandStartTimes: commandStartTimes.current,
+        earlyCommandResults: earlyCommandResults.current,
+        responseNumber,
+      };
+    },
+    [setToolOutputs, conversationIdRef],
+  );
 
   const executeSingleAction = useCallback(
     async (
@@ -290,7 +293,12 @@ export const useToolExecution = ({
       actionType?: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
     ) => {
       const currentPermissionMode = permissionModeRef.current;
-      const responseNumber = message.role === "assistant" ? (messagesRef?.current?.filter(m => m.role === "assistant" && m.timestamp <= message.timestamp).length ?? undefined) : undefined;
+      const responseNumber =
+        message.role === "assistant"
+          ? (messagesRef?.current?.filter(
+              (m) => m.role === "assistant" && m.timestamp <= message.timestamp,
+            ).length ?? undefined)
+          : undefined;
       let wasInterruptedByManual = false;
 
       const actions = (
@@ -315,6 +323,56 @@ export const useToolExecution = ({
 
         const isReject = actionType === TOOL_ACTION_TYPES.REJECT;
         const isAlreadyClicked = clickedActionsRef.current.has(actionId);
+
+        // BUT generate error result for auto-send in next request
+        if (action.isError) {
+          // Extract file path from action params for better error context
+          const filePath =
+            action.params?.file_path ||
+            action.params?.folder_path ||
+            action.params?.path ||
+            action.params?.file_name ||
+            action.params?.search_term ||
+            "";
+          const toolLabel = filePath
+            ? `${action.type} for '${filePath}'`
+            : action.type;
+
+          // Generate error result message (like when tool execution fails)
+          const errorResult = `Output: [${toolLabel}] Result: Error - ${action.errorCode}: ${action.errorMessage}`;
+          validResults.push(errorResult);
+
+          // Save to toolOutputs for UI display
+          setToolOutputs((prev: any) => ({
+            ...prev,
+            [actionId]: {
+              output: errorResult,
+              isError: true,
+            },
+          }));
+
+          // 🔧 Mark as completed and clicked so auto-send logic works
+          setExecutionState((prev) => ({
+            ...prev,
+            completed: prev.completed + 1,
+          }));
+
+          // Add to clickedActions to mark as processed
+          clickedActionsRef.current.add(actionId);
+          setClickedActions(new Set(clickedActionsRef.current));
+
+          // Notify UI that action failed
+          window.postMessage(
+            {
+              command: "markActionFailed",
+              actionId,
+            },
+            "*",
+          );
+
+          // Don't increment skippedCount - we did process this action (just with error result)
+          continue;
+        }
 
         // FIXED: Only skip if already clicked AND this is an auto-trigger
         // When manually clicked (hasActionId = true), we should NOT skip even if already in clickedActions
@@ -381,17 +439,17 @@ export const useToolExecution = ({
           // Get error message from toolOutputs if available
           const errorInfo = toolOutputsRef.current[actionId];
           const errorMessage = errorInfo?.isError ? errorInfo.output : null;
-          
+
           // Extract file path from action params for better error context
           const filePath = action.params?.file_path || action.params?.path;
-          const toolLabel = filePath 
+          const toolLabel = filePath
             ? `${action.type} for '${filePath}'`
             : action.type;
-          
-          result = errorMessage 
+
+          result = errorMessage
             ? `Output: [${toolLabel}] Tool execution rejected by user due to error:\n${errorMessage}`
             : `Output: [${toolLabel}] Tool execution rejected by user.`;
-          
+
           setRejectedActions((prev) => {
             const next = new Set(prev).add(actionId);
             return next;
@@ -451,7 +509,9 @@ export const useToolExecution = ({
                     diagnostics: existing?.diagnostics,
                     version: (existing as any)?.version,
                     // Preserve originalError if this is a rejection and we already have an error
-                    originalError: existing?.originalError || (existing?.isError ? existing.output : undefined),
+                    originalError:
+                      existing?.originalError ||
+                      (existing?.isError ? existing.output : undefined),
                   },
                 };
               });
@@ -569,14 +629,23 @@ export const useToolExecution = ({
                   : "Question";
               finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
             }
+
+            // 🔧 Check if any result contains error
+            const hasAnyError = newBuffer.some(
+              (result: string) =>
+                result.includes("Result: Error") ||
+                result.includes("Tool execution blocked") ||
+                result.includes("Tool execution rejected"),
+            );
+
             handleSendMessageRef.current(
               finalContent,
               undefined,
               undefined,
               undefined,
-              true,
+              !hasAnyError, // 👈 skipFirstRequestLogic: false when has error (treat as normal user message)
               allActionIds,
-              true,
+              !hasAnyError, // 👈 uiHidden: false when has error
             );
           }
           return { ...prev, [message.id]: [] };

@@ -1,22 +1,19 @@
 export interface FindFilesParams {
-  file_names: string[];
+  file_name: string;
+  folder_path?: string;
 }
 
 export function parseFindFiles(content: string): FindFilesParams {
-  const fileNames: string[] = [];
+  // Match <file_name>...</file_name> tag (single file name only)
+  const fileNameMatch = /<file_name>(.*?)<\/file_name>/s.exec(content);
+  const fileName = fileNameMatch ? fileNameMatch[1].trim() : "";
   
-  // Match all <file_name>...</file_name> tags
-  const fileNameRegex = /<file_name>(.*?)<\/file_name>/gs;
-  let match;
-  
-  while ((match = fileNameRegex.exec(content)) !== null) {
-    const fileName = match[1].trim();
-    if (fileName) {
-      fileNames.push(fileName);
-    }
-  }
+  // Match optional <folder_path>...</folder_path> tag
+  const folderPathMatch = /<folder_path>(.*?)<\/folder_path>/s.exec(content);
+  const folderPath = folderPathMatch ? folderPathMatch[1].trim() : undefined;
   
   return {
-    file_names: fileNames,
+    file_name: fileName,
+    folder_path: folderPath,
   };
 }

@@ -4,7 +4,6 @@ import {
   buildPermissionModeTag,
   CHECKPOINT_REMINDER,
   CHECKPOINT_INTERVAL,
-  XML_TOOL_SYNTAX_REMINDER,
 } from "../prompts";
 import { extensionService } from "@/services/ExtensionService";
 
@@ -17,7 +16,6 @@ export interface PromptBuilderOptions {
   treeView: string;
   files?: any[];
   userRequestCount: number;
-  needsToolSyntaxReminder?: boolean;
 }
 
 export const getShallowTree = (tree: string): string => {
@@ -99,16 +97,10 @@ export class PromptBuilder {
       checkpointReminder = `\n\n${CHECKPOINT_REMINDER}`;
     }
 
-    // Tool syntax reminder (injected when malformed tool detected in previous response)
-    let toolSyntaxReminder = "";
-    if (options.needsToolSyntaxReminder) {
-      toolSyntaxReminder = `\n\n${XML_TOOL_SYNTAX_REMINDER}`;
-    }
-
     // Combine all parts
     const promptPayload = isReq1
-      ? `${systemPrompt}${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}${toolSyntaxReminder}\n\n${fullContent}`
-      : `${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}${toolSyntaxReminder}\n\n${fullContent}`;
+      ? `${systemPrompt}${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}\n\n${fullContent}`
+      : `${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}\n\n${fullContent}`;
 
     return promptPayload;
   }
