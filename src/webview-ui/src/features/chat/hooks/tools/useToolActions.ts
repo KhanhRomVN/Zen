@@ -144,6 +144,16 @@ export const useToolActions = ({
       actionIndex: number,
       type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES] = TOOL_ACTION_TYPES.ACCEPT,
     ) => {
+      // 🔍 DEBUG LOG
+      console.log('[useToolActions] handleToolClick CALLED:', {
+        messageId: message.id,
+        actionIndex,
+        type,
+        isArray: Array.isArray(actionOrActions),
+        actionsCount: Array.isArray(actionOrActions) ? actionOrActions.length : 1,
+        timestamp: new Date().toISOString(),
+      });
+
       if (!onSendToolRequest) {
         return;
       }
@@ -166,40 +176,72 @@ export const useToolActions = ({
       // accept_all logic removed — only accept (formerly accept_once) is kept
 
       if (Array.isArray(actionOrActions)) {
-        // Handle Batch
-        const actionsToProcess: ToolAction[] = [];
+        // 🔧 FIX: When user clicks on a merged action group, only send the SINGLE action at actionIndex
+        // This ensures approval mode requires individual approval for each merged action
+        const targetAction = actionOrActions.find(
+          (a: any) => (a._index !== undefined ? a._index : 0) === actionIndex
+        );
 
-        actionOrActions.forEach((action: any) => {
-          const idx = action._index !== undefined ? action._index : actionIndex;
-          const actionId = `${actionIdBase}${idx}`;
-
-          // 🔧 FIX: Skip actions with validation errors
-          if (action.isError) {
-            console.warn(
-              `[Zen][handleToolClick] Skipping execution for action with error:`,
-              {
-                actionId,
-                toolName: action.type,
-                errorCode: action.errorCode,
-                errorMessage: action.errorMessage,
-                reason: "Batch execution - validation error detected",
-              },
-            );
-            return;
-          }
-
-          if (!clickedActions.has(actionId)) {
-            actionsToProcess.push({ ...action, actionId });
-          }
-        });
-
-        if (actionsToProcess.length > 0) {
-          onSendToolRequest(
-            actionsToProcess as any,
-            message,
-            false,
-            TOOL_ACTION_TYPES.ACCEPT,
+        if (!targetAction) {
+          console.warn(
+            `[Zen][handleToolClick] Cannot find action at index ${actionIndex}`,
+            {
+              actionIndex,
+              availableIndices: actionOrActions.map((a: any) => a._index),
+              messageId: message.id,
+            }
           );
+          return;
+        }
+
+        const actionId = `${actionIdBase}${actionIndex}`;
+
+        // 🔧 FIX: Skip actions with validation errors
+        if (targetAction.isError) {
+          console.warn(
+            `[Zen][handleToolClick] Blocked execution for malformed tool action:`,
+            {
+              actionId,
+              toolName: targetAction.type,
+              errorCode: targetAction.errorCode,
+              errorMessage: targetAction.errorMessage,
+              reason: "Merged action - validation error detected, execution blocked",
+            },
+          );
+          return;
+        }
+
+        // Skip if already clicked
+        if (clickedActions.has(actionId)) {
+          console.log(
+            `[Zen][handleToolClick] Skipping action ${actionIndex} - already clicked`,
+            {
+              actionId,
+              actionIndex,
+            }
+          );
+          return;
+        }
+
+        // Send ONLY this single action, not the entire merged group
+        if (isToolClickable(targetAction.type)) {
+          const actionToProcess = {
+            ...targetAction,
+            actionId,
+            _index: actionIndex,
+          };
+          
+          console.log(
+            `[Zen][handleToolClick] Sending single merged action for approval:`,
+            {
+              actionId,
+              actionIndex,
+              toolType: targetAction.type,
+              messageId: message.id,
+            }
+          );
+
+          onSendToolRequest(actionToProcess, message, false, type);
         }
       } else {
         // Handle Single

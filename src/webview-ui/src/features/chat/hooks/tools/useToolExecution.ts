@@ -308,6 +308,21 @@ export const useToolExecution = ({
         _index: a._index !== undefined ? a._index : idx,
       }));
 
+      // 🔍 DEBUG LOG
+      console.log('[useToolExecution] handleToolRequest CALLED:', {
+        messageId: message.id,
+        isAutoTrigger,
+        actionType,
+        actionsCount: actions.length,
+        actionDetails: actions.map(a => ({ 
+          type: a.type, 
+          index: a._index, 
+          actionId: a.actionId || `${message.id}-action-${a._index}`,
+        })),
+        permissionMode: currentPermissionMode,
+        timestamp: new Date().toISOString(),
+      });
+
       const validResults: string[] = [];
       let skippedCount = 0;
       setExecutionState({
@@ -323,6 +338,15 @@ export const useToolExecution = ({
 
         const isReject = actionType === TOOL_ACTION_TYPES.REJECT;
         const isAlreadyClicked = clickedActionsRef.current.has(actionId);
+
+        console.log(`[useToolExecution] Processing action ${index}:`, {
+          actionId,
+          actionType: action.type,
+          actionIndex: action._index,
+          isReject,
+          isAlreadyClicked,
+          isAutoTrigger,
+        });
 
         // BUT generate error result for auto-send in next request
         if (action.isError) {
@@ -378,12 +402,20 @@ export const useToolExecution = ({
         // When manually clicked (hasActionId = true), we should NOT skip even if already in clickedActions
         // because the first call just paused, and the second call after user click should execute
         if (!isReject && isAlreadyClicked && isAutoTrigger) {
+          console.log(`[useToolExecution] Skipping action ${index} - already clicked and auto-trigger:`, {
+            actionId,
+            isAlreadyClicked,
+            isAutoTrigger,
+          });
           skippedCount++;
           continue;
         }
 
-        clickedActionsRef.current.add(actionId);
-        setClickedActions(new Set(clickedActionsRef.current));
+        console.log(`[useToolExecution] Executing action ${index}:`, {
+          actionId,
+          actionType: action.type,
+          willExecute: true,
+        });
 
         const skipDiagnostics = false;
 
@@ -407,8 +439,6 @@ export const useToolExecution = ({
               completed: index,
               status: EXECUTION_STATUS.IDLE,
             });
-            clickedActionsRef.current.delete(actionId);
-            setClickedActions(new Set(clickedActionsRef.current));
             break;
           }
         }
@@ -423,8 +453,33 @@ export const useToolExecution = ({
         const shouldPauseForManual =
           decision === "confirm" && !isConversationAuto;
 
+        // 🔍 DEBUG LOG
+        console.log('[useToolExecution] Before pause check:', {
+          actionId,
+          actionIndex: action._index,
+          loopIndex: index,
+          decision,
+          shouldPauseForManual,
+          isAlreadyClicked,
+          isAutoTrigger,
+          willPause: shouldPauseForManual && !isAlreadyClicked && isAutoTrigger,
+          clickedActionsSet: Array.from(clickedActionsRef.current).filter(id => id.startsWith(message.id)),
+        });
+
+        // FIX: Only pause if this is an auto-trigger AND user hasn't clicked yet
+        // When user manually clicks Accept, isAutoTrigger=false, so we should NOT pause
         // When manual confirmation is required and tool hasn't been clicked yet, pause
-        if (shouldPauseForManual && !isAlreadyClicked) {
+        if (shouldPauseForManual && !isAlreadyClicked && isAutoTrigger) {
+          // 🔍 DEBUG LOG
+          console.log('[useToolExecution] PAUSING for manual approval:', {
+            actionId,
+            actionIndex: action._index,
+            loopIndex: index,
+            totalActions: actions.length,
+            completedSoFar: index,
+            willSetWasInterruptedByManual: true,
+          });
+          
           wasInterruptedByManual = true;
           setExecutionState({
             total: actions.length,
@@ -433,6 +488,10 @@ export const useToolExecution = ({
           });
           break;
         }
+
+        // Add to clickedActions AFTER pause check (only when not paused)
+        clickedActionsRef.current.add(actionId);
+        setClickedActions(new Set(clickedActionsRef.current));
 
         let result: string | null = null;
         if (actionType === TOOL_ACTION_TYPES.REJECT) {
@@ -469,6 +528,13 @@ export const useToolExecution = ({
           const isDisplayOnly = result === "__DISPLAY_ONLY__";
 
           if (!isDisplayOnly) {
+            console.log('[useToolExecution] Adding result to validResults:', {
+              actionId,
+              actionType: action.type,
+              actionIndex: action._index,
+              resultLength: result.length,
+              currentValidResultsCount: validResults.length,
+            });
             validResults.push(result);
           }
 
@@ -500,6 +566,17 @@ export const useToolExecution = ({
             ) {
               setToolOutputs((prev) => {
                 const existing = prev[actionId];
+                
+                console.log('[useToolExecution] Saving toolOutput:', {
+                  actionId,
+                  actionType: action.type,
+                  actionIndex: action._index,
+                  hasExisting: !!existing,
+                  existingVersion: (existing as any)?.version,
+                  isError,
+                  outputLength: cleanOutput.length,
+                });
+                
                 return {
                   ...prev,
                   [actionId]: {
@@ -565,7 +642,23 @@ export const useToolExecution = ({
       setAvailableToolResultsBuffer((prev) => {
         const newBuffer = [...(prev[message.id] || []), ...validResults];
 
+        console.log('[useToolExecution] Processing results buffer:', {
+          messageId: message.id,
+          wasInterruptedByManual,
+          validResultsCount: validResults.length,
+          totalActionsCount: actions.length,
+          newBufferLength: newBuffer.length,
+          actionIds: actions.map(a => `${message.id}-action-${a._index}`),
+          existingBufferLength: (prev[message.id] || []).length,
+          validResultsPreview: validResults.map(r => r.substring(0, 80) + '...'),
+          newBufferPreview: newBuffer.map(r => r.substring(0, 80) + '...'),
+        });
+
         if (wasInterruptedByManual) {
+          console.log('[useToolExecution] wasInterruptedByManual=true, keeping buffer:', {
+            messageId: message.id,
+            bufferLength: newBuffer.length,
+          });
           return { ...prev, [message.id]: newBuffer };
         }
 
@@ -580,6 +673,14 @@ export const useToolExecution = ({
             !isStoppedRef?.current
           ) {
             const finalContent = newBuffer.join("\n\n");
+            
+            console.log('[useToolExecution] Sending message with results:', {
+              messageId: message.id,
+              resultsCount: newBuffer.length,
+              actionIds: textActionIds,
+              contentLength: finalContent.length,
+            });
+            
             handleSendMessageRef.current(
               finalContent,
               undefined,
@@ -618,6 +719,17 @@ export const useToolExecution = ({
             clickedActionsRef.current.has(id),
           ) && isQuestionAnswered;
 
+        console.log('[useToolExecution] Checking if all actions complete:', {
+          messageId: message.id,
+          allActionIdsCount: allActionIds.length,
+          clickedActionsCount: Array.from(clickedActionsRef.current).filter(id => id.startsWith(message.id)).length,
+          isAllComplete,
+          hasQuestion,
+          isQuestionAnswered,
+          newBufferLength: newBuffer.length,
+          hasFlushed: flushedMessageIdsRef.current.has(message.id),
+        });
+
         if (isAllComplete && !flushedMessageIdsRef.current.has(message.id)) {
           if (handleSendMessageRef.current && !isStoppedRef?.current) {
             flushedMessageIdsRef.current.add(message.id);
@@ -638,6 +750,13 @@ export const useToolExecution = ({
                 result.includes("Tool execution rejected"),
             );
 
+            console.log('[useToolExecution] All actions complete! Sending batched results:', {
+              messageId: message.id,
+              resultsCount: newBuffer.length,
+              allActionIds,
+              hasAnyError,
+            });
+
             handleSendMessageRef.current(
               finalContent,
               undefined,
@@ -648,10 +767,18 @@ export const useToolExecution = ({
               !hasAnyError, // 👈 uiHidden: false when has error
             );
           }
+          
           return { ...prev, [message.id]: [] };
         } else if (flushedMessageIdsRef.current.has(message.id)) {
+          console.log('[useToolExecution] Already flushed, clearing buffer:', {
+            messageId: message.id,
+          });
           return { ...prev, [message.id]: [] };
         } else {
+          console.log('[useToolExecution] NOT all complete, keeping buffer:', {
+            messageId: message.id,
+            bufferLength: newBuffer.length,
+          });
           return { ...prev, [message.id]: newBuffer };
         }
       });

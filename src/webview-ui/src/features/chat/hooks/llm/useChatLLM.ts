@@ -854,7 +854,7 @@ export const useChatLLM = ({
           onToolRequest(
             parsed.actions,
             assistantMessage,
-            false,
+            true,
             TOOL_ACTION_TYPES.ACCEPT,
           );
         } else if (parsed && parsed.actions?.length > 0 && hasParsingError) {

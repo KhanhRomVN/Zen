@@ -358,6 +358,24 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           }
         }
 
+        // Calculate firstUnclickedActionIndex for approval mode
+        let firstUnclickedActionIndex: number | undefined = undefined;
+        if (isLastMessage && parsedContent.actions) {
+          for (let i = 0; i < parsedContent.actions.length; i++) {
+            const actionId = `${message.id}-action-${i}`;
+            const isClicked = clickedActions.has(actionId);
+            const hasOutput = toolOutputs && toolOutputs[actionId];
+            const hasHistoryOutput =
+              !!nextUserMessage ||
+              !!allMessages?.some((m) => m.actionIds?.includes(actionId));
+            
+            if (!isClicked && !hasOutput && !hasHistoryOutput) {
+              firstUnclickedActionIndex = i;
+              break;
+            }
+          }
+        }
+
         let isInteractionBlocked = false;
         const renderGroups = groups;
 
@@ -418,6 +436,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               isGenerating={isGenerating}
               onSelectOption={onSelectOption}
               onSendMessage={onSendMessage}
+              firstUnclickedActionIndex={firstUnclickedActionIndex}
             />
           );
 

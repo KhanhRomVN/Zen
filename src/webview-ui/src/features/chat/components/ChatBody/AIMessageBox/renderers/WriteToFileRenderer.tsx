@@ -372,14 +372,22 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
       />
 
       {/* Show code content in approval mode — only when not completed */}
-      {!isCompleted &&
-        getPermissionDecision(permissionMode, "write_to_file") === "confirm" && (
+      {(() => {
+        const permissionDecision = getPermissionDecision(
+          permissionMode,
+          "write_to_file",
+        );
+        const shouldShowCode = !isCompleted && permissionDecision === "confirm";
+        const contentLength = (action.params.content || "").length;
+
+        return shouldShowCode ? (
           <CodeBlock
             code={action.params.content || ""}
             language={getLanguageFromPath(rawPath)}
             maxHeight="400px"
           />
-        )}
+        ) : null;
+      })()}
 
       {/* Single-line review UI for write_to_file with content crammed into 1 line */}
       {!shouldHideContent &&
@@ -554,7 +562,12 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
             hasError={true}
             onExecute={(e, type) => {
               // Execute with reject type to skip
-              onToolClick(action, messageId, actionIndex, TOOL_ACTION_TYPES.REJECT);
+              onToolClick(
+                action,
+                messageId,
+                actionIndex,
+                TOOL_ACTION_TYPES.REJECT,
+              );
             }}
           />
         )}

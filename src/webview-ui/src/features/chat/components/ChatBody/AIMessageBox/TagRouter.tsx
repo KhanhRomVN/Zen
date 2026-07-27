@@ -111,6 +111,7 @@ interface TagRouterProps {
     uiHidden?: boolean,
   ) => void;
   isBlockedByPrecedingInteraction?: boolean;
+  firstUnclickedActionIndex?: number;
 }
 
 const TagRouterInternal: React.FC<TagRouterProps> = ({
@@ -146,6 +147,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   onSelectOption,
   onSendMessage,
   isBlockedByPrecedingInteraction = false,
+  firstUnclickedActionIndex,
 }) => {
   const { rootPath } = useProject();
 
@@ -696,8 +698,12 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
           const isFirstInGroup = index === toolGroup[0].index;
           const isActive = isActiveGroup && isFirstInGroup;
           
-          // In approval mode: only show clicked actions or the currently active one
-          if (isActiveGroup && !isClicked && !isFirstInGroup) {
+          // In approval mode: hide all actions that come after the first unclicked action
+          if (
+            firstUnclickedActionIndex !== undefined &&
+            index > firstUnclickedActionIndex &&
+            !isClicked
+          ) {
             return null; // Hide this action completely
           }
           
@@ -730,6 +736,20 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   }
 
   if (toolType === "replace_in_file") {
+    console.log('[TagRouter replace_in_file] Rendering group:', {
+      messageId,
+      toolGroupLength: toolGroup.length,
+      toolGroupItems: toolGroup.map(g => ({ 
+        index: g.index, 
+        actionId: `${messageId}-action-${g.index}`,
+        isClicked: clickedActions.has(`${messageId}-action-${g.index}`),
+      })),
+      firstUnclickedActionIndex,
+      isActiveGroup,
+      clickedActionsArray: Array.from(clickedActions).filter(id => id.startsWith(messageId)),
+      timestamp: new Date().toISOString(),
+    });
+    
     return (
       <>
         {toolGroup.map(({ action, index }) => {
@@ -737,12 +757,36 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
           const isFirstInGroup = index === toolGroup[0].index;
           const isActive = isActiveGroup && isFirstInGroup;
           
-          // In approval mode: only show clicked actions or the currently active one
-          // If isActiveGroup is true, we're in approval mode waiting for user action
-          // Hide all non-clicked actions that come after the active one
-          if (isActiveGroup && !isClicked && !isFirstInGroup) {
+          const willHide = firstUnclickedActionIndex !== undefined && 
+                          index > firstUnclickedActionIndex && 
+                          !isClicked;
+          
+          console.log(`[TagRouter replace_in_file] Processing action ${index}:`, {
+            index,
+            actionId: `${messageId}-action-${index}`,
+            isClicked,
+            isFirstInGroup,
+            isActive,
+            firstUnclickedActionIndex,
+            willHide,
+            hideConditions: {
+              hasFirstUnclicked: firstUnclickedActionIndex !== undefined,
+              indexGreaterThanFirst: index > (firstUnclickedActionIndex ?? -1),
+              notClicked: !isClicked,
+            },
+          });
+          
+          // In approval mode: hide all actions that come after the first unclicked action
+          if (willHide) {
+            console.log(`[TagRouter replace_in_file] HIDING action ${index}`);
             return null; // Hide this action completely
           }
+          
+          console.log(`[TagRouter replace_in_file] Rendering action ${index}:`, {
+            index,
+            isClicked,
+            mergedItemsCount: toolGroup.length,
+          });
           
           return (
             <ReplaceInFileRenderer
@@ -762,7 +806,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
               fileStatsMap={fileStatsMap}
               onToolClick={onToolClick}
               conversationId={conversationId}
-              mergedItems={undefined}
+              mergedItems={toolGroup.length > 1 ? toolGroup : undefined}
               rejectedActions={rejectedActions}
             />
           );
@@ -1411,6 +1455,8 @@ const ToolActionsList: React.FC<ToolActionsListProps> = ({
     toolOutputs,
     terminalStatus,
     nextUserMessage,
+    allMessages,
+    allActions,
   ]);
 
   if (!visibleItems || visibleItems.length === 0) return null;

@@ -166,9 +166,35 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       !!nextUserMessage),
   );
 
-  // Get version from toolOutputs
+  // Get version from toolOutputs - check merged items too
   const toolOutput = toolOutputs?.[actionId];
-  const version = toolOutput?.version;
+  let version = toolOutput?.version;
+  
+  // If no version found and we have merged items, check their outputs
+  if (!version && mergedItems && mergedItems.length > 1) {
+    for (const item of mergedItems) {
+      const itemActionId = `${messageId}-action-${item.index}`;
+      const itemOutput = toolOutputs?.[itemActionId];
+      if (itemOutput?.version) {
+        version = itemOutput.version;
+        console.log('[ReplaceInFileRenderer] Version found in merged item:', {
+          currentActionId: actionId,
+          sourceActionId: itemActionId,
+          version,
+        });
+        break;
+      }
+    }
+  }
+  
+  console.log('[ReplaceInFileRenderer] Version check:', {
+    actionId,
+    actionIndex,
+    hasVersion: !!version,
+    version,
+    hasMergedItems: !!(mergedItems && mergedItems.length > 1),
+    mergedItemCount: mergedItems?.length || 0,
+  });
 
   // Get diagnostics from toolOutputs
   const mergedDiagnostics = React.useMemo(() => {
@@ -643,6 +669,15 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
             labelText="Approve"
             hasError={false}
             onExecute={(e, type) => {
+              // 🔍 DEBUG LOG
+              console.log('[ReplaceInFileRenderer] onExecute called, triggering onToolClick:', {
+                actionId: `${messageId}-action-${actionIndex}`,
+                messageId,
+                actionIndex,
+                type,
+                filePath: rawPath,
+                timestamp: new Date().toISOString(),
+              });
               onToolClick(action, messageId, actionIndex, type);
             }}
           />
