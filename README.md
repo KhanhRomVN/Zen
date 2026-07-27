@@ -105,3 +105,4 @@ RULE:
 2/ code trực tiếp. ko cần lập kế hoạch
 3/ ko tự tạo các file .md thừa ko cần thiết
 4/ ko tự chạy các lệnh terminal khi chưa cho phép
+

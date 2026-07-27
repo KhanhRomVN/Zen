@@ -57,7 +57,7 @@ export const useConversationPersistence = ({
       undefined,
       toolOutputs,
     );
-  }, [toolOutputs, currentConversationId, currentChat, messages]);
+  }, [toolOutputs, currentConversationId, currentChat]);
 
   // Persist singleLineReviewActions
   useEffect(() => {
@@ -86,7 +86,7 @@ export const useConversationPersistence = ({
       undefined,
       singleLineReviewActions,
     );
-  }, [singleLineReviewActions, currentConversationId, currentChat, messages]);
+  }, [singleLineReviewActions, currentConversationId, currentChat]);
 
   // Persist conversationFileStats
   useEffect(() => {
@@ -113,5 +113,5 @@ export const useConversationPersistence = ({
       undefined,
       conversationFileStats,
     );
-  }, [conversationFileStats, currentConversationId, currentChat, messages]);
+  }, [conversationFileStats, currentConversationId, currentChat]);
 };

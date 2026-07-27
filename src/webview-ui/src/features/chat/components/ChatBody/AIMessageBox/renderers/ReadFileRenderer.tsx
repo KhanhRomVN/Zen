@@ -37,6 +37,7 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
   allMessages,
   onToolClick,
   conversationId,
+  isRestored,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
@@ -120,8 +121,13 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
 
   // Fetch diagnostics from extension
   React.useEffect(() => {
-    const shouldFetchDiagnostics = rawPath && isCompleted && !isPartial;
+    // Skip fetching diagnostics for restored messages (conversation history)
+    // Only fetch for new messages or the last message in the conversation
+    if (isRestored && !isLastMessage) {
+      return;
+    }
 
+    const shouldFetchDiagnostics = rawPath && isCompleted && !isPartial;
     if (!shouldFetchDiagnostics) return;
 
     const baseRequestId = `diagnostics-${actionId}`;
@@ -174,7 +180,7 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
       window.removeEventListener("message", handleMessage);
       if (timeoutId !== null) clearTimeout(timeoutId);
     };
-  }, [rawPath, isCompleted, isPartial, actionId]);
+  }, [rawPath, isCompleted, isPartial, actionId, isRestored, isLastMessage]);
 
   return (
     <div

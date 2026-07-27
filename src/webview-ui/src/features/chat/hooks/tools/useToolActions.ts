@@ -257,11 +257,8 @@ export const useToolActions = ({
     prevParsedLengthRef.current = currentLength;
 
     // Early returns to prevent unnecessary processing
-    // BUT: If permission mode changed, we should still process (even if restored)
-    if (
-      !permissionModeChanged &&
-      (isRestored || !onSendToolRequest || parsedMessages.length === 0)
-    ) {
+    // ALWAYS skip if restored (even if permission mode changed)
+    if (isRestored || !onSendToolRequest || parsedMessages.length === 0) {
       return;
     }
 

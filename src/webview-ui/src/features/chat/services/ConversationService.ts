@@ -83,7 +83,10 @@ export const saveConversation = async (
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
-    if (!storage) return "";
+    if (!storage) {
+      console.warn("[ConversationService] ⚠️ No storage available");
+      return "";
+    }
 
     const convId = conversationId || Date.now().toString();
     const key = getConversationKey(sessionId, folderPath, convId);
@@ -122,6 +125,7 @@ export const saveConversation = async (
       const existingData = await storage.get(key, false);
       if (existingData && existingData.value) {
         const parsed = JSON.parse(existingData.value);
+
         existingCreatedAt = parsed.metadata?.createdAt;
         existingLastModified = parsed.metadata?.lastModified;
         existingTitle = parsed.metadata?.title;
@@ -218,6 +222,7 @@ export const saveConversation = async (
     ConversationCache.set(convId, cacheData);
     return convId;
   } catch (error) {
+    console.error(`[ConversationService] ❌ Error saving conversation:`, error);
     return "";
   }
 };

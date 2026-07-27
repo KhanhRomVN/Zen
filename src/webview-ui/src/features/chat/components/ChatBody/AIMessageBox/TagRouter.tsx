@@ -74,6 +74,7 @@ interface TagRouterProps {
   isActiveGroup?: boolean;
   failedActions?: Set<string>;
   isLastMessage?: boolean;
+  isRestored?: boolean;
   isLastGroup?: boolean;
   toolOutputs?: Record<
     string,
@@ -122,6 +123,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   isActiveGroup,
   failedActions,
   isLastMessage,
+  isRestored = false,
   isLastGroup = true,
   toolOutputs,
   terminalStatus,
@@ -689,29 +691,40 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   if (toolType === "write_to_file") {
     return (
       <>
-        {toolGroup.map(({ action, index }) => (
-          <WriteToFileRenderer
-            key={index}
-            action={action}
-            actionIndex={index}
-            messageId={messageId}
-            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
-            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
-            isLastMessage={isLastMessage}
-            isLastItemInList={
-              isLastItemInList &&
-              index === toolGroup[toolGroup.length - 1].index
-            }
-            toolOutputs={toolOutputs}
-            allMessages={allMessages}
-            fileStatsMap={fileStatsMap}
-            onToolClick={onToolClick}
-            conversationId={conversationId}
-            singleLineReviewActions={singleLineReviewActions}
-            onConfirmSingleLineAction={onConfirmSingleLineAction}
-            onRejectSingleLineAction={onRejectSingleLineAction}
-          />
-        ))}
+        {toolGroup.map(({ action, index }) => {
+          const isClicked = clickedActions.has(`${messageId}-action-${index}`);
+          const isFirstInGroup = index === toolGroup[0].index;
+          const isActive = isActiveGroup && isFirstInGroup;
+          
+          // In approval mode: only show clicked actions or the currently active one
+          if (isActiveGroup && !isClicked && !isFirstInGroup) {
+            return null; // Hide this action completely
+          }
+          
+          return (
+            <WriteToFileRenderer
+              key={index}
+              action={action}
+              actionIndex={index}
+              messageId={messageId}
+              isActionClicked={isClicked}
+              isActiveGroup={isActive}
+              isLastMessage={isLastMessage}
+              isLastItemInList={
+                isLastItemInList &&
+                index === toolGroup[toolGroup.length - 1].index
+              }
+              toolOutputs={toolOutputs}
+              allMessages={allMessages}
+              fileStatsMap={fileStatsMap}
+              onToolClick={onToolClick}
+              conversationId={conversationId}
+              singleLineReviewActions={singleLineReviewActions}
+              onConfirmSingleLineAction={onConfirmSingleLineAction}
+              onRejectSingleLineAction={onRejectSingleLineAction}
+            />
+          );
+        })}
       </>
     );
   }
@@ -719,28 +732,41 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   if (toolType === "replace_in_file") {
     return (
       <>
-        {toolGroup.map(({ action, index }) => (
-          <ReplaceInFileRenderer
-            key={index}
-            action={action}
-            actionIndex={index}
-            messageId={messageId}
-            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
-            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
-            isLastMessage={isLastMessage}
-            isLastItemInList={
-              isLastItemInList &&
-              index === toolGroup[toolGroup.length - 1].index
-            }
-            toolOutputs={toolOutputs}
-            allMessages={allMessages}
-            fileStatsMap={fileStatsMap}
-            onToolClick={onToolClick}
-            conversationId={conversationId}
-            mergedItems={undefined}
-            rejectedActions={rejectedActions}
-          />
-        ))}
+        {toolGroup.map(({ action, index }) => {
+          const isClicked = clickedActions.has(`${messageId}-action-${index}`);
+          const isFirstInGroup = index === toolGroup[0].index;
+          const isActive = isActiveGroup && isFirstInGroup;
+          
+          // In approval mode: only show clicked actions or the currently active one
+          // If isActiveGroup is true, we're in approval mode waiting for user action
+          // Hide all non-clicked actions that come after the active one
+          if (isActiveGroup && !isClicked && !isFirstInGroup) {
+            return null; // Hide this action completely
+          }
+          
+          return (
+            <ReplaceInFileRenderer
+              key={index}
+              action={action}
+              actionIndex={index}
+              messageId={messageId}
+              isActionClicked={isClicked}
+              isActiveGroup={isActive}
+              isLastMessage={isLastMessage}
+              isLastItemInList={
+                isLastItemInList &&
+                index === toolGroup[toolGroup.length - 1].index
+              }
+              toolOutputs={toolOutputs}
+              allMessages={allMessages}
+              fileStatsMap={fileStatsMap}
+              onToolClick={onToolClick}
+              conversationId={conversationId}
+              mergedItems={undefined}
+              rejectedActions={rejectedActions}
+            />
+          );
+        })}
       </>
     );
   }
@@ -942,6 +968,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
+            isRestored={isRestored}
             isLastItemInList={
               isLastItemInList &&
               index === toolGroup[toolGroup.length - 1].index

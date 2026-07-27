@@ -40,6 +40,7 @@ interface AIMessageBoxProps {
   };
   isLastMessage?: boolean;
   hasNextAssistantMessage?: boolean;
+  isRestored?: boolean;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, TerminalStatus>;
   nextUserMessage?: Message;
@@ -85,6 +86,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   executionState,
   isLastMessage,
   hasNextAssistantMessage = false,
+  isRestored = false,
   toolOutputs,
   terminalStatus,
   nextUserMessage,
@@ -393,6 +395,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               }
               executionState={executionState}
               isLastMessage={isLastMessage}
+              isRestored={isRestored}
               isLastGroup={isLastGroup}
               toolOutputs={toolOutputs}
               terminalStatus={terminalStatus}

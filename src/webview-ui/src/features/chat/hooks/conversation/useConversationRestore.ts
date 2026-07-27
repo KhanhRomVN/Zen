@@ -70,6 +70,7 @@ export const useConversationRestore = ({
         setIsRestored(false);
         return;
       }
+
       setIsLoadingConversation(true);
       setIsRestored(false);
       const convId = (currentChat as any).conversationId;
@@ -100,7 +101,9 @@ export const useConversationRestore = ({
           const pendingParent = sessionStorage.getItem(
             `zen-revert-parent:${convId}`,
           );
-          if (pendingParent) revertParentMessageIdRef.current = pendingParent;
+          if (pendingParent) {
+            revertParentMessageIdRef.current = pendingParent;
+          }
           setIsRestored(cached.messages.length > 0);
           currentConversationIdRef.current = cached.conversationId;
           setCurrentConversationId(cached.conversationId);
@@ -170,7 +173,9 @@ export const useConversationRestore = ({
           const pendingParent = sessionStorage.getItem(
             `zen-revert-parent:${data.data?.conversationId}`,
           );
-          if (pendingParent) revertParentMessageIdRef.current = pendingParent;
+          if (pendingParent) {
+            revertParentMessageIdRef.current = pendingParent;
+          }
 
           if (data.data.messages.length > 0) {
             setIsRestored(true);
@@ -200,6 +205,7 @@ export const useConversationRestore = ({
               backendIdFromMsg ||
               data.data.backendConversationId ||
               data.data.conversationId;
+
             setBackendConversationId(backendIdToUse, restoredMeta);
 
             const lastAssistantMsgForMeta = [...restoredMessages]
@@ -223,6 +229,7 @@ export const useConversationRestore = ({
               setCurrentModel(modelToCache);
               setCurrentAccount(accountToCache);
             }
+
             ConversationCache.set(data.data.conversationId, {
               messages: restoredMessages,
               conversationId: data.data.conversationId,

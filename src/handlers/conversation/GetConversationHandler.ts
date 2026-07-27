@@ -106,12 +106,16 @@ export class GetConversationHandler {
             searchErr,
           );
         }
+        console.error(
+          `[GetConversationHandler] ❌ File not found anywhere: ${logPath}`,
+        );
         throw new Error(`File not found: ${logPath}`);
       }
 
       const content = await fs.promises.readFile(logPath, "utf-8");
       const parsed = JSON.parse(content);
       const isArray = Array.isArray(parsed);
+
       const toolOutputsFromStorage =
         await this.storageManager?.getToolOutputsForConversation(
           conversationId,
@@ -121,7 +125,6 @@ export class GetConversationHandler {
         : (parsed.toolOutputs ?? toolOutputsFromStorage ?? undefined);
 
       const messages = isArray ? parsed : parsed.messages || [];
-
       const conversationFileStats = isArray
         ? undefined
         : parsed.conversationFileStats;
@@ -143,6 +146,10 @@ export class GetConversationHandler {
         },
       });
     } catch (error: any) {
+      console.error(
+        `[GetConversationHandler] ❌ Error loading conversation:`,
+        error,
+      );
       webviewView.webview.postMessage({
         command: "conversationResult",
         requestId: message.requestId,

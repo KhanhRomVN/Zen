@@ -77,6 +77,7 @@ export interface BaseRendererProps {
   isActiveGroup?: boolean;
   isLastMessage?: boolean;
   isLastItemInList?: boolean;
+  isRestored?: boolean;
   toolOutputs?: ToolOutputs;
   allMessages?: Message[];
   fileStatsMap: Record<string, { lines: number; loading: boolean }>;

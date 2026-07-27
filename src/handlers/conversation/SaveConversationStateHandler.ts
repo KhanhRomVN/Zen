@@ -86,7 +86,9 @@ export class SaveConversationStateHandler {
 
   private async _flushSave(conversationId: string, workspaceFsPath: string) {
     const pending = this._pendingSaveData.get(conversationId);
-    if (!pending) return;
+    if (!pending) {
+      return;
+    }
 
     try {
       const projectContextDir = this.getProjectContextDir(workspaceFsPath);
@@ -94,10 +96,12 @@ export class SaveConversationStateHandler {
       const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
       let existingData: any = null;
+      let existingFileExists = false;
       try {
         const content = await fs.promises.readFile(logPath, "utf-8");
         existingData = JSON.parse(content);
-      } catch {}
+        existingFileExists = true;
+      } catch (readErr) {}
 
       const data: any = {
         messages: pending.messages || [],
@@ -127,6 +131,9 @@ export class SaveConversationStateHandler {
         const release = await this.fileLockManager.acquire(logPath);
         try {
           await fs.promises.writeFile(logPath, newJson);
+          // Verify write
+          const verifyContent = await fs.promises.readFile(logPath, "utf-8");
+          const verifyData = JSON.parse(verifyContent);
         } finally {
           release();
         }
@@ -135,7 +142,10 @@ export class SaveConversationStateHandler {
       this._pendingSaveData.delete(conversationId);
       this._saveDebounceTimers.delete(conversationId);
     } catch (e) {
-      console.error("[SaveConversationStateHandler] _flushSave error:", e);
+      console.error(
+        `[SaveConversationStateHandler] ❌ _flushSave error for ${conversationId}:`,
+        e,
+      );
     }
   }
 }

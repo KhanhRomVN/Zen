@@ -680,50 +680,63 @@ export const useChatLLM = ({
           assistantMessage.parsed = parsed;
 
           // 📊 Create parseDebugInfo with detailed action parsing info
-          const parseDebugActions = parsed.actions.map((action: any, index: number) => {
-            // Check if action has error markers
-            const hasError = action.isError || action.errorMessage;
-            const status = hasError ? "error" : "success";
+          const parseDebugActions = parsed.actions.map(
+            (action: any, index: number) => {
+              // Check if action has error markers
+              const hasError = action.isError || action.errorMessage;
+              const status = hasError ? "error" : "success";
 
-            // Extract parameter info for debugging
-            const extractedParams = Object.entries(action.params).map(([name, value]) => ({
-              name,
-              found: value !== undefined && value !== null && value !== "",
-              length: typeof value === "string" ? value.length : undefined,
-            }));
+              // Extract parameter info for debugging
+              const extractedParams = Object.entries(action.params).map(
+                ([name, value]) => ({
+                  name,
+                  found: value !== undefined && value !== null && value !== "",
+                  length: typeof value === "string" ? value.length : undefined,
+                }),
+              );
 
-            return {
-              index,
-              type: action.type,
-              params: action.params,
-              status,
-              errorMessage: action.errorMessage,
-              errorCode: action.errorCode,
-              extractedParams,
-            };
-          });
+              return {
+                index,
+                type: action.type,
+                params: action.params,
+                status,
+                errorMessage: action.errorMessage,
+                errorCode: action.errorCode,
+                extractedParams,
+              };
+            },
+          );
 
-          const successfulActions = parseDebugActions.filter((a: any) => a.status === "success").length;
-          const failedActions = parseDebugActions.filter((a: any) => a.status === "error").length;
+          const successfulActions = parseDebugActions.filter(
+            (a: any) => a.status === "success",
+          ).length;
+          const failedActions = parseDebugActions.filter(
+            (a: any) => a.status === "error",
+          ).length;
 
           // Count content blocks by type for debugging
-          const contentBlockStats = parsed.contentBlocks.reduce((acc: any, block: any) => {
-            acc[block.type] = (acc[block.type] || 0) + 1;
-            return acc;
-          }, {});
+          const contentBlockStats = parsed.contentBlocks.reduce(
+            (acc: any, block: any) => {
+              acc[block.type] = (acc[block.type] || 0) + 1;
+              return acc;
+            },
+            {},
+          );
 
           assistantMessage.parseDebugInfo = {
             totalActions: parsed.actions.length,
             successfulActions,
             failedActions,
             actions: parseDebugActions,
-            contentBlocks: parsed.contentBlocks.map((block: any, index: number) => ({
-              index,
-              type: block.type,
-              contentLength: block.content?.length || 0,
-              language: block.language,
-              actionIndex: block.actionIndex,
-            })),
+            contentBlocks: parsed.contentBlocks.map(
+              (block: any, index: number) => ({
+                index,
+                type: block.type,
+                contentLength: block.content?.length || 0,
+                language: block.language,
+                actionIndex: block.actionIndex,
+              }),
+            ),
             contentBlockStats,
           };
 
@@ -731,8 +744,8 @@ export const useChatLLM = ({
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
-                ? { 
-                    ...m, 
+                ? {
+                    ...m,
                     parsed: assistantMessage.parsed,
                     parseDebugInfo: assistantMessage.parseDebugInfo,
                   }
@@ -809,9 +822,8 @@ export const useChatLLM = ({
           );
 
           // Import reminder
-          const { ONLY_THINKING_REMINDER } = await import(
-            "../../prompts/reminder"
-          );
+          const { ONLY_THINKING_REMINDER } =
+            await import("../../prompts/reminder");
 
           // Give UI time to update before sending follow-up
           setTimeout(() => {

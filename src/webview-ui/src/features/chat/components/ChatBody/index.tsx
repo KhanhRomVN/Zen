@@ -272,6 +272,7 @@ interface MessageBoxProps {
   };
   isLastMessage?: boolean;
   hasNextAssistantMessage?: boolean;
+  isRestored?: boolean;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
   terminalStatus?: Record<string, "busy" | "free">;
   nextUserMessage?: Message;
@@ -683,6 +684,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   attachedTerminalIds={attachedTerminalIds}
                   conversationId={conversationId}
                   previousAssistantMessage={previousAssistantMessage}
+                  isRestored={isRestored}
                   onSendMessage={onSendMessage}
                   onSelectOption={onSelectOption}
                   onRevertConversation={onRevertConversation}
@@ -722,12 +724,31 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                     if (onSendMessage && prevUserMsg.rawRequest) {
                       // Small delay to let revert complete
                       setTimeout(() => {
+                        const rawReq = prevUserMsg!.rawRequest || '';
+                        
+                        // Extract original content from formatted rawRequest
+                        // Pattern: <zen-user-content>\n(.*)\n</zen-user-content>
+                        const userContentMatch = rawReq.match(/<zen-user-content>\n?([\s\S]*?)\n?<\/zen-user-content>/);
+                        
+                        let contentToSend: string;
+                        let shouldSkipLogic: boolean;
+                        
+                        if (userContentMatch) {
+                          // Found zen-user-content wrapper - extract inner content
+                          contentToSend = userContentMatch[1];
+                          shouldSkipLogic = false; // Let it wrap again normally
+                        } else {
+                          // No zen-user-content (hidden request) - send as is
+                          contentToSend = rawReq;
+                          shouldSkipLogic = true; // Skip wrapping to preserve format
+                        }
+                        
                         onSendMessage(
-                          prevUserMsg!.rawRequest || prevUserMsg!.content,
+                          contentToSend,
                           prevUserMsg!.uploadedFiles,
                           undefined,
                           undefined,
-                          false,
+                          shouldSkipLogic,
                         );
                       }, 100);
                     }
