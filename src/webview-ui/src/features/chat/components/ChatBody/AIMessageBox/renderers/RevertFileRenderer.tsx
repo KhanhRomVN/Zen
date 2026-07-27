@@ -26,7 +26,7 @@ import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
-import ExecuteButton from "../ExecuteButton";
+import ActionBar from "../ActionBar";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { CodeBlock } from "../blocks/code/CodeBlock";
 
@@ -570,15 +570,13 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
         !hasValidationError &&
         getPermissionDecision(permissionMode, "revert_file") === "confirm" && (
           <div style={{ padding: "0 12px 8px 0" }}>
-            <ExecuteButton
-              isActive={true}
-              isCompleted={!!isCompleted}
-              isLastMessage={!!isLastMessage}
-              isLoading={false}
-              title="Approve action"
-              labelText="Approve"
-              hasError={false}
-              onExecute={(e, type) =>
+            <ActionBar
+              action={action}
+              messageId={messageId}
+              actionIndex={actionIndex}
+              hasError={hasValidationError}
+              isCompleted={isCompleted}
+              onAction={(e, type) =>
                 onToolClick(action, messageId, actionIndex, type)
               }
             />

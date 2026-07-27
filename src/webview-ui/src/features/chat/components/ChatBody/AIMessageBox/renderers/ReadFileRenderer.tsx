@@ -24,6 +24,7 @@ import FileIcon from "@/icons/FileIcon";
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
 import ErrorBlock from "../blocks/error/ErrorBlock";
+import ActionBar from "../ActionBar";
 
 export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
   action,

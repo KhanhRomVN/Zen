@@ -8,7 +8,7 @@ export interface ReplaceInFileParams {
 
 export const parseReplaceInFile = (
   innerContent: string,
-): ReplaceInFileParams => {
+): ReplaceInFileParams & { isError?: boolean; errorMessage?: string } => {
   // Parse according to tools-reference.ts schema: file_path, old_content, new_content
   let filePath = extractParamValue(innerContent, "file_path");
   let oldContent = extractParamValue(innerContent, "old_content");
@@ -34,6 +34,29 @@ export const parseReplaceInFile = (
     if (plainTextMatch && !filePath) {
       filePath = plainTextMatch[1].trim();
     }
+  }
+
+  // Validate required parameters
+  const missingParams: string[] = [];
+  if (!filePath || filePath.trim() === "") {
+    missingParams.push("file_path");
+  }
+  if (!oldContent || oldContent.trim() === "") {
+    missingParams.push("old_content");
+  }
+  if (!newContent || newContent.trim() === "") {
+    missingParams.push("new_content");
+  }
+
+  // If any required param is missing, return error
+  if (missingParams.length > 0) {
+    return {
+      file_path: filePath || "",
+      old_content: oldContent || "",
+      new_content: newContent || "",
+      isError: true,
+      errorMessage: `Missing required parameter(s): ${missingParams.join(", ")}`,
+    };
   }
 
   return {

@@ -19,7 +19,7 @@ import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
-import ExecuteButton from "../ExecuteButton";
+import ActionBar from "../ActionBar";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
 /**
@@ -140,17 +140,17 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
         />
       )}
 
-      {!isCompleted && !isError && !hasValidationError && (
+      {!isCompleted && (
         <div style={{ padding: "0 12px 8px 0" }}>
-          <ExecuteButton
+          <ActionBar
+            action={action}
+            messageId={messageId}
+            actionIndex={actionIndex}
+            hasError={hasValidationError || isError}
             isCompleted={isCompleted}
-            isActive={isActionClicked}
-            isFailed={isError}
-            isLastMessage={isLastMessage}
-            onExecute={(e, type) =>
+            onAction={(e, type) =>
               onToolClick(action, messageId, actionIndex, type)
             }
-            title="Delete File"
           />
         </div>
       )}

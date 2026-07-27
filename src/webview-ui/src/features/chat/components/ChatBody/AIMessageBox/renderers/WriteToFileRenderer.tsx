@@ -28,7 +28,7 @@ import FileIcon from "@/icons/FileIcon";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
-import ExecuteButton from "../ExecuteButton";
+import ActionBar from "../ActionBar";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 import { CodeBlock } from "../blocks/code/CodeBlock";
 // FileStreamingBlock removed - no longer used (isPartial is false)
@@ -529,46 +529,15 @@ export const WriteToFileRenderer: React.FC<MergedRendererProps> = ({
       {!shouldHideContent &&
         !isCompleted &&
         !isPartial &&
-        !hasValidationError &&
-        !isError &&
         getPermissionDecision(permissionMode, "write_to_file") ===
           "confirm" && (
-          <ExecuteButton
-            isActive={true}
-            isCompleted={!!isCompleted}
-            isLastMessage={!!isLastMessage}
-            isLoading={false}
-            title="Approve action"
-            labelText="Approve"
-            hasError={false}
-            onExecute={handleToolClickWithLog}
-          />
-        )}
-
-      {/* Show Skip button when there's an error in approve mode */}
-      {!shouldHideContent &&
-        !isCompleted &&
-        !isPartial &&
-        (hasValidationError || isError) &&
-        getPermissionDecision(permissionMode, "write_to_file") ===
-          "confirm" && (
-          <ExecuteButton
-            isActive={false}
-            isCompleted={false}
-            isLastMessage={!!isLastMessage}
-            isLoading={false}
-            title="Skip this tool due to error"
-            labelText="Skip this tool because of error"
-            hasError={true}
-            onExecute={(e, type) => {
-              // Execute with reject type to skip
-              onToolClick(
-                action,
-                messageId,
-                actionIndex,
-                TOOL_ACTION_TYPES.REJECT,
-              );
-            }}
+          <ActionBar
+            action={action}
+            messageId={messageId}
+            actionIndex={actionIndex}
+            hasError={hasValidationError || isError}
+            isCompleted={isCompleted}
+            onAction={handleToolClickWithLog}
           />
         )}
     </div>

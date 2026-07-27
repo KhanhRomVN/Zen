@@ -27,7 +27,7 @@ import FileIcon from "@/icons/FileIcon";
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
 import { TerminalBlock } from "../blocks/run_command/TerminalBlock";
-import ExecuteButton from "../ExecuteButton";
+import ActionBar from "../ActionBar";
 import ErrorBlock from "../blocks/error/ErrorBlock";
 
 interface RunCommandRendererProps {
@@ -335,20 +335,14 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
             !isTerminalBusy &&
             !isCompleted &&
             !hasValidationError && (
-              <ExecuteButton
-                isActive={true}
+              <ActionBar
+                action={action}
+                messageId={messageId}
+                actionIndex={actionIndex}
+                hasError={hasValidationError}
                 isCompleted={isCompleted}
-                isLastMessage={isLastMessage}
-                isSkipped={!isActiveGroup && !isLastMessage && !isActionClicked}
                 isLoading={isLoading}
-                title={
-                  isCompleted
-                    ? "Completed"
-                    : isLoading
-                      ? "Executing..."
-                      : "Execute action"
-                }
-                onExecute={(e, type) => {
+                onAction={(e, type) => {
                   if (!isCompleted && !isLoading) {
                     onToolClick(
                       {

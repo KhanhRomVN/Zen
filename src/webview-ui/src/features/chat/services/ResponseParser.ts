@@ -548,9 +548,14 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               break;
             }
             case "replace_in_file": {
-              const params = parseReplaceInFile(innerContent || "");
-              // Validation moved to post-stream processing in useChatLLM
-              action = { type: "replace_in_file" as const, params, rawXml };
+              const parseResult = parseReplaceInFile(innerContent || "");
+              const { isError, errorMessage, ...params } = parseResult;
+              action = { 
+                type: "replace_in_file" as const, 
+                params, 
+                rawXml,
+                ...(isError && { isError: true, errorMessage, errorCode: "MISSING_PARAMS" })
+              };
               break;
             }
             case "list_files": {
