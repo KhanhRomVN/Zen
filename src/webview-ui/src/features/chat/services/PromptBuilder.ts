@@ -4,6 +4,7 @@ import {
   buildPermissionModeTag,
   CHECKPOINT_REMINDER,
   CHECKPOINT_INTERVAL,
+  XML_TOOL_SYNTAX_REMINDER,
 } from "../prompts";
 import { extensionService } from "@/services/ExtensionService";
 
@@ -81,12 +82,29 @@ export class PromptBuilder {
     }
 
     // Build full content
-    const fullContent = skipFirstRequestLogic
-      ? content
-      : `## User Message\n<zen-user-content>\n${content}\n</zen-user-content>`;
+    // Skip wrapping for tool execution results (they start with "Output:")
+    const isToolResult = content.trim().startsWith("Output:");
+    const fullContent =
+      skipFirstRequestLogic || isToolResult
+        ? content
+        : `## User Message\n<zen-user-content>\n${content}\n</zen-user-content>`;
 
     // Permission mode tag
     const permissionModeTag = buildPermissionModeTag(permissionMode);
+
+    // 🔧 Detect malformed tool errors in content and add XML syntax reminder
+    // Only add when skipFirstRequestLogic=true (tool results, not wrapped in zen-user-content)
+    let xmlSyntaxReminder = "";
+    const hasMalformedError =
+      content.includes("MISSING_PARAMS") ||
+      content.includes("INVALID_XML") ||
+      content.includes("MALFORMED_TOOL") ||
+      content.includes("PARSE_ERROR");
+
+    if (hasMalformedError && skipFirstRequestLogic) {
+      // Import reminder
+      xmlSyntaxReminder = `\n\n${XML_TOOL_SYNTAX_REMINDER}`;
+    }
 
     // Checkpoint reminder
     let checkpointReminder = "";
@@ -99,8 +117,8 @@ export class PromptBuilder {
 
     // Combine all parts
     const promptPayload = isReq1
-      ? `${systemPrompt}${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}\n\n${fullContent}`
-      : `${attachedContextStr}\n\n${permissionModeTag}${checkpointReminder}\n\n${fullContent}`;
+      ? `${systemPrompt}${attachedContextStr}\n\n${permissionModeTag}${xmlSyntaxReminder}${checkpointReminder}\n\n${fullContent}`
+      : `${attachedContextStr}\n\n${permissionModeTag}${xmlSyntaxReminder}${checkpointReminder}\n\n${fullContent}`;
 
     return promptPayload;
   }

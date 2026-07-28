@@ -651,6 +651,21 @@ export const useChatLLM = ({
         dispatchStreaming({ type: "RESET_STREAMING" });
         abortControllerRef.current = null;
 
+        saveConversation(
+          sessionId,
+          folderPath,
+          [...updatedMessages, assistantMessage],
+          effectiveChatUuid,
+          selectedTab || undefined,
+          false,
+          undefined,
+          backendConversationId || backendConversationIdRef.current,
+          undefined,
+          undefined,
+          undefined,
+          false, // skipSave = false → always save response immediately
+        );
+
         // Parse response to extract tool sequence with error handling
         const { parseAIResponse } =
           await import("../../services/ResponseParser");
@@ -799,7 +814,6 @@ export const useChatLLM = ({
           );
         }
 
-        // Save final conversation (only on successful response)
         saveConversation(
           sessionId,
           folderPath,
@@ -812,7 +826,7 @@ export const useChatLLM = ({
           undefined,
           undefined,
           undefined,
-          false, // skipSave = false → lưu khi response thành công
+          false, // skipSave = false → update with parsed data (or error state)
         );
 
         // 🚨 DETECT ONLY-THINKING RESPONSE

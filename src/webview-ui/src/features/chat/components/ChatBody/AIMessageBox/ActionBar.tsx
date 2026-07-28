@@ -46,15 +46,26 @@ const ActionBar: React.FC<ActionBarProps> = ({
   isLoading = false,
   toolColor = "var(--vscode-descriptionForeground, #6b7280)",
 }) => {
+  // Track which button is currently loading (accept or reject)
+  const [loadingButton, setLoadingButton] = React.useState<string | null>(null);
+
   const handleClick = React.useCallback(
     (e: React.MouseEvent, type: any) => {
       e.stopPropagation();
-      if (!isLoading) {
+      if (!isLoading && !loadingButton) {
+        setLoadingButton(type);
         onAction(e, type);
       }
     },
-    [isLoading, onAction],
+    [isLoading, loadingButton, onAction, messageId, actionIndex, action.type],
   );
+
+  // Reset loading state when component completes or has error
+  React.useEffect(() => {
+    if (isCompleted || hasError) {
+      setLoadingButton(null);
+    }
+  }, [isCompleted, hasError]);
 
   // PRIORITY 1: If completed, don't show anything
   if (isCompleted) {
@@ -64,6 +75,7 @@ const ActionBar: React.FC<ActionBarProps> = ({
   // PRIORITY 2: If has validation/parsing error, show Skip button
   if (hasError) {
     const errorColor = "var(--vscode-errorForeground, #ff4d4d)";
+    const isButtonLoading = loadingButton === TOOL_ACTION_TYPES.REJECT;
     return (
       <div
         style={{
@@ -77,13 +89,13 @@ const ActionBar: React.FC<ActionBarProps> = ({
       >
         <button
           onClick={(e) => handleClick(e, TOOL_ACTION_TYPES.REJECT)}
-          disabled={isLoading}
+          disabled={isLoading || !!loadingButton}
           style={{
             background: `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`,
             color: errorColor,
-            opacity: 0.85,
+            opacity: isLoading || loadingButton ? 0.6 : 0.85,
             border: `1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`,
-            cursor: isLoading ? "wait" : "pointer",
+            cursor: isLoading || loadingButton ? "wait" : "pointer",
             padding: "5px 8px",
             borderRadius: "4px",
             display: "flex",
@@ -96,19 +108,28 @@ const ActionBar: React.FC<ActionBarProps> = ({
             gap: "6px",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent)`;
-            e.currentTarget.style.borderColor = `color-mix(in srgb, var(--vscode-errorForeground) 35%, transparent)`;
-            e.currentTarget.style.opacity = "1";
-            e.currentTarget.style.color = `color-mix(in srgb, var(--vscode-errorForeground) 85%, white 15%)`;
+            if (!isLoading && !loadingButton) {
+              e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent)`;
+              e.currentTarget.style.borderColor = `color-mix(in srgb, var(--vscode-errorForeground) 35%, transparent)`;
+              e.currentTarget.style.opacity = "1";
+              e.currentTarget.style.color = `color-mix(in srgb, var(--vscode-errorForeground) 85%, white 15%)`;
+            }
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`;
             e.currentTarget.style.borderColor = `color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`;
-            e.currentTarget.style.opacity = "0.85";
+            e.currentTarget.style.opacity =
+              isLoading || loadingButton ? "0.6" : "0.85";
             e.currentTarget.style.color = errorColor;
           }}
           title="Skip this tool due to error and continue to next tool"
         >
+          {isButtonLoading && (
+            <div
+              className="codicon codicon-loading codicon-modifier-spin"
+              style={{ fontSize: "14px" }}
+            />
+          )}
           <span style={{ textTransform: "none" }}>
             Skip this tool because of error
           </span>
@@ -177,21 +198,24 @@ const ActionBar: React.FC<ActionBarProps> = ({
         },
       ].map(({ type, color, icon, label, title }) => {
         const isReject = type === TOOL_ACTION_TYPES.REJECT;
+        const isButtonLoading = loadingButton === type;
+        const isAnyButtonLoading = !!loadingButton;
 
         return (
           <button
             key={type}
             onClick={(e) => handleClick(e, type)}
-            disabled={isLoading}
+            disabled={isLoading || isAnyButtonLoading}
             style={{
               background: isReject
                 ? `color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)`
                 : `color-mix(in srgb, ${color} 4%, transparent)`,
               color,
+              opacity: isAnyButtonLoading && !isButtonLoading ? 0.4 : 1,
               border: isReject
                 ? `1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)`
                 : `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
-              cursor: isLoading ? "wait" : "pointer",
+              cursor: isLoading || isAnyButtonLoading ? "wait" : "pointer",
               padding: "5px 8px",
               borderRadius: "4px",
               display: "flex",
@@ -204,15 +228,17 @@ const ActionBar: React.FC<ActionBarProps> = ({
               gap: "6px",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = isReject
-                ? `color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent)`
-                : `color-mix(in srgb, ${color} 12%, transparent)`;
-              e.currentTarget.style.borderColor = isReject
-                ? `color-mix(in srgb, var(--vscode-errorForeground) 35%, transparent)`
-                : `color-mix(in srgb, ${color} 35%, transparent)`;
-              e.currentTarget.style.color = isReject
-                ? `color-mix(in srgb, var(--vscode-errorForeground) 85%, white 15%)`
-                : `color-mix(in srgb, ${color} 85%, white 15%)`;
+              if (!isLoading && !isAnyButtonLoading) {
+                e.currentTarget.style.background = isReject
+                  ? `color-mix(in srgb, var(--vscode-errorForeground) 10%, transparent)`
+                  : `color-mix(in srgb, ${color} 12%, transparent)`;
+                e.currentTarget.style.borderColor = isReject
+                  ? `color-mix(in srgb, var(--vscode-errorForeground) 35%, transparent)`
+                  : `color-mix(in srgb, ${color} 35%, transparent)`;
+                e.currentTarget.style.color = isReject
+                  ? `color-mix(in srgb, var(--vscode-errorForeground) 85%, white 15%)`
+                  : `color-mix(in srgb, ${color} 85%, white 15%)`;
+              }
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = isReject
@@ -225,6 +251,12 @@ const ActionBar: React.FC<ActionBarProps> = ({
             }}
             title={title}
           >
+            {isButtonLoading && (
+              <div
+                className="codicon codicon-loading codicon-modifier-spin"
+                style={{ fontSize: "14px" }}
+              />
+            )}
             {icon}
             <span>{label}</span>
           </button>

@@ -37,9 +37,7 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
   conversationId,
 }) => {
   const [isGrepCollapsed, setIsGrepCollapsed] = React.useState(true);
-
   const actionId = `${messageId}-action-${actionIndex}`;
-
   const allPaths = React.useMemo(
     () => collectConvFilePaths(allMessages || []),
     [allMessages],
@@ -85,7 +83,12 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
               grepCompleted ? () => setIsGrepCollapsed((v) => !v) : undefined
             }
           >
-            <span style={{ fontWeight: 600, opacity: 0.8, flexShrink: 0 }}>{getToolLabel("grep")}</span>
+            <span style={{ fontWeight: 600, opacity: 0.8, flexShrink: 0 }}>
+              {(() => {
+                const label = getToolLabel("grep");
+                return label;
+              })()}
+            </span>
             <span
               style={{
                 fontFamily: "var(--vscode-editor-font-family, monospace)",
@@ -102,7 +105,9 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
                 whiteSpace: "nowrap",
                 flexShrink: 1,
               }}
-              title={action.params.search_term || action.params.searchTerm || ""}
+              title={
+                action.params.search_term || action.params.searchTerm || ""
+              }
             >
               {action.params.search_term || action.params.searchTerm || ""}
             </span>
@@ -118,7 +123,11 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
               if (segments.length === 0) return null;
               return (
                 <>
-                  <span style={{ opacity: 0.4, fontSize: "11px", flexShrink: 0 }}>in</span>
+                  <span
+                    style={{ opacity: 0.4, fontSize: "11px", flexShrink: 0 }}
+                  >
+                    in
+                  </span>
                   <FileIcon
                     path={targetPath}
                     isFolder={isFolder}
@@ -208,7 +217,12 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
             {grepCompleted && (
               <span
                 className={`codicon codicon-chevron-${isGrepCollapsed ? "right" : "down"}`}
-                style={{ fontSize: "10px", opacity: 0.5, marginLeft: "2px", flexShrink: 0 }}
+                style={{
+                  fontSize: "10px",
+                  opacity: 0.5,
+                  marginLeft: "2px",
+                  flexShrink: 0,
+                }}
               />
             )}
           </div>

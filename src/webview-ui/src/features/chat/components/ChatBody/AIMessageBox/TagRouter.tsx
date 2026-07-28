@@ -654,12 +654,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
           actionIndex={toolGroup[0].index}
           hasError={true}
           onAction={(e, type) => {
-            onToolClick(
-              firstAction,
-              messageId,
-              toolGroup[0].index,
-              type,
-            );
+            onToolClick(firstAction, messageId, toolGroup[0].index, type);
           }}
         />
       </div>

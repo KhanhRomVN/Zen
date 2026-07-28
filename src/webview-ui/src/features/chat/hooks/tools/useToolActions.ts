@@ -149,6 +149,7 @@ export const useToolActions = ({
       }
 
       const actionIdBase = `${message.id}-action-`;
+      const actionId = `${actionIdBase}${actionIndex}`;
 
       if (type === TOOL_ACTION_TYPES.REJECT) {
         const actions = Array.isArray(actionOrActions)
@@ -189,7 +190,7 @@ export const useToolActions = ({
         // 🔧 FIX: Skip actions with validation errors
         if (targetAction.isError) {
           console.warn(
-            `[Zen][handleToolClick] Blocked execution for malformed tool action:`,
+            `[useToolActions][handleToolClick] ❌ Blocked execution for malformed tool action (merged):`,
             {
               actionId,
               toolName: targetAction.type,
@@ -197,6 +198,7 @@ export const useToolActions = ({
               errorMessage: targetAction.errorMessage,
               reason:
                 "Merged action - validation error detected, execution blocked",
+              willCallOnSendToolRequest: false,
             },
           );
           return;
@@ -225,7 +227,7 @@ export const useToolActions = ({
         // 🔧 FIX: Block execution if action has validation error
         if (action.isError) {
           console.warn(
-            `[Zen][handleToolClick] Blocked execution for malformed tool action:`,
+            `[useToolActions][handleToolClick] ❌ Blocked execution for malformed tool action (single):`,
             {
               actionId,
               toolName: action.type,
@@ -233,6 +235,7 @@ export const useToolActions = ({
               errorMessage: action.errorMessage,
               reason:
                 "Single execution - validation error detected, execution blocked",
+              willCallOnSendToolRequest: false,
             },
           );
           return;
@@ -247,7 +250,7 @@ export const useToolActions = ({
         }
       }
     },
-    [onSendToolRequest, onToolAction, clickedActions],
+    [onSendToolRequest, onToolAction, clickedActions, permissionMode],
   );
 
   // Auto-execute tools logic
@@ -307,31 +310,25 @@ export const useToolActions = ({
       const actionId = `${lastMessage.id}-action-${idx}`;
 
       // Handle actions with validation errors (malformed XML, missing params)
-      // Instead of skipping, we should REJECT them to generate error output for AI feedback
+      // In APPROVAL mode: Don't auto-trigger, let user see error and click Skip
+      // In FULL-ACCESS mode: Auto-reject to provide feedback to AI
       if (action.isError) {
-        console.warn(
-          `[useToolActions] 🚫 Malformed action ${idx} - Will execute as REJECT:`,
-          {
+        // 🔧 FIX: Only auto-reject in fullAccess mode
+        // In approval mode, let user see the error and manually click Skip
+        if (permissionMode === "fullAccess") {
+          // Collect for batch update
+          actionsToMarkTriggered.push(actionId);
+
+          // Add to execution queue as REJECT action
+          actionsToRun.push({
+            ...action,
             actionId,
-            toolName: action.type,
-            errorCode: action.errorCode,
-            errorMessage: action.errorMessage,
-            params: action.params,
-            reason:
-              "Validation error - will be rejected to provide feedback to AI",
-          },
-        );
-
-        // Collect for batch update
-        actionsToMarkTriggered.push(actionId);
-
-        // Add to execution queue as REJECT action
-        actionsToRun.push({
-          ...action,
-          actionId,
-          _index: idx,
-          _actionType: TOOL_ACTION_TYPES.REJECT,
-        } as any);
+            _index: idx,
+            _actionType: TOOL_ACTION_TYPES.REJECT,
+          } as any);
+        } else {
+          // Don't add to actionsToRun - let user see error and click Skip button
+        }
 
         return;
       }

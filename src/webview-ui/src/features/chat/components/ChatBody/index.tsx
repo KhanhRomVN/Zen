@@ -724,15 +724,31 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                     if (onSendMessage && prevUserMsg.rawRequest) {
                       // Small delay to let revert complete
                       setTimeout(() => {
-                        const rawReq = prevUserMsg!.rawRequest || '';
-                        
+                        let rawReq = prevUserMsg!.rawRequest || "";
+
+                        // 🔧 FIX: Replace old permission mode with current mode
+                        // Pattern: <permission-mode>Active: (approval|full-access|readOnly)</permission-mode>
+                        const permissionModePattern =
+                          /<permission-mode>Active:\s*(approval|full-access|fullAccess|readOnly)<\/permission-mode>/;
+                        const currentMode = permissionMode; // Use current mode directly (already in correct format: "fullAccess" | "approval" | "readOnly")
+
+                        if (permissionModePattern.test(rawReq)) {
+                          // Replace existing permission mode with current one
+                          rawReq = rawReq.replace(
+                            permissionModePattern,
+                            `<permission-mode>Active: ${currentMode}</permission-mode>`,
+                          );
+                        }
+
                         // Extract original content from formatted rawRequest
                         // Pattern: <zen-user-content>\n(.*)\n</zen-user-content>
-                        const userContentMatch = rawReq.match(/<zen-user-content>\n?([\s\S]*?)\n?<\/zen-user-content>/);
-                        
+                        const userContentMatch = rawReq.match(
+                          /<zen-user-content>\n?([\s\S]*?)\n?<\/zen-user-content>/,
+                        );
+
                         let contentToSend: string;
                         let shouldSkipLogic: boolean;
-                        
+
                         if (userContentMatch) {
                           // Found zen-user-content wrapper - extract inner content
                           contentToSend = userContentMatch[1];
@@ -742,7 +758,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                           contentToSend = rawReq;
                           shouldSkipLogic = true; // Skip wrapping to preserve format
                         }
-                        
+
                         onSendMessage(
                           contentToSend,
                           prevUserMsg!.uploadedFiles,

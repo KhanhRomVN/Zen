@@ -332,7 +332,7 @@ export const useToolExecution = ({
         const isReject = actionType === TOOL_ACTION_TYPES.REJECT;
         const isAlreadyClicked = clickedActionsRef.current.has(actionId);
 
-        // BUT generate error result for auto-send in next request
+        // Handle malformed/error tool actions
         if (action.isError) {
           // Extract file path from action params for better error context
           const filePath =
@@ -346,8 +346,45 @@ export const useToolExecution = ({
             ? `${action.type} for '${filePath}'`
             : action.type;
 
+          // 🔧 FIX: In approval mode, error tools should NOT auto-execute
+          // They must wait for user to click "Skip" button
+          const shouldPauseForApproval =
+            currentPermissionMode === "approval" &&
+            !isAlreadyClicked &&
+            isAutoTrigger;
+
+          if (shouldPauseForApproval) {
+            // Mark action as failed so UI shows error state
+            window.postMessage(
+              {
+                command: "markActionFailed",
+                actionId,
+              },
+              "*",
+            );
+
+            // Save error output for UI display
+            setToolOutputs((prev: any) => ({
+              ...prev,
+              [actionId]: {
+                output: `Error: ${action.errorCode} - ${action.errorMessage}`,
+                isError: true,
+              },
+            }));
+
+            // Stop execution here - wait for user to click Skip button
+            wasInterruptedByManual = true;
+            setExecutionState({
+              total: actions.length,
+              completed: index,
+              status: EXECUTION_STATUS.IDLE,
+            });
+            break;
+          }
+
           // Generate error result message (like when tool execution fails)
           const errorResult = `Output: [${toolLabel}] Result: Error - ${action.errorCode}: ${action.errorMessage}`;
+
           validResults.push(errorResult);
 
           // Save to toolOutputs for UI display
@@ -611,14 +648,6 @@ export const useToolExecution = ({
             if (!isQuestionAnswered) {
             } else {
               flushedMessageIdsRef.current.add(message.id);
-              let finalContent = buffer.join("\n\n");
-              if (selectedOption) {
-                const questionTitle =
-                  parsed.question?.type === "question"
-                    ? (parsed.question as any).title
-                    : "Question";
-                finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
-              }
 
               const hasAnyError = buffer.some(
                 (r: string) =>
@@ -627,12 +656,31 @@ export const useToolExecution = ({
                   r.includes("Tool execution rejected"),
               );
 
+              // 🔧 Check if any error is from malformed tool (MISSING_PARAMS, INVALID_XML, etc.)
+              const hasMalformedToolError = buffer.some((r: string) => {
+                const errorMatch = r.match(
+                  /Result: Error - (MISSING_PARAMS|INVALID_XML|MALFORMED_TOOL|PARSE_ERROR):/,
+                );
+                return !!errorMatch;
+              });
+
+              // Build final content with tool results
+              let finalContent = buffer.join("\n\n");
+
+              if (selectedOption) {
+                const questionTitle =
+                  parsed.question?.type === "question"
+                    ? (parsed.question as any).title
+                    : "Question";
+                finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
+              }
+
               handleSendMessageRef.current(
                 finalContent,
                 undefined,
                 undefined,
                 undefined,
-                !hasAnyError,
+                !hasAnyError || hasMalformedToolError, // 🔧 Skip wrapping for ANY error (including malformed)
                 allActionIds,
                 !hasAnyError,
               );
