@@ -44,9 +44,9 @@ const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({
         display: "flex",
         alignItems: "flex-end",
         padding: "4px 10px",
-        borderTop: "1px solid var(--vscode-panel-border)",
-        backgroundColor:
-          "var(--vscode-input-background, var(--vscode-terminal-background))",
+        borderTop:
+          "1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08))",
+        backgroundColor: "var(--vscode-editor-background)",
       }}
     >
       <textarea
@@ -63,7 +63,7 @@ const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({
           outline: "none",
           resize: "none",
           overflow: "hidden",
-          color: "var(--vscode-terminal-foreground)",
+          color: "var(--vscode-editor-foreground)",
           fontFamily: "var(--vscode-editor-font-family, monospace)",
           fontSize: "12px",
           lineHeight: "18px",
@@ -93,8 +93,8 @@ const getCSSVar = (name: string, fallback: string): string => {
  *  since terminal output is monochrome (no ANSI color codes). */
 const buildXtermTheme = () => ({
   background: "transparent",
-  foreground: getCSSVar("--vscode-terminal-foreground", "#cccccc"),
-  cursor: getCSSVar("--vscode-terminal-foreground", "#cccccc"),
+  foreground: getCSSVar("--vscode-editor-foreground", "#cccccc"),
+  cursor: getCSSVar("--vscode-editor-foreground", "#cccccc"),
 });
 
 export const TerminalBlock: React.FC<TerminalBlockProps> = ({
@@ -239,7 +239,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     fontFamily:
       'var(--vscode-editor-font-family, "Courier New", Courier, monospace)',
     fontSize: "12px",
-    color: "var(--vscode-terminal-foreground, #cccccc)",
+    color: "var(--vscode-editor-foreground, #cccccc)",
     lineHeight: "1.5",
   };
 
@@ -264,7 +264,8 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
           style={{
             padding: "6px 8px 6px 10px",
             backgroundColor: "var(--vscode-editor-background)",
-            borderBottom: "1px solid var(--vscode-panel-border)",
+            borderBottom:
+              "1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08))",
             display: "flex",
             alignItems: "center",
             gap: "8px",
@@ -316,7 +317,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
                   fontSize: "12px",
                   opacity: 0.7,
                   cursor: "pointer",
-                  color: "var(--vscode-terminal-foreground, #cccccc)",
+                  color: "var(--vscode-editor-foreground, #cccccc)",
                 }}
                 onClick={(e) => {
                   e.stopPropagation();

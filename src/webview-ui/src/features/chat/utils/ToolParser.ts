@@ -21,21 +21,50 @@ export const extractParamValue = (
 
   if (openingMatch) {
     const startIndex = openingMatch.index! + openingMatch[0].length;
+    
+    // Find the matching closing tag by counting nested tags (balanced matching)
     const closingTag = `</${paramName}>`;
-    const closingIndex = content.indexOf(closingTag, startIndex);
-
-    if (closingIndex !== -1) {
-      let value = content.substring(startIndex, closingIndex);
-      // Remove ```text wrappers if present
-      value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
-      const decoded = decodeHtmlEntities(value);
-      // For file content params: only strip a single leading/trailing newline added
-      // by the XML tag boundaries — do NOT trim() which would eat real blank lines.
-      // For other params (file_path, command, etc.): full trim is safe and expected.
-      const result = isContentParam
-        ? decoded.replace(/^\n|\n$/g, "")
-        : decoded.trim();
-      return result;
+    const openingTagPattern = new RegExp(`<${paramName}(?:\\s+[^>]*)?>`, "gi");
+    
+    let depth = 1; // We already found one opening tag
+    let searchIndex = startIndex;
+    
+    while (depth > 0 && searchIndex < content.length) {
+      // Find next opening or closing tag
+      const nextOpening = content.indexOf(`<${paramName}`, searchIndex);
+      const nextClosing = content.indexOf(closingTag, searchIndex);
+      
+      // If no closing tag found, this is an error
+      if (nextClosing === -1) {
+        break;
+      }
+      
+      // If there's an opening tag before the closing tag, increase depth
+      if (nextOpening !== -1 && nextOpening < nextClosing) {
+        // Verify it's actually an opening tag (not part of text)
+        const potentialTag = content.substring(nextOpening, nextOpening + paramName.length + 2);
+        if (potentialTag.match(new RegExp(`^<${paramName}(?:\\s|>)`, "i"))) {
+          depth++;
+          searchIndex = nextOpening + paramName.length + 1;
+        } else {
+          searchIndex = nextOpening + 1;
+        }
+      } else {
+        // Found a closing tag
+        depth--;
+        if (depth === 0) {
+          // This is the matching closing tag
+          let value = content.substring(startIndex, nextClosing);
+          // Remove ```text wrappers if present
+          value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
+          const decoded = decodeHtmlEntities(value);
+          const result = isContentParam
+            ? decoded.replace(/^\n|\n$/g, "")
+            : decoded.trim();
+          return result;
+        }
+        searchIndex = nextClosing + closingTag.length;
+      }
     }
   }
 

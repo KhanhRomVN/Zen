@@ -8,7 +8,6 @@ import { parseListFiles } from "./parsers/ListFilesParser";
 import { parseFindFiles } from "./parsers/FindFilesParser";
 import { parseGrep } from "./parsers/GrepParser";
 import { parseDeleteFile } from "./parsers/DeleteFileParser";
-import { parseMoveFile } from "./parsers/MoveFileParser";
 import { parseRevertFile } from "./parsers/RevertFileParser";
 import { parseViewReplaceHistory } from "./parsers/ViewReplaceHistoryParser";
 import { parseRunCommand } from "./parsers/RunCommandParser";
@@ -578,11 +577,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               action = { type: "delete_file" as const, params, rawXml };
               break;
             }
-            case "move_file": {
-              const params = parseMoveFile(innerContent || "");
-              action = { type: "move_file" as const, params, rawXml };
-              break;
-            }
             case "revert_file": {
               const params = parseRevertFile(innerContent || "");
               action = { type: "revert_file" as const, params, rawXml };
@@ -763,9 +757,6 @@ export const formatActionForDisplay = (action: ToolAction): string => {
     case "find_files":
       const fileCount = action.params.file_names?.length || 0;
       return `find_files: ${fileCount} file name${fileCount === 1 ? "" : "s"}`;
-
-    case "move_file":
-      return `move_file: ${action.params.file_path || "unknown"} → ${action.params.target_folder_path || "unknown"}`;
 
     case "git_status":
       const count = action.params.items?.length || 0;

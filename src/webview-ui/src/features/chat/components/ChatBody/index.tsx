@@ -727,10 +727,10 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                         let rawReq = prevUserMsg!.rawRequest || "";
 
                         // 🔧 FIX: Replace old permission mode with current mode
-                        // Pattern: <permission-mode>Active: (approval|full-access|readOnly)</permission-mode>
+                        // Pattern: <permission-mode>Active: (approval|full-access|fullAccess)</permission-mode>
                         const permissionModePattern =
-                          /<permission-mode>Active:\s*(approval|full-access|fullAccess|readOnly)<\/permission-mode>/;
-                        const currentMode = permissionMode; // Use current mode directly (already in correct format: "fullAccess" | "approval" | "readOnly")
+                          /<permission-mode>Active:\s*(approval|full-access|fullAccess)<\/permission-mode>/;
+                        const currentMode = permissionMode; // Use current mode directly (already in correct format: "fullAccess" | "approval")
 
                         if (permissionModePattern.test(rawReq)) {
                           // Replace existing permission mode with current one
@@ -741,20 +741,20 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                         }
 
                         // Extract original content from formatted rawRequest
-                        // Pattern: <zen-user-content>\n(.*)\n</zen-user-content>
+                        // Pattern: <user-message>\n(.*)\n</user-message>
                         const userContentMatch = rawReq.match(
-                          /<zen-user-content>\n?([\s\S]*?)\n?<\/zen-user-content>/,
+                          /<user-message>\n?([\s\S]*?)\n?<\/user-message>/,
                         );
 
                         let contentToSend: string;
                         let shouldSkipLogic: boolean;
 
                         if (userContentMatch) {
-                          // Found zen-user-content wrapper - extract inner content
+                          // Found user-message wrapper - extract inner content
                           contentToSend = userContentMatch[1];
                           shouldSkipLogic = false; // Let it wrap again normally
                         } else {
-                          // No zen-user-content (hidden request) - send as is
+                          // No user-message (hidden request) - send as is
                           contentToSend = rawReq;
                           shouldSkipLogic = true; // Skip wrapping to preserve format
                         }

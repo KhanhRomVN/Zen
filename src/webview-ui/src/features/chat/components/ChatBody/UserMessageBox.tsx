@@ -53,7 +53,7 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   const [isCopied, setIsCopied] = React.useState(false);
 
   const userMsgRegex =
-    /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
+    /## User Message\n<user-message>\n([\s\S]*?)\n<\/user-message>/;
   const match = message.content.match(userMsgRegex);
 
   if (!match && !message.content.includes("## User Message")) {
@@ -70,10 +70,10 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
     if (displayContent.startsWith("```") && displayContent.includes("```", 3)) {
       displayContent = displayContent.split("```")[1].trim();
     }
-    // Strip new zen-user-content wrapper if partially matched
+    // Strip new user-message wrapper if partially matched
     displayContent = displayContent
-      .replace(/^<zen-user-content>\n?/, "")
-      .replace(/\n?<\/zen-user-content>[\s\S]*$/, "");
+      .replace(/^<user-message>\n?/, "")
+      .replace(/\n?<\/user-message>[\s\S]*$/, "");
   }
 
   // Parse <question-answer> tag from content
@@ -205,7 +205,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
                     <span
                       style={{
                         opacity: answer === "(no answer)" ? 0.5 : 1,
-                        fontStyle: answer === "(no answer)" ? "italic" : "normal",
+                        fontStyle:
+                          answer === "(no answer)" ? "italic" : "normal",
                       }}
                     >
                       {answer}

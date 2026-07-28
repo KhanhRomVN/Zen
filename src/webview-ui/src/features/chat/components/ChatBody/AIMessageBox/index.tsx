@@ -291,10 +291,20 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           blocks.forEach((block, idx) => {
             if (block.type === "tool") {
               const actionIndex = parsedContent.actions.indexOf(block.action);
-              currentToolGroup.push({
+              const toolAction = {
                 action: block.action,
                 index: actionIndex !== -1 ? actionIndex : idx,
-              });
+              };
+              
+              // Flush tools if tool type changes (avoid mixing different tool types in same group)
+              if (
+                currentToolGroup.length > 0 &&
+                currentToolGroup[0].action.type !== block.action.type
+              ) {
+                flushTools();
+              }
+              
+              currentToolGroup.push(toolAction);
             } else if (block.type === "error") {
               flushTools();
               groups.push({

@@ -309,9 +309,6 @@ export const TagHeader: React.FC<TagHeaderProps> = ({
         case "delete_file":
           return "✓ File deleted successfully";
 
-        case "move_file":
-          return "✓ File moved successfully";
-
         case "view_replace_history":
           if (tooltipMeta?.fileCount) {
             return `✓ Found ${tooltipMeta.fileCount} ${tooltipMeta.fileCount === 1 ? "version" : "versions"}`;

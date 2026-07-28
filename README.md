@@ -206,7 +206,6 @@ import {
   ListFilesRenderer, // list_file
   FindFilesRenderer, // find_files
   GrepRenderer, // grep
-  MoveFileRenderer, // move_file
   RevertFileRenderer, // revert_file
   ViewReplaceHistoryRenderer, // view_replace_history
   RunCommandRenderer, // run_command
@@ -232,7 +231,6 @@ import {
   ListFilesRenderer, // list_file
   FindFilesRenderer, // find_files
   GrepRenderer, // grep
-  MoveFileRenderer, // move_file
   RevertFileRenderer, // revert_file
   ViewReplaceHistoryRenderer, // view_replace_history
   RunCommandRenderer, // run_command

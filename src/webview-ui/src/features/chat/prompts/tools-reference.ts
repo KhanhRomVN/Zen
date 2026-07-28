@@ -8,6 +8,7 @@ Use XML tags for all tool calls:
 <old_content>exact original (indentation must match)</old_content>
 <new_content>replacement</new_content>
 </replace_in_file>
+⚠ TAG-CLOSE-VERIFY: closing tag must be </new_content> — never </old_content>. Re-read the opening tag before closing.
 <view_replace_history><file_path>path/to/file</file_path></view_replace_history>
 <revert_file><file_path>path/to/file</file_path></revert_file>
 <revert_file><file_path>path/to/file</file_path><version>3</version></revert_file>
@@ -19,8 +20,6 @@ Use XML tags for all tool calls:
 <grep><search_term>string</search_term><file_path>path/to/file</file_path></grep>
 <grep><search_term>string</search_term><folder_path>path/to/folder</folder_path></grep>
 <delete_file><file_path>path/to/file</file_path></delete_file>
-<move_file><file_path>path/to/source/file.ts</file_path><target_folder_path>path/to/destination/folder</target_folder_path></move_file>
-<move_file><file_path>path/to/source/file.ts</file_path><target_folder_path>path/to/destination/folder</target_folder_path><target_file_name>new-name.ts</target_file_name></move_file>
 <run_command><command>your command here</command></run_command>
 <run_command><command>your command here</command><folder_path>path/to/folder</folder_path></run_command>
 **revert_file**: Undo the last change made to a file using VSCode's undo functionality. Each call undoes one change in the file's edit history.
@@ -42,7 +41,6 @@ Use XML tags for all tool calls:
   - \`<find_files><file_name>config.json</file_name></find_files>\` — finds all files named "config.json" in the entire workspace
   - \`<find_files><file_name>*.test.ts</file_name><folder_path>src/components</folder_path></find_files>\` — finds test files only in src/components folder
   - \`<find_files><file_name>utils.ts</file_name><folder_path>src</folder_path></find_files>\` — finds utils.ts only in src folder
-**move_file**: \`target_file_name\` is optional — omit it to keep the original filename while moving, or provide it to rename during the move (including renaming in place by using the same folder as the source). // [OPT#8] thêm khả năng rename qua move_file
 **run_command**: Execute a shell command in the workspace. By default, runs in the workspace root folder.
 - \`command\`: The shell command to execute
 - \`folder_path\`: (optional) The folder path where the command should be executed. Can be:

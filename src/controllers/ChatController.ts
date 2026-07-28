@@ -30,7 +30,6 @@ import { DeleteFileHandler } from "../handlers/tool/DeleteFileHandler";
 import { FileMiscHandler } from "../handlers/tool/FileMiscHandler";
 import { FindFilesHandler } from "../handlers/tool/FindFilesHandler";
 import { ListFilesHandler } from "../handlers/tool/ListFilesHandler";
-import { MoveFileHandler } from "../handlers/tool/MoveFileHandler";
 import { ReadFileHandler } from "../handlers/tool/ReadFileHandler";
 import { ReplaceInFileHandler } from "../handlers/tool/ReplaceInFileHandler";
 import { RevertFileHandler } from "../handlers/tool/RevertFileHandler";
@@ -60,7 +59,6 @@ export class ChatController {
   private writeToFileHandler: WriteToFileHandler;
   private replaceInFileHandler: ReplaceInFileHandler;
   private deleteFileHandler: DeleteFileHandler;
-  private moveFileHandler: MoveFileHandler;
   private revertFileHandler: RevertFileHandler;
   private viewReplaceHistoryHandler: ViewReplaceHistoryHandler;
   private listFilesHandler: ListFilesHandler;
@@ -103,7 +101,6 @@ export class ChatController {
     this.writeToFileHandler = new WriteToFileHandler(this.fileLockManager);
     this.replaceInFileHandler = new ReplaceInFileHandler(this.fileLockManager);
     this.deleteFileHandler = new DeleteFileHandler();
-    this.moveFileHandler = new MoveFileHandler();
     this.revertFileHandler = new RevertFileHandler();
     this.viewReplaceHistoryHandler = new ViewReplaceHistoryHandler();
     this.listFilesHandler = new ListFilesHandler();
@@ -246,9 +243,6 @@ export class ChatController {
           break;
         case "deleteFile":
           await this.deleteFileHandler.handleDeleteFile(message, webviewView);
-          break;
-        case "moveFile":
-          await this.moveFileHandler.handleMoveFile(message, webviewView);
           break;
         case "openFileDiff":
           await this.diffViewHandler.handleFileDiff(message);

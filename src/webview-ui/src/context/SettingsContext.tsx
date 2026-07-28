@@ -54,18 +54,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 
     storage.get("zen_permission_mode").then((res: any) => {
       if (res?.value) {
-        const val = res.value;
-        // Migrate old 4-mode values to new 3-mode system
-        const migrationMap: Record<string, PermissionMode> = {
-          bypassPermissions: "fullAccess",
-          acceptEdits: "approval",
-          auto: "approval",
-          plan: "readOnly",
-          fullAccess: "fullAccess",
-          approval: "approval",
-          readOnly: "readOnly",
-        };
-        setPermissionModeState(migrationMap[val] ?? "fullAccess");
+        setPermissionModeState(res.value);
       }
     });
   }, []);

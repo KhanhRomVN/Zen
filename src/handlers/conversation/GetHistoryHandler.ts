@@ -61,15 +61,13 @@ export class GetHistoryHandler {
               const lastUserMsg =
                 [...userMessages]
                   .reverse()
-                  .find((m: any) =>
-                    m.content?.includes("<zen-user-content>"),
-                  ) ||
+                  .find((m: any) => m.content?.includes("<user-message>")) ||
                 userMessages[userMessages.length - 1] ||
                 data[0];
               let rawTitle = lastUserMsg.content || "";
               const titleMatch =
                 rawTitle.match(
-                  /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/,
+                  /## User Message\n<user-message>\n([\s\S]*?)\n<\/user-message>/,
                 ) || rawTitle.match(/## User Message\n```\n([\s\S]*?)\n```/);
               if (titleMatch) rawTitle = titleMatch[1];
               const title = rawTitle

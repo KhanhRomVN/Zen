@@ -1,5 +1,5 @@
 import React from "react";
-import { Zap, ShieldCheck, Eye } from "lucide-react";
+import { Zap, ShieldCheck } from "lucide-react";
 import type {
   PermissionMode,
   PermissionValue,
@@ -96,12 +96,6 @@ export const PERMISSION_MODE: Record<
     icon: React.createElement(ShieldCheck, { size: 11 }),
     color: "var(--vscode-symbolIcon-interfaceForeground, #3b82f6)",
   },
-  readOnly: {
-    label: "Read Only",
-    desc: "AI can only read project files, cannot modify them or run commands",
-    icon: React.createElement(Eye, { size: 11 }),
-    color: "var(--vscode-symbolIcon-classForeground, #8b5cf6)",
-  },
 };
 
 // ============= UNIFIED TAG REGISTRY =============
@@ -113,7 +107,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
@@ -128,7 +121,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "reject",
       approval: "confirm",
       fullAccess: "allow",
     },
@@ -144,7 +136,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "reject",
       approval: "confirm",
       fullAccess: "allow",
     },
@@ -160,7 +151,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "reject",
       approval: "confirm",
       fullAccess: "allow",
     },
@@ -175,7 +165,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
@@ -187,7 +176,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
@@ -199,7 +187,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
@@ -211,7 +198,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
@@ -223,19 +209,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "reject",
-      approval: "confirm",
-      fullAccess: "allow",
-    },
-  },
-
-  move_file: {
-    id: "move_file",
-    title: "MOVE",
-    category: "tool",
-    timeout: 60000,
-    permissions: {
-      readOnly: "reject",
       approval: "confirm",
       fullAccess: "allow",
     },
@@ -247,9 +220,8 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "reject",
       approval: "confirm",
-      fullAccess: "confirm",
+      fullAccess: "allow",
     },
   },
 
@@ -259,7 +231,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
@@ -271,7 +242,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
@@ -283,7 +253,6 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     category: "tool",
     timeout: 60000,
     permissions: {
-      readOnly: "allow",
       approval: "allow",
       fullAccess: "allow",
     },
@@ -346,7 +315,7 @@ export const getAllTagTypes = (): string[] => {
  */
 export const requiresConfirmation = (
   type: string,
-  mode: "readOnly" | "approval" | "fullAccess" = "approval",
+  mode: "approval" | "fullAccess" = "approval",
 ): boolean => {
   const tag = getTagDef(type);
   if (!tag || tag.category !== "tool" || !tag.permissions) return false;
@@ -361,7 +330,7 @@ export const requiresConfirmation = (
  */
 export const shouldShowApprovalUI = (
   type: string,
-  mode: "readOnly" | "approval" | "fullAccess" = "approval",
+  mode: "approval" | "fullAccess" = "approval",
 ): boolean => {
   return requiresConfirmation(type, mode);
 };

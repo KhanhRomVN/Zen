@@ -1,11 +1,4 @@
-import {
-  getDefaultPrompt,
-  combinePrompts,
-  buildPermissionModeTag,
-  CHECKPOINT_REMINDER,
-  CHECKPOINT_INTERVAL,
-  XML_TOOL_SYNTAX_REMINDER,
-} from "../prompts";
+import { getDefaultPrompt, combinePrompts } from "../prompts";
 import { extensionService } from "@/services/ExtensionService";
 
 export interface PromptBuilderOptions {
@@ -82,18 +75,18 @@ export class PromptBuilder {
     }
 
     // Build full content
-    // Skip wrapping for tool execution results (they start with "Output:")
-    const isToolResult = content.trim().startsWith("Output:");
+    // Skip wrapping for tool execution results (they start with "Output:" or "[tool_name for '...' in '...'] Result:")
+    const trimmedContent = content.trim();
+    const isToolResult =
+      trimmedContent.startsWith("Output:") ||
+      /^\[.+? for .+? in .+?\] Result:/.test(trimmedContent);
     const fullContent =
       skipFirstRequestLogic || isToolResult
         ? content
-        : `## User Message\n<zen-user-content>\n${content}\n</zen-user-content>`;
-
-    // Permission mode tag
-    const permissionModeTag = buildPermissionModeTag(permissionMode);
+        : `## User Message\n<user-message>\n${content}\n</user-message>`;
 
     // 🔧 Detect malformed tool errors in content and add XML syntax reminder
-    // Only add when skipFirstRequestLogic=true (tool results, not wrapped in zen-user-content)
+    // Only add when skipFirstRequestLogic=true (tool results, not wrapped in user-message)
     let xmlSyntaxReminder = "";
     const hasMalformedError =
       content.includes("MISSING_PARAMS") ||
@@ -101,26 +94,12 @@ export class PromptBuilder {
       content.includes("MALFORMED_TOOL") ||
       content.includes("PARSE_ERROR");
 
-    if (hasMalformedError && skipFirstRequestLogic) {
-      // Import reminder
-      xmlSyntaxReminder = `\n\n${XML_TOOL_SYNTAX_REMINDER}`;
-    }
-
-    // Checkpoint reminder
-    let checkpointReminder = "";
-    if (
-      !skipFirstRequestLogic &&
-      userRequestCount % CHECKPOINT_INTERVAL === 0
-    ) {
-      checkpointReminder = `\n\n${CHECKPOINT_REMINDER}`;
-    }
-
     // Combine all parts
     const promptPayload = isReq1
-      ? `${systemPrompt}${attachedContextStr}\n\n${permissionModeTag}${xmlSyntaxReminder}${checkpointReminder}\n\n${fullContent}`
-      : `${attachedContextStr}\n\n${permissionModeTag}${xmlSyntaxReminder}${checkpointReminder}\n\n${fullContent}`;
+      ? `${systemPrompt}${attachedContextStr}${xmlSyntaxReminder}\n\n${fullContent}`
+      : `${attachedContextStr}${xmlSyntaxReminder}\n\n${fullContent}`;
 
-    return promptPayload;
+    return promptPayload.trim();
   }
 
   private static async buildSystemPrompt(
@@ -158,7 +137,6 @@ export class PromptBuilder {
       systemPrompt = combinePrompts({
         language: effectiveLang,
         systemInfo,
-        permissionMode,
       });
     }
 

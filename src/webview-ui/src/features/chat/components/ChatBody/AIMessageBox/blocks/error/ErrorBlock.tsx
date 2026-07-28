@@ -54,7 +54,8 @@ const parseErrorMessage = (msg: string): string => {
   // Generic: remove "Error - " prefix if present
   let cleaned = msg.replace(/^Error - /, "");
   // Remove full path if present (keep only filename)
-  cleaned = cleaned.replace(/\/[^\s]+/g, (match) => {
+  // Match paths like /path/to/file but NOT XML closing tags like </tag>
+  cleaned = cleaned.replace(/(?<!<)\/[^\s<>]+/g, (match) => {
     const parts = match.split("/");
     return parts.length > 1 ? parts[parts.length - 1] : match;
   });

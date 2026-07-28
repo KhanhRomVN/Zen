@@ -1,7 +1,7 @@
 .terminal-block-container {
   display: flex;
   flex-direction: column;
-  background-color: var(--vscode-terminal-background);
+  background-color: var(--vscode-editor-background);
   border-radius: 6px;
   overflow: hidden;
   font-family: var(
@@ -10,7 +10,7 @@
     Courier,
     monospace
   );
-  border: 1px solid var(--vscode-panel-border);
+  border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.08));
 }
 
 .terminal-block-header {
@@ -65,7 +65,7 @@
 .terminal-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--vscode-terminal-foreground);
+  color: var(--vscode-editor-foreground);
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: nowrap;
   overflow: hidden;
@@ -179,7 +179,7 @@
   padding: 8px 8px 8px 12px;
   overflow-y: auto;
   overflow-x: hidden;
-  background-color: var(--vscode-terminal-background);
+  background-color: var(--vscode-editor-background);
   scrollbar-width: thin;
   scrollbar-color: transparent transparent; /* Hidden by default */
 }
@@ -204,7 +204,7 @@
   padding: 8px 4px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--vscode-terminal-foreground);
+  color: var(--vscode-editor-foreground);
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: pre-wrap;
   word-break: break-all;

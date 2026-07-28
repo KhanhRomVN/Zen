@@ -96,12 +96,21 @@ export class DiagnosticsService {
       const isAlreadyOpen = vscode.workspace.textDocuments.some(
         (doc) => doc.uri.fsPath === uri.fsPath,
       );
-      if (isAlreadyOpen) {
-        return true;
-      }
+      
+      logger.info("[DiagnosticsService] 🔍 ensureFileOpened check", {
+        file: uri.fsPath,
+        isAlreadyOpen,
+      });
 
       // Kiểm tra kích thước file trước khi mở editor
       const stat = await vscode.workspace.fs.stat(uri);
+      logger.info("[DiagnosticsService] 📏 File size check", {
+        file: uri.fsPath,
+        sizeBytes: stat.size,
+        thresholdBytes: DiagnosticsService.MAX_FILE_SIZE_BYTES,
+        willSkip: stat.size > DiagnosticsService.MAX_FILE_SIZE_BYTES,
+      });
+      
       if (stat.size > DiagnosticsService.MAX_FILE_SIZE_BYTES) {
         logger.info(
           "[DiagnosticsService] File too large, skipping diagnostics",
@@ -113,16 +122,86 @@ export class DiagnosticsService {
         );
         return false;
       }
+      
+      if (isAlreadyOpen) {
+        // File đã mở nhưng LS có thể chưa phân tích
+        // → Force trigger bằng cách make a dummy edit then undo
+        logger.info("[DiagnosticsService] 🔄 File already open, force triggering LS analysis...", {
+          file: uri.fsPath,
+        });
+        
+        try {
+          const doc = vscode.workspace.textDocuments.find(
+            (d) => d.uri.fsPath === uri.fsPath,
+          );
+          
+          if (doc) {
+            // Store original dirty state
+            const wasOriginallyDirty = doc.isDirty;
+            
+            // Trigger re-analysis by making a workspace edit
+            const edit = new vscode.WorkspaceEdit();
+            // Add a space at the end
+            const lastLine = doc.lineCount - 1;
+            const lastChar = doc.lineAt(lastLine).text.length;
+            const endPos = new vscode.Position(lastLine, lastChar);
+            
+            // Add space
+            edit.insert(uri, endPos, " ");
+            await vscode.workspace.applyEdit(edit);
+            
+            // Small delay to let LS pick up the change
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Undo the edit to restore original state
+            await vscode.commands.executeCommand('undo');
+            
+            // If file was not dirty before, save it to clear dirty flag
+            if (!wasOriginallyDirty) {
+              await doc.save();
+            }
+            
+            logger.info("[DiagnosticsService] ✅ Forced LS re-analysis by dummy edit", {
+              file: uri.fsPath,
+              wasOriginallyDirty,
+              isNowDirty: doc.isDirty,
+            });
+          }
+        } catch (e) {
+          logger.warn("[DiagnosticsService] ⚠️ Could not force LS re-analysis", {
+            file: uri.fsPath,
+            error: e,
+          });
+        }
+        
+        return true;
+      }
 
+      logger.info("[DiagnosticsService] 📂 Opening document...", {
+        file: uri.fsPath,
+      });
+      
       const doc = await vscode.workspace.openTextDocument(uri);
+      
+      logger.info("[DiagnosticsService] 📄 Document opened, showing in editor...", {
+        file: uri.fsPath,
+        languageId: doc.languageId,
+        lineCount: doc.lineCount,
+      });
+      
       await vscode.window.showTextDocument(doc, {
         preview: true,
         preserveFocus: true,
         viewColumn: vscode.ViewColumn.Active,
       });
+      
+      logger.info("[DiagnosticsService] ✅ File opened successfully", {
+        file: uri.fsPath,
+      });
+      
       return true;
     } catch (e) {
-      logger.error("[DiagnosticsService] Error opening file", {
+      logger.error("[DiagnosticsService] ❌ Error opening file", {
         file: uri.fsPath,
         error: e,
       });
@@ -143,6 +222,14 @@ export class DiagnosticsService {
       let stableTimeout: NodeJS.Timeout | null = null;
       let hasReceivedEvent = false;
       let resolved = false;
+      let eventCount = 0;
+
+      logger.info("[DiagnosticsService] ⏳ Waiting for diagnostics...", {
+        path: pathValue,
+        fallbackTimeout,
+        maxTimeoutMs,
+        stableWaitTime,
+      });
 
       const finish = (timedOut: boolean) => {
         if (resolved) return;
@@ -151,13 +238,27 @@ export class DiagnosticsService {
         clearTimeout(timeoutHandle);
         if (stableTimeout) clearTimeout(stableTimeout);
         disposable?.dispose();
+        
+        const elapsedTime = Date.now() - startTime;
+        
         if (timedOut) {
           logger.warn(
             `[DiagnosticsService] ⏱️ Diagnostics timeout — không lấy được diagnostics cho file này`,
             {
               path: pathValue,
-              elapsedTime: Date.now() - startTime,
+              elapsedTime,
               hasReceivedEvent,
+              eventCount,
+              fallbackTriggered: !hasReceivedEvent,
+            },
+          );
+        } else {
+          logger.info(
+            `[DiagnosticsService] ✅ Diagnostics received successfully`,
+            {
+              path: pathValue,
+              elapsedTime,
+              eventCount,
             },
           );
         }
@@ -166,22 +267,81 @@ export class DiagnosticsService {
 
       const fallbackHandle = setTimeout(() => {
         if (!hasReceivedEvent) {
+          logger.warn(
+            "[DiagnosticsService] 🚨 Fallback timeout triggered — no diagnostic events received",
+            {
+              path: pathValue,
+              elapsedTime: Date.now() - startTime,
+            },
+          );
           finish(true);
         }
       }, fallbackTimeout);
 
       const timeoutHandle = setTimeout(() => {
+        logger.warn(
+          "[DiagnosticsService] 🚨 Max timeout triggered",
+          {
+            path: pathValue,
+            elapsedTime: Date.now() - startTime,
+            hasReceivedEvent,
+            eventCount,
+          },
+        );
         finish(true);
       }, maxTimeoutMs);
 
       const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-        if (e.uris.some((u) => u.fsPath === uri.fsPath)) {
+        logger.info(
+          "[DiagnosticsService] 🔔 onDidChangeDiagnostics event fired",
+          {
+            eventUris: e.uris.map(u => u.fsPath),
+            targetUri: uri.fsPath,
+            matches: e.uris.some(u => u.fsPath === uri.fsPath),
+          },
+        );
+        
+        const matchedUri = e.uris.find((u) => u.fsPath === uri.fsPath);
+        if (matchedUri) {
+          eventCount++;
+          const currentDiagnostics = vscode.languages.getDiagnostics(matchedUri);
+          logger.info(
+            "[DiagnosticsService] 📊 Diagnostic event received for target file",
+            {
+              path: pathValue,
+              eventCount,
+              elapsedTime: Date.now() - startTime,
+              isFirstEvent: !hasReceivedEvent,
+              diagnosticCount: currentDiagnostics.length,
+              diagnosticSummary: currentDiagnostics.map(d => ({
+                severity: d.severity,
+                message: d.message.substring(0, 100),
+                source: d.source,
+              })),
+            },
+          );
+          
           if (!hasReceivedEvent) {
             hasReceivedEvent = true;
             clearTimeout(fallbackHandle);
+            logger.info(
+              "[DiagnosticsService] 🎯 First diagnostic event — clearing fallback timeout",
+              {
+                path: pathValue,
+                elapsedTime: Date.now() - startTime,
+              },
+            );
           }
           if (stableTimeout) clearTimeout(stableTimeout);
           stableTimeout = setTimeout(() => {
+            logger.info(
+              "[DiagnosticsService] 🏁 Diagnostics stabilized — finishing",
+              {
+                path: pathValue,
+                totalEvents: eventCount,
+                totalElapsedTime: Date.now() - startTime,
+              },
+            );
             finish(false);
           }, stableWaitTime);
         }
@@ -210,17 +370,49 @@ export class DiagnosticsService {
     }>;
     skippedReason?: string;
   }> {
+    const logger = LoggerService.getInstance();
+    
+    logger.info("[DiagnosticsService] 🚀 getDiagnostics started", {
+      path: pathValue,
+      uri: uri.fsPath,
+      maxTimeoutMs,
+      workspaceFolders: vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath),
+      activeTextEditor: vscode.window.activeTextEditor?.document.uri.fsPath,
+    });
+    
     if (this.isNonCodeFile(pathValue)) {
+      logger.info("[DiagnosticsService] ⏭️ Skipping non-code file", {
+        path: pathValue,
+      });
       return { diagnostics: [] };
     }
 
+    // Check existing diagnostics first
+    const existingDiagnostics = vscode.languages.getDiagnostics(uri);
+    logger.info("[DiagnosticsService] 📋 Existing diagnostics before opening", {
+      path: pathValue,
+      count: existingDiagnostics.length,
+    });
+
     const opened = await this.ensureFileOpened(uri);
     if (!opened) {
+      logger.warn("[DiagnosticsService] ⚠️ File not opened, returning skipped", {
+        path: pathValue,
+      });
       return {
         diagnostics: [],
         skippedReason: `File quá lớn (>${DiagnosticsService.MAX_FILE_SIZE_BYTES / 1024}KB), đã skip diagnostics để tránh crash máy.`,
       };
     }
+
+    logger.info("[DiagnosticsService] ✅ File opened, waiting for diagnostics...", {
+      path: pathValue,
+      currentlyOpenDocuments: vscode.workspace.textDocuments.map(d => ({
+        uri: d.uri.fsPath,
+        languageId: d.languageId,
+        isDirty: d.isDirty,
+      })),
+    });
 
     const gotDiagnostics = await this.waitForDiagnostics(
       uri,
@@ -229,6 +421,22 @@ export class DiagnosticsService {
     );
 
     if (!gotDiagnostics) {
+      logger.warn("[DiagnosticsService] ⚠️ No diagnostics received (timeout)", {
+        path: pathValue,
+      });
+      
+      // Fallback: Use existing diagnostics if any
+      const fallbackDiagnostics = vscode.languages.getDiagnostics(uri);
+      if (fallbackDiagnostics.length > 0) {
+        logger.info("[DiagnosticsService] 💡 Using existing diagnostics as fallback", {
+          path: pathValue,
+          count: fallbackDiagnostics.length,
+        });
+        return {
+          diagnostics: this.filterDiagnostics(fallbackDiagnostics),
+        };
+      }
+      
       return {
         diagnostics: [],
         skippedReason:
@@ -236,10 +444,26 @@ export class DiagnosticsService {
       };
     }
 
+    const allDiagnostics = vscode.languages.getDiagnostics(uri);
+    const filteredDiagnostics = this.filterDiagnostics(allDiagnostics);
+    
+    logger.info("[DiagnosticsService] 🎉 getDiagnostics completed", {
+      path: pathValue,
+      totalDiagnostics: allDiagnostics.length,
+      filteredCount: filteredDiagnostics.length,
+      errors: filteredDiagnostics.filter(d => d.severity === 'Error').length,
+      warnings: filteredDiagnostics.filter(d => d.severity === 'Warning').length,
+      allDiagnosticsDetails: allDiagnostics.map(d => ({
+        severity: d.severity,
+        message: d.message,
+        source: d.source,
+        code: d.code,
+        line: d.range.start.line + 1,
+      })),
+    });
+
     return {
-      diagnostics: this.filterDiagnostics(
-        vscode.languages.getDiagnostics(uri),
-      ),
+      diagnostics: filteredDiagnostics,
     };
   }
 

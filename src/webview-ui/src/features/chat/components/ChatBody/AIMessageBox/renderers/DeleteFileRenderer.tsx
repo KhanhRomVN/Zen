@@ -70,7 +70,7 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
   const statusColor = isError
     ? "var(--vscode-errorForeground, #f14c4c)"
     : isCompleted
-      ? "var(--vscode-gitDecoration-deletedResourceForeground, #f85149)"
+      ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
       : "var(--vscode-descriptionForeground)";
 
   return (

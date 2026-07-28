@@ -837,25 +837,6 @@ export const useChatLLM = ({
             "[Zen][sendMessage] ⚠️ Only-thinking response detected - sending auto-retry with reminder",
           );
 
-          // Import reminder
-          const { ONLY_THINKING_REMINDER } =
-            await import("../../prompts/reminder");
-
-          // Give UI time to update before sending follow-up
-          setTimeout(() => {
-            // Send follow-up request with reminder
-            sendMessage(
-              ONLY_THINKING_REMINDER,
-              undefined, // no files
-              undefined, // use existing model
-              undefined, // use existing account
-              true, // skipFirstRequestLogic = true (this is a continuation)
-              undefined, // no actionIds
-              false, // not UI hidden
-              undefined, // no parent message ID
-            );
-          }, 500);
-
           // Don't trigger tool requests for only-thinking responses
           return;
         }

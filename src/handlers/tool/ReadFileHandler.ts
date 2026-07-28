@@ -117,12 +117,26 @@ export class ReadFileHandler {
       }> = [];
 
       if (!message.skipDiagnostics) {
+        logger.info("[ReadFileHandler] 🔍 Getting diagnostics for file", {
+          path: pathValue,
+          absolutePath: absPath.fsPath,
+        });
+        
         const diagResult = await diagnosticsService.getDiagnostics(
           absPath,
           pathValue,
           15000,
         );
         diagnostics = diagResult.diagnostics;
+        
+        logger.info("[ReadFileHandler] 📊 Diagnostics result", {
+          path: pathValue,
+          diagnosticsCount: diagnostics.length,
+        });
+      } else {
+        logger.info("[ReadFileHandler] ⏭️ Skipping diagnostics (skipDiagnostics=true)", {
+          path: pathValue,
+        });
       }
 
       let content = "";

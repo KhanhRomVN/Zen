@@ -6,6 +6,33 @@ export interface ReplaceInFileParams {
   new_content: string;
 }
 
+/**
+ * Helper function to detect missing closing tag
+ */
+const detectMissingClosingTag = (
+  content: string,
+  paramName: string,
+  alternativeNames: string[] = [],
+): string | null => {
+  const allNames = [paramName, ...alternativeNames];
+  
+  for (const name of allNames) {
+    const openingTag = new RegExp(`<${name}(?:\\s+[^>]*)?>`, "i");
+    const hasOpening = openingTag.test(content);
+    
+    if (hasOpening) {
+      const closingTag = `</${name}>`;
+      const hasClosing = content.includes(closingTag);
+      
+      if (!hasClosing) {
+        return name; // Found opening but missing closing
+      }
+    }
+  }
+  
+  return null;
+};
+
 export const parseReplaceInFile = (
   innerContent: string,
 ): ReplaceInFileParams & { isError?: boolean; errorMessage?: string } => {
@@ -36,7 +63,44 @@ export const parseReplaceInFile = (
     }
   }
 
-  // Validate required parameters
+  // Check for missing closing tags with specific error messages
+  const missingClosingTags: string[] = [];
+  
+  if (!filePath) {
+    const missingTag = detectMissingClosingTag(innerContent, "file_path", ["path"]);
+    if (missingTag) {
+      missingClosingTags.push(missingTag);
+    }
+  }
+  
+  if (!oldContent) {
+    const missingTag = detectMissingClosingTag(innerContent, "old_content", ["old"]);
+    if (missingTag) {
+      missingClosingTags.push(missingTag);
+    }
+  }
+  
+  if (!newContent) {
+    const missingTag = detectMissingClosingTag(innerContent, "new_content", ["new"]);
+    if (missingTag) {
+      missingClosingTags.push(missingTag);
+    }
+  }
+
+  // If missing closing tags detected, provide specific error
+  if (missingClosingTags.length > 0) {
+    const tagList = missingClosingTags.map(tag => `</${tag}>`).join(", ");
+    const errorMsg = `Missing closing tag(s): ${tagList}`;
+    return {
+      file_path: filePath || "",
+      old_content: oldContent || "",
+      new_content: newContent || "",
+      isError: true,
+      errorMessage: errorMsg,
+    };
+  }
+
+  // Validate required parameters (for cases where tags don't exist at all)
   const missingParams: string[] = [];
   if (!filePath || filePath.trim() === "") {
     missingParams.push("file_path");

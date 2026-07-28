@@ -40,7 +40,6 @@ import {
   ListFilesRenderer, // list_file
   FindFilesRenderer, // find_files
   GrepRenderer, // grep
-  MoveFileRenderer, // move_file
   RevertFileRenderer, // revert_file
   ViewReplaceHistoryRenderer, // view_replace_history
   RunCommandRenderer, // run_command
@@ -647,16 +646,18 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
           maxHeight="300px"
         />
 
-        {/* Show Skip button for malformed tools in approve mode */}
-        <ActionBar
-          action={firstAction}
-          messageId={messageId}
-          actionIndex={toolGroup[0].index}
-          hasError={true}
-          onAction={(e, type) => {
-            onToolClick(firstAction, messageId, toolGroup[0].index, type);
-          }}
-        />
+        {/* Show Skip button for malformed tools in approve mode (only if no next user message) */}
+        {!nextUserMessage && (
+          <ActionBar
+            action={firstAction}
+            messageId={messageId}
+            actionIndex={toolGroup[0].index}
+            hasError={true}
+            onAction={(e, type) => {
+              onToolClick(firstAction, messageId, toolGroup[0].index, type);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -1074,34 +1075,6 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
       <>
         {toolGroup.map(({ action, index }) => (
           <DeleteFileRenderer
-            key={index}
-            action={action}
-            actionIndex={index}
-            messageId={messageId}
-            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
-            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
-            isLastMessage={isLastMessage}
-            isLastItemInList={
-              isLastItemInList &&
-              index === toolGroup[toolGroup.length - 1].index
-            }
-            toolOutputs={toolOutputs}
-            allMessages={allMessages}
-            fileStatsMap={fileStatsMap}
-            onToolClick={onToolClick}
-            conversationId={conversationId}
-          />
-        ))}
-      </>
-    );
-  }
-
-  // Handle move_file tool type
-  if (toolType === "move_file") {
-    return (
-      <>
-        {toolGroup.map(({ action, index }) => (
-          <MoveFileRenderer
             key={index}
             action={action}
             actionIndex={index}

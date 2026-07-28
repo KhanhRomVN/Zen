@@ -74,18 +74,6 @@ export interface DeleteFolderResult {
   error?: string;
 }
 
-// ===== MOVE FILE =====
-export interface MoveFileParams {
-  file_path: string;
-  target_folder_path: string;
-}
-
-export interface MoveFileResult {
-  success: boolean;
-  newPath?: string;
-  error?: string;
-}
-
 // ===== RUN COMMAND =====
 export interface RunCommandParams {
   command: string;

@@ -2,6 +2,7 @@ export const CONSTRAINTS = `# CONSTRAINTS
 - **READ-BEFORE-EDIT**: read_file turn 1 → STOP. replace_in_file/write_to_file turn 2. Do not write or assume the outcome of a read/search call in the same turn. (This is the single authoritative definition of this rule — IDENTITY, WORKFLOW, and TOOLS REFERENCE only reference it by name and must not restate it.)
 - **NO-PREDICTING-RESULTS**: Never assume, predict, or fake tool results (e.g. saying "File not found. Creating new file" in the same turn as calling read_file). You must output the tool call, STOP, and wait for the actual results to be returned before making any decisions or invoking subsequent dependent tools.
 - **BYTE-PERFECT**: old_content block must match exactly — indentation, spacing, no reformatting.
+- **TAG-CLOSE-VERIFY**: When writing replace_in_file, the closing tag of new_content MUST be </new_content>, not </old_content>. Before emitting the closing tag, read back the opening tag of the current block to verify the name matches. This is a known failure mode when old_content and new_content are visually similar (e.g. only one line differs).
 - **BATCH**: All independent ops in one message, subject to the per-type caps defined in TOOL-BATCH-LIMIT below. Sequential only when B depends on A. // [OPT#10] dẫn chiếu chéo tránh hiểu nhầm mâu thuẫn với TOOL-BATCH-LIMIT
 - **MAX-2-SEARCH**: 2 failed searches → ask user, do not guess.
 - **GITIGNORE**: Ignored path → tell user, ask before accessing.

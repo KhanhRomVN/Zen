@@ -184,15 +184,15 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   // Parse user content from XML
   const parseUserContent = (content: string): string => {
     const regex =
-      /## User Message\n<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/;
+      /## User Message\n<user-message>\n([\s\S]*?)\n<\/user-message>/;
     const match = content.match(regex);
     if (match) {
       return match[1];
     }
     // Fallback: strip wrapper if present
     let cleaned = content
-      .replace(/^<zen-user-content>\n?/, "")
-      .replace(/\n?<\/zen-user-content>[\s\S]*$/, "");
+      .replace(/^<user-message>\n?/, "")
+      .replace(/\n?<\/user-message>[\s\S]*$/, "");
     if (cleaned.startsWith("```") && cleaned.includes("```", 3)) {
       cleaned = cleaned.split("```")[1]?.trim() || cleaned;
     }
@@ -293,7 +293,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
           gap: "4px",
         }}
       >
-        {/* Row 1: Title (parsed from zen-user-content) */}
+        {/* Row 1: Title (parsed from user-message) */}
         <div
           style={{
             width: "100%",

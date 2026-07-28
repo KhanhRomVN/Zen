@@ -289,7 +289,7 @@ export const useConversationRestore = ({
           );
           let content = firstUserMsg?.content || "";
           const match = content.match(
-            /<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/,
+            /<user-message>\n([\s\S]*?)\n<\/user-message>/,
           );
           if (match) content = match[1];
           setMessages([]);
@@ -303,7 +303,7 @@ export const useConversationRestore = ({
             if (idx === -1) return prev;
             const msg = prev[idx];
             const match = msg.content.match(
-              /<zen-user-content>\n([\s\S]*?)\n<\/zen-user-content>/,
+              /<user-message>\n([\s\S]*?)\n<\/user-message>/,
             );
             const content = match ? match[1] : msg.content;
             const prevAssistant = [...prev.slice(0, idx)]

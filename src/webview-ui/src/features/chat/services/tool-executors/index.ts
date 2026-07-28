@@ -11,7 +11,6 @@ export { ListFilesExecutor } from "./ListFilesExecutor";
 export { FindFilesExecutor } from "./FindFilesExecutor";
 export { RunCommandExecutor } from "./RunCommandExecutor";
 export { DeleteFileExecutor } from "./DeleteFileExecutor";
-export { MoveFileExecutor } from "./MoveFileExecutor";
 export { GrepExecutor } from "./GrepExecutor";
 export { GitDiffExecutor } from "./GitDiffExecutor";
 
@@ -26,7 +25,6 @@ import { ListFilesExecutor } from "./ListFilesExecutor";
 import { FindFilesExecutor } from "./FindFilesExecutor";
 import { RunCommandExecutor } from "./RunCommandExecutor";
 import { DeleteFileExecutor } from "./DeleteFileExecutor";
-import { MoveFileExecutor } from "./MoveFileExecutor";
 import { GrepExecutor } from "./GrepExecutor";
 import { GitDiffExecutor } from "./GitDiffExecutor";
 
@@ -66,8 +64,6 @@ export function getExecutor(
       );
     case "delete_file":
       return new DeleteFileExecutor();
-    case "move_file":
-      return new MoveFileExecutor();
     case "grep":
       return new GrepExecutor();
     case "git_diff":

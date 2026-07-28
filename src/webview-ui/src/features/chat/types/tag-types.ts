@@ -7,7 +7,7 @@
 
 // ============= PERMISSION TYPES =============
 
-export type PermissionMode = "fullAccess" | "approval" | "readOnly";
+export type PermissionMode = "fullAccess" | "approval";
 export type PermissionValue = "allow" | "confirm" | "reject" | RegExp;
 
 // ============= TAG TYPES =============
@@ -21,7 +21,6 @@ export interface TagDefinition {
 
   // Only tools have permissions
   permissions?: {
-    readOnly: PermissionValue;
     approval: PermissionValue;
     fullAccess: PermissionValue;
   };
