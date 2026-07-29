@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-} from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 export interface SearchBarProps {
   searchQuery: string;
@@ -266,19 +261,47 @@ const SearchBar: React.FC<SearchBarProps> = ({
             flags.has("matchCase"),
             "Match Case (Alt+C)",
             () => toggleFlag("matchCase"),
-            <span style={{ fontSize: "11px", fontWeight: 700, fontFamily: "monospace", lineHeight: 1 }}>Aa</span>,
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                fontFamily: "monospace",
+                lineHeight: 1,
+              }}
+            >
+              Aa
+            </span>,
           )}
           {iconBtn(
             flags.has("wholeWord"),
             "Match Whole Word (Alt+W)",
             () => toggleFlag("wholeWord"),
-            <span style={{ fontSize: "10px", fontWeight: 700, fontFamily: "monospace", letterSpacing: "-0.5px", lineHeight: 1 }}>ab</span>,
+            <span
+              style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                fontFamily: "monospace",
+                letterSpacing: "-0.5px",
+                lineHeight: 1,
+              }}
+            >
+              ab
+            </span>,
           )}
           {iconBtn(
             flags.has("regex"),
             "Use Regular Expression (Alt+R)",
             () => toggleFlag("regex"),
-            <span style={{ fontSize: "10px", fontWeight: 700, fontFamily: "monospace", lineHeight: 1 }}>.*</span>,
+            <span
+              style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                fontFamily: "monospace",
+                lineHeight: 1,
+              }}
+            >
+              .*
+            </span>,
           )}
         </div>
       </div>
@@ -304,11 +327,34 @@ const SearchBar: React.FC<SearchBarProps> = ({
         title="Previous match (Shift+Enter)"
         onClick={() => navigate(-1)}
         disabled={matchCount === 0}
-        style={{ background: "transparent", border: "none", cursor: matchCount > 0 ? "pointer" : "default", color: "var(--vscode-icon-foreground)", padding: "2px 3px", opacity: matchCount > 0 ? 0.7 : 0.3, display: "flex", alignItems: "center" }}
-        onMouseEnter={(e) => { if (matchCount > 0) e.currentTarget.style.opacity = "1"; }}
-        onMouseLeave={(e) => { if (matchCount > 0) e.currentTarget.style.opacity = "0.7"; }}
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: matchCount > 0 ? "pointer" : "default",
+          color: "var(--vscode-icon-foreground)",
+          padding: "2px 3px",
+          opacity: matchCount > 0 ? 0.7 : 0.3,
+          display: "flex",
+          alignItems: "center",
+        }}
+        onMouseEnter={(e) => {
+          if (matchCount > 0) e.currentTarget.style.opacity = "1";
+        }}
+        onMouseLeave={(e) => {
+          if (matchCount > 0) e.currentTarget.style.opacity = "0.7";
+        }}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="m18 15-6-6-6 6" />
         </svg>
       </button>
@@ -317,23 +363,73 @@ const SearchBar: React.FC<SearchBarProps> = ({
         title="Next match (Enter)"
         onClick={() => navigate(1)}
         disabled={matchCount === 0}
-        style={{ background: "transparent", border: "none", cursor: matchCount > 0 ? "pointer" : "default", color: "var(--vscode-icon-foreground)", padding: "2px 3px", opacity: matchCount > 0 ? 0.7 : 0.3, display: "flex", alignItems: "center" }}
-        onMouseEnter={(e) => { if (matchCount > 0) e.currentTarget.style.opacity = "1"; }}
-        onMouseLeave={(e) => { if (matchCount > 0) e.currentTarget.style.opacity = "0.7"; }}
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: matchCount > 0 ? "pointer" : "default",
+          color: "var(--vscode-icon-foreground)",
+          padding: "2px 3px",
+          opacity: matchCount > 0 ? 0.7 : 0.3,
+          display: "flex",
+          alignItems: "center",
+        }}
+        onMouseEnter={(e) => {
+          if (matchCount > 0) e.currentTarget.style.opacity = "1";
+        }}
+        onMouseLeave={(e) => {
+          if (matchCount > 0) e.currentTarget.style.opacity = "0.7";
+        }}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
 
       <button
         title="Close (Esc)"
-        onClick={() => { handleQueryChange(""); onCloseSearch?.(); }}
-        style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--vscode-icon-foreground)", padding: "2px 3px", opacity: 0.55, display: "flex", alignItems: "center", transition: "opacity 0.12s" }}
-        onMouseEnter={(e) => { e.currentTarget.style.opacity = "1"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.opacity = "0.55"; }}
+        onClick={() => {
+          handleQueryChange("");
+          onCloseSearch?.();
+        }}
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          color: "var(--vscode-icon-foreground)",
+          padding: "2px 3px",
+          opacity: 0.55,
+          display: "flex",
+          alignItems: "center",
+          transition: "opacity 0.12s",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.opacity = "1";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.opacity = "0.55";
+        }}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M18 6 6 18" />
           <path d="m6 6 12 12" />
         </svg>

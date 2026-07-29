@@ -549,11 +549,15 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             case "replace_in_file": {
               const parseResult = parseReplaceInFile(innerContent || "");
               const { isError, errorMessage, ...params } = parseResult;
-              action = { 
-                type: "replace_in_file" as const, 
-                params, 
+              action = {
+                type: "replace_in_file" as const,
+                params,
                 rawXml,
-                ...(isError && { isError: true, errorMessage, errorCode: "MISSING_PARAMS" })
+                ...(isError && {
+                  isError: true,
+                  errorMessage,
+                  errorCode: "MISSING_PARAMS",
+                }),
               };
               break;
             }

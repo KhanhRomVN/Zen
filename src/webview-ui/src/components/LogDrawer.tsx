@@ -16,7 +16,7 @@ const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose }) => {
     if (isOpen) {
       setLogs(logger.getLogs());
       const unsubscribe = logger.subscribe(() => {
-        setLogs(logger.getLogs());
+        setTimeout(() => setLogs(logger.getLogs()), 0);
       });
       return () => {
         unsubscribe();

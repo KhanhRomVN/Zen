@@ -87,10 +87,12 @@ export class DiagnosticsService {
 
   /**
    * Mở file trong editor để kích hoạt Language Server phân tích.
-   * Trả về `true` nếu file đã được mở thành công, `false` nếu skip
-   * (file quá lớn hoặc lỗi khi mở).
+   * Trả về object với status và thông tin về việc file đã được mở hay chưa.
    */
-  private async ensureFileOpened(uri: vscode.Uri): Promise<boolean> {
+  private async ensureFileOpened(uri: vscode.Uri): Promise<{
+    success: boolean;
+    alreadyOpen: boolean;
+  }> {
     const logger = LoggerService.getInstance();
     try {
       const isAlreadyOpen = vscode.workspace.textDocuments.some(
@@ -120,61 +122,17 @@ export class DiagnosticsService {
             thresholdBytes: DiagnosticsService.MAX_FILE_SIZE_BYTES,
           },
         );
-        return false;
+        return { success: false, alreadyOpen: false };
       }
       
       if (isAlreadyOpen) {
-        // File đã mở nhưng LS có thể chưa phân tích
-        // → Force trigger bằng cách make a dummy edit then undo
-        logger.info("[DiagnosticsService] 🔄 File already open, force triggering LS analysis...", {
+        // File đã mở → LSP đã có diagnostics cached
+        // Không cần dummy edit/undo, sẽ dùng diagnostics hiện có
+        logger.info("[DiagnosticsService] ✅ File already open, will use cached diagnostics", {
           file: uri.fsPath,
         });
         
-        try {
-          const doc = vscode.workspace.textDocuments.find(
-            (d) => d.uri.fsPath === uri.fsPath,
-          );
-          
-          if (doc) {
-            // Store original dirty state
-            const wasOriginallyDirty = doc.isDirty;
-            
-            // Trigger re-analysis by making a workspace edit
-            const edit = new vscode.WorkspaceEdit();
-            // Add a space at the end
-            const lastLine = doc.lineCount - 1;
-            const lastChar = doc.lineAt(lastLine).text.length;
-            const endPos = new vscode.Position(lastLine, lastChar);
-            
-            // Add space
-            edit.insert(uri, endPos, " ");
-            await vscode.workspace.applyEdit(edit);
-            
-            // Small delay to let LS pick up the change
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // Undo the edit to restore original state
-            await vscode.commands.executeCommand('undo');
-            
-            // If file was not dirty before, save it to clear dirty flag
-            if (!wasOriginallyDirty) {
-              await doc.save();
-            }
-            
-            logger.info("[DiagnosticsService] ✅ Forced LS re-analysis by dummy edit", {
-              file: uri.fsPath,
-              wasOriginallyDirty,
-              isNowDirty: doc.isDirty,
-            });
-          }
-        } catch (e) {
-          logger.warn("[DiagnosticsService] ⚠️ Could not force LS re-analysis", {
-            file: uri.fsPath,
-            error: e,
-          });
-        }
-        
-        return true;
+        return { success: true, alreadyOpen: true };
       }
 
       logger.info("[DiagnosticsService] 📂 Opening document...", {
@@ -199,22 +157,55 @@ export class DiagnosticsService {
         file: uri.fsPath,
       });
       
-      return true;
+      return { success: true, alreadyOpen: false };
     } catch (e) {
       logger.error("[DiagnosticsService] ❌ Error opening file", {
         file: uri.fsPath,
         error: e,
       });
-      return false;
+      return { success: false, alreadyOpen: false };
     }
   }
 
   private async waitForDiagnostics(
     uri: vscode.Uri,
     pathValue: string,
+    alreadyOpen: boolean,
     maxTimeoutMs: number = 30000,
   ): Promise<boolean> {
     const logger = LoggerService.getInstance();
+    
+    // Nếu file đã mở, check xem có thể dùng cached diagnostics không
+    if (alreadyOpen) {
+      const doc = vscode.workspace.textDocuments.find(
+        (d) => d.uri.fsPath === uri.fsPath,
+      );
+      const cachedDiagnostics = vscode.languages.getDiagnostics(uri);
+      const isDirty = doc?.isDirty ?? false;
+      
+      logger.info("[DiagnosticsService] 📦 Checking cached diagnostics for already-open file", {
+        path: pathValue,
+        cachedCount: cachedDiagnostics.length,
+        isDirty,
+      });
+      
+      // Chỉ dùng cache nếu file không dirty (không có thay đổi chưa phân tích)
+      if (!isDirty) {
+        logger.info("[DiagnosticsService] ✅ Using cached diagnostics (file not dirty)", {
+          path: pathValue,
+          diagnosticCount: cachedDiagnostics.length,
+        });
+        return true;
+      }
+      
+      // File dirty → đợi LSP phân tích lại
+      logger.info("[DiagnosticsService] ⏳ File is dirty, waiting for fresh diagnostics...", {
+        path: pathValue,
+        cachedCount: cachedDiagnostics.length,
+      });
+    }
+    
+    // File mới mở → đợi LSP phân tích
     return new Promise<boolean>((resolve) => {
       const fallbackTimeout = 2000;
       const stableWaitTime = 800;
@@ -224,7 +215,7 @@ export class DiagnosticsService {
       let resolved = false;
       let eventCount = 0;
 
-      logger.info("[DiagnosticsService] ⏳ Waiting for diagnostics...", {
+      logger.info("[DiagnosticsService] ⏳ Waiting for diagnostics (newly opened file)...", {
         path: pathValue,
         fallbackTimeout,
         maxTimeoutMs,
@@ -394,8 +385,8 @@ export class DiagnosticsService {
       count: existingDiagnostics.length,
     });
 
-    const opened = await this.ensureFileOpened(uri);
-    if (!opened) {
+    const openResult = await this.ensureFileOpened(uri);
+    if (!openResult.success) {
       logger.warn("[DiagnosticsService] ⚠️ File not opened, returning skipped", {
         path: pathValue,
       });
@@ -407,6 +398,7 @@ export class DiagnosticsService {
 
     logger.info("[DiagnosticsService] ✅ File opened, waiting for diagnostics...", {
       path: pathValue,
+      alreadyOpen: openResult.alreadyOpen,
       currentlyOpenDocuments: vscode.workspace.textDocuments.map(d => ({
         uri: d.uri.fsPath,
         languageId: d.languageId,
@@ -417,6 +409,7 @@ export class DiagnosticsService {
     const gotDiagnostics = await this.waitForDiagnostics(
       uri,
       pathValue,
+      openResult.alreadyOpen,
       maxTimeoutMs,
     );
 

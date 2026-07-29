@@ -90,6 +90,12 @@ export class StreamingService {
     let lastFlushTime = Date.now();
     const FLUSH_INTERVAL_MS = 8; // ~120fps for smooth streaming without overwhelming React
 
+    // [DEBUG] Dem so lan flush va tong chunk — xoa sau khi xac nhan
+    let debugFlushCount = 0;
+    let debugChunkCount = 0;
+    let debugTotalContentLen = 0;
+    const debugStartTime = Date.now();
+
     // First-chunk timeout
     const FIRST_CHUNK_TIMEOUT_MS = 305_000;
     const firstChunkTimer = setTimeout(() => {
@@ -130,6 +136,7 @@ export class StreamingService {
 
             try {
               const data = JSON.parse(dataStr);
+              debugChunkCount++;
 
               // Handle stream error
               if (data.error) {
@@ -180,6 +187,7 @@ export class StreamingService {
               if (data.content) {
                 assistantMessage.content += data.content;
                 updateBatch.content += data.content;
+                debugTotalContentLen += data.content.length;
               }
 
               if (data.thinking) {
@@ -197,6 +205,7 @@ export class StreamingService {
                 shouldFlush &&
                 (updateBatch.content || updateBatch.thinking || data.usage)
               ) {
+                debugFlushCount++;
                 // Send raw content to onRawContent for ThinkingBlock display (no parsing)
                 if (updateBatch.content) {
                   callbacks.onRawContent?.(updateBatch.content);

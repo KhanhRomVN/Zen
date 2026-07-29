@@ -554,24 +554,10 @@ export const useChatLLM = ({
               onContinuing: (isContinuing) => {
                 setIsContinuingSync(isContinuing);
               },
-              onRawContent: (content) => {
-                // Display raw streaming content in thinking block
-                setMessages((prev) => {
-                  const targetIndex = prev.findIndex(
-                    (m) => m.id === assistantMessageId,
-                  );
-                  if (targetIndex === -1) return prev;
-
-                  const currentMessage = prev[targetIndex];
-                  const updatedMessage = {
-                    ...currentMessage,
-                    thinking: (currentMessage.thinking || "") + content,
-                  };
-
-                  const newArray = prev.slice();
-                  newArray[targetIndex] = updatedMessage;
-                  return newArray;
-                });
+              onRawContent: (_content) => {
+                // PERF: Khong goi setMessages trong streaming nua
+                // Thay vao do chi tich luy vao ref, ProcessingIndicator tu hien thi timer
+                // Tranh 130+ lan re-render toan bo UI moi khi stream
               },
               onContent: (content) => {
                 // Update UI with parsed content (called ONCE at the end with full content)

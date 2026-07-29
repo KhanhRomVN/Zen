@@ -21,6 +21,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   searchQuery,
   setSearchQuery,
 }) => {
+  const headerRenderCountRef = React.useRef(0);
+  headerRenderCountRef.current++;
+
   const formatTokens = (num: number) => {
     if (num >= 1000) return (num / 1000).toFixed(1) + "K";
     return num.toString();

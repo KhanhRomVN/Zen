@@ -295,7 +295,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 action: block.action,
                 index: actionIndex !== -1 ? actionIndex : idx,
               };
-              
+
               // Flush tools if tool type changes (avoid mixing different tool types in same group)
               if (
                 currentToolGroup.length > 0 &&
@@ -303,7 +303,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               ) {
                 flushTools();
               }
-              
+
               currentToolGroup.push(toolAction);
             } else if (block.type === "error") {
               flushTools();
@@ -378,7 +378,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             const hasHistoryOutput =
               !!nextUserMessage ||
               !!allMessages?.some((m) => m.actionIds?.includes(actionId));
-            
+
             if (!isClicked && !hasOutput && !hasHistoryOutput) {
               firstUnclickedActionIndex = i;
               break;
@@ -474,7 +474,10 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 const terminalId =
                   (outputData as any)?.terminalId ||
                   item.action.params.terminal_id;
-                if (terminalId && terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY)
+                if (
+                  terminalId &&
+                  terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY
+                )
                   return true;
               }
               return false;

@@ -811,58 +811,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
             });
           })()}
 
-          {(() => {
-            const lastMessage = visibleMessages[visibleMessages.length - 1];
-            const isRenderingThinking =
-              lastMessage && lastMessage.role === "assistant" && isProcessing;
-
-            if (!isRenderingThinking) {
-              return null;
-            }
-
-            // Check for thinking from SSE stream (unclosed thinking)
-            const hasSSEThinking =
-              lastMessage.thinking && lastMessage.thinking.trim();
-
-            if (hasSSEThinking) {
-              return (
-                <ThinkingRenderer
-                  content={lastMessage.thinking!}
-                  maxHeight={240}
-                  isStreaming={true}
-                />
-              );
-            }
-
-            // Check for unclosed thinking blocks in parsed content
-            const parsedMessage = parsedMessages.find(
-              (pm) => pm.id === lastMessage.id,
-            );
-            if (!parsedMessage || !parsedMessage.parsed) {
-              return null;
-            }
-
-            // Look for UNCLOSED thinking block (still streaming)
-            const contentBlocks = parsedMessage.parsed.contentBlocks || [];
-            const lastBlock = contentBlocks[contentBlocks.length - 1];
-            const isLastBlockUnclosedThinking =
-              lastBlock &&
-              lastBlock.type === "thinking" &&
-              lastBlock.content?.trim();
-
-            // Only render if the LAST block is a thinking block (means thinking is still open/unclosed)
-            if (isLastBlockUnclosedThinking) {
-              return (
-                <ThinkingRenderer
-                  content={lastBlock.content!}
-                  maxHeight={240}
-                  isStreaming={true}
-                />
-              );
-            }
-
-            return null;
-          })()}
+          {/* PERF: Da bo streaming render ThinkingBlock — ProcessingIndicator thay the hoan toan */}
 
           {hasUnexecutedAutoActions && onContinue && (
             <div
@@ -977,3 +926,4 @@ const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
   );
 });
 export default ChatBody;
+    
