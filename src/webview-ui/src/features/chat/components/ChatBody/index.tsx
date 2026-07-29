@@ -15,6 +15,7 @@ import { useCollapseSections } from "../../hooks/ui/useCollapseSections";
 import { useToolActions } from "../../hooks/tools/useToolActions";
 import { useScrollBehavior } from "../../hooks/ui/useScrollBehavior";
 import { useMessagePagination } from "../../hooks/ui/useMessagePagination";
+import { useMessageParsing } from "../../hooks/messages/useMessageParsing";
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import SearchBar from "./SearchBar";
 import { ThinkingRenderer } from "./AIMessageBox/renderers/ThinkingRenderer";
@@ -426,56 +427,22 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     messagesPerPage: 10,
   });
 
-  const parseCacheRef = useRef<Map<string, ParsedResponse>>(new Map());
-  const lastParsedMessagesRef = useRef<any[]>([]);
+  // Use shared parse cache from useMessageParsing hook
+  // Falls back to local parse only for messages not pre-parsed by useChatLLM
+  const parsedMessagesFromHook = useMessageParsing(
+    paginatedMessages,
+    isProcessing || isContinuing,
+  );
 
   const parsedMessages = useMemo(() => {
-    const startTime = performance.now();
-
-    // Use paginated messages instead of all messages
-    const messagesToParse = paginatedMessages;
-
-    // Check if messages are already parsed (from ChatPanel)
-    if (messagesToParse.length > 0 && messagesToParse[0].parsed !== undefined) {
-      // STREAMING FIX: During streaming, always check content changes for last message
-      const messagesUnchanged =
-        lastParsedMessagesRef.current.length === messagesToParse.length &&
-        messagesToParse.every(
-          (msg, i) =>
-            msg.id === lastParsedMessagesRef.current[i]?.id &&
-            msg.content === lastParsedMessagesRef.current[i]?.content,
-        );
-
-      if (messagesUnchanged) {
-        return lastParsedMessagesRef.current;
-      }
-
-      // Content changed or new messages - update cache
-      lastParsedMessagesRef.current = messagesToParse;
-      return messagesToParse;
+    if (
+      paginatedMessages.length > 0 &&
+      paginatedMessages[0].parsed !== undefined
+    ) {
+      return paginatedMessages;
     }
-
-    // Fallback: parse messages if not already parsed
-    const cache = parseCacheRef.current;
-
-    const result = messagesToParse.map((msg) => {
-      const cached = cache.get(msg.content);
-      if (!cached || cached === undefined) {
-        const parsed = parseAIResponse(msg.content);
-        cache.set(msg.content, parsed);
-      }
-      return { ...msg, parsed: cache.get(msg.content)! };
-    });
-
-    const elapsed = performance.now() - startTime;
-    if (elapsed > 10 || messagesToParse.length > 10) {
-      console.warn(
-        `[ChatBody] parsedMessages recalculated - messages: ${messagesToParse.length}, cacheSize: ${cache.size}, time: ${elapsed.toFixed(1)}ms`,
-      );
-    }
-    lastParsedMessagesRef.current = result;
-    return result;
-  }, [paginatedMessages]);
+    return parsedMessagesFromHook;
+  }, [paginatedMessages, parsedMessagesFromHook]);
 
   const { collapsedSections, toggleCollapse } = useCollapseSections();
   const { clickedActions, handleToolClick, failedActions, rejectedActions } =

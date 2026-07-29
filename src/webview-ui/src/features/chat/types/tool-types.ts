@@ -20,6 +20,7 @@ export interface WriteToFileParams extends BaseToolParams {
 export interface ReplaceInFileParams extends BaseToolParams {
   old_content?: string;
   new_content?: string;
+  _validationError?: string; // Internal flag for validation errors
 }
 
 // ===== REVERT FILE =====
@@ -36,12 +37,10 @@ export interface ListFilesParams {
 
 // ===== GREP =====
 export interface GrepParams {
-  search_term?: string;
-  searchTerm?: string;
+  search_term: string;
   file_path?: string;
-  filePath?: string;
   folder_path?: string;
-  folderPath?: string;
+  file_pattern?: string;
   _validationError?: string; // Internal flag for invalid regex
 }
 

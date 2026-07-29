@@ -21,9 +21,22 @@ export class ReplaceInFileExecutor implements ToolExecutor {
     } = context;
 
     return new Promise((resolve) => {
-      const requestId = `replace-${Date.now()}-${Math.random()}`;
       const filePath = action.params.path || action.params.file_path;
       const actionId = action.actionId;
+
+      // Check for validation error from parser
+      if (action.params._validationError) {
+        const errMsg = action.params._validationError;
+        console.warn(
+          `[Zen][replace_in_file] Validation error | file="${filePath}" | error="${errMsg}"`,
+        );
+        resolve(
+          `[replace_in_file for '${filePath}'] Result: Error - ${errMsg}`,
+        );
+        return;
+      }
+
+      const requestId = `replace-${Date.now()}-${Math.random()}`;
       const messageTimestamp = Date.now(); // Current timestamp for this tool execution
       const responseNumber = action.responseNumber; // Response number from the triggering message
 

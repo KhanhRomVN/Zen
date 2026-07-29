@@ -4,6 +4,7 @@ export interface ReplaceInFileParams {
   file_path: string;
   old_content: string;
   new_content: string;
+  _validationError?: string; // Internal flag for validation errors
 }
 
 /**
@@ -35,7 +36,7 @@ const detectMissingClosingTag = (
 
 export const parseReplaceInFile = (
   innerContent: string,
-): ReplaceInFileParams & { isError?: boolean; errorMessage?: string } => {
+): ReplaceInFileParams => {
   // Parse according to tools-reference.ts schema: file_path, old_content, new_content
   let filePath = extractParamValue(innerContent, "file_path");
   let oldContent = extractParamValue(innerContent, "old_content");
@@ -91,12 +92,18 @@ export const parseReplaceInFile = (
   if (missingClosingTags.length > 0) {
     const tagList = missingClosingTags.map(tag => `</${tag}>`).join(", ");
     const errorMsg = `Missing closing tag(s): ${tagList}`;
+    
+    console.error("[Zen][ReplaceInFileParser] Validation error:", {
+      missingClosingTags,
+      error: errorMsg,
+      innerContent: innerContent.substring(0, 200), // Log first 200 chars for debug
+    });
+    
     return {
       file_path: filePath || "",
       old_content: oldContent || "",
       new_content: newContent || "",
-      isError: true,
-      errorMessage: errorMsg,
+      _validationError: errorMsg,
     };
   }
 
@@ -114,12 +121,19 @@ export const parseReplaceInFile = (
 
   // If any required param is missing, return error
   if (missingParams.length > 0) {
+    const errorMsg = `Missing required parameter(s): ${missingParams.join(", ")}`;
+    
+    console.error("[Zen][ReplaceInFileParser] Validation error:", {
+      missingParams,
+      error: errorMsg,
+      innerContent: innerContent.substring(0, 200), // Log first 200 chars for debug
+    });
+    
     return {
       file_path: filePath || "",
       old_content: oldContent || "",
       new_content: newContent || "",
-      isError: true,
-      errorMessage: `Missing required parameter(s): ${missingParams.join(", ")}`,
+      _validationError: errorMsg,
     };
   }
 

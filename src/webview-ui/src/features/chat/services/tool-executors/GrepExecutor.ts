@@ -17,13 +17,14 @@ export class GrepExecutor implements ToolExecutor {
       const searchTerm = action.params.search_term;
       const filePath = action.params.file_path;
       const folderPath = action.params.folder_path;
+      const filePattern = action.params.file_pattern;
       const targetDesc = filePath || folderPath || "unknown";
 
       // Check for validation error from parser
       if (action.params._validationError) {
         const errMsg = action.params._validationError;
         console.warn(
-          `[Zen][grep] Validation error | pattern="${searchTerm}" | error="${errMsg}"`,
+          `[Zen][grep] Validation error | pattern="${searchTerm}" | file="${filePath}" | folder="${folderPath}" | error="${errMsg}"`,
         );
         resolve(
           `[grep for '${searchTerm}' in '${targetDesc}'] Result: Error - ${errMsg}`,
@@ -40,6 +41,7 @@ export class GrepExecutor implements ToolExecutor {
           search_term: searchTerm,
           file_path: filePath,
           folder_path: folderPath,
+          file_pattern: filePattern,
           requestId,
           timestamp: Date.now(),
         },

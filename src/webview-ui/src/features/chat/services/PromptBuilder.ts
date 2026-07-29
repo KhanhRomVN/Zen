@@ -75,11 +75,11 @@ export class PromptBuilder {
     }
 
     // Build full content
-    // Skip wrapping for tool execution results (they start with "Output:" or "[tool_name for '...' in '...'] Result:")
+    // Skip wrapping for tool execution results (they start with "Output:" or "[tool_name for '...'] Result:")
     const trimmedContent = content.trim();
     const isToolResult =
       trimmedContent.startsWith("Output:") ||
-      /^\[.+? for .+? in .+?\] Result:/.test(trimmedContent);
+      /^\[.+?\] Result:/.test(trimmedContent); // Match any tool result format: [tool_name ...] Result:
     const fullContent =
       skipFirstRequestLogic || isToolResult
         ? content

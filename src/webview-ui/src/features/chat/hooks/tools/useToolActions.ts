@@ -187,23 +187,6 @@ export const useToolActions = ({
 
         const actionId = `${actionIdBase}${actionIndex}`;
 
-        // 🔧 FIX: Skip actions with validation errors
-        if (targetAction.isError) {
-          console.warn(
-            `[useToolActions][handleToolClick] ❌ Blocked execution for malformed tool action (merged):`,
-            {
-              actionId,
-              toolName: targetAction.type,
-              errorCode: targetAction.errorCode,
-              errorMessage: targetAction.errorMessage,
-              reason:
-                "Merged action - validation error detected, execution blocked",
-              willCallOnSendToolRequest: false,
-            },
-          );
-          return;
-        }
-
         // Skip if already clicked
         if (clickedActions.has(actionId)) {
           return;
@@ -223,23 +206,6 @@ export const useToolActions = ({
         // Handle Single
         const action = actionOrActions;
         const actionId = `${actionIdBase}${actionIndex}`;
-
-        // 🔧 FIX: Block execution if action has validation error
-        if (action.isError) {
-          console.warn(
-            `[useToolActions][handleToolClick] ❌ Blocked execution for malformed tool action (single):`,
-            {
-              actionId,
-              toolName: action.type,
-              errorCode: action.errorCode,
-              errorMessage: action.errorMessage,
-              reason:
-                "Single execution - validation error detected, execution blocked",
-              willCallOnSendToolRequest: false,
-            },
-          );
-          return;
-        }
 
         if (isToolClickable(action.type)) {
           // DON'T mark as clicked here - let handleToolRequest do it
@@ -308,30 +274,6 @@ export const useToolActions = ({
 
     lastMessage.parsed.actions.forEach((action: ToolAction, idx: number) => {
       const actionId = `${lastMessage.id}-action-${idx}`;
-
-      // Handle actions with validation errors (malformed XML, missing params)
-      // In APPROVAL mode: Don't auto-trigger, let user see error and click Skip
-      // In FULL-ACCESS mode: Auto-reject to provide feedback to AI
-      if (action.isError) {
-        // 🔧 FIX: Only auto-reject in fullAccess mode
-        // In approval mode, let user see the error and manually click Skip
-        if (permissionMode === "fullAccess") {
-          // Collect for batch update
-          actionsToMarkTriggered.push(actionId);
-
-          // Add to execution queue as REJECT action
-          actionsToRun.push({
-            ...action,
-            actionId,
-            _index: idx,
-            _actionType: TOOL_ACTION_TYPES.REJECT,
-          } as any);
-        } else {
-          // Don't add to actionsToRun - let user see error and click Skip button
-        }
-
-        return;
-      }
 
       // Skip display-only tools - they should not be auto-executed
       if (action.type === "git_status" || action.type === "commit_message") {

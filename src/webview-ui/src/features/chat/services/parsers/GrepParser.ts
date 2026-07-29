@@ -2,6 +2,7 @@ import { extractParamValue } from "../../utils/ToolParser";
 
 export interface GrepParams {
   search_term: string;
+  file_path?: string;
   folder_path?: string;
   file_pattern?: string;
   _validationError?: string; // Internal flag for invalid regex
@@ -40,12 +41,46 @@ const validateRegexPattern = (pattern: string): string | null => {
 };
 
 export const parseGrep = (innerContent: string): GrepParams => {
-  // Parse according to tools-reference.ts schema: search_term (required), file_path OR folder_path (optional)
+  // Parse according to tools-reference.ts schema: search_term (required), file_path OR folder_path (one required)
   const searchTerm = extractParamValue(innerContent, "search_term");
+  const filePath = extractParamValue(innerContent, "file_path");
   const folderPath = extractParamValue(innerContent, "folder_path");
   const filePattern = extractParamValue(innerContent, "file_pattern");
 
   const searchTermValue = searchTerm || "";
+
+  // Validate required parameters
+  if (!searchTermValue || searchTermValue.trim() === "") {
+    const errorMsg = "Missing required parameter: search_term";
+    console.error("[Zen][GrepParser] Validation error:", {
+      error: errorMsg,
+      innerContent: innerContent.substring(0, 200),
+    });
+    return {
+      search_term: "",
+      file_path: filePath || undefined,
+      folder_path: folderPath || undefined,
+      file_pattern: filePattern || undefined,
+      _validationError: errorMsg,
+    };
+  }
+
+  // Check if at least one path parameter is provided
+  if ((!filePath || filePath.trim() === "") && (!folderPath || folderPath.trim() === "")) {
+    const errorMsg =
+      "Missing required parameter: either file_path or folder_path must be provided";
+    console.error("[Zen][GrepParser] Validation error:", {
+      error: errorMsg,
+      innerContent: innerContent.substring(0, 200),
+    });
+    return {
+      search_term: searchTermValue,
+      file_path: undefined,
+      folder_path: undefined,
+      file_pattern: filePattern || undefined,
+      _validationError: errorMsg,
+    };
+  }
 
   // Validate regex pattern
   const validationError = validateRegexPattern(searchTermValue);
@@ -60,6 +95,7 @@ export const parseGrep = (innerContent: string): GrepParams => {
 
   return {
     search_term: searchTermValue,
+    file_path: filePath || undefined,
     folder_path: folderPath || undefined,
     file_pattern: filePattern || undefined,
     _validationError: validationError || undefined,

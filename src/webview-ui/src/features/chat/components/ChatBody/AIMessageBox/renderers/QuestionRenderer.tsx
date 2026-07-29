@@ -4,7 +4,7 @@ import React from "react";
 import { Question, QuestionAnswer } from "@/features/chat/types/message";
 
 // COMPONENTS
-import QuestionBlock from "../blocks/question/QuestionBlock";
+import QuestionBlock from "../blocks/question";
 
 interface QuestionRendererProps {
   questions?: Question[];
