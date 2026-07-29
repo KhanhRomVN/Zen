@@ -14,6 +14,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { useCollapseSections } from "../../hooks/ui/useCollapseSections";
 import { useToolActions } from "../../hooks/tools/useToolActions";
 import { useScrollBehavior } from "../../hooks/ui/useScrollBehavior";
+import { useMessagePagination } from "../../hooks/ui/useMessagePagination";
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import SearchBar from "./SearchBar";
 import { ThinkingRenderer } from "./AIMessageBox/renderers/ThinkingRenderer";
@@ -22,6 +23,7 @@ import ProcessingIndicator from "./ProcessingIndicator";
 import UserMessageBox from "./UserMessageBox";
 import AIMessageBox from "./AIMessageBox";
 import ModelInfoBar from "./ModelInfoBar";
+import { LoadMoreButton } from "./LoadMoreButton";
 
 interface ChatBodyProps {
   messages: Message[];
@@ -412,18 +414,33 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
+  // Message pagination
+  const {
+    visibleMessages: paginatedMessages,
+    hiddenCount,
+    loadMore,
+    loadAll,
+    hasHiddenMessages,
+  } = useMessagePagination({
+    messages,
+    messagesPerPage: 10,
+  });
+
   const parseCacheRef = useRef<Map<string, ParsedResponse>>(new Map());
   const lastParsedMessagesRef = useRef<any[]>([]);
 
   const parsedMessages = useMemo(() => {
     const startTime = performance.now();
 
+    // Use paginated messages instead of all messages
+    const messagesToParse = paginatedMessages;
+
     // Check if messages are already parsed (from ChatPanel)
-    if (messages.length > 0 && messages[0].parsed !== undefined) {
+    if (messagesToParse.length > 0 && messagesToParse[0].parsed !== undefined) {
       // STREAMING FIX: During streaming, always check content changes for last message
       const messagesUnchanged =
-        lastParsedMessagesRef.current.length === messages.length &&
-        messages.every(
+        lastParsedMessagesRef.current.length === messagesToParse.length &&
+        messagesToParse.every(
           (msg, i) =>
             msg.id === lastParsedMessagesRef.current[i]?.id &&
             msg.content === lastParsedMessagesRef.current[i]?.content,
@@ -434,14 +451,14 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
       }
 
       // Content changed or new messages - update cache
-      lastParsedMessagesRef.current = messages;
-      return messages;
+      lastParsedMessagesRef.current = messagesToParse;
+      return messagesToParse;
     }
 
     // Fallback: parse messages if not already parsed
     const cache = parseCacheRef.current;
 
-    const result = messages.map((msg) => {
+    const result = messagesToParse.map((msg) => {
       const cached = cache.get(msg.content);
       if (!cached || cached === undefined) {
         const parsed = parseAIResponse(msg.content);
@@ -451,14 +468,14 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     });
 
     const elapsed = performance.now() - startTime;
-    if (elapsed > 10 || messages.length > 10) {
+    if (elapsed > 10 || messagesToParse.length > 10) {
       console.warn(
-        `[ChatBody] parsedMessages recalculated - messages: ${messages.length}, cacheSize: ${cache.size}, time: ${elapsed.toFixed(1)}ms`,
+        `[ChatBody] parsedMessages recalculated - messages: ${messagesToParse.length}, cacheSize: ${cache.size}, time: ${elapsed.toFixed(1)}ms`,
       );
     }
     lastParsedMessagesRef.current = result;
     return result;
-  }, [messages]);
+  }, [paginatedMessages]);
 
   const { collapsedSections, toggleCollapse } = useCollapseSections();
   const { clickedActions, handleToolClick, failedActions, rejectedActions } =
@@ -508,12 +525,12 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   }, [messages, isRestored, toolOutputs, permissionMode, clickedActions]);
 
   const visibleMessages = useMemo(() => {
-    const filtered = messages.filter(
+    const filtered = paginatedMessages.filter(
       (msg) => !msg.uiHidden && !msg.isCancelled,
     );
 
     return filtered;
-  }, [messages, firstRequestMessageId]);
+  }, [paginatedMessages, firstRequestMessageId]);
 
   const lastAssistantIndex = useMemo(() => {
     for (let i = visibleMessages.length - 1; i >= 0; i--) {
@@ -616,8 +633,29 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
             />
           )}
 
+          {/* Load More Button - show when there are hidden messages */}
+          {hasHiddenMessages && (
+            <LoadMoreButton
+              hiddenCount={hiddenCount}
+              onLoadMore={loadMore}
+              onLoadAll={loadAll}
+            />
+          )}
+
           {(() => {
-            let assistantResponseCount = 0;
+            // Calculate global response count from ALL messages (not just visible)
+            let globalResponseCount = 0;
+            const messageToResponseNumber = new Map<string, number>();
+
+            // First pass: assign response numbers to ALL messages
+            messages.forEach((msg) => {
+              if (msg.role === "assistant") {
+                globalResponseCount++;
+                messageToResponseNumber.set(msg.id, globalResponseCount);
+              }
+            });
+
+            // Second pass: render only visible messages with correct response numbers
             return visibleMessages.map((message, index) => {
               const parsedMessage = parsedMessages.find(
                 (pm) => pm.id === message.id,
@@ -625,12 +663,11 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
               if (!parsedMessage || !parsedMessage.parsed) return null;
               const parsedContent = parsedMessage.parsed;
 
-              // Track assistant response number
-              if (message.role === "assistant") {
-                assistantResponseCount++;
-              }
+              // Get response number from the map (calculated from ALL messages)
               const currentResponseNumber =
-                message.role === "assistant" ? assistantResponseCount : null;
+                message.role === "assistant"
+                  ? messageToResponseNumber.get(message.id) || null
+                  : null;
 
               const nextUserMessage = messages
                 .slice(messages.findIndex((m) => m.id === message.id) + 1)
