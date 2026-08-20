@@ -2,7 +2,7 @@
  *? Usage:
  *    Quản lý terminal ảo: tạo, chạy lệnh shell, pipe stdin/stdout, throttle data, auto-cleanup. Phát hiện lệnh long-running (dev/start/serve/watch...).
  *
- 
+
  */
 
 import * as vscode from "vscode";

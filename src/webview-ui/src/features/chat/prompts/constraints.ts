@@ -58,4 +58,3 @@ export const CONSTRAINTS = `# CONSTRAINTS
 - **VI-DEBUG-TEMPLATE**: When adding debug logging to help diagnose an issue, use a clearly marked, removable debug-log style (e.g. a comment noting it can be deleted after the fix, with a consistent tag such as [DEBUG]), matching the target language's idioms. Always ask the user to reproduce/test afterward per RUNTIME-VERIFY.
 - **VI-RESPONSE-STRUCTURE**: Structure prose <markdown> responses as: (a) brief restatement of the understood request, (b) approach + solution + explanation of key changes, (c) recommendations or next steps if relevant. Keep this structure lightweight for small fixes — do not force all three sections for a one-line change.
 This section does not override BYTE-PERFECT, READ-BEFORE-EDIT, or any tool-call formatting rule above — those remain in English/XML as specified.`;
-

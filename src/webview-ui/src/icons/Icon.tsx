@@ -1,7 +1,7 @@
 /**
  * Icon components for the application.
  * All icons are defined as inline React components with a `size` prop.
- * 
+ *
  * Usage:
  *   import { FileIcon, PlusIcon, SendIcon } from "@/icons";
  *   <FileIcon size={16} />

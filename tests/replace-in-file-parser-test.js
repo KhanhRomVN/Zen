@@ -1,10 +1,10 @@
 /**
  * Test mô phỏng cơ chế parse replace_in_file từ ResponseParser.ts và ReplaceInFileParser.ts
- * 
+ *
  * Mục đích: Kiểm tra xem parser xử lý như thế nào khi new_content chứa JSX (có dấu <, >)
- * 
+ *
  * Chạy: node tests/replace-in-file-parser-test.js
- * 
+ *
  * Test cases:
  *   1. Response thuần chỉ có <replace_in_file> (không có text bao quanh)
  *   2. Response có <thinking> + <markdown> + <replace_in_file> (mô phỏng response AI đầy đủ)
@@ -298,7 +298,7 @@ const testCase2 = `
 OK, the warning says the unused imports are still there. My replacement didn't work because I used the same content. Let me now make the actual changes. I'll do multiple replacements:
 
 1. Add getStatusIcon function after getStatusColor
-2. Add unstagedItems after stagedItems  
+2. Add unstagedItems after stagedItems
 3. Add unstaged section in the render
 
 Let me do these one at a time, matching exact content.
@@ -399,12 +399,12 @@ if (totalPassed === results.length) {
 📌 KẾT LUẬN:
   - Parser tầng webview (extractParamValue trong ToolParser.ts) dùng regex
     <paramName>...</paramName> để trích xuất nội dung — regex này tìm CHÍNH XÁC
-    chuỗi đóng "</paramName>" nên KHÔNG bị confused bởi các tag JSX như 
+    chuỗi đóng "</paramName>" nên KHÔNG bị confused bởi các tag JSX như
     <Pencil>, <Plus>, <svg>, <path> nằm bên trong nội dung.
-    
+
   - Dù response có <thinking> và <markdown> bao quanh hay không, parser vẫn
     trích xuất đúng block <replace_in_file> và parse chính xác nội dung.
-    
+
   - Lỗi MISSING_REQUIRED_PARAM: new_content ban đầu LÀ DO TẦNG BACKEND
     (hệ thống thực thi tool), KHÔNG phải do parser trong webview.
     Backend có thể dùng XML parser chuẩn và bị lỗi khi gặp < > trong nội dung

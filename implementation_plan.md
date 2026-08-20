@@ -62,7 +62,7 @@ Thêm setting **System Prompt Mode** với 3 cấp độ vào Zen, cho phép use
 - Đọc `systemPromptMode` từ `useSettings()` và truyền vào `PromptBuilder.buildPrompt()`
 
 #### [NEW] [prompts/prompt-modes.ts](file:///c:/Users/DELL/Downloads/CÁC%20phiên%20bản%20Zai/Zen/src/webview-ui/src/features/chat/prompts/prompt-modes.ts)
-- Export type `SystemPromptMode`  
+- Export type `SystemPromptMode`
 - Export `MEDIUM_CONSTRAINTS` — phiên bản rút gọn của CONSTRAINTS (giữ tool rules, bỏ output-length/clarification verbose)
 - Export `buildPromptForMode(config, mode)` logic
 

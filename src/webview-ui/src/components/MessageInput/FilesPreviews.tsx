@@ -69,11 +69,11 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
       {uploadedFiles.length > 0 && (
         <div
           style={{
-            padding: readOnly 
-              ? "var(--spacing-sm) 0" 
+            padding: readOnly
+              ? "var(--spacing-sm) 0"
               : "var(--spacing-sm) var(--spacing-lg)",
-            borderTop: readOnly 
-              ? "none" 
+            borderTop: readOnly
+              ? "none"
               : "1px solid var(--border-color)",
             backgroundColor: "var(--secondary-bg)",
           }}
@@ -357,10 +357,10 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
       {attachedItems.length > 0 && (
         <div
           style={{
-            padding: readOnly 
-              ? "var(--spacing-sm) 0" 
+            padding: readOnly
+              ? "var(--spacing-sm) 0"
               : "var(--spacing-sm) var(--spacing-lg)",
-            borderTop: readOnly 
+            borderTop: readOnly
               ? "none"
               : (uploadedFiles.length === 0
                   ? "1px solid var(--border-color)"

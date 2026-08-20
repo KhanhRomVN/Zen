@@ -36,4 +36,3 @@ Every single response from you MUST start with a \`<thinking>...</thinking>\` bl
    - If the project has a visible test setup, propose running it per TEST-BEFORE-DONE before declaring the task complete.
 5. **VERIFY** — Tool error → diagnose root cause, fix or ask. Never silently retry.
    - Confirm the RE-CLARIFY file-count trigger has been checked before the next EXECUTE step.`;
-

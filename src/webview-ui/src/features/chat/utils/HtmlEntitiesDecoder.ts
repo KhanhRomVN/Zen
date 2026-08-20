@@ -14,4 +14,4 @@ const decodeHtmlEntities = (text: string): string => {
 };
 
 // Re-export so ToolParser can import from one place without duplicating.
-export { decodeHtmlEntities };
+export { decodeHtmlEntities };

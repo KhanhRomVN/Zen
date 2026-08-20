@@ -121,14 +121,14 @@ export class ReadFileHandler {
           path: pathValue,
           absolutePath: absPath.fsPath,
         });
-        
+
         const diagResult = await diagnosticsService.getDiagnostics(
           absPath,
           pathValue,
           15000,
         );
         diagnostics = diagResult.diagnostics;
-        
+
         logger.info("[ReadFileHandler] 📊 Diagnostics result", {
           path: pathValue,
           diagnosticsCount: diagnostics.length,

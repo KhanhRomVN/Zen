@@ -20,12 +20,12 @@ function extractParamValue(content, paramName) {
   // Use manual tag matching
   const openingTag = new RegExp(`<${paramName}(?:\\s+[^>]*)?>`, "i");
   const openingMatch = content.match(openingTag);
-  
+
   if (openingMatch) {
     const startIndex = openingMatch.index + openingMatch[0].length;
     const closingTag = `</${paramName}>`;
     const closingIndex = content.indexOf(closingTag, startIndex);
-    
+
     if (closingIndex !== -1) {
       let value = content.substring(startIndex, closingIndex);
       value = value.replace(/^```text\s*\n?|\n?```\s*$/g, "");
@@ -137,9 +137,9 @@ console.log(`new_content length: ${result.new_content === "(missing)" ? "MISSING
 console.log("");
 
 // Check if parsing succeeded
-const allPresent = 
-  result.file_path !== "(missing)" && 
-  result.old_content !== "(missing)" && 
+const allPresent =
+  result.file_path !== "(missing)" &&
+  result.old_content !== "(missing)" &&
   result.new_content !== "(missing)";
 
 if (allPresent) {
@@ -188,9 +188,9 @@ console.log(`old_content length: ${result2.old_content === "(missing)" ? "MISSIN
 console.log(`new_content length: ${result2.new_content === "(missing)" ? "MISSING!" : result2.new_content.length}`);
 console.log("");
 
-const allPresent2 = 
-  result2.file_path !== "(missing)" && 
-  result2.old_content !== "(missing)" && 
+const allPresent2 =
+  result2.file_path !== "(missing)" &&
+  result2.old_content !== "(missing)" &&
   result2.new_content !== "(missing)";
 
 if (allPresent2) {

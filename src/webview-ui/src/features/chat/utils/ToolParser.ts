@@ -30,24 +30,24 @@ export const extractParamValue = (
 
   if (openingMatch) {
     const startIndex = openingMatch.index! + openingMatch[0].length;
-    
+
     // Find the matching closing tag by counting nested tags (balanced matching)
     const closingTag = `</${paramName}>`;
     const openingTagPattern = new RegExp(`<${paramName}(?:\\s+[^>]*)?>`, "gi");
-    
+
     let depth = 1; // We already found one opening tag
     let searchIndex = startIndex;
-    
+
     while (depth > 0 && searchIndex < content.length) {
       // Find next opening or closing tag
       const nextOpening = content.indexOf(`<${paramName}`, searchIndex);
       const nextClosing = content.indexOf(closingTag, searchIndex);
-      
+
       // If no closing tag found, this is an error
       if (nextClosing === -1) {
         break;
       }
-      
+
       // If there's an opening tag before the closing tag, increase depth
       if (nextOpening !== -1 && nextOpening < nextClosing) {
         // Verify it's actually an opening tag (not part of text)

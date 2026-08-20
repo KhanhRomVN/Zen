@@ -100,9 +100,9 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  
 
-  
+
+
 
   if (!isOpen) return null;
 
@@ -227,14 +227,14 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               }}
             />
           </div>
-          
+
           <ProviderFilterDropdown
             providerConfigs={providerConfigs}
             selectedProvider={providerFilter}
             onSelectProvider={setProviderFilter}
             getFaviconUrl={getFaviconUrl}
           />
-          
+
           <button
             onClick={() => setDialogOpen(true)}
             onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
@@ -258,7 +258,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           >
             <Plus size={16} />
           </button>
-          
+
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}

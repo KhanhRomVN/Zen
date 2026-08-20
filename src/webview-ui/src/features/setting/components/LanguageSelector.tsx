@@ -75,7 +75,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   return (
     <div
       ref={dropdownRef}
-      style={{ 
+      style={{
         position: "relative",
         width: "100%",
         ...(className ? {} : {})
@@ -99,18 +99,18 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         }}
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div style={{ 
-          display: "flex", 
-          alignItems: "center", 
-          gap: "8px" 
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px"
         }}>
-          <span style={{ 
-            fontSize: "16px", 
-            lineHeight: 1 
+          <span style={{
+            fontSize: "16px",
+            lineHeight: 1
           }}>
             {selectedLanguage.flag}
           </span>
-          <span style={{ 
+          <span style={{
             fontWeight: 500,
             color: "var(--primary-text)"
           }}>
@@ -138,9 +138,9 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
             overflow: "hidden",
           }}
         >
-          <div style={{ 
-            maxHeight: "240px", 
-            overflowY: "auto" 
+          <div style={{
+            maxHeight: "240px",
+            overflowY: "auto"
           }} className="custom-scrollbar">
             {LANGUAGES.map((lang) => (
               <div
@@ -171,10 +171,10 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                   }
                 }}
               >
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "8px" 
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px"
                 }}>
                   <span>{lang.flag}</span>
                   <span>{lang.name}</span>

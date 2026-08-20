@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 /**
  * Manages browser session state for the zai-browser provider.
  * Checks session status on mount and polls every 5 seconds.
- * 
+ *
  * PERFORMANCE: Uses refs to prevent unnecessary re-renders from polling.
  */
 export const useBrowserSession = (
@@ -18,12 +18,12 @@ export const useBrowserSession = (
   // Use refs to track current state values to avoid unnecessary re-renders
   const isBrowserSessionReadyRef = useRef(false);
   const showBrowserWarningRef = useRef(false);
-  
+
   // Use refs for dependencies to prevent interval recreation
   const currentModelRef = useRef(currentModel);
   const currentAccountRef = useRef(currentAccount);
   const backendApiUrlRef = useRef(backendApiUrl);
-  
+
   // Update refs when values change
   useEffect(() => {
     currentModelRef.current = currentModel;
@@ -113,7 +113,7 @@ export const useBrowserSession = (
       const model = currentModelRef.current;
       const account = currentAccountRef.current;
       const apiUrl = backendApiUrlRef.current;
-      
+
       if (!model || model.providerId !== "zai-browser" || !account?.id) {
         // PERF: When provider is not zai-browser, these states should already be
         // true/false from the initial check. Skip setState entirely to avoid
@@ -123,7 +123,7 @@ export const useBrowserSession = (
         showBrowserWarningRef.current = false;
         return;
       }
-      
+
       try {
         const response = await fetch(
           `${apiUrl}/v1/accounts/${account.id}/browser/status`,
@@ -131,7 +131,7 @@ export const useBrowserSession = (
         const result = await response.json();
         if (result.success && result.data) {
           const isRunning = result.data.has_profile && result.data.is_running;
-          
+
           // Only update state if values actually changed
           if (isBrowserSessionReadyRef.current !== isRunning) {
             isBrowserSessionReadyRef.current = isRunning;
@@ -146,13 +146,13 @@ export const useBrowserSession = (
         console.error("Polling browser status failed:", error);
       }
     };
-    
+
     // Initial check
     checkStatus();
-    
+
     // Set up polling - only created once
     const interval = setInterval(checkStatus, 5000);
-    
+
     return () => clearInterval(interval);
   }, []); // Empty deps - interval is set up once and uses refs
 

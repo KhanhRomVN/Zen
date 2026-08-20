@@ -19,21 +19,21 @@ const detectMissingClosingTag = (
   alternativeNames: string[] = [],
 ): string | null => {
   const allNames = [paramName, ...alternativeNames];
-  
+
   for (const name of allNames) {
     const openingTag = new RegExp(`<${name}(?:\\s+[^>]*)?>`, "i");
     const hasOpening = openingTag.test(content);
-    
+
     if (hasOpening) {
       const closingTag = `</${name}>`;
       const hasClosing = content.includes(closingTag);
-      
+
       if (!hasClosing) {
         return name; // Found opening but missing closing
       }
     }
   }
-  
+
   return null;
 };
 
@@ -46,14 +46,14 @@ export const parseWriteToFile = (
 
   // Check for missing closing tags with specific error messages
   const missingClosingTags: string[] = [];
-  
+
   if (!filePath) {
     const missingTag = detectMissingClosingTag(innerContent, "file_path", ["path"]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
-  
+
   if (!content) {
     const missingTag = detectMissingClosingTag(innerContent, "content");
     if (missingTag) {
