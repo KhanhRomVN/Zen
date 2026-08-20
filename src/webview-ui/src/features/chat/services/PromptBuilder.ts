@@ -124,7 +124,7 @@ export class PromptBuilder {
       }
     } catch (e) {}
 
-    let maxFilesPerSession = 5;
+    let maxFilesPerSession = 3;
     try {
       const savedMax = localStorage.getItem("zen_max_files_per_session");
       if (savedMax) {

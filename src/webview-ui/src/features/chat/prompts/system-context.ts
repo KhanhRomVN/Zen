@@ -18,7 +18,7 @@ export const buildSystemContext = (info: SystemInfo): string => {
         : info.os;
 
   const isWindows = /windows/i.test(effectiveOS);
-  const maxFiles = info.maxFilesPerSession ?? 5;
+  const maxFiles = info.maxFilesPerSession ?? 3;
 
   return `# SYSTEM ENVIRONMENT
 OS: ${effectiveOS}, IDE: ${info.ide}, Shell: ${isWindows ? "PowerShell / CMD" : info.shell}, Home: ${info.homeDir}, CWD: ${info.cwd}, Language: ${info.language}

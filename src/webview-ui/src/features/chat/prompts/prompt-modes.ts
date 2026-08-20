@@ -39,7 +39,9 @@ export function buildProMaxContext(systemInfo: SystemInfo): string {
 - TWO-PASS THINKING & MENTAL LINTING: Spend 30–60s in <thinking> to:
   * Pass 1 (Design): Map out complete architecture, state flow, and edge cases.
   * Pass 2 (Mental Syntax & Diff Check): Mentally trace every closing bracket '}', ')', ';', variable name, XML tag, and verify that new_content has NO duplicate calls, missing breaks, or dangling code.
-- ZERO-NARRATION TOOL ACTION (CRITICAL — NEVER PROCRASTINATE):
+- ZERO-NARRATION TOOL ACTION & MANDATORY POST-THINKING EXECUTION (CRITICAL):
+  * A response must NEVER consist of only <thinking>...</thinking> and stop.
+  * After </thinking>, you MUST IMMEDIATELY emit the actual XML tool call (<list_files>, <read_file>, <find_files>, <grep>, <write_to_file>, <run_command>) or <markdown>.
   * NEVER emit prose-only messages promising action (NEVER say "Tôi sẽ bắt đầu phân tích...", "Đang đọc file...", "Tôi sẽ gọi tool ngay bây giờ..." without emitting the XML tool tag in the SAME turn).
   * If information is needed, ALWAYS emit the XML tool call (<list_files>, <read_file>, <find_files>, <grep>) IMMEDIATELY in that turn.
   * When user says "tiếp tục" / "continue" -> DO NOT say "Được, tôi tiếp tục", EMIT THE NEXT TOOL CALL DIRECTLY.
@@ -67,7 +69,7 @@ export function buildProMaxContext(systemInfo: SystemInfo): string {
      * NEVER run inline scripts with nested quotes via 'node -e "..."' or 'python -c "..."'. Nested quotes break across shell wrappers.
      * If a script is needed, write a temporary file with <write_to_file><file_path>_test.js</file_path>... and run <run_command><command>node _test.js</command></run_command>.
 ${osSection}
-- MAX-FILES-PER-REQUEST: In each request/turn, you are allowed to autonomously read, edit, or write up to ${systemInfo.maxFilesPerSession ?? 5} files without asking for user confirmation. This limit applies per request/turn, allowing you to freely and continuously read, edit, and write files across turns without any lifetime session lock.
+- MAX-FILES-PER-REQUEST: In each request/turn, you are allowed to autonomously read, edit, or write up to ${systemInfo.maxFilesPerSession ?? 3} files without asking for user confirmation. This limit applies per request/turn, allowing you to freely and continuously read, edit, and write files across turns without any lifetime session lock.
 - AGGRESSIVE BATCHING: Combine independent reads/discovery tools in a single turn. Read the full relevant range at once instead of making micro-range reads across multiple turns.`;
 }
 
