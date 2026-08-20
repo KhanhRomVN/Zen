@@ -86,11 +86,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
         });
         if (result && typeof (result as any).then === "function") {
           (result as any).then((sent: boolean) => {
-            if (!sent)
+            if (!sent) {
               console.warn(
                 `[ChatViewProvider] commandExecuted NOT delivered (webview hidden/disposed?)`,
                 { actionId: event.actionId },
               );
+            }
           });
         }
       },
@@ -130,8 +131,9 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  // FIX P3: Remove visible check so commands work even when webview is hidden
   public postMessageToWebview(message: any) {
-    if (this._view && this._view.visible) {
+    if (this._view) {
       this._view.webview.postMessage(message);
     }
   }
@@ -168,7 +170,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 <head>
  <meta charset="UTF-8">
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src http://localhost:* ws://localhost:*; style-src ${cspSource} 'unsafe-inline'; img-src ${cspSource} data: https:; font-src ${cspSource}; script-src 'nonce-${nonce}' ${cspSource} 'unsafe-eval'; worker-src blob: data: ${cspSource} https: http:;">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src ${cspSource} http://localhost:* ws://localhost:* https: wss:; style-src ${cspSource} 'unsafe-inline'; img-src ${cspSource} data: https:; font-src ${cspSource} 'wasm-unsafe-eval'; script-src 'nonce-${nonce}' ${cspSource} 'unsafe-eval'; worker-src blob: data: ${cspSource} https: http:;">
  <title>Zen Chat</title>
  <script nonce="${nonce}">
  window.__zenWorkspaceFolderPath = ${JSON.stringify(folderPath)};

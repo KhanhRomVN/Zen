@@ -122,41 +122,35 @@ class ExtensionService {
   ): Promise<any> {
     return new Promise((resolve, reject) => {
       const requestId = `${command}-${Date.now()}-${Math.random()}`;
-      const timeout = setTimeout(
-        () => reject(new Error(`${command} timeout`)),
-        5000,
-      );
 
-      const handler = (event: MessageEvent) => {
-        const message = event.data;
-        if (
-          message.command === responseCommand &&
-          message.requestId === requestId
-        ) {
-          clearTimeout(timeout);
-          window.removeEventListener("message", handler);
+      messageDispatcher.register(
+        requestId,
+        (message: any) => {
           if (message.error) {
             reject(new Error(message.error));
           } else {
             // Unpack specific responses
-            if (command === "storageGet")
+            if (command === "storageGet") {
               resolve(
                 message.value
                   ? { key: payload.key, value: message.value }
                   : null,
               );
-            else if (command === "storageList")
+            } else if (command === "storageList") {
               resolve({ keys: message.keys || [] });
-            else if (command === "storageDelete")
+            } else if (command === "storageDelete") {
               resolve({ key: payload.key, deleted: true });
-            else if (command === "storageSet")
+            } else if (command === "storageSet") {
               resolve({ key: payload.key, value: payload.value });
-            else resolve(message);
+            } else {
+              resolve(message);
+            }
           }
-        }
-      };
+        },
+        5000,
+        () => reject(new Error(`${command} timeout`)),
+      );
 
-      window.addEventListener("message", handler);
       this.postMessage({ command, requestId, ...payload });
     });
   }

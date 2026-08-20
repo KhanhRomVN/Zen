@@ -25,16 +25,22 @@ export class RevertFileHandler {
     const logger = LoggerService.getInstance();
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) throw new Error("No workspace");
+      if (!workspaceFolder) {
+        throw new Error("No workspace");
+      }
       const filePath = message.file_path || message.path;
       const version = message.version;
 
-      if (!filePath) throw new Error("'file_path' is required");
+      if (!filePath) {
+        throw new Error("'file_path' is required");
+      }
       const absPath = path.isAbsolute(filePath)
         ? filePath
         : path.join(workspaceFolder.uri.fsPath, filePath);
       const pc = SecurityValidator.validatePath(absPath, false);
-      if (!pc.safe) throw new Error(pc.reason || "Security validation failed");
+      if (!pc.safe) {
+        throw new Error(pc.reason || "Security validation failed");
+      }
       try {
         await fs.promises.stat(absPath);
       } catch {
@@ -97,7 +103,14 @@ export class RevertFileHandler {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      
+      // FIX P0: Send success response to webview to prevent AI request hang
+      webviewView.webview.postMessage({
+        command: "revertFileResult",
+        requestId: message.requestId,
+        success: true,
+        path: filePath,
+        content: afterContent,
+      });
     } catch (e: any) {
       logger.error(`[DEBUG revert_file] Error: ${e.message}`);
       webviewView.webview.postMessage({

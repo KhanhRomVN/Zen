@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
+import type { SystemPromptMode } from "@/features/chat/prompts";
 import { PermissionMode } from "@/features/chat/types/tag-types";
+
+export type TargetOSEnvironment = "auto" | "windows" | "linux";
 
 interface SettingsContextType {
   aiLanguage: string;
@@ -13,6 +16,12 @@ interface SettingsContextType {
   setPermissionMode: (mode: PermissionMode) => void;
   liveWritePreview: boolean;
   setLiveWritePreview: (value: boolean) => void;
+  systemPromptMode: SystemPromptMode;
+  setSystemPromptMode: (mode: SystemPromptMode) => void;
+  targetOS: TargetOSEnvironment;
+  setTargetOS: (os: TargetOSEnvironment) => void;
+  maxFilesPerSession: number;
+  setMaxFilesPerSession: (value: number) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -42,6 +51,36 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   const [permissionModeState, setPermissionModeState] =
     useState<PermissionMode>("fullAccess");
   const [liveWritePreview, setLiveWritePreviewState] = useState<boolean>(true);
+  const [systemPromptModeState, setSystemPromptModeState] =
+    useState<SystemPromptMode>(() => {
+      try {
+        const saved = localStorage.getItem("zen_system_prompt_mode");
+        if (saved === "simple" || saved === "promax")
+          return saved;
+      } catch (e) {}
+      return "simple";
+    });
+  const [targetOSState, setTargetOSState] = useState<TargetOSEnvironment>(() => {
+    try {
+      const saved = localStorage.getItem("zen_target_os") as TargetOSEnvironment;
+      if (saved === "auto" || saved === "windows" || saved === "linux")
+        return saved;
+    } catch (e) {}
+    return "auto";
+  });
+
+  const [maxFilesPerSessionState, setMaxFilesPerSessionState] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("zen_max_files_per_session");
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 100) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return 5;
+  });
 
   useEffect(() => {
     const storage = extensionService.getStorage();
@@ -55,6 +94,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.get("zen_permission_mode").then((res: any) => {
       if (res?.value) {
         setPermissionModeState(res.value);
+      }
+    });
+
+    storage.get("zen_max_files_per_session").then((res: any) => {
+      if (res?.value) {
+        const parsed = parseInt(res.value, 10);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 100) {
+          setMaxFilesPerSessionState(parsed);
+        }
       }
     });
   }, []);
@@ -96,6 +144,34 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (e) {}
   };
 
+  const setSystemPromptMode = (mode: SystemPromptMode) => {
+    setSystemPromptModeState(mode);
+    try {
+      localStorage.setItem("zen_system_prompt_mode", mode);
+    } catch (e) {}
+    const storage = extensionService.getStorage();
+    storage.set("zen_system_prompt_mode", mode);
+  };
+
+  const setTargetOS = (os: TargetOSEnvironment) => {
+    setTargetOSState(os);
+    try {
+      localStorage.setItem("zen_target_os", os);
+    } catch (e) {}
+    const storage = extensionService.getStorage();
+    storage.set("zen_target_os", os);
+  };
+
+  const setMaxFilesPerSession = (value: number) => {
+    const clamped = Math.max(1, Math.min(100, value));
+    setMaxFilesPerSessionState(clamped);
+    try {
+      localStorage.setItem("zen_max_files_per_session", String(clamped));
+    } catch (e) {}
+    const storage = extensionService.getStorage();
+    storage.set("zen_max_files_per_session", String(clamped));
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -109,6 +185,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setPermissionMode,
         liveWritePreview,
         setLiveWritePreview,
+        systemPromptMode: systemPromptModeState,
+        setSystemPromptMode,
+        targetOS: targetOSState,
+        setTargetOS,
+        maxFilesPerSession: maxFilesPerSessionState,
+        setMaxFilesPerSession,
       }}
     >
       {children}

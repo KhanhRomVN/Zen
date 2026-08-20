@@ -78,6 +78,8 @@ export interface RunCommandParams {
   command: string;
   terminal_id?: string;
   cwd?: string;
+  folder_path?: string;
+  folderPath?: string;
 }
 
 export interface RunCommandResult {

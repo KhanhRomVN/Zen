@@ -274,7 +274,7 @@ Pass 2 (Verify): EXPLORE phase. No edits yet. STOP after search.
 \`\`\`xml
 <thinking>
 Pass 1 (Plan): Search returned 6 files: user.service.ts, user.controller.ts, user.module.ts, auth.module.ts, app.module.ts, user.service.spec.ts.
-Pass 3 (Impact): >2 files affected, so IMPACT-CONFIRM is mandatory before any edits.
+Pass 3 (Impact): >4 files affected, so IMPACT-CONFIRM is mandatory before any edits.
 Pass 2 (Verify): No tools. Present the scope and ask for confirmation via multi-question.
 </thinking>
 <markdown>

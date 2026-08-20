@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import ChatPanel from "./features/chat";
 import HomePanel from "./features/home";
 import HistoryPanel from "./features/history";
@@ -157,9 +157,6 @@ const App: React.FC = () => {
     setInitialMessageData(null);
   }, []);
 
-  const lastChatRef = useRef<ChatSession | null>(null);
-  if (currentChat) lastChatRef.current = currentChat;
-
   return (
     <ThemeProvider>
       <SettingsProvider>
@@ -168,9 +165,9 @@ const App: React.FC = () => {
             <div className="app-container">
               {!showAccounts && (
                 <>
-                  {currentChat && lastChatRef.current && (
+                  {currentChat && (
                     <ChatPanel
-                      currentChat={lastChatRef.current}
+                      currentChat={currentChat}
                       onBack={handleBack}
                       onLoadConversation={handleLoadConversation}
                       initialMessageData={initialMessageData}
@@ -201,13 +198,15 @@ const App: React.FC = () => {
                   setPreviousPanel(null);
                 }}
               />
-              <AccountPanel
-                isOpen={showAccounts}
-                onClose={() => {
-                  setShowAccounts(false);
-                  setPreviousPanel(null);
-                }}
-              />
+              {showAccounts && (
+                <AccountPanel
+                  isOpen={showAccounts}
+                  onClose={() => {
+                    setShowAccounts(false);
+                    setPreviousPanel(null);
+                  }}
+                />
+              )}
             </div>
           </ProjectProvider>
         </BackendConnectionProvider>

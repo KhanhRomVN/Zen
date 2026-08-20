@@ -7,11 +7,12 @@ import Fuse from "fuse.js";
  *? Function:
  *    findMatch(): Tìm vị trí khớp gần đúng nhất của searchBlock trong fileContent.
  */
-interface MatchResult {
+export interface MatchResult {
   startIndex: number;
   endIndex: number; // Verification end index in file content
   originalText: string;
-  score: number;
+  score: number; // 0 = best/exact match, 1 = worst (Fuse distance)
+  similarity: number; // 1.0 = best/exact match, 0.0 = worst
   startLine: number; // Line number where match starts (1-indexed)
 }
 
@@ -24,16 +25,16 @@ export class FuzzyMatcher {
     fileContent: string,
     searchBlock: string,
   ): MatchResult | null {
-    // [DEBUG] Đo thời gian fuzzy match — xóa sau khi xác minh
-    const debugStart = Date.now();
-    const fileSizeKB = (fileContent.length / 1024).toFixed(1);
-    // 1. Pre-process strings
-    const fileLines = fileContent.split(/\r?\n/);
-    const searchLines = searchBlock.split(/\r?\n/);
+    // 1. Pre-process strings (normalize CRLF to LF)
+    const normalizedFileContent = fileContent.replace(/\r\n/g, "\n");
+    const normalizedSearchBlock = searchBlock.replace(/\r\n/g, "\n");
+
+    const fileLines = normalizedFileContent.split("\n");
+    const searchLines = normalizedSearchBlock.split("\n");
 
     // Normalize strings for comparison (remove whitespace to handle formatting diffs)
     const normalize = (str: string) => str.replace(/\s+/g, "");
-    const normalizedSearch = normalize(searchBlock);
+    const normalizedSearch = normalize(normalizedSearchBlock);
 
     // Filter out empty lines from search block for anchoring
     const meaningfulSearchLines = searchLines.filter(
@@ -48,7 +49,7 @@ export class FuzzyMatcher {
     const fuse = new Fuse(lineList, {
       keys: ["text"],
       includeScore: true,
-      threshold: 0.6, // Increased threshold to catch partial matches (e.g. if 1-line search matches 1 line of file)
+      threshold: 0.6,
       ignoreLocation: true,
     });
 
@@ -66,14 +67,10 @@ export class FuzzyMatcher {
       const anchorOffsetInSearch = searchLines.indexOf(anchorLine);
 
       // Determine probable start line in file
-      const potentialStartLineIdx = fileAnchorIdx - anchorOffsetInSearch;
+      const potentialStartLineIdx = fileAnchorIdx - (anchorOffsetInSearch >= 0 ? anchorOffsetInSearch : 0);
       if (potentialStartLineIdx < 0) continue;
 
-      // Try expanding window size
-      // We want to find a block in the file starting at potentialStartLineIdx
-      // that matches normalizedSearch.
-      // Maximum expansion: Let's assume the file version isn't > 5 times larger in lines
-      const maxWindowLines = Math.max(searchLines.length * 5, 20);
+      const maxWindowLines = Math.max(searchLines.length * 3, 20);
 
       for (let length = 1; length <= maxWindowLines; length++) {
         const endIdx = potentialStartLineIdx + length;
@@ -90,35 +87,24 @@ export class FuzzyMatcher {
           normalizedCandidate,
         );
 
-        if (similarity >= bestScore && similarity > 0.7) {
-          // 0.7 threshold
+        if (similarity >= bestScore && similarity >= 0.6) {
           bestScore = similarity;
           bestMatch = {
             startIndex: this.getCharacterIndex(
-              fileContent,
+              normalizedFileContent,
               potentialStartLineIdx,
             ),
-            // We need the ACTUAL text to replace, so we need to know how much we matched.
-            // But replace_in_file receives 'searchText' (the bad one) and 'replaceText'.
-            // The 'targetSearchText' in replaceInFile will be set to 'originalText' from here.
             originalText: candidateBlock,
             endIndex: -1,
-            // Log logic uses score. Let's return the similarity as score for now but inverted context matters?
-            // The user saw 0.85 (which is high similarity).
-            // Actually Fuse returns 0 for exact.
-            // Let's stick to 0=exact for Consistency?
-            // But I calculated similarity (1=exact).
-            // I will return (1 - similarity) as "Fuse-like Score" (0=best).
             score: 1 - similarity,
-            startLine: potentialStartLineIdx + 1, // Convert to 1-indexed
+            similarity: similarity,
+            startLine: potentialStartLineIdx + 1,
           };
         }
         if (normalizedCandidate.length > normalizedSearch.length * 1.5) break;
       }
     }
 
-    // [DEBUG] Log kết quả fuzzy match
-    const debugDuration = Date.now() - debugStart;
     return bestMatch;
   }
 
@@ -145,7 +131,7 @@ export class FuzzyMatcher {
   }
 
   private static getCharacterIndex(content: string, lineIndex: number): number {
-    const lines = content.split(/\r?\n/);
+    const lines = content.split("\n");
     let index = 0;
     for (let i = 0; i < lineIndex; i++) {
       index += lines[i].length + 1;

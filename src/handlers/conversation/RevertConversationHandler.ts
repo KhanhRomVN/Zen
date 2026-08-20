@@ -217,8 +217,8 @@ export class RevertConversationHandler {
         const historyManager = ReplaceInFileHistoryManager.getInstance();
         historyManager.setActiveConversationId(conversationId);
 
-        if (filePaths.size === 0) {
-        } else {
+        // FIX P3: Remove empty block — only delete versions if there are files to process
+        if (filePaths.size > 0) {
           // Delete versions for each file based on responseNumber
           for (const filePath of filePaths) {
             await historyManager.deleteVersionsFromResponseNumber(

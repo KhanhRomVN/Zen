@@ -15,6 +15,7 @@ import { parseGitStatus } from "./parsers/GitStatusParser";
 import { parseGitDiff } from "./parsers/GitDiffParser";
 import { parseCommitMessage } from "./parsers/CommitMessageParser";
 import { parseMarkdown } from "./parsers/MarkdownParser";
+import { parseQuestion } from "./parsers/QuestionParser";
 import { parseThinking } from "./parsers/ThinkingParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
 import { TagType } from "../types/tag-types";
@@ -334,10 +335,38 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         });
 
         if (toolName === "markdown") {
-          // Explicit <markdown> tag - use MarkdownParser
-          const content = parseMarkdown(innerContent || "");
-          if (content && content.trim().length > 0) {
-            pushTextOrCodeBlocks("markdown", content);
+          const raw = innerContent || "";
+          const questionMatch = /<question(?:\s+[^>]*)?>([\s\S]*?)<\/question>/i.exec(raw);
+          if (questionMatch) {
+            const preText = raw.substring(0, questionMatch.index);
+            const questionRaw = questionMatch[0];
+            const postText = raw.substring(questionMatch.index + questionRaw.length);
+
+            if (preText.trim().length > 0) {
+              pushTextOrCodeBlocks("markdown", parseMarkdown(preText));
+            }
+
+            const parsedQ = parseQuestion(questionMatch[1]);
+            if (parsedQ.options.length > 0 || (parsedQ.questions && parsedQ.questions.length > 0)) {
+              const qBlock: ContentBlock = {
+                type: "question",
+                options: parsedQ.options,
+                title: parsedQ.title,
+                optional: parsedQ.optional,
+                ...(parsedQ.questions && parsedQ.questions.length > 0 ? { questions: parsedQ.questions } : {}),
+              };
+              result.contentBlocks.push(qBlock);
+              result.question = qBlock;
+            }
+
+            if (postText.trim().length > 0) {
+              pushTextOrCodeBlocks("markdown", parseMarkdown(postText));
+            }
+          } else {
+            const content = parseMarkdown(raw);
+            if (content && content.trim().length > 0) {
+              pushTextOrCodeBlocks("markdown", content);
+            }
           }
         } else if (toolName === "question") {
           // Explicit <question> tag - supports both legacy and new schema

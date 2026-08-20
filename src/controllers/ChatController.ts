@@ -264,6 +264,9 @@ export class ChatController {
         case "closeTerminal":
           this.closeTerminalHandler.handleCloseTerminal(message, webviewView);
           break;
+        case "stopCommand":
+          this.closeTerminalHandler.handleCloseTerminal(message, webviewView);
+          break;
 
         // Project Context
         case "getProjectContext":

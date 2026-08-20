@@ -5,7 +5,16 @@ import { decodeHtmlEntities } from "./HtmlEntitiesDecoder";
  * leading/trailing newlines (which are meaningful code lines) are preserved
  * when an SSE stream is split across multiple chunks.
  */
-export const CONTENT_PARAMS = new Set(["content", "diff"]);
+export const CONTENT_PARAMS = new Set([
+  "content",
+  "diff",
+  "old_content",
+  "new_content",
+  "old_str",
+  "new_str",
+  "old",
+  "new",
+]);
 
 export const extractParamValue = (
   content: string,

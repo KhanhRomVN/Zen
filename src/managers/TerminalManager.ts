@@ -58,6 +58,7 @@ interface TerminalEntry {
   output: string;
   activeActionId: string | null;
   isLongRunning: boolean;
+  commandText: string;
 }
 
 const MAX_OUTPUT = 1 * 1024 * 1024; // 1 MB cap
@@ -113,6 +114,7 @@ export class TerminalManager {
       output: "",
       activeActionId: null,
       isLongRunning: false,
+      commandText: "",
     };
     this.terminalMap.set(id, entry);
 
@@ -183,6 +185,7 @@ export class TerminalManager {
     entry.isBusy = true;
     entry.activeActionId = actionId || null;
     entry.isLongRunning = isLongRunning;
+    entry.commandText = cleanCmd;
     entry.output = "";
 
     this.onTerminalStatusChangedEmitter.fire({
@@ -307,7 +310,7 @@ export class TerminalManager {
     this.terminalMap.delete(id);
   }
 
-  close(id: string) {
+  close(id: string, notify: boolean = false) {
     const entry = this.terminalMap.get(id);
     if (!entry) return;
 
@@ -322,6 +325,11 @@ export class TerminalManager {
         }
       } catch (_) {}
     }
+
+    const activeActionId = entry.activeActionId;
+    const output = entry.output;
+    const commandText = entry.commandText;
+
     entry.writeEmitter.dispose();
 
     // Clear buffer
@@ -332,16 +340,27 @@ export class TerminalManager {
     this.dataBuffers.delete(id);
 
     this.terminalMap.delete(id);
+
+    if (notify && activeActionId) {
+      this.onCommandFinishedEmitter.fire({
+        actionId: activeActionId,
+        output: output,
+        terminalId: id,
+        commandText: commandText,
+        exitCode: null,
+      });
+    }
   }
 
   /**
    * Đóng tất cả terminal. Chỉ được dùng nội bộ bởi extension:
    * - dispose(): khi extension bị vô hiệu hóa
    * - extension.ts activate(): dọn terminal cũ từ session trước
+   * - stopCommand: kill tất cả process và fire onCommandFinished nếu notify
    */
-  closeAll() {
+  closeAll(notify: boolean = false) {
     for (const id of [...this.terminalMap.keys()]) {
-      this.close(id);
+      this.close(id, notify);
     }
   }
 
@@ -354,7 +373,7 @@ export class TerminalManager {
     this.dataBuffers.clear();
 
     // Stop all terminals
-    this.closeAll();
+    this.closeAll(false);
 
     // Dispose all event emitters
     this.onCommandFinishedEmitter.dispose();

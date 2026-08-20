@@ -6,7 +6,7 @@
  *    handleGitCommit(): Chạy `git commit -m "<message>"` trong workspace.
  */
 import * as vscode from "vscode";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 
 export class GitCommitHandler {
   public async handleGitCommit(
@@ -27,15 +27,17 @@ export class GitCommitHandler {
       }
 
       const cwd = workspaceFolder.uri.fsPath;
-      const escapedMessage = commitMessage.replace(/'/g, "'\\''");
 
+      // FIX P2 Security: dùng execFile với args array thay vì exec string
+      // để tránh command injection qua commit message (không cần shell escape)
       const commitResult = await new Promise<{
         stdout: string;
         stderr: string;
       }>((resolve, reject) => {
-        exec(
-          `git commit -m '${escapedMessage}'`,
-          { cwd },
+        execFile(
+          "git",
+          ["commit", "-m", commitMessage],
+          { cwd, shell: false },
           (err: any, stdout: string, stderr: string) => {
             if (err && !stderr.includes("nothing to commit")) {
               reject(new Error(stderr || err.message));
@@ -74,7 +76,13 @@ export class GitCommitHandler {
               });
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          // FIX Bổ sung: log lỗi thay vì empty catch block
+          console.error(
+            "[GitCommitHandler] Fallback postMessage failed:",
+            e instanceof Error ? e.message : String(e),
+          );
+        }
       }
     }
   }

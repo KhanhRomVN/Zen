@@ -6,13 +6,13 @@
  *    handleRunGitStatus(): Trả về trạng thái git (porcelain, diff --numstat, branch, unpushed commits).
  */
 import * as vscode from "vscode";
+import { exec } from "child_process";
 
 export class GitStatusHandler {
   public async handleRunGitStatus(
     message: any,
     webviewView: vscode.WebviewView,
   ) {
-    const { exec } = require("child_process");
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
       webviewView.webview.postMessage({
@@ -32,8 +32,11 @@ export class GitStatusHandler {
           cmd,
           { cwd, maxBuffer: 1024 * 1024 * 10 },
           (err: any, stdout: string, stderr: string) => {
-            if (err) resolve({ stdout: "", stderr, error: err });
-            else resolve({ stdout, stderr });
+            if (err) {
+              resolve({ stdout: "", stderr, error: err });
+            } else {
+              resolve({ stdout, stderr });
+            }
           },
         );
       });
@@ -90,11 +93,12 @@ export class GitStatusHandler {
                 const parts = line.split("\t");
                 if (parts.length >= 3) {
                   const fp = parts.slice(2).join("\t").trim();
-                  if (fp)
+                  if (fp) {
                     diffStats[fp] = {
                       added: parseInt(parts[0], 10) || 0,
                       deleted: parseInt(parts[1], 10) || 0,
                     };
+                  }
                 }
               });
           };
