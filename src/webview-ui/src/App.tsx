@@ -163,25 +163,21 @@ const App: React.FC = () => {
         <BackendConnectionProvider>
           <ProjectProvider>
             <div className="app-container">
-              {!showAccounts && (
-                <>
-                  {currentChat && (
-                    <ChatPanel
-                      currentChat={currentChat}
-                      onBack={handleBack}
-                      onLoadConversation={handleLoadConversation}
-                      initialMessageData={initialMessageData}
-                      onClearInitialData={handleClearInitialData}
-                    />
-                  )}
-                  {!currentChat && (
-                    <HomePanel
-                      onSendMessage={handleHomeSendMessage}
-                      onLoadConversation={handleLoadConversation}
-                      initialValue={homeInitialValue}
-                    />
-                  )}
-                </>
+              {currentChat && (
+                <ChatPanel
+                  currentChat={currentChat}
+                  onBack={handleBack}
+                  onLoadConversation={handleLoadConversation}
+                  initialMessageData={initialMessageData}
+                  onClearInitialData={handleClearInitialData}
+                />
+              )}
+              {!currentChat && (
+                <HomePanel
+                  onSendMessage={handleHomeSendMessage}
+                  onLoadConversation={handleLoadConversation}
+                  initialValue={homeInitialValue}
+                />
               )}
               <HistoryPanel
                 isOpen={showHistory}
@@ -198,15 +194,13 @@ const App: React.FC = () => {
                   setPreviousPanel(null);
                 }}
               />
-              {showAccounts && (
-                <AccountPanel
-                  isOpen={showAccounts}
-                  onClose={() => {
-                    setShowAccounts(false);
-                    setPreviousPanel(null);
-                  }}
-                />
-              )}
+              <AccountPanel
+                isOpen={showAccounts}
+                onClose={() => {
+                  setShowAccounts(false);
+                  setPreviousPanel(null);
+                }}
+              />
             </div>
           </ProjectProvider>
         </BackendConnectionProvider>

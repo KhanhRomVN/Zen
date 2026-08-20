@@ -701,6 +701,33 @@ const GlobalPermissionButton: React.FC = () => {
   );
 };
 
+const PROMPT_HISTORY_KEY = "zen:user_prompt_history";
+const MAX_PROMPT_HISTORY = 50;
+
+const getStoredPromptHistory = (): string[] => {
+  try {
+    const raw = localStorage.getItem(PROMPT_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const savePromptToHistory = (prompt: string) => {
+  if (!prompt || !prompt.trim()) return;
+  const clean = prompt.trim();
+  try {
+    const history = getStoredPromptHistory().filter((p) => p !== clean);
+    history.push(clean);
+    if (history.length > MAX_PROMPT_HISTORY) {
+      history.splice(0, history.length - MAX_PROMPT_HISTORY);
+    }
+    localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify(history));
+  } catch {}
+};
+
 const MessageInput: React.FC<MessageInputProps> = React.memo(
   ({
     message,
@@ -751,6 +778,112 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
     renderCountRef.current++;
+
+    // Prompt History Navigation State (ArrowUp / ArrowDown)
+    const historyIndexRef = React.useRef<number>(-1);
+    const tempDraftRef = React.useRef<string>("");
+
+    const getCombinedPromptHistory = React.useCallback((): string[] => {
+      const currentChatUserPrompts = (messages || [])
+        .filter(
+          (m: any) =>
+            m &&
+            (m.sender === "user" || m.role === "user") &&
+            m.content &&
+            typeof m.content === "string" &&
+            m.content.trim(),
+        )
+        .map((m: any) => m.content.trim());
+
+      const stored = getStoredPromptHistory();
+      const combined = [...stored];
+      for (const p of currentChatUserPrompts) {
+        if (!combined.includes(p)) {
+          combined.push(p);
+        }
+      }
+      return combined.filter(Boolean);
+    }, [messages]);
+
+    const handlePromptHistoryKeyDown = (
+      e: React.KeyboardEvent<HTMLTextAreaElement>,
+    ) => {
+      if (e.key === "ArrowUp") {
+        const target = e.currentTarget;
+        const textBeforeCursor = target.value.substring(
+          0,
+          target.selectionStart,
+        );
+        const isAtFirstLine = !textBeforeCursor.includes("\n");
+        const isNavigating = historyIndexRef.current >= 0;
+
+        if (isAtFirstLine || isNavigating) {
+          const history = getCombinedPromptHistory();
+          if (history.length === 0) return;
+
+          if (!isNavigating) {
+            tempDraftRef.current = message;
+          }
+
+          const nextIndex = historyIndexRef.current + 1;
+          if (nextIndex < history.length) {
+            e.preventDefault();
+            historyIndexRef.current = nextIndex;
+            const promptText = history[history.length - 1 - nextIndex];
+            setMessage(promptText);
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.selectionStart = promptText.length;
+                textareaRef.current.selectionEnd = promptText.length;
+              }
+            }, 0);
+          }
+        }
+      } else if (e.key === "ArrowDown") {
+        if (historyIndexRef.current >= 0) {
+          const target = e.currentTarget;
+          const textAfterCursor = target.value.substring(target.selectionEnd);
+          const isAtLastLine = !textAfterCursor.includes("\n");
+
+          if (isAtLastLine) {
+            const history = getCombinedPromptHistory();
+            const prevIndex = historyIndexRef.current - 1;
+
+            e.preventDefault();
+            if (prevIndex >= 0) {
+              historyIndexRef.current = prevIndex;
+              const promptText = history[history.length - 1 - prevIndex];
+              setMessage(promptText);
+              setTimeout(() => {
+                if (textareaRef.current) {
+                  textareaRef.current.selectionStart = promptText.length;
+                  textareaRef.current.selectionEnd = promptText.length;
+                }
+              }, 0);
+            } else {
+              historyIndexRef.current = -1;
+              const draft = tempDraftRef.current;
+              setMessage(draft);
+              setTimeout(() => {
+                if (textareaRef.current) {
+                  textareaRef.current.selectionStart = draft.length;
+                  textareaRef.current.selectionEnd = draft.length;
+                }
+              }, 0);
+            }
+          }
+        }
+      }
+    };
+
+    const onSendMessage = () => {
+      if (message.trim()) {
+        savePromptToHistory(message);
+      }
+      historyIndexRef.current = -1;
+      tempDraftRef.current = "";
+      handleSend(currentModel, currentAccount);
+    };
 
     const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
     const {
@@ -1422,7 +1555,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             <textarea
               ref={textareaRef}
               value={message}
-              onChange={handleTextareaChange}
+              onChange={(e) => {
+                historyIndexRef.current = -1;
+                handleTextareaChange(e);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -1433,9 +1569,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     !isLoadingCache &&
                     !isProcessing
                   ) {
-                    handleSend(currentModel, currentAccount);
+                    onSendMessage();
                   }
                 } else {
+                  handlePromptHistoryKeyDown(e);
                   handleKeyDown(e);
                 }
               }}
@@ -1878,7 +2015,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       );
                       return;
                     }
-                    handleSend(currentModel, currentAccount);
+                    onSendMessage();
                   }}
                   onMouseEnter={(e) => {
                     if (

@@ -67,7 +67,7 @@ export function buildProMaxContext(systemInfo: SystemInfo): string {
      * NEVER run inline scripts with nested quotes via 'node -e "..."' or 'python -c "..."'. Nested quotes break across shell wrappers.
      * If a script is needed, write a temporary file with <write_to_file><file_path>_test.js</file_path>... and run <run_command><command>node _test.js</command></run_command>.
 ${osSection}
-- MAX-FILES-PER-SESSION (SESSION CAP): You are allowed to read or write at most ${systemInfo.maxFilesPerSession ?? 5} files in this conversation session. Track the count of unique files modified/read; when reaching the limit of ${systemInfo.maxFilesPerSession ?? 5} files, stop and inform the user.
+- MAX-FILES-PER-REQUEST: In each request/turn, you are allowed to autonomously read, edit, or write up to ${systemInfo.maxFilesPerSession ?? 5} files without asking for user confirmation. This limit applies per request/turn, allowing you to freely and continuously read, edit, and write files across turns without any lifetime session lock.
 - AGGRESSIVE BATCHING: Combine independent reads/discovery tools in a single turn. Read the full relevant range at once instead of making micro-range reads across multiple turns.`;
 }
 
