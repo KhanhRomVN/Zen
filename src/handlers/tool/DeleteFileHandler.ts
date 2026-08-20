@@ -12,16 +12,30 @@ import * as path from "path";
 // MANAGERS
 import { CheckpointManager } from "../../managers/CheckpointManager";
 
+// SECURITY
+import { SecurityValidator } from "../../utils/security";
+
 export class DeleteFileHandler {
   public async handleDeleteFile(message: any, webviewView: vscode.WebviewView) {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (!workspaceFolder) throw new Error("No workspace");
+      if (!workspaceFolder) {
+        throw new Error("No workspace");
+      }
       const filePath = message.file_path;
-      if (!filePath) throw new Error("'file_path' is required");
+      if (!filePath) {
+        throw new Error("'file_path' is required");
+      }
       const absPath = path.isAbsolute(filePath)
         ? filePath
         : path.join(workspaceFolder.uri.fsPath, filePath);
+
+      // FIX P0 Security: validate path before delete (isWrite=true because delete = mutation)
+      const pc = SecurityValidator.validatePath(absPath, true);
+      if (!pc.safe) {
+        throw new Error(pc.reason || "Security validation failed");
+      }
+
       await CheckpointManager.getInstance().createCheckpoint(absPath, "delete");
       await fs.promises.unlink(absPath);
       webviewView.webview.postMessage({

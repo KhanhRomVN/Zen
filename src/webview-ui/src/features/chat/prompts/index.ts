@@ -6,6 +6,8 @@ import type { SystemInfo } from "./system-context";
 import { EXAMPLES } from "./examples";
 import { CONSTRAINTS } from "./constraints";
 import { TOOL_VALIDATION } from "./tool-validation";
+import { buildPromptForMode } from "./prompt-modes";
+import type { SystemPromptMode, PromptModeConfig } from "./prompt-modes";
 
 export { buildIdentityPrompt } from "./identity";
 export { WORKFLOW } from "./workflow";
@@ -15,6 +17,8 @@ export type { SystemInfo } from "./system-context";
 export { EXAMPLES } from "./examples";
 export { CONSTRAINTS } from "./constraints";
 export { TOOL_VALIDATION } from "./tool-validation";
+export { buildPromptForMode } from "./prompt-modes";
+export type { SystemPromptMode, PromptModeConfig } from "./prompt-modes";
 
 interface PromptConfig {
   language: string;
@@ -35,6 +39,20 @@ export const combinePrompts = (config: PromptConfig): string => {
   ];
 
   return sections.join("\n\n---\n\n");
+};
+
+/**
+ * Build system prompt theo mode (simple/promax).
+ * simple -> combinePrompts goc; promax -> buildPromptForMode.
+ */
+export const combinePromptsForMode = (
+  config: PromptModeConfig,
+  mode: SystemPromptMode,
+): string => {
+  if (mode === "simple") {
+    return combinePrompts(config);
+  }
+  return buildPromptForMode(config, mode);
 };
 
 export const getDefaultPrompt = (language: string = "English"): string => {

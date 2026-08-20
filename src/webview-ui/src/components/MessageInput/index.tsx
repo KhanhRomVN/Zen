@@ -1,6 +1,6 @@
 import React from "react";
 import { PlusIcon, SendIcon } from "@/icons/Icon";
-import { X, GitPullRequestArrow } from "lucide-react";
+import { X, GitPullRequestArrow, Sparkles, Flame } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
@@ -609,11 +609,12 @@ const GlobalPermissionButton: React.FC = () => {
             left: 0,
             zIndex: 1000,
             backgroundColor:
-              "color-mix(in srgb, var(--input-bg) 100%, black 15%)",
-            border: "1px solid var(--vscode-widget-border)",
+              "var(--vscode-dropdown-background, var(--vscode-editorHoverWidget-background, #252526))",
+            border:
+              "1px solid var(--vscode-widget-border, var(--border-color, #454545))",
             borderRadius: "6px",
             overflow: "hidden",
-            boxShadow: "0 -4px 12px rgba(0,0,0,0.2)",
+            boxShadow: "0 -4px 16px rgba(0,0,0,0.35)",
             minWidth: "180px",
           }}
         >
@@ -752,9 +753,35 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     renderCountRef.current++;
 
     const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
-    const { aiLanguage: preferredLanguage } = useSettings();
+    const {
+      aiLanguage: preferredLanguage,
+      systemPromptMode,
+      setSystemPromptMode,
+    } = useSettings();
     const [providers, setProviders] = React.useState<any[]>([]);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
+    const [showSystemPromptDropdown, setShowSystemPromptDropdown] =
+      React.useState(false);
+    const [isSystemPromptHovered, setIsSystemPromptHovered] =
+      React.useState(false);
+    const systemPromptDropdownRef = React.useRef<HTMLDivElement>(null);
+
+    React.useEffect(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        if (
+          systemPromptDropdownRef.current &&
+          !systemPromptDropdownRef.current.contains(e.target as Node)
+        ) {
+          setShowSystemPromptDropdown(false);
+        }
+      };
+      if (showSystemPromptDropdown) {
+        document.addEventListener("mousedown", handleClickOutside);
+      }
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }, [showSystemPromptDropdown]);
+
     const [pendingModelSwitch, setPendingModelSwitch] = React.useState<{
       model: any;
       account: any;
@@ -1655,6 +1682,155 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   onClick={toggleMemory}
                   title="Toggle Memory Reference (Saved memories & chat history)"
                 />
+              )}
+
+              {/* System Prompt Mode Selector - Home only */}
+              {!isConversationStarted && (
+                <div
+                  style={{ position: "relative" }}
+                  ref={systemPromptDropdownRef}
+                >
+                  {(() => {
+                    const isPromax = systemPromptMode === "promax";
+                    const promptColor = isPromax
+                      ? "var(--vscode-charts-red, #ef4444)"
+                      : "var(--vscode-charts-green, #22c55e)";
+                    const promptLabel = isPromax ? "ProMax" : "Simple";
+                    const promptIcon = isPromax ? (
+                      <Flame size={11} />
+                    ) : (
+                      <Sparkles size={11} />
+                    );
+
+                    return (
+                      <button
+                        onClick={() => setShowSystemPromptDropdown((prev) => !prev)}
+                        onMouseEnter={() => setIsSystemPromptHovered(true)}
+                        onMouseLeave={() => setIsSystemPromptHovered(false)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "0 8px",
+                          height: "22px",
+                          boxSizing: "border-box",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          letterSpacing: "0.3px",
+                          transition: "all 0.2s ease-in-out",
+                          border: `1px solid ${isPromax ? "#ef444440" : "#22c55e40"}`,
+                          background: isSystemPromptHovered
+                            ? `color-mix(in srgb, ${promptColor} 20%, transparent)`
+                            : `color-mix(in srgb, ${promptColor} 12%, transparent)`,
+                          color: promptColor,
+                          opacity: 1,
+                          lineHeight: 1,
+                          verticalAlign: "middle",
+                          userSelect: "none",
+                        }}
+                        title="System Prompt Mode"
+                      >
+                        {promptIcon}
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            letterSpacing: "0.3px",
+                          }}
+                        >
+                          {promptLabel}
+                        </span>
+                      </button>
+                    );
+                  })()}
+                  {showSystemPromptDropdown && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: "calc(100% + 4px)",
+                        left: 0,
+                        zIndex: 1000,
+                        backgroundColor:
+                          "var(--vscode-dropdown-background, var(--vscode-editorHoverWidget-background, #252526))",
+                        border:
+                          "1px solid var(--vscode-widget-border, var(--border-color, #454545))",
+                        borderRadius: "6px",
+                        overflow: "hidden",
+                        boxShadow: "0 -4px 16px rgba(0,0,0,0.35)",
+                        minWidth: "150px",
+                      }}
+                    >
+                      {([
+                        {
+                          key: "simple",
+                          label: "Simple",
+                          color: "var(--vscode-charts-green, #22c55e)",
+                          icon: <Sparkles size={11} />,
+                        },
+                        {
+                          key: "promax",
+                          label: "ProMax",
+                          color: "var(--vscode-charts-red, #ef4444)",
+                          icon: <Flame size={11} />,
+                        },
+                      ] as const).map(({ key, label, color, icon }) => {
+                        const isSelected = systemPromptMode === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => {
+                              setSystemPromptMode(key);
+                              setShowSystemPromptDropdown(false);
+                            }}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              width: "100%",
+                              padding: "7px 12px",
+                              fontSize: "11.5px",
+                              fontWeight: 500,
+                              textAlign: "left",
+                              border: "none",
+                              cursor: "pointer",
+                              background: isSelected
+                                ? "var(--vscode-button-background)"
+                                : "transparent",
+                              color: isSelected
+                                ? "var(--vscode-button-foreground)"
+                                : color,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isSelected) {
+                                e.currentTarget.style.backgroundColor =
+                                  "var(--vscode-list-hoverBackground)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isSelected) {
+                                e.currentTarget.style.backgroundColor =
+                                  "transparent";
+                              }
+                            }}
+                          >
+                            <span
+                              style={{
+                                color: isSelected ? "inherit" : color,
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {icon}
+                            </span>
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 

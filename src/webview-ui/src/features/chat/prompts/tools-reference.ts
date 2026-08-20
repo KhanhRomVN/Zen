@@ -9,6 +9,7 @@ Use XML tags for all tool calls:
 <new_content>replacement</new_content>
 </replace_in_file>
 ⚠ TAG-CLOSE-VERIFY: closing tag must be </new_content> — never </old_content>. Re-read the opening tag before closing.
+⚠ NO-HTML-ENTITIES: Never escape code characters as &lt;, &gt;, &amp;, &quot;. Always write raw code directly inside content, new_content, and old_content.
 <view_replace_history><file_path>path/to/file</file_path></view_replace_history>
 <revert_file><file_path>path/to/file</file_path></revert_file>
 <revert_file><file_path>path/to/file</file_path><version>3</version></revert_file>

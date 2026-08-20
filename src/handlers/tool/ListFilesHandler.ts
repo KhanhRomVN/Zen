@@ -8,20 +8,20 @@
 import * as vscode from "vscode";
 import * as path from "path";
 
+// SECURITY
+import { SecurityValidator } from "../../utils/security";
+
 export class ListFilesHandler {
   private async resolveWorkspacePathWithFallback(
     workspaceFolder: vscode.WorkspaceFolder,
     pathValue: string,
   ): Promise<vscode.Uri> {
+    // FIX P1 Security: validate path trước khi resolve
+    this.ensureSafePath(workspaceFolder, pathValue);
+
     const candidates = path.isAbsolute(pathValue)
-      ? [
-          vscode.Uri.file(pathValue),
-          vscode.Uri.joinPath(workspaceFolder.uri, pathValue),
-        ]
-      : [
-          vscode.Uri.joinPath(workspaceFolder.uri, pathValue),
-          vscode.Uri.file(pathValue),
-        ];
+      ? [vscode.Uri.file(pathValue)]
+      : [vscode.Uri.joinPath(workspaceFolder.uri, pathValue)];
     let lastError: unknown;
     for (const uri of candidates) {
       try {
@@ -32,6 +32,24 @@ export class ListFilesHandler {
       }
     }
     throw lastError;
+  }
+
+  /**
+   * FIX P1 Security: Validate path before listing to prevent listing sensitive
+   * system directories via absolute paths.
+   */
+  private ensureSafePath(
+    workspaceFolder: vscode.WorkspaceFolder,
+    pathValue: string,
+  ): void {
+    const dirPath = pathValue || ".";
+    const absPath = path.isAbsolute(dirPath)
+      ? dirPath
+      : path.join(workspaceFolder.uri.fsPath, dirPath);
+    const pc = SecurityValidator.validatePath(absPath, false);
+    if (!pc.safe) {
+      throw new Error(pc.reason || "Security validation failed");
+    }
   }
 
   public async handleListFiles(message: any, webviewView: vscode.WebviewView) {
@@ -53,14 +71,21 @@ export class ListFilesHandler {
         workspaceFolder,
         dirPath,
       ).catch(() => {
-        if (path.isAbsolute(dirPath)) return vscode.Uri.file(dirPath);
+        // FIX Bổ sung: fallback vẫn phải validate security, không cho absolute bypass
+        this.ensureSafePath(workspaceFolder, dirPath);
+        if (path.isAbsolute(dirPath)) {
+          return vscode.Uri.file(dirPath);
+        }
         return vscode.Uri.joinPath(workspaceFolder.uri, dirPath);
       });
 
       let maxDepth = 1;
       if (message.depth !== undefined && message.depth !== null) {
-        if (String(message.depth).toLowerCase() === "max") maxDepth = 999;
-        else maxDepth = parseInt(String(message.depth), 10) || 1;
+        if (String(message.depth).toLowerCase() === "max") {
+          maxDepth = 999;
+        } else {
+          maxDepth = parseInt(String(message.depth), 10) || 1;
+        }
       } else if (message.recursive === "true" || message.recursive === true) {
         maxDepth = 20;
       } else if (message.recursive) {
@@ -71,7 +96,9 @@ export class ListFilesHandler {
         dirUri: vscode.Uri,
         currentDepth: number,
       ): Promise<any[]> => {
-        if (currentDepth > maxDepth) return [];
+        if (currentDepth > maxDepth) {
+          return [];
+        }
 
         let entries: [string, vscode.FileType][];
         try {
@@ -83,13 +110,17 @@ export class ListFilesHandler {
         entries.sort((a, b) => {
           const aIsDir = a[1] === vscode.FileType.Directory ? 0 : 1;
           const bIsDir = b[1] === vscode.FileType.Directory ? 0 : 1;
-          if (aIsDir !== bIsDir) return aIsDir - bIsDir;
+          if (aIsDir !== bIsDir) {
+            return aIsDir - bIsDir;
+          }
           return a[0].localeCompare(b[0]);
         });
 
         const results: any[] = [];
         for (const [name, fileType] of entries) {
-          if (name === "node_modules" || name.startsWith(".")) continue;
+          if (name === "node_modules" || name.startsWith(".")) {
+            continue;
+          }
 
           const entryUri = vscode.Uri.joinPath(dirUri, name);
           if (fileType === vscode.FileType.Directory) {

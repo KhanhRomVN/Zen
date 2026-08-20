@@ -28,6 +28,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
     setAiLanguage,
     commitMessageLanguage,
     setCommitMessageLanguage,
+    maxFilesPerSession,
+    setMaxFilesPerSession,
   } = useSettings();
   const [closeHover, setCloseHover] = useState(false);
 
@@ -47,117 +49,52 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         zIndex: 9999,
         display: "flex",
         flexDirection: "column",
-        overflow: "auto",
       }}
     >
       {/* Header */}
       <div
         style={{
-          padding: "16px var(--spacing-md, 16px) 14px",
-          borderTop: "1px solid var(--border-color)",
-          borderBottom: "1px solid var(--border-color)",
           display: "flex",
-          alignItems: "center",
           justifyContent: "space-between",
-          gap: "12px",
-          backgroundColor: "var(--tertiary-bg)",
-          flexShrink: 0,
+          alignItems: "center",
+          padding: "16px 20px",
+          borderBottom: "1px solid var(--border-color)",
+          backgroundColor: "var(--panel-bg)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {/* Icon badge - VSCode theme neutral */}
-          <div
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
-              flexShrink: 0,
-              background: "rgba(128,128,128,0.1)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--vscode-foreground)",
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              <circle cx="12" cy="12" r="4" />
-            </svg>
-          </div>
-          <div>
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: "14px",
-                color: "var(--primary-text)",
-                letterSpacing: "0.01em",
-                display: "block",
-                marginBottom: "3px",
-              }}
-            >
-              Settings
-            </span>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "12px",
-                color: "var(--secondary-text)",
-                opacity: 0.7,
-                lineHeight: 1.4,
-              }}
-            >
-              Configure Zen preferences and behavior
-            </p>
-          </div>
-        </div>
+        <h2
+          style={{
+            margin: 0,
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "var(--primary-text)",
+          }}
+        >
+          Zen Settings
+        </h2>
         <button
           onClick={onClose}
           onMouseEnter={() => setCloseHover(true)}
           onMouseLeave={() => setCloseHover(false)}
           style={{
-            padding: "5px",
-            borderRadius: "6px",
-            flexShrink: 0,
-            alignSelf: "center",
-            backgroundColor: closeHover
-              ? "rgba(239,68,68,0.12)"
-              : "rgba(128,128,128,0.12)",
+            background: "none",
             border: "none",
-            color: closeHover
-              ? "var(--vscode-errorForeground, #f87171)"
-              : "var(--secondary-text)",
+            color: closeHover ? "#fff" : "var(--secondary-text)",
             cursor: "pointer",
-            transition: "all 0.15s ease",
+            fontSize: "18px",
+            padding: "4px 8px",
+            borderRadius: "4px",
+            lineHeight: 1,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            transition: "all 0.15s ease",
+            backgroundColor: closeHover
+              ? "rgba(255, 255, 255, 0.1)"
+              : "transparent",
           }}
-          title="Close Settings"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
+          ✕
         </button>
       </div>
 
@@ -169,11 +106,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
           padding: "20px",
           display: "flex",
           flexDirection: "column",
-          gap: "24px",
-          backgroundColor: "var(--secondary-bg)",
+          gap: "20px",
         }}
       >
-        {/* API URL */}
+        {/* Backend API URL */}
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <label
             style={{
@@ -191,9 +127,19 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             placeholder="http://localhost:8888"
             style={inputStyle}
           />
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--secondary-text)",
+              opacity: 0.7,
+              marginTop: "2px",
+            }}
+          >
+            The proxy server or mock server URL (e.g. http://localhost:8888)
+          </div>
         </div>
 
-        {/* AI Response Language */}
+        {/* AI Language Selection */}
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <label
             style={{
@@ -202,22 +148,36 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               color: "var(--primary-text)",
             }}
           >
-            AI Response Language
+            AI Language
           </label>
           <select
             value={aiLanguage}
             onChange={(e) => setAiLanguage(e.target.value)}
-            style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}
+            style={{
+              ...inputStyle,
+              cursor: "pointer",
+            }}
           >
-            {LANGUAGES.map((l) => (
-              <option key={l.code} value={l.name}>
-                {l.flag} {l.name}
+            {LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.name}>
+                {lang.flag} {lang.name}
               </option>
             ))}
           </select>
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--secondary-text)",
+              opacity: 0.7,
+              marginTop: "2px",
+            }}
+          >
+            Language used for AI reasoning (&lt;thinking&gt;) and explanations
+            (&lt;markdown&gt;)
+          </div>
         </div>
 
-        {/* Commit Message Language */}
+        {/* Commit Message Language Selection */}
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <label
             style={{
@@ -233,7 +193,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             onChange={(e) =>
               setCommitMessageLanguage(e.target.value as "en" | "vi")
             }
-            style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}
+            style={{
+              ...inputStyle,
+              cursor: "pointer",
+            }}
           >
             <option value="en">🇬🇧 English</option>
             <option value="vi">🇻🇳 Tiếng Việt</option>
@@ -247,6 +210,101 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             }}
           >
             Language used to generate commit messages from git status
+          </div>
+        </div>
+
+        {/* Target OS & Shell Environment */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <label
+            style={{
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "var(--primary-text)",
+            }}
+          >
+            Target OS & Shell
+          </label>
+          <div
+            style={{
+              fontSize: "12px",
+              color: "var(--secondary-text)",
+              opacity: 0.75,
+              marginTop: "-4px",
+            }}
+          >
+            Operating system & shell conventions for CLI command execution
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "10px 14px",
+              borderRadius: "8px",
+              border: "1px solid var(--border-color)",
+              backgroundColor: "var(--input-bg)",
+            }}
+          >
+            <span style={{ fontSize: "18px" }}>⚡</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--primary-text)" }}>
+                Auto Detect
+              </span>
+              <span style={{ fontSize: "11px", color: "var(--secondary-text)", opacity: 0.8 }}>
+                Automatically detects host environment (Windows / Linux / macOS) for CLI execution
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Max Files Per Session */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <label
+            style={{
+              fontSize: "14px",
+              fontWeight: 600,
+              color: "var(--primary-text)",
+            }}
+          >
+            Max Files Per Session
+          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={maxFilesPerSession}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val)) {
+                  setMaxFilesPerSession(val);
+                }
+              }}
+              style={{
+                ...inputStyle,
+                width: "100px",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: "13px",
+                color: "var(--secondary-text)",
+              }}
+            >
+              files per conversation session
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--secondary-text)",
+              opacity: 0.7,
+              marginTop: "2px",
+            }}
+          >
+            Maximum number of files AI can read or write in a single conversation session.
+            Default: 5. Range: 1–100.
           </div>
         </div>
 

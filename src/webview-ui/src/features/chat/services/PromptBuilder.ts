@@ -1,4 +1,9 @@
-import { getDefaultPrompt, combinePrompts } from "../prompts";
+import {
+  getDefaultPrompt,
+  combinePrompts,
+  combinePromptsForMode,
+} from "../prompts";
+import type { SystemPromptMode } from "../prompts";
 import { extensionService } from "@/services/ExtensionService";
 
 export interface PromptBuilderOptions {
@@ -10,6 +15,7 @@ export interface PromptBuilderOptions {
   treeView: string;
   files?: any[];
   userRequestCount: number;
+  systemPromptMode?: SystemPromptMode;
 }
 
 export const getShallowTree = (tree: string): string => {
@@ -55,6 +61,7 @@ export class PromptBuilder {
       treeView,
       files,
       userRequestCount,
+      systemPromptMode,
     } = options;
 
     let systemPrompt = "";
@@ -66,6 +73,7 @@ export class PromptBuilder {
         aiLanguage,
         permissionMode,
         treeView,
+        systemPromptMode,
       );
     }
 
@@ -106,7 +114,27 @@ export class PromptBuilder {
     aiLanguage: string,
     permissionMode: string,
     treeView: string,
+    systemPromptMode?: SystemPromptMode,
   ): Promise<string> {
+    let targetOS: "auto" | "windows" | "linux" = "auto";
+    try {
+      const savedOS = localStorage.getItem("zen_target_os");
+      if (savedOS === "auto" || savedOS === "windows" || savedOS === "linux") {
+        targetOS = savedOS;
+      }
+    } catch (e) {}
+
+    let maxFilesPerSession = 5;
+    try {
+      const savedMax = localStorage.getItem("zen_max_files_per_session");
+      if (savedMax) {
+        const parsed = parseInt(savedMax, 10);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 100) {
+          maxFilesPerSession = parsed;
+        }
+      }
+    } catch (e) {}
+
     let systemInfo = {
       os: "Unknown OS",
       ide: "Zen IDE",
@@ -114,6 +142,8 @@ export class PromptBuilder {
       homeDir: "~",
       cwd: ".",
       language: aiLanguage,
+      targetOS: targetOS,
+      maxFilesPerSession: maxFilesPerSession,
     };
 
     try {
@@ -122,7 +152,9 @@ export class PromptBuilder {
         systemInfo = {
           ...systemInfo,
           ...fetchedInfo.data,
+          targetOS: targetOS,
           language: aiLanguage,
+          maxFilesPerSession: maxFilesPerSession,
         };
       }
     } catch (e) {
@@ -130,15 +162,17 @@ export class PromptBuilder {
     }
 
     const effectiveLang = aiLanguage;
-    let systemPrompt = getDefaultPrompt(effectiveLang);
+    const mode: SystemPromptMode = systemPromptMode ?? "simple";
 
-    // Use real system info if we managed to fetch it
-    if (systemInfo.os !== "Unknown OS") {
-      systemPrompt = combinePrompts({
+    // Use combinePromptsForMode to support simple/medium/promax modes.
+    // systemInfo cast to any to satisfy PromptModeConfig shape (SystemInfo compatible).
+    const systemPrompt = combinePromptsForMode(
+      {
         language: effectiveLang,
-        systemInfo,
-      });
-    }
+        systemInfo: systemInfo as any,
+      },
+      mode,
+    );
 
     return systemPrompt;
   }

@@ -12,39 +12,46 @@ export class FindFilesHandler {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) throw new Error("No workspace folder found");
-      
-      const fileName: string = message.fileName || message.file_name || "";
-      const folderPath: string | undefined = message.folderPath || message.folder_path;
-      
+
+      const fileName: string = (message.fileName || message.file_name || "").trim();
+      let rawFolder: string | undefined = message.folderPath || message.folder_path;
+
       if (!fileName) throw new Error("No file name provided");
 
-      // Build glob pattern based on whether folder_path is provided
-      let globPattern: string;
-      let excludePattern = "**/node_modules/**";
-      
-      if (folderPath) {
-        // Search only within the specified folder
-        globPattern = `${folderPath}/**/${fileName}`;
+      // Normalize folderPath
+      let cleanFolder = (rawFolder || "").trim().replace(/^[.\\/]+/, "").replace(/[\\/]+$/, "");
+      if (cleanFolder === "." || cleanFolder === "./") {
+        cleanFolder = "";
+      }
+
+      const excludePattern = "**/node_modules/**";
+      let searchPattern: vscode.GlobPattern;
+
+      if (cleanFolder) {
+        const folderUri = vscode.Uri.joinPath(workspaceFolder.uri, cleanFolder);
+        const glob = fileName.startsWith("**/") ? fileName : `**/${fileName}`;
+        searchPattern = new vscode.RelativePattern(folderUri, glob);
       } else {
-        // Search entire workspace
-        globPattern = `**/${fileName}`;
+        const glob = fileName.startsWith("**/") ? fileName : `**/${fileName}`;
+        searchPattern = new vscode.RelativePattern(workspaceFolder, glob);
       }
 
       try {
         const files = await vscode.workspace.findFiles(
-          globPattern,
+          searchPattern,
           excludePattern,
+          100, // Max 100 results
         );
-        
+
         const matches = files.map((fileUri) => ({
-          path: vscode.workspace.asRelativePath(fileUri),
+          path: vscode.workspace.asRelativePath(fileUri, false),
         }));
 
         webviewView.webview.postMessage({
           command: "findFilesResult",
           requestId: message.requestId,
           fileName,
-          folderPath: folderPath || null,
+          folderPath: rawFolder || null,
           matches,
           totalMatches: matches.length,
         });
@@ -53,7 +60,7 @@ export class FindFilesHandler {
           command: "findFilesResult",
           requestId: message.requestId,
           fileName,
-          folderPath: folderPath || null,
+          folderPath: rawFolder || null,
           matches: [],
           totalMatches: 0,
           error: error.message,

@@ -94,7 +94,9 @@ export class ReplaceInFileHandler {
   ) {
     const logger = LoggerService.getInstance();
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
+    if (!workspaceFolder) {
+      return;
+    }
     const pathValue = message.path || message.filePath || message.file_path;
     if (!pathValue) {
       webviewView.webview.postMessage({
@@ -151,7 +153,7 @@ export class ReplaceInFileHandler {
 
     const release = await this.fileLockManager.acquire(absPath.fsPath);
     let newContent: string | undefined;
-    let oldContent: string | undefined; // Declare outside try block
+    let oldContent: string | undefined;
     let oldContentErrorCount: number | undefined;
     let oldContentWarningCount: number | undefined;
     try {
@@ -160,7 +162,7 @@ export class ReplaceInFileHandler {
         content = Buffer.from(
           await vscode.workspace.fs.readFile(absPath),
         ).toString("utf8");
-        oldContent = content; // Store old content for version 0 baseline
+        oldContent = content;
       } catch (e: any) {
         throw e;
       }
@@ -168,30 +170,56 @@ export class ReplaceInFileHandler {
       let searchArgs: string;
       let replaceArgs: string;
       if (message.old_str !== undefined && message.new_str !== undefined) {
-        const clean = (t: string) => t.replace(/^```[a-zA-Z]*$/gm, "").trim();
+        const clean = (t: string) => t.replace(/^```[a-zA-Z]*$/gm, "");
         searchArgs = clean(message.old_str);
         replaceArgs = clean(message.new_str);
       } else if (message.diff !== undefined && message.diff !== null) {
         const match = message.diff.match(
           /<<<<<<< SEARCH\s*\n([\s\S]*?)\s*=======\s*\n([\s\S]*?)(?:>>>>>>>|>)\s*REPLACE/,
         );
-        if (!match) throw new Error("Invalid diff format");
-        const clean = (t: string) => t.replace(/^```[a-zA-Z]*$/gm, "").trim();
+        if (!match) {
+          throw new Error("Invalid diff format");
+        }
+        const clean = (t: string) => t.replace(/^```[a-zA-Z]*$/gm, "");
         searchArgs = clean(match[1]);
         replaceArgs = clean(match[2]);
       } else {
         throw new Error("Missing old_str/new_str or diff parameter");
       }
 
-      let target = searchArgs;
-      if (content.indexOf(searchArgs) === -1) {
-        const fuzzy = FuzzyMatcher.findMatch(content, searchArgs);
-        if (!fuzzy || fuzzy.score <= 1e-9)
+      const hasCRLF = content.includes("\r\n");
+      const normalizedContent = content.replace(/\r\n/g, "\n");
+      const normalizedSearch = searchArgs.replace(/\r\n/g, "\n");
+      const normalizedReplace = replaceArgs.replace(/\r\n/g, "\n");
+
+      let targetPos = normalizedContent.indexOf(normalizedSearch);
+      let matchLength = normalizedSearch.length;
+
+      if (targetPos === -1) {
+        const fuzzy = FuzzyMatcher.findMatch(normalizedContent, normalizedSearch);
+        if (!fuzzy || fuzzy.similarity < 0.6) {
           throw new Error("Search text not found");
-        target = fuzzy.originalText;
+        }
+        targetPos = normalizedContent.indexOf(fuzzy.originalText);
+        if (targetPos === -1) {
+          throw new Error("Search text not found");
+        }
+        matchLength = fuzzy.originalText.length;
       }
-      newContent = content.replace(target, replaceArgs);
-      if (newContent === content) throw new Error("No change made");
+
+      const updatedContent =
+        normalizedContent.slice(0, targetPos) +
+        normalizedReplace +
+        normalizedContent.slice(targetPos + matchLength);
+
+      if (updatedContent === normalizedContent) {
+        throw new Error("No change made");
+      }
+
+      newContent = hasCRLF
+        ? updatedContent.replace(/\n/g, "\r\n")
+        : updatedContent;
+
       await vscode.workspace.fs.writeFile(
         absPath,
         Buffer.from(newContent, "utf8"),
@@ -202,10 +230,11 @@ export class ReplaceInFileHandler {
         requestId: message.requestId,
         error: e.message,
       });
-      release();
       return;
+    } finally {
+      // FIX P3: Use finally to ensure release() runs exactly once (was called twice before)
+      release();
     }
-    release();
 
     let diagnostics: Array<{
       severity: string;
@@ -277,12 +306,12 @@ export class ReplaceInFileHandler {
         newContent,
         errorCount,
         warningCount,
-        message.messageId, // Pass messageId
-        message.messageTimestamp, // Pass messageTimestamp
-        message.responseNumber, // Pass responseNumber for precise revert tracking
-        oldContent, // Pass oldContent for version 0 baseline
-        oldContentErrorCount, // Pass error count of oldContent
-        oldContentWarningCount, // Pass warning count of oldContent
+        message.messageId,
+        message.messageTimestamp,
+        message.responseNumber,
+        oldContent,
+        oldContentErrorCount,
+        oldContentWarningCount,
       );
 
       // Get current version after saving
@@ -318,7 +347,9 @@ export class ReplaceInFileHandler {
     webviewView: vscode.WebviewView,
   ) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) return;
+    if (!workspaceFolder) {
+      return;
+    }
     const absPath = vscode.Uri.joinPath(workspaceFolder.uri, message.path);
     const content = Buffer.from(
       await vscode.workspace.fs.readFile(absPath),

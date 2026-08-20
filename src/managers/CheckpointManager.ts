@@ -26,6 +26,9 @@ export class CheckpointManager {
   private static instance: CheckpointManager;
   private activeConversationId: string | null = null;
 
+  // FIX P3: Limit checkpoint size to prevent disk exhaustion (10MB max)
+  private static readonly MAX_CHECKPOINT_SIZE = 10 * 1024 * 1024;
+
   private constructor() {}
 
   public static getInstance(): CheckpointManager {
@@ -92,7 +95,9 @@ export class CheckpointManager {
 
   private getCheckpointsDir(conversationId: string): string {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) throw new Error("No workspace folder open");
+    if (!workspaceFolder) {
+      throw new Error("No workspace folder open");
+    }
     const hash = crypto
       .createHash("md5")
       .update(workspaceFolder.uri.fsPath)
@@ -110,7 +115,6 @@ export class CheckpointManager {
     filePath: string,
     type: "create" | "modify" | "delete",
   ) {
-    // [DEBUG] Đo thời gian tạo checkpoint — xóa sau khi xác minh
     const debugStart = Date.now();
     if (!this.activeConversationId) {
       return;
@@ -137,6 +141,14 @@ export class CheckpointManager {
         if (fs.existsSync(filePath)) {
           const stats = await fs.promises.stat(filePath);
           if (stats.isFile()) {
+            // FIX P3: Skip checkpoint for files exceeding MAX_CHECKPOINT_SIZE
+            if (stats.size > CheckpointManager.MAX_CHECKPOINT_SIZE) {
+              console.warn(
+                `[CheckpointManager] Skipping checkpoint — file too large: ${stats.size} bytes (max ${CheckpointManager.MAX_CHECKPOINT_SIZE})`,
+                { filePath },
+              );
+              return;
+            }
             content = await fs.promises.readFile(filePath, "utf-8");
             contentSize = content.length;
           } else {
@@ -163,7 +175,9 @@ export class CheckpointManager {
         JSON.stringify(checkpoint, null, 2),
         "utf-8",
       );
-    } catch (error) {}
+    } catch (error) {
+      console.error("[CheckpointManager] createCheckpoint error:", error);
+    }
   }
 
   public async revertToCheckpoint(
@@ -189,7 +203,9 @@ export class CheckpointManager {
             if (ckpt.timestamp > revertTimestamp) {
               checkpoints.push({ ...ckpt, id: file });
             }
-          } catch (e) {}
+          } catch (e) {
+            // Skip invalid checkpoint
+          }
         }
       }
 
@@ -219,8 +235,12 @@ export class CheckpointManager {
           const ckptJsonPath = path.join(ckptDir, ckpt.id);
           await fs.promises.unlink(ckptJsonPath).catch(() => {});
           revertedCount++;
-        } catch (err: any) {}
+        } catch (err: any) {
+          console.error("[CheckpointManager] revert error:", err);
+        }
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error("[CheckpointManager] revertToCheckpoint error:", error);
+    }
   }
 }

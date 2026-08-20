@@ -17,6 +17,7 @@ export class SecurityValidator {
   private static readonly SENSITIVE_PATTERNS = [
     /\.env$/,
     /\.env\..+$/,
+    /\.env\.local$/,
     /credentials\.json$/,
     /credentials\.yaml$/,
     /\.pem$/,
@@ -30,15 +31,32 @@ export class SecurityValidator {
     /\.docker\/config\.json$/,
     /secrets\.yaml$/,
     /secrets\.json$/,
+    // FIX P1: bổ sung các pattern nhạy cảm còn thiếu
+    /\.npmrc$/,
+    /\.git-credentials$/,
+    /\.htpasswd$/,
+    /wp-config\.php$/,
+    /settings\.json$/,
   ];
 
+  // FIX P1 Bảo mật: Bổ sung Windows paths
   private static readonly PROTECTED_DIRS = [
+    // Linux / macOS
     "/etc",
     "/usr",
     "/sbin",
     "/boot",
     "/sys",
     "/proc",
+    "/var/log",
+    "/root",
+    // Windows
+    "C:\\Windows",
+    "C:\\Program Files",
+    "C:\\Program Files (x86)",
+    "C:\\ProgramData",
+    "C:\\System Volume Information",
+    "C:\\Users\\All Users",
   ];
 
   private static readonly DANGEROUS_COMMAND_PATTERNS = [
@@ -56,12 +74,21 @@ export class SecurityValidator {
     { pattern: /chmod\s+777\s+\//, label: "chmod 777 root" },
     { pattern: />\s*\/dev\/sda/, label: "write to disk device" },
     { pattern: /eval\s+"?\$/, label: "eval variable" },
+    // FIX P1: Bổ sung dangerous patterns cho Windows
+    { pattern: /\bdel\s+\/[fFsS].*\\Windows/i, label: "del Windows files" },
+    { pattern: /\bformat\s+[cCdD]:/i, label: "format drive" },
+    { pattern: /\bdiskpart/i, label: "diskpart" },
+    { pattern: /\breg\s+delete.*/i, label: "registry delete" },
+    { pattern: /\bcmd\s+\/c.*\bdel\b/i, label: "cmd /c del" },
+    { pattern: /\bpowershell.*-Command.*Remove-Item/i, label: "powershell remove-item" },
   ];
 
   private static readonly ELEVATION_PATTERNS = [
     /\bsudo\b/,
     /\bsu\s+-?\s/,
     /\bdoas\b/,
+    // FIX: Bổ sung elevation Windows
+    /\brunas\b/i,
   ];
 
   /**
@@ -94,9 +121,17 @@ export class SecurityValidator {
     }
 
     // Check protected directories for writes
+    // FIX P1: Normalize case + dùng path.sep để hoạt động cross-platform (Windows dùng '\')
     if (isWrite) {
+      const normalizedResolved = path.resolve(resolved).toLowerCase();
       for (const dir of this.PROTECTED_DIRS) {
-        if (resolved.startsWith(dir + "/") || resolved === dir) {
+        const normalizedDir = path.resolve(dir).toLowerCase();
+        if (
+          normalizedResolved === normalizedDir ||
+          normalizedResolved.startsWith(normalizedDir + path.sep) ||
+          normalizedResolved.startsWith(normalizedDir + "/") ||
+          normalizedResolved.startsWith(normalizedDir + "\\")
+        ) {
           return {
             safe: false,
             reason: `Writing to protected system directory is blocked: ${dir}`,
