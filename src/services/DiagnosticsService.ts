@@ -98,7 +98,7 @@ export class DiagnosticsService {
       const isAlreadyOpen = vscode.workspace.textDocuments.some(
         (doc) => doc.uri.fsPath === uri.fsPath,
       );
-      
+
       logger.info("[DiagnosticsService] 🔍 ensureFileOpened check", {
         file: uri.fsPath,
         isAlreadyOpen,
@@ -112,7 +112,7 @@ export class DiagnosticsService {
         thresholdBytes: DiagnosticsService.MAX_FILE_SIZE_BYTES,
         willSkip: stat.size > DiagnosticsService.MAX_FILE_SIZE_BYTES,
       });
-      
+
       if (stat.size > DiagnosticsService.MAX_FILE_SIZE_BYTES) {
         logger.info(
           "[DiagnosticsService] File too large, skipping diagnostics",
@@ -124,39 +124,39 @@ export class DiagnosticsService {
         );
         return { success: false, alreadyOpen: false };
       }
-      
+
       if (isAlreadyOpen) {
         // File đã mở → LSP đã có diagnostics cached
         // Không cần dummy edit/undo, sẽ dùng diagnostics hiện có
         logger.info("[DiagnosticsService] ✅ File already open, will use cached diagnostics", {
           file: uri.fsPath,
         });
-        
+
         return { success: true, alreadyOpen: true };
       }
 
       logger.info("[DiagnosticsService] 📂 Opening document...", {
         file: uri.fsPath,
       });
-      
+
       const doc = await vscode.workspace.openTextDocument(uri);
-      
+
       logger.info("[DiagnosticsService] 📄 Document opened, showing in editor...", {
         file: uri.fsPath,
         languageId: doc.languageId,
         lineCount: doc.lineCount,
       });
-      
+
       await vscode.window.showTextDocument(doc, {
         preview: true,
         preserveFocus: true,
         viewColumn: vscode.ViewColumn.Active,
       });
-      
+
       logger.info("[DiagnosticsService] ✅ File opened successfully", {
         file: uri.fsPath,
       });
-      
+
       return { success: true, alreadyOpen: false };
     } catch (e) {
       logger.error("[DiagnosticsService] ❌ Error opening file", {
@@ -174,7 +174,7 @@ export class DiagnosticsService {
     maxTimeoutMs: number = 30000,
   ): Promise<boolean> {
     const logger = LoggerService.getInstance();
-    
+
     // Nếu file đã mở, check xem có thể dùng cached diagnostics không
     if (alreadyOpen) {
       const doc = vscode.workspace.textDocuments.find(
@@ -182,13 +182,13 @@ export class DiagnosticsService {
       );
       const cachedDiagnostics = vscode.languages.getDiagnostics(uri);
       const isDirty = doc?.isDirty ?? false;
-      
+
       logger.info("[DiagnosticsService] 📦 Checking cached diagnostics for already-open file", {
         path: pathValue,
         cachedCount: cachedDiagnostics.length,
         isDirty,
       });
-      
+
       // Chỉ dùng cache nếu file không dirty (không có thay đổi chưa phân tích)
       if (!isDirty) {
         logger.info("[DiagnosticsService] ✅ Using cached diagnostics (file not dirty)", {
@@ -197,14 +197,14 @@ export class DiagnosticsService {
         });
         return true;
       }
-      
+
       // File dirty → đợi LSP phân tích lại
       logger.info("[DiagnosticsService] ⏳ File is dirty, waiting for fresh diagnostics...", {
         path: pathValue,
         cachedCount: cachedDiagnostics.length,
       });
     }
-    
+
     // File mới mở → đợi LSP phân tích
     return new Promise<boolean>((resolve) => {
       const fallbackTimeout = 2000;
@@ -229,9 +229,9 @@ export class DiagnosticsService {
         clearTimeout(timeoutHandle);
         if (stableTimeout) clearTimeout(stableTimeout);
         disposable?.dispose();
-        
+
         const elapsedTime = Date.now() - startTime;
-        
+
         if (timedOut) {
           logger.warn(
             `[DiagnosticsService] ⏱️ Diagnostics timeout — không lấy được diagnostics cho file này`,
@@ -291,7 +291,7 @@ export class DiagnosticsService {
             matches: e.uris.some(u => u.fsPath === uri.fsPath),
           },
         );
-        
+
         const matchedUri = e.uris.find((u) => u.fsPath === uri.fsPath);
         if (matchedUri) {
           eventCount++;
@@ -311,7 +311,7 @@ export class DiagnosticsService {
               })),
             },
           );
-          
+
           if (!hasReceivedEvent) {
             hasReceivedEvent = true;
             clearTimeout(fallbackHandle);
@@ -362,7 +362,7 @@ export class DiagnosticsService {
     skippedReason?: string;
   }> {
     const logger = LoggerService.getInstance();
-    
+
     logger.info("[DiagnosticsService] 🚀 getDiagnostics started", {
       path: pathValue,
       uri: uri.fsPath,
@@ -370,7 +370,7 @@ export class DiagnosticsService {
       workspaceFolders: vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath),
       activeTextEditor: vscode.window.activeTextEditor?.document.uri.fsPath,
     });
-    
+
     if (this.isNonCodeFile(pathValue)) {
       logger.info("[DiagnosticsService] ⏭️ Skipping non-code file", {
         path: pathValue,
@@ -417,7 +417,7 @@ export class DiagnosticsService {
       logger.warn("[DiagnosticsService] ⚠️ No diagnostics received (timeout)", {
         path: pathValue,
       });
-      
+
       // Fallback: Use existing diagnostics if any
       const fallbackDiagnostics = vscode.languages.getDiagnostics(uri);
       if (fallbackDiagnostics.length > 0) {
@@ -429,7 +429,7 @@ export class DiagnosticsService {
           diagnostics: this.filterDiagnostics(fallbackDiagnostics),
         };
       }
-      
+
       return {
         diagnostics: [],
         skippedReason:
@@ -439,7 +439,7 @@ export class DiagnosticsService {
 
     const allDiagnostics = vscode.languages.getDiagnostics(uri);
     const filteredDiagnostics = this.filterDiagnostics(allDiagnostics);
-    
+
     logger.info("[DiagnosticsService] 🎉 getDiagnostics completed", {
       path: pathValue,
       totalDiagnostics: allDiagnostics.length,

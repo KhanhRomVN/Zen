@@ -21,7 +21,7 @@ class Logger {
     };
 
     this.logs.push(entry);
-    
+
     // Giới hạn số lượng logs
     if (this.logs.length > this.maxLogs) {
       this.logs.shift();

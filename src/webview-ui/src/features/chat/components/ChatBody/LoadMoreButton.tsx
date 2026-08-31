@@ -1,6 +1,6 @@
 /**
  * LoadMoreButton
- * 
+ *
  * Displays a button to load more hidden messages.
  * Shows count of hidden message pairs and provides two actions:
  * - Load More: Load next 10 message pairs

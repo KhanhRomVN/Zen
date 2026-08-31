@@ -22,7 +22,7 @@ const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Format title
-  const displayTitle = snippetNumber && lineCount 
+  const displayTitle = snippetNumber && lineCount
     ? `Snippet[${snippetNumber}] (${lineCount} lines)`
     : title;
 
@@ -157,7 +157,7 @@ const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
                 <line x1="10" y1="9" x2="8" y2="9" />
               </svg>
             </div>
-            
+
             {/* Title and Description */}
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <h3

@@ -36,7 +36,7 @@ export const ModelUsageInfo: React.FC<ModelUsageInfoProps> = ({
   websiteUrl,
 }) => {
   const [faviconError, setFaviconError] = React.useState(false);
-  
+
   let faviconUrl: string | undefined = undefined;
   if (websiteUrl) {
     try {

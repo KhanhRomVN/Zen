@@ -44,7 +44,7 @@ const ProviderRow: React.FC<{
       ? provider.auth_methods[0]
       : null);
 
-  
+
 
   const connectionBadgeColor =
     connectionType === "browser"

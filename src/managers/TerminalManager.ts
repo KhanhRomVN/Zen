@@ -2,11 +2,11 @@
  *? Usage:
  *    Quản lý terminal ảo: tạo, chạy lệnh shell, pipe stdin/stdout, throttle data, auto-cleanup. Phát hiện lệnh long-running (dev/start/serve/watch...).
  *
- 
+
  */
 
 import * as vscode from "vscode";
-import { ChildProcess, spawn, SpawnOptions } from "child_process";
+import { ChildProcess, spawn, SpawnOptions, execSync } from "child_process";
 import * as crypto from "crypto";
 import * as os from "os";
 
@@ -94,6 +94,55 @@ export class TerminalManager {
   >();
   private readonly DATA_FLUSH_INTERVAL = 100; // ms
 
+  findByActionId(actionId: string): string | undefined {
+    for (const [id, entry] of this.terminalMap.entries()) {
+      if (entry.activeActionId === actionId) {
+        return id;
+      }
+    }
+    return undefined;
+  }
+
+  private killProcessTree(entry: TerminalEntry) {
+    if (!entry.process) return;
+    const pid = entry.process.pid;
+
+    if (pid) {
+      if (os.platform() === "win32") {
+        try {
+          // Forcefully terminate process and all child processes in the tree
+          execSync(`taskkill /pid ${pid} /T /F`, { stdio: "ignore" });
+        } catch (_) {
+          try {
+            entry.process.kill();
+          } catch (_) {}
+        }
+      } else {
+        // Linux / macOS: kill all descendants and the parent process
+        try {
+          // 1. Try to kill the whole process group (negative PID)
+          process.kill(-pid, "SIGKILL");
+        } catch (_) {}
+        try {
+          // 2. Kill all child processes recursively via pkill
+          execSync(`pkill -KILL -P ${pid} 2>/dev/null || true`, { stdio: "ignore" });
+        } catch (_) {}
+        try {
+          // 3. Kill the target process itself
+          execSync(`kill -9 ${pid} 2>/dev/null || true`, { stdio: "ignore" });
+        } catch (_) {}
+        try {
+          entry.process.kill("SIGKILL");
+        } catch (_) {}
+      }
+    } else {
+      try {
+        entry.process.kill();
+      } catch (_) {}
+    }
+    entry.process = null;
+  }
+
   async startInteractive(
     cwd: string,
     terminalId?: string,
@@ -168,14 +217,7 @@ export class TerminalManager {
     }
 
     if (entry.process) {
-      try {
-        if (os.platform() === "win32") {
-          entry.process.kill();
-        } else {
-          entry.process.kill("SIGTERM");
-        }
-      } catch (_) {}
-      entry.process = null;
+      this.killProcessTree(entry);
     }
 
     const { shell, shellArgs, spawnOpts } = resolveShell(entry.cwd);
@@ -316,15 +358,12 @@ export class TerminalManager {
 
     this.flushDataBuffer(id);
 
-    if (entry.process) {
-      try {
-        if (os.platform() === "win32") {
-          entry.process.kill();
-        } else {
-          entry.process.kill("SIGTERM");
-        }
-      } catch (_) {}
-    }
+    this.killProcessTree(entry);
+    entry.isBusy = false;
+    this.onTerminalStatusChangedEmitter.fire({
+      terminalId: id,
+      status: "free",
+    });
 
     const activeActionId = entry.activeActionId;
     const output = entry.output;

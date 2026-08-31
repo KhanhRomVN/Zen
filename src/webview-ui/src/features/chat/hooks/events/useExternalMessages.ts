@@ -13,7 +13,7 @@ interface UseExternalMessagesProps {
 
 /**
  * Hook to handle external messages from VSCode extension
- * 
+ *
  * PERFORMANCE: Uses refs to avoid recreating event listeners on every message change
  */
 export const useExternalMessages = ({
@@ -37,7 +37,7 @@ export const useExternalMessages = ({
   const setMessagesRef = useRef(setMessages);
   const setProjectContextRef = useRef(setProjectContext);
   const addAttachedItemRef = useRef(addAttachedItem);
-  
+
   // Update refs when values change
   useEffect(() => {
     currentChatRef.current = currentChat;

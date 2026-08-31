@@ -34,8 +34,8 @@ export class FindFilesExecutor implements ToolExecutor {
 
           const matches = msg.matches || [];
           const totalMatches = msg.totalMatches || 0;
-          const searchScope = msg.folderPath 
-            ? `in folder "${msg.folderPath}"` 
+          const searchScope = msg.folderPath
+            ? `in folder "${msg.folderPath}"`
             : "in entire workspace";
 
           let output = `[find_files] Searching for "${msg.fileName}" ${searchScope}\n`;

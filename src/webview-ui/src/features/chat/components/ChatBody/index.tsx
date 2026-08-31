@@ -893,4 +893,3 @@ const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
   );
 });
 export default ChatBody;
-    

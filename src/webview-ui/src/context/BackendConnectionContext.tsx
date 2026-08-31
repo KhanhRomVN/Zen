@@ -53,7 +53,7 @@ export const BackendConnectionProvider = ({
         const data = await res.json();
         const connected = data.status === "ok";
         const mismatch = connected && data.elara !== "khanhromvn/elara";
-        
+
         // Only update state if values actually changed
         setIsConnected((prev) => prev === connected ? prev : connected);
         setIsElaraMismatch((prev) => prev === mismatch ? prev : mismatch);

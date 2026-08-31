@@ -98,7 +98,7 @@ export class PreviewHandler {
 
   public async handleOpenViewReplaceHistoryVersion(message: any) {
     const { filePath, version } = message;
-    
+
     if (!filePath || version === undefined) {
       console.error("[PreviewHandler] Missing filePath or version");
       return;
@@ -115,11 +115,11 @@ export class PreviewHandler {
       const absolutePath = path.isAbsolute(filePath)
         ? filePath
         : path.join(workspaceFolder.uri.fsPath, filePath);
-      
+
       // Lấy nội dung từ ReplaceInFileHistoryManager
       const historyManager = ReplaceInFileHistoryManager.getInstance();
       const historyVersion = await historyManager.getHistoryVersion(absolutePath, version);
-      
+
       if (!historyVersion) {
         vscode.window.showErrorMessage(`Version ${version} not found for ${filePath}`);
         return;

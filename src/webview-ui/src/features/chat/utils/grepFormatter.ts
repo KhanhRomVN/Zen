@@ -43,12 +43,12 @@ export const formatGrepResultCompact = (data: GrepResultData): string => {
 
   for (const filePath of filePaths) {
     const fileResult = results[filePath];
-    
+
     // Handle both old format (array) and new format (object with matches + diagnostics)
     let matches: { lineNumber: number; lineContent: string }[];
     let errorCount = 0;
     let warningCount = 0;
-    
+
     if (Array.isArray(fileResult)) {
       // Old format: array of matches
       matches = fileResult;
@@ -58,7 +58,7 @@ export const formatGrepResultCompact = (data: GrepResultData): string => {
       errorCount = fileResult.errorCount;
       warningCount = fileResult.warningCount;
     }
-    
+
     // Build file tag attributes
     let fileTag = `<file path="${filePath}" matches="${matches.length}"`;
     if (errorCount > 0 || warningCount > 0) {
@@ -70,9 +70,9 @@ export const formatGrepResultCompact = (data: GrepResultData): string => {
       }
     }
     fileTag += `>`;
-    
+
     lines.push(fileTag);
-    
+
     for (const match of matches) {
       // Right-align line number in 5 chars, then content (trimmed to 120 chars)
       const lineNum = String(match.lineNumber).padStart(5);

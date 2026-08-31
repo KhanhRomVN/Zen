@@ -13,7 +13,7 @@ export function parseCommitMessage(innerContent: string): CommitMessageParams {
   if (messageParam) {
     params.message = messageParam;
   }
-  
+
   // Or get the full content if no specific param
   if (!params.message && innerContent.trim()) {
     params.message = innerContent.trim();

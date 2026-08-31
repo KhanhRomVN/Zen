@@ -31,14 +31,24 @@ export class CloseTerminalHandler {
       message.finalize ||
       (message.actionId && message.actionId !== "all")
     );
-    if (message.terminalId) {
-      this.terminalManager.close(message.terminalId, notify);
+
+    let targetTerminalId = message.terminalId;
+    if (!targetTerminalId && message.actionId) {
+      targetTerminalId = this.terminalManager.findByActionId(message.actionId);
+    }
+
+    if (targetTerminalId) {
+      this.terminalManager.close(targetTerminalId, notify);
+    } else {
+      // Fallback: if specific terminalId cannot be resolved, close all active terminals
+      this.terminalManager.closeAll(notify);
     }
 
     if (webviewView) {
       webviewView.webview.postMessage({
         command: "closeTerminalResult",
-        terminalId: message.terminalId,
+        terminalId: targetTerminalId || message.terminalId,
+        actionId: message.actionId,
         success: true,
       });
     }

@@ -22,6 +22,14 @@ const TerminalInputBar: React.FC<{ onInput: (data: string) => void }> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.ctrlKey && e.key.toLowerCase() === "c") {
+      const selection = window.getSelection()?.toString();
+      if (!selection && !value) {
+        e.preventDefault();
+        onInput("\x03");
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       onInput(value + "\n");

@@ -71,8 +71,8 @@ const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose }) => {
   const highlightText = (text: string, search: string) => {
     if (!search) return text;
     const parts = text.split(new RegExp(`(${search})`, 'gi'));
-    return parts.map((part, i) => 
-      part.toLowerCase() === search.toLowerCase() 
+    return parts.map((part, i) =>
+      part.toLowerCase() === search.toLowerCase()
         ? <mark key={i} style={{ background: '#ffd70080', color: 'inherit' }}>{part}</mark>
         : part
     );
@@ -141,8 +141,8 @@ const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose }) => {
               <rect x="8" y="2" width="8" height="4" rx="1"/>
             </svg>
             <span style={{ fontSize: '14px', fontWeight: 600 }}>Console Logs</span>
-            <span style={{ 
-              fontSize: '11px', 
+            <span style={{
+              fontSize: '11px',
               color: 'var(--vscode-descriptionForeground)',
               backgroundColor: 'var(--vscode-badge-background)',
               padding: '2px 6px',
@@ -244,21 +244,21 @@ const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Logs */}
-        <div 
-          style={{ 
-            flex: 1, 
-            overflowY: 'auto', 
-            padding: '12px 16px', 
-            fontFamily: 'monospace', 
-            fontSize: '12px', 
-            lineHeight: '1.6', 
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '12px 16px',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            lineHeight: '1.6',
             whiteSpace: 'pre-wrap',
             backgroundColor: 'var(--vscode-editor-background)',
           }}
         >
           {filteredLogs.length === 0 ? (
-            <div style={{ 
-              textAlign: 'center', 
+            <div style={{
+              textAlign: 'center',
               padding: '40px 20px',
               color: 'var(--vscode-descriptionForeground)',
               fontSize: '13px',
@@ -268,7 +268,7 @@ const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose }) => {
           ) : (
             filteredLogs.map((log, index) => {
               const fullText = formatLogEntry(log);
-              
+
               // Color based on log level
               const levelColors = {
                 log: 'var(--vscode-foreground)', // Default/normal color
@@ -276,9 +276,9 @@ const LogDrawer: React.FC<LogDrawerProps> = ({ isOpen, onClose }) => {
                 warn: '#ffc107', // Yellow/amber
                 error: '#f44336', // Red
               };
-              
+
               const color = levelColors[log.level] || levelColors.log;
-              
+
               return (
                 <React.Fragment key={index}>
                   {index > 0 && (

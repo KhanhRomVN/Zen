@@ -28,4 +28,3 @@ const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity 
 rl.on("line", (line) => {
   process.stdout.write(relativize(line) + "\n");
 });
-

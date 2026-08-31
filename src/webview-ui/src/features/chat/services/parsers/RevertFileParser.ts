@@ -8,7 +8,7 @@ export interface RevertFileParams {
 export const parseRevertFile = (innerContent: string): RevertFileParams => {
   // Parse according to tools-reference.ts schema: file_path only
   const filePath = extractParamValue(innerContent, "file_path");
-  
+
   // Extract version parameter (optional)
   const versionStr = extractParamValue(innerContent, "version");
   const version = versionStr ? parseInt(versionStr, 10) : undefined;

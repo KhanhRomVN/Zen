@@ -79,7 +79,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
     } catch (e) {}
-    return 5;
+    return 3;
   });
 
   useEffect(() => {

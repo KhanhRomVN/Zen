@@ -1,6 +1,6 @@
 /**
  * Simple Parser Test
- * 
+ *
  * Chạy: bash tests/run-tests.sh
  */
 
@@ -95,19 +95,19 @@ console.log('─'.repeat(80));
 
 try {
   const result = parseAIResponse(testResponse);
-  
+
   console.log('\n📊 Parsed Result:');
   console.log('─'.repeat(80));
-  
+
   console.log(`\nTotal Actions: ${result.actions.length}`);
   console.log(`Content Blocks: ${result.contentBlocks.length}`);
-  
+
   if (result.actions.length > 0) {
     console.log('\n🔧 Actions:');
     result.actions.forEach((action, idx) => {
       const status = action.isError ? '❌' : '✅';
       console.log(`\n  ${idx + 1}. ${status} ${action.type}`);
-      
+
       // Print params
       Object.entries(action.params).forEach(([key, value]) => {
         const preview = typeof value === 'string' && value.length > 100
@@ -115,7 +115,7 @@ try {
           : value;
         console.log(`     ${key}: ${JSON.stringify(preview)}`);
       });
-      
+
       // Print error if exists
       if (action.isError) {
         console.log(`     ⚠️  Error Code: ${action.errorCode}`);
@@ -123,37 +123,37 @@ try {
       }
     });
   }
-  
+
   console.log('\n' + '═'.repeat(80));
-  
+
   // Summary
   const errorActions = result.actions.filter((a) => a.isError);
   const validActions = result.actions.filter((a) => !a.isError);
-  
+
   console.log('\n📈 Summary:');
   console.log(`   Valid Actions: ${validActions.length}`);
   console.log(`   Error Actions: ${errorActions.length}`);
-  
+
   // Display captured logs
   if (capturedLogs.error.length > 0 || capturedLogs.warn.length > 0 || capturedLogs.log.length > 0) {
     console.log('\n' + '═'.repeat(80));
     console.log('📋 CAPTURED PARSER LOGS');
     console.log('═'.repeat(80));
-    
+
     if (capturedLogs.error.length > 0) {
       console.log('\n❌ Errors:');
       capturedLogs.error.forEach((args, idx) => {
         console.log(`\n  ${idx + 1}.`, ...args);
       });
     }
-    
+
     if (capturedLogs.warn.length > 0) {
       console.log('\n⚠️  Warnings:');
       capturedLogs.warn.forEach((args, idx) => {
         console.log(`\n  ${idx + 1}.`, ...args);
       });
     }
-    
+
     if (capturedLogs.log.length > 0) {
       console.log('\n📝 Debug Logs:');
       capturedLogs.log.forEach((args, idx) => {
@@ -161,7 +161,7 @@ try {
       });
     }
   }
-  
+
   if (errorActions.length > 0) {
     console.log('\n❌ Errors Found:');
     errorActions.forEach((action, idx) => {
@@ -169,7 +169,7 @@ try {
       console.log(`      ${action.errorMessage}`);
     });
     console.log('\n⚠️  Test completed with errors.');
-    
+
     // For malformed test, errors are expected, so exit with 0
     if (testFile.includes('malformed')) {
       console.log('✅ Malformed test passed - errors were expected and detected!');
@@ -178,14 +178,14 @@ try {
     process.exit(1);
   } else {
     console.log('\n✅ All actions parsed successfully!');
-    
+
     // For malformed test, we expect errors
     if (testFile.includes('malformed')) {
       console.log('⚠️  Warning: Malformed test should have detected errors!');
     }
     process.exit(0);
   }
-  
+
 } catch (error) {
   console.error('\n❌ Parser Error:', error.message);
   console.error(error.stack);

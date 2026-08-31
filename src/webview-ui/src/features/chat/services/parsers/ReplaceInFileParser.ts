@@ -16,21 +16,21 @@ const detectMissingClosingTag = (
   alternativeNames: string[] = [],
 ): string | null => {
   const allNames = [paramName, ...alternativeNames];
-  
+
   for (const name of allNames) {
     const openingTag = new RegExp(`<${name}(?:\\s+[^>]*)?>`, "i");
     const hasOpening = openingTag.test(content);
-    
+
     if (hasOpening) {
       const closingTag = `</${name}>`;
       const hasClosing = content.includes(closingTag);
-      
+
       if (!hasClosing) {
         return name; // Found opening but missing closing
       }
     }
   }
-  
+
   return null;
 };
 
@@ -66,21 +66,21 @@ export const parseReplaceInFile = (
 
   // Check for missing closing tags with specific error messages
   const missingClosingTags: string[] = [];
-  
+
   if (!filePath) {
     const missingTag = detectMissingClosingTag(innerContent, "file_path", ["path"]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
-  
+
   if (!oldContent) {
     const missingTag = detectMissingClosingTag(innerContent, "old_content", ["old"]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
-  
+
   if (!newContent) {
     const missingTag = detectMissingClosingTag(innerContent, "new_content", ["new"]);
     if (missingTag) {
@@ -92,13 +92,13 @@ export const parseReplaceInFile = (
   if (missingClosingTags.length > 0) {
     const tagList = missingClosingTags.map(tag => `</${tag}>`).join(", ");
     const errorMsg = `Missing closing tag(s): ${tagList}`;
-    
+
     console.error("[Zen][ReplaceInFileParser] Validation error:", {
       missingClosingTags,
       error: errorMsg,
       innerContent: innerContent.substring(0, 200), // Log first 200 chars for debug
     });
-    
+
     return {
       file_path: filePath || "",
       old_content: oldContent || "",
@@ -122,13 +122,13 @@ export const parseReplaceInFile = (
   // If any required param is missing, return error
   if (missingParams.length > 0) {
     const errorMsg = `Missing required parameter(s): ${missingParams.join(", ")}`;
-    
+
     console.error("[Zen][ReplaceInFileParser] Validation error:", {
       missingParams,
       error: errorMsg,
       innerContent: innerContent.substring(0, 200), // Log first 200 chars for debug
     });
-    
+
     return {
       file_path: filePath || "",
       old_content: oldContent || "",

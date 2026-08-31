@@ -118,24 +118,24 @@ function loadTsFile(filePath) {
   content = content.replace(/FileNamePattern\.\w+/g, (match) => `"${match.split('.')[1].charAt(0).toLowerCase() + match.split('.')[1].slice(1)}"`);
   // Remove parseByPattern call if any, just return the array
   content = content.replace(/parseByPattern\(([\s\S]*?)\)/, '$1');
-  
+
   const tempPath = path.join(__dirname, 'temp-loader.js');
   fs.writeFileSync(tempPath, `
     const IconPack = { Angular: 'angular', Ngrx: 'ngrx', React: 'react', Redux: 'redux', Vue: 'vue', Vuex: 'vuex' };
     const FileNamePattern = { Ecmascript: 'ecmascript', Configuration: 'configuration', NodeEcosystem: 'nodeEcosystem', Cosmiconfig: 'cosmiconfig', Yaml: 'yaml', Dotfile: 'dotfile' };
     ${content}
-    module.exports = { 
+    module.exports = {
       fileIcons: typeof fileIcons !== 'undefined' ? fileIcons : undefined,
       folderIcons: typeof folderIcons !== 'undefined' ? folderIcons : undefined,
       languageIcons: typeof languageIcons !== 'undefined' ? languageIcons : undefined
     };
   `);
-  
+
   const resolvedPath = require.resolve(tempPath);
   if (require.cache[resolvedPath]) {
     delete require.cache[resolvedPath];
   }
-  
+
   const data = require(tempPath);
   fs.unlinkSync(tempPath);
   return data;
@@ -153,7 +153,7 @@ const fileNamesMap = {};
 
 fileIcons.icons.forEach(icon => {
   const iconName = icon.name;
-  
+
   // Handle patterns
   if (icon.patterns) {
     const patternedNames = mapPatterns(icon.patterns);

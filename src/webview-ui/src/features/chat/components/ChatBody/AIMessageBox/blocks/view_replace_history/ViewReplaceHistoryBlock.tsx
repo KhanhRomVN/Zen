@@ -47,7 +47,7 @@ export const ViewReplaceHistoryBlock: React.FC<ViewReplaceHistoryBlockProps> = (
     <div className="view-replace-history-block">
       {histories.map((history) => {
         const isCurrent = currentVersion !== undefined && history.version === currentVersion;
-        
+
         return (
           <div
             key={history.version}

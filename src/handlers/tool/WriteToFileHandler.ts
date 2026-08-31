@@ -124,21 +124,21 @@ export class WriteToFileHandler {
           path: pathValue,
           absolutePath: absolutePath.fsPath,
         });
-        
+
         const diagnosticsService = DiagnosticsService.getInstance();
         const result = await diagnosticsService.getDiagnostics(
           absolutePath,
           pathValue,
           15000,
         );
-        
+
         logger.info("[WriteToFileHandler] 📊 Diagnostics result", {
           path: pathValue,
           diagnosticsCount: result.diagnostics.length,
           hasSkippedReason: !!result.skippedReason,
           skippedReason: result.skippedReason,
         });
-        
+
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,
@@ -151,7 +151,7 @@ export class WriteToFileHandler {
         logger.info("[WriteToFileHandler] ⏭️ Skipping diagnostics (skipDiagnostics=true)", {
           path: pathValue,
         });
-        
+
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,
