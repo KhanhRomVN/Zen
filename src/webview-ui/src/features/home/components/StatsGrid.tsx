@@ -1,6 +1,24 @@
+/**
+ * ------------------------------------------------------------------
+ * StatsGrid
+ * ------------------------------------------------------------------
+ * Grid hiển thị 4 thống kê chính trong Home panel:
+ * tổng tokens, API requests, favorite model, và tổng tài khoản.
+
+ * Main features:
+ * - Hiển thị dạng 2x2 grid với icon và màu riêng cho từng loại
+ * - Giá trị động từ props
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
+
+// ── UI ──
 import { MessageSquare, Zap, Brain, Users } from "lucide-react";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface StatsGridProps {
   todayTokens: number;
   todayRequests: number;
@@ -8,12 +26,14 @@ interface StatsGridProps {
   totalAccounts: number;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const StatsGrid: React.FC<StatsGridProps> = ({
   todayTokens,
   todayRequests,
   favoriteModel,
   totalAccounts,
 }) => {
+  // ── Derived ──
   const cards = [
     {
       icon: <MessageSquare size={16} />,
@@ -54,6 +74,7 @@ const StatsGrid: React.FC<StatsGridProps> = ({
     },
   ];
 
+  // ── Render ──
   return (
     <div
       style={{

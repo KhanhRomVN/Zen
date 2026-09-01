@@ -1,8 +1,31 @@
+/**
+ * ------------------------------------------------------------------
+ * RecentActivity
+ * ------------------------------------------------------------------
+ * Component hiển thị danh sách hội thoại gần đây trong Home panel.
+ * Tái sử dụng HistoryCard từ feature history.
+
+ * Main features:
+ * - Hiển thị tối đa 10 hội thoại gần nhất
+ * - Loading state khi đang fetch
+ * - Cho phép xóa hội thoại trực tiếp
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
+
+// ── UI ──
 import { Loader2 } from "lucide-react";
-import { ConversationItem } from "../../history/types";
+
+// ── Components ──
 import HistoryCard from "../../history/components/HistoryCard";
 
+// ── Types ──
+import { ConversationItem } from "../../history/types";
+
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface RecentActivityProps {
   conversations: ConversationItem[];
   isLoading: boolean;
@@ -13,11 +36,21 @@ interface RecentActivityProps {
   ) => void;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const RecentActivity: React.FC<RecentActivityProps> = ({
   conversations,
   isLoading,
   onLoadConversation,
 }) => {
+  // ── Derived ──
+  const formatDate = (ts: number): string => {
+    const d = new Date(ts);
+    return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}/${d.getFullYear()}`;
+  };
+
+  // ── Handlers ──
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const vscodeApi = (window as any).vscodeApi;
@@ -26,13 +59,7 @@ const RecentActivity: React.FC<RecentActivityProps> = ({
     }
   };
 
-  const formatDate = (ts: number): string => {
-    const d = new Date(ts);
-    return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1)
-      .toString()
-      .padStart(2, "0")}/${d.getFullYear()}`;
-  };
-
+  // ── Render ──
   return (
     <div
       style={{

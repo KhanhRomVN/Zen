@@ -1,3 +1,18 @@
+/**
+ * ------------------------------------------------------------------
+ * Account Types
+ * ------------------------------------------------------------------
+ * Định nghĩa kiểu dữ liệu dùng chung cho tính năng quản lý tài khoản.
+ *
+ * Main types:
+ * - Account          : Thông tin tài khoản cơ bản
+ * - Pagination       : Cấu trúc phân trang trả về từ backend
+ * - AccountStats     : Thống kê sử dụng của tài khoản
+ * - FlatAccount      : Tài khoản kèm thông tin mở rộng (usage, trạng thái...)
+ * ------------------------------------------------------------------
+ */
+
+// ─── Types ──────────────────────────────────────────────────────────────
 export interface Account {
   id: string;
   provider_id: string;

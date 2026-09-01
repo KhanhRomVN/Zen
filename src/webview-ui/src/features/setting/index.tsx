@@ -1,13 +1,36 @@
+/**
+ * ------------------------------------------------------------------
+ * SettingsPanel
+ * ------------------------------------------------------------------
+ * Panel cài đặt — backend URL, ngôn ngữ AI, ngôn ngữ commit message,
+ * max files per session, và cấu hình Universal AI Provider.
+
+ * Main features:
+ * - Cấu hình Backend API URL
+ * - Chọn ngôn ngữ AI và ngôn ngữ commit message
+ * - Giới hạn số files mỗi phiên
+ * - Cấu hình Universal AI Provider
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState } from "react";
+
+// ── Components ──
 import { LANGUAGES } from "./components/LanguageSelector";
 import UniversalAIProviderForm from "./components/UniversalAIProviderForm";
+
+// ── Hooks ──
 import { useSettings } from "../../context/SettingsContext";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface SettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+// ─── Constants ──────────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px 12px",
@@ -20,7 +43,12 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+// ─── Component ──────────────────────────────────────────────────────────
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
+  // ── State ──
+  const [closeHover, setCloseHover] = useState(false);
+
+  // ── Store ──
   const {
     apiUrl,
     setApiUrl,
@@ -31,10 +59,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
     maxFilesPerSession,
     setMaxFilesPerSession,
   } = useSettings();
-  const [closeHover, setCloseHover] = useState(false);
 
   if (!isOpen) return null;
 
+  // ── Render ──
   return (
     <div
       style={{

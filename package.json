@@ -2,7 +2,7 @@
   "name": "khanhromvn-zen",
   "displayName": "Zen - Free AI Chat For ALL LLM",
   "description": "A powerful VSCode extension that brings AI chat capabilities directly into your development environment",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "publisher": "KhanhRomVN",
   "license": "MIT",
   "capabilities": {
@@ -57,6 +57,12 @@
           "name": "Chat",
           "type": "webview",
           "contextualTitle": "Zen Chat"
+        },
+        {
+          "id": "zen-accounts",
+          "name": "Accounts",
+          "type": "webview",
+          "contextualTitle": "Zen Accounts"
         }
       ]
     },
@@ -100,11 +106,6 @@
         "command": "zen.addToContext",
         "title": "Add to Zen Context",
         "category": "Zen"
-      },
-      {
-        "command": "zen.clearOldStorage",
-        "title": "Clear Old Storage",
-        "category": "Zen"
       }
     ],
     "menus": {
@@ -135,7 +136,7 @@
         },
         {
           "command": "zen.refreshProjectStructure",
-          "when": "view == zen-chat",
+          "when": "view == zen-project-structure",
           "group": "navigation"
         }
       ],

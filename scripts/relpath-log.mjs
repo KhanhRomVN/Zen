@@ -1,30 +1,30 @@
+#!/usr/bin/env node
+
+/**
+ * relpath-log.mjs
+ * Đọc log từ stdin và chuyển đư���ng dẫn tuyệt đối của project
+ * thành đường dẫn tương đối để dễ đọc.
+ */
+
 import readline from "node:readline";
-import path from "node:path";
 
-const workspaceRoot = process.cwd();
-const workspaceRootNormalized = workspaceRoot.replaceAll("\\", "/");
+const PROJECT_ROOT = process.cwd();
+const PROJECT_ROOT_ESCAPED = PROJECT_ROOT.replace(
+  /[.*+?^${}()|[\]\\]/g,
+  "\\$&",
+);
 
-const extraPrefixes = process.argv
-  .slice(2)
-  .map((p) => path.resolve(workspaceRoot, p).replaceAll("\\", "/"));
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  terminal: false,
+});
 
-function relativize(line) {
-  let out = line;
-
-  // Replace the workspace root path first.
-  out = out.split(workspaceRootNormalized + "/").join("");
-  out = out.split(workspaceRootNormalized).join(".");
-
-  // Replace any extra prefixes (e.g. src/webview-ui) if provided.
-  for (const prefix of extraPrefixes) {
-    out = out.split(prefix + "/").join("");
-    out = out.split(prefix).join(".");
-  }
-
-  return out;
-}
-
-const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
 rl.on("line", (line) => {
-  process.stdout.write(relativize(line) + "\n");
+  const relativeLine = line.replace(new RegExp(PROJECT_ROOT_ESCAPED, "g"), ".");
+  process.stdout.write(relativeLine + "\n");
+});
+
+rl.on("close", () => {
+  process.exit(0);
 });

@@ -1,16 +1,34 @@
+/**
+ * ------------------------------------------------------------------
+ * LanguageSelector
+ * ------------------------------------------------------------------
+ * Dropdown chọn ngôn ngữ kèm emoji flag.
+ * Hỗ trợ đóng khi click ra ngoài.
+
+ * Main features:
+ * - Chọn ngôn ngữ từ danh sách LANGUAGES
+ * - Hiển thị flag + tên ngôn ngữ
+ * - Tự đóng dropdown khi click ra ngoài
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState, useEffect, useRef } from "react";
 
-// Simple language definition with emoji flags
-export const LANGUAGES = [
-  { code: "en", name: "English", flag: "🇺🇸" },
-  { code: "vi", name: "Vietnamese", flag: "🇻🇳" },
-];
-
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface LanguageSelectorProps {
   value: string | null;
   onChange: (value: string) => void;
   className?: string;
 }
+
+// ─── Constants ──────────────────────────────────────────────────────────
+// Simple language definition with emoji flags
+export const LANGUAGES = [
+  { code: "en", name: "English", flag: "🇺🇸" },
+  { code: "vi", name: "Vietnamese", flag: "🇻🇳" },
+];
 
 // Custom Chevron Icons
 const ChevronDownIcon = () => (
@@ -45,15 +63,24 @@ const ChevronUpIcon = () => (
   </svg>
 );
 
+// ─── Component ──────────────────────────────────────────────────────────
 export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   value,
   onChange,
   className,
 }) => {
+  // ── State ──
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ── Refs ──
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // ── Derived ──
+  const selectedLanguage =
+    LANGUAGES.find((l) => l.code === value) || LANGUAGES[0];
+
+  // ── Effects ──
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -69,9 +96,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedLanguage =
-    LANGUAGES.find((l) => l.code === value) || LANGUAGES[0];
-
+  // ── Render ──
   return (
     <div
       ref={dropdownRef}

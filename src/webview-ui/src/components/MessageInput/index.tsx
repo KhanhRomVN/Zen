@@ -6,7 +6,6 @@ import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import DiffSummaryBar from "./DiffSummaryBar";
-import LogDrawer from "../LogDrawer";
 import type {
   MessageInputProps,
   UploadedFile,
@@ -922,7 +921,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const [isModelSwitchMode, setIsModelSwitchMode] = React.useState(false);
     const [isPlusHovered, setIsPlusHovered] = React.useState(false);
     const [isGitHovered, setIsGitHovered] = React.useState(false);
-    const [showLogDrawer, setShowLogDrawer] = React.useState(false);
 
     // Use custom hooks
     const [isThinking, toggleThinking, setIsThinking] = useToggleState(
@@ -1743,58 +1741,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 </div>
               )}
 
-              {/* Log Button */}
-              <div
-                onClick={() => setShowLogDrawer(true)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "22px",
-                  width: "22px",
-                  boxSizing: "border-box",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                  border: "1px solid rgba(128, 128, 128, 0.2)",
-                  background: "rgba(128, 128, 128, 0.12)",
-                  color: "var(--vscode-foreground)",
-                  opacity: 0.7,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(128, 128, 128, 0.2)";
-                  e.currentTarget.style.opacity = "0.9";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background =
-                    "rgba(128, 128, 128, 0.12)";
-                  e.currentTarget.style.opacity = "0.7";
-                }}
-                title="View Console Logs"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M16 14v2.2l1.6 1" />
-                  <path d="M16 4h2a2 2 0 0 1 2 2v.832" />
-                  <path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h2" />
-                  <circle cx="16" cy="16" r="6" />
-                  <rect x="8" y="2" width="8" height="4" rx="1" />
-                </svg>
-              </div>
-
-              {/* Global Tool Permission */}
-              <GlobalPermissionButton />
-
-              {/* Thinking Toggle */}
               {showThinkingButton && (
                 <ThinkingButton
                   isOn={isThinking}
@@ -1841,7 +1787,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
                     return (
                       <button
-                        onClick={() => setShowSystemPromptDropdown((prev) => !prev)}
+                        onClick={() =>
+                          setShowSystemPromptDropdown((prev) => !prev)
+                        }
                         onMouseEnter={() => setIsSystemPromptHovered(true)}
                         onMouseLeave={() => setIsSystemPromptHovered(false)}
                         style={{
@@ -1899,20 +1847,22 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         minWidth: "150px",
                       }}
                     >
-                      {([
-                        {
-                          key: "simple",
-                          label: "Simple",
-                          color: "var(--vscode-charts-green, #22c55e)",
-                          icon: <Sparkles size={11} />,
-                        },
-                        {
-                          key: "promax",
-                          label: "ProMax",
-                          color: "var(--vscode-charts-red, #ef4444)",
-                          icon: <Flame size={11} />,
-                        },
-                      ] as const).map(({ key, label, color, icon }) => {
+                      {(
+                        [
+                          {
+                            key: "simple",
+                            label: "Simple",
+                            color: "var(--vscode-charts-green, #22c55e)",
+                            icon: <Sparkles size={11} />,
+                          },
+                          {
+                            key: "promax",
+                            label: "ProMax",
+                            color: "var(--vscode-charts-red, #ef4444)",
+                            icon: <Flame size={11} />,
+                          },
+                        ] as const
+                      ).map(({ key, label, color, icon }) => {
                         const isSelected = systemPromptMode === key;
                         return (
                           <button
@@ -2079,12 +2029,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 </span>
               </div>
             )}
-
-          {/* Log Drawer */}
-          <LogDrawer
-            isOpen={showLogDrawer}
-            onClose={() => setShowLogDrawer(false)}
-          />
         </div>
       </div>
     );

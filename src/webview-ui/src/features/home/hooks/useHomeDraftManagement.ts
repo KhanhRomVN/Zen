@@ -1,15 +1,35 @@
+/**
+ * ------------------------------------------------------------------
+ * useHomeDraftManagement
+ * ------------------------------------------------------------------
+ * Custom hook quản lý draft message cho Home MessageInput.
+ * Lưu draft riêng theo workspace folder path (hoặc global nếu không có workspace).
+
+ * Main features:
+ * - Restore draft khi mount hoặc khi folderPath thay đổi
+ * - Debounce-save draft khi message thay đổi (500ms)
+ * - Xóa draft khỏi storage khi message trống
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import { useState, useRef, useEffect } from "react";
+
+// ── Services ──
 import { extensionService } from "../../../services/ExtensionService";
 
-/**
- * Manages the draft message state for the Home MessageInput.
- * Persists draft per workspace folder path (or global if no workspace).
- */
+// ─── Hook ───────────────────────────────────────────────────────────────
 export const useHomeDraftManagement = (folderPath: string | null) => {
+  // ── State ──
   const [message, setMessage] = useState("");
-  const storage = extensionService.getStorage();
+
+  // ── Refs ──
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDraftRestoredRef = useRef(false);
+
+  // ── Derived ──
+  const storage = extensionService.getStorage();
 
   // Generate unique draft key based on workspace folder
   const getDraftKey = () => {
@@ -17,6 +37,7 @@ export const useHomeDraftManagement = (folderPath: string | null) => {
     return key;
   };
 
+  // ── Effects ──
   // Restore draft on mount or when folderPath changes
   useEffect(() => {
     isDraftRestoredRef.current = false;
@@ -79,6 +100,7 @@ export const useHomeDraftManagement = (folderPath: string | null) => {
     };
   }, [message, folderPath]);
 
+  // ── Handlers ──
   const clearDraft = () => {
     const draftKey = getDraftKey();
     storage

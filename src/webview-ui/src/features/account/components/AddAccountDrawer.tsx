@@ -1,9 +1,34 @@
+/**
+ * ------------------------------------------------------------------
+ * AddAccountDrawer
+ * ------------------------------------------------------------------
+ * Bottom-sheet drawer thêm tài khoản mới.
+ * Hiển thị danh sách provider, hỗ trợ đăng nhập HTTPS (MITM) và
+ * browser-based (CDP), kèm bước xác nhận và nhập email khi cần.
+
+ * Main features:
+ * - Chọn provider từ danh sách (kèm favicon, connection type badge)
+ * - Đăng nhập qua MITM hoặc CDP (context menu khi click phải)
+ * - Xác nhận thông tin trước khi lưu (email, credential)
+ * - Nhập email khi browser login thất bại
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
+
+// ── UI ──
 import { Loader2, X, AlertCircle, ShieldCheck } from "lucide-react";
+
+// ── Hooks ──
 import { useSettings } from "../../../context/SettingsContext";
+
+// ── Utils ��─
 import { getFaviconUrl } from "../utils";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface Provider {
   provider_id: string;
   provider_name: string;
@@ -22,8 +47,7 @@ interface AddAccountDrawerProps {
   onSuccess: () => void;
 }
 
-
-
+// ─── Constants ──────────────────────────────────────────────────────────
 // List row card
 const ProviderRow: React.FC<{
   provider: Provider;
@@ -31,8 +55,11 @@ const ProviderRow: React.FC<{
   onContextMenu: (e: React.MouseEvent, provider: Provider) => void;
   loading: boolean;
 }> = ({ provider, onSelect, onContextMenu, loading }) => {
+  // ── State ──
   const [imgError, setImgError] = useState(false);
   const [hovered, setHovered] = useState(false);
+
+  // ── Derived ──
   const iconUrl = getFaviconUrl(provider.website);
   const disabled = provider.is_enabled === false || loading;
 
@@ -43,8 +70,6 @@ const ProviderRow: React.FC<{
     (provider.auth_methods && provider.auth_methods.length > 0
       ? provider.auth_methods[0]
       : null);
-
-
 
   const connectionBadgeColor =
     connectionType === "browser"
@@ -57,6 +82,7 @@ const ProviderRow: React.FC<{
           color: "var(--vscode-testing-iconPassed, #22c55e)",
         };
 
+  // ── Handlers ──
   const handleClick = () => {
     if (disabled) return;
     onSelect("basic");
@@ -69,6 +95,7 @@ const ProviderRow: React.FC<{
     onContextMenu(e, provider);
   };
 
+  // ── Render ──
   return (
     <div
       onClick={handleClick}
@@ -248,12 +275,13 @@ const ProviderRow: React.FC<{
   );
 };
 
+// ─── Component ──────────────────────────────────────────────────────────
 const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   open,
   onOpenChange,
   onSuccess,
 }) => {
-  const { apiUrl } = useSettings();
+  // ── State ──
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
@@ -279,16 +307,65 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     y: number;
   } | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      setError("");
-      setShowConfirm(false);
-      setPendingAccount(null);
-      return;
-    }
-    fetchProviders();
-  }, [open]);
+  // ── Store ──
+  const { apiUrl } = useSettings();
 
+  // ── Derived ──
+  const sharedBackdrop = (onClickBackdrop: () => void) => (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        backgroundColor: "rgba(0,0,0,0.55)",
+        zIndex: 200,
+        animation: "aaFadeIn 0.15s ease",
+      }}
+      onClick={onClickBackdrop}
+    />
+  );
+
+  const sharedSheet = (children: React.ReactNode, height: string = "50%") => (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: "var(--tertiary-bg)",
+        borderTop: "1px solid var(--border-color)",
+        borderTopLeftRadius: "18px",
+        borderTopRightRadius: "18px",
+        boxShadow: "0 -8px 32px rgba(0,0,0,0.25)",
+        zIndex: 201,
+        height,
+        display: "flex",
+        flexDirection: "column",
+        animation: "aaSlideUp 0.22s ease",
+      }}
+    >
+      {/* Drag handle */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          padding: "10px 0 6px",
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: "32px",
+            height: "3px",
+            borderRadius: "2px",
+            backgroundColor: "var(--border-color)",
+          }}
+        />
+      </div>
+      {children}
+    </div>
+  );
+
+  // ── Handlers ──
   const fetchProviders = async () => {
     setLoadingProviders(true);
     try {
@@ -307,14 +384,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       setLoadingProviders(false);
     }
   };
-
-  // Close context menu when clicking outside
-  useEffect(() => {
-    if (!contextMenu) return;
-    const closeMenu = () => setContextMenu(null);
-    document.addEventListener("click", closeMenu);
-    return () => document.removeEventListener("click", closeMenu);
-  }, [contextMenu]);
 
   const handleLogin = async (
     provider: Provider,
@@ -477,63 +546,29 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     }
   };
 
+  // ── Effects ──
+  useEffect(() => {
+    if (!open) {
+      setError("");
+      setShowConfirm(false);
+      setPendingAccount(null);
+      return;
+    }
+    fetchProviders();
+  }, [open]);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    if (!contextMenu) return;
+    const closeMenu = () => setContextMenu(null);
+    document.addEventListener("click", closeMenu);
+    return () => document.removeEventListener("click", closeMenu);
+  }, [contextMenu]);
+
   if (!open) return null;
 
-  const sharedBackdrop = (onClickBackdrop: () => void) => (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: "rgba(0,0,0,0.55)",
-        zIndex: 200,
-        animation: "aaFadeIn 0.15s ease",
-      }}
-      onClick={onClickBackdrop}
-    />
-  );
-
-  const sharedSheet = (children: React.ReactNode, height: string = "50%") => (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: "var(--tertiary-bg)",
-        borderTop: "1px solid var(--border-color)",
-        borderTopLeftRadius: "18px",
-        borderTopRightRadius: "18px",
-        boxShadow: "0 -8px 32px rgba(0,0,0,0.25)",
-        zIndex: 201,
-        height,
-        display: "flex",
-        flexDirection: "column",
-        animation: "aaSlideUp 0.22s ease",
-      }}
-    >
-      {/* Drag handle */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          padding: "10px 0 6px",
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: "32px",
-            height: "3px",
-            borderRadius: "2px",
-            backgroundColor: "var(--border-color)",
-          }}
-        />
-      </div>
-      {children}
-    </div>
-  );
-
-  // ── Email input for browser provider when login fails ─────────────────────
+  // ── Render ──
+  // Email input for browser provider when login fails
   if (showEmailDrawer && pendingBrowserProvider) {
     return (
       <>
@@ -741,7 +776,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     );
   }
 
-  // ── Confirmation view ──────────────────────────────────────────────────────
+  // Confirmation view
   if (showConfirm && pendingAccount) {
     return (
       <>
@@ -992,7 +1027,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     );
   }
 
-  // ── Main provider selection view ───────────────────────────────────────────
+  // Main provider selection view
   return (
     <>
       {sharedBackdrop(() => onOpenChange(false))}
@@ -1077,7 +1112,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 {providers.map((p) => (
                   <ProviderRow
                     key={p.provider_id}
-                    provider={p}
+                   provider={p}
                     onSelect={(method) => handleLogin(p, method)}
                     onContextMenu={(e, provider) => {
                       e.preventDefault();

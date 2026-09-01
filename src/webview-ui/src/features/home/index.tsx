@@ -1,18 +1,46 @@
+/**
+ * ------------------------------------------------------------------
+ * HomePanel
+ * ------------------------------------------------------------------
+ * Panel trang chủ — hiển thị dashboard thống kê, slogan, và MessageInput.
+ * Bao gồm stats grid, model distribution, daily usage chart, recent activity.
+
+ * Main features:
+ * - Dashboard stats: tổng tokens, requests, favorite model, số tài khoản
+ * - Biểu đồ phân bố model và daily usage
+ * - Danh sách hội thoại gần đây
+ * - MessageInput với draft auto-save, file handling
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useEffect, useState } from "react";
+
+// ── UI ──
 import { Zap } from "lucide-react";
+
+// ── Components ──
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import StatsGrid from "./components/StatsGrid";
 import RecentActivity from "./components/RecentActivity";
 import ModelDistributionCard from "./components/ModelDistributionCard";
 import DailyUsageChart from "./components/DailyUsageChart";
-import { ConversationItem } from "../history/types";
-import { extensionService } from "../../services/ExtensionService";
+
+// ── Hooks ──
 import { useSettings } from "../../context/SettingsContext";
 import { useFileHandling } from "../../hooks/useFileHandling";
 import { useHomeDraftManagement } from "./hooks/useHomeDraftManagement";
 import { useModelAccount } from "../../hooks/useModelAccount";
 
+// ── Services ──
+import { extensionService } from "../../services/ExtensionService";
+
+// ── Types ──
+import { ConversationItem } from "../history/types";
+
+// ─── Constants ──────────────────────────────────────────────────────────
 const SLOGANS = [
   "Code smarter, not harder",
   "Your AI coding companion",
@@ -88,6 +116,7 @@ const DashboardStats = React.memo(
   },
 );
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface HomePanelProps {
   onSendMessage: (
     content: string,
@@ -103,47 +132,13 @@ interface HomePanelProps {
   initialValue?: string;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const HomePanel: React.FC<HomePanelProps> = ({
   onSendMessage,
   onLoadConversation,
   initialValue,
 }) => {
-  // 🔍 PERFORMANCE DEBUG LOGS
-  const renderCountRef = React.useRef(0);
-  const lastRenderTimeRef = React.useRef(Date.now());
-  const renderTimingsRef = React.useRef<number[]>([]);
-  const renderStartTime = performance.now();
-
-  renderCountRef.current++;
-  const now = Date.now();
-  const timeSinceLastRender = now - lastRenderTimeRef.current;
-  lastRenderTimeRef.current = now;
-  renderTimingsRef.current.push(timeSinceLastRender);
-
-  // Keep only last 10 timings
-  if (renderTimingsRef.current.length > 10) {
-    renderTimingsRef.current.shift();
-  }
-
-  const imagesUri = (window as any).__zenImagesUri;
-  const { apiUrl } = useSettings();
-
-  const folderPath = (window as any).__zenWorkspaceFolderPath as
-    | string
-    | null
-    | undefined;
-
-  // Use draft management hook for auto-save/restore
-  const { message, setMessage, clearDraft } = useHomeDraftManagement(
-    folderPath || null,
-  );
-
-  // Model+Account selection (centralized hook — workspace-scoped persistence)
-  const { currentModel, setCurrentModel, currentAccount, setCurrentAccount } =
-    useModelAccount(folderPath);
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-
-  // Dashboard state
+  // ── State ──
   const [sloganIndex, setSloganIndex] = useState(0);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -165,10 +160,154 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const [providerFavicons, setProviderFavicons] = useState<
     Record<string, string>
   >({});
+  const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
 
+  // ── Store ──
+  const { apiUrl } = useSettings();
+
+  const folderPath = (window as any).__zenWorkspaceFolderPath as
+    | string
+    | null
+    | undefined;
+
+  const { message, setMessage, clearDraft } = useHomeDraftManagement(
+    folderPath || null,
+  );
+
+  const { currentModel, setCurrentModel, currentAccount, setCurrentAccount } =
+    useModelAccount(folderPath);
+
+  // ── Refs ──
+  // 🔍 PERFORMANCE DEBUG LOGS
+  const renderCountRef = React.useRef(0);
+  const lastRenderTimeRef = React.useRef(Date.now());
+  const renderTimingsRef = React.useRef<number[]>([]);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // ── Derived ──
+  const renderStartTime = performance.now();
+
+  renderCountRef.current++;
+  const now = Date.now();
+  const timeSinceLastRender = now - lastRenderTimeRef.current;
+  lastRenderTimeRef.current = now;
+  renderTimingsRef.current.push(timeSinceLastRender);
+
+  // Keep only last 10 timings
+  if (renderTimingsRef.current.length > 10) {
+    renderTimingsRef.current.shift();
+  }
+
+  const imagesUri = (window as any).__zenImagesUri;
+
+  const sortedConversations = React.useMemo(() => {
+    return [...conversations].sort((a, b) => {
+      const timeA = new Date(
+        a.lastModified || a.timestamp || a.createdAt || 0,
+      ).getTime();
+      const timeB = new Date(
+        b.lastModified || b.timestamp || b.createdAt || 0,
+      ).getTime();
+      return timeB - timeA;
+    });
+  }, [conversations]);
+
+  // ── Callbacks ──
   // Memoize onLoadConversation to stabilize DashboardStats props
   const stableOnLoadConversation = React.useCallback(onLoadConversation, []);
 
+  const handleAddAttachedItem = React.useCallback((item: any) => {
+    setAttachedItems((prev) => [...prev, item]);
+  }, []);
+
+  const handleRemoveAttachedItem = React.useCallback((id: string) => {
+    setAttachedItems((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const {
+    uploadedFiles,
+    fileInputRef,
+    externalFileInputRef,
+    handlePaste,
+    handleFileSelect,
+    handleFileInputChange,
+    removeFile,
+    handleExternalFileInputChange,
+    handleDragOver,
+    handleDrop,
+    clearFiles,
+    addAttachedItemWithCache,
+    removeAttachedItemFromCache,
+  } = useFileHandling({
+    accountId: currentAccount?.id,
+    folderPath: folderPath || null,
+    onAddAttachedItem: handleAddAttachedItem,
+  });
+
+  // Wrap handleRemoveAttachedItem to also update localStorage cache
+  const handleRemoveAttachedItemWrapper = React.useCallback(
+    (id: string) => {
+      handleRemoveAttachedItem(id);
+      removeAttachedItemFromCache(id);
+    },
+    [handleRemoveAttachedItem, removeAttachedItemFromCache],
+  );
+
+  const handleSend = React.useCallback(
+    (model: any, account: any) => {
+      if (
+        message.trim() ||
+        uploadedFiles.length > 0 ||
+        attachedItems.length > 0
+      ) {
+        // 🚀 FIX: Merge uploadedFiles and attachedItems like in chat panel
+        onSendMessage(
+          message,
+          [...uploadedFiles, ...attachedItems],
+          model,
+          account,
+        );
+        setMessage("");
+        clearDraft(); // Clear draft after sending
+        clearFiles();
+        setAttachedItems([]); // Clear attached items after sending
+      }
+    },
+    [
+      message,
+      uploadedFiles,
+      attachedItems,
+      onSendMessage,
+      clearDraft,
+      clearFiles,
+    ],
+  );
+
+  const handleTextareaChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const changeStart = performance.now();
+      const newValue = e.target.value;
+      const lengthDiff = newValue.length - message.length;
+
+      setMessage(newValue);
+
+      const changeTime = performance.now() - changeStart;
+
+      if (changeTime > 5) {
+        console.warn(
+          `[Home handleTextareaChange] SLOW: ${changeTime.toFixed(2)}ms`,
+        );
+      }
+    },
+    [message],
+  );
+
+  const handleKeyDown = React.useCallback(
+    (_e: React.KeyboardEvent<HTMLTextAreaElement>) => {},
+    [],
+  );
+
+  // ── Effects ──
   // Trigger history limit enforcement on mount
   useEffect(() => {
     extensionService.postMessage({
@@ -267,108 +406,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
-  const sortedConversations = React.useMemo(() => {
-    return [...conversations].sort((a, b) => {
-      const timeA = new Date(
-        a.lastModified || a.timestamp || a.createdAt || 0,
-      ).getTime();
-      const timeB = new Date(
-        b.lastModified || b.timestamp || b.createdAt || 0,
-      ).getTime();
-      return timeB - timeA;
-    });
-  }, [conversations]);
-
-  // Text snippets state for large paste
-  const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
-
-  const handleAddAttachedItem = React.useCallback((item: any) => {
-    setAttachedItems((prev) => [...prev, item]);
-  }, []);
-
-  const handleRemoveAttachedItem = React.useCallback((id: string) => {
-    setAttachedItems((prev) => prev.filter((item) => item.id !== id));
-  }, []);
-
-  const {
-    uploadedFiles,
-    fileInputRef,
-    externalFileInputRef,
-    handlePaste,
-    handleFileSelect,
-    handleFileInputChange,
-    removeFile,
-    handleExternalFileInputChange,
-    handleDragOver,
-    handleDrop,
-    clearFiles,
-    addAttachedItemWithCache,
-    removeAttachedItemFromCache,
-  } = useFileHandling({
-    accountId: currentAccount?.id,
-    folderPath: folderPath || null,
-    onAddAttachedItem: handleAddAttachedItem,
-  });
-
-  // Wrap handleRemoveAttachedItem to also update localStorage cache
-  const handleRemoveAttachedItemWrapper = React.useCallback(
-    (id: string) => {
-      handleRemoveAttachedItem(id);
-      removeAttachedItemFromCache(id);
-    },
-    [handleRemoveAttachedItem, removeAttachedItemFromCache],
-  );
-
-  // MessageInput handlers - AFTER useFileHandling to avoid reference errors
-  const handleSend = React.useCallback(
-    (model: any, account: any) => {
-      if (
-        message.trim() ||
-        uploadedFiles.length > 0 ||
-        attachedItems.length > 0
-      ) {
-        // 🚀 FIX: Merge uploadedFiles and attachedItems like in chat panel
-        onSendMessage(message, [...uploadedFiles, ...attachedItems], model, account);
-        setMessage("");
-        clearDraft(); // Clear draft after sending
-        clearFiles();
-        setAttachedItems([]); // Clear attached items after sending
-      }
-    },
-    [
-      message,
-      uploadedFiles,
-      attachedItems,
-      onSendMessage,
-      clearDraft,
-      clearFiles,
-    ],
-  );
-
-  const handleTextareaChange = React.useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const changeStart = performance.now();
-      const newValue = e.target.value;
-      const lengthDiff = newValue.length - message.length;
-
-      setMessage(newValue);
-
-      const changeTime = performance.now() - changeStart;
-
-      if (changeTime > 5) {
-        console.warn(
-          `[Home handleTextareaChange] SLOW: ${changeTime.toFixed(2)}ms`,
-        );
-      }
-    },
-    [message],
-  );
-
-  const handleKeyDown = React.useCallback(
-    (_e: React.KeyboardEvent<HTMLTextAreaElement>) => {},
-    [],
-  );
-
+  // ── Render ──
   return (
     <div
       className="home-panel"

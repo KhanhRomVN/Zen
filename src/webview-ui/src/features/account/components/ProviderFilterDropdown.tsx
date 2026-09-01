@@ -1,6 +1,25 @@
+/**
+ * ------------------------------------------------------------------
+ * ProviderFilterDropdown
+ * ------------------------------------------------------------------
+ * Dropdown lọc danh sách tài khoản theo provider.
+ * Hiển thị favicon và tên provider, kèm ô tìm kiếm.
+
+ * Main features:
+ * - Chọn provider hoặc hiển thị tất cả (All Providers)
+ * - Tìm kiếm provider theo tên hoặc ID
+ * - Tự đóng khi click ra ngoài
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState, useRef, useEffect } from "react";
+
+// ── UI ──
 import { ChevronDown, Search, X } from "lucide-react";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface ProviderFilterDropdownProps {
   providerConfigs: any[];
   selectedProvider: string;
@@ -8,16 +27,32 @@ interface ProviderFilterDropdownProps {
   getFaviconUrl: (website: string) => string;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const ProviderFilterDropdown: React.FC<ProviderFilterDropdownProps> = ({
   providerConfigs,
   selectedProvider,
   onSelectProvider,
   getFaviconUrl,
 }) => {
+  // ── State ──
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // ── Refs ──
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // ── Derived ──
+  const selectedProviderObj = providerConfigs.find((p) => p.provider_id === selectedProvider);
+
+  const filteredProviders = providerConfigs.filter(
+    (p) =>
+      p.provider_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.provider_id.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const isActive = (id: string) => selectedProvider === id;
+
+  // ── Effects ──
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -28,14 +63,7 @@ const ProviderFilterDropdown: React.FC<ProviderFilterDropdownProps> = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedProviderObj = providerConfigs.find((p) => p.provider_id === selectedProvider);
-
-  const filteredProviders = providerConfigs.filter(
-    (p) =>
-      p.provider_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.provider_id.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
-
+  // ── Handlers ──
   const handleSelect = (providerId: string) => {
     onSelectProvider(providerId);
     setIsOpen(false);
@@ -47,8 +75,7 @@ const ProviderFilterDropdown: React.FC<ProviderFilterDropdownProps> = ({
     setIsOpen(false);
   };
 
-  const isActive = (id: string) => selectedProvider === id;
-
+  // ── Render ──
   return (
     <div ref={dropdownRef} style={{ position: "relative" }}>
       <button

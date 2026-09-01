@@ -1,3 +1,15 @@
+/**
+ * ------------------------------------------------------------------
+ * History Types
+ * ------------------------------------------------------------------
+ * Định nghĩa kiểu dữ liệu cho tính năng lịch sử hội thoại.
+
+ * Main types:
+ * - ConversationItem : Thông tin một hội thoại trong lịch sử
+ * ------------------------------------------------------------------
+ */
+
+// ─── Types ──────────────────────────────────────────────────────────────
 export interface ConversationItem {
   id: string;
   tabId: number;

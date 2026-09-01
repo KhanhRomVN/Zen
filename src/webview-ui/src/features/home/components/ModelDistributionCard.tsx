@@ -1,19 +1,22 @@
+/**
+ * ------------------------------------------------------------------
+ * ModelDistributionCard
+ * ------------------------------------------------------------------
+ * Biểu đồ tròn hiển thị phân bố requests theo model.
+ * Kèm danh sách model bên cạnh với tỷ lệ phần trăm.
+
+ * Main features:
+ * - Donut chart với màu riêng cho từng model
+ * - Tooltip hiển thị chi tiết requests/tokens khi hover
+ * - Expand/collapse danh sách model khi > 4 items
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState } from "react";
 
-const COLORS = [
-  "var(--vscode-textLink-foreground, #3b82f6)",
-  "var(--vscode-editorWarning-foreground, #d97706)",
-  "var(--vscode-symbolIcon-namespaceForeground, #8b5cf6)",
-  "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
-  "var(--vscode-errorForeground, #f43f5e)",
-];
-const COLLAPSE_THRESHOLD = 4;
-const SIZE = 96;
-const STROKE = 11;
-const R = (SIZE - STROKE) / 2;
-const CIRC = 2 * Math.PI * R;
-const GAP_DEG = 0;
-
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface ModelEntry {
   model_id: string;
   provider_id: string;
@@ -34,15 +37,33 @@ interface TooltipState {
   y: number;
 }
 
+// ─── Constants ──────────────────────────────────────────────────────────
+const COLORS = [
+  "var(--vscode-textLink-foreground, #3b82f6)",
+  "var(--vscode-editorWarning-foreground, #d97706)",
+  "var(--vscode-symbolIcon-namespaceForeground, #8b5cf6)",
+  "var(--vscode-gitDecoration-addedResourceForeground, #10b981)",
+  "var(--vscode-errorForeground, #f43f5e)",
+];
+const COLLAPSE_THRESHOLD = 4;
+const SIZE = 96;
+const STROKE = 11;
+const R = (SIZE - STROKE) / 2;
+const CIRC = 2 * Math.PI * R;
+const GAP_DEG = 0;
+
+// ─── Component ──────────────────────────────────────────────────────────
 const ModelDistributionCard: React.FC<Props> = ({
   modelDistribution,
   providerFavicons,
   title,
   emptyText,
 }) => {
+  // ── State ──
   const [expanded, setExpanded] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
+  // ── Derived ──
   const total =
     modelDistribution.reduce((s, m) => s + m.total_requests, 0) || 1;
   const visible = expanded
@@ -75,6 +96,7 @@ const ModelDistributionCard: React.FC<Props> = ({
   const cx = SIZE / 2;
   const cy = SIZE / 2;
 
+  // ── Render ──
   return (
     <div
       style={{

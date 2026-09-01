@@ -1,18 +1,42 @@
+/**
+ * ------------------------------------------------------------------
+ * CopyableText
+ * ------------------------------------------------------------------
+ * Component hiển thị đoạn text với khả năng click để copy vào clipboard.
+ * Tự động cắt ngắn text nếu vượt quá chiều rộng container.
+
+ * Main features:
+ * - Click để copy giá trị vào clipboard (kèm hiệu ứng "✓ copied")
+ * - Tự truncate text theo chiều rộng container
+ * - Hỗ trợ font monospace hoặc sans-serif
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState } from "react";
+
+// ── Hooks ──
 import { useTruncatedText } from "./truncateText";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface CopyableTextProps {
   value: string;
   monospace?: boolean;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 export const CopyableText: React.FC<CopyableTextProps> = ({ value, monospace }) => {
+  // ── State ──
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
+
+  // ── Derived ──
   const fontSize = "11px";
   const fontFamily = monospace ? "monospace" : "sans-serif";
   const { containerRef, displayText } = useTruncatedText(value || "", `${fontSize} ${fontFamily}`);
 
+  // ── Handlers ──
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!value) return;
@@ -22,6 +46,7 @@ export const CopyableText: React.FC<CopyableTextProps> = ({ value, monospace }) 
     });
   };
 
+  // ── Render ──
   return (
     <div
       ref={containerRef}

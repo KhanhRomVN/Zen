@@ -1,27 +1,42 @@
+/**
+ * ------------------------------------------------------------------
+ * DailyUsageChart
+ * ------------------------------------------------------------------
+ * Biểu đồ đường hiển thị số requests theo giờ trong ngày.
+ * Phân biệt giờ đã qua (line màu) và giờ tương lai (vùng tối).
+
+ * Main features:
+ * - Vẽ line chart 24 giờ với area fill
+ * - Tooltip hiển thị chi tiết requests/tokens khi hover
+ * - Responsive theo container width (ResizeObserver)
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useRef, useState, useEffect } from "react";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface HourEntry { date: string; requests: number; tokens: number; }
 interface Props { usage: HourEntry[]; title: string; }
 
+// ─── Constants ���─────────────────────────────────────────────────────────
 const LINE_COLOR = "var(--vscode-textLink-foreground, #3b82f6)";
 const CHART_H = 60;
 const CHART_W = 600; // viewBox width, scales with container
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+// ─── Component ──────────────────────────────────────────────────────────
 const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
+  // ── State ──
   const [tooltip, setTooltip] = useState<{ hour: number; svgX: number; svgY: number } | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(200);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // ── Refs ──
+  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  // ── Derived ──
   const dataMap = new Map<number, HourEntry>();
   usage.forEach((u) => {
     const h = parseInt(u.date.split(":")[0], 10);
@@ -52,6 +67,16 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
     `${xOf(currentHour)},${CHART_H}`,
   ].join(" ");
 
+  // ── Effects ──
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // ── Handlers ──
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -65,6 +90,7 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
     setTooltip({ hour: clampedH, svgX: dotX, svgY: dotY });
   };
 
+  // ── Render ──
   return (
     <div style={{
       backgroundColor: "var(--vscode-sideBar-background, rgba(0,0,0,0.15))",

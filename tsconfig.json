@@ -7,7 +7,7 @@
     "lib": ["ES2022"],
     "types": ["node"],
     "sourceMap": true,
-    "rootDir": "src",
+    "rootDir": "temp/src",
     "skipLibCheck": true,
     "strict": true /* enable all strict type-checking options */
     /* Additional Checks */
@@ -15,6 +15,6 @@
     // "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
     // "noUnusedParameters": true,  /* Report errors on unused parameters. */
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "temp", "dist", "src/webview-ui"]
+  "include": ["temp/src/**/*"],
+  "exclude": ["node_modules", "temp", "dist", "temp/src/webview-ui"]
 }

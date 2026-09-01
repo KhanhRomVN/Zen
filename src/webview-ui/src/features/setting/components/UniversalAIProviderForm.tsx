@@ -1,6 +1,22 @@
+/**
+ * ------------------------------------------------------------------
+ * UniversalAIProviderForm
+ * ------------------------------------------------------------------
+ * Form cấu hình Universal AI Provider — chọn provider, cấu hình
+ * host/route/headers/body/response mapping cho API request.
+
+ * Main features:
+ * - Chọn provider từ 8 loại (openai, anthropic, gemini, mistral, cohere, ollama, groq, custom)
+ * - Cấu hình đầy đủ request (method, headers, body template/extra fields)
+ * - Cấu hình response mapping (JSONPath) và error path
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState, useCallback } from "react";
 
-// ── Types ──────────────────────────────────────────────
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface ProviderConfig {
   host: string;
   route: string;
@@ -11,6 +27,7 @@ interface ProviderConfig {
   err: string;
 }
 
+// ─── Types ──────────────────────────────────────────────────────────────
 type ProviderId =
   | "openai"
   | "anthropic"
@@ -21,7 +38,7 @@ type ProviderId =
   | "groq"
   | "custom";
 
-// ── Data ───────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────────
 const PROVIDERS: Record<ProviderId, ProviderConfig> = {
   openai: {
     host: "https://api.openai.com/v1",
@@ -147,7 +164,6 @@ const PROVIDER_IDS: ProviderId[] = [
   "custom",
 ];
 
-// ── Styles ─────────────────────────────────────────────
 const cardStyle: React.CSSProperties = {
   background: "var(--tertiary-bg)",
   border: "1px solid var(--border-color)",
@@ -215,8 +231,9 @@ const badgeStyle = (color: "green" | "blue"): React.CSSProperties => ({
   color: color === "green" ? "rgb(34,197,94)" : "rgb(59,130,246)",
 });
 
-// ── Component ──────────────────────────────────────────
+// ─── Component ──────────────────────────────────────────────────────────
 const UniversalAIProviderForm: React.FC = () => {
+  // ── State ──
   const [provider, setProvider] = useState<ProviderId>("openai");
   const [host, setHost] = useState(PROVIDERS.openai.host);
   const [route, setRoute] = useState(PROVIDERS.openai.route);
@@ -235,8 +252,10 @@ const UniversalAIProviderForm: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [respHeaders, setRespHeaders] = useState<[string, string][]>([]);
 
+  // ── Derived ──
   const fullUrl = host.replace(/\/$/, "") + route;
 
+  // ── Callbacks ──
   const selectProvider = useCallback(
     (id: ProviderId) => {
       setProvider(id);
@@ -321,6 +340,7 @@ const UniversalAIProviderForm: React.FC = () => {
     setRespHeaders((prev) => prev.filter((_, i) => i !== idx));
   }, []);
 
+  // ── Render ──
   return (
     <div
       style={{

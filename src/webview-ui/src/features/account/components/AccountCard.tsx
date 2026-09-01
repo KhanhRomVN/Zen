@@ -1,9 +1,32 @@
+/**
+ * ------------------------------------------------------------------
+ * AccountCard
+ * ------------------------------------------------------------------
+ * Card hiển thị thông tin tài khoản trong danh sách.
+ * Hỗ trợ chọn, mở context menu (copy JSON, switch, delete), và mở rộng chi tiết.
+
+ * Main features:
+ * - Hiển thị thông tin provider, email, thống kê daily requests/tokens
+ * - Context menu khi click chuột phải (Copy as JSON, Switch, Delete)
+ * - Expand/collapse chi tiết tài khoản (ID, credential, usage...)
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState, useEffect } from "react";
 import ReactDOM from "react-dom";
+
+// ── UI ──
 import { Trash2, RefreshCw, CheckCircle } from "lucide-react";
-import { FlatAccount } from "../types";
+
+// ── Utils ──
 import { CopyableText } from "../utils";
 
+// ── Types ──
+import { FlatAccount } from "../types";
+
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface AccountCardProps {
   account: FlatAccount;
   isSelected: boolean;
@@ -14,6 +37,7 @@ interface AccountCardProps {
   providerConfig?: any;
 }
 
+// ─── Constants ──────────────────────────────────────────────────────────
 // Custom icon: lucide-square-dashed-mouse-pointer
 const SquareDashedMousePointerIcon: React.FC<{ size?: number }> = ({ size = 16 }) => (
   <svg
@@ -40,6 +64,21 @@ const SquareDashedMousePointerIcon: React.FC<{ size?: number }> = ({ size = 16 }
   </svg>
 );
 
+const menuBtnStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "8px 12px",
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  border: "none",
+  backgroundColor: "transparent",
+  color: "var(--primary-text)",
+  fontSize: "12px",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+// ─── Component ──────────────────────────────────────────────────────────
 const AccountCard: React.FC<AccountCardProps> = ({
   account,
   isSelected,
@@ -49,55 +88,12 @@ const AccountCard: React.FC<AccountCardProps> = ({
   onSwitch,
   providerConfig,
 }) => {
+  // ── State ──
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [expanded, setExpanded] = useState(false);
 
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setMenuPosition({ x: e.clientX, y: e.clientY });
-    setShowMenu(true);
-  };
-
-  const handleCardClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpanded(!expanded);
-  };
-
-  const handleSelectClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onToggleSelect();
-  };
-
-  useEffect(() => {
-    if (!showMenu) return;
-    const close = () => setShowMenu(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [showMenu]);
-
-  const handleCopyAccount = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowMenu(false);
-    const data = {
-      id: account.id,
-      provider_id: account.provider_id,
-      email: account.email,
-      credential: account.credential,
-      usage: account.usage ?? null,
-      reset_period: account.reset_period ?? null,
-      last_refreshed_at: account.last_refreshed_at ?? null,
-      is_active_cli: account.is_active_cli ?? false,
-      total_requests: account.total_requests ?? null,
-      successful_requests: account.successful_requests ?? null,
-      total_tokens: account.total_tokens ?? null,
-      daily_requests: account.daily_requests ?? null,
-      daily_tokens: account.daily_tokens ?? null,
-    };
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-  };
-
+  // ── Derived ──
   const getProviderIcon = () => {
     if (providerConfig?.website) {
       try {
@@ -120,6 +116,54 @@ const AccountCard: React.FC<AccountCardProps> = ({
       minute: "2-digit",
     });
 
+  // ── Effects ──
+  useEffect(() => {
+    if (!showMenu) return;
+    const close = () => setShowMenu(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [showMenu]);
+
+  // ── Handlers ──
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuPosition({ x: e.clientX, y: e.clientY });
+    setShowMenu(true);
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpanded(!expanded);
+  };
+
+  const handleSelectClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleSelect();
+  };
+
+  const handleCopyAccount = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    const data = {
+      id: account.id,
+      provider_id: account.provider_id,
+      email: account.email,
+      credential: account.credential,
+      usage: account.usage ?? null,
+      reset_period: account.reset_period ?? null,
+      last_refreshed_at: account.last_refreshed_at ?? null,
+      is_active_cli: account.is_active_cli ?? false,
+      total_requests: account.total_requests ?? null,
+      successful_requests: account.successful_requests ?? null,
+      total_tokens: account.total_tokens ?? null,
+      daily_requests: account.daily_requests ?? null,
+      daily_tokens: account.daily_tokens ?? null,
+    };
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+  };
+
+  // ── Render ──
   // Portal-based context menu
   const contextMenu = showMenu
     ? ReactDOM.createPortal(
@@ -480,20 +524,6 @@ const AccountCard: React.FC<AccountCardProps> = ({
       `}</style>
     </div>
   );
-};
-
-const menuBtnStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 12px",
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  border: "none",
-  backgroundColor: "transparent",
-  color: "var(--primary-text)",
-  fontSize: "12px",
-  cursor: "pointer",
-  textAlign: "left",
 };
 
 export default AccountCard;

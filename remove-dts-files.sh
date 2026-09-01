@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script để xóa các file .d.ts và .d.ts.map trong thư mục src/webview-ui/src
 # Author: Auto-generated
-# Usage:
+# Usage: 
 #   ./remove-dts-files.sh         # Chạy 1 lần
 #   ./remove-dts-files.sh watch   # Chạy chế độ watch (ngầm)
 
@@ -11,21 +11,21 @@ EXCLUDE_PATTERN="-path */types/css.d.ts -o -path */types/window.d.ts -o -path */
 # Function xóa file .d.ts và .d.ts.map
 remove_dts_files() {
     local quiet_mode=$1
-
+    
     # Đếm số lượng file
     DTS_COUNT=$(find "$TARGET_DIR" -type f -name "*.d.ts" ! \( $EXCLUDE_PATTERN \) 2>/dev/null | wc -l)
     MAP_COUNT=$(find "$TARGET_DIR" -type f -name "*.d.ts.map" 2>/dev/null | wc -l)
     TOTAL_COUNT=$((DTS_COUNT + MAP_COUNT))
-
+    
     if [ "$TOTAL_COUNT" -eq 0 ]; then
         [ "$quiet_mode" != "quiet" ] && echo "✅ Không có file .d.ts hoặc .d.ts.map nào để xóa."
         return 0
     fi
-
+    
     # Xóa files
     find "$TARGET_DIR" -type f -name "*.d.ts" ! \( $EXCLUDE_PATTERN \) -delete 2>/dev/null
     find "$TARGET_DIR" -type f -name "*.d.ts.map" -delete 2>/dev/null
-
+    
     if [ "$quiet_mode" != "quiet" ]; then
         echo "✅ [$(date '+%H:%M:%S')] Đã xóa $TOTAL_COUNT file (.d.ts và .d.ts.map)"
     fi
@@ -38,10 +38,10 @@ watch_mode() {
     echo "📂 Theo dõi: $TARGET_DIR"
     echo "⏸️  Nhấn Ctrl+C để dừng"
     echo "=========================================="
-
+    
     # Xóa các file hiện tại trước
     remove_dts_files
-
+    
     # Kiểm tra tool có sẵn không
     if command -v inotifywait &> /dev/null; then
         # Linux: Dùng inotifywait

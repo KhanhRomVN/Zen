@@ -1,8 +1,31 @@
+/**
+ * ------------------------------------------------------------------
+ * HistoryPanel
+ * ------------------------------------------------------------------
+ * Panel lịch sử hội thoại — hiển thị danh sách, tìm kiếm, xóa,
+ * và khôi phục hội thoại đã lưu.
+
+ * Main features:
+ * - Hiển thị danh sách hội thoại theo ngày (Today, Yesterday, weekday)
+ * - Tìm kiếm và sắp xếp theo thời gian
+ * - Xóa hội thoại đơn lẻ hoặc toàn bộ lịch sử
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useCallback, useState } from "react";
-import HistoryCard from "./components/HistoryCard";
+
+// ── UI ──
 import { FolderOpen, Loader2, Search } from "lucide-react";
+
+// ── Components ──
+import HistoryCard from "./components/HistoryCard";
+
+// ── Hooks ──
 import { useConversationHistory } from "./hooks/useConversationHistory";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface HistoryPanelProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,11 +36,18 @@ interface HistoryPanelProps {
   ) => void;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const HistoryPanel: React.FC<HistoryPanelProps> = ({
   isOpen,
   onClose,
   onLoadConversation,
 }) => {
+  // ── State ──
+  const [closeHover, setCloseHover] = useState(false);
+  const [trashHover, setTrashHover] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  // ── Store ──
   const {
     conversations,
     totalCount,
@@ -30,10 +60,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
     clearAllHistory,
   } = useConversationHistory(isOpen);
 
-  const [closeHover, setCloseHover] = useState(false);
-  const [trashHover, setTrashHover] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
+  // ── Derived ──
   const formatDate = (timestamp: number): string => {
     const date = new Date(timestamp);
     const d = date.getDate().toString().padStart(2, "0");
@@ -43,14 +70,6 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
     const min = date.getMinutes().toString().padStart(2, "0");
     return `${d}/${m}/${y} ${h}:${min}`;
   };
-
-  const handleDeleteConversation = useCallback(
-    (id: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      deleteConversation(id);
-    },
-    [deleteConversation],
-  );
 
   const getDateLabel = (item: {
     lastModified?: number;
@@ -71,8 +90,18 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
     return `${date.toLocaleDateString("en-US", { weekday: "long" })} · ${dateStr}`;
   };
 
+  // ── Callbacks ──
+  const handleDeleteConversation = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      deleteConversation(id);
+    },
+    [deleteConversation],
+  );
+
   if (!isOpen) return null;
 
+  // ── Render ──
   return (
     <div
       style={{

@@ -1,6 +1,25 @@
+/**
+ * ------------------------------------------------------------------
+ * ConfirmDeleteDrawer
+ * ------------------------------------------------------------------
+ * Bottom-sheet drawer xác nhận xóa tài khoản.
+ * Hiển thị tiêu đề, số lượng tài khoản bị ảnh hưởng, và nút xác nhận/hủy.
+
+ * Main features:
+ * - Hiển thị bottom sheet với animation slide-up
+ * - Nút Delete có loading state khi đang xóa
+ * - Chặn tương tác khi đang loading
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
+
+// ── UI ──
 import { Loader2 } from "lucide-react";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface ConfirmDeleteDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -10,6 +29,7 @@ interface ConfirmDeleteDrawerProps {
   count: number;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const ConfirmDeleteDrawer: React.FC<ConfirmDeleteDrawerProps> = ({
   open,
   onOpenChange,
@@ -20,6 +40,7 @@ const ConfirmDeleteDrawer: React.FC<ConfirmDeleteDrawerProps> = ({
 }) => {
   if (!open) return null;
 
+  // ── Render ──
   return (
     <>
       {/* Backdrop */}

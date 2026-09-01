@@ -1,9 +1,31 @@
+/**
+ * ------------------------------------------------------------------
+ * useAccounts
+ * ------------------------------------------------------------------
+ * Custom hook quản lý toàn bộ state và thao tác cho danh sách tài khoản.
+ * Xử lý fetch, filter, delete, chuyển đổi tài khoản CLI.
+
+ * Main features:
+ * - Fetch danh sách tài khoản kèm thống kê daily requests/tokens
+ * - Tìm kiếm theo email và lọc theo provider
+ * - Xóa đơn lẻ hoặc hàng loạt (bulk delete)
+ * - Chuyển đổi tài khoản đang hoạt động trên CLI
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import { useState, useEffect, useCallback } from "react";
-import { FlatAccount, Pagination } from "../types";
+
+// ── Hooks ──
 import { useSettings } from "../../../context/SettingsContext";
 
+// ── Types ──
+import { FlatAccount, Pagination } from "../types";
+
+// ─── Hook ───────────────────────────────────────────────────────────────
 export const useAccounts = (isOpen: boolean) => {
-  const { apiUrl } = useSettings();
+  // ── State ──
   const [accounts, setAccounts] = useState<FlatAccount[]>([]);
   const [allAccounts, setAllAccounts] = useState<FlatAccount[]>([]);
   const [providerConfigs, setProviderConfigs] = useState<any[]>([]);
@@ -27,6 +49,10 @@ export const useAccounts = (isOpen: boolean) => {
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // ── Store ──
+  const { apiUrl } = useSettings();
+
+  // ── Callbacks ──
   const callBackend = useCallback(
     async (endpoint: string, method: string = "GET", body?: any) => {
       const url = `${apiUrl}${endpoint}`;
@@ -154,6 +180,7 @@ export const useAccounts = (isOpen: boolean) => {
     ],
   );
 
+  // ── Effects ──
   useEffect(() => {
     if (isOpen) {
       // Reset to page 1 and force fresh fetch when panel opens
@@ -168,6 +195,7 @@ export const useAccounts = (isOpen: boolean) => {
     }
   }, [searchQuery, providerFilter, emailFilter]);
 
+  // ── Handlers ──
   const executeDelete = async () => {
     setDeleteLoading(true);
     try {

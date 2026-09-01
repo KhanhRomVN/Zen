@@ -1,4 +1,23 @@
+/**
+ * ------------------------------------------------------------------
+ * AccountPanel
+ * ------------------------------------------------------------------
+ * Panel quản lý tài khoản — hiển thị danh sách tài khoản, tìm kiếm,
+ * lọc theo provider, thêm/xóa/chuyển đổi tài khoản CLI.
+
+ * Main features:
+ * - Hiển thị danh sách tài khoản kèm thống kê daily requests/tokens
+ * - Tìm kiếm theo email và lọc theo provider
+ * - Thêm tài khoản mới (drawer), import JSON, xóa đơn lẻ hoặc hàng loạt
+ * - Chuyển đổi tài khoản đang hoạt động trên CLI
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React, { useState, useEffect } from "react";
+
+// ── UI ──
 import {
   Loader2,
   Plus,
@@ -10,23 +29,36 @@ import {
   Smartphone,
   Users,
 } from "lucide-react";
+
+// ── Components ──
 import AccountCard from "./components/AccountCard";
 import AddAccountDrawer from "./components/AddAccountDrawer";
 import ConfirmDeleteDrawer from "./components/ConfirmDeleteDrawer";
 import ProviderFilterDropdown from "./components/ProviderFilterDropdown";
+
+// ── Hooks ──
 import { useAccounts } from "./hooks/useAccounts";
-import { getFaviconUrl } from "./utils";
+
+// ── Services ──
 import { extensionService } from "../../services/ExtensionService";
 
+// ── Utils ──
+import { getFaviconUrl } from "./utils";
+
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface AccountPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
+  // ── State ──
   const [showDropdown, setShowDropdown] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [closeHover, setCloseHover] = useState(false);
 
+  // ── Store ──
   const {
     accounts,
     allAccounts,
@@ -53,8 +85,11 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     switchKiroAccount,
   } = useAccounts(isOpen);
 
-  const [closeHover, setCloseHover] = useState(false);
+  // ── Derived ──
+  const allVisibleSelected =
+    accounts.length > 0 && accounts.every((acc) => selectedAccounts.has(acc.id));
 
+  // ── Effects ──
   useEffect(() => {
     if (!isOpen) return;
     const handleClickOutside = () => setShowDropdown(false);
@@ -62,6 +97,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     return () => document.removeEventListener("click", handleClickOutside);
   }, [isOpen]);
 
+  // ── Handlers ──
   const handleImport = async () => {
     try {
       extensionService.postMessage({ command: "importAccounts" });
@@ -85,9 +121,6 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const allVisibleSelected =
-    accounts.length > 0 && accounts.every((acc) => selectedAccounts.has(acc.id));
-
   const handleSelectAll = () => {
     if (allVisibleSelected) {
       const newSelected = new Set(selectedAccounts);
@@ -100,12 +133,9 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     }
   };
 
-
-
-
-
   if (!isOpen) return null;
 
+  // ── Render ──
   return (
     <div
       style={{

@@ -1,0 +1,3292 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zen — Panel Mockup</title>
+    <style>
+      :root {
+        /* ── Nền tảng màu (lấy cảm hứng từ bảng màu syntax‑highlight của editor) ── */
+        --bg: #0a0c10;
+        --surface: #12151b;
+        --surface-2: #191d25;
+        --surface-3: #20242e;
+        --border: #262b35;
+        --border-soft: #1c2027;
+        --ink: #e7eaf0;
+        --ink-dim: #8b93a6;
+        --ink-faint: #5c6373;
+
+        --violet: #8b7fff; /* từ khoá / thương hiệu */
+        --amber: #f0b566; /* chuỗi / cảnh báo nhẹ */
+        --teal: #5fd4c4; /* hàm / thành công */
+        --rose: #f0708a; /* lỗi / nguy hiểm */
+        --blue: #6fa8ff; /* liên kết / thông tin */
+
+        --violet-dim: rgba(139, 127, 255, 0.14);
+        --amber-dim: rgba(240, 181, 102, 0.14);
+        --teal-dim: rgba(95, 212, 196, 0.14);
+        --rose-dim: rgba(240, 112, 138, 0.14);
+        --blue-dim: rgba(111, 168, 255, 0.14);
+
+        --radius-lg: 16px;
+        --radius-md: 10px;
+        --radius-sm: 6px;
+
+        --font-ui:
+          -apple-system, "Inter", "Segoe UI", Roboto, Helvetica, Arial,
+          sans-serif;
+        --font-mono:
+          "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", Consolas,
+          monospace;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+      }
+      body {
+        background: radial-gradient(circle at 20% 0%, #12151d 0%, #08090c 60%);
+        font-family: var(--font-ui);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-font-smoothing: antialiased;
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #333947;
+      }
+      svg.icon {
+        width: 1em;
+        height: 1em;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+      button {
+        font-family: inherit;
+      }
+
+      /* ============ APP SHELL ============ */
+      .app {
+        width: min(440px, 100vw);
+        height: min(860px, 94vh);
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: 14px;
+        display: flex;
+        overflow: hidden;
+        color: var(--ink);
+        position: relative;
+        box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.6);
+      }
+
+      /* ---- Rail điều hướng dọc bên trái ---- */
+      .rail {
+        width: 56px;
+        flex-shrink: 0;
+        background: var(--bg);
+        border-right: 1px solid var(--border-soft);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 14px 0;
+      }
+      .rail-mark {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 18px;
+        position: relative;
+      }
+      .rail-mark svg {
+        width: 15px;
+        height: 15px;
+        color: var(--violet);
+      }
+      .rail-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+      }
+      .rail-btn {
+        width: 38px;
+        height: 38px;
+        border: none;
+        background: transparent;
+        border-radius: 9px;
+        color: var(--ink-faint);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        position: relative;
+        transition:
+          background 0.12s,
+          color 0.12s;
+      }
+      .rail-btn:hover {
+        background: var(--surface-2);
+        color: var(--ink-dim);
+      }
+      .rail-btn.active {
+        background: var(--violet-dim);
+        color: var(--violet);
+      }
+      .rail-btn.active::before {
+        content: "";
+        position: absolute;
+        left: -14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 3px;
+        height: 16px;
+        border-radius: 2px;
+        background: var(--violet);
+      }
+      .rail-btn .dot-live {
+        position: absolute;
+        top: 6px;
+        right: 7px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--teal);
+        box-shadow: 0 0 0 2px var(--bg);
+      }
+      .rail-foot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .rail-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: linear-gradient(150deg, var(--violet), var(--blue));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: #0a0c10;
+        cursor: pointer;
+      }
+
+      /* ---- Khu vực nội dung ---- */
+      .main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+
+      .view {
+        position: absolute;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+      }
+      .view.active {
+        display: flex;
+      }
+
+      .view-head {
+        flex-shrink: 0;
+        padding: 14px 18px 12px;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .view-title {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+      .view-sub {
+        font-size: 11px;
+        color: var(--ink-dim);
+        margin-top: 2px;
+      }
+      .view-head-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .scroll {
+        flex: 1;
+        overflow-y: auto;
+      }
+      .pad {
+        padding: 16px 18px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* ---- Nút cơ bản ---- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--ink);
+        border-radius: var(--radius-sm);
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition:
+          background 0.12s,
+          border-color 0.12s;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        background: var(--surface-3);
+      }
+      .btn.primary {
+        background: var(--violet);
+        border-color: var(--violet);
+        color: #0a0c10;
+      }
+      .btn.primary:hover {
+        filter: brightness(1.08);
+      }
+      .btn.danger {
+        background: var(--rose-dim);
+        border-color: rgba(240, 112, 138, 0.35);
+        color: var(--rose);
+      }
+      .btn.ghost {
+        background: transparent;
+        border-color: transparent;
+        color: var(--ink-dim);
+      }
+      .btn.ghost:hover {
+        background: var(--surface-2);
+        color: var(--ink);
+      }
+      .btn.sm {
+        padding: 5px 9px;
+        font-size: 11.5px;
+      }
+      .btn.icon-only {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+      }
+      .btn.full {
+        width: 100%;
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .iconbtn {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--ink-dim);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition:
+          background 0.12s,
+          color 0.12s;
+      }
+      .iconbtn:hover {
+        background: var(--surface-3);
+        color: var(--ink);
+      }
+
+      /* ---- Card / Section chung ---- */
+      .card {
+        background: var(--surface-2);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-md);
+        padding: 14px;
+      }
+      .section-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-dim);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .section-label .link {
+        font-size: 11px;
+        color: var(--blue);
+        cursor: pointer;
+        font-weight: 500;
+      }
+      .hr {
+        height: 1px;
+        background: var(--border-soft);
+        border: none;
+        margin: 12px 0;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 11px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--surface-3);
+        font-size: 11.5px;
+        color: var(--ink-dim);
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+          background 0.12s,
+          color 0.12s,
+          border-color 0.12s;
+      }
+      .chip:hover {
+        color: var(--ink);
+      }
+      .chip.active {
+        background: var(--violet-dim);
+        border-color: rgba(139, 127, 255, 0.4);
+        color: var(--violet);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 5px;
+        font-size: 10px;
+        font-weight: 600;
+        font-family: var(--font-mono);
+      }
+      .badge.b-teal {
+        background: var(--teal-dim);
+        color: var(--teal);
+      }
+      .badge.b-amber {
+        background: var(--amber-dim);
+        color: var(--amber);
+      }
+      .badge.b-rose {
+        background: var(--rose-dim);
+        color: var(--rose);
+      }
+      .badge.b-blue {
+        background: var(--blue-dim);
+        color: var(--blue);
+      }
+      .badge.b-violet {
+        background: var(--violet-dim);
+        color: var(--violet);
+      }
+      .badge.b-dim {
+        background: var(--surface-3);
+        color: var(--ink-dim);
+      }
+
+      .mono {
+        font-family: var(--font-mono);
+      }
+
+      /* ============ HOME ============ */
+      .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .kpi {
+        background: var(--surface-2);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-md);
+        padding: 12px 13px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .kpi-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .kpi-icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+      }
+      .kpi-value {
+        font-size: 18px;
+        font-weight: 700;
+        font-family: var(--font-mono);
+        letter-spacing: -0.02em;
+      }
+      .kpi-label {
+        font-size: 10.5px;
+        color: var(--ink-dim);
+      }
+      .kpi-delta {
+        font-size: 10px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .kpi-delta.up {
+        color: var(--teal);
+      }
+      .kpi-delta.down {
+        color: var(--rose);
+      }
+
+      .run-card {
+        border-radius: var(--radius-lg);
+        padding: 14px 15px;
+        background: linear-gradient(
+          155deg,
+          rgba(139, 127, 255, 0.1),
+          rgba(95, 212, 196, 0.05)
+        );
+        border: 1px solid rgba(139, 127, 255, 0.28);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .run-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .run-pulse {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--teal);
+        margin-top: 5px;
+        flex-shrink: 0;
+        box-shadow: 0 0 0 0 rgba(95, 212, 196, 0.6);
+        animation: pulse 1.8s ease-out infinite;
+      }
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(95, 212, 196, 0.55);
+        }
+        70% {
+          box-shadow: 0 0 0 7px rgba(95, 212, 196, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(95, 212, 196, 0);
+        }
+      }
+      .run-title {
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.4;
+      }
+      .run-meta {
+        font-size: 11px;
+        color: var(--ink-dim);
+        margin-top: 3px;
+      }
+      .run-progress {
+        height: 5px;
+        border-radius: 3px;
+        background: var(--surface-3);
+        overflow: hidden;
+      }
+      .run-progress-bar {
+        height: 100%;
+        width: 63%;
+        background: linear-gradient(90deg, var(--violet), var(--teal));
+        border-radius: 3px;
+      }
+      .run-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .run-stats {
+        display: flex;
+        gap: 12px;
+        font-size: 10.5px;
+        color: var(--ink-dim);
+        font-family: var(--font-mono);
+      }
+
+      .mode-switch {
+        display: flex;
+        background: var(--surface-3);
+        border: 1px solid var(--border-soft);
+        border-radius: 9px;
+        padding: 3px;
+        gap: 2px;
+      }
+      .mode-opt {
+        flex: 1;
+        text-align: center;
+        padding: 6px 4px;
+        font-size: 11.5px;
+        font-weight: 600;
+        color: var(--ink-dim);
+        border-radius: 7px;
+        cursor: pointer;
+        transition:
+          background 0.12s,
+          color 0.12s;
+      }
+      .mode-opt.active {
+        background: var(--surface);
+        color: var(--ink);
+        box-shadow: 0 0 0 1px var(--border-soft);
+      }
+
+      .quick-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      .quick-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 4px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-soft);
+        background: var(--surface-2);
+        cursor: pointer;
+        transition:
+          background 0.12s,
+          border-color 0.12s;
+      }
+      .quick-item:hover {
+        background: var(--surface-3);
+        border-color: var(--border);
+      }
+      .quick-ic {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+      }
+      .quick-txt {
+        font-size: 9.5px;
+        color: var(--ink-dim);
+        text-align: center;
+        line-height: 1.25;
+      }
+
+      .prompt-row {
+        display: flex;
+        gap: 7px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+      .prompt-row .chip {
+        flex-shrink: 0;
+      }
+
+      .md-layout {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+      }
+      .md-list {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+      .md-item {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .md-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .md-name {
+        font-size: 11.5px;
+        color: var(--ink);
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--font-mono);
+      }
+      .md-pct {
+        font-size: 11px;
+        color: var(--ink-dim);
+        font-family: var(--font-mono);
+      }
+
+      .activity-row {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 10px 4px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .activity-row:hover {
+        background: var(--surface-3);
+      }
+      .activity-row + .activity-row {
+        border-top: 1px solid var(--border-soft);
+      }
+      .act-r1 {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: baseline;
+      }
+      .act-title {
+        font-size: 12.5px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .act-time {
+        font-size: 10px;
+        color: var(--ink-faint);
+        flex-shrink: 0;
+        font-family: var(--font-mono);
+      }
+      .act-r2 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .act-meta {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 10px;
+        color: var(--ink-dim);
+        font-family: var(--font-mono);
+      }
+      .diff-add {
+        color: var(--teal);
+      }
+      .diff-del {
+        color: var(--rose);
+      }
+
+      /* ---- Composer (Home) ---- */
+      .composer {
+        flex-shrink: 0;
+        border-top: 1px solid var(--border-soft);
+        background: var(--surface);
+        padding: 10px 14px 13px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .ctx-row {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+      }
+      .ctx-chip {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 8px 3px 6px;
+        background: var(--surface-3);
+        border: 1px solid var(--border-soft);
+        border-radius: 6px;
+        font-size: 10px;
+        color: var(--ink-dim);
+        font-family: var(--font-mono);
+      }
+      .ctx-chip svg {
+        width: 11px;
+        height: 11px;
+      }
+      .composer-box {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface-2);
+        padding: 9px 10px 7px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .composer-box textarea {
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: var(--ink);
+        resize: none;
+        font-family: var(--font-ui);
+        font-size: 13px;
+        outline: none;
+        min-height: 36px;
+        max-height: 90px;
+      }
+      .composer-box textarea::placeholder {
+        color: var(--ink-faint);
+      }
+      .composer-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .composer-left {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .mi-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 9px;
+        border-radius: 7px;
+        background: var(--surface-3);
+        border: 1px solid var(--border-soft);
+        font-size: 10.5px;
+        color: var(--ink-dim);
+        cursor: pointer;
+        font-family: var(--font-mono);
+      }
+      .mi-pill:hover {
+        color: var(--ink);
+      }
+      .mi-pill .dotp {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+      .send-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        border: none;
+        background: var(--violet);
+        color: #0a0c10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+      .send-btn:hover {
+        filter: brightness(1.08);
+      }
+
+      /* ============ HISTORY ============ */
+      .search-wrap {
+        position: relative;
+        flex: 1;
+      }
+      .search-wrap input {
+        width: 100%;
+        height: 32px;
+        padding: 0 10px 0 30px;
+        border-radius: 8px;
+        background: var(--surface-2);
+        border: 1px solid var(--border-soft);
+        color: var(--ink);
+        font-size: 12px;
+        outline: none;
+      }
+      .search-wrap input:focus {
+        border-color: var(--violet);
+      }
+      .search-wrap svg {
+        position: absolute;
+        left: 9px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--ink-faint);
+        width: 14px;
+        height: 14px;
+      }
+
+      .filter-bar {
+        display: flex;
+        gap: 6px;
+        padding: 0 18px 12px;
+        overflow-x: auto;
+        flex-shrink: 0;
+      }
+
+      .hist-group-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-faint);
+        padding: 14px 4px 6px;
+      }
+      .hist-group-label:first-child {
+        padding-top: 2px;
+      }
+
+      .hist-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px 4px;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: background 0.12s;
+      }
+      .hist-row:hover {
+        background: var(--surface-2);
+      }
+      .hist-check {
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        border: 1.5px solid var(--border);
+        flex-shrink: 0;
+        margin-top: 2px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .select-mode .hist-check {
+        display: flex;
+      }
+      .hist-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .hist-r1 {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .hist-title-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+      }
+      .hist-title {
+        font-size: 12.5px;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .hist-star {
+        color: var(--amber);
+        flex-shrink: 0;
+        width: 12px;
+        height: 12px;
+      }
+      .hist-time {
+        font-size: 10px;
+        color: var(--ink-faint);
+        flex-shrink: 0;
+        font-family: var(--font-mono);
+      }
+      .hist-r2 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .hist-meta {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 10px;
+        color: var(--ink-dim);
+        font-family: var(--font-mono);
+      }
+      .hist-more {
+        color: var(--ink-faint);
+        flex-shrink: 0;
+        padding: 2px;
+      }
+
+      .bulk-bar {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 9px 18px;
+        border-top: 1px solid var(--border-soft);
+        background: var(--surface-2);
+        flex-shrink: 0;
+      }
+      .bulk-bar.show {
+        display: flex;
+      }
+
+      /* ============ ACCOUNT ============ */
+      .acct-summary {
+        display: flex;
+        gap: 10px;
+      }
+      .acct-summary .card {
+        flex: 1;
+        text-align: center;
+        padding: 11px 8px;
+      }
+      .acct-summary .val {
+        font-size: 15px;
+        font-weight: 700;
+        font-family: var(--font-mono);
+      }
+      .acct-summary .lbl {
+        font-size: 9.5px;
+        color: var(--ink-dim);
+        margin-top: 2px;
+      }
+
+      .acct-card {
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-md);
+        background: var(--surface-2);
+        overflow: hidden;
+        transition: border-color 0.15s;
+      }
+      .acct-main {
+        padding: 11px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+      }
+      .acct-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .acct-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .acct-name-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .acct-name {
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .acct-email {
+        font-size: 10.5px;
+        color: var(--ink-dim);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .acct-quota {
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .acct-quota-bar {
+        flex: 1;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--surface-3);
+        overflow: hidden;
+      }
+      .acct-quota-fill {
+        height: 100%;
+        border-radius: 2px;
+      }
+      .acct-quota-txt {
+        font-size: 9px;
+        color: var(--ink-faint);
+        font-family: var(--font-mono);
+        flex-shrink: 0;
+      }
+      .status-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .acct-expand {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.2s ease;
+        border-top: 1px solid transparent;
+      }
+      .acct-expand.show {
+        max-height: 220px;
+        border-top: 1px solid var(--border-soft);
+      }
+      .acct-expand-inner {
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .acct-detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 9px;
+      }
+      .acct-detail-label {
+        font-size: 9.5px;
+        color: var(--ink-faint);
+        margin-bottom: 2px;
+      }
+      .acct-detail-value {
+        font-size: 10.5px;
+        font-weight: 500;
+        color: var(--ink);
+        font-family: var(--font-mono);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .acct-actions {
+        display: flex;
+        gap: 6px;
+      }
+      .acct-actions .btn {
+        flex: 1;
+      }
+
+      /* ============ SETTINGS ============ */
+      .set-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 0 18px 12px;
+        flex-shrink: 0;
+        overflow-x: auto;
+      }
+      .set-tab {
+        padding: 7px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-dim);
+        cursor: pointer;
+        border-radius: 8px;
+        white-space: nowrap;
+      }
+      .set-tab.active {
+        background: var(--surface-2);
+        color: var(--ink);
+        border: 1px solid var(--border-soft);
+      }
+      .set-pane {
+        display: none;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .set-pane.active {
+        display: flex;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .field-label {
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .field-hint {
+        font-size: 10.5px;
+        color: var(--ink-faint);
+        line-height: 1.4;
+      }
+      .field-input {
+        width: 100%;
+        padding: 9px 11px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--ink);
+        font-size: 12.5px;
+        outline: none;
+      }
+      .field-input:focus {
+        border-color: var(--violet);
+      }
+      select.field-input {
+        cursor: pointer;
+      }
+
+      .row-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .row-toggle-txt .field-label {
+        margin-bottom: 2px;
+      }
+      .switch {
+        position: relative;
+        width: 36px;
+        height: 21px;
+        flex-shrink: 0;
+      }
+      .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .slider {
+        position: absolute;
+        inset: 0;
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: 0.15s;
+      }
+      .slider::before {
+        content: "";
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        left: 2px;
+        top: 2px;
+        background: var(--ink-dim);
+        border-radius: 50%;
+        transition: 0.15s;
+      }
+      .switch input:checked + .slider {
+        background: var(--violet);
+        border-color: var(--violet);
+      }
+      .switch input:checked + .slider::before {
+        transform: translateX(15px);
+        background: #0a0c10;
+      }
+
+      .radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .radio-opt {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        padding: 10px 11px;
+        border: 1px solid var(--border-soft);
+        border-radius: 9px;
+        cursor: pointer;
+        background: var(--surface-2);
+      }
+      .radio-opt.active {
+        border-color: var(--violet);
+        background: var(--violet-dim);
+      }
+      .radio-dot {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        border: 1.5px solid var(--border);
+        flex-shrink: 0;
+        margin-top: 1px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .radio-opt.active .radio-dot {
+        border-color: var(--violet);
+      }
+      .radio-opt.active .radio-dot::after {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--violet);
+      }
+      .radio-txt-title {
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .radio-txt-sub {
+        font-size: 10.5px;
+        color: var(--ink-dim);
+        margin-top: 2px;
+      }
+
+      .provider-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 7px;
+      }
+      .provider-tile {
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        padding: 8px 6px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        color: var(--ink-dim);
+        background: var(--surface-2);
+        transition: 0.12s;
+      }
+      .provider-tile.active {
+        border-color: var(--violet);
+        color: var(--violet);
+        background: var(--violet-dim);
+      }
+      .provider-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+      }
+
+      .accordion {
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+      }
+      .accordion-head {
+        padding: 12px 13px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        background: var(--surface-2);
+      }
+      .accordion-head-txt {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .accordion-chev {
+        transition: transform 0.18s;
+        color: var(--ink-faint);
+      }
+      .accordion.open .accordion-chev {
+        transform: rotate(90deg);
+      }
+      .accordion-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.22s ease;
+      }
+      .accordion.open .accordion-body {
+        max-height: 900px;
+      }
+      .accordion-body-inner {
+        padding: 13px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border-top: 1px solid var(--border-soft);
+      }
+      .header-pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 6px;
+        align-items: center;
+      }
+      textarea.field-input {
+        font-family: var(--font-mono);
+        resize: vertical;
+        min-height: 78px;
+      }
+
+      /* ============ ANALYTICS ============ */
+      .range-switch {
+        display: flex;
+        background: var(--surface-2);
+        border: 1px solid var(--border-soft);
+        border-radius: 9px;
+        padding: 3px;
+        gap: 2px;
+      }
+      .range-opt {
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--ink-dim);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .range-opt.active {
+        background: var(--surface-3);
+        color: var(--ink);
+      }
+
+      .an-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .stack-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        height: 110px;
+      }
+      .stack-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 1px;
+        height: 100%;
+        border-radius: 4px 4px 0 0;
+        overflow: hidden;
+      }
+      .stack-seg {
+        width: 100%;
+      }
+      .stack-labels {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+      }
+      .stack-labels span {
+        flex: 1;
+        text-align: center;
+        font-size: 9px;
+        color: var(--ink-faint);
+        font-family: var(--font-mono);
+      }
+
+      .bar-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .bar-list-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .bar-list-top {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+      }
+      .bar-list-name {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .bar-list-val {
+        color: var(--ink-dim);
+        font-family: var(--font-mono);
+      }
+      .bar-track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--surface-3);
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        border-radius: 3px;
+      }
+
+      .heatmap {
+        display: grid;
+        grid-template-columns: repeat(14, 1fr);
+        gap: 3px;
+      }
+      .heat-cell {
+        aspect-ratio: 1;
+        border-radius: 3px;
+        background: var(--violet);
+      }
+      .heat-legend {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 8px;
+        justify-content: flex-end;
+      }
+      .heat-legend span {
+        font-size: 9px;
+        color: var(--ink-faint);
+      }
+      .heat-legend .heat-cell {
+        width: 9px;
+        height: 9px;
+      }
+
+      table.data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+      }
+      .data-table th {
+        text-align: left;
+        font-weight: 600;
+        color: var(--ink-faint);
+        font-size: 10px;
+        padding: 0 6px 8px;
+        font-weight: 600;
+      }
+      .data-table th:not(:first-child),
+      .data-table td:not(:first-child) {
+        text-align: right;
+      }
+      .data-table td {
+        padding: 8px 6px;
+        border-top: 1px solid var(--border-soft);
+        font-family: var(--font-mono);
+      }
+      .data-table td:first-child {
+        font-family: var(--font-ui);
+        font-weight: 500;
+      }
+
+      .err-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 8px 0;
+      }
+      .err-row + .err-row {
+        border-top: 1px solid var(--border-soft);
+      }
+      .err-ic {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: var(--rose-dim);
+        color: var(--rose);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .err-txt {
+        flex: 1;
+        min-width: 0;
+      }
+      .err-title {
+        font-size: 11.5px;
+        font-weight: 500;
+      }
+      .err-sub {
+        font-size: 10px;
+        color: var(--ink-faint);
+      }
+      .err-count {
+        font-size: 11px;
+        color: var(--ink-dim);
+        font-family: var(--font-mono);
+      }
+
+      /* ============ DRAWER / BACKDROP ============ */
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(4, 5, 7, 0.6);
+        z-index: 50;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s;
+      }
+      .backdrop.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--surface-2);
+        border-top: 1px solid var(--border);
+        border-radius: 18px 18px 0 0;
+        z-index: 51;
+        transform: translateY(100%);
+        transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+        max-height: 80%;
+        display: flex;
+        flex-direction: column;
+      }
+      .sheet.show {
+        transform: translateY(0);
+      }
+      .sheet-handle {
+        display: flex;
+        justify-content: center;
+        padding: 9px 0 4px;
+        flex-shrink: 0;
+      }
+      .sheet-handle::before {
+        content: "";
+        width: 30px;
+        height: 3px;
+        border-radius: 2px;
+        background: var(--border);
+      }
+      .sheet-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 16px 12px;
+        border-bottom: 1px solid var(--border-soft);
+        flex-shrink: 0;
+      }
+      .sheet-title {
+        font-size: 14.5px;
+        font-weight: 700;
+      }
+      .sheet-sub {
+        font-size: 10.5px;
+        color: var(--ink-dim);
+        margin-top: 2px;
+      }
+      .sheet-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px 16px 16px;
+      }
+      .sheet-foot {
+        padding: 12px 16px 16px;
+        border-top: 1px solid var(--border-soft);
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .sheet-foot .btn {
+        flex: 1;
+      }
+
+      .provider-row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 10px 11px;
+        border: 1px solid var(--border-soft);
+        border-radius: 10px;
+        background: var(--surface);
+        cursor: pointer;
+        margin-bottom: 6px;
+        transition: background 0.12s;
+      }
+      .provider-row:hover {
+        background: var(--surface-3);
+      }
+      .provider-row-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .provider-row-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .provider-row-name {
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .provider-row-meta {
+        font-size: 10px;
+        color: var(--ink-faint);
+        margin-top: 2px;
+        font-family: var(--font-mono);
+      }
+      .provider-row-chev {
+        color: var(--ink-faint);
+        flex-shrink: 0;
+      }
+
+      .empty-note {
+        font-size: 10px;
+        color: var(--ink-faint);
+        text-align: center;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border-soft);
+        margin-top: 8px;
+      }
+
+      @media (max-width: 400px) {
+        .kpi-value {
+          font-size: 16px;
+        }
+        .quick-txt {
+          font-size: 9px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ============ SVG ICON SPRITE ============ -->
+    <svg width="0" height="0" style="position: absolute">
+      <defs>
+        <symbol id="i-home" viewBox="0 0 24 24">
+          <path d="M3 11l9-8 9 8" />
+          <path d="M5 10v10h5v-6h4v6h5V10" />
+        </symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24">
+          <path d="M4 20V10M11 20V4M18 20v-7" />
+          <path d="M2 20h20" />
+        </symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3.5 2" />
+        </symbol>
+        <symbol id="i-users" viewBox="0 0 24 24">
+          <circle cx="9" cy="8" r="3.3" />
+          <path d="M2.5 20c0-3.6 3-6 6.5-6s6.5 2.4 6.5 6" />
+          <circle cx="17.5" cy="9" r="2.7" />
+          <path d="M15.8 14.2c2.8.4 4.7 2.6 4.7 5.8" />
+        </symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3.2" />
+          <path
+            d="M12 3v2.4M12 18.6V21M21 12h-2.4M5.4 12H3M18.4 5.6l-1.7 1.7M7.3 16.7l-1.7 1.7M18.4 18.4l-1.7-1.7M7.3 7.3 5.6 5.6"
+          />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24">
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+        <symbol id="i-x" viewBox="0 0 24 24">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-4.3-4.3" />
+        </symbol>
+        <symbol id="i-chevron-r" viewBox="0 0 24 24">
+          <path d="M9 5l7 7-7 7" />
+        </symbol>
+        <symbol id="i-chevron-d" viewBox="0 0 24 24">
+          <path d="M5 9l7 7 7-7" />
+        </symbol>
+        <symbol id="i-more" viewBox="0 0 24 24">
+          <circle cx="12" cy="5" r="1.4" />
+          <circle cx="12" cy="12" r="1.4" />
+          <circle cx="12" cy="19" r="1.4" />
+        </symbol>
+        <symbol id="i-send" viewBox="0 0 24 24">
+          <path d="M4 12l16-8-6 16-3-6-7-2z" />
+        </symbol>
+        <symbol id="i-paperclip" viewBox="0 0 24 24">
+          <path
+            d="M20 12.5 11.6 21a4.6 4.6 0 0 1-6.5-6.5L13.4 6a3 3 0 0 1 4.3 4.3l-8.2 8.2a1.4 1.4 0 0 1-2-2l7.4-7.4"
+          />
+        </symbol>
+        <symbol id="i-check" viewBox="0 0 24 24">
+          <path d="M5 12.5l5 5 9-10.5" />
+        </symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24">
+          <path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" />
+        </symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24">
+          <path d="M20 11a8 8 0 1 0-2.3 6.4" />
+          <path d="M20 5v6h-6" />
+        </symbol>
+        <symbol id="i-external" viewBox="0 0 24 24">
+          <path d="M9 6H5v13h13v-4" />
+          <path d="M13 5h6v6M11 13 19 5" />
+        </symbol>
+        <symbol id="i-star" viewBox="0 0 24 24">
+          <path
+            d="M12 3.5l2.6 5.6 6 .7-4.5 4.1 1.2 6-5.3-3-5.3 3 1.2-6-4.5-4.1 6-.7z"
+          />
+        </symbol>
+        <symbol id="i-filter" viewBox="0 0 24 24">
+          <path d="M4 5h16M7 12h10M10 19h4" />
+        </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24">
+          <path d="M12 3v13m0 0-4.5-4.5M12 16l4.5-4.5" />
+          <path d="M4 19h16" />
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+          <path d="M7 4.5v15l13-7.5z" />
+        </symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24">
+          <rect x="6" y="6" width="12" height="12" rx="2" />
+        </symbol>
+        <symbol id="i-zap" viewBox="0 0 24 24">
+          <path d="M12 2 4 14h6l-1 8 9-13h-6z" />
+        </symbol>
+        <symbol id="i-dollar" viewBox="0 0 24 24">
+          <path d="M12 2v20" />
+          <path
+            d="M17 6.5c0-2-2.2-3-5-3s-5 1.2-5 3.2 2.2 2.9 5 3.3 5 1.2 5 3.3-2.2 3.2-5 3.2-5-1-5-3"
+          />
+        </symbol>
+        <symbol id="i-arrow-up" viewBox="0 0 24 24">
+          <path d="M7 17 17 7M8 7h9v9" />
+        </symbol>
+        <symbol id="i-arrow-down" viewBox="0 0 24 24">
+          <path d="M7 7l10 10M16 7v9H7" />
+        </symbol>
+        <symbol id="i-commit" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3.2" />
+          <path d="M2 12h6.8M15.2 12H22" />
+        </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24">
+          <path d="M12 4 2.5 20h19z" />
+          <path d="M12 10v4.2M12 17.2v.2" />
+        </symbol>
+        <symbol id="i-msg" viewBox="0 0 24 24">
+          <path d="M4 5h16v11H8l-4 4z" />
+        </symbol>
+        <symbol id="i-target" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8.5" />
+          <circle cx="12" cy="12" r="4.5" />
+          <circle cx="12" cy="12" r=".8" />
+        </symbol>
+        <symbol id="i-percent" viewBox="0 0 24 24">
+          <path d="M5 19 19 5" />
+          <circle cx="7" cy="7" r="2.2" />
+          <circle cx="17" cy="17" r="2.2" />
+        </symbol>
+        <symbol id="i-file" viewBox="0 0 24 24">
+          <path d="M6 3h9l4 4v14H6z" />
+          <path d="M15 3v4h4" />
+        </symbol>
+        <symbol id="i-shield" viewBox="0 0 24 24">
+          <path d="M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6z" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <div class="app" id="app">
+      <!-- ============ RAIL ============ -->
+      <div class="rail">
+        <div class="rail-mark">
+          <svg class="icon"><use href="#i-zap" /></svg>
+        </div>
+        <div class="rail-nav">
+          <button class="rail-btn active" data-view="home" title="Trang chủ">
+            <svg class="icon"><use href="#i-home" /></svg
+            ><span class="dot-live"></span>
+          </button>
+          <button class="rail-btn" data-view="analytics" title="Phân tích">
+            <svg class="icon"><use href="#i-chart" /></svg>
+          </button>
+          <button class="rail-btn" data-view="history" title="Lịch sử">
+            <svg class="icon"><use href="#i-clock" /></svg>
+          </button>
+          <button class="rail-btn" data-view="account" title="Tài khoản">
+            <svg class="icon"><use href="#i-users" /></svg>
+          </button>
+          <button class="rail-btn" data-view="settings" title="Cài đặt">
+            <svg class="icon"><use href="#i-gear" /></svg>
+          </button>
+        </div>
+        <div class="rail-foot">
+          <div class="rail-avatar" title="khanh@example.com">KH</div>
+        </div>
+      </div>
+
+      <!-- ============ MAIN ============ -->
+      <div class="main">
+        <!-- ============ HOME ============ -->
+        <div class="view active" id="view-home">
+          <div class="view-head">
+            <div>
+              <div class="view-title">Chào buổi chiều</div>
+              <div class="view-sub" id="home-status">
+                Sẵn sàng cho tác vụ tiếp theo
+              </div>
+            </div>
+            <div class="view-head-actions">
+              <button class="iconbtn" title="Cuộc trò chuyện mới">
+                <svg class="icon"><use href="#i-plus" /></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="scroll"><div class="pad" id="home-pad"></div></div>
+
+          <div class="composer">
+            <div class="ctx-row" id="ctx-row"></div>
+            <div class="mode-switch">
+              <div class="mode-opt active" data-mode="agent">Agent</div>
+              <div class="mode-opt" data-mode="ask">Hỏi đáp</div>
+              <div class="mode-opt" data-mode="edit">Chỉnh sửa</div>
+            </div>
+            <div class="composer-box">
+              <textarea
+                rows="1"
+                placeholder="Nhắn cho Zen — mô tả việc bạn cần làm..."
+              ></textarea>
+              <div class="composer-bar">
+                <div class="composer-left">
+                  <button
+                    class="iconbtn"
+                    style="width: 26px; height: 26px"
+                    title="Đính kèm file"
+                  >
+                    <svg class="icon" style="width: 13px; height: 13px">
+                      <use href="#i-paperclip" />
+                    </svg>
+                  </button>
+                  <span class="mi-pill" id="pill-model"
+                    ><span class="dotp" style="background: #6fa8ff"></span
+                    >gpt-4o<svg class="icon" style="width: 10px; height: 10px">
+                      <use href="#i-chevron-d" /></svg
+                  ></span>
+                  <span class="mi-pill" id="pill-provider"
+                    ><span class="dotp" style="background: #10a37f"></span
+                    >OpenAI<svg class="icon" style="width: 10px; height: 10px">
+                      <use href="#i-chevron-d" /></svg
+                  ></span>
+                </div>
+                <button class="send-btn" title="Gửi">
+                  <svg
+                    class="icon"
+                    style="color: #0a0c10; width: 14px; height: 14px"
+                  >
+                    <use href="#i-send" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ ANALYTICS ============ -->
+        <div class="view" id="view-analytics">
+          <div class="view-head">
+            <div>
+              <div class="view-title">Phân tích</div>
+              <div class="view-sub">Mức sử dụng &amp; chi phí của Zen</div>
+            </div>
+            <div class="range-switch" id="range-switch">
+              <div class="range-opt" data-range="today">Hôm nay</div>
+              <div class="range-opt active" data-range="7d">7 ngày</div>
+              <div class="range-opt" data-range="30d">30 ngày</div>
+              <div class="range-opt" data-range="all">Tất cả</div>
+            </div>
+          </div>
+          <div class="scroll"><div class="pad" id="analytics-pad"></div></div>
+        </div>
+
+        <!-- ============ HISTORY ============ -->
+        <div class="view" id="view-history">
+          <div class="view-head">
+            <div>
+              <div class="view-title">Lịch sử</div>
+              <div class="view-sub">42 cuộc trò chuyện</div>
+            </div>
+            <div class="view-head-actions">
+              <button class="iconbtn" id="btn-select-mode" title="Chọn nhiều">
+                <svg class="icon" style="width: 14px; height: 14px">
+                  <use href="#i-check" />
+                </svg>
+              </button>
+              <button class="iconbtn" title="Xoá tất cả">
+                <svg class="icon" style="width: 14px; height: 14px">
+                  <use href="#i-trash" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div
+            style="
+              display: flex;
+              gap: 8px;
+              padding: 12px 18px 0;
+              flex-shrink: 0;
+            "
+          >
+            <div class="search-wrap">
+              <svg class="icon"><use href="#i-search" /></svg>
+              <input type="text" placeholder="Tìm theo tiêu đề, nội dung..." />
+            </div>
+            <button class="iconbtn">
+              <svg class="icon" style="width: 14px; height: 14px">
+                <use href="#i-filter" />
+              </svg>
+            </button>
+          </div>
+          <div class="filter-bar" id="filter-bar">
+            <span class="chip active" data-filter="all">Tất cả</span>
+            <span class="chip" data-filter="starred">Đã đánh dấu ★</span>
+            <span class="chip" data-filter="gpt-4o">gpt‑4o</span>
+            <span class="chip" data-filter="claude-sonnet">claude‑sonnet</span>
+            <span class="chip" data-filter="gemini-2.0-flash">gemini‑2.0</span>
+          </div>
+          <div class="scroll">
+            <div style="padding: 0 14px 16px" id="history-list"></div>
+          </div>
+          <div class="bulk-bar" id="bulk-bar">
+            <span style="font-size: 11.5px; color: var(--ink-dim)"
+              ><span id="bulk-count">0</span> mục đã chọn</span
+            >
+            <div style="display: flex; gap: 6px">
+              <button class="btn sm ghost">
+                <svg class="icon" style="width: 12px; height: 12px">
+                  <use href="#i-download" /></svg
+                >Xuất
+              </button>
+              <button class="btn sm danger">
+                <svg class="icon" style="width: 12px; height: 12px">
+                  <use href="#i-trash" /></svg
+                >Xoá
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ ACCOUNT ============ -->
+        <div class="view" id="view-account">
+          <div class="view-head">
+            <div>
+              <div class="view-title">Tài khoản</div>
+              <div class="view-sub">Quản lý các tài khoản nhà cung cấp AI</div>
+            </div>
+            <div class="view-head-actions">
+              <button
+                class="iconbtn primary-ic"
+                id="btn-add-account"
+                style="
+                  background: var(--violet);
+                  border-color: var(--violet);
+                  color: #0a0c10;
+                "
+                title="Thêm tài khoản"
+              >
+                <svg class="icon" style="width: 15px; height: 15px">
+                  <use href="#i-plus" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="scroll"><div class="pad" id="account-pad"></div></div>
+        </div>
+
+        <!-- ============ SETTINGS ============ -->
+        <div class="view" id="view-settings">
+          <div class="view-head">
+            <div>
+              <div class="view-title">Cài đặt</div>
+              <div class="view-sub">Tuỳ chỉnh cách Zen hoạt động</div>
+            </div>
+          </div>
+          <div class="set-tabs" id="set-tabs">
+            <div class="set-tab active" data-pane="general">Chung</div>
+            <div class="set-tab" data-pane="providers">Nhà cung cấp</div>
+            <div class="set-tab" data-pane="behavior">Hành vi Agent</div>
+            <div class="set-tab" data-pane="advanced">Nâng cao</div>
+          </div>
+          <div class="scroll"><div class="pad" id="settings-pad"></div></div>
+        </div>
+      </div>
+
+      <!-- ============ DRAWER: ADD ACCOUNT ============ -->
+      <div class="backdrop" data-close="add"></div>
+      <div class="sheet" id="sheet-add">
+        <div class="sheet-handle"></div>
+        <div class="sheet-head">
+          <div>
+            <div class="sheet-title">Thêm tài khoản</div>
+            <div class="sheet-sub">Chọn một nhà cung cấp để tiếp tục</div>
+          </div>
+          <button class="iconbtn" data-close="add">
+            <svg class="icon" style="width: 14px; height: 14px">
+              <use href="#i-x" />
+            </svg>
+          </button>
+        </div>
+        <div class="sheet-body" id="add-account-list"></div>
+      </div>
+
+      <!-- ============ DRAWER: DELETE CONFIRM ============ -->
+      <div class="backdrop" data-close="delete"></div>
+      <div class="sheet" id="sheet-delete">
+        <div class="sheet-handle"></div>
+        <div style="padding: 6px 16px 16px">
+          <div
+            style="
+              display: flex;
+              gap: 11px;
+              align-items: flex-start;
+              margin-bottom: 14px;
+            "
+          >
+            <div class="err-ic" style="width: 34px; height: 34px">
+              <svg class="icon"><use href="#i-trash" /></svg>
+            </div>
+            <div>
+              <div style="font-size: 13px; font-weight: 700" id="del-title">
+                Xoá tài khoản?
+              </div>
+              <div
+                style="
+                  font-size: 10.5px;
+                  color: var(--ink-dim);
+                  margin-top: 3px;
+                  line-height: 1.4;
+                "
+                id="del-sub"
+              >
+                Thao tác này sẽ xoá vĩnh viễn tài khoản và không thể hoàn tác.
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px">
+            <button class="btn full" data-close="delete">Huỷ</button>
+            <button class="btn danger full" data-close="delete">Xoá</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        /* ======================================================================
+   MOCK DATA — chỉnh sửa ở đây để thay đổi nội dung hiển thị
+====================================================================== */
+        const MODEL_COLORS = {
+          "gpt-4o": "#6fa8ff",
+          "gpt-4o-mini": "#8fc4ff",
+          "claude-sonnet": "#8b7fff",
+          "gemini-2.0-flash": "#5fd4c4",
+          "mistral-large": "#f0b566",
+        };
+        const PROVIDER_ICON = {
+          OpenAI: { bg: "rgba(16,163,127,.14)", fg: "#3dd9b0", glyph: "AI" },
+          Anthropic: { bg: "rgba(217,119,87,.14)", fg: "#e08a63", glyph: "A" },
+          Gemini: { bg: "rgba(66,133,244,.14)", fg: "#6fa8ff", glyph: "G" },
+          Mistral: { bg: "rgba(255,112,0,.14)", fg: "#f0b566", glyph: "M" },
+          Ollama: { bg: "rgba(136,136,136,.14)", fg: "#9aa2b1", glyph: "O" },
+        };
+
+        const DATA = {
+          kpis: [
+            {
+              label: "Tổng token",
+              value: "1.28M",
+              delta: "+12%",
+              up: true,
+              ic: "i-zap",
+              col: "blue",
+            },
+            {
+              label: "Yêu cầu API",
+              value: "327",
+              delta: "+4%",
+              up: true,
+              ic: "i-target",
+              col: "teal",
+            },
+            {
+              label: "Chi phí",
+              value: "$21.15",
+              delta: "-6%",
+              up: false,
+              ic: "i-dollar",
+              col: "amber",
+            },
+            {
+              label: "Tỷ lệ thành công",
+              value: "97.4%",
+              delta: "+0.8%",
+              up: true,
+              ic: "i-percent",
+              col: "violet",
+            },
+          ],
+          run: {
+            title: "Refactor logic xác thực sang React Hooks",
+            elapsed: "2:14",
+            files: 3,
+            tokens: "4.2k",
+            progress: 63,
+          },
+          modelDist: [
+            { name: "gpt-4o", pct: 60, color: MODEL_COLORS["gpt-4o"] },
+            {
+              name: "claude-sonnet",
+              pct: 30,
+              color: MODEL_COLORS["claude-sonnet"],
+            },
+            {
+              name: "gemini-2.0-flash",
+              pct: 9,
+              color: MODEL_COLORS["gemini-2.0-flash"],
+            },
+            {
+              name: "mistral-large",
+              pct: 1,
+              color: MODEL_COLORS["mistral-large"],
+            },
+          ],
+          usageSeries: [22, 26, 19, 31, 27, 35, 41], // 7 ngày, đơn vị: nghìn token
+          suggestedPrompts: [
+            "Sửa lỗi test đang fail trong CI",
+            "Viết unit test cho utils/date.ts",
+            "Tối ưu truy vấn N+1 trong OrderService",
+            "Giải thích đoạn code đang chọn",
+          ],
+          activities: [
+            {
+              title: "Refactor auth logic sang React Hooks",
+              time: "32 phút trước",
+              model: "gpt-4o",
+              add: 8,
+              del: 7,
+              tokens: "12.4k",
+            },
+            {
+              title: "Sửa lỗi CORS trên backend",
+              time: "2 giờ trước",
+              model: "claude-sonnet",
+              add: 5,
+              del: 4,
+              tokens: "8.1k",
+            },
+            {
+              title: "Thêm rate limiting cho /login API",
+              time: "Hôm qua, 14:32",
+              model: "gemini-2.0-flash",
+              add: 3,
+              del: 3,
+              tokens: "3.2k",
+            },
+          ],
+          history: [
+            {
+              group: "Hôm nay · 01/09",
+              items: [
+                {
+                  title: "Refactor auth logic sang React Hooks",
+                  time: "32 phút",
+                  model: "gpt-4o",
+                  add: 8,
+                  del: 7,
+                  tokens: "12.4k",
+                  cost: "$0.31",
+                  star: true,
+                },
+                {
+                  title: "Sửa lỗi CORS trên backend",
+                  time: "2 giờ",
+                  model: "claude-sonnet",
+                  add: 5,
+                  del: 4,
+                  tokens: "8.1k",
+                  cost: "$0.22",
+                  star: false,
+                },
+              ],
+            },
+            {
+              group: "Hôm qua · 31/08",
+              items: [
+                {
+                  title: "Thêm rate limiting cho /login API",
+                  time: "14:32",
+                  model: "gemini-2.0-flash",
+                  add: 3,
+                  del: 3,
+                  tokens: "3.2k",
+                  cost: "$0.04",
+                  star: false,
+                },
+                {
+                  title: "Cập nhật UI components cho panel Settings",
+                  time: "10:05",
+                  model: "gpt-4o-mini",
+                  add: 12,
+                  del: 11,
+                  tokens: "5.8k",
+                  cost: "$0.09",
+                  star: true,
+                },
+              ],
+            },
+            {
+              group: "Thứ Sáu · 30/08",
+              items: [
+                {
+                  title: "Triển khai biểu đồ usage hằng ngày bằng SVG",
+                  time: "16:20",
+                  model: "mistral-large",
+                  add: 6,
+                  del: 5,
+                  tokens: "9.7k",
+                  cost: "$0.11",
+                  star: false,
+                },
+                {
+                  title: "Viết migration thêm cột deleted_at",
+                  time: "09:41",
+                  model: "claude-sonnet",
+                  add: 2,
+                  del: 0,
+                  tokens: "1.4k",
+                  cost: "$0.03",
+                  star: false,
+                },
+              ],
+            },
+          ],
+          accounts: [
+            {
+              provider: "OpenAI",
+              email: "khanh@example.com",
+              status: "active",
+              reqToday: 245,
+              reqLimit: 500,
+              cost: "$12.40",
+              last: "01/09, 09:28",
+              id: "acc_9f2a8b7c…",
+              cred: "sk-proj-***••••",
+            },
+            {
+              provider: "Anthropic",
+              email: "dev@company.io",
+              status: "standby",
+              reqToday: 82,
+              reqLimit: 1000,
+              cost: "$8.75",
+              last: "01/09, 09:15",
+              id: "acc_3e5d1c9a…",
+              cred: "sk-ant-***••••",
+            },
+            {
+              provider: "Gemini",
+              email: "ai-team@startup.dev",
+              status: "standby",
+              reqToday: 0,
+              reqLimit: 1500,
+              cost: "$0.00",
+              last: "29/08, 22:10",
+              id: "acc_7b1e4f2d…",
+              cred: "AIza***••••",
+            },
+            {
+              provider: "Ollama",
+              email: "local · llama3.1:70b",
+              status: "error",
+              reqToday: 0,
+              reqLimit: 0,
+              cost: "—",
+              last: "28/08, 18:02",
+              id: "acc_local_01…",
+              cred: "không cần khoá",
+            },
+          ],
+          addProviders: [
+            { name: "OpenAI", meta: "web · oauth", conn: "https" },
+            { name: "Anthropic", meta: "web · api_key", conn: "https" },
+            { name: "Gemini", meta: "web · cdp · sắp ra mắt", conn: "browser" },
+            { name: "Mistral", meta: "web · api_key", conn: "https" },
+            { name: "Ollama", meta: "local · không cần khoá", conn: "https" },
+          ],
+          analytics: {
+            kpis: [
+              {
+                label: "Tổng token",
+                value: "8.94M",
+                delta: "+18%",
+                up: true,
+                ic: "i-zap",
+                col: "blue",
+              },
+              {
+                label: "Tổng yêu cầu",
+                value: "2,140",
+                delta: "+9%",
+                up: true,
+                ic: "i-target",
+                col: "teal",
+              },
+              {
+                label: "Chi phí ước tính",
+                value: "$146.80",
+                delta: "+3%",
+                up: true,
+                ic: "i-dollar",
+                col: "amber",
+              },
+              {
+                label: "Tỷ lệ thành công",
+                value: "96.8%",
+                delta: "-0.4%",
+                up: false,
+                ic: "i-percent",
+                col: "violet",
+              },
+            ],
+            stackDays: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+            stackData: [
+              // mỗi phần tử: tỉ lệ % cho từng model trong ngày đó
+              {
+                "gpt-4o": 40,
+                "claude-sonnet": 20,
+                "gemini-2.0-flash": 10,
+                "mistral-large": 30,
+              },
+              {
+                "gpt-4o": 55,
+                "claude-sonnet": 25,
+                "gemini-2.0-flash": 10,
+                "mistral-large": 10,
+              },
+              {
+                "gpt-4o": 35,
+                "claude-sonnet": 40,
+                "gemini-2.0-flash": 15,
+                "mistral-large": 10,
+              },
+              {
+                "gpt-4o": 60,
+                "claude-sonnet": 15,
+                "gemini-2.0-flash": 15,
+                "mistral-large": 10,
+              },
+              {
+                "gpt-4o": 45,
+                "claude-sonnet": 30,
+                "gemini-2.0-flash": 20,
+                "mistral-large": 5,
+              },
+              {
+                "gpt-4o": 30,
+                "claude-sonnet": 45,
+                "gemini-2.0-flash": 15,
+                "mistral-large": 10,
+              },
+              {
+                "gpt-4o": 50,
+                "claude-sonnet": 25,
+                "gemini-2.0-flash": 15,
+                "mistral-large": 10,
+              },
+            ],
+            stackHeights: [58, 72, 64, 90, 80, 45, 68], // chiều cao tổng của mỗi cột (0-100)
+            costBreakdown: [
+              { name: "OpenAI", value: 82.1, pct: 56, color: "#6fa8ff" },
+              { name: "Anthropic", value: 41.3, pct: 28, color: "#8b7fff" },
+              { name: "Google", value: 16.9, pct: 12, color: "#5fd4c4" },
+              { name: "Mistral", value: 6.5, pct: 4, color: "#f0b566" },
+            ],
+            topFiles: [
+              {
+                file: "src/services/OrderService.ts",
+                edits: 18,
+                tokens: "214k",
+                last: "32 phút trước",
+              },
+              {
+                file: "src/hooks/useAuth.ts",
+                edits: 14,
+                tokens: "168k",
+                last: "2 giờ trước",
+              },
+              {
+                file: "server/middleware/cors.ts",
+                edits: 9,
+                tokens: "92k",
+                last: "Hôm qua",
+              },
+              {
+                file: "src/components/SettingsPanel.tsx",
+                edits: 7,
+                tokens: "77k",
+                last: "Hôm qua",
+              },
+            ],
+            modelPerf: [
+              {
+                model: "gpt-4o",
+                requests: 1284,
+                avgTok: "2.1k",
+                latency: "1.8s",
+                success: "98.1%",
+                cost: "$82.10",
+              },
+              {
+                model: "claude-sonnet",
+                requests: 612,
+                avgTok: "2.6k",
+                latency: "2.3s",
+                success: "97.4%",
+                cost: "$41.30",
+              },
+              {
+                model: "gemini-2.0-flash",
+                requests: 198,
+                avgTok: "1.4k",
+                latency: "0.9s",
+                success: "95.2%",
+                cost: "$16.90",
+              },
+              {
+                model: "mistral-large",
+                requests: 46,
+                avgTok: "1.9k",
+                latency: "1.6s",
+                success: "93.0%",
+                cost: "$6.50",
+              },
+            ],
+            errors: [
+              {
+                title: "Rate limit exceeded (429)",
+                sub: "Anthropic · dev@company.io",
+                count: 6,
+              },
+              {
+                title: "Request timeout",
+                sub: "Ollama · local model",
+                count: 3,
+              },
+              {
+                title: "Invalid JSON response mapping",
+                sub: "Custom endpoint",
+                count: 1,
+              },
+            ],
+          },
+        };
+
+        /* ======================================================================
+   HELPERS
+====================================================================== */
+        function icon(name, cls) {
+          return `<svg class="icon ${cls || ""}"><use href="#${name}"/></svg>`;
+        }
+        function statusMeta(s) {
+          return {
+            active: { color: "var(--teal)", label: "Đang hoạt động" },
+            standby: { color: "var(--ink-faint)", label: "Chờ dùng" },
+            error: { color: "var(--rose)", label: "Lỗi kết nối" },
+          }[s];
+        }
+        function providerIconHtml(name, size) {
+          size = size || 32;
+          const p = PROVIDER_ICON[name] || {
+            bg: "var(--surface-3)",
+            fg: "var(--ink-dim)",
+            glyph: name[0],
+          };
+          return `<div class="acct-icon" style="width:${size}px;height:${size}px;background:${p.bg};color:${p.fg};font-weight:700;">${p.glyph}</div>`;
+        }
+
+        /* ======================================================================
+   RENDER: HOME
+====================================================================== */
+        function renderHome() {
+          const d = DATA;
+          const kpiHtml = d.kpis
+            .map(
+              (k) => `
+    <div class="kpi">
+      <div class="kpi-top">
+        <div class="kpi-icon" style="background:var(--${k.col}-dim); color:var(--${k.col});">${icon(k.ic, "")}</div>
+        <div class="kpi-delta ${k.up ? "up" : "down"}">${icon(k.up ? "i-arrow-up" : "i-arrow-down", "")}${k.delta}</div>
+      </div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-label">${k.label}</div>
+    </div>`,
+            )
+            .join("");
+
+          const modelDistHtml = d.modelDist
+            .map(
+              (m) => `
+    <div class="md-item">
+      <span class="md-dot" style="background:${m.color}"></span>
+      <span class="md-name">${m.name}</span>
+      <span class="md-pct">${m.pct}%</span>
+    </div>`,
+            )
+            .join("");
+
+          // donut svg
+          const total = d.modelDist.reduce((a, b) => a + b.pct, 0);
+          let acc = 0;
+          const R = 40,
+            CIRC = 2 * Math.PI * R;
+          const donutSegs = d.modelDist
+            .map((m) => {
+              const len = CIRC * (m.pct / 100);
+              const off = -CIRC * (acc / 100);
+              acc += m.pct;
+              return `<circle cx="48" cy="48" r="${R}" fill="none" stroke="${m.color}" stroke-width="11" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${off}" transform="rotate(-90 48 48)"/>`;
+            })
+            .join("");
+
+          const maxUse = Math.max(...d.usageSeries);
+          const usageBars = d.usageSeries
+            .map((v, i) => {
+              const h = Math.round((v / maxUse) * 100);
+              const isLast = i === d.usageSeries.length - 1;
+              return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;">
+      <div style="width:100%; height:52px; display:flex; align-items:flex-end;">
+        <div style="width:100%; height:${h}%; border-radius:4px 4px 0 0; background:${isLast ? "var(--violet)" : "var(--surface-3)"};"></div>
+      </div>
+      <span style="font-size:8.5px; color:var(--ink-faint); font-family:var(--font-mono);">${["T2", "T3", "T4", "T5", "T6", "T7", "CN"][i]}</span>
+    </div>`;
+            })
+            .join("");
+
+          const promptChips = d.suggestedPrompts
+            .map((p) => `<span class="chip">${icon("i-msg")} ${p}</span>`)
+            .join("");
+
+          const activityHtml = d.activities
+            .map(
+              (a) => `
+    <div class="activity-row">
+      <div class="act-r1"><span class="act-title">${a.title}</span><span class="act-time">${a.time}</span></div>
+      <div class="act-r2">
+        <div class="act-meta"><span class="badge b-dim">${a.model}</span><span class="diff-add">+${a.add}</span><span class="diff-del">-${a.del}</span></div>
+        <span class="badge b-amber">${icon("i-zap")} ${a.tokens}</span>
+      </div>
+    </div>`,
+            )
+            .join("");
+
+          document.getElementById("home-pad").innerHTML = `
+    <div class="run-card">
+      <div class="run-top">
+        <div class="run-pulse"></div>
+        <div style="flex:1; min-width:0;">
+          <div class="run-title">${d.run.title}</div>
+          <div class="run-meta">Agent đang chạy · ${d.run.elapsed} · ${d.run.files} tệp đã sửa</div>
+        </div>
+        <button class="iconbtn" style="width:26px;height:26px;" title="Dừng"><svg class="icon" style="width:12px;height:12px"><use href="#i-stop"/></svg></button>
+      </div>
+      <div class="run-progress"><div class="run-progress-bar" style="width:${d.run.progress}%"></div></div>
+      <div class="run-foot">
+        <div class="run-stats"><span>⚡ ${d.run.tokens} token</span></div>
+        <button class="btn sm">Xem chi tiết</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid">${kpiHtml}</div>
+
+    <div class="card">
+      <div class="section-label">Gợi ý cho bạn</div>
+      <div class="prompt-row">${promptChips}</div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Phân bổ theo mô hình AI</div>
+      <div class="md-layout">
+        <svg width="88" height="88" viewBox="0 0 96 96" style="flex-shrink:0;">
+          <circle cx="48" cy="48" r="40" fill="none" stroke="var(--surface-3)" stroke-width="11"/>
+          ${donutSegs}
+          <text x="48" y="45" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)" font-family="var(--font-mono)">${d.modelDist.length}</text>
+          <text x="48" y="60" text-anchor="middle" font-size="8.5" fill="var(--ink-dim)">mô hình</text>
+        </svg>
+        <div class="md-list">${modelDistHtml}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Sử dụng 7 ngày qua<span class="link">Xem phân tích</span></div>
+      <div style="display:flex; gap:6px; align-items:flex-end;">${usageBars}</div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Hoạt động gần đây<span class="link" data-goto="history">Xem tất cả</span></div>
+      <div>${activityHtml}</div>
+    </div>
+  `;
+
+          document.getElementById("ctx-row").innerHTML = `
+    <span class="ctx-chip">${icon("i-file")} OrderService.ts</span>
+    <span class="ctx-chip">${icon("i-file")} useAuth.ts</span>
+    <span class="ctx-chip">${icon("i-file")} cors.ts</span>
+    <span class="ctx-chip">${icon("i-plus")} Thêm ngữ cảnh</span>
+  `;
+        }
+
+        /* ======================================================================
+   RENDER: HISTORY
+====================================================================== */
+        let historyFilter = "all";
+        function renderHistory() {
+          const groups = DATA.history
+            .map((g) => {
+              const items = g.items.filter((it) => {
+                if (historyFilter === "all") return true;
+                if (historyFilter === "starred") return it.star;
+                return it.model === historyFilter;
+              });
+              if (!items.length) return "";
+              const rows = items
+                .map(
+                  (it) => `
+      <div class="hist-row">
+        <div class="hist-check"></div>
+        <div class="hist-body">
+          <div class="hist-r1">
+            <div class="hist-title-row">
+              ${it.star ? icon("i-star", "hist-star") : ""}
+              <span class="hist-title">${it.title}</span>
+            </div>
+            <span class="hist-time">${it.time}</span>
+          </div>
+          <div class="hist-r2">
+            <div class="hist-meta">
+              <span class="badge b-dim">${it.model}</span>
+              <span class="diff-add">+${it.add}</span><span class="diff-del">-${it.del}</span>
+              <span>${it.cost}</span>
+            </div>
+            <span class="hist-more">${icon("i-more")}</span>
+          </div>
+        </div>
+      </div>`,
+                )
+                .join("");
+              return `<div class="hist-group-label">${g.group}</div>${rows}`;
+            })
+            .join("");
+          document.getElementById("history-list").innerHTML =
+            groups ||
+            `<div style="text-align:center;color:var(--ink-faint);font-size:12px;padding:40px 0;">Không có cuộc trò chuyện nào phù hợp bộ lọc.</div>`;
+        }
+
+        /* ======================================================================
+   RENDER: ACCOUNT
+====================================================================== */
+        function renderAccount() {
+          const totalSpend = DATA.accounts.reduce(
+            (s, a) => s + (parseFloat((a.cost || "0").replace("$", "")) || 0),
+            0,
+          );
+          const activeCount = DATA.accounts.filter(
+            (a) => a.status === "active",
+          ).length;
+
+          const cardsHtml = DATA.accounts
+            .map((a, i) => {
+              const sm = statusMeta(a.status);
+              const quotaPct = a.reqLimit
+                ? Math.min(100, Math.round((a.reqToday / a.reqLimit) * 100))
+                : 0;
+              const quotaColor =
+                quotaPct > 80
+                  ? "var(--rose)"
+                  : quotaPct > 50
+                    ? "var(--amber)"
+                    : "var(--teal)";
+              return `
+    <div class="acct-card" data-idx="${i}">
+      <div class="acct-main" data-toggle="${i}">
+        ${providerIconHtml(a.provider)}
+        <div class="acct-info">
+          <div class="acct-name-row">
+            <span class="acct-name">${a.provider}</span>
+            <span class="status-dot" style="background:${sm.color}"></span>
+          </div>
+          <div class="acct-email">${a.email}</div>
+          <div class="acct-quota">
+            <div class="acct-quota-bar"><div class="acct-quota-fill" style="width:${quotaPct}%; background:${quotaColor};"></div></div>
+            <span class="acct-quota-txt">${a.reqToday}/${a.reqLimit || "∞"}</span>
+          </div>
+        </div>
+        <svg class="icon" style="color:var(--ink-faint); width:14px; height:14px; flex-shrink:0;"><use href="#i-chevron-d"/></svg>
+      </div>
+      <div class="acct-expand" id="acct-exp-${i}">
+        <div class="acct-expand-inner">
+          <div class="acct-detail-grid">
+            <div><div class="acct-detail-label">Mã tài khoản</div><div class="acct-detail-value">${a.id}</div></div>
+            <div><div class="acct-detail-label">Khoá xác thực</div><div class="acct-detail-value">${a.cred}</div></div>
+            <div><div class="acct-detail-label">Chi phí tháng này</div><div class="acct-detail-value">${a.cost}</div></div>
+            <div><div class="acct-detail-label">Đồng bộ lần cuối</div><div class="acct-detail-value">${a.last}</div></div>
+          </div>
+          <div class="acct-actions">
+            <button class="btn sm">${icon("i-check")} Đặt mặc định</button>
+            <button class="btn sm">${icon("i-refresh")} Kiểm tra</button>
+            <button class="btn sm danger" data-del="${a.email}">${icon("i-trash")}</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+            })
+            .join("");
+
+          document.getElementById("account-pad").innerHTML = `
+    <div class="acct-summary">
+      <div class="card"><div class="val">${DATA.accounts.length}</div><div class="lbl">Tổng tài khoản</div></div>
+      <div class="card"><div class="val" style="color:var(--teal)">${activeCount}</div><div class="lbl">Đang hoạt động</div></div>
+      <div class="card"><div class="val">$${totalSpend.toFixed(2)}</div><div class="lbl">Chi phí tháng này</div></div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px;">${cardsHtml}</div>
+    <div class="card" style="display:flex; gap:9px; align-items:flex-start; background:var(--surface); border-style:dashed;">
+      ${icon("i-shield", "").replace("icon", "icon")}
+      <div style="font-size:10.5px; color:var(--ink-dim); line-height:1.5;">Khoá API được mã hoá bằng AES‑256 và chỉ lưu cục bộ trên máy của bạn. Zen không bao giờ gửi khoá của bạn ra khỏi thiết bị.</div>
+    </div>
+  `;
+
+          // add-account drawer content
+          document.getElementById("add-account-list").innerHTML =
+            DATA.addProviders
+              .map((p) => {
+                const meta = PROVIDER_ICON[p.name] || {
+                  bg: "var(--surface-3)",
+                  fg: "var(--ink-dim)",
+                  glyph: p.name[0],
+                };
+                return `<div class="provider-row">
+      <div class="provider-row-icon" style="background:${meta.bg}; color:${meta.fg}; font-weight:700;">${meta.glyph}</div>
+      <div class="provider-row-info">
+        <div class="provider-row-name">${p.name}</div>
+        <div class="provider-row-meta">${p.meta}</div>
+      </div>
+      <span class="badge ${p.conn === "https" ? "b-teal" : "b-amber"}">${p.conn}</span>
+      <svg class="icon provider-row-chev"><use href="#i-chevron-r"/></svg>
+    </div>`;
+              })
+              .join("");
+        }
+
+        /* ======================================================================
+   RENDER: SETTINGS
+====================================================================== */
+        function renderSettings() {
+          const providerTiles =
+            Object.keys(PROVIDER_ICON)
+              .map((name, i) => {
+                const p = PROVIDER_ICON[name];
+                return `<div class="provider-tile ${i === 0 ? "active" : ""}"><div class="provider-dot" style="background:${p.fg}"></div>${name}</div>`;
+              })
+              .join("") + `<div class="provider-tile">+ Tuỳ chỉnh</div>`;
+
+          const generalPane = `
+    <div class="field">
+      <label class="field-label">Ngôn ngữ tư duy của AI</label>
+      <select class="field-input"><option>🇺🇸 English</option><option selected>🇻🇳 Tiếng Việt</option></select>
+      <div class="field-hint">Ngôn ngữ dùng khi AI suy luận (thinking) và giải thích.</div>
+    </div>
+    <div class="field">
+      <label class="field-label">Ngôn ngữ commit message</label>
+      <select class="field-input"><option>🇬🇧 English</option><option selected>🇻🇳 Tiếng Việt</option></select>
+      <div class="field-hint">Ngôn ngữ dùng để sinh commit message từ git status.</div>
+    </div>
+    <div class="field">
+      <label class="field-label">Hệ điều hành &amp; Shell</label>
+      <div style="display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:9px; border:1px solid var(--border-soft); background:var(--surface-2);">
+        <div style="width:30px;height:30px;border-radius:8px;background:var(--teal-dim);color:var(--teal);display:flex;align-items:center;justify-content:center;">${icon("i-zap")}</div>
+        <div><div style="font-size:12px;font-weight:600;">Tự động nhận diện</div><div style="font-size:10px;color:var(--ink-dim);">Đang phát hiện: macOS · zsh</div></div>
+      </div>
+    </div>
+    <div class="row-toggle">
+      <div class="row-toggle-txt"><div class="field-label">Gửi dữ liệu ẩn danh</div><div class="field-hint">Giúp cải thiện Zen qua số liệu sử dụng ẩn danh.</div></div>
+      <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+    </div>
+    <div class="row-toggle">
+      <div class="row-toggle-txt"><div class="field-label">Giao diện tối</div><div class="field-hint">Dùng bảng màu tối trong toàn bộ panel.</div></div>
+      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+    </div>
+  `;
+
+          const providersPane = `
+    <div class="field">
+      <label class="field-label">Nhà cung cấp mặc định</label>
+      <div class="provider-grid">${providerTiles}</div>
+    </div>
+    <div class="card">
+      <div class="section-label">Đã kết nối<span class="link">+ Thêm</span></div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${DATA.accounts
+          .map(
+            (a) => `<div style="display:flex; align-items:center; gap:9px;">
+          ${providerIconHtml(a.provider, 28)}
+          <div style="flex:1; min-width:0;"><div style="font-size:12px; font-weight:600;">${a.provider}</div><div style="font-size:10px; color:var(--ink-faint);">${a.email}</div></div>
+          <span class="badge b-dim">${statusMeta(a.status).label}</span>
+        </div>`,
+          )
+          .join("")}
+      </div>
+    </div>
+  `;
+
+          const behaviorPane = `
+    <div class="field">
+      <label class="field-label">Số tệp tối đa mỗi phiên</label>
+      <div style="display:flex; align-items:center; gap:11px;">
+        <input class="field-input" type="number" min="1" max="100" value="5" style="width:76px; flex-shrink:0;">
+        <span style="font-size:11.5px; color:var(--ink-dim);">tệp mỗi cuộc trò chuyện</span>
+      </div>
+      <div class="field-hint">Số tệp tối đa mà agent được phép đọc hoặc ghi trong một phiên.</div>
+    </div>
+    <div class="row-toggle">
+      <div class="row-toggle-txt"><div class="field-label">Tự động duyệt thao tác an toàn</div><div class="field-hint">Đọc file, chạy test — không cần xác nhận thủ công.</div></div>
+      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+    </div>
+    <div class="row-toggle">
+      <div class="row-toggle-txt"><div class="field-label">Xác nhận trước khi xoá tệp</div><div class="field-hint">Luôn hỏi lại trước khi agent xoá một tệp.</div></div>
+      <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+    </div>
+    <div class="field">
+      <label class="field-label">Chiến lược ngữ cảnh</label>
+      <div class="radio-group" id="ctx-radio">
+        <div class="radio-opt active" data-val="smart"><div class="radio-dot"></div><div><div class="radio-txt-title">Thông minh (khuyến nghị)</div><div class="radio-txt-sub">Tự chọn phần liên quan nhất, cân bằng chi phí và độ chính xác.</div></div></div>
+        <div class="radio-opt" data-val="compact"><div class="radio-dot"></div><div><div class="radio-txt-title">Gọn nhẹ</div><div class="radio-txt-sub">Chỉ gửi phần tối thiểu — nhanh và rẻ hơn.</div></div></div>
+        <div class="radio-opt" data-val="full"><div class="radio-dot"></div><div><div class="radio-txt-title">Đầy đủ</div><div class="radio-txt-sub">Gửi toàn bộ tệp liên quan — chính xác nhất, tốn token hơn.</div></div></div>
+      </div>
+    </div>
+  `;
+
+          const advancedPane = `
+    <div class="accordion" id="acc-endpoint">
+      <div class="accordion-head" data-toggle-accordion="acc-endpoint">
+        <div class="accordion-head-txt"><div class="field-label">Cấu hình endpoint tuỳ chỉnh</div><div class="field-hint">Cho nhà cung cấp không có sẵn hoặc proxy nội bộ.</div></div>
+        <svg class="icon accordion-chev"><use href="#i-chevron-r"/></svg>
+      </div>
+      <div class="accordion-body"><div class="accordion-body-inner">
+        <div class="field">
+          <label class="field-label" style="font-size:11px;">1. Host &amp; Route</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px;">
+            <input class="field-input" style="font-size:11.5px;" value="https://api.openai.com/v1">
+            <input class="field-input" style="font-size:11.5px;" value="/chat/completions">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" style="font-size:11px;">2. Model</label>
+          <input class="field-input" style="font-size:11.5px;" value="gpt-4o">
+        </div>
+        <div class="field">
+          <label class="field-label" style="font-size:11px;">3. Request headers</label>
+          <div class="header-pair"><input class="field-input mono" style="font-size:10.5px;" value="Authorization"><input class="field-input mono" style="font-size:10.5px;" value="Bearer {{api_key}}"><button class="iconbtn" style="width:26px;height:26px;color:var(--rose)">${icon("i-x")}</button></div>
+        </div>
+        <div class="field">
+          <label class="field-label" style="font-size:11px;">4. Request body</label>
+          <textarea class="field-input">{
+  "model": "{{model}}",
+  "messages": [{"role":"user","content":"{{message}}"}],
+  "max_tokens": 1024
+}</textarea>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn sm" style="flex:1;">${icon("i-external")} Xuất JSON</button>
+          <button class="btn sm primary" style="flex:1;">${icon("i-check")} Kiểm tra kết nối</button>
+        </div>
+      </div></div>
+    </div>
+    <div class="field">
+      <label class="field-label">Sao lưu &amp; khôi phục</label>
+      <div style="display:flex; gap:8px;">
+        <button class="btn" style="flex:1;">${icon("i-download")} Xuất cấu hình</button>
+        <button class="btn" style="flex:1;">${icon("i-external")} Nhập cấu hình</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label" style="color:var(--rose);">Vùng nguy hiểm</label>
+      <button class="btn danger full">${icon("i-refresh")} Đặt lại toàn bộ cài đặt</button>
+    </div>
+  `;
+
+          document.getElementById("settings-pad").innerHTML = `
+    <div class="set-pane active" data-pane="general">${generalPane}</div>
+    <div class="set-pane" data-pane="providers">${providersPane}</div>
+    <div class="set-pane" data-pane="behavior">${behaviorPane}</div>
+    <div class="set-pane" data-pane="advanced">${advancedPane}</div>
+  `;
+
+          wireSettingsInner();
+        }
+
+        function wireSettingsInner() {
+          document.querySelectorAll("#ctx-radio .radio-opt").forEach((o) => {
+            o.addEventListener("click", () => {
+              document
+                .querySelectorAll("#ctx-radio .radio-opt")
+                .forEach((x) => x.classList.remove("active"));
+              o.classList.add("active");
+            });
+          });
+          document.querySelectorAll("[data-toggle-accordion]").forEach((h) => {
+            h.addEventListener("click", () => {
+              document
+                .getElementById(h.dataset.toggleAccordion)
+                .classList.toggle("open");
+            });
+          });
+          document
+            .querySelectorAll(".provider-grid .provider-tile")
+            .forEach((t) => {
+              t.addEventListener("click", () => {
+                document
+                  .querySelectorAll(".provider-grid .provider-tile")
+                  .forEach((x) => x.classList.remove("active"));
+                t.classList.add("active");
+              });
+            });
+        }
+
+        /* ======================================================================
+   RENDER: ANALYTICS
+====================================================================== */
+        function renderAnalytics() {
+          const A = DATA.analytics;
+          const kpiHtml = A.kpis
+            .map(
+              (k) => `
+    <div class="kpi">
+      <div class="kpi-top">
+        <div class="kpi-icon" style="background:var(--${k.col}-dim); color:var(--${k.col});">${icon(k.ic)}</div>
+        <div class="kpi-delta ${k.up ? "up" : "down"}">${icon(k.up ? "i-arrow-up" : "i-arrow-down")}${k.delta}</div>
+      </div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-label">${k.label}</div>
+    </div>`,
+            )
+            .join("");
+
+          const modelOrder = [
+            "gpt-4o",
+            "claude-sonnet",
+            "gemini-2.0-flash",
+            "mistral-large",
+          ];
+          const stackCols = A.stackData
+            .map((day, i) => {
+              const h = A.stackHeights[i];
+              const segs = modelOrder
+                .map((m) => {
+                  const pct = day[m];
+                  return `<div class="stack-seg" style="height:${pct}%; background:${MODEL_COLORS[m]};"></div>`;
+                })
+                .join("");
+              return `<div class="stack-col" style="height:${h}%;">${segs}</div>`;
+            })
+            .join("");
+          const stackLabels = A.stackDays
+            .map((d) => `<span>${d}</span>`)
+            .join("");
+          const legendHtml = modelOrder
+            .map(
+              (m) =>
+                `<span class="md-item" style="gap:5px;"><span class="md-dot" style="background:${MODEL_COLORS[m]}"></span><span style="font-size:9.5px;color:var(--ink-dim);font-family:var(--font-mono);">${m}</span></span>`,
+            )
+            .join("");
+
+          const costHtml = A.costBreakdown
+            .map(
+              (c) => `
+    <div class="bar-list-row">
+      <div class="bar-list-top"><span class="bar-list-name">${c.name}</span><span class="bar-list-val">$${c.value.toFixed(2)} · ${c.pct}%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${c.pct}%; background:${c.color};"></div></div>
+    </div>`,
+            )
+            .join("");
+
+          // heatmap: 6 khung giờ x 14 ngày, seeded pseudo-random cố định
+          const seed = [
+            2, 0, 1, 3, 4, 1, 2, 0, 3, 2, 1, 4, 0, 2, 1, 1, 0, 2, 3, 2, 1, 3, 0,
+            1, 2, 3, 1, 0, 0, 1, 1, 2, 2, 3, 4, 3, 2, 1, 0, 1, 2, 3, 3, 2, 3, 4,
+            4, 3, 2, 1, 2, 3, 4, 3, 2, 1, 1, 0, 1, 1, 2, 3, 3, 2, 1, 0, 1, 2, 2,
+            1, 4, 3, 4, 4, 3, 2, 3, 4, 3, 2, 1, 2, 3, 4,
+          ];
+          const heatColors = [
+            "var(--surface-3)",
+            "rgba(139,127,255,.35)",
+            "rgba(139,127,255,.55)",
+            "rgba(139,127,255,.78)",
+            "var(--violet)",
+          ];
+          const heatCells = seed
+            .map(
+              (v) =>
+                `<div class="heat-cell" style="background:${heatColors[v]}"></div>`,
+            )
+            .join("");
+
+          const filesRows = A.topFiles
+            .map(
+              (f) =>
+                `<tr><td>${f.file}</td><td>${f.edits}</td><td>${f.tokens}</td><td>${f.last}</td></tr>`,
+            )
+            .join("");
+          const perfRows = A.modelPerf
+            .map(
+              (m) =>
+                `<tr><td><span class="md-dot" style="background:${MODEL_COLORS[m.model]}; display:inline-block; margin-right:5px;"></span>${m.model}</td><td>${m.requests}</td><td>${m.avgTok}</td><td>${m.latency}</td><td>${m.success}</td><td>${m.cost}</td></tr>`,
+            )
+            .join("");
+
+          const errHtml = A.errors
+            .map(
+              (e) => `
+    <div class="err-row">
+      <div class="err-ic">${icon("i-alert")}</div>
+      <div class="err-txt"><div class="err-title">${e.title}</div><div class="err-sub">${e.sub}</div></div>
+      <div class="err-count">×${e.count}</div>
+    </div>`,
+            )
+            .join("");
+
+          document.getElementById("analytics-pad").innerHTML = `
+    <div class="an-kpi-grid">${kpiHtml}</div>
+
+    <div class="card">
+      <div class="section-label">Token sử dụng theo mô hình</div>
+      <div class="stack-chart">${stackCols}</div>
+      <div class="stack-labels">${stackLabels}</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">${legendHtml}</div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Chi phí theo nhà cung cấp</div>
+      <div class="bar-list">${costHtml}</div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Cường độ hoạt động (14 ngày gần nhất)</div>
+      <div class="heatmap">${heatCells}</div>
+      <div class="heat-legend"><span>Ít</span>${heatColors.map((c) => `<div class="heat-cell" style="background:${c}"></div>`).join("")}<span>Nhiều</span></div>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Tệp được chỉnh sửa nhiều nhất</div>
+      <table class="data-table">
+        <thead><tr><th>Tệp</th><th>Lượt sửa</th><th>Token</th><th>Lần cuối</th></tr></thead>
+        <tbody>${filesRows}</tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Hiệu năng theo mô hình</div>
+      <table class="data-table">
+        <thead><tr><th>Mô hình</th><th>Yêu cầu</th><th>TB token</th><th>Độ trễ</th><th>Thành công</th><th>Chi phí</th></tr></thead>
+        <tbody>${perfRows}</tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="section-label">Lỗi gần đây</div>
+      <div>${errHtml}</div>
+    </div>
+  `;
+        }
+
+        /* ======================================================================
+   NAVIGATION & INTERACTIONS
+====================================================================== */
+        const railBtns = document.querySelectorAll(".rail-btn");
+        const views = {
+          home: document.getElementById("view-home"),
+          analytics: document.getElementById("view-analytics"),
+          history: document.getElementById("view-history"),
+          account: document.getElementById("view-account"),
+          settings: document.getElementById("view-settings"),
+        };
+        function goto(name) {
+          railBtns.forEach((b) =>
+            b.classList.toggle("active", b.dataset.view === name),
+          );
+          Object.entries(views).forEach(([k, v]) =>
+            v.classList.toggle("active", k === name),
+          );
+        }
+        railBtns.forEach((b) =>
+          b.addEventListener("click", () => goto(b.dataset.view)),
+        );
+        document.addEventListener("click", (e) => {
+          const g = e.target.closest("[data-goto]");
+          if (g) goto(g.dataset.goto);
+        });
+
+        /* Mode switch (Agent/Ask/Edit) */
+        document.querySelectorAll(".mode-opt").forEach((m) => {
+          m.addEventListener("click", () => {
+            document
+              .querySelectorAll(".mode-opt")
+              .forEach((x) => x.classList.remove("active"));
+            m.classList.add("active");
+          });
+        });
+
+        /* Range switch (Analytics) — hiển thị minh hoạ, dữ liệu tĩnh */
+        document
+          .getElementById("range-switch")
+          .addEventListener("click", (e) => {
+            const t = e.target.closest(".range-opt");
+            if (!t) return;
+            document
+              .querySelectorAll("#range-switch .range-opt")
+              .forEach((x) => x.classList.remove("active"));
+            t.classList.add("active");
+          });
+
+        /* History filters */
+        document.getElementById("filter-bar").addEventListener("click", (e) => {
+          const t = e.target.closest(".chip");
+          if (!t) return;
+          document
+            .querySelectorAll("#filter-bar .chip")
+            .forEach((x) => x.classList.remove("active"));
+          t.classList.add("active");
+          historyFilter = t.dataset.filter;
+          renderHistory();
+        });
+
+        /* History select mode */
+        const selectModeBtn = document.getElementById("btn-select-mode");
+        const bulkBar = document.getElementById("bulk-bar");
+        let selectMode = false,
+          selectedCount = 0;
+        selectModeBtn.addEventListener("click", () => {
+          selectMode = !selectMode;
+          document
+            .getElementById("view-history")
+            .classList.toggle("select-mode", selectMode);
+          bulkBar.classList.toggle("show", selectMode);
+          selectModeBtn.classList.toggle("active", selectMode);
+        });
+        document
+          .getElementById("history-list")
+          .addEventListener("click", (e) => {
+            if (!selectMode) return;
+            const row = e.target.closest(".hist-row");
+            if (!row) return;
+            const chk = row.querySelector(".hist-check");
+            const isOn = chk.style.background === "var(--violet)";
+            chk.style.background = isOn ? "" : "var(--violet)";
+            chk.style.borderColor = isOn ? "" : "var(--violet)";
+            selectedCount += isOn ? -1 : 1;
+            document.getElementById("bulk-count").textContent = selectedCount;
+          });
+
+        /* Settings tabs */
+        document.getElementById("set-tabs").addEventListener("click", (e) => {
+          const t = e.target.closest(".set-tab");
+          if (!t) return;
+          document
+            .querySelectorAll("#set-tabs .set-tab")
+            .forEach((x) => x.classList.remove("active"));
+          t.classList.add("active");
+          document
+            .querySelectorAll(".set-pane")
+            .forEach((p) =>
+              p.classList.toggle("active", p.dataset.pane === t.dataset.pane),
+            );
+        });
+
+        /* Account expand + drawers */
+        document
+          .getElementById("account-pad")
+          .addEventListener("click", (e) => {
+            const toggle = e.target.closest("[data-toggle]");
+            if (toggle) {
+              document
+                .getElementById("acct-exp-" + toggle.dataset.toggle)
+                .classList.toggle("show");
+              return;
+            }
+            const del = e.target.closest("[data-del]");
+            if (del) {
+              openSheet("delete");
+              document.getElementById("del-title").textContent =
+                "Xoá tài khoản " + del.dataset.del + "?";
+            }
+          });
+
+        /* Drawers open/close */
+        function openSheet(name) {
+          document
+            .querySelector(`.backdrop[data-close="${name}"]`)
+            .classList.add("show");
+          document.getElementById("sheet-" + name).classList.add("show");
+        }
+        function closeSheet(name) {
+          document
+            .querySelector(`.backdrop[data-close="${name}"]`)
+            .classList.remove("show");
+          document.getElementById("sheet-" + name).classList.remove("show");
+        }
+        document
+          .getElementById("btn-add-account")
+          .addEventListener("click", () => openSheet("add"));
+        document.querySelectorAll("[data-close]").forEach((el) => {
+          el.addEventListener("click", () => closeSheet(el.dataset.close));
+        });
+
+        /* Home status rotation */
+        const statuses = [
+          "Sẵn sàng cho tác vụ tiếp theo",
+          "Đã kết nối 4 tài khoản",
+          "Agent hoạt động ổn định",
+          "3 tệp trong ngữ cảnh hiện tại",
+        ];
+        let si = 0;
+        setInterval(() => {
+          si = (si + 1) % statuses.length;
+          document.getElementById("home-status").textContent = statuses[si];
+        }, 3400);
+
+        /* ======================================================================
+   INIT
+====================================================================== */
+        renderHome();
+        renderHistory();
+        renderAccount();
+        renderSettings();
+        renderAnalytics();
+      })();
+    </script>
+  </body>
+</html>

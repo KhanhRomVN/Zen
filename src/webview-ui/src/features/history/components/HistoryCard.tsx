@@ -1,8 +1,33 @@
+/**
+ * ------------------------------------------------------------------
+ * HistoryCard
+ * ------------------------------------------------------------------
+ * Card hiển thị một hội thoại trong danh sách lịch sử.
+ * Lazy-load tin nhắn khi hover/click, hiển thị model, token usage,
+ * và context menu (xóa, copy nội dung, mở thư mục).
+
+ * Main features:
+ * - Hiển thị tiêu đề (parse từ user-message), model, request/response count
+ * - Token badge với màu theo mức sử dụng
+ * - Lazy-load messages khi hover/click
+ * - Context menu: Xóa, Copy nội dung, Mở thư mục conv
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── React ──
 import React from "react";
-import { ConversationItem } from "../types";
+
+// ── UI ──
 import { Trash2, Copy, FolderOpen, Zap } from "lucide-react";
+
+// ── Services ──
 import { extensionService } from "../../../services/ExtensionService";
 
+// ── Types ──
+import { ConversationItem } from "../types";
+
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface HistoryCardProps {
   item: ConversationItem;
   onClick: () => void;
@@ -10,12 +35,14 @@ interface HistoryCardProps {
   formatDate: (timestamp: number) => string;
 }
 
+// ─── Component ──────────────────────────────────────────────────────────
 const HistoryCard: React.FC<HistoryCardProps> = ({
   item,
   onClick,
   onDelete,
   formatDate,
 }) => {
+  // ── State ──
   const [menuVisible, setMenuVisible] = React.useState(false);
   const [menuPosition, setMenuPosition] = React.useState({ x: 0, y: 0 });
   const [messages, setMessages] = React.useState<any[]>([]);
@@ -24,117 +51,13 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
     string | null
   >(null);
   const [shouldLoad, setShouldLoad] = React.useState(false);
+
+  // ── Refs ──
   const loadTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
 
-  // Lazy load messages only when user hovers or clicks
-  const triggerLoad = React.useCallback(() => {
-    if (shouldLoad || isLoadingMessages || messages.length > 0) return;
-    setShouldLoad(true);
-  }, [shouldLoad, isLoadingMessages, messages.length]);
-
-  // Fetch messages when shouldLoad becomes true
-  React.useEffect(() => {
-    if (!shouldLoad) return;
-
-    // Check cache first
-    const cached = (window as any).ConversationCache?.get(item.id);
-    if (cached && cached.messages && cached.messages.length > 0) {
-      setMessages(cached.messages);
-      setIsLoadingMessages(false);
-      return;
-    }
-
-    setIsLoadingMessages(true);
-    setMessageFetchError(null);
-    const requestId = `hist-card-${Date.now()}`;
-    extensionService.postMessage({
-      command: "getConversation",
-      conversationId: item.id,
-      requestId,
-    });
-
-    const handler = (event: MessageEvent) => {
-      const data = event.data;
-      if (
-        data.command === "conversationResult" &&
-        data.requestId === requestId
-      ) {
-        window.removeEventListener("message", handler);
-        if (data.data?.messages) {
-          setMessages(data.data.messages);
-          // Update cache if available
-          if ((window as any).ConversationCache) {
-            (window as any).ConversationCache.set(item.id, {
-              messages: data.data.messages,
-              conversationId: item.id,
-            });
-          }
-        } else {
-          setMessageFetchError("No messages found");
-        }
-        setIsLoadingMessages(false);
-      }
-    };
-
-    window.addEventListener("message", handler);
-    const timeout = setTimeout(() => {
-      window.removeEventListener("message", handler);
-      setIsLoadingMessages(false);
-    }, 5000);
-    loadTimeoutRef.current = timeout;
-
-    return () => {
-      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
-      window.removeEventListener("message", handler);
-    };
-  }, [shouldLoad, item.id]);
-
-  React.useEffect(() => {
-    const close = () => setMenuVisible(false);
-    if (menuVisible) document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [menuVisible]);
-
-  const handleCopyContent = () => {
-    const requestId = `copy-${Date.now()}`;
-    extensionService.postMessage({
-      command: "getConversation",
-      conversationId: item.id,
-      requestId,
-    });
-    const handler = (event: MessageEvent) => {
-      const data = event.data;
-      if (
-        data.command === "conversationResult" &&
-        data.requestId === requestId
-      ) {
-        window.removeEventListener("message", handler);
-        if (data.data?.messages) {
-          const text = data.data.messages
-            .map((msg: any) => {
-              let content = msg.content;
-              const m = content.match(/## User Message\n```\n([\s\S]*?)\n```/);
-              if (m) content = m[1];
-              return `[${msg.role.toUpperCase()}]\n${content}`;
-            })
-            .join("\n\n");
-          navigator.clipboard.writeText(text.trim());
-        }
-      }
-    };
-    window.addEventListener("message", handler);
-    setTimeout(() => window.removeEventListener("message", handler), 5000);
-  };
-
-  const handleOpenCoversationFolder = () => {
-    extensionService.postMessage({
-      command: "openConversationFolder",
-      conversationId: item.id,
-    });
-  };
-
+  // ── Derived ──
   // Truncate title
   const title = item.title
     ? item.title.length > 60
@@ -270,6 +193,117 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   const timestamp = item.lastModified || item.timestamp || item.createdAt || 0;
   const timeText = formatTimeText(timestamp);
 
+  // ── Callbacks ──
+  // Lazy load messages only when user hovers or clicks
+  const triggerLoad = React.useCallback(() => {
+    if (shouldLoad || isLoadingMessages || messages.length > 0) return;
+    setShouldLoad(true);
+  }, [shouldLoad, isLoadingMessages, messages.length]);
+
+  // ── Effects ──
+  // Fetch messages when shouldLoad becomes true
+  React.useEffect(() => {
+    if (!shouldLoad) return;
+
+    // Check cache first
+    const cached = (window as any).ConversationCache?.get(item.id);
+    if (cached && cached.messages && cached.messages.length > 0) {
+      setMessages(cached.messages);
+      setIsLoadingMessages(false);
+      return;
+    }
+
+    setIsLoadingMessages(true);
+    setMessageFetchError(null);
+    const requestId = `hist-card-${Date.now()}`;
+    extensionService.postMessage({
+      command: "getConversation",
+      conversationId: item.id,
+      requestId,
+    });
+
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        data.command === "conversationResult" &&
+        data.requestId === requestId
+      ) {
+        window.removeEventListener("message", handler);
+        if (data.data?.messages) {
+          setMessages(data.data.messages);
+          // Update cache if available
+          if ((window as any).ConversationCache) {
+            (window as any).ConversationCache.set(item.id, {
+              messages: data.data.messages,
+              conversationId: item.id,
+            });
+          }
+        } else {
+          setMessageFetchError("No messages found");
+        }
+        setIsLoadingMessages(false);
+      }
+    };
+
+    window.addEventListener("message", handler);
+    const timeout = setTimeout(() => {
+      window.removeEventListener("message", handler);
+      setIsLoadingMessages(false);
+    }, 5000);
+    loadTimeoutRef.current = timeout;
+
+    return () => {
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+      window.removeEventListener("message", handler);
+    };
+  }, [shouldLoad, item.id]);
+
+  React.useEffect(() => {
+    const close = () => setMenuVisible(false);
+    if (menuVisible) document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [menuVisible]);
+
+  // ── Handlers ──
+  const handleCopyContent = () => {
+    const requestId = `copy-${Date.now()}`;
+    extensionService.postMessage({
+      command: "getConversation",
+      conversationId: item.id,
+      requestId,
+    });
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        data.command === "conversationResult" &&
+        data.requestId === requestId
+      ) {
+        window.removeEventListener("message", handler);
+        if (data.data?.messages) {
+          const text = data.data.messages
+            .map((msg: any) => {
+              let content = msg.content;
+              const m = content.match(/## User Message\n```\n([\s\S]*?)\n```/);
+              if (m) content = m[1];
+              return `[${msg.role.toUpperCase()}]\n${content}`;
+            })
+            .join("\n\n");
+          navigator.clipboard.writeText(text.trim());
+        }
+      }
+    };
+    window.addEventListener("message", handler);
+    setTimeout(() => window.removeEventListener("message", handler), 5000);
+  };
+
+  const handleOpenCoversationFolder = () => {
+    extensionService.postMessage({
+      command: "openConversationFolder",
+      conversationId: item.id,
+    });
+  };
+
+  // ── Render ──
   return (
     <div className="history-card-container">
       <div
