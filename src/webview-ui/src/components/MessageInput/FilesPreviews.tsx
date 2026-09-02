@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { FileIcon as FileIconLucide, Terminal, Loader2 } from "lucide-react";
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 import TextSnippetDrawer from "./TextSnippetDrawer";
 
 interface UploadedFile {
@@ -502,8 +502,9 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                       onClick={() => onAttachedItemClick(item)}
                       title={`External file: ${item.path}`}
                     >
-                      <FileIcon
-                        path={item.path}
+                      <img
+                        src={getFileIconPath(item.path)}
+                        alt=""
                         style={{ width: "14px", height: "14px" }}
                       />
                       <span

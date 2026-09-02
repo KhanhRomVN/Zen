@@ -27,7 +27,7 @@ import { GroupType } from "../../../types/renderer-types";
 import { formatActionForDisplay } from "../../../services/ResponseParser";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import {
@@ -567,8 +567,9 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
                             <span
                               style={{ display: "flex", alignItems: "center" }}
                             >
-                              <FileIcon
-                                path={filePath}
+                              <img
+                                src={getFileIconPath(filePath)}
+                                alt=""
                                 style={{ width: "16px", height: "16px" }}
                               />
                             </span>

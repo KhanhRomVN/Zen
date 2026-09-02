@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import { Search, ChevronRight, X, ChevronLeft } from "lucide-react";
+import { getFaviconUrl } from "@/utils/favicon";
 
 interface Provider {
   provider_id: string;
@@ -286,15 +287,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
     }
   }, [step, selectedModel, apiUrl]);
 
-  const getFavicon = (url?: string) => {
-    if (!url) return "";
-    try {
-      const u = new URL(url);
-      return `${u.origin}/favicon.ico`;
-    } catch {
-      return "";
-    }
-  };
+  // getFavicon moved to @/utils/favicon
 
   const filteredProviders = useMemo(() => {
     const mapped = providers
@@ -449,7 +442,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                   const provider = providers.find(
                     (p) => p.provider_id === selectedModel.provider_id,
                   );
-                  const faviconUrl = getFavicon(provider?.website);
+                  const faviconUrl = getFaviconUrl(provider?.website);
                   return (
                     faviconUrl && (
                       <img
@@ -565,9 +558,9 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                         gap: "6px",
                       }}
                     >
-                      {getFavicon(provider.website) && (
+                      {getFaviconUrl(provider.website) && (
                         <img
-                          src={getFavicon(provider.website)}
+                          src={getFaviconUrl(provider.website)}
                           alt="favicon"
                           style={{
                             width: "14px",

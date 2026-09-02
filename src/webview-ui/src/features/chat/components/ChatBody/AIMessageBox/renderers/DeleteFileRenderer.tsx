@@ -15,7 +15,7 @@ import { BaseRendererProps } from "@/features/chat/types/renderer-types";
 import { getFilename } from "@/features/chat/utils/toolUtils";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -97,9 +97,9 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
             <span style={{ fontWeight: 600, opacity: 0.8 }}>
               {getToolLabel("delete_file")}
             </span>
-            <FileIcon
-              path={rawPath}
-              isFolder={false}
+            <img
+              src={getFileIconPath(rawPath)}
+              alt=""
               style={{ width: "14px", height: "14px" }}
             />
             <span

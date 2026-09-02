@@ -9,7 +9,7 @@ import {
   HelpCircle,
   FolderOpen,
 } from "lucide-react";
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 import "./GitStatusBlock.css";
 
 export interface GitStatusItem {
@@ -128,8 +128,9 @@ const GitStatusBlock: React.FC<GitStatusBlockProps> = ({
         onClick={() => handleRowClick(item.path)}
         title={`Click để xem git diff của ${item.path}`}
       >
-        <FileIcon
-          path={item.path}
+        <img
+          src={getFileIconPath(item.path)}
+          alt=""
           style={{ width: 16, height: 16, flexShrink: 0 }}
         />
         <span className="git-status-path">{fileName}</span>

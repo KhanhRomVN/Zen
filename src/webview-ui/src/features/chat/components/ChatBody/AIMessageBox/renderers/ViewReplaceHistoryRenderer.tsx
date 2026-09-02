@@ -7,7 +7,7 @@ import { getToolLabel } from "@/features/chat/constants/constants";
 import { BaseRendererProps } from "@/features/chat/types/renderer-types";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -95,9 +95,9 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
             >
               <span style={{ fontWeight: 600, opacity: 0.8 }}>{getToolLabel("view_replace_history")}</span>
               <span style={{ display: "flex", alignItems: "center" }}>
-                <FileIcon
-                  path={filePath}
-                  isFolder={false}
+                <img
+                  src={getFileIconPath(filePath)}
+                  alt=""
                   style={{ width: "16px", height: "16px" }}
                 />
               </span>

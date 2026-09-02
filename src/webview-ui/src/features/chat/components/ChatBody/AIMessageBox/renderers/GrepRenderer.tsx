@@ -17,7 +17,7 @@ import {
 } from "../../../../utils/renderer-utils";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath, getFolderIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -128,9 +128,13 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
                   >
                     in
                   </span>
-                  <FileIcon
-                    path={targetPath}
-                    isFolder={isFolder}
+                  <img
+                    src={
+                      isFolder
+                        ? getFolderIconPath(targetPath)
+                        : getFileIconPath(targetPath)
+                    }
+                    alt=""
                     style={{ width: "14px", height: "14px", flexShrink: 0 }}
                   />
                   <span

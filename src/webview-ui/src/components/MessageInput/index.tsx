@@ -1,6 +1,5 @@
 import React from "react";
-import { PlusIcon, SendIcon } from "@/icons/Icon";
-import { X, GitPullRequestArrow, Sparkles, Flame } from "lucide-react";
+import { Plus, Send, X, GitPullRequestArrow, Sparkles, Flame } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
@@ -1687,7 +1686,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   supportsUpload ? "Attach files" : "Attach text files only"
                 }
               >
-                <PlusIcon />
+                <Plus />
               </div>
 
               {/* Git Status Button */}
@@ -1989,7 +1988,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   {isStreaming || isProcessing ? (
                     <X size={16} strokeWidth={2.5} />
                   ) : (
-                    <SendIcon />
+                    <Send />
                   )}
                 </div>
               )}

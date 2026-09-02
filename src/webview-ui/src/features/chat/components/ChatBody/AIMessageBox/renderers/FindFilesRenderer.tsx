@@ -16,7 +16,7 @@ import {
 } from "../../../../utils/renderer-utils";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -106,9 +106,9 @@ export const FindFilesRenderer: React.FC<BaseRendererProps> = ({
                 >
                   {fileCount} {fileCount === 1 ? "file" : "files"} of
                 </span>
-                <FileIcon
-                  path={action.params.file_name || ""}
-                  isFolder={false}
+                <img
+                  src={getFileIconPath(action.params.file_name || "")}
+                  alt=""
                   style={{ width: "16px", height: "16px" }}
                 />
                 <span

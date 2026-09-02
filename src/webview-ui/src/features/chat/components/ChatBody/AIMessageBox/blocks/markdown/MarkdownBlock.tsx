@@ -1,7 +1,7 @@
 import React from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath, getFolderIconPath } from "@/utils/fileIconMapper";
 import { extensionService } from "@/services/ExtensionService";
 import { CodeBlock } from "../code/CodeBlock";
 
@@ -71,9 +71,13 @@ const PathChip: React.FC<PathChipProps> = ({ displayText, resolvedPath }) => {
         ((e.currentTarget as HTMLElement).style.opacity = "1")
       }
     >
-      <FileIcon
-        path={resolvedPath}
-        isFolder={isFolder}
+      <img
+        src={
+          isFolder
+            ? getFolderIconPath(resolvedPath)
+            : getFileIconPath(resolvedPath)
+        }
+        alt=""
         style={{ width: "12px", height: "12px", flexShrink: 0 }}
       />
       {displayText}
@@ -226,9 +230,9 @@ const domNodeToReact = (
             className="file-link"
             title={`Click to open: ${text}`}
           >
-            <FileIcon
-              path={text}
-              isFolder={false}
+            <img
+              src={getFileIconPath(text)}
+              alt=""
               style={{ width: "12px", height: "12px", flexShrink: 0 }}
             />
             <span style={{ whiteSpace: "normal", wordBreak: "break-word" }}>

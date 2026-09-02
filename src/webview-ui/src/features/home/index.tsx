@@ -20,6 +20,9 @@ import React, { useEffect, useState } from "react";
 // ── UI ──
 import { Zap } from "lucide-react";
 
+// ── Utils ──
+import { getFaviconUrl } from "@/utils/favicon";
+
 // ── Components ──
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
@@ -388,10 +391,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
             const favicons: Record<string, string> = {};
             prov.data.forEach((p: any) => {
               if (p.provider_id && p.website) {
-                try {
-                  favicons[p.provider_id] =
-                    `${new URL(p.website).origin}/favicon.ico`;
-                } catch {}
+                favicons[p.provider_id] = getFaviconUrl(p.website);
               }
             });
             setProviderFavicons(favicons);

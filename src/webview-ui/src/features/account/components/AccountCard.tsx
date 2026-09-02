@@ -22,6 +22,7 @@ import { Trash2, RefreshCw, CheckCircle } from "lucide-react";
 
 // ── Utils ──
 import { CopyableText } from "../utils";
+import { getFaviconUrl } from "@/utils/favicon";
 
 // ── Types ──
 import { FlatAccount } from "../types";
@@ -94,19 +95,9 @@ const AccountCard: React.FC<AccountCardProps> = ({
   const [expanded, setExpanded] = useState(false);
 
   // ── Derived ──
-  const getProviderIcon = () => {
-    if (providerConfig?.website) {
-      try {
-        const url = new URL(providerConfig.website);
-        return `${url.origin}/favicon.ico`;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  };
-
-  const providerIconUrl = getProviderIcon();
+  const providerIconUrl = providerConfig?.website
+    ? getFaviconUrl(providerConfig.website)
+    : null;
 
   const formatDate = (ts: number) =>
     new Date(ts).toLocaleString(undefined, {
@@ -251,10 +242,8 @@ const AccountCard: React.FC<AccountCardProps> = ({
       style={{
         backgroundColor: isSelected
           ? "var(--vscode-list-activeSelectionBackground, rgba(99,102,241,0.08))"
-          : "var(--tertiary-bg)",
-        border: isSelected
-          ? "1px solid var(--vscode-focusBorder, rgba(99,102,241,0.4))"
-          : "1px solid var(--border-color)",
+          : "var(--input-bg)",
+        border: "none",
         borderRadius: "12px",
         transition: "all 0.2s ease",
         position: "relative",
@@ -358,24 +347,24 @@ const AccountCard: React.FC<AccountCardProps> = ({
                 {providerConfig?.provider_name || account.provider_id}
               </span>
               <span style={{ color: "var(--secondary-text)", margin: "0 4px" }}>|</span>
-              <span>{account.email || "No email"}</span>
+              <span style={{ color: "var(--secondary-text)" }}>{account.email || "No email"}</span>
             </p>
 
             {/* Daily stats */}
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
-              {account.daily_requests !== undefined && account.daily_requests > 0 && (
+              {account.total_requests !== undefined && account.total_requests > 0 && (
                 <span style={{ fontSize: "9px", color: "var(--secondary-text)", opacity: 0.6 }}>
-                  {account.daily_requests.toLocaleString()} req today
+                  {account.total_requests.toLocaleString()} req
                 </span>
               )}
-              {account.daily_tokens !== undefined && account.daily_tokens > 0 && (
+              {account.total_tokens !== undefined && account.total_tokens > 0 && (
                 <span style={{ fontSize: "9px", color: "var(--secondary-text)", opacity: 0.6 }}>
                   •{" "}
-                  {account.daily_tokens >= 1000000
-                    ? (account.daily_tokens / 1000000).toFixed(1) + "M"
-                    : account.daily_tokens >= 1000
-                      ? (account.daily_tokens / 1000).toFixed(1) + "k"
-                      : account.daily_tokens}{" "}
+                  {account.total_tokens >= 1000000
+                    ? (account.total_tokens / 1000000).toFixed(1) + "M"
+                    : account.total_tokens >= 1000
+                      ? (account.total_tokens / 1000).toFixed(1) + "k"
+                      : account.total_tokens}{" "}
                   tokens
                 </span>
               )}

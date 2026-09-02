@@ -27,7 +27,7 @@ import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
 import { parseDiff, DiffHighlight } from "@/utils/diffUtils";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -480,9 +480,9 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
               }}
               style={{ display: "flex", alignItems: "center" }}
             >
-              <FileIcon
-                path={rawPath}
-                isFolder={false}
+              <img
+                src={getFileIconPath(rawPath)}
+                alt=""
                 style={{ width: "16px", height: "16px", cursor: "pointer" }}
               />
             </span>

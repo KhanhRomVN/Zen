@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 import "../run_command/TerminalBlock.css";
 import "./GitDiffBlock.css";
 
@@ -173,8 +173,9 @@ const GitDiffBlock: React.FC<GitDiffBlockProps> = ({
         <span style={{ fontWeight: 600, opacity: 0.8 }}>
           DIFF{branch ? `(${branch})` : ""}
         </span>
-        <FileIcon
-          path={filePath}
+        <img
+          src={getFileIconPath(filePath)}
+          alt=""
           style={{ width: "14px", height: "14px", flexShrink: 0 }}
         />
         <span

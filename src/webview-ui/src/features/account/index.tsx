@@ -23,10 +23,11 @@ import {
   Plus,
   Search,
   Upload,
+  Download,
+  Filter,
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Smartphone,
   Users,
 } from "lucide-react";
 
@@ -34,7 +35,12 @@ import {
 import AccountCard from "./components/AccountCard";
 import AddAccountDrawer from "./components/AddAccountDrawer";
 import ConfirmDeleteDrawer from "./components/ConfirmDeleteDrawer";
-import ProviderFilterDropdown from "./components/ProviderFilterDropdown";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+} from "../../components/ui/Dropdown";
 
 // ── Hooks ──
 import { useAccounts } from "./hooks/useAccounts";
@@ -43,7 +49,7 @@ import { useAccounts } from "./hooks/useAccounts";
 import { extensionService } from "../../services/ExtensionService";
 
 // ── Utils ──
-import { getFaviconUrl } from "./utils";
+import { getFaviconUrl } from "../../utils/favicon";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface AccountPanelProps {
@@ -54,7 +60,6 @@ interface AccountPanelProps {
 // ─── Component ──────────────────────────────────────────────────────────
 const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
   // ── State ──
-  const [showDropdown, setShowDropdown] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [closeHover, setCloseHover] = useState(false);
 
@@ -87,27 +92,24 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
 
   // ── Derived ──
   const allVisibleSelected =
-    accounts.length > 0 && accounts.every((acc) => selectedAccounts.has(acc.id));
-
-  // ── Effects ──
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = () => setShowDropdown(false);
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [isOpen]);
+    accounts.length > 0 &&
+    accounts.every((acc) => selectedAccounts.has(acc.id));
 
   // ── Handlers ──
   const handleImport = async () => {
     try {
       extensionService.postMessage({ command: "importAccounts" });
       // Re-fetch after a brief delay to pick up any imported accounts
-      setTimeout(() => fetchAccounts(pagination.page, pagination.limit, true), 800);
+      setTimeout(
+        () => fetchAccounts(pagination.page, pagination.limit, true),
+        800,
+      );
     } catch (error) {
       console.error("Failed to import:", error);
     }
-    setShowDropdown(false);
   };
+
+  const handleExport = async () => {};
 
   const handlePrevPage = () => {
     if (pagination.page > 1) {
@@ -153,38 +155,44 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
       {/* Header - Following SettingsPanel style */}
       <div
         style={{
-          padding: "16px 16px 14px",
+          padding: "16px 16px 7px",
           borderTop: "1px solid var(--border-color)",
-          borderBottom: "1px solid var(--border-color)",
           flexShrink: 0,
           backgroundColor: "var(--tertiary-bg)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "8px",
-                flexShrink: 0,
-                background: "rgba(128,128,128,0.1)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--vscode-foreground)",
-              }}
-            >
-              <Smartphone size={18} />
-            </div>
             <div>
               <div style={{ marginBottom: "3px" }}>
-                <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--primary-text)", letterSpacing: "0.01em" }}>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "16px",
+                    color: "var(--primary-text)",
+                    letterSpacing: "0.01em",
+                  }}
+                >
                   Accounts
                 </span>
               </div>
-              <p style={{ margin: 0, fontSize: "12px", color: "var(--secondary-text)", opacity: 0.7, lineHeight: 1.4 }}>
-                Manage your API accounts
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "13px",
+                  color: "var(--secondary-text)",
+                  opacity: 0.7,
+                  lineHeight: 1.4,
+                }}
+              >
+                Manage AI vendor accounts
               </p>
             </div>
           </div>
@@ -200,7 +208,9 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 ? "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.12))"
                 : "rgba(128,128,128,0.1)",
               border: "none",
-              color: closeHover ? "var(--vscode-errorForeground)" : "var(--secondary-text)",
+              color: closeHover
+                ? "var(--vscode-errorForeground)"
+                : "var(--secondary-text)",
               cursor: "pointer",
               transition: "all 0.15s ease",
               display: "flex",
@@ -209,8 +219,19 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
             }}
             title="Close Accounts"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
             </svg>
           </button>
         </div>
@@ -219,7 +240,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
       {/* Action Bar - Below divider */}
       <div
         style={{
-          padding: "16px 16px 12px",
+          padding: "8px 16px 12px",
           backgroundColor: "var(--tertiary-bg)",
           flexShrink: 0,
         }}
@@ -232,12 +253,13 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               placeholder="Search by email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              className="account-search-input"
               style={{
                 width: "100%",
                 padding: "8px 12px 8px 32px",
                 fontSize: "13px",
                 backgroundColor: "var(--input-bg)",
-                border: "1px solid var(--border-color)",
+                border: "none",
                 borderRadius: "8px",
                 color: "var(--primary-text)",
                 outline: "none",
@@ -258,101 +280,219 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
             />
           </div>
 
-          <ProviderFilterDropdown
-            providerConfigs={providerConfigs}
-            selectedProvider={providerFilter}
-            onSelectProvider={setProviderFilter}
-            getFaviconUrl={getFaviconUrl}
-          />
+          <Dropdown align="end" sideOffset={4}>
+            <DropdownTrigger asChild>
+              <button
+                style={{
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--input-bg)",
+                  border: "none",
+                  color: "var(--secondary-text)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+                title="Filter by provider"
+              >
+                <Filter size={16} />
+              </button>
+            </DropdownTrigger>
+            <DropdownContent>
+              <DropdownItem
+                icon={
+                  <div
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      borderRadius: "3px",
+                      backgroundColor: "rgba(128,128,128,0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "9px",
+                      fontWeight: "bold",
+                      color: "var(--secondary-text)",
+                    }}
+                  >
+                    All
+                  </div>
+                }
+                onClick={() => setProviderFilter("")}
+              >
+                All Providers [{accounts.length}]
+              </DropdownItem>
+              {providerConfigs.map((provider) => (
+                <DropdownItem
+                  key={provider.provider_id}
+                  icon={
+                    <img
+                      src={getFaviconUrl(provider.website)}
+                      alt={provider.provider_name}
+                      style={{
+                        width: "16px",
+                        height: "16px",
+                        objectFit: "contain",
+                      }}
+                      onLoad={() =>
+                        console.log(
+                          `[Favicon] Loaded OK: ${provider.provider_id} -> ${getFaviconUrl(provider.website)}`,
+                        )
+                      }
+                      onError={(e) => {
+                        console.error(
+                          `[Favicon] Load FAILED: ${provider.provider_id} -> ${getFaviconUrl(provider.website)}`,
+                        );
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  }
+                  onClick={() => setProviderFilter(provider.provider_id)}
+                >
+                  {provider.provider_name} [
+                  {
+                    accounts.filter(
+                      (acc) => acc.provider_id === provider.provider_id,
+                    ).length
+                  }
+                  ]
+                </DropdownItem>
+              ))}
+            </DropdownContent>
+          </Dropdown>
 
           <button
             onClick={() => setDialogOpen(true)}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.45")}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor =
+                "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--input-bg)";
+            }}
             style={{
               width: "34px",
               height: "34px",
               borderRadius: "8px",
-              backgroundColor: "var(--vscode-button-background)",
+              backgroundColor: "var(--input-bg)",
               border: "none",
-              color: "var(--vscode-button-foreground)",
+              color: "var(--secondary-text)",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              opacity: 0.45,
-              transition: "opacity 0.15s ease",
             }}
             title="Add account"
           >
             <Plus size={16} />
           </button>
 
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setShowDropdown(!showDropdown)}
-              style={{
-                width: "34px",
-                height: "34px",
-                borderRadius: "8px",
-                backgroundColor: "var(--input-bg)",
-                border: "1px solid var(--border-color)",
-                color: "var(--secondary-text)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-              title="More options"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="1"/>
-                <circle cx="12" cy="5" r="1"/>
-                <circle cx="12" cy="19" r="1"/>
-              </svg>
-            </button>
-            {showDropdown && (
-              <div
+          <Dropdown align="end" sideOffset={4}>
+            <DropdownTrigger asChild>
+              <button
                 style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "100%",
-                  marginTop: "8px",
-                  width: "160px",
-                  backgroundColor: "var(--tertiary-bg)",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "12px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-                  zIndex: 100,
-                  overflow: "hidden",
+                  width: "34px",
+                  height: "34px",
+                  borderRadius: "8px",
+                  backgroundColor: "var(--input-bg)",
+                  border: "none",
+                  color: "var(--secondary-text)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
                 }}
+                title="More options"
               >
-                <button
-                  onClick={handleImport}
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    border: "none",
-                    backgroundColor: "transparent",
-                    color: "var(--primary-text)",
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--hover-bg)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <Upload size={14} />
-                  <span>Import JSON</span>
-                </button>
-              </div>
-            )}
-          </div>
+                  <circle cx="12" cy="12" r="1" />
+                  <circle cx="12" cy="5" r="1" />
+                  <circle cx="12" cy="19" r="1" />
+                </svg>
+              </button>
+            </DropdownTrigger>
+            <DropdownContent>
+              <DropdownItem icon={<Upload size={14} />} onClick={handleImport}>
+                Import JSON
+              </DropdownItem>
+              <DropdownItem
+                icon={<Download size={14} />}
+                onClick={handleExport}
+              >
+                Export JSON
+              </DropdownItem>
+            </DropdownContent>
+          </Dropdown>
+        </div>
+
+        {/* Status badges */}
+        <div
+          style={{
+            display: "flex",
+            gap: "6px",
+            marginTop: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              padding: "3px 8px",
+              borderRadius: "12px",
+              backgroundColor: "var(--input-bg)",
+              color: "var(--secondary-text)",
+            }}
+          >
+            đang hoạt động[0]
+          </span>
+          <span
+            style={{
+              fontSize: "11px",
+              padding: "3px 8px",
+              borderRadius: "12px",
+              backgroundColor: "var(--input-bg)",
+              color: "var(--secondary-text)",
+            }}
+          >
+            hết hạn[0]
+          </span>
+          <span
+            style={{
+              fontSize: "11px",
+              padding: "3px 8px",
+              borderRadius: "12px",
+              backgroundColor: "var(--input-bg)",
+              color: "var(--secondary-text)",
+            }}
+          >
+            đang lỗi[0]
+          </span>
+          <span
+            style={{
+              fontSize: "11px",
+              padding: "3px 8px",
+              borderRadius: "12px",
+              backgroundColor: "var(--input-bg)",
+              color: "var(--secondary-text)",
+            }}
+          >
+            ngừng hoạt động[0]
+          </span>
         </div>
       </div>
 
@@ -362,7 +502,8 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           style={{
             marginTop: "12px",
             padding: "8px 12px",
-            backgroundColor: "var(--vscode-list-activeSelectionBackground, rgba(128,128,128,0.1))",
+            backgroundColor:
+              "var(--vscode-list-activeSelectionBackground, rgba(128,128,128,0.1))",
             borderRadius: "10px",
             display: "flex",
             alignItems: "center",
@@ -386,8 +527,12 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 fontSize: "11px",
                 cursor: "pointer",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--hover-bg)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = "var(--hover-bg)")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.backgroundColor = "transparent")
+              }
             >
               {allVisibleSelected ? "Deselect All" : "Select All"}
             </button>
@@ -396,7 +541,8 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               style={{
                 padding: "4px 10px",
                 borderRadius: "6px",
-                backgroundColor: "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.12))",
+                backgroundColor:
+                  "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.12))",
                 border: "none",
                 color: "var(--vscode-errorForeground, #f87171)",
                 fontSize: "11px",
@@ -438,7 +584,13 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               gap: "12px",
             }}
           >
-            <Loader2 size={28} style={{ animation: "spin 1s linear infinite", color: "var(--accent-text)" }} />
+            <Loader2
+              size={28}
+              style={{
+                animation: "spin 1s linear infinite",
+                color: "var(--accent-text)",
+              }}
+            />
             <span style={{ fontSize: "12px" }}>Loading accounts...</span>
           </div>
         ) : accounts.length === 0 ? (
@@ -456,11 +608,15 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           >
             <Users size={40} style={{ opacity: 0.3 }} />
             <div>
-              <p style={{ fontSize: "14px", fontWeight: 500, margin: "0 0 4px" }}>
+              <p
+                style={{ fontSize: "14px", fontWeight: 500, margin: "0 0 4px" }}
+              >
                 {searchQuery ? "No matching accounts" : "No accounts yet"}
               </p>
               <p style={{ fontSize: "11px", margin: 0, opacity: 0.7 }}>
-                {searchQuery ? "Try a different search" : "Click the + button to add one"}
+                {searchQuery
+                  ? "Try a different search"
+                  : "Click the + button to add one"}
               </p>
             </div>
           </div>
@@ -474,7 +630,9 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               onToggleSelect={() => toggleSelection(account.id)}
               onDelete={() => handleDelete(account.id, account.email)}
               onSwitch={() => switchKiroAccount(account.id)}
-              providerConfig={providerConfigs.find((p) => p.provider_id === account.provider_id)}
+              providerConfig={providerConfigs.find(
+                (p) => p.provider_id === account.provider_id,
+              )}
             />
           ))
         )}
@@ -526,7 +684,10 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 backgroundColor: "var(--input-bg)",
                 border: "1px solid var(--border-color)",
                 color: "var(--primary-text)",
-                cursor: pagination.page === pagination.total_pages ? "not-allowed" : "pointer",
+                cursor:
+                  pagination.page === pagination.total_pages
+                    ? "not-allowed"
+                    : "pointer",
                 opacity: pagination.page === pagination.total_pages ? 0.5 : 1,
                 display: "flex",
                 alignItems: "center",
@@ -552,7 +713,11 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
         onOpenChange={setConfirmOpen}
         onConfirm={executeDelete}
         loading={deleteLoading}
-        title={deleteItem ? `Delete account ${deleteItem.email ?? ''}?` : "Delete selected accounts"}
+        title={
+          deleteItem
+            ? `Delete account ${deleteItem.email ?? ""}?`
+            : "Delete selected accounts"
+        }
         count={deleteItem ? 1 : selectedAccounts.size}
       />
 
@@ -561,6 +726,11 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
+          }
+
+          .account-search-input::placeholder {
+            color: var(--secondary-text);
+            opacity: 0.7;
           }
         `}
       </style>

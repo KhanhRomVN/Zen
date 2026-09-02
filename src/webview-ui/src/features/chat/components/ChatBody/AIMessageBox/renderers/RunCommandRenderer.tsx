@@ -22,7 +22,7 @@ import { Message } from "../../../../types/message";
 import { getPermissionDecision } from "../../../../utils/permissionUtils";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFolderIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -175,9 +175,9 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
             </span>
             {folderName && (
               <>
-                <FileIcon
-                  path={folderPath}
-                  isFolder={true}
+                <img
+                  src={getFolderIconPath(folderPath)}
+                  alt=""
                   style={{ width: "14px", height: "14px", flexShrink: 0 }}
                 />
                 <span

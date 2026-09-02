@@ -19,7 +19,7 @@ import {
 } from "../../../../utils/renderer-utils";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -234,9 +234,9 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
               }}
               style={{ display: "flex", alignItems: "center" }}
             >
-              <FileIcon
-                path={rawPath}
-                isFolder={false}
+              <img
+                src={getFileIconPath(rawPath)}
+                alt=""
                 style={{ width: "16px", height: "16px", cursor: "pointer" }}
               />
             </span>

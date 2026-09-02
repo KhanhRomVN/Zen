@@ -22,7 +22,7 @@ import { calculateLineDiff, parseDiff, DiffHighlight } from "@/utils/diffUtils";
 import { getPermissionDecision } from "@/features/chat/utils/permissionUtils";
 
 // ICONS
-import FileIcon from "@/icons/FileIcon";
+import { getFileIconPath } from "@/utils/fileIconMapper";
 
 // COMPONENTS
 import { TagHeader } from "../TagHeader";
@@ -444,9 +444,9 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
             >
               {getToolLabel("revert_file")}
             </span>
-            <FileIcon
-              path={rawPath}
-              isFolder={false}
+            <img
+              src={getFileIconPath(rawPath)}
+              alt=""
               style={{ width: "14px", height: "14px" }}
             />
             <span

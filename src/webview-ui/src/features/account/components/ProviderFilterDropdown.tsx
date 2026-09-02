@@ -88,7 +88,7 @@ const ProviderFilterDropdown: React.FC<ProviderFilterDropdownProps> = ({
           padding: "0 10px",
           borderRadius: "8px",
           backgroundColor: "var(--input-bg)",
-          border: "1px solid var(--border-color)",
+          border: "none",
           color: "var(--primary-text)",
           cursor: "pointer",
           fontSize: "13px",
