@@ -116,25 +116,6 @@ export class PromptBuilder {
     treeView: string,
     systemPromptMode?: SystemPromptMode,
   ): Promise<string> {
-    let targetOS: "auto" | "windows" | "linux" = "auto";
-    try {
-      const savedOS = localStorage.getItem("zen_target_os");
-      if (savedOS === "auto" || savedOS === "windows" || savedOS === "linux") {
-        targetOS = savedOS;
-      }
-    } catch (e) {}
-
-    let maxFilesPerSession = 3;
-    try {
-      const savedMax = localStorage.getItem("zen_max_files_per_session");
-      if (savedMax) {
-        const parsed = parseInt(savedMax, 10);
-        if (!isNaN(parsed) && parsed >= 1 && parsed <= 100) {
-          maxFilesPerSession = parsed;
-        }
-      }
-    } catch (e) {}
-
     let systemInfo = {
       os: "Unknown OS",
       ide: "Zen IDE",
@@ -142,8 +123,7 @@ export class PromptBuilder {
       homeDir: "~",
       cwd: ".",
       language: aiLanguage,
-      targetOS: targetOS,
-      maxFilesPerSession: maxFilesPerSession,
+      maxFilesPerSession: 3,
     };
 
     try {
@@ -152,9 +132,8 @@ export class PromptBuilder {
         systemInfo = {
           ...systemInfo,
           ...fetchedInfo.data,
-          targetOS: targetOS,
           language: aiLanguage,
-          maxFilesPerSession: maxFilesPerSession,
+          maxFilesPerSession: 3,
         };
       }
     } catch (e) {
@@ -162,7 +141,7 @@ export class PromptBuilder {
     }
 
     const effectiveLang = aiLanguage;
-    const mode: SystemPromptMode = systemPromptMode ?? "simple";
+    const mode: SystemPromptMode = systemPromptMode || "balanced";
 
     // Use combinePromptsForMode to support simple/medium/promax modes.
     // systemInfo cast to any to satisfy PromptModeConfig shape (SystemInfo compatible).

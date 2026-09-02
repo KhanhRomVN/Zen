@@ -1,9 +1,11 @@
 import React from "react";
-import { Plus, Send, X, GitPullRequestArrow, Sparkles, Flame } from "lucide-react";
+import { Plus, Send, X, GitPullRequestArrow, Zap, Scale, ShieldCheck, Plane } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
+import StyleCodeDrawer from "./StyleCodeDrawer";
+import { getFaviconUrl } from "../../utils/favicon";
 import DiffSummaryBar from "./DiffSummaryBar";
 import type {
   MessageInputProps,
@@ -891,27 +893,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     } = useSettings();
     const [providers, setProviders] = React.useState<any[]>([]);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
-    const [showSystemPromptDropdown, setShowSystemPromptDropdown] =
+    const [showStyleDrawer, setShowStyleDrawer] =
       React.useState(false);
     const [isSystemPromptHovered, setIsSystemPromptHovered] =
       React.useState(false);
-    const systemPromptDropdownRef = React.useRef<HTMLDivElement>(null);
-
-    React.useEffect(() => {
-      const handleClickOutside = (e: MouseEvent) => {
-        if (
-          systemPromptDropdownRef.current &&
-          !systemPromptDropdownRef.current.contains(e.target as Node)
-        ) {
-          setShowSystemPromptDropdown(false);
-        }
-      };
-      if (showSystemPromptDropdown) {
-        document.addEventListener("mousedown", handleClickOutside);
-      }
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }, [showSystemPromptDropdown]);
 
     const [pendingModelSwitch, setPendingModelSwitch] = React.useState<{
       model: any;
@@ -1128,14 +1113,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 padding: "5px 10px",
                 fontSize: "11px",
                 fontWeight: 600,
-                borderTopLeftRadius: "8px",
-                borderTopRightRadius: "8px",
-                borderBottomLeftRadius: "0",
-                borderBottomRightRadius: "0",
-                border: "1px solid var(--border-color)",
-                borderBottom: !isConnected
-                  ? "1px solid var(--border-color)"
-                  : "none",
                 zIndex: 20,
                 display: "flex",
                 alignItems: "center",
@@ -1155,25 +1132,27 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             >
               {displayModel ? (
                 <>
-                  {displayModel.favicon ? (
-                    <img
-                      src={displayModel.favicon}
-                      alt="favicon"
-                      style={{
-                        width: "12px",
-                        height: "12px",
-                        borderRadius: "2px",
-                      }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <span
-                      className="codicon codicon-server-process"
-                      style={{ fontSize: "12px" }}
-                    />
-                  )}
+                  {(() => {
+                    const prov = providers.find(
+                      (p: any) => p.provider_id === displayModel.providerId,
+                    );
+                    const faviconUrl = getFaviconUrl(prov?.website);
+                    return (
+                      <img
+                        src={faviconUrl}
+                        alt="favicon"
+                        style={{
+                          width: "12px",
+                          height: "12px",
+                          borderRadius: "2px",
+                        }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display =
+                            "none";
+                        }}
+                      />
+                    );
+                  })()}
                   {displayModel.providerId}/{displayModel.id}
                   {displayAccount?.email && (
                     <span
@@ -1299,6 +1278,14 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               }}
             />
           )}
+
+          {/* Style Code Drawer */}
+          <StyleCodeDrawer
+            isOpen={showStyleDrawer}
+            onClose={() => setShowStyleDrawer(false)}
+            currentMode={systemPromptMode}
+            onSelect={setSystemPromptMode}
+          />
 
           {/* Model Switch Confirmation Dialog */}
           {pendingModelSwitch && (
@@ -1768,27 +1755,21 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
               {/* System Prompt Mode Selector - Home only */}
               {!isConversationStarted && (
-                <div
-                  style={{ position: "relative" }}
-                  ref={systemPromptDropdownRef}
-                >
+                <div style={{ position: "relative" }}>
                   {(() => {
-                    const isPromax = systemPromptMode === "promax";
-                    const promptColor = isPromax
-                      ? "var(--vscode-charts-red, #ef4444)"
-                      : "var(--vscode-charts-green, #22c55e)";
-                    const promptLabel = isPromax ? "ProMax" : "Simple";
-                    const promptIcon = isPromax ? (
-                      <Flame size={11} />
-                    ) : (
-                      <Sparkles size={11} />
-                    );
-
+                    const modeMeta: Record<
+                      string,
+                      { label: string; icon: React.ReactNode; color: string }
+                    > = {
+                      fast: { label: "Fast", icon: <Zap size={11} />, color: "#22c55e" },
+                      balanced: { label: "Balanced", icon: <Scale size={11} />, color: "#3b82f6" },
+                      thorough: { label: "Thorough", icon: <ShieldCheck size={11} />, color: "#a78bfa" },
+                      autopilot: { label: "Autopilot", icon: <Plane size={11} />, color: "#f97316" },
+                    };
+                    const meta = modeMeta[systemPromptMode] || modeMeta.balanced;
                     return (
                       <button
-                        onClick={() =>
-                          setShowSystemPromptDropdown((prev) => !prev)
-                        }
+                        onClick={() => setShowStyleDrawer(true)}
                         onMouseEnter={() => setIsSystemPromptHovered(true)}
                         onMouseLeave={() => setIsSystemPromptHovered(false)}
                         style={{
@@ -1804,19 +1785,19 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                           fontWeight: 600,
                           letterSpacing: "0.3px",
                           transition: "all 0.2s ease-in-out",
-                          border: `1px solid ${isPromax ? "#ef444440" : "#22c55e40"}`,
+                          border: "none",
                           background: isSystemPromptHovered
-                            ? `color-mix(in srgb, ${promptColor} 20%, transparent)`
-                            : `color-mix(in srgb, ${promptColor} 12%, transparent)`,
-                          color: promptColor,
+                            ? `color-mix(in srgb, ${meta.color} 20%, transparent)`
+                            : `color-mix(in srgb, ${meta.color} 12%, transparent)`,
+                          color: meta.color,
                           opacity: 1,
                           lineHeight: 1,
                           verticalAlign: "middle",
                           userSelect: "none",
                         }}
-                        title="System Prompt Mode"
+                        title="Style Code"
                       >
-                        {promptIcon}
+                        {meta.icon}
                         <span
                           style={{
                             fontSize: "11px",
@@ -1824,98 +1805,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                             letterSpacing: "0.3px",
                           }}
                         >
-                          {promptLabel}
+                          {meta.label}
                         </span>
                       </button>
                     );
                   })()}
-                  {showSystemPromptDropdown && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: "calc(100% + 4px)",
-                        left: 0,
-                        zIndex: 1000,
-                        backgroundColor:
-                          "var(--vscode-dropdown-background, var(--vscode-editorHoverWidget-background, #252526))",
-                        border:
-                          "1px solid var(--vscode-widget-border, var(--border-color, #454545))",
-                        borderRadius: "6px",
-                        overflow: "hidden",
-                        boxShadow: "0 -4px 16px rgba(0,0,0,0.35)",
-                        minWidth: "150px",
-                      }}
-                    >
-                      {(
-                        [
-                          {
-                            key: "simple",
-                            label: "Simple",
-                            color: "var(--vscode-charts-green, #22c55e)",
-                            icon: <Sparkles size={11} />,
-                          },
-                          {
-                            key: "promax",
-                            label: "ProMax",
-                            color: "var(--vscode-charts-red, #ef4444)",
-                            icon: <Flame size={11} />,
-                          },
-                        ] as const
-                      ).map(({ key, label, color, icon }) => {
-                        const isSelected = systemPromptMode === key;
-                        return (
-                          <button
-                            key={key}
-                            onClick={() => {
-                              setSystemPromptMode(key);
-                              setShowSystemPromptDropdown(false);
-                            }}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              width: "100%",
-                              padding: "7px 12px",
-                              fontSize: "11.5px",
-                              fontWeight: 500,
-                              textAlign: "left",
-                              border: "none",
-                              cursor: "pointer",
-                              background: isSelected
-                                ? "var(--vscode-button-background)"
-                                : "transparent",
-                              color: isSelected
-                                ? "var(--vscode-button-foreground)"
-                                : color,
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!isSelected) {
-                                e.currentTarget.style.backgroundColor =
-                                  "var(--vscode-list-hoverBackground)";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              if (!isSelected) {
-                                e.currentTarget.style.backgroundColor =
-                                  "transparent";
-                              }
-                            }}
-                          >
-                            <span
-                              style={{
-                                color: isSelected ? "inherit" : color,
-                                display: "flex",
-                                alignItems: "center",
-                              }}
-                            >
-                              {icon}
-                            </span>
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -1988,7 +1882,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   {isStreaming || isProcessing ? (
                     <X size={16} strokeWidth={2.5} />
                   ) : (
-                    <Send />
+                    <Send size={18} />
                   )}
                 </div>
               )}

@@ -1,5 +1,4 @@
 const path = require("path");
-const CopyWebpackPlugin = require("copy-webpack-plugin");
 const webpack = require("webpack");
 
 module.exports = {
@@ -74,14 +73,6 @@ module.exports = {
     ],
   },
   plugins: [
-    new CopyWebpackPlugin({
-      patterns: [
-        {
-          from: path.resolve(__dirname, "../../images/icons/material"),
-          to: path.resolve(__dirname, "dist/images/material"),
-        },
-      ],
-    }),
     new webpack.DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
     }),

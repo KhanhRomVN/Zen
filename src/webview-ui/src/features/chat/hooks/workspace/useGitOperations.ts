@@ -7,7 +7,7 @@ interface UseGitOperationsProps {
   currentModel: any;
   currentAccount: any;
   providers: any[];
-  commitMessageLanguage: "en" | "vi";
+  commitMessageLanguage: string;
   currentConversationId: string;
   wrappedSendMessage: (
     content: string,

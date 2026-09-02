@@ -1,9 +1,12 @@
+import { LANGUAGES } from "../../setting/components/LanguageSelector";
+
 export function getCommitMessagePrompt(
-  language: "en" | "vi",
+  language: string,
   gitStatus: string,
   fileContents?: Record<string, string>,
 ): string {
-  const languageName = language === "en" ? "English" : "Vietnamese";
+  const languageName =
+    LANGUAGES.find((l) => l.code === language)?.name || language;
 
   const fileContentsSection =
     fileContents && Object.keys(fileContents).length > 0

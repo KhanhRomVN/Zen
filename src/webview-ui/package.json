@@ -17,6 +17,7 @@
     "@vscode/webview-ui-toolkit": "^1.4.0",
     "clsx": "^2.1.1",
     "codemirror": "file:../../media/codemirror",
+    "country-flag-icons": "^1.6.20",
     "dompurify": "^3.3.1",
     "gpt-tokenizer": "^3.4.0",
     "lucide-react": "^0.564.0",

@@ -172,8 +172,8 @@ export function getFileIcon(filename: string): string {
  */
 export function getFileIconPath(filename: string): string {
   const iconName = getFileIcon(filename);
-  const baseUri = window.__zenImagesUri || "/images/icon";
-  const path = `${baseUri}/${iconName}`;
+  const baseUri = window.__zenImagesUri || "/images";
+  const path = `${baseUri}/icons/${iconName}`;
   return path.replace(/([^:]\/)\/+/g, "$1");
 }
 
@@ -368,29 +368,7 @@ export function getFolderIconPath(
   const iconName = folderName
     ? getFolderIconName(folderName, isOpen)
     : getFolderIcon(isOpen);
-  const baseUri = window.__zenImagesUri || "/images/icon";
-  const path = `${baseUri}/${iconName}`;
-  return path.replace(/([^:]\/)\/+/g, "$1");
-}
-
-/**
- * Get provider icon path
- */
-export function getProviderIconPath(provider: string): string {
-  const normalized = provider.toLowerCase();
-  let iconName = "openai.svg";
-  if (normalized.includes("claude") || normalized.includes("anthropic")) {
-    iconName = "claude.svg";
-  } else if (normalized.includes("gemini") || normalized.includes("google")) {
-    iconName = "gemini.svg";
-  } else if (normalized.includes("deepseek")) {
-    iconName = "deepseek.svg";
-  } else if (normalized.includes("grok") || normalized.includes("xai")) {
-    iconName = "grok.svg";
-  } else if (normalized.includes("openai") || normalized.includes("gpt")) {
-    iconName = "openai.svg";
-  }
-  const baseUri = window.__zenImagesUri || "/images/icon";
-  const path = `${baseUri}/provider_icons/${iconName}`;
+  const baseUri = window.__zenImagesUri || "/images";
+  const path = `${baseUri}/icons/${iconName}`;
   return path.replace(/([^:]\/)\/+/g, "$1");
 }

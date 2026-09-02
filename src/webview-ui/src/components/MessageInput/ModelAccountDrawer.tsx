@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { Search, ChevronRight, X, ChevronLeft } from "lucide-react";
+import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins } from "lucide-react";
 import { getFaviconUrl } from "@/utils/favicon";
 
 interface Provider {
@@ -20,6 +20,8 @@ interface Account {
   is_enabled: boolean;
   usage?: string;
   reset_period?: string;
+  period_requests?: number;
+  period_tokens?: number;
 }
 
 interface ModelAccountDrawerProps {
@@ -47,6 +49,22 @@ const BoolBadge: React.FC<{ value: boolean }> = ({ value }) => (
     {value ? "✓" : "✗"}
   </span>
 );
+
+const formatContextLength = (n: number) => {
+  if (n >= 1_000_000) {
+    return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  }
+  if (n >= 1_000) {
+    return `${Math.round(n / 1000)}K`;
+  }
+  return n.toLocaleString();
+};
+
+const formatTokens = (n: number) => {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return `${n}`;
+};
 
 const ModelTooltip: React.FC<ModelTooltipProps> = ({ model, x, y }) => {
   const hasImageUpload =
@@ -174,6 +192,9 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
   const [providerAccounts, setProviderAccounts] = useState<Account[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [accountSearchQuery, setAccountSearchQuery] = useState("");
+  const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
+    new Set(),
+  );
 
   // accounts count per provider_id
   const [accountCountMap, setAccountCountMap] = useState<
@@ -347,6 +368,18 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
     });
   };
 
+  const toggleProvider = (providerId: string) => {
+    setCollapsedProviders((prev) => {
+      const next = new Set(prev);
+      if (next.has(providerId)) {
+        next.delete(providerId);
+      } else {
+        next.add(providerId);
+      }
+      return next;
+    });
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -359,10 +392,8 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
           right: 0,
           height: "50vh",
           maxHeight: "50vh",
-          backgroundColor: "var(--primary-bg)",
+          backgroundColor: "var(--tertiary-bg)",
           borderTop: "1px solid var(--border-color)",
-          borderTopLeftRadius: "12px",
-          borderTopRightRadius: "12px",
           boxShadow: "0 -8px 24px rgba(0, 0, 0, 0.2)",
           zIndex: 1000,
           display: "flex",
@@ -391,79 +422,49 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                   setAccountSearchQuery("");
                 }}
                 style={{
-                  background: "transparent",
+                  background: "rgba(128,128,128,0.1)",
                   border: "none",
                   cursor: "pointer",
-                  padding: "4px",
-                  marginLeft: "-6px",
+                  padding: "6px",
+                  borderRadius: "6px",
                   color: "var(--secondary-text)",
                   display: "flex",
                   alignItems: "center",
-                  transition: "color 0.2s",
                 }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.color = "var(--primary-text)")
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.color = "var(--secondary-text)")
-                }
               >
                 <ChevronLeft size={16} />
               </button>
             )}
-            <span
-              style={{
-                fontSize: "17px",
-                fontWeight: 700,
-                color: "var(--primary-text)",
-                letterSpacing: "0.01em",
-              }}
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "2px" }}
             >
-              {step === "model" ? "Quick Switch" : "Select Account"}
-            </span>
+              <span
+                style={{
+                  fontSize: "17px",
+                  fontWeight: 700,
+                  color: "var(--primary-text)",
+                  letterSpacing: "0.01em",
+                }}
+              >
+                {step === "model" ? "Quick Switch" : "Select Account"}
+              </span>
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: "var(--secondary-text)",
+                  opacity: 0.7,
+                }}
+              >
+                {step === "model"
+                  ? "Choose a model to continue"
+                  : selectedModel
+                    ? `${selectedModel.provider_id}/${selectedModel.id}`
+                    : ""}
+              </span>
+            </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {step === "account" && selectedModel && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  fontSize: "11px",
-                  color: "var(--secondary-text)",
-                  padding: "2px 8px",
-                  backgroundColor: "var(--hover-bg)",
-                  borderRadius: "4px",
-                }}
-              >
-                {(() => {
-                  const provider = providers.find(
-                    (p) => p.provider_id === selectedModel.provider_id,
-                  );
-                  const faviconUrl = getFaviconUrl(provider?.website);
-                  return (
-                    faviconUrl && (
-                      <img
-                        src={faviconUrl}
-                        alt=""
-                        style={{
-                          width: "12px",
-                          height: "12px",
-                          borderRadius: "2px",
-                        }}
-                        onError={(e) =>
-                          (e.currentTarget.style.display = "none")
-                        }
-                      />
-                    )
-                  );
-                })()}
-                <span style={{ fontWeight: 500 }}>
-                  {selectedModel.provider_id}/{selectedModel.id}
-                </span>
-              </div>
-            )}
             <button
               onClick={onClose}
               style={{
@@ -485,7 +486,6 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
         {step === "model" ? (
           <div
             style={{
-              padding: "12px",
               display: "flex",
               flexDirection: "column",
               height: "100%",
@@ -496,20 +496,10 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
             <div
               style={{
                 position: "relative",
-                marginBottom: "12px",
+                padding: "12px 12px 0 12px",
                 flexShrink: 0,
               }}
             >
-              <Search
-                size={14}
-                style={{
-                  position: "absolute",
-                  left: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--secondary-text)",
-                }}
-              />
               <input
                 autoFocus
                 type="text"
@@ -518,26 +508,30 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "6px 10px 6px 30px",
-                  backgroundColor: "var(--input-bg)",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "4px",
-                  color: "var(--primary-text)",
+                  padding: "8px 12px 8px 32px",
                   fontSize: "13px",
+                  backgroundColor: "var(--input-bg)",
+                  border: "none",
+                  borderRadius: "8px",
+                  color: "var(--primary-text)",
                   outline: "none",
                   boxSizing: "border-box",
+                  height: "34px",
                 }}
               />
             </div>
 
             <div
               className="custom-scrollbar"
-              style={{ flex: 1, overflowY: "auto" }}
+              style={{ flex: 1, overflowY: "auto", padding: "12px" }}
             >
               {filteredProviders.map((provider) => {
                 const accountCount = accountCountMap[provider.provider_id] ?? 0;
                 const hasModels = provider.models.length > 0;
                 const hasAccounts = accountCount > 0;
+                const isCollapsed = collapsedProviders.has(
+                  provider.provider_id,
+                );
 
                 return (
                   <div
@@ -546,16 +540,18 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                   >
                     {/* Provider header — now larger & primary text */}
                     <div
+                      onClick={() => toggleProvider(provider.provider_id)}
                       style={{
-                        fontSize: "13px",
+                        fontSize: "14px",
                         fontWeight: 700,
                         color: "var(--primary-text)",
                         paddingBottom: "5px",
-                        borderBottom: "1px solid var(--border-color)",
                         marginBottom: "8px",
                         display: "flex",
                         alignItems: "center",
                         gap: "6px",
+                        cursor: "pointer",
+                        userSelect: "none",
                       }}
                     >
                       {getFaviconUrl(provider.website) && (
@@ -563,9 +559,9 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                           src={getFaviconUrl(provider.website)}
                           alt="favicon"
                           style={{
-                            width: "14px",
-                            height: "14px",
-                            borderRadius: "2px",
+                            width: "16px",
+                            height: "16px",
+                            borderRadius: "3px",
                           }}
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display =
@@ -578,138 +574,224 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                         <span
                           style={{
                             marginLeft: "auto",
-                            fontSize: "11px",
+                            fontSize: "13px",
                             fontWeight: 400,
                             opacity: 0.55,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
                           }}
                         >
                           {accountCount} account{accountCount !== 1 ? "s" : ""}
+                          {isCollapsed ? (
+                            <ChevronRight size={15} />
+                          ) : (
+                            <ChevronDown size={15} />
+                          )}
                         </span>
                       )}
                     </div>
 
-                    {/* No accounts warning */}
-                    {!isLoadingAccountMap && !hasAccounts && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          padding: "7px 10px",
-                          marginBottom: "6px",
-                          borderRadius: "4px",
-                          backgroundColor: "rgba(234, 179, 8, 0.08)",
-                          border: "1px solid rgba(234, 179, 8, 0.3)",
-                          fontSize: "11.5px",
-                          color: "#eab308",
-                        }}
-                      >
-                        <span>⚠</span>
-                        <span>No accounts added for this provider</span>
-                      </div>
-                    )}
-
-                    {/* No models warning */}
-                    {!hasModels && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                          padding: "7px 10px",
-                          borderRadius: "4px",
-                          backgroundColor: "rgba(239, 68, 68, 0.08)",
-                          border: "1px solid rgba(239, 68, 68, 0.3)",
-                          fontSize: "11.5px",
-                          color: "#ef4444",
-                        }}
-                      >
-                        <span>✕</span>
-                        <span>No models available for this provider</span>
-                      </div>
-                    )}
-
-                    {/* Model rows */}
-                    {hasModels &&
-                      provider.models.map((model) => {
-                        const isDisabled = !hasAccounts;
-                        return (
+                    {!isCollapsed && (
+                      <>
+                        {/* No accounts warning */}
+                        {!isLoadingAccountMap && !hasAccounts && (
                           <div
-                            key={model.id}
-                            onClick={() => {
-                              if (isDisabled) return;
-                              setSelectedModel({
-                                ...model,
-                                provider_id: provider.provider_id,
-                              });
-                              setStep("account");
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!isDisabled)
-                                e.currentTarget.style.backgroundColor =
-                                  "var(--hover-bg)";
-                              handleModelMouseEnter(model, e);
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor =
-                                "transparent";
-                              handleModelMouseLeave();
-                            }}
                             style={{
-                              padding: "7px 12px",
-                              cursor: isDisabled ? "not-allowed" : "pointer",
-                              borderRadius: "4px",
                               display: "flex",
                               alignItems: "center",
-                              justifyContent: "space-between",
-                              opacity: isDisabled ? 0.45 : 1,
+                              gap: "6px",
+                              padding: "7px 10px",
+                              marginBottom: "6px",
+                              borderRadius: "4px",
+                              backgroundColor: "rgba(234, 179, 8, 0.08)",
+                              border: "1px solid rgba(234, 179, 8, 0.3)",
+                              fontSize: "11.5px",
+                              color: "#eab308",
                             }}
                           >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                                width: "100%",
-                              }}
-                            >
-                              <span
+                            <span>⚠</span>
+                            <span>No accounts added for this provider</span>
+                          </div>
+                        )}
+
+                        {/* No models warning */}
+                        {!hasModels && (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                              padding: "7px 10px",
+                              borderRadius: "4px",
+                              backgroundColor: "rgba(239, 68, 68, 0.08)",
+                              border: "1px solid rgba(239, 68, 68, 0.3)",
+                              fontSize: "11.5px",
+                              color: "#ef4444",
+                            }}
+                          >
+                            <span>✕</span>
+                            <span>No models available for this provider</span>
+                          </div>
+                        )}
+
+                        {/* Model rows */}
+                        {hasModels &&
+                          provider.models.map((model) => {
+                            const isDisabled = !hasAccounts;
+                            const successColor =
+                              model.success_rate >= 80
+                                ? "#4ade80"
+                                : model.success_rate >= 50
+                                  ? "#facc15"
+                                  : "#f87171";
+                            return (
+                              <div
+                                key={model.id}
+                                onClick={() => {
+                                  if (isDisabled) return;
+                                  setSelectedModel({
+                                    ...model,
+                                    provider_id: provider.provider_id,
+                                  });
+                                  setStep("account");
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isDisabled)
+                                    e.currentTarget.style.backgroundColor =
+                                      "var(--hover-bg)";
+                                  handleModelMouseEnter(model, e);
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor =
+                                    "transparent";
+                                  handleModelMouseLeave();
+                                }}
                                 style={{
-                                  fontSize: "12px",
-                                  fontWeight: 400,
-                                  color: "var(--secondary-text)",
+                                  padding: "8px 12px",
+                                  cursor: isDisabled
+                                    ? "not-allowed"
+                                    : "pointer",
+                                  borderRadius: "6px",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: "4px",
+                                  opacity: isDisabled ? 0.45 : 1,
                                 }}
                               >
-                                {model.name}
-                              </span>
-                              {model.success_rate != null && (
-                                <span
+                                {/* Dòng 1: model.name + Thinking badge + capabilities + success rate */}
+                                <div
                                   style={{
-                                    fontSize: "10.5px",
-                                    color:
-                                      model.success_rate >= 80
-                                        ? "#4ade80"
-                                        : model.success_rate >= 50
-                                          ? "#facc15"
-                                          : "#f87171",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "6px",
+                                    flexWrap: "wrap",
                                   }}
                                 >
-                                  {model.success_rate.toFixed(1)}% success
-                                </span>
-                              )}
-                            </div>
-                            {!isDisabled && (
-                              <ChevronRight
-                                size={13}
-                                style={{
-                                  color: "var(--secondary-text)",
-                                  opacity: 0.5,
-                                }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
+                                  <span
+                                    style={{
+                                      fontSize: "13px",
+                                      fontWeight: 600,
+                                      color: "var(--primary-text)",
+                                    }}
+                                  >
+                                    {model.name}
+                                  </span>
+                                  {model.is_thinking && (
+                                    <span
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "4px",
+                                        fontSize: "10px",
+                                        fontWeight: 500,
+                                        padding: "1px 6px",
+                                        borderRadius: "4px",
+                                        backgroundColor:
+                                          "rgba(167,139,250,0.12)",
+                                        color: "#a78bfa",
+                                      }}
+                                    >
+                                      <Brain size={11} />
+                                      Thinking
+                                    </span>
+                                  )}
+                                  {model.is_search && (
+                                    <Search
+                                      size={12}
+                                      style={{ color: "var(--secondary-text)" }}
+                                    />
+                                  )}
+                                  {model.max_context_length != null && (
+                                    <span
+                                      style={{
+                                        fontSize: "10.5px",
+                                        color: "var(--secondary-text)",
+                                        opacity: 0.7,
+                                      }}
+                                    >
+                                      {formatContextLength(
+                                        model.max_context_length,
+                                      )}
+                                    </span>
+                                  )}
+                                  {model.is_video_upload && (
+                                    <Video
+                                      size={12}
+                                      style={{ color: "var(--secondary-text)" }}
+                                    />
+                                  )}
+                                  {model.is_image_upload && (
+                                    <Image
+                                      size={12}
+                                      style={{ color: "var(--secondary-text)" }}
+                                    />
+                                  )}
+                                  {model.success_rate != null && (
+                                    <span
+                                      style={{
+                                        marginLeft: "auto",
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "4px",
+                                        fontSize: "11px",
+                                        color: successColor,
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <Circle
+                                        size={10}
+                                        fill={successColor}
+                                        color={successColor}
+                                      />
+                                      {model.success_rate.toFixed(1)}%
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Dòng 2: description */}
+                                {model.description && (
+                                  <div
+                                    style={{
+                                      fontSize: "11px",
+                                      color: "var(--secondary-text)",
+                                      opacity: 0.7,
+                                      lineHeight: 1.4,
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 1,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                    }}
+                                  >
+                                    {model.description}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                      </>
+                    )}
                   </div>
                 );
               })}
@@ -732,7 +814,6 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
           /* Account step */
           <div
             style={{
-              padding: "12px",
               display: "flex",
               flexDirection: "column",
               height: "100%",
@@ -742,20 +823,10 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
             <div
               style={{
                 position: "relative",
-                marginBottom: "12px",
+                padding: "12px 12px 0 12px",
                 flexShrink: 0,
               }}
             >
-              <Search
-                size={14}
-                style={{
-                  position: "absolute",
-                  left: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--secondary-text)",
-                }}
-              />
               <input
                 autoFocus
                 type="text"
@@ -764,21 +835,22 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                 onChange={(e) => setAccountSearchQuery(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "6px 10px 6px 30px",
-                  backgroundColor: "var(--input-bg)",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "4px",
-                  color: "var(--primary-text)",
+                  padding: "8px 12px 8px 32px",
                   fontSize: "13px",
+                  backgroundColor: "var(--input-bg)",
+                  border: "none",
+                  borderRadius: "8px",
+                  color: "var(--primary-text)",
                   outline: "none",
                   boxSizing: "border-box",
+                  height: "34px",
                 }}
               />
             </div>
 
             <div
               className="custom-scrollbar"
-              style={{ flex: 1, overflowY: "auto" }}
+              style={{ flex: 1, overflowY: "auto", padding: "12px" }}
             >
               {isLoadingAccounts ? (
                 <div
@@ -827,10 +899,10 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                       style={{
                         padding: "8px 12px",
                         cursor: "pointer",
-                        borderRadius: "4px",
+                        borderRadius: "8px",
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "space-between",
+                        gap: "10px",
                         transition: "background-color 0.2s",
                       }}
                       onMouseEnter={(e) =>
@@ -841,15 +913,71 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                         (e.currentTarget.style.backgroundColor = "transparent")
                       }
                     >
-                      <span
+                      <div
                         style={{
+                          width: "28px",
+                          height: "28px",
+                          borderRadius: "7px",
+                          backgroundColor: "rgba(128,128,128,0.1)",
+                          color: "var(--secondary-text)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                           fontSize: "13px",
-                          fontWeight: 400,
-                          color: "var(--primary-text)",
+                          fontWeight: 600,
+                          flexShrink: 0,
                         }}
                       >
-                        {acc.email || acc.name || acc.id}
-                      </span>
+                        {(acc.email?.[0] || acc.name?.[0] || "?").toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 500,
+                            color: "var(--primary-text)",
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {acc.email || acc.name || acc.id}
+                        </span>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginTop: "2px",
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              fontSize: "10px",
+                              color: "var(--secondary-text)",
+                            }}
+                          >
+                            <Activity size={11} style={{ color: "#22c55e" }} />
+                            {(acc.period_requests ?? 0).toLocaleString()} req
+                          </span>
+                          <span
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              fontSize: "10px",
+                              color: "var(--secondary-text)",
+                            }}
+                          >
+                            <Coins size={11} style={{ color: "#f97316" }} />
+                            {formatTokens(acc.period_tokens ?? 0)} tokens
+                          </span>
+                        </div>
+                      </div>
                       {acc.usage && (
                         <span
                           style={{
@@ -875,6 +1003,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                               acc.usage.toLowerCase().includes("unknown")
                                 ? "1px solid rgba(239, 68, 68, 0.2)"
                                 : "1px solid rgba(34, 197, 94, 0.2)",
+                            flexShrink: 0,
                           }}
                         >
                           {acc.usage}

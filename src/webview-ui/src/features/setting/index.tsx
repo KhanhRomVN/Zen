@@ -19,7 +19,12 @@ import React, { useState } from "react";
 
 // ── Components ──
 import { LANGUAGES } from "./components/LanguageSelector";
-import UniversalAIProviderForm from "./components/UniversalAIProviderForm";
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+} from "@/components/ui/Dropdown";
 
 // ── Hooks ──
 import { useSettings } from "../../context/SettingsContext";
@@ -33,20 +38,22 @@ interface SettingsPanelProps {
 // ─── Constants ──────────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "10px 12px",
+  padding: "8px 12px",
+  fontSize: "13px",
   backgroundColor: "var(--input-bg)",
-  border: "1px solid var(--border-color)",
-  borderRadius: "6px",
+  border: "none",
+  borderRadius: "8px",
   color: "var(--primary-text)",
-  fontSize: "14px",
   outline: "none",
   boxSizing: "border-box",
+  height: "34px",
 };
 
 // ─── Component ──────────────────────────────────────────────────────────
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
   // ── State ──
   const [closeHover, setCloseHover] = useState(false);
+  const [activeTab, setActiveTab] = useState("General");
 
   // ── Store ──
   const {
@@ -56,8 +63,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
     setAiLanguage,
     commitMessageLanguage,
     setCommitMessageLanguage,
-    maxFilesPerSession,
-    setMaxFilesPerSession,
   } = useSettings();
 
   if (!isOpen) return null;
@@ -164,6 +169,38 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         </div>
       </div>
 
+      {/* Tabbar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          padding: "0 16px",
+          borderBottom: "1px solid var(--border-color)",
+          backgroundColor: "var(--tertiary-bg)",
+          flexShrink: 0,
+        }}
+      >
+        {["General", "Feature", "About"].map((tab) => (
+          <span
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: "10px 12px",
+              fontSize: "13px",
+              fontWeight: activeTab === tab ? 600 : 400,
+              color: activeTab === tab ? "var(--primary-text)" : "var(--secondary-text)",
+              cursor: "pointer",
+              borderBottom: activeTab === tab ? "2px solid var(--vscode-focusBorder, #007acc)" : "2px solid transparent",
+              transition: "all 0.15s ease",
+              userSelect: "none",
+            }}
+          >
+            {tab}
+          </span>
+        ))}
+      </div>
+
       {/* Content */}
       <div
         style={{
@@ -175,208 +212,284 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
           gap: "20px",
         }}
       >
-        {/* Backend API URL */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            Backend API URL
-          </label>
-          <input
-            type="text"
-            value={apiUrl}
-            onChange={(e) => setApiUrl(e.target.value)}
-            placeholder="http://localhost:8888"
-            style={inputStyle}
-          />
-          <div
-            style={{
-              fontSize: "11px",
-              color: "var(--secondary-text)",
-              opacity: 0.7,
-              marginTop: "2px",
-            }}
-          >
-            The proxy server or mock server URL (e.g. http://localhost:8888)
-          </div>
-        </div>
+        {activeTab === "General" && (
+          <>
+            {/* Backend API URL */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "var(--primary-text)",
+                }}
+              >
+                Backend API URL
+              </label>
+              <input
+                type="text"
+                value={apiUrl}
+                onChange={(e) => setApiUrl(e.target.value)}
+                placeholder="http://localhost:8888"
+                style={inputStyle}
+              />
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "var(--secondary-text)",
+                  opacity: 0.7,
+                  marginTop: "2px",
+                }}
+              >
+                The proxy server or mock server URL (e.g. http://localhost:8888)
+              </div>
+            </div>
 
-        {/* AI Language Selection */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            AI Language
-          </label>
-          <select
-            value={aiLanguage}
-            onChange={(e) => setAiLanguage(e.target.value)}
-            style={{
-              ...inputStyle,
-              cursor: "pointer",
-            }}
-          >
-            {LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.name}>
-                {lang.flag} {lang.name}
-              </option>
-            ))}
-          </select>
-          <div
-            style={{
-              fontSize: "11px",
-              color: "var(--secondary-text)",
-              opacity: 0.7,
-              marginTop: "2px",
-            }}
-          >
-            Language used for AI reasoning (&lt;thinking&gt;) and explanations
-            (&lt;markdown&gt;)
-          </div>
-        </div>
+            {/* AI Language Selection */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "var(--primary-text)",
+                }}
+              >
+                AI Language
+              </label>
+              <Dropdown align="start" side="bottom" sideOffset={4}>
+                <DropdownTrigger asChild>
+                  <button
+                    type="button"
+                    style={{
+                      ...inputStyle,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span>{LANGUAGES.find((l) => l.name === aiLanguage)?.flag || "🌐"}</span>
+                      <span>{aiLanguage}</span>
+                    </span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                </DropdownTrigger>
+                <DropdownContent className="language-dropdown-content">
+                  {LANGUAGES.map((lang) => (
+                    <DropdownItem
+                      key={lang.code}
+                      icon={<span>{lang.flag}</span>}
+                      onClick={() => setAiLanguage(lang.name)}
+                    >
+                      {lang.name}
+                    </DropdownItem>
+                  ))}
+                </DropdownContent>
+              </Dropdown>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "var(--secondary-text)",
+                  opacity: 0.7,
+                  marginTop: "2px",
+                }}
+              >
+                Language used for AI reasoning (&lt;thinking&gt;) and explanations
+                (&lt;markdown&gt;)
+              </div>
+            </div>
 
-        {/* Commit Message Language Selection */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            Commit Message Language
-          </label>
-          <select
-            value={commitMessageLanguage}
-            onChange={(e) =>
-              setCommitMessageLanguage(e.target.value as "en" | "vi")
-            }
-            style={{
-              ...inputStyle,
-              cursor: "pointer",
-            }}
-          >
-            <option value="en">🇬🇧 English</option>
-            <option value="vi">🇻🇳 Tiếng Việt</option>
-          </select>
-          <div
-            style={{
-              fontSize: "11px",
-              color: "var(--secondary-text)",
-              opacity: 0.7,
-              marginTop: "2px",
-            }}
-          >
-            Language used to generate commit messages from git status
-          </div>
-        </div>
+            {/* Commit Message Language Selection */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <label
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "var(--primary-text)",
+                }}
+              >
+                Commit Message Language
+              </label>
+              <Dropdown align="start" side="bottom" sideOffset={4}>
+                <DropdownTrigger asChild>
+                  <button
+                    type="button"
+                    style={{
+                      ...inputStyle,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span>
+                        {LANGUAGES.find((l) => l.code === commitMessageLanguage)?.flag || "🌐"}
+                      </span>
+                      <span>
+                        {LANGUAGES.find((l) => l.code === commitMessageLanguage)?.name || commitMessageLanguage}
+                      </span>
+                    </span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+                </DropdownTrigger>
+                <DropdownContent className="language-dropdown-content">
+                  {LANGUAGES.map((lang) => (
+                    <DropdownItem
+                      key={lang.code}
+                      icon={<span>{lang.flag}</span>}
+                      onClick={() => setCommitMessageLanguage(lang.code)}
+                    >
+                      {lang.name}
+                    </DropdownItem>
+                  ))}
+                </DropdownContent>
+              </Dropdown>
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "var(--secondary-text)",
+                  opacity: 0.7,
+                  marginTop: "2px",
+                }}
+              >
+                Language used to generate commit messages from git status
+              </div>
+            </div>
+          </>
+        )}
 
-        {/* Target OS & Shell Environment */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            Target OS & Shell
-          </label>
-          <div
-            style={{
-              fontSize: "12px",
-              color: "var(--secondary-text)",
-              opacity: 0.75,
-              marginTop: "-4px",
-            }}
-          >
-            Operating system & shell conventions for CLI command execution
-          </div>
+        {activeTab === "About" && (
           <div
             style={{
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: "12px",
-              padding: "10px 14px",
-              borderRadius: "8px",
-              border: "1px solid var(--border-color)",
-              backgroundColor: "var(--input-bg)",
+              gap: "16px",
+              padding: "32px 16px",
+              textAlign: "center",
             }}
           >
-            <span style={{ fontSize: "18px" }}>⚡</span>
-            <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-              <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--primary-text)" }}>
-                Auto Detect
-              </span>
-              <span style={{ fontSize: "11px", color: "var(--secondary-text)", opacity: 0.8 }}>
-                Automatically detects host environment (Windows / Linux / macOS) for CLI execution
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Max Files Per Session */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <label
-            style={{
-              fontSize: "14px",
-              fontWeight: 600,
-              color: "var(--primary-text)",
-            }}
-          >
-            Max Files Per Session
-          </label>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={maxFilesPerSession}
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val)) {
-                  setMaxFilesPerSession(val);
-                }
-              }}
+            <img
+              src={`${(window as any).__zenImagesUri}/icon.png`}
+              alt="Zen Logo"
               style={{
-                ...inputStyle,
-                width: "100px",
-                flexShrink: 0,
+                width: "72px",
+                height: "72px",
+                objectFit: "contain",
+                borderRadius: "16px",
               }}
             />
-            <span
+            <div>
+              <div
+                style={{
+                  fontSize: "24px",
+                  fontWeight: 800,
+                  color: "var(--primary-text)",
+                }}
+              >
+                Zen
+              </div>
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "var(--secondary-text)",
+                  opacity: 0.8,
+                  marginTop: "4px",
+                }}
+              >
+                AI-powered coding assistant extension for VSCode
+              </p>
+            </div>
+            <div
               style={{
-                fontSize: "13px",
-                color: "var(--secondary-text)",
+                width: "100%",
+                maxWidth: "400px",
+                padding: "16px",
+                borderRadius: "12px",
+                border: "1px solid var(--border-color)",
+                backgroundColor: "var(--tertiary-bg)",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
               }}
             >
-              files per conversation session
-            </span>
+              <span style={{ fontSize: "20px" }}>👨‍💻</span>
+              <div style={{ textAlign: "left" }}>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "var(--primary-text)",
+                  }}
+                >
+                  Developer
+                </div>
+                <a
+                  href="https://github.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--vscode-textLink-foreground, #3794ff)",
+                    textDecoration: "none",
+                    marginTop: "2px",
+                    display: "inline-block",
+                  }}
+                >
+                  github.com
+                </a>
+              </div>
+            </div>
           </div>
+        )}
+
+        {activeTab === "Feature" && (
           <div
             style={{
-              fontSize: "11px",
+              textAlign: "center",
               color: "var(--secondary-text)",
               opacity: 0.7,
-              marginTop: "2px",
+              fontSize: "13px",
+              padding: "32px 16px",
             }}
           >
-            Maximum number of files AI can read or write in a single conversation session.
-            Default: 5. Range: 1–100.
+            Feature settings coming soon
           </div>
-        </div>
-
-        {/* Universal AI Provider */}
-        <UniversalAIProviderForm />
+        )}
       </div>
+
+      <style>
+        {`
+          .language-dropdown-content > div {
+            max-height: 180px !important;
+          }
+        `}
+      </style>
     </div>
   );
 };
