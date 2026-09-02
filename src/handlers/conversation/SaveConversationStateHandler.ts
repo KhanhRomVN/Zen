@@ -5,6 +5,7 @@
  *? Function:
  *    handleSaveConversationState(): Lưu trạng thái hội thoại với debounce 1s, chỉ ghi khi có thay đổi.
  */
+
 import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";

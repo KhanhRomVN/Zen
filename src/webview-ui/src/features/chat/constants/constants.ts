@@ -258,6 +258,12 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     },
   },
 
+  conversation_title: {
+    id: "conversation_title",
+    title: "TITLE",
+    category: "ui",
+  },
+
   // ===== UI TAGS (category: "ui") =====
   markdown: {
     id: "markdown",

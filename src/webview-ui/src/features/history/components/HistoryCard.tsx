@@ -27,12 +27,16 @@ import { extensionService } from "../../../services/ExtensionService";
 // ── Types ──
 import { ConversationItem } from "../types";
 
+// [DEBUG] conversation_title — remove after fix
+let loggedFirstHistoryCard = false;
+
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface HistoryCardProps {
   item: ConversationItem;
   onClick: () => void;
   onDelete: (id: string, e: React.MouseEvent) => void;
   formatDate: (timestamp: number) => string;
+  providerFavicons?: Record<string, string>;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
@@ -41,6 +45,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   onClick,
   onDelete,
   formatDate,
+  providerFavicons,
 }) => {
   // ── State ──
   const [menuVisible, setMenuVisible] = React.useState(false);
@@ -64,6 +69,10 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
       ? item.title.substring(0, 57) + "..."
       : item.title
     : "Untitled";
+
+  if (!loggedFirstHistoryCard) {
+    loggedFirstHistoryCard = true;
+  }
 
   // Token badge color based on amount
   const getTokenColor = (n: number) => {
@@ -133,18 +142,20 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   };
 
   // Get provider_id/model_id from messages
-  const getModelId = (): string | null => {
-    if (!messages.length) return null;
+  const getModelInfo = (): {
+    providerId: string | null;
+    modelId: string | null;
+  } => {
+    if (!messages.length) return { providerId: null, modelId: null };
     // Find first assistant message with modelId and providerId
     const assistantMsg = messages.find(
       (msg: any) => msg.role === "assistant" && (msg.modelId || msg.providerId),
     );
-    if (!assistantMsg) return null;
-    const provider = assistantMsg.providerId || "";
-    const model = assistantMsg.modelId || "";
-    return provider && model
-      ? `${provider}/${model}`
-      : model || provider || null;
+    if (!assistantMsg) return { providerId: null, modelId: null };
+    return {
+      providerId: assistantMsg.providerId || null,
+      modelId: assistantMsg.modelId || null,
+    };
   };
 
   // Calculate request count and response count
@@ -188,7 +199,11 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   };
 
   const userContent = getUserContent();
-  const modelId = getModelId();
+  const messagesModelInfo = getModelInfo();
+  const providerId =
+    item.providerId || item.provider || messagesModelInfo.providerId;
+  const modelId = item.modelId || messagesModelInfo.modelId;
+  const favicon = providerId ? providerFavicons?.[providerId] : null;
   const { requests, responses } = getRequestResponseCounts();
   const timestamp = item.lastModified || item.timestamp || item.createdAt || 0;
   const timeText = formatTimeText(timestamp);
@@ -230,6 +245,9 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
       ) {
         window.removeEventListener("message", handler);
         if (data.data?.messages) {
+          const firstAssistant = data.data.messages.find(
+            (msg: any) => msg.role === "assistant" && !msg.isError,
+          );
           setMessages(data.data.messages);
           // Update cache if available
           if ((window as any).ConversationCache) {
@@ -348,7 +366,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
               flex: 1,
             }}
           >
-            {userContent || title}
+            {item.title ? title : userContent || title}
           </span>
 
           {/* TimeText - now on the right of Row 1 */}
@@ -389,6 +407,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
+                  gap: "4px",
                   padding: "0 6px",
                   borderRadius: "3px",
                   backgroundColor: "rgba(128,128,128,0.06)",
@@ -399,7 +418,16 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
                   letterSpacing: "0.3px",
                 }}
               >
-                {modelId}
+                {favicon && (
+                  <img
+                    src={favicon}
+                    alt=""
+                    width={10}
+                    height={10}
+                    style={{ borderRadius: "2px", flexShrink: 0 }}
+                  />
+                )}
+                {providerId ? `${providerId}/${modelId}` : modelId}
               </div>
             )}
 

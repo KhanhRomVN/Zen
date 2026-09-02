@@ -179,7 +179,6 @@ export const saveConversation = async (
         title:
           title ||
           existingTitle ||
-          messages[0]?.content.substring(0, 100) ||
           "New Conversation",
         lastModified: skipTimestampUpdate
           ? existingLastModified || Date.now()

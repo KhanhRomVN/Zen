@@ -100,8 +100,7 @@ const ModelDistributionCard: React.FC<Props> = ({
   return (
     <div
       style={{
-        backgroundColor: "var(--vscode-sideBar-background, rgba(0,0,0,0.15))",
-        border: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
+        backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
         borderRadius: "8px",
         padding: "14px",
         boxSizing: "border-box",

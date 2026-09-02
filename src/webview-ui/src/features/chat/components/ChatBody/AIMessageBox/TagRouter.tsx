@@ -255,6 +255,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
     return <ThinkingRenderer content={group.content} />;
   }
 
+  if (group.type === "conversation_title") {
+    return null; // Title handled elsewhere (header/state) — nothing to render in chat body
+  }
+
   // Handle tools group - rest of the original logic
   if (group.type !== "tools") {
     return null;
@@ -1123,6 +1127,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         ))}
       </>
     );
+  }
+
+  if (toolType === "conversation_title") {
+    return null; // Display-only tool — title updated in backend, nothing to render
   }
 
   // Fallback for non-styled tools

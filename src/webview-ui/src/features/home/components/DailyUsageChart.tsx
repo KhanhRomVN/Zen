@@ -3,7 +3,7 @@
  * DailyUsageChart
  * ------------------------------------------------------------------
  * Biểu đồ đường hiển thị số requests theo giờ trong ngày.
- * Phân biệt giờ đã qua (line màu) và giờ tương lai (vùng tối).
+ * Dùng đường cong mượt (Catmull-Rom → cubic bezier) thay vì polyline gấp khúc.
 
  * Main features:
  * - Vẽ line chart 24 giờ với area fill
@@ -20,11 +20,32 @@ import React, { useRef, useState, useEffect } from "react";
 interface HourEntry { date: string; requests: number; tokens: number; }
 interface Props { usage: HourEntry[]; title: string; }
 
-// ─── Constants ���─────────────────────────────────────────────────────────
+// ─── Constants ──────────────────────────────────────────────────────────
 const LINE_COLOR = "var(--vscode-textLink-foreground, #3b82f6)";
-const CHART_H = 60;
+const CHART_H = 120;
 const CHART_W = 600; // viewBox width, scales with container
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+// ─── Helpers ────────────────────────────────────────────────────────────
+interface Point { x: number; y: number; }
+
+// Catmull-Rom → cubic bezier path
+function buildSmoothPath(points: Point[]): string {
+  if (points.length < 2) return "";
+  let d = `M ${points[0].x},${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
 
 // ─── Component ──────────────────────────────────────────────────────────
 const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
@@ -52,13 +73,12 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
     return CHART_H - (req / maxReq) * CHART_H;
   };
 
-  // Build polyline points for past/present hours only
-  const pastPoints = HOURS.filter((h) => h <= currentHour)
-    .map((h) => `${xOf(h)},${yOf(h)}`).join(" ");
-
-  // Future line (flat at bottom or dashed)
-  const futurePoints = HOURS.filter((h) => h >= currentHour)
-    .map((h) => `${xOf(h)},${CHART_H}`).join(" ");
+  // Build smooth path for past/present hours only
+  const pastPointsData = HOURS.filter((h) => h <= currentHour).map((h) => ({
+    x: xOf(h),
+    y: yOf(h),
+  }));
+  const pastPath = buildSmoothPath(pastPointsData);
 
   // Area fill under past line
   const areaPoints = [
@@ -93,8 +113,7 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
   // ── Render ──
   return (
     <div style={{
-      backgroundColor: "var(--vscode-sideBar-background, rgba(0,0,0,0.15))",
-      border: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
+      backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
       borderRadius: "8px",
       padding: "14px",
       boxSizing: "border-box",
@@ -119,23 +138,14 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
           </defs>
 
           {/* Area fill */}
-          {pastPoints && (
+          {pastPointsData.length > 1 && (
             <polygon points={areaPoints} fill="url(#lineAreaGrad)" />
           )}
 
-          {/* Past line */}
-          {pastPoints && (
-            <polyline points={pastPoints} fill="none" stroke={LINE_COLOR} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+          {/* Past line — smooth curve */}
+          {pastPath && (
+            <path d={pastPath} fill="none" stroke={LINE_COLOR} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
           )}
-
-          {/* Future overlay rect */}
-          <rect
-            x={xOf(currentHour)}
-            y={0}
-            width={CHART_W - xOf(currentHour)}
-            height={CHART_H}
-            fill="rgba(0,0,0,0.35)"
-          />
 
           {/* Hover dot */}
           {tooltip !== null && (

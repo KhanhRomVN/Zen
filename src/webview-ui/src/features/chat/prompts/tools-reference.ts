@@ -21,8 +21,14 @@ Use XML tags for all tool calls:
 <grep><search_term>string</search_term><file_path>path/to/file</file_path></grep>
 <grep><search_term>string</search_term><folder_path>path/to/folder</folder_path></grep>
 <delete_file><file_path>path/to/file</file_path></delete_file>
+<conversation_title>Short title for this conversation</conversation_title>
 <run_command><command>your command here</command></run_command>
 <run_command><command>your command here</command><folder_path>path/to/folder</folder_path></run_command>
+**conversation_title**: Set or update the title of the current conversation. This is a UI tag (like thinking/markdown) — not an executable tool. Call it whenever you want to set or refresh the conversation title, including on your first response. You MUST call it again whenever the current task or goal changes from the existing title. Do NOT treat this as a one-time action — if the user switches to a new task, refresh the title immediately.
+- Text content: The title (required). Keep it short and specific (max ~80 characters), written in the user's language.
+- Examples:
+  - \`<conversation_title>Chào hỏi</conversation_title>\` — first response to a greeting
+  - \`<conversation_title>Fix login bug</conversation_title>\` — when starting a concrete task
 **revert_file**: Undo the last change made to a file using VSCode's undo functionality. Each call undoes one change in the file's edit history.
 - \`file_path\`: Path to the file to revert
 - \`version\`: (optional) Version number to revert to. If provided, reverts to that specific replace_in_file version and deletes all versions after it. If omitted, reverts to the last checkpoint (single undo).

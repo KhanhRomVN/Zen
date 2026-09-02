@@ -28,4 +28,6 @@ export interface ConversationItem {
   totalTasks?: number;
   completedTasks?: number;
   uniqueTaskCount?: number;
+  providerId?: string;
+  modelId?: string;
 }

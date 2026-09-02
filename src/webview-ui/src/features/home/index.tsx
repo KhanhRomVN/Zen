@@ -27,6 +27,7 @@ import StatsGrid from "./components/StatsGrid";
 import RecentActivity from "./components/RecentActivity";
 import ModelDistributionCard from "./components/ModelDistributionCard";
 import DailyUsageChart from "./components/DailyUsageChart";
+import InstallationBanner from "./components/InstallationBanner";
 
 // ── Hooks ──
 import { useSettings } from "../../context/SettingsContext";
@@ -81,6 +82,33 @@ const DashboardStats = React.memo(
   }) => {
     const renderCountRef = React.useRef(0);
     renderCountRef.current++;
+
+    const percentChanges = React.useMemo(() => {
+      const sorted = [...dailyUsage].sort((a, b) =>
+        b.date.localeCompare(a.date),
+      );
+      const today = sorted[0];
+      const yesterday = sorted[1];
+      const tokenChange = yesterday?.tokens
+        ? ((today.tokens - yesterday.tokens) / yesterday.tokens) * 100
+        : null;
+      const requestChange = yesterday?.requests
+        ? ((today.requests - yesterday.requests) / yesterday.requests) * 100
+        : null;
+      const totalModelRequests = modelDistribution.reduce(
+        (s: number, m: any) => s + m.total_requests,
+        0,
+      );
+      const favModel = modelDistribution.find(
+        (m: any) => m.model_id === favoriteModel,
+      );
+      const favShare =
+        totalModelRequests > 0 && favModel
+          ? (favModel.total_requests / totalModelRequests) * 100
+          : null;
+      return [tokenChange, requestChange, favShare, null];
+    }, [dailyUsage, modelDistribution, favoriteModel]);
+
     return (
       <div
         style={{
@@ -95,6 +123,7 @@ const DashboardStats = React.memo(
           todayRequests={todayRequests}
           favoriteModel={favoriteModel}
           totalAccounts={totalAccounts}
+          percentChanges={percentChanges}
         />
 
         <ModelDistributionCard
@@ -110,6 +139,7 @@ const DashboardStats = React.memo(
           conversations={sortedConversations}
           isLoading={isLoading}
           onLoadConversation={onLoadConversation}
+          providerFavicons={providerFavicons}
         />
       </div>
     );
@@ -449,7 +479,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "12px",
+              gap: "0",
               textAlign: "center",
               width: "100%",
             }}
@@ -498,7 +528,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
                 alignItems: "center",
                 justifyContent: "center",
                 overflow: "hidden",
-                margin: "0",
+                margin: "0 0 12px 0",
               }}
             >
               <div
@@ -515,108 +545,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
               </div>
             </div>
 
-            {/* AIWeb2API prerequisite alert - Prominent box */}
-            <div
-              style={{
-                padding: "16px 18px",
-                borderRadius: "10px",
-                background:
-                  "linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)",
-                border: "2px solid rgba(59, 130, 246, 0.3)",
-                boxShadow:
-                  "0 4px 12px rgba(59, 130, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                display: "flex",
-                alignItems: "flex-start",
-                textAlign: "left",
-                width: "100%",
-                marginBottom: "20px",
-                boxSizing: "border-box",
-                position: "relative",
-                overflow: "hidden",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow =
-                  "0 6px 20px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 4px 12px rgba(59, 130, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)";
-              }}
-            >
-              {/* Animated background gradient */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  background:
-                    "linear-gradient(45deg, transparent 30%, rgba(59, 130, 246, 0.05) 50%, transparent 70%)",
-                  backgroundSize: "200% 200%",
-                  animation: "shimmer 3s ease-in-out infinite",
-                  pointerEvents: "none",
-                }}
-              />
-              <div
-                style={{
-                  fontSize: "12.5px",
-                  color: "var(--vscode-foreground)",
-                  lineHeight: "1.5",
-                  position: "relative",
-                  zIndex: 1,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    color: "var(--vscode-textLink-activeForeground, #3b82f6)",
-                    marginBottom: "6px",
-                    letterSpacing: "0.3px",
-                  }}
-                >
-                  ⚡ PREREQUISITE REQUIRED
-                </div>
-                Zen requires{" "}
-                <a
-                  href="https://github.com/KhanhRomVN/AIWeb2API"
-                  target="_blank"
-                  style={{
-                    color: "var(--vscode-textLink-activeForeground, #3b82f6)",
-                    textDecoration: "none",
-                    fontWeight: 700,
-                    borderBottom: "2px solid rgba(59, 130, 246, 0.4)",
-                    paddingBottom: "1px",
-                    transition: "all 0.2s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderBottomColor =
-                      "var(--vscode-textLink-activeForeground, #3b82f6)";
-                    e.currentTarget.style.paddingBottom = "2px";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderBottomColor =
-                      "rgba(59, 130, 246, 0.4)";
-                    e.currentTarget.style.paddingBottom = "1px";
-                  }}
-                >
-                  AIWeb2API
-                </a>{" "}
-                backend running. Make sure AIWeb2API is installed and running
-                before using Zen.
-              </div>
-            </div>
-
-            <style>{`
-              @keyframes shimmer {
-                0% { background-position: -200% 0; }
-                100% { background-position: 200% 0; }
-              }
-            `}</style>
+            <InstallationBanner />
           </div>
 
           {/* Dashboard content */}

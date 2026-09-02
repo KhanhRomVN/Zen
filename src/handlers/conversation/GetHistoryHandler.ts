@@ -41,6 +41,23 @@ export class GetHistoryHandler {
       });
 
       const history = [];
+      let loggedFirst = false;
+
+      // Helper: trích xuất providerId/modelId từ messages
+      const extractModelInfo = (messages: any[]): {
+        providerId?: string;
+        modelId?: string;
+      } => {
+        const assistantMsg = messages.find(
+          (m: any) =>
+            m.role === "assistant" && (m.modelId || m.providerId),
+        );
+        return {
+          providerId: assistantMsg?.providerId,
+          modelId: assistantMsg?.modelId,
+        };
+      };
+
       for (const entry of entries) {
         if (entry.isFile() && entry.name.endsWith(".json")) {
           try {
@@ -51,10 +68,16 @@ export class GetHistoryHandler {
             const data = JSON.parse(content);
             const conversationId = entry.name.replace(".json", "");
             if (!Array.isArray(data) && data.metadata) {
+              if (!loggedFirst) {
+                loggedFirst = true;
+              }
+              const modelInfo = extractModelInfo(data.messages || []);
               history.push({
                 ...data.metadata,
                 id: conversationId,
                 messageCount: data.messages?.length || 0,
+                providerId: modelInfo.providerId,
+                modelId: modelInfo.modelId,
               });
             } else if (Array.isArray(data) && data.length > 0) {
               const userMessages = data.filter((m: any) => m.role === "user");
@@ -75,6 +98,7 @@ export class GetHistoryHandler {
                 .trim()
                 .substring(0, 100);
 
+              const modelInfo = extractModelInfo(data);
               history.push({
                 id: conversationId,
                 title,
@@ -87,6 +111,8 @@ export class GetHistoryHandler {
                   (sum: number, m: any) => sum + (m.token_usage || 0),
                   0,
                 ),
+                providerId: modelInfo.providerId,
+                modelId: modelInfo.modelId,
               });
             }
           } catch {}

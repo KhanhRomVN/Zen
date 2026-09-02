@@ -1,4 +1,3 @@
-import * as path from "path";
 /**
  *? Usage:
  *    Quản lý đường dẫn tập trung cho thư mục context của dự án.
@@ -8,6 +7,7 @@ import * as path from "path";
  *    getProjectContextDir(): Trả về đường dẫn context cho workspace (dùng hash MD5).
  */
 
+import * as path from "path";
 import * as crypto from "crypto";
 import * as os from "os";
 

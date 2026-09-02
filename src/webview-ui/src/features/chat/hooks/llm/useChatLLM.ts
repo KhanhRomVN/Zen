@@ -801,6 +801,11 @@ export const useChatLLM = ({
           );
         }
 
+        const conversationTitleBlock = parsed?.contentBlocks?.find(
+          (b: any) => b.type === "conversation_title",
+        );
+        const conversationTitle = conversationTitleBlock?.content;
+
         saveConversation(
           sessionId,
           folderPath,
@@ -808,7 +813,7 @@ export const useChatLLM = ({
           effectiveChatUuid,
           selectedTab || undefined,
           false,
-          undefined,
+          conversationTitle,
           backendConversationId || backendConversationIdRef.current,
           undefined,
           undefined,

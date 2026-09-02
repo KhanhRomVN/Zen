@@ -18,6 +18,7 @@ The following XML tags are the ONLY valid tool tags. Using any other tag names w
 - \`<commit_message>\` - Generate commit message
 
 **Response Tags (NOT tools):**
+- \`<conversation_title>\` - Set/update conversation title. **Required: call it in your first response, and call it again whenever the current task/goal changes from the previous conversation title. Do NOT treat this as a one-time action — always refresh the title when the conversation shifts to a new task.** Keep the title short (max ~80 chars), written in the user's language.
 - \`<thinking>\` - Your private reasoning
 - \`<markdown>\` - Text responses to user
 - \`<code language="...">\` - Display code

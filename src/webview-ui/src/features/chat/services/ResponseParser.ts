@@ -17,6 +17,7 @@ import { parseCommitMessage } from "./parsers/CommitMessageParser";
 import { parseMarkdown } from "./parsers/MarkdownParser";
 import { parseQuestion } from "./parsers/QuestionParser";
 import { parseThinking } from "./parsers/ThinkingParser";
+import { parseConversationTitle } from "./parsers/ConversationTitleParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
 import { TagType } from "../types/tag-types";
 
@@ -112,6 +113,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     "markdown", // Special display tag
     "code", // Special display tag
     "question", // Special display tag
+    "conversation_title", // Special display tag
   ];
 
   // Fix missing opening bracket for the first tool call due to prefix/prefill stripping.
@@ -336,24 +338,32 @@ export const parseAIResponse = (content: string): ParsedResponse => {
 
         if (toolName === "markdown") {
           const raw = innerContent || "";
-          const questionMatch = /<question(?:\s+[^>]*)?>([\s\S]*?)<\/question>/i.exec(raw);
+          const questionMatch =
+            /<question(?:\s+[^>]*)?>([\s\S]*?)<\/question>/i.exec(raw);
           if (questionMatch) {
             const preText = raw.substring(0, questionMatch.index);
             const questionRaw = questionMatch[0];
-            const postText = raw.substring(questionMatch.index + questionRaw.length);
+            const postText = raw.substring(
+              questionMatch.index + questionRaw.length,
+            );
 
             if (preText.trim().length > 0) {
               pushTextOrCodeBlocks("markdown", parseMarkdown(preText));
             }
 
             const parsedQ = parseQuestion(questionMatch[1]);
-            if (parsedQ.options.length > 0 || (parsedQ.questions && parsedQ.questions.length > 0)) {
+            if (
+              parsedQ.options.length > 0 ||
+              (parsedQ.questions && parsedQ.questions.length > 0)
+            ) {
               const qBlock: ContentBlock = {
                 type: "question",
                 options: parsedQ.options,
                 title: parsedQ.title,
                 optional: parsedQ.optional,
-                ...(parsedQ.questions && parsedQ.questions.length > 0 ? { questions: parsedQ.questions } : {}),
+                ...(parsedQ.questions && parsedQ.questions.length > 0
+                  ? { questions: parsedQ.questions }
+                  : {}),
               };
               result.contentBlocks.push(qBlock);
               result.question = qBlock;
@@ -556,6 +566,14 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             if (options.length > 0) {
               result.followupOptions = options;
             }
+          }
+        } else if (toolName === "conversation_title") {
+          const content = parseConversationTitle(innerContent || "");
+          if (content.title && content.title.trim().length > 0) {
+            result.contentBlocks.push({
+              type: "conversation_title",
+              content: content.title,
+            });
           }
         } else {
           // It's a tool - delegate to individual tag parsers

@@ -36,6 +36,7 @@ export type GroupType =
     }
   | { type: "warning"; label: string; message: string; key: string }
   | { type: "thinking"; content: string; key: string }
+  | { type: "conversation_title"; content: string; key: string }
   | { type: "response_number"; content: string; key: string };
 
 /**
@@ -56,6 +57,7 @@ export type ContentBlock =
     }
   | { type: "tool"; action: ToolAction; actionIndex?: number }
   | { type: "thinking"; content: string }
+  | { type: "conversation_title"; content: string }
   | {
       type: "error";
       content: string;
