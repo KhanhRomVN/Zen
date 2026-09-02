@@ -40,8 +40,9 @@ export interface FlatAccount extends Account {
   total_requests?: number;
   successful_requests?: number;
   total_tokens?: number;
-  daily_requests?: number;
-  daily_tokens?: number;
+  period_requests?: number;
+  period_tokens?: number;
+  user_data_dir?: string;
   max_req_conversation?: number;
   max_token_conversation?: number;
   isActive?: boolean;

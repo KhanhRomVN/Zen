@@ -79,51 +79,89 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         flexDirection: "column",
       }}
     >
-      {/* Header */}
+      {/* Header - Following AccountsPanel style */}
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "16px 20px",
-          borderBottom: "1px solid var(--border-color)",
-          backgroundColor: "var(--panel-bg)",
+          padding: "16px 16px 7px",
+          borderTop: "1px solid var(--border-color)",
+          flexShrink: 0,
+          backgroundColor: "var(--tertiary-bg)",
         }}
       >
-        <h2
+        <div
           style={{
-            margin: 0,
-            fontSize: "16px",
-            fontWeight: 600,
-            color: "var(--primary-text)",
-          }}
-        >
-          Zen Settings
-        </h2>
-        <button
-          onClick={onClose}
-          onMouseEnter={() => setCloseHover(true)}
-          onMouseLeave={() => setCloseHover(false)}
-          style={{
-            background: "none",
-            border: "none",
-            color: closeHover ? "#fff" : "var(--secondary-text)",
-            cursor: "pointer",
-            fontSize: "18px",
-            padding: "4px 8px",
-            borderRadius: "4px",
-            lineHeight: 1,
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            transition: "all 0.15s ease",
-            backgroundColor: closeHover
-              ? "rgba(255, 255, 255, 0.1)"
-              : "transparent",
+            justifyContent: "space-between",
+            gap: "12px",
           }}
         >
-          ✕
-        </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div>
+              <div style={{ marginBottom: "3px" }}>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "16px",
+                    color: "var(--primary-text)",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  Zen Settings
+                </span>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "13px",
+                  color: "var(--secondary-text)",
+                  opacity: 0.7,
+                  lineHeight: 1.4,
+                }}
+              >
+                Configure Zen extension settings
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            onMouseEnter={() => setCloseHover(true)}
+            onMouseLeave={() => setCloseHover(false)}
+            style={{
+              padding: "5px",
+              borderRadius: "6px",
+              flexShrink: 0,
+              backgroundColor: closeHover
+                ? "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.12))"
+                : "rgba(128,128,128,0.1)",
+              border: "none",
+              color: closeHover
+                ? "var(--vscode-errorForeground)"
+                : "var(--secondary-text)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            title="Close Settings"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Content */}

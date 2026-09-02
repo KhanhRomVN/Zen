@@ -44,6 +44,7 @@ import {
 
 // ── Hooks ──
 import { useAccounts } from "./hooks/useAccounts";
+import { useSettings } from "../../context/SettingsContext";
 
 // ── Services ──
 import { extensionService } from "../../services/ExtensionService";
@@ -62,6 +63,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
   // ── State ──
   const [dialogOpen, setDialogOpen] = useState(false);
   const [closeHover, setCloseHover] = useState(false);
+  const { apiUrl } = useSettings();
 
   // ── Store ──
   const {
@@ -87,6 +89,8 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     setProviderFilter,
     emailFilter,
     setEmailFilter,
+    statsPeriod,
+    setStatsPeriod,
     switchKiroAccount,
   } = useAccounts(isOpen);
 
@@ -95,21 +99,32 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     accounts.length > 0 &&
     accounts.every((acc) => selectedAccounts.has(acc.id));
 
+  const sortedProviderConfigs = [...providerConfigs].sort((a, b) => {
+    if (a.is_enabled === b.is_enabled) return 0;
+    return a.is_enabled ? -1 : 1;
+  });
+
   // ── Handlers ──
-  const handleImport = async () => {
-    try {
-      extensionService.postMessage({ command: "importAccounts" });
-      // Re-fetch after a brief delay to pick up any imported accounts
-      setTimeout(
-        () => fetchAccounts(pagination.page, pagination.limit, true),
-        800,
-      );
-    } catch (error) {
-      console.error("Failed to import:", error);
-    }
+  const handleImport = () => {
+    extensionService.postMessage({
+      command: "importAccounts",
+      apiUrl,
+      requestId: `import-${Date.now()}`,
+    });
+    setTimeout(
+      () => fetchAccounts(pagination.page, pagination.limit, true),
+      1200,
+    );
   };
 
-  const handleExport = async () => {};
+  const handleExport = () => {
+    const fileName = `zen-${accounts.length}-${Date.now()}.json`;
+    extensionService.postMessage({
+      command: "exportAccounts",
+      fileName,
+      content: JSON.stringify(accounts, null, 2),
+    });
+  };
 
   const handlePrevPage = () => {
     if (pagination.page > 1) {
@@ -325,9 +340,10 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               >
                 All Providers [{accounts.length}]
               </DropdownItem>
-              {providerConfigs.map((provider) => (
+              {sortedProviderConfigs.map((provider) => (
                 <DropdownItem
                   key={provider.provider_id}
+                  disabled={provider.is_enabled === false}
                   icon={
                     <img
                       src={getFaviconUrl(provider.website)}
@@ -560,6 +576,46 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
       )}
+
+      {/* Header: label + period tab bar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", marginTop: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--primary-text)" }}>List Account</span>
+          <span style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            padding: "2px 6px",
+            borderRadius: "6px",
+            backgroundColor: "rgba(128,128,128,0.1)",
+            color: "var(--secondary-text)",
+          }}>
+            {accounts.length}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "4px", backgroundColor: "var(--input-bg)", padding: "3px", borderRadius: "8px" }}>
+          {(["day", "week", "month"] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setStatsPeriod(p)}
+              style={{
+                padding: "4px 12px",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: statsPeriod === p
+                  ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
+                  : "transparent",
+                color: statsPeriod === p ? "var(--vscode-button-background)" : "var(--secondary-text)",
+                fontSize: "11px",
+                fontWeight: 500,
+                cursor: "pointer",
+                textTransform: "capitalize",
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Account List */}
       <div

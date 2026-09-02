@@ -115,39 +115,77 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         flexDirection: "column",
       }}
     >
-      {/* Header */}
+      {/* Header - Following AccountsPanel style */}
       <div
         style={{
-          padding: "16px var(--spacing-md) 14px",
+          padding: "16px 16px 7px",
           borderTop: "1px solid var(--border-color)",
-          borderBottom: "1px solid var(--border-color)",
           flexShrink: 0,
           backgroundColor: "var(--tertiary-bg)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "12px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {/* Icon badge - VSCode theme neutral */}
-          <div
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div>
+              <div style={{ marginBottom: "3px" }}>
+                <span
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "16px",
+                    color: "var(--primary-text)",
+                    letterSpacing: "0.01em",
+                  }}
+                >
+                  History
+                </span>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "13px",
+                  color: "var(--secondary-text)",
+                  opacity: 0.7,
+                  lineHeight: 1.4,
+                }}
+              >
+                Restore and manage conversation history
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            onMouseEnter={() => setCloseHover(true)}
+            onMouseLeave={() => setCloseHover(false)}
             style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
+              padding: "5px",
+              borderRadius: "6px",
               flexShrink: 0,
-              background: "rgba(128,128,128,0.1)",
+              backgroundColor: closeHover
+                ? "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.12))"
+                : "rgba(128,128,128,0.1)",
+              border: "none",
+              color: closeHover
+                ? "var(--vscode-errorForeground)"
+                : "var(--secondary-text)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "var(--vscode-foreground)",
             }}
+            title="Close History"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="18"
-              height="18"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -155,84 +193,17 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <rect width="20" height="5" x="2" y="3" rx="1" />
-              <path d="M4 8v11a2 2 0 0 0 2 2h2" />
-              <path d="M20 8v11a2 2 0 0 1-2 2h-2" />
-              <path d="m9 15 3-3 3 3" />
-              <path d="M12 12v9" />
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
             </svg>
-          </div>
-          <div>
-            <div style={{ marginBottom: "3px" }}>
-              <span
-                style={{
-                  fontWeight: 700,
-                  fontSize: "14px",
-                  color: "var(--primary-text)",
-                  letterSpacing: "0.01em",
-                }}
-              >
-                History
-              </span>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "12px",
-                color: "var(--secondary-text)",
-                opacity: 0.7,
-                lineHeight: 1.4,
-              }}
-            >
-              Restore and manage conversation history
-            </p>
-          </div>
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          onMouseEnter={() => setCloseHover(true)}
-          onMouseLeave={() => setCloseHover(false)}
-          style={{
-            padding: "5px",
-            borderRadius: "6px",
-            flexShrink: 0,
-            backgroundColor: closeHover
-              ? "rgba(239,68,68,0.12)"
-              : "rgba(128,128,128,0.12)",
-            border: "none",
-            color: closeHover
-              ? "var(--vscode-errorForeground, #f87171)"
-              : "var(--secondary-text)",
-            cursor: "pointer",
-            transition: "all 0.15s ease",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-          title="Close History"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
       </div>
 
       {/* Search */}
       <div
         style={{
-          padding: "var(--spacing-md)",
-          borderBottom: "1px solid var(--border-color)",
+          padding: "8px 16px 12px",
           backgroundColor: "var(--tertiary-bg)",
           display: "flex",
           gap: "8px",
@@ -249,15 +220,14 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
               width: "100%",
               paddingLeft: "32px",
               paddingRight: "var(--spacing-md)",
-              paddingTop: "6px",
-              paddingBottom: "6px",
-              fontSize: "var(--font-size-sm)",
+              fontSize: "13px",
               backgroundColor: "var(--input-bg)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "var(--border-radius)",
+              border: "none",
+              borderRadius: "8px",
               color: "var(--primary-text)",
               outline: "none",
               boxSizing: "border-box",
+              height: "34px",
             }}
           />
           <Search

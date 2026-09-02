@@ -25,14 +25,14 @@ import { Loader2, X, AlertCircle, ShieldCheck } from "lucide-react";
 // ── Hooks ──
 import { useSettings } from "../../../context/SettingsContext";
 
-// ── Utils ��─
-import { getFaviconUrl } from "../utils";
-
+// ── Utils ──
+import { getFaviconUrl } from "@/utils/favicon";
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface Provider {
   provider_id: string;
   provider_name: string;
   website: string;
+  website_url?: string;
   icon?: string;
   is_enabled?: boolean;
   auth_methods?: string[];
@@ -60,7 +60,8 @@ const ProviderRow: React.FC<{
   const [hovered, setHovered] = useState(false);
 
   // ── Derived ──
-  const iconUrl = getFaviconUrl(provider.website);
+  const iconUrl = getFaviconUrl(provider.website_url || provider.website);
+  console.log("[AddAccountDrawer] favicon", provider.provider_id, provider.website_url || provider.website, iconUrl);
   const disabled = provider.is_enabled === false || loading;
 
   const connectionType = provider.connection_type || "https";
@@ -108,11 +109,10 @@ const ProviderRow: React.FC<{
         gap: "12px",
         padding: "10px 12px",
         borderRadius: "10px",
-        border: "1px solid var(--border-color)",
         backgroundColor:
           hovered && !disabled
             ? "var(--hover-bg, rgba(128,128,128,0.07))"
-            : "var(--secondary-bg)",
+            : "var(--input-bg)",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.45 : 1,
         transition: "all 0.13s ease",
@@ -124,7 +124,6 @@ const ProviderRow: React.FC<{
           width: "38px",
           height: "38px",
           borderRadius: "10px",
-          backgroundColor: "rgba(128,128,128,0.1)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -137,7 +136,13 @@ const ProviderRow: React.FC<{
             src={iconUrl}
             alt={provider.provider_name}
             style={{ width: "22px", height: "22px", objectFit: "contain" }}
-            onError={() => setImgError(true)}
+            onLoad={() =>
+              console.log("[AddAccountDrawer] favicon loaded", provider.provider_id)
+            }
+            onError={() => {
+              console.error("[AddAccountDrawer] favicon failed", provider.provider_id, iconUrl);
+              setImgError(true);
+            }}
           />
         ) : (
           <span
@@ -160,7 +165,6 @@ const ProviderRow: React.FC<{
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
             gap: "8px",
           }}
         >
@@ -204,34 +208,27 @@ const ProviderRow: React.FC<{
         >
           <span
             style={{
-              fontSize: "11px",
+              fontSize: "10px",
+              padding: "1px 6px",
+              borderRadius: "4px",
+              backgroundColor: "rgba(128,128,128,0.1)",
               color: "var(--secondary-text)",
-              opacity: 0.7,
             }}
           >
             {platform}
           </span>
           {authMethod && (
-            <>
-              <span
-                style={{
-                  fontSize: "10px",
-                  color: "var(--secondary-text)",
-                  opacity: 0.4,
-                }}
-              >
-                ·
-              </span>
-              <span
-                style={{
-                  fontSize: "11px",
-                  color: "var(--secondary-text)",
-                  opacity: 0.7,
-                }}
-              >
-                {authMethod}
-              </span>
-            </>
+            <span
+              style={{
+                fontSize: "10px",
+                padding: "1px 6px",
+                borderRadius: "4px",
+                backgroundColor: "rgba(128,128,128,0.1)",
+                color: "var(--secondary-text)",
+              }}
+            >
+              {authMethod}
+            </span>
           )}
           {provider.is_enabled === false && (
             <span
@@ -250,28 +247,7 @@ const ProviderRow: React.FC<{
         </div>
       </div>
 
-      {/* Arrow */}
-      {!disabled && (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{
-            color: "var(--secondary-text)",
-            opacity: 0.4,
-            flexShrink: 0,
-          }}
-        >
-          <path d="m9 18 6-6-6-6" />
-        </svg>
-      )}
-    </div>
+      </div>
   );
 };
 
@@ -307,8 +283,31 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     y: number;
   } | null>(null);
 
+  // Login countdown state
+  const [loginCountdown, setLoginCountdown] = useState(30);
+
   // ── Store ──
   const { apiUrl } = useSettings();
+
+  // ── Effects ──
+  useEffect(() => {
+    if (!loading) {
+      setLoginCountdown(30);
+      return;
+    }
+    const timer = setInterval(() => {
+      setLoginCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onOpenChange(false);
+          setLoading(false);
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [loading]);
 
   // ── Derived ──
   const sharedBackdrop = (onClickBackdrop: () => void) => (
@@ -333,8 +332,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         right: 0,
         backgroundColor: "var(--tertiary-bg)",
         borderTop: "1px solid var(--border-color)",
-        borderTopLeftRadius: "18px",
-        borderTopRightRadius: "18px",
         boxShadow: "0 -8px 32px rgba(0,0,0,0.25)",
         zIndex: 201,
         height,
@@ -343,24 +340,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         animation: "aaSlideUp 0.22s ease",
       }}
     >
-      {/* Drag handle */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          padding: "10px 0 6px",
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: "32px",
-            height: "3px",
-            borderRadius: "2px",
-            backgroundColor: "var(--border-color)",
-          }}
-        />
-      </div>
       {children}
     </div>
   );
@@ -1036,7 +1015,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
           {/* Header */}
           <div
             style={{
-              padding: "4px 16px 12px",
+              padding: "12px 16px 12px",
               borderBottom: "1px solid var(--border-color)",
               display: "flex",
               alignItems: "center",
@@ -1068,7 +1047,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
             <button
               onClick={() => onOpenChange(false)}
               style={{
-                padding: "7px",
+                padding: "6px",
                 borderRadius: "6px",
                 border: "none",
                 backgroundColor: "rgba(128,128,128,0.1)",
@@ -1078,7 +1057,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 alignItems: "center",
               }}
             >
-              <X size={17} />
+              <X size={16} />
             </button>
           </div>
 
@@ -1237,17 +1216,37 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "8px",
+                gap: "12px",
                 color: "var(--secondary-text)",
                 fontSize: "12px",
                 flexShrink: 0,
               }}
             >
-              <Loader2
-                size={14}
-                style={{ animation: "aaSpin 1s linear infinite" }}
-              />
-              Logging in…
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Loader2
+                  size={14}
+                  style={{ animation: "aaSpin 1s linear infinite" }}
+                />
+                Logging in…
+              </div>
+              <button
+                onClick={() => {
+                  onOpenChange(false);
+                  setLoading(false);
+                }}
+                style={{
+                  padding: "5px 10px",
+                  borderRadius: "6px",
+                  backgroundColor: "rgba(128,128,128,0.1)",
+                  border: "none",
+                  color: "var(--secondary-text)",
+                  fontSize: "11px",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel {loginCountdown}s
+              </button>
             </div>
           )}
         </>,

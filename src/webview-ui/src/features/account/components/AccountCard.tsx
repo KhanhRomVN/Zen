@@ -15,14 +15,24 @@
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ──
 import React, { useState, useEffect } from "react";
-import ReactDOM from "react-dom";
 
 // ── UI ──
-import { Trash2, RefreshCw, CheckCircle } from "lucide-react";
+import { Trash2, RefreshCw, CheckCircle, Activity, Coins, Fingerprint, KeyRound, BarChart3, Clock, FolderOpen, Copy } from "lucide-react";
+
+// ── Components ──
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownContent,
+  DropdownItem,
+} from "../../../components/ui/Dropdown";
 
 // ── Utils ──
 import { CopyableText } from "../utils";
 import { getFaviconUrl } from "@/utils/favicon";
+
+// ── Services ──
+import { extensionService } from "../../../services/ExtensionService";
 
 // ── Types ──
 import { FlatAccount } from "../types";
@@ -90,9 +100,12 @@ const AccountCard: React.FC<AccountCardProps> = ({
   providerConfig,
 }) => {
   // ── State ──
-  const [showMenu, setShowMenu] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
   const [expanded, setExpanded] = useState(false);
+
+  // ── Effects ──
+  useEffect(() => {
+    if (anySelected) setExpanded(false);
+  }, [anySelected]);
 
   // ── Derived ──
   const providerIconUrl = providerConfig?.website
@@ -107,24 +120,10 @@ const AccountCard: React.FC<AccountCardProps> = ({
       minute: "2-digit",
     });
 
-  // ── Effects ──
-  useEffect(() => {
-    if (!showMenu) return;
-    const close = () => setShowMenu(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [showMenu]);
-
   // ── Handlers ──
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setMenuPosition({ x: e.clientX, y: e.clientY });
-    setShowMenu(true);
-  };
-
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (anySelected) return;
     setExpanded(!expanded);
   };
 
@@ -133,9 +132,7 @@ const AccountCard: React.FC<AccountCardProps> = ({
     onToggleSelect();
   };
 
-  const handleCopyAccount = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowMenu(false);
+  const handleCopyAccount = () => {
     const data = {
       id: account.id,
       provider_id: account.provider_id,
@@ -148,102 +145,21 @@ const AccountCard: React.FC<AccountCardProps> = ({
       total_requests: account.total_requests ?? null,
       successful_requests: account.successful_requests ?? null,
       total_tokens: account.total_tokens ?? null,
-      daily_requests: account.daily_requests ?? null,
-      daily_tokens: account.daily_tokens ?? null,
+      period_requests: account.period_requests ?? null,
+      period_tokens: account.period_tokens ?? null,
     };
     navigator.clipboard.writeText(JSON.stringify(data, null, 2));
   };
 
   // ── Render ──
-  // Portal-based context menu
-  const contextMenu = showMenu
-    ? ReactDOM.createPortal(
-        <div
-          onMouseDown={(e) => e.stopPropagation()}
-          style={{
-            position: "fixed",
-            top: menuPosition.y,
-            left: menuPosition.x,
-            backgroundColor: "var(--tertiary-bg)",
-            border: "1px solid var(--border-color)",
-            borderRadius: "10px",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-            zIndex: 99999,
-            minWidth: "180px",
-            overflow: "hidden",
-          }}
-        >
-          {/* Select */}
-          <button
-            onMouseDown={(e) => { e.stopPropagation(); setShowMenu(false); onToggleSelect(); }}
-            style={menuBtnStyle}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--hover-bg)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12.034 12.681a.498.498 0 0 1 .647-.647l9 3.5a.5.5 0 0 1-.033.943l-3.444 1.068a1 1 0 0 0-.66.66l-1.067 3.443a.5.5 0 0 1-.943.033z" />
-              <path d="M5 3a2 2 0 0 0-2 2" /><path d="M19 3a2 2 0 0 1 2 2" />
-              <path d="M5 21a2 2 0 0 1-2-2" /><path d="M9 3h1" /><path d="M9 21h2" />
-              <path d="M14 3h1" /><path d="M3 9v1" /><path d="M21 9v2" /><path d="M3 14v1" />
-            </svg>
-            <span>{isSelected ? "Deselect" : "Select"} Account</span>
-          </button>
-
-          {/* Copy JSON */}
-          <button
-            onMouseDown={handleCopyAccount}
-            style={menuBtnStyle}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--hover-bg)")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-            </svg>
-            <span>Copy as JSON</span>
-          </button>
-
-          {/* Switch */}
-          {account.is_active_cli === false && (
-            <button
-              onMouseDown={(e) => { e.stopPropagation(); setShowMenu(false); onSwitch(); }}
-              style={menuBtnStyle}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--hover-bg)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-            >
-              <RefreshCw size={12} />
-              <span>Switch to CLI</span>
-            </button>
-          )}
-
-          {/* Delete */}
-          <button
-            onMouseDown={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(); }}
-            style={{ ...menuBtnStyle, color: "var(--vscode-errorForeground, #f87171)" }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.1))";
-            }}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
-          >
-            <Trash2 size={12} />
-            <span>Delete Account</span>
-          </button>
-        </div>,
-        document.body,
-      )
-    : null;
-
   return (
-    <div
-      className="account-card"
-      onContextMenu={handleContextMenu}
-      style={{
-        backgroundColor: isSelected
-          ? "var(--vscode-list-activeSelectionBackground, rgba(99,102,241,0.08))"
-          : "var(--input-bg)",
-        border: "none",
+    <Dropdown trigger="contextmenu" align="end" side="right">
+      <DropdownTrigger asChild>
+        <div
+          className="account-card"
+          style={{
+        backgroundColor: "var(--input-bg)",
+        border: isSelected ? "1px dashed var(--vscode-focusBorder)" : "none",
         borderRadius: "12px",
         transition: "all 0.2s ease",
         position: "relative",
@@ -260,8 +176,8 @@ const AccountCard: React.FC<AccountCardProps> = ({
               left: "8px",
               top: "50%",
               transform: "translateY(-50%)",
-              width: "18px",
-              height: "18px",
+              width: "14px",
+              height: "14px",
               borderRadius: "4px",
               border: isSelected
                 ? "1px solid var(--vscode-focusBorder)"
@@ -350,38 +266,21 @@ const AccountCard: React.FC<AccountCardProps> = ({
               <span style={{ color: "var(--secondary-text)" }}>{account.email || "No email"}</span>
             </p>
 
-            {/* Daily stats */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px", flexWrap: "wrap" }}>
-              {account.total_requests !== undefined && account.total_requests > 0 && (
-                <span style={{ fontSize: "9px", color: "var(--secondary-text)", opacity: 0.6 }}>
-                  {account.total_requests.toLocaleString()} req
-                </span>
-              )}
-              {account.total_tokens !== undefined && account.total_tokens > 0 && (
-                <span style={{ fontSize: "9px", color: "var(--secondary-text)", opacity: 0.6 }}>
-                  •{" "}
-                  {account.total_tokens >= 1000000
-                    ? (account.total_tokens / 1000000).toFixed(1) + "M"
-                    : account.total_tokens >= 1000
-                      ? (account.total_tokens / 1000).toFixed(1) + "k"
-                      : account.total_tokens}{" "}
-                  tokens
-                </span>
-              )}
-              {account.successful_requests !== undefined &&
-                account.total_requests !== undefined &&
-                account.total_requests > 0 && (
-                  <span style={{
-                    fontSize: "9px",
-                    opacity: 0.8,
-                    color: account.successful_requests / account.total_requests > 0.8
-                      ? "var(--vscode-testing-iconPassed, #22c55e)"
-                      : "var(--vscode-editorWarning-foreground, #f97316)",
-                  }}>
-                    •{" "}
-                    {Math.round((account.successful_requests / account.total_requests) * 100)}% success rate
-                  </span>
-                )}
+            {/* Period stats */}
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "2px" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)" }}>
+                <Activity size={11} style={{ color: "var(--vscode-testing-iconPassed, #22c55e)" }} />
+                {(account.period_requests ?? 0).toLocaleString()} req
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)" }}>
+                <Coins size={11} style={{ color: "var(--vscode-editorWarning-foreground, #f97316)" }} />
+                {account.period_tokens !== undefined && account.period_tokens >= 1000000
+                  ? (account.period_tokens / 1000000).toFixed(1) + "M"
+                  : account.period_tokens !== undefined && account.period_tokens >= 1000
+                    ? (account.period_tokens / 1000).toFixed(1) + "k"
+                    : account.period_tokens ?? 0}{" "}
+                tokens
+              </span>
             </div>
           </div>
 
@@ -434,27 +333,29 @@ const AccountCard: React.FC<AccountCardProps> = ({
       {/* Expanded detail section */}
       {expanded && (
         <div style={{
-          padding: "10px 0",
           borderTop: "1px solid var(--border-color)",
-          backgroundColor: "var(--vscode-list-hoverBackground, rgba(128,128,128,0.04))",
+          backgroundColor: "var(--input-bg)",
           fontSize: "12px",
+          borderRadius: "0 0 12px 12px",
+          overflow: "hidden",
         }}>
           <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
+            display: "flex",
+            flexDirection: "column",
             gap: "10px",
-            marginBottom: "10px",
-            padding: "0 12px",
+            padding: "10px 12px",
           }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                <Fingerprint size={10} />
                 Account ID
               </div>
               <CopyableText value={account.id} monospace />
             </div>
 
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                <KeyRound size={10} />
                 Credential
               </div>
               <CopyableText value={account.credential || ""} monospace />
@@ -462,7 +363,8 @@ const AccountCard: React.FC<AccountCardProps> = ({
 
             {(account.usage != null || account.reset_period != null) && (
               <div>
-                <div style={{ fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                  <BarChart3 size={10} />
                   Usage
                 </div>
                 <div style={{ fontSize: "11px", fontWeight: 500, color: "var(--primary-text)" }}>
@@ -478,7 +380,8 @@ const AccountCard: React.FC<AccountCardProps> = ({
 
             {account.last_refreshed_at != null && (
               <div>
-                <div style={{ fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                  <Clock size={10} />
                   Last Refreshed
                 </div>
                 <div style={{ fontSize: "11px", fontWeight: 500, color: "var(--primary-text)" }}>
@@ -488,21 +391,28 @@ const AccountCard: React.FC<AccountCardProps> = ({
             )}
           </div>
 
-          <div style={{
-            fontSize: "10px",
-            color: "var(--secondary-text)",
-            textAlign: "center",
-            paddingTop: "8px",
-            margin: "0 12px",
-            borderTop: "1px dashed var(--border-color)",
-            opacity: 0.6,
-          }}>
+          <div
+            onClick={() => setExpanded(false)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "10px",
+              color: "var(--secondary-text)",
+              paddingTop: "8px",
+              paddingBottom: "8px",
+              borderTop: "1px dashed var(--border-color)",
+              borderRadius: "0 0 12px 12px",
+              cursor: "pointer",
+              transition: "background-color 0.15s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--hover-bg)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+          >
             Click again to collapse
           </div>
         </div>
       )}
-
-      {contextMenu}
 
       <style>{`
         .account-card:hover {
@@ -511,7 +421,41 @@ const AccountCard: React.FC<AccountCardProps> = ({
           box-shadow: 0 2px 8px rgba(0,0,0,0.12);
         }
       `}</style>
-    </div>
+        </div>
+      </DropdownTrigger>
+      <DropdownContent>
+        <DropdownItem
+          icon={<SquareDashedMousePointerIcon size={14} />}
+          onClick={onToggleSelect}
+        >
+          {isSelected ? "Deselect" : "Select"} Account
+        </DropdownItem>
+        <DropdownItem icon={<Copy size={14} />} onClick={handleCopyAccount}>
+          Copy as JSON
+        </DropdownItem>
+        {account.is_active_cli === false && (
+          <DropdownItem icon={<RefreshCw size={14} />} onClick={onSwitch}>
+            Switch to CLI
+          </DropdownItem>
+        )}
+        {providerConfig?.connection_type === "browser" && account.user_data_dir && (
+          <DropdownItem
+            icon={<FolderOpen size={14} />}
+            onClick={() =>
+              extensionService.postMessage({
+                command: "openFolder",
+                path: account.user_data_dir,
+              })
+            }
+          >
+            Open Profile Folder
+          </DropdownItem>
+        )}
+        <DropdownItem icon={<Trash2 size={14} />} variant="error" onClick={onDelete}>
+          Delete Account
+        </DropdownItem>
+      </DropdownContent>
+    </Dropdown>
   );
 };
 

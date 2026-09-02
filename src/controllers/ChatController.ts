@@ -13,6 +13,7 @@ import { ProjectContextHandler } from "../handlers/system/ProjectContextHandler"
 import { StorageHandler } from "../handlers/storage/StorageHandler";
 import { ThemeHandler } from "../handlers/system/ThemeHandler";
 import { FileOpenHandler } from "../handlers/system/FileOpenHandler";
+import { AccountImportExportHandler } from "../handlers/account/AccountImportExportHandler";
 import { DiffViewHandler } from "../handlers/system/DiffViewHandler";
 import { PreviewHandler } from "../handlers/system/PreviewHandler";
 import { GitCommitHandler } from "../handlers/tool/GitCommitHandler";
@@ -71,6 +72,7 @@ export class ChatController {
   private terminalInputHandler: TerminalInputHandler;
   private themeHandler: ThemeHandler;
   private fileOpenHandler: FileOpenHandler;
+  private accountImportExportHandler: AccountImportExportHandler;
   private diffViewHandler: DiffViewHandler;
   private previewHandler: PreviewHandler;
   private gitCommitHandler: GitCommitHandler;
@@ -113,6 +115,7 @@ export class ChatController {
     this.terminalInputHandler = new TerminalInputHandler(this.terminalManager);
     this.themeHandler = new ThemeHandler();
     this.fileOpenHandler = new FileOpenHandler();
+    this.accountImportExportHandler = new AccountImportExportHandler();
     this.diffViewHandler = new DiffViewHandler();
     this.previewHandler = new PreviewHandler();
     this.gitCommitHandler = new GitCommitHandler();
@@ -149,6 +152,12 @@ export class ChatController {
           break;
         case "openTempImage":
           await this.previewHandler.handleOpenTempImage(message);
+          break;
+        case "importAccounts":
+          await this.accountImportExportHandler.handleImportAccounts(message, webviewView);
+          break;
+        case "exportAccounts":
+          await this.accountImportExportHandler.handleExportAccounts(message);
           break;
 
         // Conversation Management

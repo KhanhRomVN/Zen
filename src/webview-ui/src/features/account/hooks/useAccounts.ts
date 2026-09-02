@@ -32,6 +32,7 @@ export const useAccounts = (isOpen: boolean) => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("");
+  const [statsPeriod, setStatsPeriod] = useState<"day" | "week" | "month">("day");
   const [emailFilter, setEmailFilter] = useState<string[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     total: 0,
@@ -88,7 +89,7 @@ export const useAccounts = (isOpen: boolean) => {
         const params = new URLSearchParams({
           page: page.toString(),
           limit: limit.toString(),
-          period: "day",
+          period: statsPeriod,
           offset: "0",
         });
         if (searchQuery) params.append("email", searchQuery);
@@ -105,7 +106,7 @@ export const useAccounts = (isOpen: boolean) => {
             accountsList.map(async (acc: any) => {
               try {
                 const statsResult = await callBackend(
-                  `/v1/stats?period=day&account_id=${acc.id}`,
+                  `/v1/stats?period=${statsPeriod}&account_id=${acc.id}`,
                 );
                 let dailyTokens = 0;
                 let dailyRequests = 0;
@@ -130,8 +131,9 @@ export const useAccounts = (isOpen: boolean) => {
                   total_requests: acc.total_requests || 0,
                   successful_requests: acc.successful_requests || 0,
                   total_tokens: acc.total_tokens || 0,
-                  daily_requests: dailyRequests,
-                  daily_tokens: dailyTokens,
+                  period_requests: dailyRequests,
+                  period_tokens: dailyTokens,
+                  user_data_dir: acc.user_data_dir,
                   is_active_cli: acc.is_active_cli,
                 };
               } catch (err) {
@@ -147,8 +149,9 @@ export const useAccounts = (isOpen: boolean) => {
                   total_requests: acc.total_requests || 0,
                   successful_requests: acc.successful_requests || 0,
                   total_tokens: acc.total_tokens || 0,
-                  daily_requests: 0,
-                  daily_tokens: 0,
+                  period_requests: 0,
+                  period_tokens: 0,
+                  user_data_dir: acc.user_data_dir,
                   is_active_cli: acc.is_active_cli,
                 };
               }
@@ -177,6 +180,7 @@ export const useAccounts = (isOpen: boolean) => {
       emailFilter,
       providerConfigs.length,
       callBackend,
+      statsPeriod,
     ],
   );
 
@@ -193,7 +197,7 @@ export const useAccounts = (isOpen: boolean) => {
     if (isOpen) {
       fetchAccounts(1, pagination.limit);
     }
-  }, [searchQuery, providerFilter, emailFilter]);
+  }, [searchQuery, providerFilter, emailFilter, statsPeriod]);
 
   // ── Handlers ──
   const executeDelete = async () => {
@@ -274,6 +278,8 @@ export const useAccounts = (isOpen: boolean) => {
     setProviderFilter,
     emailFilter,
     setEmailFilter,
+    statsPeriod,
+    setStatsPeriod,
     switchKiroAccount,
   };
 };

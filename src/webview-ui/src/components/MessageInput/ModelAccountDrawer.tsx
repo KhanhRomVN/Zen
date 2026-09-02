@@ -375,12 +375,11 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
         {/* Header */}
         <div
           style={{
-            padding: "10px 16px",
+            padding: "12px 16px 12px",
             borderBottom: "1px solid var(--border-color)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            backgroundColor: "var(--secondary-bg)",
             flexShrink: 0,
           }}
         >
@@ -414,10 +413,10 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
             )}
             <span
               style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
+                fontSize: "17px",
+                fontWeight: 700,
+                color: "var(--primary-text)",
+                letterSpacing: "0.01em",
               }}
             >
               {step === "model" ? "Quick Switch" : "Select Account"}
@@ -468,10 +467,11 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
             <button
               onClick={onClose}
               style={{
-                background: "transparent",
+                background: "rgba(128,128,128,0.1)",
                 border: "none",
                 cursor: "pointer",
-                padding: "4px",
+                padding: "6px",
+                borderRadius: "6px",
                 color: "var(--secondary-text)",
                 display: "flex",
                 alignItems: "center",
