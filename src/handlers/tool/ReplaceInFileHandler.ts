@@ -1,30 +1,40 @@
 /**
- *? Usage:
- *    Thay thế nội dung trong file: replace_in_file và validate fuzzy match. Có queue, lock, checkpoint, snapshot, history.
+ * ------------------------------------------------------------------
+ * Replace In File Handler
+ * ------------------------------------------------------------------
+ * Thay thế nội dung trong file: replace_in_file và validate fuzzy
+ * match. Có queue, lock, checkpoint, snapshot, history.
  *
- *? Function:
- *    handleReplaceInFile()     : Thay thế nội dung trong file (dùng old_str/new_str hoặc diff format).
- *    handleValidateFuzzyMatch(): Kiểm tra fuzzy match giữa search block và nội dung file.
+ * Main functions:
+ * - handleReplaceInFile()      : Thay thế nội dung trong file (dùng
+ *                                old_str/new_str hoặc diff format)
+ * - handleValidateFuzzyMatch() : Kiểm tra fuzzy match giữa search block
+ *                                và nội dung file
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
 import * as path from "path";
 
-// AGENT
+// ── AGENT ──
 import { SecurityValidator } from "../../utils/security";
 
-// MANAGERS
+// ── Managers ──
 import { CheckpointManager } from "../../managers/CheckpointManager";
 import { FileLockManager } from "../../managers/FileLockManager";
 import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
 
-// SERVICES
+// ── Services ──
 import { DiagnosticsService } from "../../services/DiagnosticsService";
 import { LoggerService } from "../../services/LoggerService";
 import { PathService } from "../../services/PathService";
 
-// UTILS
+// ── Utils ──
 import { FuzzyMatcher } from "../../utils/FuzzyMatcher";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ReplaceInFileHandler {
   private _replaceFileQueue: Promise<void> = Promise.resolve();
   private pathService: PathService;

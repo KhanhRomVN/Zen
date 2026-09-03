@@ -1,20 +1,29 @@
 /**
- *? Usage:
- *    Xóa file trong workspace, có tạo checkpoint trước khi xóa.
+ * ------------------------------------------------------------------
+ * Delete File Handler
+ * ------------------------------------------------------------------
+ * Xóa file trong workspace, có tạo checkpoint trước khi xóa.
  *
- *? Function:
- *    handleDeleteFile(): Xóa file, có tạo checkpoint trước khi xóa.
+ * Main functions:
+ * - handleDeleteFile() : Xóa file, có tạo checkpoint trước khi xóa
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// MANAGERS
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Managers ──
 import { CheckpointManager } from "../../managers/CheckpointManager";
 
-// SECURITY
+// ── Security ──
 import { SecurityValidator } from "../../utils/security";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class DeleteFileHandler {
   public async handleDeleteFile(message: any, webviewView: vscode.WebviewView) {
     try {

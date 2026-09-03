@@ -1,14 +1,24 @@
 /**
- *? Usage:
- *    Mở file/folder trong editor hoặc OS file manager, hỗ trợ mở tại dòng cụ thể.
+ * ------------------------------------------------------------------
+ * File Open Handler
+ * ------------------------------------------------------------------
+ * Mở file/folder trong editor hoặc OS file manager, hỗ trợ mở tại
+ * dòng cụ thể.
  *
- *? Function:
- *    handleOpenFile()  : Mở file trong editor. Nếu có message.line → jump tới dòng + selection.
- *    handleOpenFolder(): Mở thư mục trong OS file manager.
+ * Main functions:
+ * - handleOpenFile()  : Mở file trong editor. Nếu có message.line → jump tới dòng + selection
+ * - handleOpenFolder() : Mở thư mục trong OS file manager
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as path from "path";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class FileOpenHandler {
   public async handleOpenFile(message: any) {
     const filePath = message.path;

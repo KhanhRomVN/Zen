@@ -1,18 +1,33 @@
+/**
+ * ------------------------------------------------------------------
+ * Chat View Provider
+ * ------------------------------------------------------------------
+ * WebviewViewProvider cho giao diện chat Zen. Khởi tạo webview,
+ * ChatController, TerminalManager, và lắng nghe các sự kiện terminal
+ * để cập nhật UI.
+ *
+ * Main functions:
+ * - resolveWebviewView()   : Khởi tạo webview và các event listener
+ * - postMessageToWebview() : Gửi message đến webview
+ * - getTerminalManager()   : Trả về TerminalManager instance
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// CONTROLLERS
+// ── Controllers ──
 import { ChatController } from "../controllers/ChatController";
 
-// MANAGERS
+// ── Managers ──
 import { FileLockManager } from "../managers/FileLockManager";
 import { TerminalManager } from "../managers/TerminalManager";
 
-// STORAGE
+// ── Storage ──
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 
-// TYPES
-// (none currently needed from types/Agent)
-
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "zen-chat";
   private _view?: vscode.WebviewView;

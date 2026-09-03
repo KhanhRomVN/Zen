@@ -4,6 +4,7 @@ import HomePanel from "./features/home";
 import HistoryPanel from "./features/history";
 import SettingsPanel from "./features/setting";
 import AccountPanel from "./features/account";
+import MarketplacePanel from "./features/marketplace";
 import "./styles/components/chat.css";
 import { ProjectProvider } from "./context/ProjectContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -42,6 +43,7 @@ const App: React.FC = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAccounts, setShowAccounts] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const [currentChat, setCurrentChat] = useState<ChatSession | null>(null);
   const [previousPanel, setPreviousPanel] = useState<"tab" | "chat" | null>(
     null,
@@ -88,6 +90,7 @@ const App: React.FC = () => {
           setShowHistory(true);
           setShowSettings(false);
           setShowAccounts(false);
+          setShowMarketplace(false);
           break;
         case "showSettings":
           if (currentChat) {
@@ -98,6 +101,7 @@ const App: React.FC = () => {
           setShowSettings(true);
           setShowHistory(false);
           setShowAccounts(false);
+          setShowMarketplace(false);
           break;
         case "showAccounts":
           if (currentChat) {
@@ -108,11 +112,24 @@ const App: React.FC = () => {
           setShowAccounts(true);
           setShowHistory(false);
           setShowSettings(false);
+          setShowMarketplace(false);
+          break;
+        case "showMarketplace":
+          if (currentChat) {
+            setPreviousPanel("chat");
+          } else {
+            setPreviousPanel("tab");
+          }
+          setShowMarketplace(true);
+          setShowHistory(false);
+          setShowSettings(false);
+          setShowAccounts(false);
           break;
         case "newChat":
           setShowHistory(false);
           setShowSettings(false);
           setShowAccounts(false);
+          setShowMarketplace(false);
           setCurrentChat(null);
           setPreviousPanel(null);
           setInitialMessageData(null); // Clear initial data on new chat
@@ -198,6 +215,13 @@ const App: React.FC = () => {
                 isOpen={showAccounts}
                 onClose={() => {
                   setShowAccounts(false);
+                  setPreviousPanel(null);
+                }}
+              />
+              <MarketplacePanel
+                isOpen={showMarketplace}
+                onClose={() => {
+                  setShowMarketplace(false);
                   setPreviousPanel(null);
                 }}
               />

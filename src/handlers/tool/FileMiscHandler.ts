@@ -1,21 +1,32 @@
 /**
- *? Usage:
- *    Xử lý các thao tác file linh tinh: file stats, diagnostics, file content.
+ * ------------------------------------------------------------------
+ * File Misc Handler
+ * ------------------------------------------------------------------
+ * Xử lý các thao tác file linh tinh: file stats, diagnostics,
+ * file content.
  *
- *? Function:
- *    handleGetFileStats()   : Trả về thông tin file (kích thước, dòng, thời gian sửa).
- *    handleGetDiagnostics() : Trả về diagnostics (lỗi/cảnh báo) cho một file.
- *    handleGetFileContent() : Trả về nội dung đầy đủ của một file.
+ * Main functions:
+ * - handleGetFileStats()   : Trả về thông tin file (kích thước, dòng,
+ *                            thời gian sửa)
+ * - handleGetDiagnostics() : Trả về diagnostics (lỗi/cảnh báo) cho một file
+ * - handleGetFileContent() : Trả về nội dung đầy đủ của một file
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as path from "path";
 
-// SERVICES
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Services ──
 import { DiagnosticsService } from "../../services/DiagnosticsService";
 
-// SECURITY
+// ── Security ──
 import { SecurityValidator } from "../../utils/security";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class FileMiscHandler {
   private async resolveWorkspacePathWithFallback(
     workspaceFolder: vscode.WorkspaceFolder,

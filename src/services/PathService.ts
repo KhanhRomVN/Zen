@@ -1,16 +1,23 @@
 /**
- *? Usage:
- *    Quản lý đường dẫn tập trung cho thư mục context của dự án.
+ * ------------------------------------------------------------------
+ * Path Service
+ * ------------------------------------------------------------------
+ * Quản lý đường dẫn tập trung cho thư mục context của dự án.
  *
- *? Function:
- *    getContextRoot()      : Trả về đường dẫn gốc ~/khanhromvn-zen.
- *    getProjectContextDir(): Trả về đường dẫn context cho workspace (dùng hash MD5).
+ * Main functions:
+ * - getContextRoot()       : Trả về đường dẫn gốc ~/.khanhromvn-zen
+ * - getProjectContextDir() : Trả về đường dẫn context cho workspace
+ *                            (dùng hash MD5)
+ * ------------------------------------------------------------------
  */
 
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as path from "path";
 import * as crypto from "crypto";
 import * as os from "os";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class PathService {
   private static instance: PathService;
 
@@ -24,7 +31,7 @@ export class PathService {
   }
 
   public getContextRoot(): string {
-    return path.join(os.homedir(), "khanhromvn-zen");
+    return path.join(os.homedir(), ".khanhromvn-zen");
   }
 
   public getProjectContextDir(workspaceFolderPath: string): string {

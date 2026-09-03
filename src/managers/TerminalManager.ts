@@ -1,17 +1,34 @@
 /**
- *? Usage:
- *    Quản lý terminal ảo: tạo, chạy lệnh shell, pipe stdin/stdout, throttle data, auto-cleanup. Phát hiện lệnh long-running (dev/start/serve/watch...).
+ /**
+ * ------------------------------------------------------------------
+ * Terminal Manager
+ * ------------------------------------------------------------------
+ * Quản lý terminal ảo: tạo, chạy lệnh shell, pipe stdin/stdout,
+ * throttle data, auto-cleanup. Phát hiện lệnh long-running
+ * (dev/start/serve/watch...).
  *
-
+ * Main functions:
+ * - startInteractive() : Tạo terminal mới và trả về id
+ * - sendInput()        : Gửi lệnh đến terminal, spawn process mới
+ * - close()            : Đóng terminal và kill process
+ * - closeAll()         : Đóng tất cả terminal
+ * - dispose()          : Dọn dẹp toàn bộ tài nguyên
+ * ------------------------------------------------------------------
  */
 
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
+
+// ── Node ──
 import { ChildProcess, spawn, SpawnOptions, execSync } from "child_process";
 import * as crypto from "crypto";
 import * as os from "os";
 
 const LONG_RUNNING_PATTERNS =
   /\b(dev|start|serve|watch|preview|run dev|run start|run serve|run watch|run preview)\b/i;
+
+const MAX_OUTPUT = 1 * 1024 * 1024; // 1 MB cap
 
 function resolveShell(cwd: string): {
   shell: string;
@@ -49,6 +66,7 @@ function resolveShell(cwd: string): {
   };
 }
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 interface TerminalEntry {
   writeEmitter: vscode.EventEmitter<string>;
   process: ChildProcess | null;
@@ -61,8 +79,7 @@ interface TerminalEntry {
   commandText: string;
 }
 
-const MAX_OUTPUT = 1 * 1024 * 1024; // 1 MB cap
-
+// ─── Class ──────────────────────────────────────────────────────────────
 export class TerminalManager {
   private terminalMap = new Map<string, TerminalEntry>();
 

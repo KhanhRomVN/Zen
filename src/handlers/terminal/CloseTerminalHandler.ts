@@ -1,19 +1,29 @@
 /**
- *? Usage:
- *    Đóng và xóa terminal: kill process, dọn buffer, gửi response nếu có webview.
- *    Hỗ trợ: close theo terminalId, theo actionId, hoặc closeAll.
- *    Nếu có kill=true hoặc finalize=true, TerminalManager sẽ fire onCommandFinished
- *    để webview có thể resolve pending tool execution, tránh treo AI.
+ * ------------------------------------------------------------------
+ * Close Terminal Handler
+ * ------------------------------------------------------------------
+ * Đóng và xóa terminal: kill process, dọn buffer, gửi response nếu
+ * có webview. Hỗ trợ: close theo terminalId, theo actionId, hoặc
+ * closeAll. Nếu có kill=true hoặc finalize=true, TerminalManager sẽ
+ * fire onCommandFinished để webview có thể resolve pending tool
+ * execution, tránh treo AI.
  *
- *? Function:
- *    handleCloseTerminal(): Đóng terminal — nếu actionId === "all" thì closeAll(true),
- *    nếu có terminalId thì close(terminalId, notify), nếu chỉ có actionId thì tìm bằng list() rồi close.
+ * Main functions:
+ * - handleCloseTerminal() : Đóng terminal — nếu actionId === "all" thì
+ *                           closeAll(true), nếu có terminalId thì
+ *                           close(terminalId, notify), nếu chỉ có actionId
+ *                           thì tìm bằng list() rồi close
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// MANAGERS
+// ── Managers ──
 import { TerminalManager } from "../../managers/TerminalManager";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class CloseTerminalHandler {
   constructor(private terminalManager: TerminalManager) {}
 

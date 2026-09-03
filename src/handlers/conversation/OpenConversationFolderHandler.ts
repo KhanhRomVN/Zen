@@ -1,17 +1,26 @@
 /**
- *? Usage:
- *    Mở thư mục chứa file hội thoại trong OS file manager.
+ * ------------------------------------------------------------------
+ * Open Conversation Folder Handler
+ * ------------------------------------------------------------------
+ * Mở thư mục chứa file hội thoại trong OS file manager.
  *
- *? Function:
- *    handleOpenConversationFolder(): Mở thư mục chứa file hội thoại trong OS.
+ * Main functions:
+ * - handleOpenConversationFolder() : Mở thư mục chứa file hội thoại trong OS
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// SERVICES
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class OpenConversationFolderHandler {
   private pathService: PathService;
 

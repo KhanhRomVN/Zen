@@ -1,21 +1,30 @@
 /**
- *? Usage:
- *    Lưu trạng thái hội thoại với debounce 1s, chỉ ghi khi có thay đổi.
+ * ------------------------------------------------------------------
+ * Save Conversation State Handler
+ * ------------------------------------------------------------------
+ * Lưu trạng thái hội thoại với debounce 1s, chỉ ghi khi có thay đổi.
  *
- *? Function:
- *    handleSaveConversationState(): Lưu trạng thái hội thoại với debounce 1s, chỉ ghi khi có thay đổi.
+ * Main functions:
+ * - handleSaveConversationState() : Lưu trạng thái hội thoại với debounce 1s
+ * - _flushSave()                  : Ghi dữ liệu pending xuống file JSON
+ * ------------------------------------------------------------------
  */
 
-import * as vscode from "vscode";
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// MANAGERS
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Managers ──
 import { FileLockManager } from "../../managers/FileLockManager";
 
-// SERVICES
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class SaveConversationStateHandler {
   private pathService: PathService;
   private _saveDebounceTimers: Map<string, NodeJS.Timeout>;

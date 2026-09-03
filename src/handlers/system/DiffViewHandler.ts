@@ -1,21 +1,30 @@
 /**
- *? Usage:
- *    Mở diff view: replace_in_file diff và git diff.
+ * ------------------------------------------------------------------
+ * Diff View Handler
+ * ------------------------------------------------------------------
+ * Mở diff view: replace_in_file diff và git diff.
  *
- *? Function:
- *    handleFileDiff()    : Mở diff cho thao tác file (replace, revert...).
- *    handleShowGitDiff() : Mở git diff cho file.
+ * Main functions:
+ * - handleFileDiff()    : Mở diff cho thao tác file (replace, revert...)
+ * - handleShowGitDiff() : Mở git diff cho file
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// PROVIDERS
+// ── Providers ──
 import { DiffProvider } from "../../providers/DiffProvider";
 
-// SERVICES
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class DiffViewHandler {
   private pathService: PathService;
 

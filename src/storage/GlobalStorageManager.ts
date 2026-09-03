@@ -1,17 +1,28 @@
-import * as vscode from "vscode";
 /**
- *? Usage:
- *    Quản lý storage toàn cục của extension: đọc/ghi/xóa key-value dạng file JSON, hỗ trợ cache (get 2s, list 5min), migrate từ globalState cũ.
+ * ------------------------------------------------------------------
+ * Global Storage Manager
+ * ------------------------------------------------------------------
+ * Quản lý storage toàn cục của extension: đọc/ghi/xóa key-value dạng
+ * file JSON, hỗ trợ cache (get 2s, list 5min), migrate từ globalState
+ * cũ.
  *
- *? Function:
- *    initialize()                  : Tạo thư mục storage nếu chưa tồn tại.
- *    migrateFromGlobalState()      : Di chuyển dữ liệu từ globalState sang file storage.
- *    exists/get/set/delete/list()  : CRUD cơ bản với cache.
- *    getToolOutputsForConversation(): Tìm toolOutputs của conversation từ storage.
+ * Main functions:
+ * - initialize()                   : Tạo thư mục storage nếu chưa tồn tại
+ * - migrateFromGlobalState()       : Di chuyển dữ liệu từ globalState sang file storage
+ * - exists/get/set/delete/list()   : CRUD cơ bản với cache
+ * - getToolOutputsForConversation(): Tìm toolOutputs của conversation từ storage
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Node ──
 import * as path from "path";
 import { TextDecoder, TextEncoder } from "util";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class GlobalStorageManager {
   private readonly storageUri: vscode.Uri;
   private readonly storageDir: vscode.Uri;

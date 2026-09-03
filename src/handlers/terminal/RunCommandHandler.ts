@@ -1,19 +1,29 @@
 /**
- *? Usage:
- *    Chạy lệnh shell với security check, hỗ trợ folder_path tùy chỉnh.
+ * ------------------------------------------------------------------
+ * Run Command Handler
+ * ------------------------------------------------------------------
+ * Chạy lệnh shell với security check, hỗ trợ folder_path tùy chỉnh.
  *
- *? Function:
- *    handleRunCommand(): Chạy lệnh shell với security check, hỗ trợ folder_path tùy chỉnh.
+ * Main functions:
+ * - handleRunCommand() : Chạy lệnh shell với security check, hỗ trợ
+ *                        folder_path tùy chỉnh
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as os from "os";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// AGENT
+// ── AGENT ──
 import { SecurityValidator } from "../../utils/security";
 
-// MANAGERS
+// ── Managers ──
 import { TerminalManager } from "../../managers/TerminalManager";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class RunCommandHandler {
   constructor(private terminalManager: TerminalManager) {}
 

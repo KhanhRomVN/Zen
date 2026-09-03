@@ -1,14 +1,24 @@
 /**
- *? Usage:
- *    Cung cấp thông tin ngữ cảnh dự án và hệ thống: workspace root, homedir, OS, IDE, shell, cwd.
+ * ------------------------------------------------------------------
+ * Project Context Handler
+ * ------------------------------------------------------------------
+ * Cung cấp thông tin ngữ cảnh dự án và hệ thống: workspace root,
+ * homedir, OS, IDE, shell, cwd.
  *
- *? Function:
- *    handleGetProjectContext(): Trả về rootPath và homedir cho webview.
- *    handleGetSystemInfo()     : Trả về thông tin OS, IDE, shell, home, cwd.
+ * Main functions:
+ * - handleGetProjectContext() : Trả về rootPath và homedir cho webview
+ * - handleGetSystemInfo()     : Trả về thông tin OS, IDE, shell, home, cwd
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as os from "os";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ProjectContextHandler {
   constructor() {}
 

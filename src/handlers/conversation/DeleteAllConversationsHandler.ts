@@ -1,17 +1,26 @@
 /**
- *? Usage:
- *    Xóa toàn bộ file JSON trong thư mục context của workspace hiện tại.
+ * ------------------------------------------------------------------
+ * Delete All Conversations Handler
+ * ------------------------------------------------------------------
+ * Xóa toàn bộ file JSON trong thư mục context của workspace hiện tại.
  *
- *? Function:
- *    handleDeleteAllConversations(): Xóa toàn bộ file JSON trong thư mục context.
+ * Main functions:
+ * - handleDeleteAllConversations() : Xóa toàn bộ file JSON trong thư mục context
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// SERVICES
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class DeleteAllConversationsHandler {
   private pathService: PathService;
 

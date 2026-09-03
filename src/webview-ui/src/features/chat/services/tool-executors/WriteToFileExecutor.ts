@@ -79,7 +79,6 @@ export class WriteToFileExecutor implements ToolExecutor {
               result += formatDiagnostics(msg.diagnostics, contentLines);
             }
 
-            // Store output AND diagnostics in toolOutputs
             setToolOutputs((prev) => ({
               ...prev,
               [actionId]: {

@@ -103,6 +103,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "zen.marketplace",
+        "title": "Open Marketplace",
+        "category": "Zen",
+        "icon": "$(extensions)"
+      },
+      {
         "command": "zen.addToContext",
         "title": "Add to Zen Context",
         "category": "Zen"
@@ -121,6 +127,12 @@
           "when": "view == zen-chat",
           "group": "navigation",
           "icon": "$(history)"
+        },
+        {
+          "command": "zen.marketplace",
+          "when": "view == zen-chat",
+          "group": "navigation",
+          "icon": "$(extensions)"
         },
         {
           "command": "zen.newChat",
@@ -170,7 +182,7 @@
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
-    "@types/node": "^20.19.41",
+    "@types/node": "^20.19.43",
     "@types/uuid": "^10.0.0",
     "@types/vscode": "^1.50.0",
     "@types/ws": "^8.18.1",

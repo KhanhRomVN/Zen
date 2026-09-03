@@ -1,12 +1,21 @@
 /**
- *? Usage:
- *    Tìm file theo tên (glob pattern) trong workspace hoặc trong folder cụ thể, trả về danh sách đường dẫn.
+ * ------------------------------------------------------------------
+ * Find Files Handler
+ * ------------------------------------------------------------------
+ * Tìm file theo tên (glob pattern) trong workspace hoặc trong folder
+ * cụ thể, trả về danh sách đường dẫn.
  *
- *? Function:
- *    handleFindFiles(): Tìm file theo tên (glob pattern), có thể giới hạn trong folder_path nếu được cung cấp.
+ * Main functions:
+ * - handleFindFiles() : Tìm file theo tên (glob pattern), có thể giới
+ *                       hạn trong folder_path nếu được cung cấp
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class FindFilesHandler {
   public async handleFindFiles(message: any, webviewView: vscode.WebviewView) {
     try {

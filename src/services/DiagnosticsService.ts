@@ -1,16 +1,27 @@
 /**
- *? Usage:
- *    Dịch vụ tập trung xử lý diagnostics từ language server.
- *    Dùng chung bởi ReadFileHandler, ReplaceInFileHandler, WriteToFileHandler, RevertFileHandler, FileMiscHandler.
+ * ------------------------------------------------------------------
+ * Diagnostics Service
+ * ------------------------------------------------------------------
+ * Dịch vụ tập trung xử lý diagnostics từ language server.
+ * Dùng chung bởi ReadFileHandler, ReplaceInFileHandler, WriteToFileHandler,
+ * RevertFileHandler, FileMiscHandler.
  *
- *? Function:
- *    getDiagnostics(): Mở file (nếu cần) → chờ diagnostics ổn định → trả về danh sách error/warning.
+ * Main functions:
+ * - getDiagnostics()              : Mở file (nếu cần) → chờ diagnostics ổn
+ *                                   định → trả về danh sách error/warning
+ * - getDiagnosticCountStabilized(): Giống getDiagnostics nhưng trả về counts
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// SERVICES
+// ── Services ──
 import { LoggerService } from "./LoggerService";
+import { CustomLSPService } from "./CustomLSPService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class DiagnosticsService {
   private static instance: DiagnosticsService;
 
@@ -345,6 +356,8 @@ export class DiagnosticsService {
    * Skips non-code files automatically (returns empty array).
    * Skips files larger than MAX_FILE_SIZE_BYTES to avoid resource spikes.
    * This is the single entry point for all diagnostic needs.
+   * 
+   * If custom LSP is enabled, auto-installs required LSP package before diagnostics.
    */
   public async getDiagnostics(
     uri: vscode.Uri,
@@ -378,6 +391,28 @@ export class DiagnosticsService {
       return { diagnostics: [] };
     }
 
+    // 🆕 Check if custom LSP is enabled and process accordingly
+    const customLSPService = CustomLSPService.getInstance();
+    const customLSPResult = await customLSPService.processFileForCustomLSP(pathValue);
+
+    logger.info("[DiagnosticsService] 🔧 Custom LSP check result", {
+      shouldUseCustom: customLSPResult.shouldUseCustom,
+      lspReady: customLSPResult.lspReady,
+      languageId: customLSPResult.languageId,
+      packageName: customLSPResult.packageName,
+    });
+
+    if (customLSPResult.shouldUseCustom && !customLSPResult.lspReady) {
+      logger.warn("[DiagnosticsService] ⚠️ Custom LSP not ready", {
+        path: pathValue,
+        languageId: customLSPResult.languageId,
+      });
+      return {
+        diagnostics: [],
+        skippedReason: `Custom LSP for ${customLSPResult.languageId} is being installed. Please try again in a moment.`,
+      };
+    }
+
     // Check existing diagnostics first
     const existingDiagnostics = vscode.languages.getDiagnostics(uri);
     logger.info("[DiagnosticsService] 📋 Existing diagnostics before opening", {
@@ -399,6 +434,7 @@ export class DiagnosticsService {
     logger.info("[DiagnosticsService] ✅ File opened, waiting for diagnostics...", {
       path: pathValue,
       alreadyOpen: openResult.alreadyOpen,
+      usingCustomLSP: customLSPResult.shouldUseCustom,
       currentlyOpenDocuments: vscode.workspace.textDocuments.map(d => ({
         uri: d.uri.fsPath,
         languageId: d.languageId,
@@ -442,6 +478,7 @@ export class DiagnosticsService {
 
     logger.info("[DiagnosticsService] 🎉 getDiagnostics completed", {
       path: pathValue,
+      usingCustomLSP: customLSPResult.shouldUseCustom,
       totalDiagnostics: allDiagnostics.length,
       filteredCount: filteredDiagnostics.length,
       errors: filteredDiagnostics.filter(d => d.severity === 'Error').length,

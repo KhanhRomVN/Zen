@@ -546,7 +546,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
           {[
             {
               icon: <Trash2 size={13} />,
-              label: "Xóa",
+              label: "Delete",
               color: "var(--error-color)",
               hoverBg: "rgba(244,67,54,0.1)",
               action: (e: React.MouseEvent) => {
@@ -556,7 +556,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
             },
             {
               icon: <Copy size={13} />,
-              label: "Copy nội dung",
+              label: "Copy content",
               color: "var(--primary-text)",
               hoverBg: "var(--hover-bg)",
               action: () => {
@@ -566,7 +566,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
             },
             {
               icon: <FolderOpen size={13} />,
-              label: "Mở thư mục conv",
+              label: "Open conversation folder",
               color: "var(--primary-text)",
               hoverBg: "var(--hover-bg)",
               action: () => {

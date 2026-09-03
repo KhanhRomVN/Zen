@@ -1,15 +1,21 @@
 /**
- /**
- *? Usage:
- *    Ghi log ra OutputChannel "Zen Chat" trong VS Code, hỗ trợ 4 mức: DEBUG, INFO, WARN, ERROR.
+ * ------------------------------------------------------------------
+ * Logger Service
+ * ------------------------------------------------------------------
+ * Ghi log ra OutputChannel "Zen Chat" trong VS Code, hỗ trợ 4 mức:
+ * DEBUG, INFO, WARN, ERROR.
  *
- *? Function:
- *    debug/info/warn/error(...): Ghi log ở mức tương ứng.
- *    log(level, msg, ...)      : Logic ghi log nội bộ (private).
+ * Main functions:
+ * - debug/info/warn/error(...) : Ghi log ở mức tương ứng
+ * - log(level, msg, ...)       : Logic ghi log nội bộ (private)
+ * ------------------------------------------------------------------
  */
 
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
 
+// ─── Types ──────────────────────────────────────────────────────────────
 export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
@@ -17,6 +23,7 @@ export enum LogLevel {
   ERROR = 3,
 }
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class LoggerService {
   private static instance: LoggerService;
   private outputChannel: vscode.OutputChannel;

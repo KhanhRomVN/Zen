@@ -1,19 +1,31 @@
-import * as fs from "fs";
 /**
- *? Usage:
- *    Lưu lịch sử các lần replace_in_file thành công, hỗ trợ xem và revert về version cũ.
+ * ------------------------------------------------------------------
+ * Replace In File History Manager
+ * ------------------------------------------------------------------
+ * Lưu lịch sử các lần replace_in_file thành công, hỗ trợ xem và
+ * revert về version cũ.
  *
- *? Function:
- *    saveHistory()        : Lưu phiên bản mới sau mỗi lần replace.
- *    getHistoryList()     : Trả về danh sách version kèm error/warning/line count.
- *    getHistoryVersion()  : Lấy nội dung đầy đủ của một version.
- *    deleteVersionsAfter(): Xóa các version cao hơn version chỉ định (dùng khi revert).
+ * Main functions:
+ * - saveHistory()                    : Lưu phiên bản mới sau mỗi lần replace
+ * - getHistoryList()                 : Trả về danh sách version kèm error/warning/line count
+ * - getHistoryVersion()              : Lấy nội dung đầy đủ của một version
+ * - deleteVersionsAfter()            : Xóa các version cao hơn version chỉ định (dùng khi revert)
+ * - deleteVersionsFromTimestamp()    : Xóa các version theo messageTimestamp
+ * - deleteVersionsFromResponseNumber(): Xóa các version theo responseNumber
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
+import * as fs from "fs";
 import * as crypto from "crypto";
 import * as os from "os";
 import * as path from "path";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 export interface ReplaceInFileHistory {
   id: string;
   filePath: string;
@@ -28,6 +40,7 @@ export interface ReplaceInFileHistory {
   responseNumber?: number; // Response number (1-based) for precise revert tracking
 }
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ReplaceInFileHistoryManager {
   private static instance: ReplaceInFileHistoryManager;
   private activeConversationId: string | null = null;
@@ -54,7 +67,7 @@ export class ReplaceInFileHistoryManager {
       .digest("hex");
     const projectContextDir = path.join(
       os.homedir(),
-      "khanhromvn-zen",
+      ".khanhromvn-zen",
       "projects",
       hash,
     );

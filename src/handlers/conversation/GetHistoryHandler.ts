@@ -1,21 +1,31 @@
 /**
- *? Usage:
- *    Trả về danh sách lịch sử hội thoại (đã sắp xếp theo thời gian), kèm giới hạn 30 file JSON.
+ * ------------------------------------------------------------------
+ * Get History Handler
+ * ------------------------------------------------------------------
+ * Trả về danh sách lịch sử hội thoại (đã sắp xếp theo thời gian),
+ * kèm giới hạn 30 file JSON.
  *
- *? Function:
- *    handleGetHistory()  : Trả về danh sách lịch sử hội thoại (đã sắp xếp theo thời gian).
- *    enforceHistoryLimit(): Giới hạn số lượng file JSON (tối đa 30), xóa file cũ nhất.
+ * Main functions:
+ * - handleGetHistory()   : Trả về danh sách lịch sử hội thoại (sắp xếp theo thời gian)
+ * - enforceHistoryLimit() : Giới hạn số lượng file JSON (tối đa 30), xóa file cũ nhất
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// SERVICES
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
-// STORAGE
+// ── Storage ──
 import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class GetHistoryHandler {
   private pathService: PathService;
 

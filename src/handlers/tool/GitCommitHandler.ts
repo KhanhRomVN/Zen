@@ -1,13 +1,22 @@
 /**
- *? Usage:
- *    Thực thi lệnh git commit với message từ webview.
+ * ------------------------------------------------------------------
+ * Git Commit Handler
+ * ------------------------------------------------------------------
+ * Thực thi lệnh git commit với message từ webview.
  *
- *? Function:
- *    handleGitCommit(): Chạy `git commit -m "<message>"` trong workspace.
+ * Main functions:
+ * - handleGitCommit() : Chạy `git commit -m "<message>"` trong workspace
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
+
+// ── Node ──
 import { execFile } from "child_process";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class GitCommitHandler {
   public async handleGitCommit(
     message: any,

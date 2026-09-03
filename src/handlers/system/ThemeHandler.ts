@@ -1,13 +1,21 @@
 /**
- *? Usage:
- *    Xử lý theme: gửi theme hiện tại cho webview, cập nhật theme khi có thay đổi.
+ * ------------------------------------------------------------------
+ * Theme Handler
+ * ------------------------------------------------------------------
+ * Xử lý theme cho extension: gửi theme hiện tại cho webview và cập
+ * nhật theme khi có thay đổi từ phía người dùng.
  *
- *? Function:
- *    updateTheme()        : Gửi theme hiện tại cho webview.
- *    handleRequestTheme() : Xử lý yêu cầu theme từ webview.
+ * Main functions:
+ * - updateTheme()        : Gửi theme hiện tại cho webview
+ * - handleRequestTheme() : Xử lý yêu cầu theme từ webview
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ThemeHandler {
   public async handleRequestTheme(webviewView: vscode.WebviewView) {
     await this.updateTheme(webviewView.webview);

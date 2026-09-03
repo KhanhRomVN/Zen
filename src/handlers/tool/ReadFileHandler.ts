@@ -1,22 +1,35 @@
 /**
- *? Usage:
- *    Đọc nội dung file trong workspace, hỗ trợ đọc theo dòng (start_line/end_line), tích hợp security check, diagnostics, và hàng đợi tuần tự.
+ * ------------------------------------------------------------------
+ * Read File Handler
+ * ------------------------------------------------------------------
+ * Đọc nội dung file trong workspace, hỗ trợ đọc theo dòng
+ * (start_line/end_line), tích hợp security check, diagnostics, và
+ * hàng đợi tuần tự.
  *
- *? Function:
- *    handleReadFile(): Đọc file với queue, chờ diagnostics từ language server, trả về nội dung + lỗi/cảnh báo.
+ * Main functions:
+ * - handleReadFile() : Đọc file với queue, chờ diagnostics từ language
+ *                      server, trả về nội dung + lỗi/cảnh báo
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
+import { Buffer } from "buffer";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// AGENT
-
-// SERVICES
+// ── Services ──
 import { DiagnosticsService } from "../../services/DiagnosticsService";
 import { LoggerService } from "../../services/LoggerService";
 import { PathService } from "../../services/PathService";
+
+// ── Security ──
 import { SecurityValidator } from "../../utils/security";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ReadFileHandler {
   private _readFileQueue: Promise<void> = Promise.resolve();
   private pathService: PathService;
@@ -117,26 +130,12 @@ export class ReadFileHandler {
       }> = [];
 
       if (!message.skipDiagnostics) {
-        logger.info("[ReadFileHandler] 🔍 Getting diagnostics for file", {
-          path: pathValue,
-          absolutePath: absPath.fsPath,
-        });
-
         const diagResult = await diagnosticsService.getDiagnostics(
           absPath,
           pathValue,
           15000,
         );
         diagnostics = diagResult.diagnostics;
-
-        logger.info("[ReadFileHandler] 📊 Diagnostics result", {
-          path: pathValue,
-          diagnosticsCount: diagnostics.length,
-        });
-      } else {
-        logger.info("[ReadFileHandler] ⏭️ Skipping diagnostics (skipDiagnostics=true)", {
-          path: pathValue,
-        });
       }
 
       let content = "";

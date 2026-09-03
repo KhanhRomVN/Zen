@@ -1,18 +1,28 @@
 /**
- *? Usage:
- *    Kiểm tra bảo mật tĩnh: chặn truy cập file nhạy cảm (.env, .pem, credentials...), thư mục hệ thống, và lệnh nguy hiểm (rm -rf, sudo, curl | sh...).
+ * ------------------------------------------------------------------
+ * Security Validator
+ * ------------------------------------------------------------------
+ * Kiểm tra bảo mật tĩnh: chặn truy cập file nhạy cảm (.env, .pem,
+ * credentials...), thư mục hệ thống, và lệnh nguy hiểm (rm -rf,
+ * sudo, curl | sh...).
  *
- *? Function:
- *    validatePath()   : Kiểm tra đường dẫn file có an toàn không.
- *    validateCommand(): Kiểm tra lệnh shell có chứa pattern nguy hiểm không.
+ * Main functions:
+ * - validatePath()    : Kiểm tra đường dẫn file có an toàn không
+ * - validateCommand() : Kiểm tra lệnh shell có chứa pattern nguy hiểm không
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as path from "path";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 export interface SecurityResult {
   safe: boolean;
   reason?: string;
 }
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class SecurityValidator {
   private static readonly SENSITIVE_PATTERNS = [
     /\.env$/,

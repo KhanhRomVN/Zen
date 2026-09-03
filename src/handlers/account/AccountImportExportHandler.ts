@@ -1,7 +1,25 @@
-import * as vscode from "vscode";
+/**
+ * ------------------------------------------------------------------
+ * Account Import/Export Handler
+ * ------------------------------------------------------------------
+ * Xử lý import/export tài khoản: import từ file JSON qua API,
+ * export ra file JSON vào thư mục người dùng chọn.
+ *
+ * Main functions:
+ * - handleImportAccounts() : Import tài khoản từ file JSON qua API
+ * - handleExportAccounts() : Export tài khoản ra file JSON
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ─── Class ──────────────────────────────────────────────────────────────
 export class AccountImportExportHandler {
   public async handleImportAccounts(message: any, webviewView: vscode.WebviewView) {
     const apiUrl = message.apiUrl;

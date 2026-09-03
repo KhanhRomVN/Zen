@@ -1,17 +1,26 @@
 /**
- *? Usage:
- *    Xóa file JSON + thư mục của một cuộc hội thoại.
+ * ------------------------------------------------------------------
+ * Delete Conversation Handler
+ * ------------------------------------------------------------------
+ * Xóa file JSON + thư mục của một cuộc hội thoại.
  *
- *? Function:
- *    handleDeleteConversation(): Xóa file JSON + thư mục của một cuộc hội thoại.
+ * Main functions:
+ * - handleDeleteConversation() : Xóa file JSON + thư mục của một cuộc hội thoại
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// SERVICES
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class DeleteConversationHandler {
   private pathService: PathService;
 

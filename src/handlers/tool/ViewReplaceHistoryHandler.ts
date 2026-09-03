@@ -1,16 +1,27 @@
 /**
- *? Usage:
- *    Xem lịch sử các lần replace_in_file cho một file.
+ * ------------------------------------------------------------------
+ * View Replace History Handler
+ * ------------------------------------------------------------------
+ * Xem lịch sử các lần replace_in_file cho một file.
  *
- *? Function:
- *    handleViewReplaceHistory(): Trả về lịch sử các lần replace_in_file cho một file.
+ * Main functions:
+ * - handleViewReplaceHistory() : Trả về lịch sử các lần replace_in_file
+ *                                cho một file
+ * - handleGetHistoryVersion()  : Trả về nội dung của một version cụ thể
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
+
+// ── Node ──
 import * as path from "path";
 
-// MANAGERS
+// ── Managers ──
 import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ViewReplaceHistoryHandler {
   public async handleViewReplaceHistory(
     message: any,

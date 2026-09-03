@@ -1,20 +1,30 @@
 /**
- *? Usage:
- *    Cập nhật title cho conversation, lưu vào metadata.title trong file JSON.
+ * ------------------------------------------------------------------
+ * Set Conversation Title Handler
+ * ------------------------------------------------------------------
+ * Cập nhật title cho conversation, lưu vào metadata.title trong
+ * file JSON.
  *
- *? Function:
- *    handleSetConversationTitle(): Cập nhật title cho conversation.
+ * Main functions:
+ * - handleSetConversationTitle() : Cập nhật title cho conversation
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// MANAGERS
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Managers ──
 import { FileLockManager } from "../../managers/FileLockManager";
 
-// SERVICES
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class SetConversationTitleHandler {
   private pathService: PathService;
 

@@ -1,15 +1,24 @@
+/**
+ * ------------------------------------------------------------------
+ * Diff Provider
+ * ------------------------------------------------------------------
+ * Virtual document provider cho scheme `zen-diff://`. File qua scheme
+ * này không bị language server phân tích, tránh diagnostic giả khi
+ * mở diff editor.
+ *
+ * Main functions:
+ * - store()                      : Lưu nội dung vào store với key
+ * - toUri()                      : Tạo URI zen-diff:// từ key + basename
+ * - provideTextDocumentContent() : Trả về nội dung cho URI (theo authority)
+ * - register()                   : Đăng ký provider với extension context
+ * ------------------------------------------------------------------
+ */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
 
-/**
- *? Usage:
- *    Virtual document provider cho scheme `zen-diff://`. File qua scheme này không bị language server phân tích, tránh diagnostic giả khi mở diff editor.
- *
- *? Function:
- *    store()                  : Lưu nội dung vào store với key.
- *    toUri()                  : Tạo URI zen-diff:// từ key + basename.
- *    provideTextDocumentContent(): Trả về nội dung cho URI (theo authority).
- *    register()               : Đăng ký provider với extension context.
- */
+// ─── Class ──────────────────────────────────────────────────────────────
 export class DiffProvider implements vscode.TextDocumentContentProvider {
   static readonly SCHEME = "zen-diff";
 

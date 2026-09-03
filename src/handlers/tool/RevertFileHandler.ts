@@ -1,25 +1,36 @@
 /**
- *? Usage:
- *    Revert file về checkpoint hoặc replace history version. Có tích hợp snapshot, diagnostics.
+ * ------------------------------------------------------------------
+ * Revert File Handler
+ * ------------------------------------------------------------------
+ * Revert file về checkpoint hoặc replace history version. Có tích
+ * hợp snapshot, diagnostics.
  *
- *? Function:
- *    handleRevertFile(): Revert file về checkpoint hoặc replace history version.
+ * Main functions:
+ * - handleRevertFile() : Revert file về checkpoint hoặc replace
+ *                        history version
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────��───────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// AGENT
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── AGENT ──
 import { SecurityValidator } from "../../utils/security";
 
-// MANAGERS
+// ── Managers ──
 import { CheckpointManager } from "../../managers/CheckpointManager";
 import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
 
-// SERVICES
+// ── Services ──
 import { DiagnosticsService } from "../../services/DiagnosticsService";
 import { LoggerService } from "../../services/LoggerService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class RevertFileHandler {
   public async handleRevertFile(message: any, webviewView: vscode.WebviewView) {
     const logger = LoggerService.getInstance();
@@ -103,13 +114,18 @@ export class RevertFileHandler {
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // FIX P0: Send success response to webview to prevent AI request hang
+      const diagResult = await DiagnosticsService.getInstance().getDiagnostics(
+        fileUri,
+        filePath,
+        30000,
+      );
+
       webviewView.webview.postMessage({
         command: "revertFileResult",
         requestId: message.requestId,
-        success: true,
-        path: filePath,
-        content: afterContent,
+        oldContent: beforeContent,
+        newContent: afterContent,
+        diagnostics: diagResult.diagnostics,
       });
     } catch (e: any) {
       logger.error(`[DEBUG revert_file] Error: ${e.message}`);

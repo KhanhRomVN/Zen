@@ -1,19 +1,29 @@
 /**
- *? Usage:
- *    Quản lý checkpoint cho thao tác file: lưu trạng thái trước khi sửa/xóa, hỗ trợ revert về checkpoint cũ. Bỏ qua thư mục hệ thống (.git, node_modules...).
+ * ------------------------------------------------------------------
+ * Checkpoint Manager
+ * ------------------------------------------------------------------
+ * Quản lý checkpoint cho thao tác file: lưu trạng thái trước khi
+ * sửa/xóa, hỗ trợ revert về checkpoint cũ. Bỏ qua thư mục hệ thống
+ * (.git, node_modules...).
  *
- *? Function:
- *    createCheckpoint()        : Tạo checkpoint (lưu nội dung file trước khi thay đổi).
- *    getLastCheckpointForFile(): Lấy checkpoint gần nhất cho một file.
- *    revertToCheckpoint()      : Khôi phục file về trạng thái trước timestamp chỉ định.
+ * Main functions:
+ * - createCheckpoint()         : Tạo checkpoint (lưu nội dung file trước khi thay đổi)
+ * - getLastCheckpointForFile() : Lấy checkpoint gần nhất cho một file
+ * - revertToCheckpoint()       : Khôi phục file về trạng thái trước timestamp chỉ định
+ * ------------------------------------------------------------------
  */
 
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as crypto from "crypto";
 import * as os from "os";
 import * as path from "path";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
+// ─── Interfaces ─────────────────────────────────────────────────────────
 export interface Checkpoint {
   id: string;
   type: "create" | "modify" | "delete";
@@ -22,6 +32,7 @@ export interface Checkpoint {
   timestamp: number;
 }
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class CheckpointManager {
   private static instance: CheckpointManager;
   private activeConversationId: string | null = null;
@@ -104,7 +115,7 @@ export class CheckpointManager {
       .digest("hex");
     const projectContextDir = path.join(
       os.homedir(),
-      "khanhromvn-zen",
+      ".khanhromvn-zen",
       "projects",
       hash,
     );
@@ -124,7 +135,7 @@ export class CheckpointManager {
       // Avoid checkpointing internal configuration directories or git files
       if (
         filePath.includes(".git") ||
-        filePath.includes("khanhromvn-zen") ||
+        filePath.includes(".khanhromvn-zen") ||
         filePath.includes("node_modules") ||
         filePath.includes(".vscode")
       ) {

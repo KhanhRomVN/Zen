@@ -353,11 +353,6 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                         height: "16px",
                         objectFit: "contain",
                       }}
-                      onLoad={() =>
-                        console.log(
-                          `[Favicon] Loaded OK: ${provider.provider_id} -> ${getFaviconUrl(provider.website)}`,
-                        )
-                      }
                       onError={(e) => {
                         console.error(
                           `[Favicon] Load FAILED: ${provider.provider_id} -> ${getFaviconUrl(provider.website)}`,
@@ -578,21 +573,47 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
       )}
 
       {/* Header: label + period tab bar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", marginTop: "8px" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 16px",
+          marginTop: "8px",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--primary-text)" }}>List Account</span>
-          <span style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            padding: "2px 6px",
-            borderRadius: "6px",
-            backgroundColor: "rgba(128,128,128,0.1)",
-            color: "var(--secondary-text)",
-          }}>
+          <span
+            style={{
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "var(--primary-text)",
+            }}
+          >
+            List Account
+          </span>
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              padding: "2px 6px",
+              borderRadius: "6px",
+              backgroundColor: "rgba(128,128,128,0.1)",
+              color: "var(--secondary-text)",
+            }}
+          >
             {accounts.length}
           </span>
         </div>
-        <div style={{ display: "flex", gap: "4px", backgroundColor: "var(--input-bg)", padding: "3px", borderRadius: "8px" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "4px",
+            backgroundColor: "var(--input-bg)",
+            padding: "3px",
+            borderRadius: "8px",
+          }}
+        >
           {(["day", "week", "month"] as const).map((p) => (
             <button
               key={p}
@@ -601,10 +622,14 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 padding: "4px 12px",
                 borderRadius: "6px",
                 border: "none",
-                backgroundColor: statsPeriod === p
-                  ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
-                  : "transparent",
-                color: statsPeriod === p ? "var(--vscode-button-background)" : "var(--secondary-text)",
+                backgroundColor:
+                  statsPeriod === p
+                    ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
+                    : "transparent",
+                color:
+                  statsPeriod === p
+                    ? "var(--vscode-button-background)"
+                    : "var(--secondary-text)",
                 fontSize: "11px",
                 fontWeight: 500,
                 cursor: "pointer",

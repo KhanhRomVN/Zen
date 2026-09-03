@@ -1,24 +1,38 @@
 /**
- *? Usage:
- *    Xử lý thao tác storage (get/set/delete/list) với cơ chế workspace-scoped keys — tự động thêm prefix hash workspace để cô lập dữ liệu giữa các dự án.
+ * ------------------------------------------------------------------
+ * Storage Handler
+ * ------------------------------------------------------------------
+ * Xử lý thao tác storage (get/set/delete/list) với cơ chế
+ * workspace-scoped keys — tự động thêm prefix hash workspace để cô
+ * lập dữ liệu giữa các dự án.
  *
- *? Function:
- *    handleStorageOperation(): Điều phối các lệnh storageGet/Set/Delete/List, tự động resolve key theo workspace.
+ * Main functions:
+ * - handleStorageOperation() : Điều phối các lệnh storageGet/Set/Delete/List,
+ *                              tự động resolve key theo workspace
+ * - getWorkspacePrefix()     : Tạo hash ổn định cho workspace root hiện tại
+ * - resolveKey()             : Resolve key, thêm prefix cho workspace-scoped keys
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as crypto from "crypto";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// STORAGE
+// ── Storage ──
 import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
 
+// ─── Constants ──────────────────────────────────────────────────────────
 /**
- * Keys that are scoped per-workspace.
- * When the webview reads/writes these keys, StorageHandler automatically
- * prefixes them with a hash of the current workspace root so that each
- * workspace has its own independent value.
+ * Keys scoped per-workspace.
+ * Khi webview đọc/ghi các key này, StorageHandler tự động thêm prefix
+ * hash của workspace root để mỗi workspace có dữ liệu riêng biệt.
  */
 const WORKSPACE_SCOPED_KEYS = new Set(["zen_permission_mode"]);
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class StorageHandler {
   constructor(private storageManager: GlobalStorageManager | undefined) {}
 

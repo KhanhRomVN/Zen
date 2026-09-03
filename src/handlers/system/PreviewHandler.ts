@@ -1,27 +1,38 @@
 /**
- *? Usage:
- *    Mở nội dung tạm trong editor: preview markdown/code, ảnh base64, và preview file sẽ được ghi.
+ * ------------------------------------------------------------------
+ * Preview Handler
+ * ------------------------------------------------------------------
+ * Mở nội dung tạm trong editor: preview markdown/code, ảnh base64,
+ * và preview file sẽ được ghi.
  *
- *? Function:
- *    handleOpenTempImage()  : Mở ảnh base64 trong editor.
- *    handleOpenWriteToFile(): Mở preview nội dung file mới sẽ được ghi.
- *    handleOpenViewReplaceHistoryVersion(): Mở nội dung của version cụ thể trong lịch sử replace.
+ * Main functions:
+ * - handleOpenTempImage()               : Mở ảnh base64 trong editor
+ * - handleOpenWriteToFile()             : Mở preview nội dung file mới sẽ được ghi
+ * - handleOpenViewReplaceHistoryVersion(): Mở nội dung của version cụ thể
+ *                                          trong lịch sử replace
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as crypto from "crypto";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// PROVIDERS
+// ── Providers ──
 import { DiffProvider } from "../../providers/DiffProvider";
 
-// SERVICES
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
-// MANAGERS
+// ── Managers ──
 import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class PreviewHandler {
   private pathService: PathService;
 
@@ -34,7 +45,7 @@ export class PreviewHandler {
       .createHash("md5")
       .update(workspaceFolderPath)
       .digest("hex");
-    const tmpDir = path.join(os.tmpdir(), "khanhromvn-zen", hash);
+    const tmpDir = path.join(os.tmpdir(), ".khanhromvn-zen", hash);
     if (!fs.existsSync(tmpDir)) {
       fs.mkdirSync(tmpDir, { recursive: true });
     }

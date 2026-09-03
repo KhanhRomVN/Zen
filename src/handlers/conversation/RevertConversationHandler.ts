@@ -1,22 +1,34 @@
 /**
- *? Usage:
- *    Khôi phục hội thoại về trước một message, kèm checkpoint để có thể undo.
+ * ------------------------------------------------------------------
+ * Revert Conversation Handler
+ * ------------------------------------------------------------------
+ * Khôi phục hội thoại về trước một message, kèm checkpoint để có
+ * thể undo.
  *
- *? Function:
- *    handleRevertConversation(): Khôi phục hội thoại về trước một message, kèm checkpoint.
+ * Main functions:
+ * - handleRevertConversation() : Khôi phục hội thoại về trước một message,
+ *                                kèm checkpoint
+ * - parseActionsFromContent()  : Parse tool actions từ nội dung message
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// MANAGERS
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Managers ──
 import { CheckpointManager } from "../../managers/CheckpointManager";
 import { FileLockManager } from "../../managers/FileLockManager";
 import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
 
-// SERVICES
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ─── Functions ──────────────────────────────────────────────────────────
 /**
  * Parse actions from message content (markdown format)
  * Extracts tool actions like [replace_in_file for 'file.txt']
@@ -48,6 +60,7 @@ function parseActionsFromContent(content: string): Array<{
   return actions;
 }
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class RevertConversationHandler {
   private pathService: PathService;
 

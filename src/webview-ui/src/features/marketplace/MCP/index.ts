@@ -1,0 +1,1 @@
+export { MCPPanel } from './MCPPanel';

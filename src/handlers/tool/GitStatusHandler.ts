@@ -1,13 +1,24 @@
 /**
- *? Usage:
- *    Xử lý lệnh git status: porcelain + diff stats + branch + unpushed commits.
+ * ------------------------------------------------------------------
+ * Git Status Handler
+ * ------------------------------------------------------------------
+ * Xử lý lệnh git status: porcelain + diff stats + branch + unpushed
+ * commits.
  *
- *? Function:
- *    handleRunGitStatus(): Trả về trạng thái git (porcelain, diff --numstat, branch, unpushed commits).
+ * Main functions:
+ * - handleRunGitStatus() : Trả về trạng thái git (porcelain,
+ *                          diff --numstat, branch, unpushed commits)
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
+
+// ── Node ──
 import { exec } from "child_process";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class GitStatusHandler {
   public async handleRunGitStatus(
     message: any,

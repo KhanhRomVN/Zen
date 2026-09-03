@@ -1,26 +1,37 @@
 /**
- *? Usage:
- *    Ghi file mới hoặc ghi đè trong workspace: write_to_file. Có queue, lock, checkpoint, snapshot.
+ * ------------------------------------------------------------------
+ * Write To File Handler
+ * ------------------------------------------------------------------
+ * Ghi file mới hoặc ghi đè trong workspace: write_to_file. Có queue,
+ * lock, checkpoint, snapshot.
  *
- *? Function:
- *    handleWriteToFile(): Ghi nội dung mới vào file (tạo hoặc ghi đè).
+ * Main functions:
+ * - handleWriteToFile() : Ghi nội dung mới vào file (tạo hoặc ghi đè)
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
+import { Buffer } from "buffer";
 
-// AGENT
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── AGENT ──
 import { SecurityValidator } from "../../utils/security";
 
-// MANAGERS
+// ── Managers ──
 import { CheckpointManager } from "../../managers/CheckpointManager";
 import { FileLockManager } from "../../managers/FileLockManager";
 
-// SERVICES
+// ── Services ──
 import { DiagnosticsService } from "../../services/DiagnosticsService";
 import { LoggerService } from "../../services/LoggerService";
 import { PathService } from "../../services/PathService";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class WriteToFileHandler {
   private _writeFileQueue: Promise<void> = Promise.resolve();
   private pathService: PathService;
@@ -120,24 +131,12 @@ export class WriteToFileHandler {
       }
 
       if (!message.skipDiagnostics) {
-        logger.info("[WriteToFileHandler] 🔍 Getting diagnostics for written file", {
-          path: pathValue,
-          absolutePath: absolutePath.fsPath,
-        });
-
         const diagnosticsService = DiagnosticsService.getInstance();
         const result = await diagnosticsService.getDiagnostics(
           absolutePath,
           pathValue,
           15000,
         );
-
-        logger.info("[WriteToFileHandler] 📊 Diagnostics result", {
-          path: pathValue,
-          diagnosticsCount: result.diagnostics.length,
-          hasSkippedReason: !!result.skippedReason,
-          skippedReason: result.skippedReason,
-        });
 
         webviewView.webview.postMessage({
           command: "writeFileResult",
@@ -148,10 +147,6 @@ export class WriteToFileHandler {
           skippedReason: result.skippedReason || null,
         });
       } else {
-        logger.info("[WriteToFileHandler] ⏭️ Skipping diagnostics (skipDiagnostics=true)", {
-          path: pathValue,
-        });
-
         webviewView.webview.postMessage({
           command: "writeFileResult",
           requestId: message.requestId,

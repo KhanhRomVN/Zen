@@ -16,6 +16,8 @@ interface SettingsContextType {
   setLiveWritePreview: (value: boolean) => void;
   systemPromptMode: SystemPromptMode;
   setSystemPromptMode: (mode: SystemPromptMode) => void;
+  useCustomLSP: boolean;
+  setUseCustomLSP: (value: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -60,6 +62,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch (e) {}
       return "balanced";
     });
+  const [useCustomLSP, setUseCustomLSPState] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("zen_use_custom_lsp");
+      return saved === "true";
+    } catch (e) {}
+    return false;
+  });
 
   useEffect(() => {
     const storage = extensionService.getStorage();
@@ -123,6 +132,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_system_prompt_mode", mode);
   };
 
+  const setUseCustomLSP = (value: boolean) => {
+    setUseCustomLSPState(value);
+    try {
+      localStorage.setItem("zen_use_custom_lsp", String(value));
+    } catch (e) {}
+    const storage = extensionService.getStorage();
+    storage.set("zen_use_custom_lsp", value);
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -138,6 +156,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setLiveWritePreview,
         systemPromptMode: systemPromptModeState,
         setSystemPromptMode,
+        useCustomLSP,
+        setUseCustomLSP,
       }}
     >
       {children}

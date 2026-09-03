@@ -1,14 +1,23 @@
 /**
- *? Usage:
- *    Xử lý lệnh git diff cho từng file, hỗ trợ cả file chưa tracked.
+ * ------------------------------------------------------------------
+ * Git Diff Handler
+ * ------------------------------------------------------------------
+ * Xử lý lệnh git diff cho từng file, hỗ trợ cả file chưa tracked.
  *
- *? Function:
- *    handleGitDiff(): Trả về diff của một file (hỗ trợ cả file chưa tracked).
+ * Main functions:
+ * - handleGitDiff() : Trả về diff của một file (hỗ trợ cả file chưa tracked)
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ─── Class ──────────────────────────────────────────────────────────────
 export class GitDiffHandler {
   public async handleGitDiff(message: any, webviewView: vscode.WebviewView) {
     const { exec } = require("child_process");

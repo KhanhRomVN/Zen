@@ -1,16 +1,27 @@
 /**
- *? Usage:
- *    Liệt kê cây thư mục với depth tùy chỉnh, bỏ qua thư mục ẩn và node_modules.
+ * ------------------------------------------------------------------
+ * List Files Handler
+ * ------------------------------------------------------------------
+ * Liệt kê cây thư mục với depth tùy chỉnh, bỏ qua thư mục ẩn và
+ * node_modules.
  *
- *? Function:
- *    handleListFiles(): Liệt kê cây thư mục với depth tùy chỉnh, bỏ qua thư mục ẩn và node_modules.
+ * Main functions:
+ * - handleListFiles() : Liệt kê cây thư mục với depth tùy chỉnh,
+ *                       bỏ qua thư mục ẩn và node_modules
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── VSCode ──
 import * as vscode from "vscode";
+
+// ── Node ──
 import * as path from "path";
 
-// SECURITY
+// ── Security ──
 import { SecurityValidator } from "../../utils/security";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ListFilesHandler {
   private async resolveWorkspacePathWithFallback(
     workspaceFolder: vscode.WorkspaceFolder,

@@ -1,20 +1,30 @@
 /**
- *? Usage:
- *    Đọc nội dung một cuộc hội thoại từ file JSON, hỗ trợ fallback search trong thư mục projects.
+ * ------------------------------------------------------------------
+ * Get Conversation Handler
+ * ------------------------------------------------------------------
+ * Đọc nội dung một cuộc hội thoại từ file JSON, hỗ trợ fallback
+ * search trong thư mục projects.
  *
- *? Function:
- *    handleGetConversation(): Đọc nội dung một cuộc hội thoại từ file JSON.
+ * Main functions:
+ * - handleGetConversation() : Đọc nội dung một cuộc hội thoại từ file JSON
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
 
-// SERVICES
+// ── VSCode ──
+import * as vscode from "vscode";
+
+// ── Services ──
 import { PathService } from "../../services/PathService";
 
-// STORAGE
+// ── Storage ──
 import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class GetConversationHandler {
   private pathService: PathService;
 

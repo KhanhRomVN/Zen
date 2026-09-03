@@ -294,6 +294,13 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
   // Check if action has validation error
   const hasValidationError = !!action.isError;
 
+  // Check diagnostics for completed revert
+  const hasDiagnosticErrors = React.useMemo(() => {
+    if (!isCompleted || isError) return false;
+    const diagnostics = toolOutputs?.[actionId]?.diagnostics || [];
+    return diagnostics.some((d: any) => d.severity === "Error");
+  }, [isCompleted, isError, toolOutputs, actionId]);
+
   // Calculate version info
   const explicitTargetVersion = action.params.version;
   // currentVersion = highest version number in history, NOT the length
@@ -312,7 +319,9 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
   const statusColor = isError
     ? "var(--vscode-errorForeground, #f14c4c)"
     : isCompleted
-      ? "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)"
+      ? hasDiagnosticErrors
+        ? "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)"
+        : "var(--vscode-gitDecoration-addedResourceForeground, #89d185)"
       : isActiveGroup
         ? "var(--vscode-descriptionForeground)"
         : "var(--vscode-descriptionForeground)";

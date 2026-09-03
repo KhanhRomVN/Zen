@@ -1,18 +1,30 @@
 /**
- *? Usage:
- *    Xử lý thực thi grep của AI agent: security check + regex search + trả kết quả về webview.
+ * ------------------------------------------------------------------
+ * Grep Handler
+ * ------------------------------------------------------------------
+ * Xử lý thực thi grep của AI agent: security check + regex search +
+ * trả kết quả về webview.
  *
- *? Function:
- *    handleGrep(): Security check path, thực thi grep, trả về kết quả qua postMessage.
+ * Main functions:
+ * - handleGrep()            : Security check path, thực thi grep,
+ *                             trả về kết quả qua postMessage
+ * - executeGrep()           : Thực thi regex search trên file/folder
+ * - searchInFileWithStats() : Tìm kiếm trong một file với thống kê dòng
+ * ------------------------------------------------------------------
  */
+
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
 import * as fs from "fs";
 import * as path from "path";
+
+// ── VSCode ──
 import * as vscode from "vscode";
 
-// SERVICES
+// ── Services ──
 import { LoggerService } from "../../services/LoggerService";
 
-// VALIDATORS
+// ── Validators ──
 import { SecurityValidator } from "../../utils/security";
 
 // ─── Constants ────────────────────────────────────────────────────

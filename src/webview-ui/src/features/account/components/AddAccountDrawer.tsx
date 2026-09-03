@@ -61,7 +61,6 @@ const ProviderRow: React.FC<{
 
   // ── Derived ──
   const iconUrl = getFaviconUrl(provider.website_url || provider.website);
-  console.log("[AddAccountDrawer] favicon", provider.provider_id, provider.website_url || provider.website, iconUrl);
   const disabled = provider.is_enabled === false || loading;
 
   const connectionType = provider.connection_type || "https";
@@ -136,11 +135,12 @@ const ProviderRow: React.FC<{
             src={iconUrl}
             alt={provider.provider_name}
             style={{ width: "22px", height: "22px", objectFit: "contain" }}
-            onLoad={() =>
-              console.log("[AddAccountDrawer] favicon loaded", provider.provider_id)
-            }
             onError={() => {
-              console.error("[AddAccountDrawer] favicon failed", provider.provider_id, iconUrl);
+              console.error(
+                "[AddAccountDrawer] favicon failed",
+                provider.provider_id,
+                iconUrl,
+              );
               setImgError(true);
             }}
           />
@@ -246,8 +246,7 @@ const ProviderRow: React.FC<{
           )}
         </div>
       </div>
-
-      </div>
+    </div>
   );
 };
 
@@ -1091,7 +1090,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 {providers.map((p) => (
                   <ProviderRow
                     key={p.provider_id}
-                   provider={p}
+                    provider={p}
                     onSelect={(method) => handleLogin(p, method)}
                     onContextMenu={(e, provider) => {
                       e.preventDefault();
@@ -1222,7 +1221,9 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 flexShrink: 0,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <Loader2
                   size={14}
                   style={{ animation: "aaSpin 1s linear infinite" }}

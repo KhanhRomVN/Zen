@@ -1,14 +1,23 @@
 /**
- *? Usage:
- *    Controller trung tâm nhận message từ webview, điều phối đến các handler tương ứng (file, terminal, git, agent, storage, conversation...).
+ * ------------------------------------------------------------------
+ * Chat Controller
+ * ------------------------------------------------------------------
+ * Controller trung tâm nhận message từ webview và điều phối đến các
+ * handler tương ứng (file, terminal, git, agent, storage, conversation...).
  *
- *? Function:
- *    handleMessage() : Routing chính, phân phối message theo command.
- *    updateTheme()   : Gửi theme hiện tại cho webview.
+ * Main functions:
+ * - handleMessage() : Routing chính, phân phối message theo command
+ * - updateTheme()   : Gửi theme hiện tại cho webview
+ * ------------------------------------------------------------------
  */
-import * as vscode from "vscode";
 
-// HANDLERS
+// ─── Imports ────────────────────────────────────────────────────────────
+// ── External ──
+import * as vscode from "vscode";
+import * as os from "os";
+import * as path from "path";
+
+// ── Handlers ──
 import { ProjectContextHandler } from "../handlers/system/ProjectContextHandler";
 import { StorageHandler } from "../handlers/storage/StorageHandler";
 import { ThemeHandler } from "../handlers/system/ThemeHandler";
@@ -40,14 +49,15 @@ import { GitDiffHandler } from "../handlers/tool/GitDiffHandler";
 import { GitStatusHandler } from "../handlers/tool/GitStatusHandler";
 import { GrepHandler } from "../handlers/tool/GrepHandler";
 
-// MANAGERS
+// ── Managers ──
 import { CheckpointManager } from "../managers/CheckpointManager";
 import { FileLockManager } from "../managers/FileLockManager";
 import { TerminalManager } from "../managers/TerminalManager";
 
-// STORAGE
+// ── Storage ──
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
 
+// ─── Class ──────────────────────────────────────────────────────────────
 export class ChatController {
   private getHistoryHandler: GetHistoryHandler;
   private getConversationHandler: GetConversationHandler;
@@ -149,6 +159,11 @@ export class ChatController {
           break;
         case "openFolder":
           await this.fileOpenHandler.handleOpenFolder(message);
+          break;
+        case "openLspFolder":
+          await this.fileOpenHandler.handleOpenFolder({
+            path: path.join(os.homedir(), ".khanhromvn-zen", "lsp", message.packageName),
+          });
           break;
         case "openTempImage":
           await this.previewHandler.handleOpenTempImage(message);
