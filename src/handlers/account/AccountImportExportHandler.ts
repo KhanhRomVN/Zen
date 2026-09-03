@@ -32,20 +32,13 @@ export class AccountImportExportHandler {
     if (!fileUris || fileUris.length === 0) return;
 
     try {
-      const content = await fs.promises.readFile(fileUris[0].fsPath, "utf8");
+      const content = fs.readFileSync(fileUris[0].fsPath, "utf8");
       const parsed = JSON.parse(content);
       const response = await fetch(`${apiUrl}/v1/accounts/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed),
       });
-      if (!response.ok) {
-        webviewView.webview.postMessage({
-          requestId: message.requestId,
-          error: `Import failed: HTTP ${response.status} ${response.statusText}`,
-        });
-        return;
-      }
       const result = await response.json();
       webviewView.webview.postMessage({ requestId: message.requestId, result });
     } catch (error: any) {
@@ -57,19 +50,15 @@ export class AccountImportExportHandler {
   }
 
   public async handleExportAccounts(message: any) {
-    const saveUri = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(message.fileName || "accounts.json"),
-      filters: { JSON: ["json"] },
+    const folderUris = await vscode.window.showOpenDialog({
+      canSelectFiles: false,
+      canSelectFolders: true,
+      canSelectMany: false,
     });
-    if (!saveUri) return;
+    if (!folderUris || folderUris.length === 0) return;
 
-    try {
-      await fs.promises.writeFile(saveUri.fsPath, message.content, "utf8");
-      vscode.window.showInformationMessage(`Exported: ${saveUri.fsPath}`);
-    } catch (error: any) {
-      vscode.window.showErrorMessage(
-        `Export failed: ${error?.message || String(error)}`,
-      );
-    }
+    const filePath = path.join(folderUris[0].fsPath, message.fileName);
+    fs.writeFileSync(filePath, message.content, "utf8");
+    vscode.window.showInformationMessage(`Exported: ${filePath}`);
   }
 }
