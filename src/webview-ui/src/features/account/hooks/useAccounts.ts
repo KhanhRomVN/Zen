@@ -15,7 +15,7 @@
 
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ──
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ── Hooks ──
 import { useSettings } from "../../../context/SettingsContext";
@@ -52,19 +52,33 @@ export const useAccounts = (isOpen: boolean) => {
 
   // ── Store ──
   const { apiUrl } = useSettings();
+  const abortRef = useRef<AbortController | null>(null);
 
   // ── Callbacks ──
   const callBackend = useCallback(
-    async (endpoint: string, method: string = "GET", body?: any) => {
+    async (
+      endpoint: string,
+      method: string = "GET",
+      body?: any,
+      signal?: AbortSignal,
+    ) => {
       const url = `${apiUrl}${endpoint}`;
       const options: RequestInit = {
         method,
         headers: { "Content-Type": "application/json" },
         cache: "no-store", // Prevent caching
+        signal,
       };
       if (body) options.body = JSON.stringify(body);
-      const response = await fetch(url, options);
-      return response.json();
+      try {
+        const response = await fetch(url, options);
+        return await response.json();
+      } catch (err: any) {
+        if (err.name === "AbortError" || signal?.aborted) {
+          return { aborted: true };
+        }
+        throw err;
+      }
     },
     [apiUrl],
   );
@@ -72,12 +86,20 @@ export const useAccounts = (isOpen: boolean) => {
   const fetchAccounts = useCallback(
     async (page = 1, limit = 20, silent = false) => {
       if (!isOpen) return;
+
+      // Abort previous in-flight requests when a new search/filter fetch starts
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const { signal } = controller;
+
       if (!silent) setLoading(true);
       try {
         // Fetch providers first if empty
         if (providerConfigs.length === 0) {
           try {
-            const pResult = await callBackend("/v1/providers");
+            const pResult = await callBackend("/v1/providers", "GET", undefined, signal);
+            if (pResult?.aborted || signal.aborted) return;
             if (pResult.success && pResult.data) {
               setProviderConfigs(pResult.data);
             }
@@ -97,17 +119,25 @@ export const useAccounts = (isOpen: boolean) => {
           params.append("provider_id", providerFilter);
         if (emailFilter.length === 1) params.append("email", emailFilter[0]);
 
-        const result = await callBackend(`/v1/accounts?${params.toString()}`);
+        const result = await callBackend(`/v1/accounts?${params.toString()}`, "GET", undefined, signal);
+        if (result?.aborted || signal.aborted) return; // Request bị hủy bởi request mới hơn
         if (result.success && result.data) {
           const accountsList = result.data.accounts || [];
 
-          // Fetch daily stats for each account
+          // Fetch period stats for each account
+          // NOTE: N+1 calls — đơn giản nhưng mỗi page load tốn ~21 requests.
+          // <ceiling> — upgrade path: backend trả period_requests/period_tokens
+          // trực tiếp trong /v1/accounts response, xóa toàn bộ khối Promise.all này.
           const accountsWithDailyStats = await Promise.all(
             accountsList.map(async (acc: any) => {
               try {
                 const statsResult = await callBackend(
                   `/v1/stats?period=${statsPeriod}&account_id=${acc.id}`,
+                  "GET",
+                  undefined,
+                  signal,
                 );
+                if (statsResult?.aborted || signal.aborted) throw new Error("aborted");
                 let dailyTokens = 0;
                 let dailyRequests = 0;
 
@@ -136,7 +166,10 @@ export const useAccounts = (isOpen: boolean) => {
                   user_data_dir: acc.user_data_dir,
                   is_active_cli: acc.is_active_cli,
                 };
-              } catch (err) {
+              } catch (err: any) {
+                if (err.message === "aborted" || signal.aborted) {
+                  throw err;
+                }
                 console.error(
                   `Failed to fetch stats for account ${acc.id}:`,
                   err,
@@ -158,6 +191,7 @@ export const useAccounts = (isOpen: boolean) => {
             }),
           );
 
+          if (signal.aborted) return;
           setAccounts(accountsWithDailyStats);
           setAllAccounts(accountsWithDailyStats);
           setPagination({
@@ -167,10 +201,11 @@ export const useAccounts = (isOpen: boolean) => {
             total_pages: result.data.pagination?.total_pages || 1,
           });
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.message === "aborted" || signal.aborted) return;
         console.error("Failed to fetch accounts:", err);
       } finally {
-        if (!silent) setLoading(false);
+        if (!silent && !signal.aborted) setLoading(false);
       }
     },
     [
@@ -183,6 +218,13 @@ export const useAccounts = (isOpen: boolean) => {
       statsPeriod,
     ],
   );
+
+  // ── Effects ──
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   // ── Effects ──
   useEffect(() => {
