@@ -53,29 +53,27 @@ export class SetConversationTitleHandler {
       );
       const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
+      let data: any = {};
+      try {
+        const content = await fs.promises.readFile(logPath, "utf-8");
+        data = JSON.parse(content);
+      } catch (readErr) {
+        // File might not exist yet — start fresh
+        data = { messages: [] };
+      }
+
+      if (Array.isArray(data)) {
+        // Legacy array format — wrap into object
+        data = { messages: data };
+      }
+
+      if (!data.metadata) {
+        data.metadata = {};
+      }
+      data.metadata.title = title.trim();
+
       const release = await this.fileLockManager.acquire(logPath);
       try {
-        let data: any = {};
-        try {
-          const content = await fs.promises.readFile(logPath, "utf-8");
-          data = JSON.parse(content);
-        } catch (readErr: any) {
-          // Only start fresh if file doesn't exist — rethrow everything else
-          // to avoid silently wiping conversation history on corrupt/locked file
-          if (readErr.code !== "ENOENT") throw readErr;
-          data = { messages: [] };
-        }
-
-        if (Array.isArray(data)) {
-          // Legacy array format — wrap into object
-          data = { messages: data };
-        }
-
-        if (!data.metadata) {
-          data.metadata = {};
-        }
-        data.metadata.title = title.trim();
-
         await fs.promises.writeFile(logPath, JSON.stringify(data, null, 2));
       } finally {
         release();
