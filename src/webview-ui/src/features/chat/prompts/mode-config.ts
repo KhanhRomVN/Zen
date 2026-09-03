@@ -2,9 +2,9 @@ export type SystemPromptMode = "fast" | "balanced" | "thorough" | "autopilot";
 
 export interface ModeBehaviorConfig {
   askConfirmation: "minimal" | "moderate" | "extensive" | "almost-never";
-  commentStyle: "minimal" | "standard" | "comprehensive" | "standard";
-  testBehavior: "none" | "propose-existing" | "write-new" | "propose-existing";
-  explanationLevel: "one-line" | "brief" | "detailed" | "brief";
+  commentStyle: "minimal" | "standard" | "comprehensive";
+  testBehavior: "none" | "propose-existing" | "write-new";
+  explanationLevel: "one-line" | "brief" | "detailed";
   readBeforeEdit: boolean;
   maxBatchSize: number;
   maxFilesPerTurn: number;

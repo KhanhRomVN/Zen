@@ -57,12 +57,6 @@
           "name": "Chat",
           "type": "webview",
           "contextualTitle": "Zen Chat"
-        },
-        {
-          "id": "zen-accounts",
-          "name": "Accounts",
-          "type": "webview",
-          "contextualTitle": "Zen Accounts"
         }
       ]
     },

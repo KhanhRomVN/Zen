@@ -68,7 +68,10 @@ export const getFaviconSources = (
   }
 };
 
-export const validateImageUrl = (url: string): Promise<boolean> => {
+export const validateImageUrl = (
+  url: string,
+  timeoutMs: number = 2500,
+): Promise<boolean> => {
   return new Promise((resolve) => {
     const img = new Image();
     // Note: Do NOT set crossOrigin here — many favicon services (like Google S2)
@@ -79,7 +82,7 @@ export const validateImageUrl = (url: string): Promise<boolean> => {
       img.onload = null;
       img.onerror = null;
       resolve(false);
-    }, 5000); // 5 second timeout
+    }, timeoutMs);
 
     img.onload = () => {
       clearTimeout(timeout);
@@ -110,39 +113,73 @@ export const useFavicon = (url?: string, size: number = 32) => {
       return;
     }
 
+    let isMounted = true;
+
     const loadFavicon = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
         const sources = getFaviconSources(url, size);
+        const [primary, ...fallbacks] = sources.filter(
+          (s) => s !== "/favicon-fallback.png",
+        );
 
-        for (const src of sources) {
-          try {
-            const isValid = await validateImageUrl(src);
-            if (isValid) {
-              setFaviconUrl(src);
-              setIsLoading(false);
-              return;
-            }
-          } catch (err) {
-            logger.error(`Failed to load favicon from ${src}:`, err);
-            continue;
-          }
+        // 1. Fast path: Thử nguồn chính (Google S2) trước với timeout 1.5s (thường trả về < 300ms)
+        if (primary && (await validateImageUrl(primary, 1500))) {
+          if (!isMounted) return;
+          setFaviconUrl(primary);
+          setIsLoading(false);
+          return;
         }
 
-        // If we get here, all sources failed
-        setFaviconUrl("/favicon-fallback.png");
-        setError("All favicon sources failed");
+const promiseAny = <T>(promises: Promise<T>[]): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    let pending = promises.length;
+    if (pending === 0) return reject(new Error("All promises rejected"));
+    promises.forEach((p) => {
+      p.then(resolve).catch(() => {
+        pending -= 1;
+        if (pending === 0) reject(new Error("All promises rejected"));
+      });
+    });
+  });
+};
+
+        // 2. Fallback song song: Chạy Promise.any các nguồn dự phòng còn lại (thay vì lặp tuần tự tốn 30s)
+        const validFallback = await promiseAny(
+          fallbacks.map((src) =>
+            validateImageUrl(src, 2500).then((valid) => {
+              if (valid) return src;
+              throw new Error("Invalid");
+            }),
+          ),
+        ).catch(() => null);
+
+        if (!isMounted) return;
+
+        if (validFallback) {
+          setFaviconUrl(validFallback);
+        } else {
+          setFaviconUrl("/favicon-fallback.png");
+          setError("All favicon sources failed");
+        }
       } catch (err) {
+        if (!isMounted) return;
         setFaviconUrl("/favicon-fallback.png");
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadFavicon();
+
+    return () => {
+      isMounted = false;
+    };
   }, [url, size]);
 
   return { faviconUrl, isLoading, error };

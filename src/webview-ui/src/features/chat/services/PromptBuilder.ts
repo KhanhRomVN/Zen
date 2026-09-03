@@ -143,7 +143,7 @@ export class PromptBuilder {
     const effectiveLang = aiLanguage;
     const mode: SystemPromptMode = systemPromptMode || "balanced";
 
-    // Use combinePromptsForMode to support simple/medium/promax modes.
+    // Use combinePromptsForMode to support fast/balanced/thorough/autopilot modes.
     // systemInfo cast to any to satisfy PromptModeConfig shape (SystemInfo compatible).
     const systemPrompt = combinePromptsForMode(
       {
