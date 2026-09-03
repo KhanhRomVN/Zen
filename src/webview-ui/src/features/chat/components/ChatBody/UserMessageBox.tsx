@@ -1,7 +1,7 @@
 import React from "react";
-import RevertConfirmModal from "@/components/RevertConfirmModal";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import { Message, QuestionAnswer } from "@/features/chat/types/message";
+import RevertConfirmModal from "./RevertConfirmModal";
 
 interface UserMessageBoxProps {
   message: Message;

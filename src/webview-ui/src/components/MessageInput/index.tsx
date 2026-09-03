@@ -1,12 +1,20 @@
 import React from "react";
-import { Plus, Send, X, GitPullRequestArrow, Zap, Scale, ShieldCheck, Plane } from "lucide-react";
+import {
+  Plus,
+  Send,
+  X,
+  GitPullRequestArrow,
+  Zap,
+  Scale,
+  ShieldCheck,
+  Plane,
+} from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
-import StyleCodeDrawer from "./StyleCodeDrawer";
+import StyleCodeDropdown from "./StyleCodeDropdown";
 import { getFaviconUrl } from "../../utils/favicon";
-import DiffSummaryBar from "./DiffSummaryBar";
 import type {
   MessageInputProps,
   UploadedFile,
@@ -893,8 +901,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     } = useSettings();
     const [providers, setProviders] = React.useState<any[]>([]);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
-    const [showStyleDrawer, setShowStyleDrawer] =
-      React.useState(false);
     const [isSystemPromptHovered, setIsSystemPromptHovered] =
       React.useState(false);
 
@@ -1147,8 +1153,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                           borderRadius: "2px",
                         }}
                         onError={(e) => {
-                          (e.target as HTMLImageElement).style.display =
-                            "none";
+                          (e.target as HTMLImageElement).style.display = "none";
                         }}
                       />
                     );
@@ -1178,32 +1183,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             </div>
           )}
 
-          {/* 🆕 CHAT PANEL DIFF SUMMARY BAR (Stuck to Border) - Only when isConversationStarted */}
-          {isConversationStarted && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: "100%",
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: "98%",
-                zIndex: 20,
-              }}
-            >
-              <DiffSummaryBar
-                totalChanges={conversationFileStats?.totalFiles || 0}
-                addedLines={conversationFileStats?.totalAdditions || 0}
-                removedLines={conversationFileStats?.totalDeletions || 0}
-                onClick={onOpenGitStatus}
-                onReviewClick={onReviewClick}
-                onRevert={onRevertConversation}
-                responseRange={responseRange}
-                responseRanges={responseRanges}
-                autoScrollPaused={autoScrollPaused}
-                scrollToBottom={scrollToBottom}
-              />
-            </div>
-          )}
           {showModelDrawer && (
             <ModelAccountDrawer
               isOpen={showModelDrawer}
@@ -1278,14 +1257,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               }}
             />
           )}
-
-          {/* Style Code Drawer */}
-          <StyleCodeDrawer
-            isOpen={showStyleDrawer}
-            onClose={() => setShowStyleDrawer(false)}
-            currentMode={systemPromptMode}
-            onSelect={setSystemPromptMode}
-          />
 
           {/* Model Switch Confirmation Dialog */}
           {pendingModelSwitch && (
@@ -1755,21 +1726,39 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
               {/* System Prompt Mode Selector - Home only */}
               {!isConversationStarted && (
-                <div style={{ position: "relative" }}>
-                  {(() => {
+                <StyleCodeDropdown
+                  currentMode={systemPromptMode}
+                  onSelect={setSystemPromptMode}
+                  triggerButton={(() => {
                     const modeMeta: Record<
                       string,
                       { label: string; icon: React.ReactNode; color: string }
                     > = {
-                      fast: { label: "Fast", icon: <Zap size={11} />, color: "#22c55e" },
-                      balanced: { label: "Balanced", icon: <Scale size={11} />, color: "#3b82f6" },
-                      thorough: { label: "Thorough", icon: <ShieldCheck size={11} />, color: "#a78bfa" },
-                      autopilot: { label: "Autopilot", icon: <Plane size={11} />, color: "#f97316" },
+                      fast: {
+                        label: "Fast",
+                        icon: <Zap size={11} />,
+                        color: "#22c55e",
+                      },
+                      balanced: {
+                        label: "Balanced",
+                        icon: <Scale size={11} />,
+                        color: "#3b82f6",
+                      },
+                      thorough: {
+                        label: "Thorough",
+                        icon: <ShieldCheck size={11} />,
+                        color: "#a78bfa",
+                      },
+                      autopilot: {
+                        label: "Autopilot",
+                        icon: <Plane size={11} />,
+                        color: "#f97316",
+                      },
                     };
-                    const meta = modeMeta[systemPromptMode] || modeMeta.balanced;
+                    const meta =
+                      modeMeta[systemPromptMode] || modeMeta.balanced;
                     return (
                       <button
-                        onClick={() => setShowStyleDrawer(true)}
                         onMouseEnter={() => setIsSystemPromptHovered(true)}
                         onMouseLeave={() => setIsSystemPromptHovered(false)}
                         style={{
@@ -1810,7 +1799,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       </button>
                     );
                   })()}
-                </div>
+                />
               )}
             </div>
 
