@@ -5,7 +5,7 @@ import { Message } from "@/features/chat/types/message";
 
 // COMPONENTS
 import CodeBlock from "./blocks/code/CodeBlock";
-import RevertConfirmModal from "@/components/RevertConfirmModal";
+import RevertConfirmModal from "../RevertConfirmModal";
 
 interface ResponseMetadataBarProps {
   responseNumber: number;
@@ -471,12 +471,16 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
                   // Content blocks summary
                   if (info.contentBlocks && info.contentBlocks.length > 0) {
                     lines.push("");
-                    lines.push(`Total Content Blocks: ${info.contentBlocks.length}`);
+                    lines.push(
+                      `Total Content Blocks: ${info.contentBlocks.length}`,
+                    );
                     if (info.contentBlockStats) {
                       lines.push("Block Types:");
-                      Object.entries(info.contentBlockStats).forEach(([type, count]) => {
-                        lines.push(`  - ${type}: ${count}`);
-                      });
+                      Object.entries(info.contentBlockStats).forEach(
+                        ([type, count]) => {
+                          lines.push(`  - ${type}: ${count}`);
+                        },
+                      );
                     }
                   }
                   lines.push("");
@@ -499,22 +503,34 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
 
                     info.contentBlocks.forEach((block) => {
                       const typeIcon =
-                        block.type === "thinking" ? "💭" :
-                        block.type === "markdown" ? "📝" :
-                        block.type === "code" ? "💻" :
-                        block.type === "tool" ? "🔧" :
-                        block.type === "question" ? "❓" : "📦";
+                        block.type === "thinking"
+                          ? "💭"
+                          : block.type === "markdown"
+                            ? "📝"
+                            : block.type === "code"
+                              ? "💻"
+                              : block.type === "tool"
+                                ? "🔧"
+                                : block.type === "question"
+                                  ? "❓"
+                                  : "📦";
 
                       lines.push("");
-                      lines.push(`[${block.index + 1}] ${typeIcon} ${block.type.toUpperCase()}`);
-                      lines.push(`    Content Length: ${block.contentLength} chars`);
+                      lines.push(
+                        `[${block.index + 1}] ${typeIcon} ${block.type.toUpperCase()}`,
+                      );
+                      lines.push(
+                        `    Content Length: ${block.contentLength} chars`,
+                      );
 
                       if (block.language) {
                         lines.push(`    Language: ${block.language}`);
                       }
 
                       if (block.actionIndex !== undefined) {
-                        lines.push(`    Linked to Action: #${block.actionIndex + 1}`);
+                        lines.push(
+                          `    Linked to Action: #${block.actionIndex + 1}`,
+                        );
                       }
                     });
 
@@ -527,9 +543,12 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
                     lines.push("-".repeat(60));
 
                     info.actions.forEach((action, idx) => {
-                      const statusIcon = action.status === "success" ? "✅" : "❌";
+                      const statusIcon =
+                        action.status === "success" ? "✅" : "❌";
                       lines.push("");
-                      lines.push(`[${idx + 1}] ${statusIcon} ${action.type.toUpperCase()}`);
+                      lines.push(
+                        `[${idx + 1}] ${statusIcon} ${action.type.toUpperCase()}`,
+                      );
                       lines.push(`    Status: ${action.status}`);
 
                       if (action.errorMessage) {
@@ -541,12 +560,20 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
                       }
 
                       // Parameters
-                      if (action.extractedParams && action.extractedParams.length > 0) {
+                      if (
+                        action.extractedParams &&
+                        action.extractedParams.length > 0
+                      ) {
                         lines.push("    Parameters:");
                         action.extractedParams.forEach((param) => {
                           const paramIcon = param.found ? "✓" : "✗";
-                          const lengthInfo = param.length !== undefined ? ` (${param.length} chars)` : "";
-                          lines.push(`      ${paramIcon} ${param.name}${lengthInfo}`);
+                          const lengthInfo =
+                            param.length !== undefined
+                              ? ` (${param.length} chars)`
+                              : "";
+                          lines.push(
+                            `      ${paramIcon} ${param.name}${lengthInfo}`,
+                          );
                         });
                       }
 
@@ -555,15 +582,22 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
                       if (paramEntries.length > 0) {
                         lines.push("    Values:");
                         paramEntries.forEach(([key, value]) => {
-                          if (value === null || value === undefined || value === "") {
+                          if (
+                            value === null ||
+                            value === undefined ||
+                            value === ""
+                          ) {
                             lines.push(`      ${key}: <empty>`);
                           } else if (typeof value === "string") {
-                            const preview = value.length > 100
-                              ? `${value.substring(0, 100)}... (${value.length} chars total)`
-                              : value;
+                            const preview =
+                              value.length > 100
+                                ? `${value.substring(0, 100)}... (${value.length} chars total)`
+                                : value;
                             lines.push(`      ${key}: ${preview}`);
                           } else {
-                            lines.push(`      ${key}: ${JSON.stringify(value)}`);
+                            lines.push(
+                              `      ${key}: ${JSON.stringify(value)}`,
+                            );
                           }
                         });
                       }

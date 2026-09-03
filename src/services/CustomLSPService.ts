@@ -65,9 +65,6 @@ export class CustomLSPService {
   private ensureLSPDir(): void {
     if (!fs.existsSync(this.lspDir)) {
       fs.mkdirSync(this.lspDir, { recursive: true });
-      this.logger.info("[CustomLSPService] Created LSP directory", {
-        path: this.lspDir,
-      });
     }
   }
 
@@ -183,11 +180,6 @@ export class CustomLSPService {
     const nodeModulesExists = fs.existsSync(
       path.join(packageDir, "node_modules"),
     );
-    this.logger.info("[CustomLSPService] Check LSP installed", {
-      packageName,
-      packageDir,
-      nodeModulesExists,
-    });
     return nodeModulesExists;
   }
 
@@ -197,14 +189,7 @@ export class CustomLSPService {
   public async autoInstallLSP(
     packageName: string,
   ): Promise<{ success: boolean; message: string }> {
-    this.logger.info("[CustomLSPService] Starting auto-install", {
-      packageName,
-    });
-
     if (this.isLSPInstalled(packageName)) {
-      this.logger.info("[CustomLSPService] Package already installed", {
-        packageName,
-      });
       return {
         success: true,
         message: `${packageName} already installed`,
@@ -234,10 +219,6 @@ export class CustomLSPService {
         JSON.stringify(packageJson, null, 2),
       );
 
-      this.logger.info("[CustomLSPService] Created package.json", {
-        packageDir,
-      });
-
       // Show progress notification
       await vscode.window.withProgress(
         {
@@ -262,9 +243,6 @@ export class CustomLSPService {
                   });
                   reject(error);
                 } else {
-                  this.logger.info("[CustomLSPService] npm install success", {
-                    stdout: stdout.substring(0, 200),
-                  });
                   resolve();
                 }
               },
@@ -313,9 +291,6 @@ export class CustomLSPService {
       }
       const raw = await this.storageManager.get("zen_use_custom_lsp");
       const enabled = raw === "true";
-      this.logger.info("[CustomLSPService] Check custom LSP enabled", {
-        enabled,
-      });
       return enabled;
     } catch {
       return false;
@@ -326,9 +301,7 @@ export class CustomLSPService {
    * Process file for custom LSP diagnostic
    * Auto-install LSP if needed, then return ready status
    */
-  public async processFileForCustomLSP(
-    filePath: string,
-  ): Promise<{
+  public async processFileForCustomLSP(filePath: string): Promise<{
     shouldUseCustom: boolean;
     lspReady: boolean;
     languageId: string;
@@ -339,10 +312,6 @@ export class CustomLSPService {
     // Check if custom LSP is enabled
     const customEnabled = await this.isCustomLSPEnabled();
     if (!customEnabled) {
-      logger.info(
-        "[CustomLSPService] Custom LSP disabled, using VSCode LSP",
-        { filePath },
-      );
       return {
         shouldUseCustom: false,
         lspReady: false,
@@ -353,7 +322,6 @@ export class CustomLSPService {
     // Detect language
     const languageId = this.detectLanguage(filePath);
     if (!languageId) {
-      logger.info("[CustomLSPService] No language detected", { filePath });
       return {
         shouldUseCustom: false,
         lspReady: false,
@@ -364,9 +332,6 @@ export class CustomLSPService {
     // Get LSP info
     const lspInfo = this.getLSPServerInfo(languageId);
     if (!lspInfo) {
-      logger.info("[CustomLSPService] No LSP info for language", {
-        languageId,
-      });
       return {
         shouldUseCustom: false,
         lspReady: false,
@@ -377,10 +342,6 @@ export class CustomLSPService {
     // Check if installed
     const installed = this.isLSPInstalled(lspInfo.npmPackage);
     if (!installed) {
-      logger.info("[CustomLSPService] LSP not installed, auto-installing", {
-        packageName: lspInfo.npmPackage,
-      });
-
       const result = await this.autoInstallLSP(lspInfo.npmPackage);
       return {
         shouldUseCustom: true,
@@ -389,11 +350,6 @@ export class CustomLSPService {
         packageName: lspInfo.npmPackage,
       };
     }
-
-    logger.info("[CustomLSPService] Custom LSP ready", {
-      languageId,
-      packageName: lspInfo.npmPackage,
-    });
 
     return {
       shouldUseCustom: true,

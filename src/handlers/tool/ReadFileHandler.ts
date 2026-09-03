@@ -2,9 +2,12 @@
  * ------------------------------------------------------------------
  * Read File Handler
  * ------------------------------------------------------------------
- * Đọc nội dung file trong workspace, hỗ trợ đọc theo dòng
- * (start_line/end_line), tích hợp security check, diagnostics, và
- * hàng đợi tuần tự.
+ * Đọc nội dung file trong workspace, hỗ trợ:
+ * - Text files thuần (txt, md, code, etc.)
+ * - DOCX files (Microsoft Word)
+ * - PDF files
+ * - Đọc theo dòng (start_line/end_line)
+ * - Security check, diagnostics, và hàng đợi tuần tự
  *
  * Main functions:
  * - handleReadFile() : Đọc file với queue, chờ diagnostics từ language
@@ -28,6 +31,14 @@ import { PathService } from "../../services/PathService";
 
 // ── Security ──
 import { SecurityValidator } from "../../utils/security";
+
+// ── Document Parsers ──
+import * as mammoth from "mammoth";
+import * as pdfParse from "pdf-parse";
+import * as iconv from "iconv-lite";
+import * as JSZip from "jszip";
+import { parseString } from "xml2js";
+const RtfParser = require("rtf-parser");
 
 // ─── Class ──────────────────────────────────────────────────────────────
 export class ReadFileHandler {
@@ -65,6 +76,91 @@ export class ReadFileHandler {
       }
     }
     throw lastError;
+  }
+
+  /**
+   * Kiểm tra file extension để xác định loại file
+   */
+  private getFileType(filePath: string): 'text' | 'docx' | 'pdf' | 'unknown' {
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.docx') return 'docx';
+    if (ext === '.pdf') return 'pdf';
+    
+    // Text file extensions
+    const textExtensions = [
+      '.txt', '.md', '.json', '.xml', '.html', '.css', '.js', '.ts',
+      '.jsx', '.tsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
+      '.cs', '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala',
+      '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf', '.sh', '.bat',
+      '.ps1', '.sql', '.r', '.m', '.pl', '.lua', '.vim', '.el',
+      '.clj', '.fs', '.ml', '.hs', '.erl', '.ex', '.exs', '.dart',
+      '.groovy', '.gradle', '.properties', '.env', '.gitignore',
+      '.log', '.csv', '.tsv', '.svg', '.dockerfile', '.makefile'
+    ];
+    
+    if (textExtensions.includes(ext) || ext === '') return 'text';
+    return 'unknown';
+  }
+
+  /**
+   * Đọc nội dung file DOCX
+   */
+  private async readDocxFile(filePath: string): Promise<string> {
+    try {
+      const buffer = fs.readFileSync(filePath);
+      const result = await mammoth.extractRawText({ buffer });
+      return result.value;
+    } catch (error: any) {
+      throw new Error(`Failed to read DOCX file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Đọc nội dung file PDF
+   */
+  private async readPdfFile(filePath: string): Promise<string> {
+    try {
+      const dataBuffer = fs.readFileSync(filePath);
+      const data = await pdfParse(dataBuffer);
+      return data.text;
+    } catch (error: any) {
+      throw new Error(`Failed to read PDF file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Đọc nội dung file dựa trên loại file
+   */
+  private async readFileContent(absPath: vscode.Uri): Promise<string> {
+    const filePath = absPath.fsPath;
+    const fileType = this.getFileType(filePath);
+
+    switch (fileType) {
+      case 'docx':
+        return await this.readDocxFile(filePath);
+      
+      case 'pdf':
+        return await this.readPdfFile(filePath);
+      
+      case 'text':
+        try {
+          return Buffer.from(
+            await vscode.workspace.fs.readFile(absPath),
+          ).toString("utf8");
+        } catch (e: any) {
+          throw new Error(`Failed to read text file: ${e.message}`);
+        }
+      
+      default:
+        // Try to read as text anyway
+        try {
+          return Buffer.from(
+            await vscode.workspace.fs.readFile(absPath),
+          ).toString("utf8");
+        } catch (e: any) {
+          throw new Error(`Unsupported file format or failed to read: ${e.message}`);
+        }
+    }
   }
 
   private enqueueReadOperation<T>(operation: () => Promise<T>): Promise<T> {
@@ -140,9 +236,7 @@ export class ReadFileHandler {
 
       let content = "";
       try {
-        content = Buffer.from(
-          await vscode.workspace.fs.readFile(absPath),
-        ).toString("utf8");
+        content = await this.readFileContent(absPath);
       } catch (e: any) {
         throw e;
       }

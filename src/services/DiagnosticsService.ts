@@ -110,62 +110,23 @@ export class DiagnosticsService {
         (doc) => doc.uri.fsPath === uri.fsPath,
       );
 
-      logger.info("[DiagnosticsService] 🔍 ensureFileOpened check", {
-        file: uri.fsPath,
-        isAlreadyOpen,
-      });
-
       // Kiểm tra kích thước file trước khi mở editor
       const stat = await vscode.workspace.fs.stat(uri);
-      logger.info("[DiagnosticsService] 📏 File size check", {
-        file: uri.fsPath,
-        sizeBytes: stat.size,
-        thresholdBytes: DiagnosticsService.MAX_FILE_SIZE_BYTES,
-        willSkip: stat.size > DiagnosticsService.MAX_FILE_SIZE_BYTES,
-      });
 
       if (stat.size > DiagnosticsService.MAX_FILE_SIZE_BYTES) {
-        logger.info(
-          "[DiagnosticsService] File too large, skipping diagnostics",
-          {
-            file: uri.fsPath,
-            sizeBytes: stat.size,
-            thresholdBytes: DiagnosticsService.MAX_FILE_SIZE_BYTES,
-          },
-        );
         return { success: false, alreadyOpen: false };
       }
 
       if (isAlreadyOpen) {
-        // File đã mở → LSP đã có diagnostics cached
-        // Không cần dummy edit/undo, sẽ dùng diagnostics hiện có
-        logger.info("[DiagnosticsService] ✅ File already open, will use cached diagnostics", {
-          file: uri.fsPath,
-        });
-
         return { success: true, alreadyOpen: true };
       }
 
-      logger.info("[DiagnosticsService] 📂 Opening document...", {
-        file: uri.fsPath,
-      });
-
       const doc = await vscode.workspace.openTextDocument(uri);
-
-      logger.info("[DiagnosticsService] 📄 Document opened, showing in editor...", {
-        file: uri.fsPath,
-        languageId: doc.languageId,
-        lineCount: doc.lineCount,
-      });
 
       await vscode.window.showTextDocument(doc, {
         preview: true,
         preserveFocus: true,
         viewColumn: vscode.ViewColumn.Active,
-      });
-
-      logger.info("[DiagnosticsService] ✅ File opened successfully", {
-        file: uri.fsPath,
       });
 
       return { success: true, alreadyOpen: false };
@@ -194,26 +155,10 @@ export class DiagnosticsService {
       const cachedDiagnostics = vscode.languages.getDiagnostics(uri);
       const isDirty = doc?.isDirty ?? false;
 
-      logger.info("[DiagnosticsService] 📦 Checking cached diagnostics for already-open file", {
-        path: pathValue,
-        cachedCount: cachedDiagnostics.length,
-        isDirty,
-      });
-
       // Chỉ dùng cache nếu file không dirty (không có thay đổi chưa phân tích)
       if (!isDirty) {
-        logger.info("[DiagnosticsService] ✅ Using cached diagnostics (file not dirty)", {
-          path: pathValue,
-          diagnosticCount: cachedDiagnostics.length,
-        });
         return true;
       }
-
-      // File dirty → đợi LSP phân tích lại
-      logger.info("[DiagnosticsService] ⏳ File is dirty, waiting for fresh diagnostics...", {
-        path: pathValue,
-        cachedCount: cachedDiagnostics.length,
-      });
     }
 
     // File mới mở → đợi LSP phân tích
@@ -225,13 +170,6 @@ export class DiagnosticsService {
       let hasReceivedEvent = false;
       let resolved = false;
       let eventCount = 0;
-
-      logger.info("[DiagnosticsService] ⏳ Waiting for diagnostics (newly opened file)...", {
-        path: pathValue,
-        fallbackTimeout,
-        maxTimeoutMs,
-        stableWaitTime,
-      });
 
       const finish = (timedOut: boolean) => {
         if (resolved) return;
@@ -254,15 +192,6 @@ export class DiagnosticsService {
               fallbackTriggered: !hasReceivedEvent,
             },
           );
-        } else {
-          logger.info(
-            `[DiagnosticsService] ✅ Diagnostics received successfully`,
-            {
-              path: pathValue,
-              elapsedTime,
-              eventCount,
-            },
-          );
         }
         resolve(!timedOut);
       };
@@ -281,69 +210,25 @@ export class DiagnosticsService {
       }, fallbackTimeout);
 
       const timeoutHandle = setTimeout(() => {
-        logger.warn(
-          "[DiagnosticsService] 🚨 Max timeout triggered",
-          {
-            path: pathValue,
-            elapsedTime: Date.now() - startTime,
-            hasReceivedEvent,
-            eventCount,
-          },
-        );
+        logger.warn("[DiagnosticsService] 🚨 Max timeout triggered", {
+          path: pathValue,
+          elapsedTime: Date.now() - startTime,
+          hasReceivedEvent,
+          eventCount,
+        });
         finish(true);
       }, maxTimeoutMs);
 
       const disposable = vscode.languages.onDidChangeDiagnostics((e) => {
-        logger.info(
-          "[DiagnosticsService] 🔔 onDidChangeDiagnostics event fired",
-          {
-            eventUris: e.uris.map(u => u.fsPath),
-            targetUri: uri.fsPath,
-            matches: e.uris.some(u => u.fsPath === uri.fsPath),
-          },
-        );
-
         const matchedUri = e.uris.find((u) => u.fsPath === uri.fsPath);
         if (matchedUri) {
           eventCount++;
-          const currentDiagnostics = vscode.languages.getDiagnostics(matchedUri);
-          logger.info(
-            "[DiagnosticsService] 📊 Diagnostic event received for target file",
-            {
-              path: pathValue,
-              eventCount,
-              elapsedTime: Date.now() - startTime,
-              isFirstEvent: !hasReceivedEvent,
-              diagnosticCount: currentDiagnostics.length,
-              diagnosticSummary: currentDiagnostics.map(d => ({
-                severity: d.severity,
-                message: d.message.substring(0, 100),
-                source: d.source,
-              })),
-            },
-          );
-
           if (!hasReceivedEvent) {
             hasReceivedEvent = true;
             clearTimeout(fallbackHandle);
-            logger.info(
-              "[DiagnosticsService] 🎯 First diagnostic event — clearing fallback timeout",
-              {
-                path: pathValue,
-                elapsedTime: Date.now() - startTime,
-              },
-            );
           }
           if (stableTimeout) clearTimeout(stableTimeout);
           stableTimeout = setTimeout(() => {
-            logger.info(
-              "[DiagnosticsService] 🏁 Diagnostics stabilized — finishing",
-              {
-                path: pathValue,
-                totalEvents: eventCount,
-                totalElapsedTime: Date.now() - startTime,
-              },
-            );
             finish(false);
           }, stableWaitTime);
         }
@@ -356,7 +241,7 @@ export class DiagnosticsService {
    * Skips non-code files automatically (returns empty array).
    * Skips files larger than MAX_FILE_SIZE_BYTES to avoid resource spikes.
    * This is the single entry point for all diagnostic needs.
-   * 
+   *
    * If custom LSP is enabled, auto-installs required LSP package before diagnostics.
    */
   public async getDiagnostics(
@@ -376,31 +261,14 @@ export class DiagnosticsService {
   }> {
     const logger = LoggerService.getInstance();
 
-    logger.info("[DiagnosticsService] 🚀 getDiagnostics started", {
-      path: pathValue,
-      uri: uri.fsPath,
-      maxTimeoutMs,
-      workspaceFolders: vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath),
-      activeTextEditor: vscode.window.activeTextEditor?.document.uri.fsPath,
-    });
-
     if (this.isNonCodeFile(pathValue)) {
-      logger.info("[DiagnosticsService] ⏭️ Skipping non-code file", {
-        path: pathValue,
-      });
       return { diagnostics: [] };
     }
 
-    // 🆕 Check if custom LSP is enabled and process accordingly
+    // Check if custom LSP is enabled and process accordingly
     const customLSPService = CustomLSPService.getInstance();
-    const customLSPResult = await customLSPService.processFileForCustomLSP(pathValue);
-
-    logger.info("[DiagnosticsService] 🔧 Custom LSP check result", {
-      shouldUseCustom: customLSPResult.shouldUseCustom,
-      lspReady: customLSPResult.lspReady,
-      languageId: customLSPResult.languageId,
-      packageName: customLSPResult.packageName,
-    });
+    const customLSPResult =
+      await customLSPService.processFileForCustomLSP(pathValue);
 
     if (customLSPResult.shouldUseCustom && !customLSPResult.lspReady) {
       logger.warn("[DiagnosticsService] ⚠️ Custom LSP not ready", {
@@ -413,34 +281,19 @@ export class DiagnosticsService {
       };
     }
 
-    // Check existing diagnostics first
-    const existingDiagnostics = vscode.languages.getDiagnostics(uri);
-    logger.info("[DiagnosticsService] 📋 Existing diagnostics before opening", {
-      path: pathValue,
-      count: existingDiagnostics.length,
-    });
-
     const openResult = await this.ensureFileOpened(uri);
     if (!openResult.success) {
-      logger.warn("[DiagnosticsService] ⚠️ File not opened, returning skipped", {
-        path: pathValue,
-      });
+      logger.warn(
+        "[DiagnosticsService] ⚠️ File not opened, returning skipped",
+        {
+          path: pathValue,
+        },
+      );
       return {
         diagnostics: [],
         skippedReason: `File quá lớn (>${DiagnosticsService.MAX_FILE_SIZE_BYTES / 1024}KB), đã skip diagnostics để tránh crash máy.`,
       };
     }
-
-    logger.info("[DiagnosticsService] ✅ File opened, waiting for diagnostics...", {
-      path: pathValue,
-      alreadyOpen: openResult.alreadyOpen,
-      usingCustomLSP: customLSPResult.shouldUseCustom,
-      currentlyOpenDocuments: vscode.workspace.textDocuments.map(d => ({
-        uri: d.uri.fsPath,
-        languageId: d.languageId,
-        isDirty: d.isDirty,
-      })),
-    });
 
     const gotDiagnostics = await this.waitForDiagnostics(
       uri,
@@ -457,10 +310,6 @@ export class DiagnosticsService {
       // Fallback: Use existing diagnostics if any
       const fallbackDiagnostics = vscode.languages.getDiagnostics(uri);
       if (fallbackDiagnostics.length > 0) {
-        logger.info("[DiagnosticsService] 💡 Using existing diagnostics as fallback", {
-          path: pathValue,
-          count: fallbackDiagnostics.length,
-        });
         return {
           diagnostics: this.filterDiagnostics(fallbackDiagnostics),
         };
@@ -475,22 +324,6 @@ export class DiagnosticsService {
 
     const allDiagnostics = vscode.languages.getDiagnostics(uri);
     const filteredDiagnostics = this.filterDiagnostics(allDiagnostics);
-
-    logger.info("[DiagnosticsService] 🎉 getDiagnostics completed", {
-      path: pathValue,
-      usingCustomLSP: customLSPResult.shouldUseCustom,
-      totalDiagnostics: allDiagnostics.length,
-      filteredCount: filteredDiagnostics.length,
-      errors: filteredDiagnostics.filter(d => d.severity === 'Error').length,
-      warnings: filteredDiagnostics.filter(d => d.severity === 'Warning').length,
-      allDiagnosticsDetails: allDiagnostics.map(d => ({
-        severity: d.severity,
-        message: d.message,
-        source: d.source,
-        code: d.code,
-        line: d.range.start.line + 1,
-      })),
-    });
 
     return {
       diagnostics: filteredDiagnostics,
