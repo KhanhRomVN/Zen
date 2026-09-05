@@ -131,6 +131,8 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
   const [isXtermVisible, setIsXtermVisible] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [physicalLineCount, setPhysicalLineCount] = useState(0);
+  const [copiedCmd, setCopiedCmd] = useState(false);
+  const [copiedOut, setCopiedOut] = useState(false);
   const canExpand = physicalLineCount > 15;
 
   const toggleExpand = () => {
@@ -251,6 +253,29 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
     lineHeight: "1.5",
   };
 
+  const copyToClipboard = async (text: string, onSuccess?: () => void) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      onSuccess?.();
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  };
+
+  const handleCopyCommand = () => {
+    copyToClipboard(initialCommand || "", () => {
+      setCopiedCmd(true);
+      setTimeout(() => setCopiedCmd(false), 1500);
+    });
+  };
+
+  const handleCopyOutput = () => {
+    copyToClipboard(logs, () => {
+      setCopiedOut(true);
+      setTimeout(() => setCopiedOut(false), 1500);
+    });
+  };
+
   return (
     <div
       className="terminal-block-container"
@@ -318,6 +343,46 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button
+              className="terminal-copy-btn"
+              title="Copy command"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyCommand();
+              }}
+            >
+              {copiedCmd ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)" }}
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                  <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                </svg>
+              )}
+            </button>
             {canExpand && (
               <div
                 className={`codicon codicon-chevron-${isExpanded ? "up" : "down"}`}
@@ -339,6 +404,46 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({
 
       {/* ── OUTPUT AREA ── */}
       <div className="terminal-output-area" style={{ position: "relative" }}>
+        <button
+          className="terminal-output-copy-btn"
+          title="Copy output"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleCopyOutput();
+          }}
+        >
+              {copiedOut ? (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)" }}
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+            </svg>
+          )}
+        </button>
         <div
           className="terminal-content-wrapper"
           style={{

@@ -1142,18 +1142,45 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     const prov = providers.find(
                       (p: any) => p.provider_id === displayModel.providerId,
                     );
-                    const faviconUrl = getFaviconUrl(prov?.website);
+                    if (!prov?.website) {
+                      return (
+                        <span
+                          className="codicon codicon-server-process"
+                          style={{ fontSize: "12px" }}
+                        />
+                      );
+                    }
+
+                    const faviconUrl = getFaviconUrl(prov.website);
+                    console.log("[DEBUG] favicon triggerUI:", {
+                      providerId: displayModel.providerId,
+                      website: prov.website,
+                      faviconUrl,
+                    });
                     return (
                       <img
+                        key={faviconUrl}
                         src={faviconUrl}
-                        alt="favicon"
+                        alt=""
                         style={{
                           width: "12px",
                           height: "12px",
                           borderRadius: "2px",
+                          objectFit: "contain",
                         }}
+                        onLoad={() =>
+                          console.log(
+                            "[DEBUG] favicon triggerUI onLoad:",
+                            faviconUrl,
+                          )
+                        }
                         onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
+                          console.log(
+                            "[DEBUG] favicon triggerUI onError:",
+                            faviconUrl,
+                          );
+                          (e.target as HTMLImageElement).style.display =
+                            "none";
                         }}
                       />
                     );
@@ -1492,18 +1519,34 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             }}
           >
             <style>{`
+          .custom-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: var(--scrollbar-thumb, rgba(255,255,255,0.2)) transparent;
+          }
           .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
+            height: 8px;
           }
           .custom-scrollbar::-webkit-scrollbar-track {
             background: transparent;
+            border-radius: 10px;
+            margin: 4px 0;
           }
           .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: var(--scrollbar-thumb);
+            background-color: var(--scrollbar-thumb, rgba(255,255,255,0.2));
             border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+            min-height: 40px;
           }
           .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background-color: var(--scrollbar-thumb-hover);
+            background-color: var(--scrollbar-thumb-hover, rgba(255,255,255,0.35));
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:active {
+            background-color: var(--scrollbar-thumb-hover, rgba(255,255,255,0.4));
+          }
+          .custom-scrollbar::-webkit-scrollbar-corner {
+            background: transparent;
           }
         `}</style>
 

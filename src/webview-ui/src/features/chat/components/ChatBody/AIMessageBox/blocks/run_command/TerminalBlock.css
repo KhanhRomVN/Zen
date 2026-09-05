@@ -148,13 +148,31 @@
   ) !important;
 }
 
-/* ── Copy button visibility ──────────────────────────────────────────────── */
+/* ── Copy button visibility & style ──────────────────────────────────────── */
 /* Hidden by default on both command and output areas */
 .terminal-cmd-area .terminal-copy-btn,
 .terminal-output-copy-btn {
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, background-color 0.15s ease, color 0.15s ease;
+  padding: 5px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  border: none;
+  background-color: rgba(128, 128, 128, 0.1);
+  color: var(--vscode-editor-foreground, #cccccc);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terminal-output-copy-btn {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 10;
+  background-color: var(--vscode-editor-background);
 }
 
 /* Reveal command copy button when hovering the command header */
@@ -170,9 +188,16 @@
 }
 
 /* Keep visible while the button itself is hovered (in case cursor moves slowly) */
-.terminal-copy-btn:hover {
+.terminal-copy-btn:hover,
+.terminal-output-copy-btn:hover {
   opacity: 1 !important;
   pointer-events: auto !important;
+  background-color: rgba(128, 128, 128, 0.2);
+  color: var(--vscode-editor-foreground, #cccccc);
+}
+
+.terminal-output-copy-btn:hover {
+  background-color: var(--vscode-list-hoverBackground, var(--vscode-editor-background));
 }
 
 .terminal-content-wrapper {

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostics System Flow - Zen Extension</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 50px;
+        }
+        
+        .section-title {
+            font-size: 1.8em;
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .flow-diagram {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+        }
+        
+        .flow-step {
+            background: white;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .flow-step:hover {
+            transform: translateX(10px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .flow-step-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .flow-step-number {
+            background: #667eea;
+            color: white;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+        
+        .flow-step-desc {
+            color: #555;
+            line-height: 1.6;
+            margin-left: 50px;
+        }
+        
+        .decision-box {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        .decision-box-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .priority-box {
+            background: #d1ecf1;
+            border-left: 5px solid #17a2b8;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        .priority-box-title {
+            font-weight: bold;
+            color: #0c5460;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        
+        .config-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .config-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .config-table td {
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .config-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .config-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .code {
+            background: #2d3748;
+            color: #68d391;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .arrow {
+            text-align: center;
+            color: #667eea;
+            font-size: 2em;
+            margin: 10px 0;
+        }
+        
+        .success-case {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+        }
+        
+        .error-case {
+            background: #f8d7da;
+            border-left: 5px solid #dc3545;
+        }
+        
+        .info-case {
+            background: #d1ecf1;
+            border-left: 5px solid #17a2b8;
+        }
+        
+        .case-label {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .success-label {
+            background: #28a745;
+            color: white;
+        }
+        
+        .error-label {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .info-label {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .timeline {
+            position: relative;
+            padding-left: 50px;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: #667eea;
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 30px;
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -37px;
+            top: 5px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Diagnostics System Flow</h1>
+            <p>Hệ thống phân tích diagnostics của Zen Extension</p>
+        </div>
+        
+        <div class="content">
+            <!-- Main Flow -->
+            <div class="section">
+                <h2 class="section-title">📊 Flow Chính: getDiagnostics()</h2>
+                
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-step-title">
+                            <div class="flow-step-number">1</div>
+                            Check Non-Code File
+                        </div>
+                        <div class="flow-step-desc">
+                            Kiểm tra file có phải code không (dựa vào extension: .md, .txt, .json, v.v.)<br>
+                            ❌ Nếu không phải code file → <span class="code">return { diagnostics: [] }</span>
+                        </div>
+                    </div>
+                    
+                    <div class="arrow">⬇️</div>
+                    
+                    <div class="flow-step">
+                        <div class="flow-step-title">
+                            <div class="flow-step-number">2</div>
+                            ensureFileOpened()
+                        </div>
+                        <div class="flow-step-desc">
+                            <strong>Kiểm tra kích thước file:</strong><br>
+                            • File > 100KB → <span class="code">return { success: false }</span> (tránh crash)<br>
+                            • File đã mở → <span class="code">return { success: true, alreadyOpen: true }</span><br>
+                            • File chưa mở → Mở file và <span class="code">return { success: true, alreadyOpen: false }</span>
+                        </div>
+                    </div>
+                    
+                    <div class="arrow">⬇️</div>
+                    
+                    <div class="decision-box">
+                        <div class="decision-box-title">🔀 Decision: File opened successfully?</div>
+                        <strong>❌ NO:</strong> Return <span class="code">{ diagnostics: [], skippedReason: "file_too_large" }</span><br>
+                        <strong>✅ YES:</strong> Tiếp tục → waitForDiagnostics()
+                    </div>
+                    
+                    <div class="arrow">⬇️</div>
+                    
+                    <div class="flow-step">
+                        <div class="flow-step-title">
+                            <div class="flow-step-number">3</div>
+                            waitForDiagnostics()
+                        </div>
+                        <div class="flow-step-desc">
+                            <strong>Đợi Language Server phân tích file</strong><br>
+                            Xem chi tiết ở phần <strong>"Wait For Diagnostics Logic"</strong> bên dưới
+                        </div>
+                    </div>
+                    
+                    <div class="arrow">⬇️</div>
+                    
+                    <div class="flow-step success-case">
+                        <div class="flow-step-title">
+                            <div class="flow-step-number">4</div>
+                            Return Diagnostics
+                        </div>
+                        <div class="flow-step-desc">
+                            Lấy diagnostics từ VSCode cache → Filter chỉ Error & Warning → Return
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Wait For Diagnostics Logic -->
+            <div class="section">
+                <h2 class="section-title">⏱️ Wait For Diagnostics Logic</h2>
+                
+                <div class="flow-diagram">
+                    <div class="priority-box">
+                        <div class="priority-box-title">🚀 EARLY RETURN: File đã mở + có diagnostics</div>
+                        <strong>Điều kiện:</strong> <span class="code">alreadyOpen === true && diagnostics.length > 0</span><br>
+                        <strong>Hành động:</strong> Return ngay lập tức (không cần đợi events mới)<br>
+                        <strong>Lý do:</strong> Diagnostics đã có sẵn từ lần phân tích trước
+                    </div>
+                    
+                    <div class="arrow">⬇️</div>
+                    
+                    <div class="flow-step">
+                        <div class="flow-step-title">
+                            <div class="flow-step-number">1</div>
+                            Listen to Diagnostic Events
+                        </div>
+                        <div class="flow-step-desc">
+                            Subscribe to <span class="code">vscode.languages.onDidChangeDiagnostics</span><br>
+                            Đếm số events (<span class="code">eventCount</span>) và track <span class="code">lastEventTime</span>
+                        </div>
+                    </div>
+                    
+                    <div class="arrow">⬇️</div>
+                    
+                    <div class="flow-step">
+                        <div class="flow-step-title">
+                            <div class="flow-step-number">2</div>
+                            Poll Loop (mỗi 500ms)
+                        </div>
+                        <div class="flow-step-desc">
+                            Check diagnostics và quyết định return dựa trên các PRIORITY bên dưới
+                        </div>
+                    </div>
+                    
+                    <div class="arrow">⬇️</div>
+                    
+                    <div class="timeline">
+                        <div class="timeline-item priority-box">
+                            <div class="priority-box-title">✅ PRIORITY 1: Events đã settled</div>
+                            <strong>Điều kiện:</strong><br>
+                            • <span class="code">eventCount > 0</span> (LS đã chạy)<br>
+                            • <span class="code">timeSinceLastEvent >= 300ms</span> (đợi cache update)<br><br>
+                            
+                            <div class="case-label success-label">Case 1A: Có diagnostics</div>
+                            <div style="margin-left: 20px; margin-bottom: 15px;">
+                                <span class="code">diagnostics.length > 0</span> → Return ngay
+                            </div>
+                            
+                            <div class="case-label info-label">Case 1B: File sạch (không có diagnostics)</div>
+                            <div style="margin-left: 20px;">
+                                Return khi: <span class="code">eventCount >= 3</span> HOẶC <span class="code">timeSinceLastEvent >= 3000ms</span><br>
+                                <strong>Lý do:</strong> Đủ events hoặc LS đã finished (lâu không có event mới)
+                            </div>
+                        </div>
+                        
+                        <div class="timeline-item decision-box">
+                            <div class="decision-box-title">⚠️ PRIORITY 2: No events timeout</div>
+                            <strong>Điều kiện:</strong> <span class="code">eventCount === 0 && elapsedTime >= 15000ms</span><br>
+                            <strong>Hành động:</strong> Return với diagnostics hiện có (có thể rỗng)<br>
+                            <strong>Lý do:</strong> LS không phản hồi (Extension Dev Host isolation hoặc LS crash)
+                        </div>
+                        
+                        <div class="timeline-item error-case">
+                            <div class="case-label error-label">PRIORITY 3: Max timeout</div>
+                            <strong>Điều kiện:</strong> <span class="code">elapsedTime >= 30000ms</span><br>
+                            <strong>Hành động:</strong> Return với diagnostics hiện có<br>
+                            <strong>Lý do:</strong> Fallback nếu LS quá chậm
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Configuration -->
+            <div class="section">
+                <h2 class="section-title">⚙️ Configuration Constants</h2>
+                
+                <table class="config-table">
+                    <thead>
+                        <tr>
+                            <th>Constant</th>
+                            <th>Giá trị</th>
+                            <th>Mô tả</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="code">MAX_FILE_SIZE_BYTES</span></td>
+                            <td>100 KB</td>
+                            <td>Giới hạn kích thước file để mở trong editor</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code">DEFAULT_DIAGNOSTICS_MAX_WAIT_TIME_MS</span></td>
+                            <td>30,000 ms (30s)</td>
+                            <td>Thời gian tối đa đợi LS phân tích</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code">NO_EVENT_TIMEOUT_MS</span></td>
+                            <td>15,000 ms (15s)</td>
+                            <td>Timeout khi không nhận được event nào (LS không respond)</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code">DIAGNOSTICS_POLL_INTERVAL_MS</span></td>
+                            <td>500 ms</td>
+                            <td>Tần suất check diagnostics trong poll loop</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code">CLEAN_FILE_EVENT_THRESHOLD</span></td>
+                            <td>3 events</td>
+                            <td>Số events cần thiết để xác định file sạch</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code">EVENT_SETTLE_DELAY_MS</span></td>
+                            <td>300 ms</td>
+                            <td>Thời gian đợi sau event cuối để đảm bảo VSCode cache đã update</td>
+                        </tr>
+                        <tr>
+                            <td><span class="code">LS_FINISHED_THRESHOLD_MS</span></td>
+                            <td>3,000 ms (3s)</td>
+                            <td>Nếu không có event mới sau khoảng này → coi như LS đã finished</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Usage Examples -->
+            <div class="section">
+                <h2 class="section-title">💡 Các Trường Hợp Sử Dụng</h2>
+                
+                <div class="flow-diagram">
+                    <div class="flow-step success-case">
+                        <div class="flow-step-title">
+                            ✅ Trường hợp 1: File có errors/warnings
+                        </div>
+                        <div class="flow-step-desc">
+                            1. File mở → LS phân tích → Emit events<br>
+                            2. Sau 300ms từ event cuối, có diagnostics<br>
+                            3. <strong>Return ngay với list errors/warnings</strong> (thời gian: ~1-2s)
+                        </div>
+                    </div>
+                    
+                    <div class="flow-step info-case">
+                        <div class="flow-step-title">
+                            ✅ Trường hợp 2: File sạch (không có lỗi)
+                        </div>
+                        <div class="flow-step-desc">
+                            1. File mở → LS phân tích → Emit 2-3 events<br>
+                            2. Sau 3s không có event mới → LS finished<br>
+                            3. <strong>Return empty diagnostics</strong> (thời gian: ~3-4s)
+                        </div>
+                    </div>
+                    
+                    <div class="flow-step success-case">
+                        <div class="flow-step-title">
+                            ✅ Trường hợp 3: File đã mở trước đó
+                        </div>
+                        <div class="flow-step-desc">
+                            1. Check <span class="code">alreadyOpen === true</span><br>
+                            2. Đã có diagnostics trong cache<br>
+                            3. <strong>Return ngay lập tức</strong> (thời gian: ~0ms, không cần đợi)
+                        </div>
+                    </div>
+                    
+                    <div class="flow-step error-case">
+                        <div class="flow-step-title">
+                            ⚠️ Trường hợp 4: LS không phản hồi
+                        </div>
+                        <div class="flow-step-desc">
+                            1. File mở nhưng không nhận được event nào<br>
+                            2. Sau 15s timeout → <strong>Return với skippedReason</strong><br>
+                            3. Thông báo: "LS không phản hồi kịp"
+                        </div>
+                    </div>
+                    
+                    <div class="flow-step error-case">
+                        <div class="flow-step-title">
+                            ⚠️ Trường hợp 5: File quá lớn
+                        </div>
+                        <div class="flow-step-desc">
+                            1. Check size > 100KB<br>
+                            2. <strong>Skip diagnostics ngay</strong> (không mở file)<br>
+                            3. Return với skippedReason: "File quá lớn"
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Optimization -->
+            <div class="section">
+                <h2 class="section-title">🚀 Tối Ưu Performance</h2>
+                
+                <div class="flow-diagram">
+                    <div class="priority-box">
+                        <div class="priority-box-title">1. Early Return cho file đã mở</div>
+                        Tránh đợi không cần thiết khi diagnostics đã có sẵn
+                    </div>
+                    
+                    <div class="priority-box">
+                        <div class="priority-box-title">2. LS Finished Detection</div>
+                        Phát hiện LS đã xong (3s không có event) → không chờ đủ 3 events
+                    </div>
+                    
+                    <div class="priority-box">
+                        <div class="priority-box-title">3. File Size Check</div>
+                        Skip file lớn ngay từ đầu → tránh crash + tốn tài nguyên
+                    </div>
+                    
+                    <div class="priority-box">
+                        <div class="priority-box-title">4. Multiple Priority Levels</div>
+                        Xử lý theo priority → return sớm nhất có thể
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

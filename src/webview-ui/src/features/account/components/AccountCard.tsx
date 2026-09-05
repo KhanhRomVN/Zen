@@ -112,6 +112,12 @@ const AccountCard: React.FC<AccountCardProps> = ({
     ? getFaviconUrl(providerConfig.website)
     : null;
 
+  console.log("[DEBUG] favicon AccountCard:", {
+    providerId: account.provider_id,
+    website: providerConfig?.website,
+    providerIconUrl,
+  });
+
   const formatDate = (ts: number) =>
     new Date(ts).toLocaleString(undefined, {
       month: "short",
@@ -235,7 +241,17 @@ const AccountCard: React.FC<AccountCardProps> = ({
                 src={providerIconUrl}
                 alt={account.provider_id}
                 style={{ width: "20px", height: "20px", objectFit: "contain" }}
+                onLoad={() =>
+                  console.log(
+                    "[DEBUG] favicon AccountCard onLoad:",
+                    providerIconUrl,
+                  )
+                }
                 onError={(e) => {
+                  console.log(
+                    "[DEBUG] favicon AccountCard onError:",
+                    providerIconUrl,
+                  );
                   (e.target as HTMLImageElement).style.display = "none";
                   const parent = (e.target as HTMLImageElement).parentElement;
                   if (parent) {

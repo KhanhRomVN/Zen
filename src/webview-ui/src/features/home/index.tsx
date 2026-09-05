@@ -92,24 +92,13 @@ const DashboardStats = React.memo(
       );
       const today = sorted[0];
       const yesterday = sorted[1];
-      const tokenChange = yesterday?.tokens
+      const tokenChange = yesterday?.tokens && today?.tokens
         ? ((today.tokens - yesterday.tokens) / yesterday.tokens) * 100
         : null;
-      const requestChange = yesterday?.requests
+      const requestChange = yesterday?.requests && today?.requests
         ? ((today.requests - yesterday.requests) / yesterday.requests) * 100
         : null;
-      const totalModelRequests = modelDistribution.reduce(
-        (s: number, m: any) => s + m.total_requests,
-        0,
-      );
-      const favModel = modelDistribution.find(
-        (m: any) => m.model_id === favoriteModel,
-      );
-      const favShare =
-        totalModelRequests > 0 && favModel
-          ? (favModel.total_requests / totalModelRequests) * 100
-          : null;
-      return [tokenChange, requestChange, favShare, null];
+      return [tokenChange, requestChange, null, null];
     }, [dailyUsage, modelDistribution, favoriteModel]);
 
     return (

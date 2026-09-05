@@ -62,7 +62,7 @@ const StatsGrid: React.FC<StatsGridProps> = ({
       iconColor: "var(--vscode-editorWarning-foreground, #f59e0b)",
       value: favoriteModel,
       label: "Favorite Model",
-      percent: percentChanges[2],
+      percent: null,
       valueStyle: {
         fontSize: "13px",
         fontWeight: 700,

@@ -2,12 +2,11 @@
  * ------------------------------------------------------------------
  * MarketplacePanel
  * ------------------------------------------------------------------
- * Marketplace với 3 tab: LSP, SKILL, MCP
+ * Marketplace với 2 tab: SKILL, MCP
  * ------------------------------------------------------------------
  */
 
 import React, { useState } from "react";
-import { LSPPanel } from "./LSP";
 import { SkillPanel } from "./SKILL";
 import { MCPPanel } from "./MCP";
 
@@ -18,7 +17,7 @@ interface MarketplacePanelProps {
 
 const MarketplacePanel: React.FC<MarketplacePanelProps> = ({ isOpen, onClose }) => {
   const [closeHover, setCloseHover] = useState(false);
-  const [activeTab, setActiveTab] = useState("LSP");
+  const [activeTab, setActiveTab] = useState("SKILL");
 
   if (!isOpen) return null;
 
@@ -78,7 +77,7 @@ const MarketplacePanel: React.FC<MarketplacePanelProps> = ({ isOpen, onClose }) 
                   lineHeight: 1.4,
                 }}
               >
-                Install LSP servers, skills, and MCP servers
+                Install skills and MCP servers
               </p>
             </div>
           </div>
@@ -135,7 +134,7 @@ const MarketplacePanel: React.FC<MarketplacePanelProps> = ({ isOpen, onClose }) 
           flexShrink: 0,
         }}
       >
-        {["LSP", "SKILL", "MCP"].map((tab) => (
+        {["SKILL", "MCP"].map((tab) => (
           <span
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -164,7 +163,6 @@ const MarketplacePanel: React.FC<MarketplacePanelProps> = ({ isOpen, onClose }) 
           flexDirection: "column",
         }}
       >
-        {activeTab === "LSP" && <LSPPanel />}
         {activeTab === "SKILL" && <SkillPanel />}
         {activeTab === "MCP" && <MCPPanel />}
       </div>

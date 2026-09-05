@@ -112,6 +112,7 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
       toolOutputs?.[actionId]?.output ||
       ""
     : "";
+  const diagnosticsMessage = toolOutputs?.[actionId]?.diagnosticsMessage;
 
   // Calculate diff stats
   let diffStats: { added: number; removed: number } | null = null;
@@ -637,6 +638,32 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
           compact={true}
           maxHeight="300px"
         />
+      )}
+
+      {/* Show diagnostics message if present */}
+      {!isPartial && isCompleted && diagnosticsMessage && (
+        <div
+          style={{
+            padding: "8px 12px",
+            fontSize: "11px",
+            color: "var(--vscode-notificationsWarningIcon-foreground, #e5a100)",
+            backgroundColor:
+              "color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground, #e5a100) 10%, transparent)",
+            border:
+              "1px solid color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground, #e5a100) 30%, transparent)",
+            borderRadius: "4px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "8px",
+            lineHeight: "1.5",
+          }}
+        >
+          <span
+            className="codicon codicon-warning"
+            style={{ fontSize: "12px", marginTop: "2px", flexShrink: 0 }}
+          />
+          <span>{diagnosticsMessage}</span>
+        </div>
       )}
 
       {!shouldHideContent &&

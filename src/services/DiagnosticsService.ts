@@ -7,9 +7,7 @@
  * RevertFileHandler, FileMiscHandler.
  *
  * Main functions:
- * - getDiagnostics()              : Mở file (nếu cần) → chờ diagnostics ổn
- *                                   định → trả về danh sách error/warning
- * - getDiagnosticCountStabilized(): Giống getDiagnostics nhưng trả về counts
+ * - getDiagnostics()              : Mở file (nếu cần) → chờ diagnostics ổn định → trả về danh sách error/warning
  * ------------------------------------------------------------------
  */
 
@@ -19,11 +17,11 @@ import * as vscode from "vscode";
 
 // ── Services ──
 import { LoggerService } from "./LoggerService";
-import { CustomLSPService } from "./CustomLSPService";
 
 // ─── Class ──────────────────────────────────────────────────────────────
 export class DiagnosticsService {
   private static instance: DiagnosticsService;
+  private firstDiagnosticsCallPerFile: Set<string> = new Set();
 
   public static getInstance(): DiagnosticsService {
     if (!DiagnosticsService.instance) {
@@ -139,6 +137,19 @@ export class DiagnosticsService {
     }
   }
 
+  /**
+   * Kiểm tra xem có phải lần đầu tiên lấy diagnostics cho file extension này không.
+   * Dùng để điều chỉnh timeout cho phù hợp với LSP cold start.
+   */
+  private isFirstCallForExtension(pathValue: string): boolean {
+    const ext = pathValue.substring(pathValue.lastIndexOf("."));
+    if (this.firstDiagnosticsCallPerFile.has(ext)) {
+      return false;
+    }
+    this.firstDiagnosticsCallPerFile.add(ext);
+    return true;
+  }
+
   private async waitForDiagnostics(
     uri: vscode.Uri,
     pathValue: string,
@@ -152,19 +163,21 @@ export class DiagnosticsService {
       const doc = vscode.workspace.textDocuments.find(
         (d) => d.uri.fsPath === uri.fsPath,
       );
-      const cachedDiagnostics = vscode.languages.getDiagnostics(uri);
+      const existingDiagnostics = vscode.languages.getDiagnostics(uri);
       const isDirty = doc?.isDirty ?? false;
 
-      // Chỉ dùng cache nếu file không dirty (không có thay đổi chưa phân tích)
-      if (!isDirty) {
+      // Chỉ dùng cache nếu file không dirty và đã có diagnostics
+      if (!isDirty && existingDiagnostics.length > 0) {
         return true;
       }
     }
 
     // File mới mở → đợi LSP phân tích
     return new Promise<boolean>((resolve) => {
-      const fallbackTimeout = 2000;
-      const stableWaitTime = 800;
+      // Timeout dài hơn cho lần đầu tiên của mỗi loại file extension (LSP cold start)
+      const isFirstCall = this.isFirstCallForExtension(pathValue);
+      const fallbackTimeout = isFirstCall ? 30000 : 10000;
+      const stableWaitTime = 4000;
       const startTime = Date.now();
       let stableTimeout: NodeJS.Timeout | null = null;
       let hasReceivedEvent = false;
@@ -248,6 +261,7 @@ export class DiagnosticsService {
     uri: vscode.Uri,
     pathValue: string,
     maxTimeoutMs: number = 30000,
+    retryCount: number = 0,
   ): Promise<{
     diagnostics: Array<{
       severity: string;
@@ -258,27 +272,12 @@ export class DiagnosticsService {
       code?: string | number;
     }>;
     skippedReason?: string;
+    needsManualCheck?: boolean;
   }> {
     const logger = LoggerService.getInstance();
 
     if (this.isNonCodeFile(pathValue)) {
       return { diagnostics: [] };
-    }
-
-    // Check if custom LSP is enabled and process accordingly
-    const customLSPService = CustomLSPService.getInstance();
-    const customLSPResult =
-      await customLSPService.processFileForCustomLSP(pathValue);
-
-    if (customLSPResult.shouldUseCustom && !customLSPResult.lspReady) {
-      logger.warn("[DiagnosticsService] ⚠️ Custom LSP not ready", {
-        path: pathValue,
-        languageId: customLSPResult.languageId,
-      });
-      return {
-        diagnostics: [],
-        skippedReason: `Custom LSP for ${customLSPResult.languageId} is being installed. Please try again in a moment.`,
-      };
     }
 
     const openResult = await this.ensureFileOpened(uri);
@@ -305,20 +304,42 @@ export class DiagnosticsService {
     if (!gotDiagnostics) {
       logger.warn("[DiagnosticsService] ⚠️ No diagnostics received (timeout)", {
         path: pathValue,
+        retryCount,
       });
 
-      // Fallback: Use existing diagnostics if any
+      // Fallback 1: Đọc diagnostics hiện có (có thể đã có từ lần trước hoặc LSP đã phân tích nhưng chưa fire event)
       const fallbackDiagnostics = vscode.languages.getDiagnostics(uri);
       if (fallbackDiagnostics.length > 0) {
+        logger.info(
+          "[DiagnosticsService] ✅ Found existing diagnostics despite timeout",
+          {
+            path: pathValue,
+            count: fallbackDiagnostics.length,
+          },
+        );
         return {
           diagnostics: this.filterDiagnostics(fallbackDiagnostics),
         };
       }
 
+      // Fallback 2: Retry 1 lần duy nhất (LSP có thể cần thêm thời gian)
+      if (retryCount === 0) {
+        logger.info(
+          "[DiagnosticsService] 🔄 Retrying diagnostics (LSP might need more time)...",
+          { path: pathValue },
+        );
+        await new Promise((r) => setTimeout(r, 2000)); // Đợi thêm 2s
+        return this.getDiagnostics(uri, pathValue, maxTimeoutMs, 1);
+      }
+
+      // Fallback 3: Không lấy được sau retry → báo AI cần check thủ công
       return {
         diagnostics: [],
         skippedReason:
-          "Không lấy được diagnostics (timeout — Language Server không phản hồi kịp).",
+          "⚠️ LSP TIMEOUT sau 2 lần thử — Language Server không phản hồi. " +
+          "Có thể do: (1) LSP đang khởi động, (2) File quá phức tạp, (3) LSP crashed. " +
+          "🔧 HÀNH ĐỘNG: Sử dụng read_file() để đọc nội dung file và kiểm tra syntax thủ công.",
+        needsManualCheck: true,
       };
     }
 
@@ -327,28 +348,6 @@ export class DiagnosticsService {
 
     return {
       diagnostics: filteredDiagnostics,
-    };
-  }
-
-  /**
-   * Same as getDiagnostics but returns counts instead of full list.
-   */
-  public async getDiagnosticCountStabilized(
-    uri: vscode.Uri,
-    pathValue: string,
-    maxTimeoutMs: number = 30000,
-  ): Promise<{
-    errorCount: number;
-    warningCount: number;
-    skippedReason?: string;
-  }> {
-    const result = await this.getDiagnostics(uri, pathValue, maxTimeoutMs);
-    return {
-      errorCount: result.diagnostics.filter((d) => d.severity === "Error")
-        .length,
-      warningCount: result.diagnostics.filter((d) => d.severity === "Warning")
-        .length,
-      skippedReason: result.skippedReason,
     };
   }
 }

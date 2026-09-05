@@ -34,7 +34,7 @@ import { SecurityValidator } from "../../utils/security";
 
 // ── Document Parsers ──
 import * as mammoth from "mammoth";
-import * as pdfParse from "pdf-parse";
+import pdfParse from "pdf-parse";
 import * as iconv from "iconv-lite";
 import * as JSZip from "jszip";
 import { parseString } from "xml2js";
@@ -81,25 +81,81 @@ export class ReadFileHandler {
   /**
    * Kiểm tra file extension để xác định loại file
    */
-  private getFileType(filePath: string): 'text' | 'docx' | 'pdf' | 'unknown' {
+  private getFileType(
+    filePath: string,
+  ): "text" | "docx" | "pdf" | "rtf" | "odt" | "epub" | "unknown" {
     const ext = path.extname(filePath).toLowerCase();
-    if (ext === '.docx') return 'docx';
-    if (ext === '.pdf') return 'pdf';
-    
+    if (ext === ".docx") return "docx";
+    if (ext === ".pdf") return "pdf";
+    if (ext === ".rtf") return "rtf";
+    if (ext === ".odt") return "odt";
+    if (ext === ".epub") return "epub";
+
     // Text file extensions
     const textExtensions = [
-      '.txt', '.md', '.json', '.xml', '.html', '.css', '.js', '.ts',
-      '.jsx', '.tsx', '.py', '.java', '.c', '.cpp', '.h', '.hpp',
-      '.cs', '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala',
-      '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf', '.sh', '.bat',
-      '.ps1', '.sql', '.r', '.m', '.pl', '.lua', '.vim', '.el',
-      '.clj', '.fs', '.ml', '.hs', '.erl', '.ex', '.exs', '.dart',
-      '.groovy', '.gradle', '.properties', '.env', '.gitignore',
-      '.log', '.csv', '.tsv', '.svg', '.dockerfile', '.makefile'
+      ".txt",
+      ".md",
+      ".json",
+      ".xml",
+      ".html",
+      ".css",
+      ".js",
+      ".ts",
+      ".jsx",
+      ".tsx",
+      ".py",
+      ".java",
+      ".c",
+      ".cpp",
+      ".h",
+      ".hpp",
+      ".cs",
+      ".php",
+      ".rb",
+      ".go",
+      ".rs",
+      ".swift",
+      ".kt",
+      ".scala",
+      ".yml",
+      ".yaml",
+      ".toml",
+      ".ini",
+      ".cfg",
+      ".conf",
+      ".sh",
+      ".bat",
+      ".ps1",
+      ".sql",
+      ".r",
+      ".m",
+      ".pl",
+      ".lua",
+      ".vim",
+      ".el",
+      ".clj",
+      ".fs",
+      ".ml",
+      ".hs",
+      ".erl",
+      ".ex",
+      ".exs",
+      ".dart",
+      ".groovy",
+      ".gradle",
+      ".properties",
+      ".env",
+      ".gitignore",
+      ".log",
+      ".csv",
+      ".tsv",
+      ".svg",
+      ".dockerfile",
+      ".makefile",
     ];
-    
-    if (textExtensions.includes(ext) || ext === '') return 'text';
-    return 'unknown';
+
+    if (textExtensions.includes(ext) || ext === "") return "text";
+    return "unknown";
   }
 
   /**
@@ -129,6 +185,154 @@ export class ReadFileHandler {
   }
 
   /**
+   * Đọc nội dung file RTF
+   */
+  private async readRtfFile(filePath: string): Promise<string> {
+    try {
+      return new Promise((resolve, reject) => {
+        const stream = fs.createReadStream(filePath);
+        const rtfParser = new RtfParser();
+        let text = "";
+
+        rtfParser.on("data", (data: any) => {
+          if (data.type === "text") {
+            text += data.value;
+          }
+        });
+
+        rtfParser.on("end", () => {
+          resolve(text);
+        });
+
+        rtfParser.on("error", (error: any) => {
+          reject(new Error(`Failed to parse RTF: ${error.message}`));
+        });
+
+        stream.pipe(rtfParser);
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to read RTF file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Đọc nội dung file ODT (OpenDocument Text)
+   */
+  private async readOdtFile(filePath: string): Promise<string> {
+    try {
+      const data = fs.readFileSync(filePath);
+      const zip = await JSZip.loadAsync(data);
+      const contentXml = await zip.file("content.xml")?.async("string");
+
+      if (!contentXml) {
+        throw new Error("content.xml not found in ODT file");
+      }
+
+      return new Promise((resolve, reject) => {
+        parseString(contentXml, (err, result) => {
+          if (err) {
+            reject(new Error(`Failed to parse ODT XML: ${err.message}`));
+            return;
+          }
+
+          // Extract text from XML structure
+          const extractText = (obj: any): string => {
+            if (typeof obj === "string") return obj;
+            if (Array.isArray(obj)) return obj.map(extractText).join("");
+            if (obj && typeof obj === "object") {
+              return Object.values(obj).map(extractText).join(" ");
+            }
+            return "";
+          };
+
+          const text = extractText(result);
+          resolve(text);
+        });
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to read ODT file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Đọc nội dung file EPUB
+   */
+  private async readEpubFile(filePath: string): Promise<string> {
+    try {
+      const data = fs.readFileSync(filePath);
+      const zip = await JSZip.loadAsync(data);
+      let allText = "";
+
+      // Find all HTML/XHTML files in the EPUB
+      const htmlFiles = Object.keys(zip.files).filter(
+        (filename) => filename.endsWith(".html") || filename.endsWith(".xhtml"),
+      );
+
+      for (const filename of htmlFiles) {
+        const content = await zip.file(filename)?.async("string");
+        if (content) {
+          // Remove HTML tags to get plain text
+          const plainText = content
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          allText += plainText + "\n\n";
+        }
+      }
+
+      return allText;
+    } catch (error: any) {
+      throw new Error(`Failed to read EPUB file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Đọc file text với auto-detect encoding
+   */
+  private async readTextFileWithEncoding(absPath: vscode.Uri): Promise<string> {
+    try {
+      const buffer = await vscode.workspace.fs.readFile(absPath);
+
+      // Try UTF-8 first
+      try {
+        return Buffer.from(buffer).toString("utf8");
+      } catch {
+        // If UTF-8 fails, try to detect encoding
+        const detectedEncoding = this.detectEncoding(buffer);
+        return iconv.decode(Buffer.from(buffer), detectedEncoding);
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to read text file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Detect encoding của file (simple detection)
+   */
+  private detectEncoding(buffer: Uint8Array): string {
+    // Check for BOM
+    if (
+      buffer.length >= 3 &&
+      buffer[0] === 0xef &&
+      buffer[1] === 0xbb &&
+      buffer[2] === 0xbf
+    ) {
+      return "utf8"; // UTF-8 BOM
+    }
+    if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+      return "utf16le"; // UTF-16 LE BOM
+    }
+    if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
+      return "utf16be"; // UTF-16 BE BOM
+    }
+
+    // Default fallbacks
+    return "utf8";
+  }
+
+  /**
    * Đọc nội dung file dựa trên loại file
    */
   private async readFileContent(absPath: vscode.Uri): Promise<string> {
@@ -136,29 +340,32 @@ export class ReadFileHandler {
     const fileType = this.getFileType(filePath);
 
     switch (fileType) {
-      case 'docx':
+      case "docx":
         return await this.readDocxFile(filePath);
-      
-      case 'pdf':
+
+      case "pdf":
         return await this.readPdfFile(filePath);
-      
-      case 'text':
-        try {
-          return Buffer.from(
-            await vscode.workspace.fs.readFile(absPath),
-          ).toString("utf8");
-        } catch (e: any) {
-          throw new Error(`Failed to read text file: ${e.message}`);
-        }
-      
+
+      case "rtf":
+        return await this.readRtfFile(filePath);
+
+      case "odt":
+        return await this.readOdtFile(filePath);
+
+      case "epub":
+        return await this.readEpubFile(filePath);
+
+      case "text":
+        return await this.readTextFileWithEncoding(absPath);
+
       default:
-        // Try to read as text anyway
+        // Try to read as text with encoding detection
         try {
-          return Buffer.from(
-            await vscode.workspace.fs.readFile(absPath),
-          ).toString("utf8");
+          return await this.readTextFileWithEncoding(absPath);
         } catch (e: any) {
-          throw new Error(`Unsupported file format or failed to read: ${e.message}`);
+          throw new Error(
+            `Unsupported file format or failed to read: ${e.message}`,
+          );
         }
     }
   }
@@ -224,14 +431,24 @@ export class ReadFileHandler {
         source?: string;
         code?: string | number;
       }> = [];
+      let diagnosticsMessage: string | null = null;
 
       if (!message.skipDiagnostics) {
         const diagResult = await diagnosticsService.getDiagnostics(
           absPath,
           pathValue,
-          15000,
+          undefined, // Use default wait time from DiagnosticsService
         );
         diagnostics = diagResult.diagnostics;
+        
+        // Create suggestion message if timeout or incomplete
+        if (diagResult.skippedReason === "timeout_no_diagnostics") {
+          diagnosticsMessage = "⏱️ Language Server timeout while fetching diagnostics. File may still be analyzing.";
+        } else if (diagResult.skippedReason === "possibly_incomplete") {
+          diagnosticsMessage = "⚠️ Language Server may still be analyzing. Consider retrying if you expect errors.";
+        } else if (diagResult.skippedReason === "file_too_large") {
+          diagnosticsMessage = "📁 File too large (>100KB) - diagnostics skipped to avoid performance issues.";
+        }
       }
 
       let content = "";
@@ -255,6 +472,7 @@ export class ReadFileHandler {
         path: pathValue,
         content,
         diagnostics: diagnostics.length ? diagnostics : undefined,
+        diagnosticsMessage: diagnosticsMessage,
       });
     } catch (e: any) {
       webviewView.webview.postMessage({

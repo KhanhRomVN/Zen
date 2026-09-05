@@ -11,6 +11,7 @@ export interface ToolOutput {
     source?: string;
     code?: string | number;
   }>;
+  diagnosticsMessage?: string; // Message about diagnostics status (timeout, incomplete, etc.)
   version?: number;
 }
 

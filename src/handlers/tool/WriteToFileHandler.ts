@@ -135,8 +135,18 @@ export class WriteToFileHandler {
         const result = await diagnosticsService.getDiagnostics(
           absolutePath,
           pathValue,
-          15000,
+          undefined, // Use default wait time from DiagnosticsService
         );
+
+        // Create suggestion message if timeout or incomplete
+        let diagnosticsMessage = null;
+        if (result.skippedReason === "timeout_no_diagnostics") {
+          diagnosticsMessage = "⏱️ Language Server timeout while fetching diagnostics. Try using read_file to get diagnostics later.";
+        } else if (result.skippedReason === "possibly_incomplete") {
+          diagnosticsMessage = "⚠️ Language Server may still be analyzing. Try using read_file to get diagnostics later.";
+        } else if (result.skippedReason === "file_too_large") {
+          diagnosticsMessage = "📁 File too large (>100KB) - diagnostics skipped to avoid performance issues.";
+        }
 
         webviewView.webview.postMessage({
           command: "writeFileResult",
@@ -145,6 +155,7 @@ export class WriteToFileHandler {
           success: true,
           diagnostics: result.diagnostics,
           skippedReason: result.skippedReason || null,
+          diagnosticsMessage: diagnosticsMessage,
         });
       } else {
         webviewView.webview.postMessage({

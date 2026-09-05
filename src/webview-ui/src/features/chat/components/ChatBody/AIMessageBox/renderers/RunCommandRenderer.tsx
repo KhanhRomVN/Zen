@@ -205,50 +205,6 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 {executionTime}
               </span>
             )}
-            {isTerminalBusy && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  extensionService.postMessage({
-                    command: "closeTerminal",
-                    actionId,
-                    terminalId,
-                  });
-                }}
-                title="Finalize output, kill process and delete terminal"
-                style={{
-                  background:
-                    "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
-                  border:
-                    "1px solid color-mix(in srgb, var(--vscode-errorForeground, #f44336) 30%, transparent)",
-                  cursor: "pointer",
-                  color: "var(--vscode-errorForeground, #f44336)",
-                  padding: "4px 8px",
-                  borderRadius: "6px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  gap: "6px",
-                  height: "24px",
-                  textTransform: "uppercase",
-                  marginLeft: "auto",
-                  flexShrink: 0,
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <rect x="6" y="6" width="12" height="12" />
-                </svg>
-                Finalize
-              </button>
-            )}
           </div>
         }
         statusColor={
@@ -331,6 +287,52 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 : undefined
             }
           />
+          {isTerminalBusy && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  extensionService.postMessage({
+                    command: "closeTerminal",
+                    actionId,
+                    terminalId,
+                  });
+                }}
+                title="Finalize output, kill process and delete terminal"
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
+                  cursor: "pointer",
+                  color: "var(--vscode-errorForeground, #f44336)",
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  gap: "6px",
+                  height: "24px",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <rect x="6" y="6" width="12" height="12" />
+                </svg>
+                Complete
+              </button>
+            </div>
+          )}
           {needsPrompt &&
             !isTerminalBusy &&
             !isCompleted &&

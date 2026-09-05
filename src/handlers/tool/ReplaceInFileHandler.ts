@@ -254,14 +254,24 @@ export class ReplaceInFileHandler {
       source?: string;
       code?: string | number;
     }> = [];
+    let diagnosticsMessage: string | null = null;
 
     if (!message.skipDiagnostics) {
       const diagResult = await DiagnosticsService.getInstance().getDiagnostics(
         absPath,
         pathValue,
-        15000,
+        undefined, // Use default wait time from DiagnosticsService
       );
       diagnostics = diagResult.diagnostics;
+      
+      // Create suggestion message if timeout or incomplete
+      if (diagResult.skippedReason === "timeout_no_diagnostics") {
+        diagnosticsMessage = "⏱️ Language Server timeout while fetching diagnostics. Try using read_file to get diagnostics later.";
+      } else if (diagResult.skippedReason === "possibly_incomplete") {
+        diagnosticsMessage = "⚠️ Language Server may still be analyzing. Try using read_file to get diagnostics later.";
+      } else if (diagResult.skippedReason === "file_too_large") {
+        diagnosticsMessage = "📁 File too large (>100KB) - diagnostics skipped to avoid performance issues.";
+      }
     }
 
     if (message.conversationId && newContent !== undefined) {
@@ -335,6 +345,7 @@ export class ReplaceInFileHandler {
         path: message.path,
         success: true,
         diagnostics: diagnostics,
+        diagnosticsMessage: diagnosticsMessage,
         content: newContent,
         version: currentVersion,
       });
@@ -347,6 +358,7 @@ export class ReplaceInFileHandler {
       path: message.path,
       success: true,
       diagnostics: diagnostics,
+      diagnosticsMessage: diagnosticsMessage,
       content: newContent,
     });
   }

@@ -10,7 +10,6 @@ import * as vscode from "vscode";
 import { GlobalStorageManager } from "./storage/GlobalStorageManager";
 import { ChatViewProvider } from "./providers/ChatViewProvider";
 import { DiffProvider } from "./providers/DiffProvider";
-import { CustomLSPService } from "./services/CustomLSPService";
 
 let activeProvider: ChatViewProvider | null = null;
 
@@ -19,8 +18,6 @@ export async function activate(extContext: vscode.ExtensionContext) {
   const storageManager = new GlobalStorageManager(extContext);
   await storageManager.initialize();
   await storageManager.migrateFromGlobalState();
-
-  CustomLSPService.getInstance().setStorageManager(storageManager);
 
   const provider = new ChatViewProvider(
     extContext.extensionUri,
