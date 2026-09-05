@@ -2,6 +2,26 @@ import React, { useState } from "react";
 import { FileIcon as FileIconLucide, Terminal, Loader2 } from "lucide-react";
 import { getFileIconPath } from "@/utils/fileIconMapper";
 import TextSnippetDrawer from "./TextSnippetDrawer";
+import { countTokens } from "../../utils/tokenizer"; // 🔧 Import tokenizer
+
+// 🔧 Format token count with K/M/B suffix (rounded)
+const formatTokenCount = (count: number): string => {
+  if (count < 1000) {
+    return count.toString();
+  } else if (count < 1000000) {
+    // Use K for thousands - round to nearest K
+    const k = Math.round(count / 1000);
+    return `${k}K`;
+  } else if (count < 1000000000) {
+    // Use M for millions - round to nearest M
+    const m = Math.round(count / 1000000);
+    return `${m}M`;
+  } else {
+    // Use B for billions - round to nearest B
+    const b = Math.round(count / 1000000000);
+    return `${b}B`;
+  }
+};
 
 interface UploadedFile {
   id: string;
@@ -651,7 +671,7 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
                   marginBottom: "var(--spacing-xs)",
                 }}
               >
-                Text Snippets:
+                Text Snippet (no upload):
               </div>
               <div
                 style={{
@@ -662,81 +682,85 @@ const FilesPreviews: React.FC<FilesPreviewsProps> = ({
               >
                 {attachedItems
                   .filter((item) => item.type === "text-snippet")
-                  .map((item, index) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "var(--spacing-xs)",
-                        padding: "var(--spacing-xs) var(--spacing-sm)",
-                        backgroundColor:
-                          "var(--vscode-editor-background, rgba(128, 128, 128, 0.1))",
-                        border:
-                          "1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3))",
-                        borderRadius: "var(--border-radius)",
-                        fontSize: "var(--font-size-xs)",
-                        color: "var(--primary-text)",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => handleTextSnippetClick(item, index)}
-                      title={`Large text snippet: ${item.content?.substring(0, 100)}...`}
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="16" y1="13" x2="8" y2="13" />
-                        <line x1="16" y1="17" x2="8" y2="17" />
-                        <line x1="10" y1="9" x2="8" y2="9" />
-                      </svg>
-                      <span
+                  .map((item, index) => {
+                    // Calculate token count for display
+                    const tokenCount = item.content ? countTokens(item.content) : 0;
+                    
+                    return (
+                      <div
+                        key={item.id}
                         style={{
-                          maxWidth: "150px",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "var(--spacing-xs)",
+                          padding: "var(--spacing-xs) var(--spacing-sm)",
+                          backgroundColor:
+                            "var(--vscode-editor-background, rgba(128, 128, 128, 0.1))",
+                          // 🔧 Removed border for soft style
+                          borderRadius: "var(--border-radius)",
+                          fontSize: "var(--font-size-xs)",
+                          color: "var(--primary-text)",
+                          cursor: "pointer",
                         }}
+                        onClick={() => handleTextSnippetClick(item, index)}
+                        title={`Text snippet: ${tokenCount.toLocaleString()} tokens`}
                       >
-                        Snippet[{index + 1}] ({item.lineCount || 0} lines)
-                      </span>
-                      {!readOnly && (
-                        <div
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="16" y1="13" x2="8" y2="13" />
+                          <line x1="16" y1="17" x2="8" y2="17" />
+                          <line x1="10" y1="9" x2="8" y2="9" />
+                        </svg>
+                        <span
                           style={{
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            padding: "2px",
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveAttachedItem(item.id);
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          <svg
-                            width="10"
-                            height="10"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
+                          {/* 🔧 Show sequence with underscore and formatted token count */}
+                          Snippet_{index + 1} • {formatTokenCount(tokenCount)}
+                        </span>
+                        {!readOnly && (
+                          <div
+                            style={{
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              padding: "2px",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemoveAttachedItem(item.id);
+                            }}
                           >
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           )}

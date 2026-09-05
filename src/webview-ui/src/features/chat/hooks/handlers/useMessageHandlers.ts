@@ -110,14 +110,38 @@ export const useMessageHandlers = ({
       const callStartTime = performance.now();
       sendCountRef.current += 1;
 
+      console.log(`[Zen] >>>>>>>>>> handleSend CALLED <<<<<<<<<<`);
+      console.log(`[Zen] handleSend | model:`, model);
+      console.log(`[Zen] handleSend | account:`, account);
+
       // 🚀 PERF: Read from refs instead of closure
       const currentMessage = messageRef.current;
       const currentFiles = uploadedFilesRef.current;
       const currentItems = attachedItemsRef.current;
       const currentInvalidFiles = invalidExternalFilesRef.current;
 
+      console.log(`[Zen] handleSend | currentMessage length: ${currentMessage.length}`);
+      console.log(`[Zen] handleSend | currentFiles: ${currentFiles.length}`);
+      console.log(`[Zen] handleSend | currentFiles detail:`, currentFiles.map((f: any) => ({ 
+        id: f.id, 
+        name: f.name, 
+        type: f.type, 
+        size: f.size,
+        error: f.error 
+      })));
+      console.log(`[Zen] handleSend | currentItems: ${currentItems.length}`);
+      console.log(`[Zen] handleSend | currentItems detail:`, currentItems.map((f: any) => ({ 
+        id: f.id, 
+        name: f.name, 
+        type: f.type 
+      })));
+      console.log(`[Zen] handleSend | currentInvalidFiles: ${currentInvalidFiles.length}`);
+
       // Check for invalid external files before sending
       if (currentInvalidFiles && currentInvalidFiles.length > 0) {
+        console.error(`[Zen] handleSend | BLOCKED - has invalid files: ${currentInvalidFiles.length}`);
+        console.error(`[Zen] handleSend | Invalid files:`, currentInvalidFiles);
+        
         const vscodeApi = (window as any).vscodeApi;
         const message = `Cannot send message due to invalid file(s):\n${currentInvalidFiles.map((f) => `• ${f.name}: ${f.reason}`).join("\n")}\n\nPlease remove these files and try again.`;
         if (vscodeApi) {
@@ -136,12 +160,18 @@ export const useMessageHandlers = ({
         currentFiles.length > 0 ||
         currentItems.length > 0
       ) {
+        console.log(`[Zen] handleSend | Condition passed - will send message`);
+        
         // Filter out images with errors before sending
         const validFiles = currentFiles.filter((file: any) => !file.error);
         const errorFiles = currentFiles.filter((file: any) => file.error);
 
+        console.log(`[Zen] handleSend | validFiles: ${validFiles.length}`);
+        console.log(`[Zen] handleSend | errorFiles: ${errorFiles.length}`);
+
         // Log filtered files
         if (errorFiles.length > 0) {
+          console.warn(`[Zen] handleSend | Removed files with errors:`, errorFiles);
         }
 
         // Use refs (not state) to get the latest model/account values.
@@ -150,6 +180,11 @@ export const useMessageHandlers = ({
         // callback yet, but the ref always reflects the latest value.
         const latestModel = model || currentModelRef.current;
         const latestAccount = account || currentAccountRef.current;
+
+        console.log(`[Zen] handleSend | latestModel:`, latestModel);
+        console.log(`[Zen] handleSend | latestAccount:`, latestAccount);
+        console.log(`[Zen] handleSend | Combined files to send: ${[...validFiles, ...currentItems].length}`);
+        console.log(`[Zen] handleSend | Calling wrappedSendMessage...`);
 
         wrappedSendMessageRef.current(
           currentMessage,
@@ -160,6 +195,9 @@ export const useMessageHandlers = ({
           undefined,
           undefined,
         );
+        
+        console.log(`[Zen] handleSend | wrappedSendMessage called, cleaning up state`);
+        
         setMessageRef.current("");
         clearDraftRef.current();
         clearFilesRef.current();
@@ -170,7 +208,13 @@ export const useMessageHandlers = ({
         if (textareaRef.current) {
           textareaRef.current.style.height = "auto";
         }
+        
+        console.log(`[Zen] handleSend | Cleanup completed`);
+      } else {
+        console.warn(`[Zen] handleSend | BLOCKED - no message, files, or items to send`);
       }
+      
+      console.log(`[Zen] >>>>>>>>>> handleSend ENDED <<<<<<<<<<`);
     },
     [
       // 🚀 PERF: ALL deps via refs — handleSend is now PERMANENTLY STABLE

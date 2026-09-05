@@ -105,26 +105,3 @@ RULE:
 2/ code trực tiếp. ko cần lập kế hoạch
 3/ ko tự tạo các file .md thừa ko cần thiết
 4/ ko tự chạy các lệnh terminal khi chưa cho phép
-
-tạo 1 file test.ts tromg folder src/renderer/src với 1 syntax error với nội dung như này
-```
-const x: string =
-```
-
-tạo 1 file test.ts đè lên file src/renderer/src/test.ts với nội dung có trên 2 syntax error với nội dung như này
-```
-const x = {
-  name: "test"
-
-function foo( {
-  return "hello"
-
-const y = 5 +
-```
-  
-tạo 1 file test2.ts ở folder src/renderer/src với nội dung
-```
-function add(a: number, b: number): number {
-  return a + b;
-}
-```

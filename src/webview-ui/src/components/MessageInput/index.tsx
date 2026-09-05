@@ -15,6 +15,7 @@ import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import StyleCodeDropdown from "./StyleCodeDropdown";
 import { getFaviconUrl } from "../../utils/favicon";
+import { countTokens } from "../../utils/tokenizer";
 import type {
   MessageInputProps,
   UploadedFile,
@@ -23,6 +24,32 @@ import type {
 import { PERMISSION_MODE } from "../../features/chat/constants/constants";
 
 export type { UploadedFile };
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Format token count to human-readable format with K/M/B suffix
+ * Examples: 40000 → 40K, 400000 → 400K, 1000000 → 1M, 1500000 → 1.5M
+ */
+const formatTokenCount = (count: number): string => {
+  if (count < 1000) {
+    return count.toString();
+  } else if (count < 1000000) {
+    // Use K for thousands
+    const k = count / 1000;
+    return k % 1 === 0 ? `${k}K` : `${k.toFixed(1)}K`;
+  } else if (count < 1000000000) {
+    // Use M for millions
+    const m = count / 1000000;
+    return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`;
+  } else {
+    // Use B for billions
+    const b = count / 1000000000;
+    return b % 1 === 0 ? `${b}B` : `${b.toFixed(1)}B`;
+  }
+};
 
 // ============================================================================
 // ICONS
@@ -742,6 +769,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     setMessage,
     isHistoryMode = false,
     uploadedFiles,
+    attachedItems = [],
     textareaRef,
     handleTextareaChange,
     handleKeyDown,
@@ -954,6 +982,73 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       return currentAccount || null;
     }, [currentAccount]);
 
+    // Calculate token count for message input (including text snippets)
+    const messageTokenCount = React.useMemo(() => {
+      console.log('[MessageInput Token Debug] Starting calculation...');
+      console.log('[MessageInput Token Debug] message:', message);
+      console.log('[MessageInput Token Debug] message.length:', message?.length || 0);
+      console.log('[MessageInput Token Debug] attachedItems:', attachedItems);
+      console.log('[MessageInput Token Debug] attachedItems.length:', attachedItems?.length || 0);
+      
+      // Count tokens in textarea message
+      let totalTokens = countTokens(message);
+      console.log('[MessageInput Token Debug] Tokens from message:', totalTokens);
+      
+      // Add tokens from text snippets in attachedItems
+      if (attachedItems && attachedItems.length > 0) {
+        console.log('[MessageInput Token Debug] Processing attachedItems...');
+        attachedItems.forEach((item: any, index: number) => {
+          console.log(`[MessageInput Token Debug] Item ${index}:`, {
+            id: item.id,
+            type: item.type,
+            hasContent: !!item.content,
+            contentLength: item.content?.length || 0,
+          });
+          
+          if (item.type === 'text-snippet' && item.content) {
+            const snippetTokens = countTokens(item.content);
+            console.log(`[MessageInput Token Debug] Snippet ${index} tokens:`, snippetTokens);
+            totalTokens += snippetTokens;
+          }
+        });
+      } else {
+        console.log('[MessageInput Token Debug] No attachedItems to process');
+      }
+      
+      console.log('[MessageInput Token Debug] Total tokens:', totalTokens);
+      return totalTokens;
+    }, [message, attachedItems]);
+    
+    // 🔍 DEBUG: Monitor attachedItems changes
+    React.useEffect(() => {
+      console.log('[MessageInput Effect] ========== attachedItems CHANGED ==========');
+      console.log('[MessageInput Effect] attachedItems:', attachedItems);
+      console.log('[MessageInput Effect] attachedItems.length:', attachedItems?.length || 0);
+      console.log('[MessageInput Effect] messageTokenCount will recalculate:', messageTokenCount);
+      if (attachedItems && attachedItems.length > 0) {
+        attachedItems.forEach((item: any, index: number) => {
+          console.log(`[MessageInput Effect] Item ${index}:`, {
+            id: item.id,
+            type: item.type,
+            path: item.path,
+            hasContent: !!(item as any).content,
+            contentLength: (item as any).content?.length || 0,
+          });
+        });
+      }
+      console.log('[MessageInput Effect] ====================================================');
+    }, [attachedItems, messageTokenCount]);
+
+    // Get max input tokens from model config
+    const maxInputTokens = React.useMemo(() => {
+      return currentModelConfig?.max_input_tokens || null;
+    }, [currentModelConfig]);
+
+    // Check if token limit exceeded
+    const isTokenLimitExceeded = React.useMemo(() => {
+      return maxInputTokens !== null && messageTokenCount > maxInputTokens;
+    }, [messageTokenCount, maxInputTokens]);
+
     const toggleMemory = async () => {
       if (!currentAccount?.id) {
         console.warn("No account selected, cannot toggle memory");
@@ -1092,8 +1187,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             position: "relative",
             borderRadius: "var(--border-radius)",
             border: !isConnected
-              ? "1px solid var(--vscode-errorForeground, #f44336)"
-              : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+              ? "1px dashed var(--vscode-errorForeground, #f44336)"
+              : isTokenLimitExceeded
+                ? "2px dashed var(--vscode-errorForeground, #f44336)"
+                : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
             transition: "border 0.3s ease",
             marginTop:
               !isConversationStarted ||
@@ -1560,12 +1657,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  // Only send if not history mode, connected, not loading, not processing
+                  // Only send if not history mode, connected, not loading, not processing, and not exceeded token limit
                   if (
                     !isHistoryMode &&
                     isConnected &&
                     !isLoadingCache &&
-                    !isProcessing
+                    !isProcessing &&
+                    !isTokenLimitExceeded
                   ) {
                     onSendMessage();
                   }
@@ -1848,7 +1946,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
             {/* Right Icons */}
             <div style={{ display: "flex", gap: "var(--spacing-xs)" }}>
-              {/* Send / Stop Button */}
+              {/* Token Count Badge / Stop Button */}
               {isConnected && (
                 <div
                   style={{
@@ -1857,12 +1955,14 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         ? "not-allowed"
                         : isStreaming || isProcessing
                           ? "pointer"
-                          : message.trim() || uploadedFiles.length > 0
-                            ? "pointer"
-                            : "default",
-                    padding: "var(--spacing-xs)",
+                          : isTokenLimitExceeded
+                            ? "not-allowed"
+                            : message.trim() || uploadedFiles.length > 0
+                              ? "pointer"
+                              : "default",
+                    padding: isStreaming || isProcessing ? "var(--spacing-xs)" : "4px 8px",
                     borderRadius: "var(--border-radius)",
-                    transition: "background-color 0.2s",
+                    transition: "all 0.2s",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -1870,17 +1970,34 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       isHistoryMode || isLoadingCache
                         ? "var(--secondary-text)"
                         : isStreaming || isProcessing
-                          ? "var(--vscode-errorForeground, #f44336)" // Red color for stop
-                          : message.trim() || uploadedFiles.length > 0
-                            ? "var(--accent-text)"
-                            : "var(--secondary-text)",
+                          ? "var(--vscode-errorForeground, #f44336)"
+                          : isTokenLimitExceeded
+                            ? "var(--vscode-errorForeground, #f44336)"
+                            : "var(--vscode-descriptionForeground, #888)",
                     pointerEvents:
-                      isHistoryMode || isLoadingCache ? "none" : "auto",
+                      isHistoryMode || isLoadingCache || (isTokenLimitExceeded && !isStreaming && !isProcessing)
+                        ? "none"
+                        : "auto",
+                    // Soft-style background for token badge
+                    backgroundColor: (isStreaming || isProcessing) 
+                      ? "transparent"
+                      : isTokenLimitExceeded
+                        ? "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)"
+                        : "color-mix(in srgb, var(--vscode-descriptionForeground, #888) 8%, transparent)",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    letterSpacing: "0.3px",
+                    whiteSpace: "nowrap",
                   }}
                   onClick={() => {
                     if ((isStreaming || isProcessing) && onStopGeneration) {
                       // Stop generation
                       onStopGeneration();
+                      return;
+                    }
+
+                    if (isTokenLimitExceeded) {
+                      // Don't send when limit exceeded
                       return;
                     }
 
@@ -1893,28 +2010,51 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     onSendMessage();
                   }}
                   onMouseEnter={(e) => {
-                    if (
-                      isStreaming ||
-                      isProcessing ||
-                      message.trim() ||
-                      uploadedFiles.length > 0
-                    ) {
+                    if (isStreaming || isProcessing) {
+                      e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+                    } else if (isTokenLimitExceeded) {
+                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 18%, transparent)";
+                    } else if (message.trim() || uploadedFiles.length > 0) {
                       e.currentTarget.style.backgroundColor = "var(--hover-bg)";
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
+                    if (isStreaming || isProcessing) {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    } else if (isTokenLimitExceeded) {
+                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)";
+                    } else {
+                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--vscode-descriptionForeground, #888) 8%, transparent)";
+                    }
                   }}
                   title={
                     isStreaming || isProcessing
                       ? "Stop Generation"
-                      : "Send Message"
+                      : isTokenLimitExceeded
+                        ? `Token limit exceeded (${messageTokenCount.toLocaleString()}/${maxInputTokens?.toLocaleString()})`
+                        : maxInputTokens
+                          ? `${messageTokenCount.toLocaleString()}/${maxInputTokens.toLocaleString()} tokens`
+                          : `${messageTokenCount.toLocaleString()} tokens`
                   }
                 >
                   {isStreaming || isProcessing ? (
                     <X size={16} strokeWidth={2.5} />
                   ) : (
-                    <Send size={18} />
+                    <span style={{ lineHeight: 1 }}>
+                      {(() => {
+                        console.log('[MessageInput Render] ========== TOKEN COUNTER RENDER ==========');
+                        console.log('[MessageInput Render] messageTokenCount:', messageTokenCount);
+                        console.log('[MessageInput Render] maxInputTokens:', maxInputTokens);
+                        console.log('[MessageInput Render] attachedItems.length:', attachedItems?.length || 0);
+                        console.log('[MessageInput Render] =================================================');
+                        
+                        return maxInputTokens
+                          ? `${formatTokenCount(messageTokenCount)}/${formatTokenCount(maxInputTokens)}`
+                          : messageTokenCount > 0
+                            ? `${formatTokenCount(messageTokenCount)}`
+                            : "0";
+                      })()}
+                    </span>
                   )}
                 </div>
               )}
@@ -1977,6 +2117,10 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     prevProps.responseRanges?.length === nextProps.responseRanges?.length;
   const conversationFileStatsSame =
     prevProps.conversationFileStats === nextProps.conversationFileStats;
+  
+  // 🔧 FIX: Check attachedItems changes for text snippets
+  const attachedItemsSame = 
+    prevProps.attachedItems?.length === nextProps.attachedItems?.length;
 
   // Only re-render if critical props changed
   const shouldSkip =
@@ -1987,7 +2131,8 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     currentAccountSame &&
     messagesLengthSame &&
     responseRangesSame &&
-    conversationFileStatsSame;
+    conversationFileStatsSame &&
+    attachedItemsSame; // 🔧 FIX: Include attachedItems check
 
   return shouldSkip;
 });
