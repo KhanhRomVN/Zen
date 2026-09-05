@@ -231,41 +231,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   }, []);
 
   const addAttachedItem = useCallback((item: any) => {
-    console.log(`[Chat] ========== addAttachedItem START ==========`);
-    console.log(`[Chat] Function called! This should appear if callback is working`);
-    console.log(`[Chat] Received item:`, {
-      id: item.id,
-      type: item.type,
-      path: item.path,
-      hasContent: !!item.content,
-      contentLength: item.content?.length || 0,
-      lineCount: item.lineCount,
-    });
-    
     setAttachedItems((prev) => {
-      console.log(`[Chat] Current attachedItems count: ${prev.length}`);
       const updated = [...prev, item];
-      console.log(`[Chat] Updated attachedItems count: ${updated.length}`);
-      console.log(`[Chat] Updated attachedItems:`, updated.map(i => ({
-        id: i.id,
-        type: i.type,
-        hasContent: !!(i as any).content,
-      })));
       return updated;
     });
-    
-    console.log(`[Chat] ========== addAttachedItem END ==========`);
-  }, []);
+      }, []);
   
-  console.log('[Chat] 🔍 addAttachedItem function defined:', typeof addAttachedItem);
 
   // --- File Handling ---
-  console.log('[Chat] 🔧 Setting up useFileHandling hook...');
-  console.log('[Chat] Passing addAttachedItem callback, type:', typeof addAttachedItem);
-  
   const {
     uploadedFiles,
-    externalFiles,
     invalidExternalFiles,
     fileInputRef,
     externalFileInputRef,
@@ -286,13 +261,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     modelId: currentModel?.id,
     folderPath: currentChat?.folderPath || null,
     onAddAttachedItem: (item) => {
-      console.log('[Chat] 🔥 Inline callback triggered! Item:', item.id);
       addAttachedItem(item);
     },
   });
   
-  console.log('[Chat] ✅ useFileHandling hook setup complete');
-
   // --- Browser Session ---
   const {
     isBrowserSessionReady,

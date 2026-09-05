@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.vscode-test/
+*.vsix
+
+# Test/debug files (don't commit)
+test-*.ts
+debug-*.ts
+
+# NPM
+*.tgz

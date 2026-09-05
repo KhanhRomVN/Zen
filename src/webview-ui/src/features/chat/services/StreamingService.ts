@@ -1,5 +1,6 @@
 import { Message } from "../types/message";
 import { calculateTokens, logChatToWorkspace } from "./ConversationService";
+import { streamingPreviewStore } from "../stores/streamingPreviewStore";
 
 export interface StreamConfig {
   apiUrl: string;
@@ -103,6 +104,9 @@ export class StreamingService {
         config.abortSignal.dispatchEvent(new Event("abort"));
       }
     }, FIRST_CHUNK_TIMEOUT_MS);
+
+    // 🔧 Initialize streaming preview store
+    streamingPreviewStore.startStreaming();
 
     while (!done) {
       const { value, done: readerDone } = await reader.read();
@@ -209,6 +213,9 @@ export class StreamingService {
                 // Send raw content to onRawContent for ThinkingBlock display (no parsing)
                 if (updateBatch.content) {
                   callbacks.onRawContent?.(updateBatch.content);
+                  
+                  // 🔧 Update streaming preview store (bypass React render cascade)
+                  streamingPreviewStore.setContent(assistantMessage.content);
                 }
 
                 if (updateBatch.thinking)
@@ -279,6 +286,9 @@ export class StreamingService {
     }
 
     assistantMessage.rawResponse = assistantMessage.content;
+
+    // 🔧 Stop streaming preview
+    streamingPreviewStore.stopStreaming();
 
     return { message: assistantMessage, backendConversationId };
   }

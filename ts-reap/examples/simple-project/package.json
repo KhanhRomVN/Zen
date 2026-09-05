@@ -1,0 +1,12 @@
+{
+  "name": "ts-reap-example",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "check": "ts-reap-check",
+    "check:json": "ts-reap-check --format json"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

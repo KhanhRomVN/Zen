@@ -12,7 +12,6 @@ export const useFileUpload = (apiUrl: string) => {
    */
   const uploadFiles = useCallback(
     async (files: any[], accountId: string): Promise<string[]> => {
-      console.log(`[Zen Upload] Starting upload | totalFiles=${files.length} | accountId=${accountId}`);
       
       const ref_file_ids: string[] = [];
 
@@ -25,14 +24,9 @@ export const useFileUpload = (apiUrl: string) => {
           !f.id?.startsWith("external-"), // 🚀 FIX: Don't upload external files (content already in them)
       );
 
-      console.log(`[Zen Upload] Filtered files | localFiles=${localFiles.length} | skipped=${files.length - localFiles.length}`);
-
-      for (const file of localFiles) {
-        console.log(`[Zen Upload] Processing file | name=${file.name} | type=${file.type} | hasFileId=${!!file.file_id} | contentLength=${file.content?.length}`);
-        
+      for (const file of localFiles) {        
         // Already uploaded — reuse existing file_id
         if (file.file_id) {
-          console.log(`[Zen Upload] Reusing existing file_id | name=${file.name} | file_id=${file.file_id}`);
           ref_file_ids.push(file.file_id);
           continue;
         }
@@ -40,13 +34,11 @@ export const useFileUpload = (apiUrl: string) => {
         try {
           let blob: Blob;
           if (file.content.startsWith("data:")) {
-            console.log(`[Zen Upload] Converting data URL to blob | name=${file.name}`);
             const arr = file.content.split(",");
             const mime =
               arr[0].match(/:(.*?);/)?.[1] ||
               file.type ||
               "application/octet-stream";
-            console.log(`[Zen Upload] Detected MIME type | name=${file.name} | mime=${mime}`);
             const bstr = atob(arr[1]);
             let n = bstr.length;
             const u8arr = new Uint8Array(n);
@@ -54,27 +46,22 @@ export const useFileUpload = (apiUrl: string) => {
               u8arr[n] = bstr.charCodeAt(n);
             }
             blob = new Blob([u8arr], { type: mime });
-            console.log(`[Zen Upload] Blob created from data URL | name=${file.name} | size=${blob.size}`);
           } else {
-            console.log(`[Zen Upload] Creating blob from content | name=${file.name}`);
             blob = new Blob([file.content], {
               type: file.type || "text/plain",
             });
-            console.log(`[Zen Upload] Blob created from content | name=${file.name} | size=${blob.size}`);
           }
 
           const formData = new FormData();
           formData.append("file", blob, file.name);
 
           const uploadUrl = `${apiUrl}/v1/uploads/accounts/${accountId}/uploads`;
-          console.log(`[Zen Upload] Sending upload request | name=${file.name} | url=${uploadUrl} | blobSize=${blob.size}`);
 
           const uploadRes = await fetch(uploadUrl, { 
             method: "POST", 
             body: formData 
           });
 
-          console.log(`[Zen Upload] Upload response received | name=${file.name} | status=${uploadRes.status} | ok=${uploadRes.ok}`);
 
           if (!uploadRes.ok) {
             const errorText = await uploadRes.text();
@@ -83,11 +70,7 @@ export const useFileUpload = (apiUrl: string) => {
           }
 
           const uploadData = await uploadRes.json();
-          console.log(`[Zen Upload] Response parsed | name=${file.name} | success=${uploadData.success} | hasFileId=${!!uploadData.data?.file_id}`);
-          console.log(`[Zen Upload] Full response data | name=${file.name} | data=${JSON.stringify(uploadData)}`);
-
           if (uploadData.success && uploadData.data?.file_id) {
-            console.log(`[Zen Upload] Upload successful | name=${file.name} | file_id=${uploadData.data.file_id}`);
             ref_file_ids.push(uploadData.data.file_id);
           } else {
             const error = uploadData.error || "Unknown upload error";
@@ -102,7 +85,6 @@ export const useFileUpload = (apiUrl: string) => {
         }
       }
 
-      console.log(`[Zen Upload] All uploads completed | totalFileIds=${ref_file_ids.length} | file_ids=${JSON.stringify(ref_file_ids)}`);
       return ref_file_ids;
     },
     [apiUrl],

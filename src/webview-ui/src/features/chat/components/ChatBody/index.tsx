@@ -566,6 +566,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     return true;
   }, [isProcessing, visibleMessages, parsedMessages]);
 
+  // 🔧 Removed streamingContent useMemo - now using Zustand store for better performance
+
   return (
     <div
       ref={bodyRef}

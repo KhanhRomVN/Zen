@@ -984,59 +984,34 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
     // Calculate token count for message input (including text snippets)
     const messageTokenCount = React.useMemo(() => {
-      console.log('[MessageInput Token Debug] Starting calculation...');
-      console.log('[MessageInput Token Debug] message:', message);
-      console.log('[MessageInput Token Debug] message.length:', message?.length || 0);
-      console.log('[MessageInput Token Debug] attachedItems:', attachedItems);
-      console.log('[MessageInput Token Debug] attachedItems.length:', attachedItems?.length || 0);
-      
       // Count tokens in textarea message
       let totalTokens = countTokens(message);
-      console.log('[MessageInput Token Debug] Tokens from message:', totalTokens);
-      
+
       // Add tokens from text snippets in attachedItems
       if (attachedItems && attachedItems.length > 0) {
-        console.log('[MessageInput Token Debug] Processing attachedItems...');
         attachedItems.forEach((item: any, index: number) => {
-          console.log(`[MessageInput Token Debug] Item ${index}:`, {
-            id: item.id,
-            type: item.type,
-            hasContent: !!item.content,
-            contentLength: item.content?.length || 0,
-          });
-          
-          if (item.type === 'text-snippet' && item.content) {
+          if (item.type === "text-snippet" && item.content) {
             const snippetTokens = countTokens(item.content);
-            console.log(`[MessageInput Token Debug] Snippet ${index} tokens:`, snippetTokens);
             totalTokens += snippetTokens;
           }
         });
-      } else {
-        console.log('[MessageInput Token Debug] No attachedItems to process');
       }
-      
-      console.log('[MessageInput Token Debug] Total tokens:', totalTokens);
       return totalTokens;
-    }, [message, attachedItems]);
-    
+    }, [
+      message,
+      JSON.stringify(
+        attachedItems?.map((item: any) => ({
+          id: item.id,
+          type: item.type,
+          contentLength: item.content?.length || 0,
+        })),
+      ),
+    ]);
+
     // 🔍 DEBUG: Monitor attachedItems changes
     React.useEffect(() => {
-      console.log('[MessageInput Effect] ========== attachedItems CHANGED ==========');
-      console.log('[MessageInput Effect] attachedItems:', attachedItems);
-      console.log('[MessageInput Effect] attachedItems.length:', attachedItems?.length || 0);
-      console.log('[MessageInput Effect] messageTokenCount will recalculate:', messageTokenCount);
       if (attachedItems && attachedItems.length > 0) {
-        attachedItems.forEach((item: any, index: number) => {
-          console.log(`[MessageInput Effect] Item ${index}:`, {
-            id: item.id,
-            type: item.type,
-            path: item.path,
-            hasContent: !!(item as any).content,
-            contentLength: (item as any).content?.length || 0,
-          });
-        });
       }
-      console.log('[MessageInput Effect] ====================================================');
     }, [attachedItems, messageTokenCount]);
 
     // Get max input tokens from model config
@@ -1249,11 +1224,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     }
 
                     const faviconUrl = getFaviconUrl(prov.website);
-                    console.log("[DEBUG] favicon triggerUI:", {
-                      providerId: displayModel.providerId,
-                      website: prov.website,
-                      faviconUrl,
-                    });
                     return (
                       <img
                         key={faviconUrl}
@@ -1265,19 +1235,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                           borderRadius: "2px",
                           objectFit: "contain",
                         }}
-                        onLoad={() =>
-                          console.log(
-                            "[DEBUG] favicon triggerUI onLoad:",
-                            faviconUrl,
-                          )
-                        }
+                        onLoad={() => {}}
                         onError={(e) => {
-                          console.log(
-                            "[DEBUG] favicon triggerUI onError:",
-                            faviconUrl,
-                          );
-                          (e.target as HTMLImageElement).style.display =
-                            "none";
+                          (e.target as HTMLImageElement).style.display = "none";
                         }}
                       />
                     );
@@ -1960,7 +1920,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                             : message.trim() || uploadedFiles.length > 0
                               ? "pointer"
                               : "default",
-                    padding: isStreaming || isProcessing ? "var(--spacing-xs)" : "4px 8px",
+                    padding:
+                      isStreaming || isProcessing
+                        ? "var(--spacing-xs)"
+                        : "4px 8px",
                     borderRadius: "var(--border-radius)",
                     transition: "all 0.2s",
                     display: "flex",
@@ -1975,15 +1938,18 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                             ? "var(--vscode-errorForeground, #f44336)"
                             : "var(--vscode-descriptionForeground, #888)",
                     pointerEvents:
-                      isHistoryMode || isLoadingCache || (isTokenLimitExceeded && !isStreaming && !isProcessing)
+                      isHistoryMode ||
+                      isLoadingCache ||
+                      (isTokenLimitExceeded && !isStreaming && !isProcessing)
                         ? "none"
                         : "auto",
                     // Soft-style background for token badge
-                    backgroundColor: (isStreaming || isProcessing) 
-                      ? "transparent"
-                      : isTokenLimitExceeded
-                        ? "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)"
-                        : "color-mix(in srgb, var(--vscode-descriptionForeground, #888) 8%, transparent)",
+                    backgroundColor:
+                      isStreaming || isProcessing
+                        ? "transparent"
+                        : isTokenLimitExceeded
+                          ? "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)"
+                          : "color-mix(in srgb, var(--vscode-descriptionForeground, #888) 8%, transparent)",
                     fontSize: "11px",
                     fontWeight: 600,
                     letterSpacing: "0.3px",
@@ -2013,7 +1979,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     if (isStreaming || isProcessing) {
                       e.currentTarget.style.backgroundColor = "var(--hover-bg)";
                     } else if (isTokenLimitExceeded) {
-                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 18%, transparent)";
+                      e.currentTarget.style.backgroundColor =
+                        "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 18%, transparent)";
                     } else if (message.trim() || uploadedFiles.length > 0) {
                       e.currentTarget.style.backgroundColor = "var(--hover-bg)";
                     }
@@ -2022,9 +1989,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     if (isStreaming || isProcessing) {
                       e.currentTarget.style.backgroundColor = "transparent";
                     } else if (isTokenLimitExceeded) {
-                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)";
+                      e.currentTarget.style.backgroundColor =
+                        "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)";
                     } else {
-                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--vscode-descriptionForeground, #888) 8%, transparent)";
+                      e.currentTarget.style.backgroundColor =
+                        "color-mix(in srgb, var(--vscode-descriptionForeground, #888) 8%, transparent)";
                     }
                   }}
                   title={
@@ -2042,12 +2011,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   ) : (
                     <span style={{ lineHeight: 1 }}>
                       {(() => {
-                        console.log('[MessageInput Render] ========== TOKEN COUNTER RENDER ==========');
-                        console.log('[MessageInput Render] messageTokenCount:', messageTokenCount);
-                        console.log('[MessageInput Render] maxInputTokens:', maxInputTokens);
-                        console.log('[MessageInput Render] attachedItems.length:', attachedItems?.length || 0);
-                        console.log('[MessageInput Render] =================================================');
-                        
                         return maxInputTokens
                           ? `${formatTokenCount(messageTokenCount)}/${formatTokenCount(maxInputTokens)}`
                           : messageTokenCount > 0
@@ -2117,9 +2080,9 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     prevProps.responseRanges?.length === nextProps.responseRanges?.length;
   const conversationFileStatsSame =
     prevProps.conversationFileStats === nextProps.conversationFileStats;
-  
+
   // 🔧 FIX: Check attachedItems changes for text snippets
-  const attachedItemsSame = 
+  const attachedItemsSame =
     prevProps.attachedItems?.length === nextProps.attachedItems?.length;
 
   // Only re-render if critical props changed

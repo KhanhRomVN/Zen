@@ -1,119 +1,86 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
+import { useStreamingPreviewStore } from "../../stores/streamingPreviewStore";
+import { useShallow } from "zustand/react/shallow";
 
 interface ProcessingIndicatorProps {
   /** true = dang cho response hoac dang streaming */
   isResponding?: boolean;
+  // 🔧 Removed streamingContent prop - now using Zustand store for performance
 }
 
-const AUTO_SWITCH_DELAY_MS = 500;
+const MAX_PREVIEW_LINES = 5;
 
 const ProcessingIndicator: React.FC<ProcessingIndicatorProps> = ({
   isResponding,
 }) => {
-  const startTimeRef = useRef<number | null>(null);
-  const timerDisplayRef = useRef<HTMLSpanElement>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const switchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
-  // Tu dong chuyen sang "Generating" sau 500ms
-  const [isGenerating, setIsGenerating] = useState(false);
+  // 🔧 FIX: Use useShallow to prevent infinite re-renders
+  const { content: streamingContent } = useStreamingPreviewStore(
+    useShallow((state) => ({
+      content: state.content,
+    }))
+  );
 
+  // 🔧 Auto-scroll to bottom when content changes (using ref to avoid re-render)
   useEffect(() => {
-    if (isResponding) {
-      // Ghi nhan start time (chi lan dau)
-      if (!startTimeRef.current) {
-        startTimeRef.current = Date.now();
-      }
-
-      // Sau 500ms, tu dong chuyen sang trang thai "Generating response"
-      if (!switchTimerRef.current) {
-        switchTimerRef.current = setTimeout(() => {
-          setIsGenerating(true);
-        }, AUTO_SWITCH_DELAY_MS);
-      }
-
-      const updateDisplay = () => {
-        if (timerDisplayRef.current && startTimeRef.current) {
-          const elapsed = Math.floor(
-            (Date.now() - startTimeRef.current) / 1000,
-          );
-          if (isGenerating) {
-            timerDisplayRef.current.textContent = "Generating response (" + elapsed + "s)...";
-          } else {
-            timerDisplayRef.current.textContent = "Processing (" + elapsed + "s)";
-          }
+    if (previewContainerRef.current && streamingContent) {
+      // Use RAF to batch DOM mutations (performance best practice from doc)
+      requestAnimationFrame(() => {
+        if (previewContainerRef.current) {
+          previewContainerRef.current.scrollTop = previewContainerRef.current.scrollHeight;
         }
-        animationFrameRef.current = requestAnimationFrame(updateDisplay);
-      };
-
-      animationFrameRef.current = requestAnimationFrame(updateDisplay);
-    } else {
-      // Reset everything
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      if (switchTimerRef.current) {
-        clearTimeout(switchTimerRef.current);
-        switchTimerRef.current = null;
-      }
-      startTimeRef.current = null;
-      setIsGenerating(false);
+      });
     }
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (switchTimerRef.current) {
-        clearTimeout(switchTimerRef.current);
-      }
-    };
-  }, [isResponding, isGenerating]);
+  }, [streamingContent]);
 
   if (!isResponding) {
     return null;
   }
 
+  // 🔧 Extract LAST N lines for preview (show most recent streaming text)
+  const lines = streamingContent.split('\n');
+  const previewText = lines
+    .slice(Math.max(0, lines.length - MAX_PREVIEW_LINES))
+    .join('\n');
+
   return (
     <div
       style={{
         display: "flex",
-        alignItems: "center",
-        gap: "var(--spacing-xs)",
-        padding: "0 var(--spacing-sm)",
+        flexDirection: "column",
         marginTop: "-var(--spacing-sm)",
-        color: "var(--secondary-text)",
-        fontSize: "var(--font-size-md)",
         marginBottom: "var(--spacing-md)",
       }}
     >
-      <span ref={timerDisplayRef} className="processing-text">
-        Processing (0s)
-      </span>
+      {/* 🔧 Streaming content preview - max 5 lines, auto-scroll, hidden scrollbar */}
+      {previewText && (
+        <div
+          ref={previewContainerRef}
+          style={{
+            maxHeight: `calc(var(--font-size-md) * 1.5 * ${MAX_PREVIEW_LINES})`, // 5 lines height
+            overflowY: "auto",
+            color: "var(--vscode-editor-foreground)",
+            opacity: 0.6,
+            fontSize: "var(--font-size-md)",
+            lineHeight: "1.5",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            // Hide scrollbar
+            scrollbarWidth: "none", // Firefox
+            msOverflowStyle: "none", // IE/Edge
+          }}
+          className="streaming-preview"
+        >
+          {previewText}
+        </div>
+      )}
+
       <style>
         {`
-        .processing-text {
-          background: linear-gradient(
-            to right,
-            var(--secondary-text) 0%,
-            var(--secondary-text) 30%,
-            var(--vscode-editor-foreground, #ffffff) 50%,
-            var(--secondary-text) 70%,
-            var(--secondary-text) 100%
-          );
-          background-size: 200% auto;
-          color: transparent;
-          background-clip: text;
-          -webkit-background-clip: text;
-          animation: sweep 2s linear infinite;
-          display: inline-block;
-          font-weight: 500;
-        }
-
-        @keyframes sweep {
-          0% { background-position: 200% center; }
-          100% { background-position: -200% center; }
+        /* Hide scrollbar for WebKit browsers (Chrome, Safari) */
+        .streaming-preview::-webkit-scrollbar {
+          display: none;
         }
       `}
       </style>

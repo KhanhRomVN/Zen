@@ -226,19 +226,6 @@ export const useChatLLM = ({
       uiHidden?: boolean,
       parentMessageId?: string,
     ) => {
-      console.log(`[Zen] ========================================`);
-      console.log(`[Zen] sendMessage CALLED`);
-      console.log(`[Zen] content length: ${content.length}`);
-      console.log(`[Zen] files: ${files?.length || 0}`);
-      console.log(`[Zen] files detail:`, files?.map(f => ({ id: f.id, name: f.name, type: f.type })));
-      console.log(`[Zen] model:`, model);
-      console.log(`[Zen] account:`, account);
-      console.log(`[Zen] skipFirstRequestLogic: ${skipFirstRequestLogic}`);
-      console.log(`[Zen] isProcessing: ${isProcessingRef.current}`);
-      console.log(`[Zen] ========================================`);
-      
-      // Cho phép tool results (skipFirstRequestLogic=true) đi qua ngay cả khi đang processing
-      // để tránh mất kết quả khi user click nhiều tool liên tiếp
       if (isProcessingRef.current && !skipFirstRequestLogic) {
         console.warn(
           `[Zen][sendMessage] BLOCKED - already processing | skipFirstRequestLogic=${skipFirstRequestLogic} | conversationId=${currentConversationIdRef.current} | content preview: ${content.substring(0, 50)}`,
@@ -449,10 +436,6 @@ export const useChatLLM = ({
       }
 
       try {
-        console.log(`[Zen] ========== FILE UPLOAD START ==========`);
-        console.log(`[Zen] Total files provided: ${files?.length || 0}`);
-        console.log(`[Zen] Files detail:`, files);
-        
         // Upload local files
         const ref_file_ids: string[] = [];
         const localFiles = files
@@ -466,41 +449,22 @@ export const useChatLLM = ({
             )
           : [];
 
-        console.log(`[Zen] Local files to upload: ${localFiles.length}`);
-        console.log(`[Zen] Local files detail:`, localFiles.map(f => ({ 
-          id: f.id, 
-          name: f.name, 
-          type: f.type, 
-          size: f.size,
-          hasContent: !!f.content,
-          hasFileId: !!f.file_id
-        })));
-
-        if (localFiles.length > 0) {
-          console.log(`[Zen] Checking account for upload | hasAccount=${!!finalAccount} | accountId=${finalAccount?.id}`);
-          
+        if (localFiles.length > 0) {          
           if (!finalAccount?.id) {
             console.error(`[Zen] No active account selected for file upload | finalAccount=${JSON.stringify(finalAccount)}`);
             throw new Error("No active account selected for file upload");
           }
-          
-          console.log(`[Zen] Calling uploadFiles | localFiles=${localFiles.length} | accountId=${finalAccount.id}`);
-          
+                    
           try {
             const uploadedIds = await uploadFiles(localFiles, finalAccount.id);
-            console.log(`[Zen] Upload completed successfully | uploadedIds=${uploadedIds.length} | ids=${JSON.stringify(uploadedIds)}`);
             ref_file_ids.push(...uploadedIds);
           } catch (uploadErr) {
             console.error(`[Zen] Upload failed with error:`, uploadErr);
             console.error(`[Zen] Upload error stack:`, uploadErr instanceof Error ? uploadErr.stack : 'No stack');
             throw uploadErr;
           }
-        } else {
-          console.log(`[Zen] No local files to upload, skipping upload`);
         }
-        
-        console.log(`[Zen] ========== FILE UPLOAD END ========== | ref_file_ids=${ref_file_ids.length}`);
-        console.log(`[Zen] ref_file_ids:`, ref_file_ids);
+      
 
         // Prepare messages for API
         let payloadMessages = updatedMessages

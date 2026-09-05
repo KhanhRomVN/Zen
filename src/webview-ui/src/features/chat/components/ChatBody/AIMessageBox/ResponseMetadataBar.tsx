@@ -1,7 +1,14 @@
 import React from "react";
+import { useShallow } from "zustand/react/shallow";
 
 // TYPES
 import { Message } from "@/features/chat/types/message";
+
+// STORES
+import { useStreamingPreviewStore } from "@/features/chat/stores/streamingPreviewStore";
+
+// UTILS
+import { countTokens } from "@/utils/tokenizer";
 
 // COMPONENTS
 import CodeBlock from "./blocks/code/CodeBlock";
@@ -13,6 +20,7 @@ interface ResponseMetadataBarProps {
   previousUserMessage: Message | null;
   onRetryRequest?: () => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
+  isStreaming?: boolean; // 🔧 NEW: flag to indicate if this response is currently streaming
 }
 
 /**
@@ -25,6 +33,7 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
   previousUserMessage,
   onRetryRequest,
   onRevertConversation,
+  isStreaming = false,
 }) => {
   const [requestChecked, setRequestChecked] = React.useState(false);
   const [responseChecked, setResponseChecked] = React.useState(false);
@@ -34,13 +43,24 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
   const [isRetryHovered, setIsRetryHovered] = React.useState(false);
   const [isRevertHovered, setIsRevertHovered] = React.useState(false);
 
+  // 🔧 Subscribe to streaming content for real-time token counting
+  const streamingContent = useStreamingPreviewStore(
+    useShallow((state) => (isStreaming ? state.content : ""))
+  );
+
+  // 🔧 Calculate token count: use streaming content if streaming, otherwise use message token_usage
+  const resTokens = React.useMemo(() => {
+    if (isStreaming && streamingContent) {
+      return countTokens(streamingContent);
+    }
+    return message.usage?.completion_tokens ?? message.token_usage ?? 0;
+  }, [isStreaming, streamingContent, message.usage?.completion_tokens, message.token_usage]);
+
   const showRaw = requestChecked || responseChecked || parseDebugChecked;
   const reqTokens =
     previousUserMessage?.token_usage ??
     previousUserMessage?.usage?.prompt_tokens ??
     0;
-  const resTokens =
-    message.usage?.completion_tokens ?? message.token_usage ?? 0;
 
   // Request/Response icons (upload/download)
   const RequestIcon = (

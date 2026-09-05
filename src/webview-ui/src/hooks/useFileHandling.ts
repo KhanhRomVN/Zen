@@ -48,13 +48,10 @@ export const useFileHandling = ({
   const isRestoringRef = useRef(false);
   
   // 🔧 FIX: Store latest callback in ref to avoid stale closure
+  // Initialize ref once, will be updated through normal render cycle
   const onAddAttachedItemRef = useRef(onAddAttachedItem);
-  useEffect(() => {
-    console.log('[useFileHandling] 🔄 Updating onAddAttachedItemRef with new callback');
-    console.log('[useFileHandling] New callback type:', typeof onAddAttachedItem);
-    console.log('[useFileHandling] New callback:', onAddAttachedItem.toString().substring(0, 200));
-    onAddAttachedItemRef.current = onAddAttachedItem;
-  }, [onAddAttachedItem]);
+  // Update ref on every render without triggering effects
+  onAddAttachedItemRef.current = onAddAttachedItem;
 
   // ============================================================================
   // RESTORE: Load attachedItems từ localStorage khi mount (chỉ attachedItems)
@@ -95,7 +92,6 @@ export const useFileHandling = ({
   // ============================================================================
   useEffect(() => {
     // Clear uploaded files when model or account changes
-    console.log(`[useFileHandling] Model/Account changed - clearing uploadedFiles | modelId=${modelId} | accountId=${accountId}`);
     setUploadedFiles([]);
   }, [modelId, accountId]);
 
@@ -103,33 +99,18 @@ export const useFileHandling = ({
   // Track attachedItems changes through cache
   // ============================================================================
   const addAttachedItemWithCache = (item: AttachedItem) => {
-    console.log(`[useFileHandling] ========== addAttachedItemWithCache START ==========`);
-    console.log(`[useFileHandling] Adding item:`, {
-      id: item.id,
-      type: item.type,
-      path: item.path,
-      hasContent: !!(item as any).content,
-      contentLength: (item as any).content?.length || 0,
-    });
-    
     setAttachedItemsCache((prev) => {
-      console.log(`[useFileHandling] Current cache size: ${prev.length}`);
       const exists = prev.some((i) => i.id === item.id);
       if (exists) {
-        console.log(`[useFileHandling] Item already exists in cache, skipping`);
         return prev;
       }
       const updated = [...prev, item];
-      console.log(`[useFileHandling] Updated cache size: ${updated.length}`);
-      console.log(`[useFileHandling] Updated cache:`, updated.map(i => ({ id: i.id, type: i.type })));
-
       // Save to localStorage
       try {
         localStorage.setItem(
           STORAGE_KEYS.attachedItems(folderPath),
           JSON.stringify(updated),
         );
-        console.log(`[useFileHandling] Saved to localStorage successfully`);
       } catch (error) {
         console.error("[useFileHandling] Failed to save attachedItems:", error);
       }
@@ -137,21 +118,12 @@ export const useFileHandling = ({
       return updated;
     });
 
-    console.log(`[useFileHandling] Calling onAddAttachedItem callback via ref...`);
-    console.log(`[useFileHandling] Ref type:`, typeof onAddAttachedItemRef.current);
-    console.log(`[useFileHandling] Ref is null?:`, onAddAttachedItemRef.current === null);
-    console.log(`[useFileHandling] About to call ref with item:`, { id: item.id, type: item.type });
-    
     try {
       // 🔧 FIX: Use ref to call latest version of callback
       onAddAttachedItemRef.current(item);
-      console.log(`[useFileHandling] ✅ onAddAttachedItem callback executed successfully`);
     } catch (error) {
       console.error(`[useFileHandling] ❌ Error calling onAddAttachedItem:`, error);
     }
-    
-    console.log(`[useFileHandling] onAddAttachedItem callback completed`);
-    console.log(`[useFileHandling] ========== addAttachedItemWithCache END ==========`);
   };
 
   const removeAttachedItemFromCache = (itemId: string) => {
@@ -180,33 +152,24 @@ export const useFileHandling = ({
   };
 
   const uploadFileToServer = async (file: UploadedFile) => {
-    console.log(`[Zen] ========== uploadFileToServer START ==========`);
-    console.log(`[Zen] uploadFileToServer | file.id=${file.id} | file.name=${file.name} | file.size=${file.size}`);
-    console.log(`[Zen] uploadFileToServer | apiUrl=${apiUrl} | accountId=${accountId}`);
-    
     if (!apiUrl || !accountId) {
       console.error(`[Zen] uploadFileToServer | ABORT - missing config | apiUrl=${apiUrl} | accountId=${accountId}`);
       return;
     }
 
     // Set status to uploading
-    console.log(`[Zen] uploadFileToServer | Setting file to uploading state`);
     setUploadedFiles((prev) =>
       prev.map((f) => (f.id === file.id ? { ...f, isUploading: true } : f)),
     );
 
-    try {
-      console.log(`[Zen] uploadFileToServer | Creating blob | contentType=${file.content.startsWith('data:') ? 'data URL' : 'plain text'}`);
-      
+    try {      
       let blob: Blob;
       if (file.content.startsWith("data:")) {
-        console.log(`[Zen] uploadFileToServer | Converting data URL to blob`);
         const arr = file.content.split(",");
         const mime =
           arr[0].match(/:(.*?);/)?.[1] ||
           file.type ||
           "application/octet-stream";
-        console.log(`[Zen] uploadFileToServer | Detected MIME type: ${mime}`);
         const bstr = atob(arr[1]);
         let n = bstr.length;
         const u8arr = new Uint8Array(n);
@@ -214,26 +177,17 @@ export const useFileHandling = ({
           u8arr[n] = bstr.charCodeAt(n);
         }
         blob = new Blob([u8arr], { type: mime });
-        console.log(`[Zen] uploadFileToServer | Blob created from data URL | size=${blob.size}`);
       } else {
-        console.log(`[Zen] uploadFileToServer | Creating blob from text content`);
         blob = new Blob([file.content], { type: file.type || "text/plain" });
-        console.log(`[Zen] uploadFileToServer | Blob created from text | size=${blob.size}`);
       }
 
       const formData = new FormData();
       formData.append("file", blob, file.name);
-      console.log(`[Zen] uploadFileToServer | FormData created`);
-
       const uploadUrl = `${apiUrl}/v1/uploads/accounts/${accountId}/uploads`;
-      console.log(`[Zen] uploadFileToServer | Sending POST request | url=${uploadUrl}`);
-
       const uploadRes = await fetch(uploadUrl, {
         method: "POST",
         body: formData,
       });
-
-      console.log(`[Zen] uploadFileToServer | Response received | status=${uploadRes.status} | ok=${uploadRes.ok}`);
 
       if (!uploadRes.ok) {
         const errorText = await uploadRes.text();
@@ -242,11 +196,7 @@ export const useFileHandling = ({
       }
 
       const uploadData = await uploadRes.json();
-      console.log(`[Zen] uploadFileToServer | Response parsed | success=${uploadData.success}`);
-      console.log(`[Zen] uploadFileToServer | Response data:`, uploadData);
-
       if (uploadData.success && uploadData.data?.file_id) {
-        console.log(`[Zen] uploadFileToServer | Upload successful | file_id=${uploadData.data.file_id}`);
         setUploadedFiles((prev) =>
           prev.map((f) =>
             f.id === file.id
@@ -254,7 +204,6 @@ export const useFileHandling = ({
               : f,
           ),
         );
-        console.log(`[Zen] uploadFileToServer | File state updated with file_id`);
       } else {
         const error = uploadData.error || "Unknown upload error";
         console.error(`[Zen] uploadFileToServer | Invalid response | error=${error}`);
@@ -272,39 +221,26 @@ export const useFileHandling = ({
             : f,
         ),
       );
-      console.log(`[Zen] uploadFileToServer | File state updated with error`);
     }
-    
-    console.log(`[Zen] ========== uploadFileToServer END ==========`);
-  };
+      };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    console.log(`[Zen] ========================================`);
-    console.log(`[Zen] handlePaste triggered`);
-    console.log(`[Zen] clipboardData:`, e.clipboardData);
-    console.log(`[Zen] clipboardData.items.length:`, e.clipboardData.items.length);
-    
     const items = e.clipboardData.items;
     let hasImage = false;
 
     // Log all clipboard items
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      console.log(`[Zen] Item ${i} | kind=${item.kind} | type=${item.type}`);
     }
 
     // 🚀 Check for large text paste - use token count instead of character count
     const pastedText = e.clipboardData.getData("text/plain");
-    console.log(`[Zen] Pasted text length: ${pastedText?.length || 0} chars`);
     
     const LARGE_TEXT_TOKEN_THRESHOLD = 3000; // 3k tokens threshold
 
     if (pastedText && pastedText.length > 0) {
       const tokenCount = countTokens(pastedText);
-      console.log(`[Zen] Pasted text token count: ${tokenCount} tokens`);
-
       if (tokenCount > LARGE_TEXT_TOKEN_THRESHOLD) {
-        console.log(`[Zen] Large text detected (${tokenCount} tokens > ${LARGE_TEXT_TOKEN_THRESHOLD}), creating snippet`);
         e.preventDefault(); // Prevent default paste
 
         // Create text snippet attachment
@@ -316,53 +252,23 @@ export const useFileHandling = ({
           content: pastedText,
           lineCount,
         };
-
-        console.log(`[Zen] ========== SNIPPET CREATION DEBUG ==========`);
-        console.log(`[Zen] Creating snippet | id=${snippet.id}`);
-        console.log(`[Zen] Snippet properties:`, {
-          id: snippet.id,
-          type: snippet.type,
-          lineCount: snippet.lineCount,
-          tokenCount: tokenCount,
-          contentLength: pastedText.length,
-          path: snippet.path
-        });
-        console.log(`[Zen] Calling addAttachedItemWithCache...`);
         
         addAttachedItemWithCache(snippet);
-        
-        console.log(`[Zen] addAttachedItemWithCache completed`);
-        console.log(`[Zen] Checking attachedItemsCache state...`);
-        console.log(`[Zen] ================================================`);
-        console.log(`[Zen] ========================================`);
+    
         return; // Stop processing
-      } else {
-        console.log(`[Zen] Text is small enough (${tokenCount} tokens <= ${LARGE_TEXT_TOKEN_THRESHOLD}), allowing normal paste`);
-      }
+      } 
     }
 
-    // Original image handling
-    console.log(`[Zen] Processing clipboard items for images...`);
-    
+    // Original image handling    
     for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      console.log(`[Zen] Processing item ${i} | kind=${item.kind} | type=${item.type}`);
-      
-      if (item.kind === "file" && item.type.startsWith("image/")) {
-        console.log(`[Zen] Image detected | type=${item.type}`);
-        
-        const file = item.getAsFile();
-        console.log(`[Zen] getAsFile result | hasFile=${!!file} | fileName=${file?.name} | fileSize=${file?.size}`);
-        
+      const item = items[i];      
+      if (item.kind === "file" && item.type.startsWith("image/")) {        
+        const file = item.getAsFile();        
         if (file) {
-          hasImage = true;
-          console.log(`[Zen] Reading image file | name=${file.name} | size=${file.size} | type=${file.type}`);
-          
+          hasImage = true;          
           const reader = new FileReader();
           reader.onload = (event) => {
-            const content = event.target?.result as string;
-            console.log(`[Zen] FileReader onload | contentLength=${content?.length}`);
-            
+            const content = event.target?.result as string;            
             const newFile: UploadedFile = {
               id: `file-${Date.now()}-${Math.random()}`,
               name: file.name,
@@ -370,15 +276,11 @@ export const useFileHandling = ({
               type: file.type,
               content: content,
             };
-            
-            console.log(`[Zen] Creating uploaded file | id=${newFile.id} | name=${newFile.name} | size=${newFile.size}`);
-            
+                        
             setUploadedFiles((prev) => {
-              console.log(`[Zen] Adding to uploadedFiles | currentCount=${prev.length} | newTotal=${prev.length + 1}`);
               return [...prev, newFile];
             });
             
-            console.log(`[Zen] Calling uploadFileToServer | accountId=${accountId} | apiUrl=${apiUrl}`);
             uploadFileToServer(newFile);
           };
           
@@ -386,7 +288,6 @@ export const useFileHandling = ({
             console.error(`[Zen] FileReader error:`, error);
           };
           
-          console.log(`[Zen] Starting FileReader.readAsDataURL...`);
           reader.readAsDataURL(file);
         } else {
           console.warn(`[Zen] getAsFile returned null for item ${i}`);
@@ -395,14 +296,9 @@ export const useFileHandling = ({
     }
 
     if (hasImage) {
-      console.log(`[Zen] Image(s) found, preventing default paste behavior`);
       e.preventDefault();
-    } else {
-      console.log(`[Zen] No images found in clipboard`);
     }
-    
-    console.log(`[Zen] ========================================`);
-  };
+      };
 
   const handleFileSelect = async () => {
     if (fileInputRef.current) {

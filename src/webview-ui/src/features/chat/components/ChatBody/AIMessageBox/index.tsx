@@ -405,6 +405,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                       : undefined
                   }
                   onRevertConversation={onRevertConversation}
+                  isStreaming={isGenerating}
                 />
               </React.Fragment>
             );

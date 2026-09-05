@@ -239,29 +239,11 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const stableOnLoadConversation = React.useCallback(onLoadConversation, []);
 
   const handleAddAttachedItem = React.useCallback((item: any) => {
-    console.log('[Home] ========== handleAddAttachedItem START ==========');
-    console.log('[Home] Received item:', {
-      id: item.id,
-      type: item.type,
-      path: item.path,
-      hasContent: !!(item as any).content,
-      contentLength: (item as any).content?.length || 0,
-    });
-    
     setAttachedItems((prev) => {
-      console.log('[Home] Current attachedItems count:', prev.length);
       const updated = [...prev, item];
-      console.log('[Home] Updated attachedItems count:', updated.length);
-      console.log('[Home] Updated attachedItems:', updated.map(i => ({
-        id: i.id,
-        type: i.type,
-        hasContent: !!(i as any).content,
-      })));
       return updated;
     });
-    
-    console.log('[Home] ========== handleAddAttachedItem END ==========');
-  }, []);
+      }, []);
 
   const handleRemoveAttachedItem = React.useCallback((id: string) => {
     setAttachedItems((prev) => prev.filter((item) => item.id !== id));
