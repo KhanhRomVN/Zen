@@ -717,9 +717,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         } else {
           // thinking index
           const thinkingIdx = parseInt(parts[i], 10);
+          const blockItem = thinkingBlocks[thinkingIdx];
           expandedBlocks.push({
             type: "thinking",
-            content: thinkingBlocks[thinkingIdx] ?? "",
+            content: blockItem ? blockItem.content : "",
+            isClosed: blockItem ? blockItem.isClosed : true,
           });
         }
       }

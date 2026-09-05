@@ -252,7 +252,15 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   }
 
   if (group.type === "thinking") {
-    return <ThinkingRenderer content={group.content} />;
+    return (
+      <ThinkingRenderer
+        content={group.content}
+        isStreaming={isGenerating}
+        isClosed={group.isClosed}
+        elapsedSeconds={group.elapsedSeconds}
+        blockKey={`${messageId}-${group.key}`}
+      />
+    );
   }
 
   if (group.type === "conversation_title") {

@@ -35,7 +35,13 @@ export type GroupType =
       key: string;
     }
   | { type: "warning"; label: string; message: string; key: string }
-  | { type: "thinking"; content: string; key: string }
+  | {
+      type: "thinking";
+      content: string;
+      key: string;
+      elapsedSeconds?: number;
+      isClosed?: boolean;
+    }
   | { type: "conversation_title"; content: string; key: string }
   | { type: "response_number"; content: string; key: string };
 
@@ -56,7 +62,7 @@ export type ContentBlock =
       questionAnswers?: Record<string, any>;
     }
   | { type: "tool"; action: ToolAction; actionIndex?: number }
-  | { type: "thinking"; content: string }
+  | { type: "thinking"; content: string; isClosed?: boolean; elapsedSeconds?: number }
   | { type: "conversation_title"; content: string }
   | {
       type: "error";

@@ -1,37 +1,53 @@
 import { findClosingTagPosition } from "../../utils/TagClosingFinder";
 import { getAllToolTypes } from "../../constants/constants";
 
+export interface ThinkingBlockItem {
+  content: string;
+  isClosed: boolean;
+}
+
 export interface ThinkingExtractResult {
   remainingContent: string;
-  thinkingBlocks: string[];
+  thinkingBlocks: ThinkingBlockItem[];
 }
 
 /**
- * Pre-extract all <thinking> blocks from content before any tool scanning,
+ * Pre-extract all <thinking> and <think> blocks from content before any tool scanning,
  * so that tool tags inside a thinking block are never mistaken for real calls.
  *
- * CRITICAL FIX: Only extract TOP-LEVEL <thinking> blocks (not nested inside tool tags).
- * This prevents false-positives when <thinking> appears as literal text inside
- * tool content (e.g., inside <content> of <write_to_file>).
+ * CRITICAL FIX: Supports BOTH closed (<thinking>...</thinking>, <think>...</think>)
+ * AND unclosed (single tag during streaming: <thinking>... or <think>...).
+ * This ensures the UI immediately displays the thinking process as soon as the opening
+ * tag is emitted by the AI stream.
  *
- * ADDITIONAL FIX: Skip <thinking> tags inside backticks (inline code or code blocks).
- *
- * Closed blocks are replaced with numbered placeholders __THINKING_N__ and
- * their content stored in thinkingBlocks[].
- *
- * NOTE: Since we no longer parse during streaming, unclosed thinking blocks
- * should not occur. All content is complete when this function is called.
+ * Only extracts TOP-LEVEL thinking blocks (not nested inside tool tags, not inside backticks).
  */
 export const parseThinking = (content: string): ThinkingExtractResult => {
-  const thinkingBlocks: string[] = [];
+  const thinkingBlocks: ThinkingBlockItem[] = [];
 
   // Tool tags that should NOT have their content scanned for thinking blocks
-  // Use EXECUTABLE tools only (excludes UI category: markdown, question, code, thinking)
-  // These are real tool calls that might contain literal <thinking> in their content
   const toolTags = [
     ...getAllToolTypes().filter((t: string) => t !== "thinking"),
     "file", // Special display tag not in registry
   ];
+
+  // Helper to find next tool tag start after index
+  const findNextToolTagStart = (startPos: number): number => {
+    let earliest = -1;
+    for (const toolTag of toolTags) {
+      const openTag = `<${toolTag}`;
+      const pos = content.toLowerCase().indexOf(openTag.toLowerCase(), startPos);
+      if (pos !== -1) {
+        const nextChar = content[pos + openTag.length];
+        if (nextChar === ">" || nextChar === " " || nextChar === "/") {
+          if (earliest === -1 || pos < earliest) {
+            earliest = pos;
+          }
+        }
+      }
+    }
+    return earliest;
+  };
 
   // Build processed content manually by scanning through
   let processed = "";
@@ -42,7 +58,6 @@ export const parseThinking = (content: string): ThinkingExtractResult => {
   while (i < content.length) {
     // Check for backticks (both single ` and triple ```)
     if (content[i] === "`") {
-      // Count consecutive backticks
       let currentBacktickCount = 0;
       let j = i;
       while (j < content.length && content[j] === "`") {
@@ -52,16 +67,13 @@ export const parseThinking = (content: string): ThinkingExtractResult => {
 
       // Toggle backtick state if matching pair
       if (inBacktick && currentBacktickCount === backtickCount) {
-        // Closing backtick
         inBacktick = false;
         backtickCount = 0;
       } else if (!inBacktick) {
-        // Opening backtick
         inBacktick = true;
         backtickCount = currentBacktickCount;
       }
 
-      // Copy backticks to output
       processed += content.substring(i, j);
       i = j;
       continue;
@@ -82,21 +94,17 @@ export const parseThinking = (content: string): ThinkingExtractResult => {
         content.substring(i, i + openTag.length).toLowerCase() ===
         openTag.toLowerCase()
       ) {
-        // Must be followed by > or space or / (not part of a longer tag name)
         const nextChar = content[i + openTag.length];
         if (nextChar !== ">" && nextChar !== " " && nextChar !== "/") {
-          // This is part of a longer tag name (e.g., <thinking> vs <think>), skip
           continue;
         }
 
-        // Find the closing tag for this tool
         const closingTag = `</${toolTag}>`;
         const closingIndex = content
           .toLowerCase()
           .indexOf(closingTag.toLowerCase(), i);
 
         if (closingIndex !== -1) {
-          // Copy entire tool block as-is (including any nested <thinking> as literal text)
           const toolBlock = content.substring(
             i,
             closingIndex + closingTag.length,
@@ -106,7 +114,6 @@ export const parseThinking = (content: string): ThinkingExtractResult => {
           foundToolTag = true;
           break;
         } else {
-          // Tool tag not closed - copy remaining content as-is
           processed += content.substring(i);
           i = content.length;
           foundToolTag = true;
@@ -120,15 +127,15 @@ export const parseThinking = (content: string): ThinkingExtractResult => {
     }
 
     // Check for <thinking> tag at current position (only at top-level)
-    const thinkingOpenTag = "<thinking>";
+    const thinkingOpenRegex = /^<thinking(?:\s+[^>]*)?>/i;
+    const thinkingMatch = thinkingOpenRegex.exec(content.substring(i));
 
-    if (
-      content.substring(i, i + thinkingOpenTag.length).toLowerCase() ===
-      thinkingOpenTag.toLowerCase()
-    ) {
+    if (thinkingMatch) {
+      const openTagStr = thinkingMatch[0];
+      const contentStart = i + openTagStr.length;
       let thinkingEndIndex = findClosingTagPosition(
         content,
-        i + thinkingOpenTag.length,
+        contentStart,
         "</thinking>",
       );
 
@@ -136,7 +143,7 @@ export const parseThinking = (content: string): ThinkingExtractResult => {
       if (thinkingEndIndex === -1) {
         const simpleEndIndex = content
           .toLowerCase()
-          .indexOf("</thinking>", i + thinkingOpenTag.length);
+          .indexOf("</thinking>", contentStart);
         if (simpleEndIndex !== -1) {
           thinkingEndIndex = simpleEndIndex;
         }
@@ -145,19 +152,72 @@ export const parseThinking = (content: string): ThinkingExtractResult => {
       if (thinkingEndIndex !== -1) {
         // Found complete thinking block
         const thinkingContent = content.substring(
-          i + thinkingOpenTag.length,
+          contentStart,
           thinkingEndIndex,
         );
         const idx = thinkingBlocks.length;
-        thinkingBlocks.push(thinkingContent);
+        thinkingBlocks.push({ content: thinkingContent, isClosed: true });
         processed += `__THINKING_${idx}__`;
         i = thinkingEndIndex + "</thinking>".length;
-
         continue;
       } else {
-        processed += content.substring(i);
-        i = content.length;
-        break;
+        // Only 1 tag exists (streaming or unclosed tag)
+        const nextTagPos = findNextToolTagStart(contentStart);
+        const thinkingContent =
+          nextTagPos !== -1
+            ? content.substring(contentStart, nextTagPos)
+            : content.substring(contentStart);
+        const idx = thinkingBlocks.length;
+        thinkingBlocks.push({ content: thinkingContent, isClosed: false });
+        processed += `__THINKING_${idx}__`;
+        i = nextTagPos !== -1 ? nextTagPos : content.length;
+        continue;
+      }
+    }
+
+    // Check for <think> tag (short form, e.g. DeepSeek R1)
+    const thinkOpenRegex = /^<think(?:\s*|\s+[^>]*)>/i;
+    const thinkMatch = thinkOpenRegex.exec(content.substring(i));
+
+    if (thinkMatch) {
+      const openTagStr = thinkMatch[0];
+      const contentStart = i + openTagStr.length;
+      let thinkEndIndex = findClosingTagPosition(
+        content,
+        contentStart,
+        "</think>",
+      );
+
+      // Fallback: simple search
+      if (thinkEndIndex === -1) {
+        const simpleEndIndex = content
+          .toLowerCase()
+          .indexOf("</think>", contentStart);
+        if (simpleEndIndex !== -1) {
+          thinkEndIndex = simpleEndIndex;
+        }
+      }
+
+      if (thinkEndIndex !== -1) {
+        // Found complete <think> block
+        const thinkContent = content.substring(contentStart, thinkEndIndex);
+        const idx = thinkingBlocks.length;
+        thinkingBlocks.push({ content: thinkContent, isClosed: true });
+        processed += `__THINKING_${idx}__`;
+        i = thinkEndIndex + "</think>".length;
+        continue;
+      } else {
+        // Only 1 tag exists (streaming or unclosed tag)
+        const nextTagPos = findNextToolTagStart(contentStart);
+        const thinkContent =
+          nextTagPos !== -1
+            ? content.substring(contentStart, nextTagPos)
+            : content.substring(contentStart);
+        const idx = thinkingBlocks.length;
+        thinkingBlocks.push({ content: thinkContent, isClosed: false });
+        processed += `__THINKING_${idx}__`;
+        i = nextTagPos !== -1 ? nextTagPos : content.length;
+        continue;
       }
     }
 

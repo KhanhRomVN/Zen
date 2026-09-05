@@ -3,6 +3,8 @@ import {
   Plus,
   Send,
   X,
+  Eye,
+  EyeOff,
   GitPullRequestArrow,
   Zap,
   Scale,
@@ -12,6 +14,7 @@ import {
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
+import { useShowThinkingStore } from "../../features/chat/stores/showThinkingStore";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import StyleCodeDropdown from "./StyleCodeDropdown";
 import { getFaviconUrl } from "../../utils/favicon";
@@ -531,6 +534,60 @@ const MemoryButton: React.FC<ToggleButtonProps> = ({
         style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
       >
         Memory
+      </span>
+    </button>
+  );
+};
+
+/**
+ * ShowThinkingButton — toggles visibility of AI thinking/reasoning blocks
+ * in the chat. This is a UI-only preference (does NOT affect model behavior).
+ * Uses amber color to visually distinguish from model-capability buttons.
+ */
+const ShowThinkingButton: React.FC = () => {
+  const { isVisible, toggle } = useShowThinkingStore();
+  const [isHovered, setIsHovered] = React.useState(false);
+  const accentColor = "#f59e0b"; // amber-400
+
+  return (
+    <button
+      id="show-thinking-toggle"
+      onClick={toggle}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "0 8px",
+        height: "22px",
+        boxSizing: "border-box",
+        borderRadius: "4px",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.3px",
+        transition: "all 0.2s ease-in-out",
+        border: isVisible
+          ? `1px solid color-mix(in srgb, ${accentColor} 40%, transparent)`
+          : "1px solid rgba(128, 128, 128, 0.2)",
+        background: isVisible
+          ? isHovered
+            ? `color-mix(in srgb, ${accentColor} 20%, transparent)`
+            : `color-mix(in srgb, ${accentColor} 12%, transparent)`
+          : isHovered
+            ? "rgba(128, 128, 128, 0.2)"
+            : "rgba(128, 128, 128, 0.12)",
+        color: isVisible ? accentColor : "var(--vscode-foreground)",
+        opacity: isVisible ? 1 : isHovered ? 0.9 : 0.7,
+        lineHeight: 1,
+        verticalAlign: "middle",
+      }}
+      title={isVisible ? "Hide AI thinking blocks" : "Show AI thinking blocks"}
+    >
+      {isVisible ? <Eye size={11} /> : <EyeOff size={11} />}
+      <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}>
+        Thoughts
       </span>
     </button>
   );
@@ -1816,7 +1873,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 />
               )}
 
-              {/* Memory Toggle */}
               {showMemoryButton && (
                 <MemoryButton
                   isOn={isMemory}
@@ -1824,6 +1880,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   title="Toggle Memory Reference (Saved memories & chat history)"
                 />
               )}
+
+              {/* Show Thinking Toggle — UI-only, only visible while chatting */}
+              {(isConversationStarted ||
+                (messages && messages.length > 0)) && <ShowThinkingButton />}
 
               {/* System Prompt Mode Selector - Home only */}
               {!isConversationStarted && (

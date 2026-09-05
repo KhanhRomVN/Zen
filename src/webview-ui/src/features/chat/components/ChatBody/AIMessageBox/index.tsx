@@ -1,4 +1,5 @@
 import React from "react";
+import { useShowThinkingStore } from "@/features/chat/stores/showThinkingStore";
 
 // CONSTANTS
 import {
@@ -113,6 +114,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
+
+  // Whether to render thinking blocks (controlled by MessageInput toggle)
+  const showThinking = useShowThinkingStore((s) => s.isVisible);
 
   //   Cache previousUserMessage lookup. Only recompute when the message
   // list length changes or the current message id changes (not on every render
@@ -278,13 +282,13 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
             content: message.content,
             key: "error-block",
           });
-        } else if (parsedContent.onlyThinkingDetected) {
-          // 🛡️ FALLBACK: Response chỉ có thinking, hiển thị warning
+        } else if (parsedContent.onlyThinkingDetected && !isGenerating && !showThinking) {
+          // 🛡️ FALLBACK: Response chỉ có thinking, hiển thị warning khi user tắt hiển thị thinking
           groups.push({
             type: "warning" as any,
             label: "WARNING",
             message:
-              "Response contains only internal reasoning (thinking blocks) with no visible content or actions. The AI may need to continue or regenerate the response.",
+              "Response contains only internal reasoning (thinking blocks) with no visible content or actions. You can enable 'Thoughts' in the toolbar to view it.",
             key: "only-thinking-warning",
           });
         } else if (blocks.length > 0) {
@@ -336,7 +340,17 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 });
               }
             } else if (block.type === "thinking") {
-              // Skip
+              // Conditionally render thinking block based on user preference
+              if (showThinking) {
+                flushTools();
+                groups.push({
+                  type: "thinking",
+                  content: block.content ?? "",
+                  key: `thinking-${idx}`,
+                  isClosed: block.isClosed,
+                  elapsedSeconds: block.elapsedSeconds,
+                });
+              }
             } else if (block.type === "question") {
               flushTools();
               groups.push({
