@@ -216,24 +216,6 @@ export const parseDiff = (diffText: string): DiffResult => {
 };
 
 /**
- * Checks if the text looks like a diff or SEARCH/REPLACE block
- */
-export const isDiff = (text: string, language?: string): boolean => {
-  if (language === "diff") return true;
-  if (
-    text.includes("<<<<<<< SEARCH") &&
-    text.includes("=======") &&
-    text.includes("REPLACE")
-  )
-    return true;
-
-  // Basic git diff check: contains + or - markers at start of lines
-  const lines = text.split("\n");
-  const markers = lines.filter((l) => l.startsWith("+ ") || l.startsWith("- "));
-  return markers.length > 0;
-};
-
-/**
  * Calculate accurate line diff between two strings using Myers diff algorithm
  * Returns the actual number of lines added and deleted (not total lines)
  */

@@ -42,6 +42,14 @@ export class RevertFileHandler {
       const filePath = message.file_path || message.path;
       const version = message.version;
 
+      logger.info(`[DEBUG revert_file] handleRevertFile called`, {
+        filePath,
+        version,
+        hasVersion: version !== undefined && version !== null,
+        conversationId: message.conversationId,
+        messageKeys: Object.keys(message),
+      });
+
       if (!filePath) {
         throw new Error("'file_path' is required");
       }
@@ -61,29 +69,76 @@ export class RevertFileHandler {
       const beforeContent = await fs.promises.readFile(absPath, "utf-8");
 
       let afterContent: string;
+      let actualVersion = version;
 
-      if (version !== undefined && version !== null && message.conversationId) {
+      // Auto-calculate version if not provided and conversationId exists
+      if ((actualVersion === undefined || actualVersion === null) && message.conversationId) {
+        const historyManager = ReplaceInFileHistoryManager.getInstance();
+        historyManager.setActiveConversationId(message.conversationId);
+        
+        const currentVersion = await historyManager.getCurrentVersion(absPath);
+        
+        logger.info(`[DEBUG revert_file] Auto-calculating version`, {
+          filePath,
+          currentVersion,
+          hasHistory: currentVersion > 0,
+        });
+
+        // Only use history-based revert if there's actual history (version > 0)
+        if (currentVersion > 0) {
+          actualVersion = currentVersion - 1; // Revert to previous version
+          logger.info(`[DEBUG revert_file] Using auto-calculated version`, {
+            filePath,
+            calculatedVersion: actualVersion,
+          });
+        }
+      }
+
+      // Calculate version info BEFORE deletion for accurate reporting
+      let revertedFromVersion: number | undefined;
+      let revertedToVersion: number | undefined;
+      
+      if (actualVersion !== undefined && actualVersion !== null && message.conversationId) {
         const historyManager = ReplaceInFileHistoryManager.getInstance();
         historyManager.setActiveConversationId(message.conversationId);
 
+        // Get current version BEFORE deleteVersionsAfter
+        const currentVer = await historyManager.getCurrentVersion(absPath);
+        revertedFromVersion = currentVer;
+        revertedToVersion = parseInt(actualVersion, 10);
+
         const history = await historyManager.getHistoryVersion(
           absPath,
-          parseInt(version, 10),
+          parseInt(actualVersion, 10),
         );
         if (!history) {
           throw new Error(
-            `No history found for version ${version} of file '${filePath}'`,
+            `No history found for version ${actualVersion} of file '${filePath}'`,
           );
         }
 
         afterContent = history.fullContent;
 
+        logger.info(`[DEBUG revert_file] Before write file and deleteVersionsAfter`, {
+          filePath,
+          version: parseInt(actualVersion, 10),
+          revertedFromVersion,
+          revertedToVersion,
+          beforeContentLength: beforeContent.length,
+          afterContentLength: afterContent.length,
+        });
+
         await fs.promises.writeFile(absPath, afterContent, "utf-8");
 
         await historyManager.deleteVersionsAfter(
           absPath,
-          parseInt(version, 10),
+          parseInt(actualVersion, 10),
         );
+
+        logger.info(`[DEBUG revert_file] After deleteVersionsAfter`, {
+          filePath,
+          version: parseInt(actualVersion, 10),
+        });
       } else {
         const cpm = CheckpointManager.getInstance();
         const checkpoint = await cpm.getLastCheckpointForFile(absPath);
@@ -120,12 +175,22 @@ export class RevertFileHandler {
         30000,
       );
 
+      logger.info(`[DEBUG revert_file] Sending result`, {
+        filePath,
+        revertedFromVersion,
+        revertedToVersion,
+        hasOldContent: !!beforeContent,
+        hasNewContent: !!afterContent,
+      });
+
       webviewView.webview.postMessage({
         command: "revertFileResult",
         requestId: message.requestId,
         oldContent: beforeContent,
         newContent: afterContent,
         diagnostics: diagResult.diagnostics,
+        revertedFromVersion,
+        revertedToVersion,
       });
     } catch (e: any) {
       logger.error(`[DEBUG revert_file] Error: ${e.message}`);

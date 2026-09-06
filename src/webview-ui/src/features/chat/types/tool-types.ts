@@ -5,72 +5,9 @@ export interface BaseToolParams {
   folder_path?: string;
 }
 
-// ===== READ FILE =====
-export interface ReadFileParams extends BaseToolParams {
-  start_line?: number;
-  end_line?: number;
-}
-
-// ===== WRITE TO FILE =====
-export interface WriteToFileParams extends BaseToolParams {
-  content?: string;
-}
-
-// ===== REPLACE IN FILE =====
-export interface ReplaceInFileParams extends BaseToolParams {
-  old_content?: string;
-  new_content?: string;
-  _validationError?: string; // Internal flag for validation errors
-}
-
-// ===== REVERT FILE =====
-export interface RevertFileParams extends BaseToolParams {}
-
-// ===== LIST FILES =====
-export interface ListFilesParams {
-  folder_path?: string;
-  path?: string;
-  recursive?: boolean;
-  depth?: number | "max";
-  type?: string;
-}
-
-// ===== GREP =====
-export interface GrepParams {
-  search_term: string;
-  file_path?: string;
-  folder_path?: string;
-  file_pattern?: string;
-  _validationError?: string; // Internal flag for invalid regex
-}
-
-// ===== FIND FILES =====
-export interface FindFilesParams {
-  file_names?: string[];
-}
-
 export interface FindFilesResult {
   fileName: string;
   matches: string[];
-}
-
-export interface FindFilesResponse {
-  output: string;
-  results?: FindFilesResult[];
-  totalMatches?: number;
-}
-
-// ===== DELETE FILE =====
-export interface DeleteFileParams extends BaseToolParams {}
-
-// ===== DELETE FOLDER =====
-export interface DeleteFolderParams {
-  folder_path: string;
-}
-
-export interface DeleteFolderResult {
-  success: boolean;
-  error?: string;
 }
 
 // ===== RUN COMMAND =====
@@ -80,13 +17,6 @@ export interface RunCommandParams {
   cwd?: string;
   folder_path?: string;
   folderPath?: string;
-}
-
-export interface RunCommandResult {
-  success: boolean;
-  output: string;
-  terminalId?: string;
-  error?: string;
 }
 
 // ===== GIT STATUS =====

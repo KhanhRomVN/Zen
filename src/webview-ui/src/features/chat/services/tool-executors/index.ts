@@ -13,6 +13,7 @@ export { RunCommandExecutor } from "./RunCommandExecutor";
 export { DeleteFileExecutor } from "./DeleteFileExecutor";
 export { GrepExecutor } from "./GrepExecutor";
 export { GitDiffExecutor } from "./GitDiffExecutor";
+export { ConversationTitleExecutor } from "./ConversationTitleExecutor";
 
 // Executor factory
 import { ToolExecutor } from "../../types/executor-types";
@@ -27,6 +28,7 @@ import { RunCommandExecutor } from "./RunCommandExecutor";
 import { DeleteFileExecutor } from "./DeleteFileExecutor";
 import { GrepExecutor } from "./GrepExecutor";
 import { GitDiffExecutor } from "./GitDiffExecutor";
+import { ConversationTitleExecutor } from "./ConversationTitleExecutor";
 
 /**
  * Factory function to get the appropriate executor for a given action type
@@ -68,6 +70,8 @@ export function getExecutor(
       return new GrepExecutor();
     case "git_diff":
       return new GitDiffExecutor();
+    case "conversation_title":
+      return new ConversationTitleExecutor();
     case "git_status":
       // git_status is display-only, no executor needed
       return null;

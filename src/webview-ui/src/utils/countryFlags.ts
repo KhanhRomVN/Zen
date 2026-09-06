@@ -11,20 +11,6 @@ export interface Country {
 }
 
 /**
- * Get country flag component from country-flag-icons library
- * Returns a React component for the flag SVG
- * Example: 'VN' → <VN />, 'US' → <US />
- */
-export function getCountryFlagComponent(
-  code: string,
-): React.ComponentType<React.SVGProps<SVGSVGElement>> | null {
-  if (!code || code.length !== 2) return null;
-  const upperCode = code.toUpperCase();
-  // @ts-ignore - dynamic key access
-  return flags[upperCode] || null;
-}
-
-/**
  * Get country flag as emoji text
  * Converts ISO 3166-1 alpha-2 country code to flag emoji using regional indicator symbols
  * Example: 'VN' → '🇻🇳', 'US' → '🇺🇸'

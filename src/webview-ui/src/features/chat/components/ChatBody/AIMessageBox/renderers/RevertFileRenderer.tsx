@@ -74,7 +74,6 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
   // Fetch version history for version info display
   React.useEffect(() => {
     if (!rawPath || !conversationId) return;
-
     const requestId = `version-history-${actionId}`;
     const handleMessage = (event: MessageEvent) => {
       const msg = event.data;
@@ -83,6 +82,10 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
         msg.requestId === requestId
       ) {
         if (msg.error) {
+          console.error(
+            "🔍 [RevertFileRenderer] Error fetching history",
+            msg.error,
+          );
           return;
         }
 
@@ -90,7 +93,9 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
           // Backend returns histories directly (not in output field)
           const histories = msg.histories || [];
           setVersionHistory(histories);
-        } catch (e) {}
+        } catch (e) {
+          console.error("🔍 [RevertFileRenderer] Error parsing history", e);
+        }
       }
     };
 
@@ -106,7 +111,7 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, [rawPath, conversationId, actionId]);
+  }, [rawPath, conversationId, actionId, toolOutputs]);
 
   // Fetch full file content for approval mode diff (this will be old_content = current)
   React.useEffect(() => {
@@ -295,33 +300,80 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
   const hasValidationError = !!action.isError;
 
   // Check diagnostics for completed revert
+  // Try to get from toolOutputs first, fallback to action.params (persisted) or localStorage
+  const diagnostics = React.useMemo(() => {
+    if (!isCompleted || isError) {
+      return [];
+    }
+    const toolOutputDiagnostics = toolOutputs?.[actionId]?.diagnostics || [];
+    const actionDiagnostics = action.params?.diagnostics || [];
+
+    // Try localStorage as fallback (for after reload)
+    let localStorageDiagnostics: any[] = [];
+    try {
+      const key = `revert-diagnostics-${actionId}`;
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        localStorageDiagnostics = JSON.parse(stored);
+      }
+    } catch (e) {
+      console.error(
+        "🔍 [DEBUG RevertFileRenderer] Failed to read from localStorage",
+        e,
+      );
+    }
+
+    // Prefer toolOutputs (fresh) > action.params (persisted) > localStorage (fallback)
+    const result =
+      toolOutputDiagnostics.length > 0
+        ? toolOutputDiagnostics
+        : actionDiagnostics.length > 0
+          ? actionDiagnostics
+          : localStorageDiagnostics;
+
+    return result;
+  }, [isCompleted, isError, toolOutputs, actionId, action.params]);
+
   const hasDiagnosticErrors = React.useMemo(() => {
-    if (!isCompleted || isError) return false;
-    const diagnostics = toolOutputs?.[actionId]?.diagnostics || [];
-    return diagnostics.some((d: any) => d.severity === "Error");
-  }, [isCompleted, isError, toolOutputs, actionId]);
+    const hasErrors = diagnostics.some((d: any) => d.severity === "Error");
+    return hasErrors;
+  }, [diagnostics, actionId]);
 
   // Calculate version info
+  // Priority: toolOutputs (persisted) > versionHistory calculation
   const explicitTargetVersion = action.params.version;
+
+  // Try to get from toolOutputs first (persisted after revert)
+  const currentVersionFromOutput = toolOutputs?.[actionId]?.revertedFromVersion;
+  const targetVersionFromOutput = toolOutputs?.[actionId]?.revertedToVersion;
+
+  // Fallback: calculate from versionHistory if not in toolOutputs
   // currentVersion = highest version number in history, NOT the length
-  // If we have version 0 and version 1, length = 2 but currentVersion = 1
-  const currentVersion =
+  const currentVersionFromHistory =
     versionHistory.length > 0
       ? versionHistory[versionHistory.length - 1].version
       : undefined;
-  const targetVersion =
+  const targetVersionFromHistory =
     explicitTargetVersion !== undefined
       ? explicitTargetVersion
-      : currentVersion !== undefined && currentVersion > 0
-        ? currentVersion - 1
+      : currentVersionFromHistory !== undefined && currentVersionFromHistory > 0
+        ? currentVersionFromHistory - 1
         : undefined;
+
+  // Use persisted version if available, otherwise use calculated
+  const currentVersion =
+    currentVersionFromOutput !== undefined
+      ? currentVersionFromOutput
+      : currentVersionFromHistory;
+  const targetVersion =
+    targetVersionFromOutput !== undefined
+      ? targetVersionFromOutput
+      : targetVersionFromHistory;
 
   const statusColor = isError
     ? "var(--vscode-errorForeground, #f14c4c)"
     : isCompleted
-      ? hasDiagnosticErrors
-        ? "var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d)"
-        : "var(--vscode-gitDecoration-addedResourceForeground, #89d185)"
+      ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
       : isActiveGroup
         ? "var(--vscode-descriptionForeground)"
         : "var(--vscode-descriptionForeground)";
@@ -401,6 +453,117 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
     return extToLang[ext];
   };
 
+  // Helper: open diff view with content from toolOutputs or fetch from history
+  const handleOpenDiff = () => {
+    if (!rawPath || !isCompleted || isError) return;
+
+    // Try toolOutputs first (persisted), fallback to action.params
+    const oldContent =
+      toolOutputs?.[actionId]?.oldContent ||
+      action.params.old_content ||
+      action.params.old_str ||
+      "";
+    const newContent =
+      toolOutputs?.[actionId]?.newContent ||
+      action.params.new_content ||
+      action.params.new_str ||
+      "";
+
+    if (oldContent && newContent) {
+      extensionService.postMessage({
+        command: "openFileDiff",
+        filePath: rawPath,
+        oldContent,
+        newContent,
+      });
+    } else {
+      // Fallback: fetch from history if we have version info
+      if (
+        conversationId &&
+        (currentVersion !== undefined || targetVersion !== undefined)
+      ) {
+        // Fetch both versions and open diff
+        const fetchRequestId = `fetch-for-diff-${Date.now()}`;
+        let fetchedOldContent: string | null = null;
+        let fetchedNewContent: string | null = null;
+
+        const handleFetchMessage = (event: MessageEvent) => {
+          const msg = event.data;
+          if (
+            msg.command === "getHistoryVersionResult" &&
+            msg.requestId?.startsWith(fetchRequestId)
+          ) {
+            if (msg.error) {
+              console.error(
+                "🔍 [RevertFileRenderer] Failed to fetch version",
+                msg.error,
+              );
+              return;
+            }
+
+            const versionNum = parseInt(msg.requestId.split("-").pop() || "0");
+            if (versionNum === currentVersion && msg.history?.fullContent) {
+              fetchedOldContent = msg.history.fullContent;
+            } else if (
+              versionNum === targetVersion &&
+              msg.history?.fullContent
+            ) {
+              fetchedNewContent = msg.history.fullContent;
+            }
+
+            // If both fetched, open diff
+            if (fetchedOldContent && fetchedNewContent) {
+              window.removeEventListener("message", handleFetchMessage);
+              extensionService.postMessage({
+                command: "openFileDiff",
+                filePath: rawPath,
+                oldContent: fetchedOldContent,
+                newContent: fetchedNewContent,
+              });
+            }
+          }
+        };
+
+        window.addEventListener("message", handleFetchMessage);
+
+        // Fetch current version (old)
+        if (currentVersion !== undefined) {
+          extensionService.postMessage({
+            command: "getHistoryVersion",
+            filePath: rawPath,
+            version: currentVersion,
+            conversationId,
+            requestId: `${fetchRequestId}-${currentVersion}`,
+          });
+        }
+
+        // Fetch target version (new)
+        if (targetVersion !== undefined) {
+          extensionService.postMessage({
+            command: "getHistoryVersion",
+            filePath: rawPath,
+            version: targetVersion,
+            conversationId,
+            requestId: `${fetchRequestId}-${targetVersion}`,
+          });
+        }
+
+        // Cleanup after timeout
+        setTimeout(() => {
+          window.removeEventListener("message", handleFetchMessage);
+        }, 5000);
+      } else {
+        console.warn("🔍 [RevertFileRenderer] Missing content for diff", {
+          hasOldContent: !!oldContent,
+          hasNewContent: !!newContent,
+          hasVersionInfo: !!(
+            currentVersion !== undefined || targetVersion !== undefined
+          ),
+        });
+      }
+    }
+  };
+
   return (
     <div
       style={{
@@ -427,37 +590,27 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
                 fontWeight: 600,
                 opacity: 0.8,
                 cursor: "pointer",
-                transition: "text-decoration 0.15s ease",
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                if (rawPath) {
-                  const oldContent =
-                    action.params.old_content || action.params.old_str || "";
-                  const newContent =
-                    action.params.new_content || action.params.new_str || "";
-                  extensionService.postMessage({
-                    command: "openFileDiff",
-                    filePath: rawPath,
-                    oldContent,
-                    newContent,
-                  });
-                }
-              }}
-              onMouseEnter={(e) => {
-                (e.target as HTMLElement).style.textDecoration = "underline";
-              }}
-              onMouseLeave={(e) => {
-                (e.target as HTMLElement).style.textDecoration = "none";
+                handleOpenDiff();
               }}
             >
               {getToolLabel("revert_file")}
             </span>
-            <img
-              src={getFileIconPath(rawPath)}
-              alt=""
-              style={{ width: "14px", height: "14px" }}
-            />
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenDiff();
+              }}
+              style={{ display: "flex", alignItems: "center" }}
+            >
+              <img
+                src={getFileIconPath(rawPath)}
+                alt=""
+                style={{ width: "16px", height: "16px", cursor: "pointer" }}
+              />
+            </span>
             <span
               style={{
                 fontWeight: 500,
@@ -468,18 +621,7 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                if (rawPath) {
-                  const oldContent =
-                    action.params.old_content || action.params.old_str || "";
-                  const newContent =
-                    action.params.new_content || action.params.new_str || "";
-                  extensionService.postMessage({
-                    command: "openFileDiff",
-                    filePath: rawPath,
-                    oldContent,
-                    newContent,
-                  });
-                }
+                handleOpenDiff();
               }}
             >
               {displayName || "..."}
@@ -506,21 +648,20 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
                 >
                   -{diffStats.removed}
                 </span>
-                {currentVersion !== undefined &&
-                  targetVersion !== undefined && (
-                    <span
-                      style={{
-                        opacity: 0.7,
-                        fontSize: "10px",
-                        fontWeight: 400,
-                        color: "var(--vscode-descriptionForeground)",
-                        marginLeft: "6px",
-                      }}
-                    >
-                      #{currentVersion} → #{targetVersion}
-                    </span>
-                  )}
               </>
+            )}
+            {currentVersion !== undefined && targetVersion !== undefined && (
+              <span
+                style={{
+                  opacity: 0.7,
+                  fontSize: "10px",
+                  fontWeight: 400,
+                  color: "var(--vscode-descriptionForeground)",
+                  marginLeft: "6px",
+                }}
+              >
+                #{currentVersion} → #{targetVersion}
+              </span>
             )}
             {isCompleted && !isError && (
               <span
@@ -542,6 +683,21 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
         isWaitingApproval={!!isActiveGroup && !isCompleted}
         toolType="revert_file"
         diffStats={undefined}
+        diagnostics={diagnostics}
+        onClick={() => {
+          if (rawPath) {
+            extensionService.postMessage({
+              command: "openFile",
+              path: rawPath,
+            });
+          }
+        }}
+        onPathClick={(clickedPath) => {
+          extensionService.postMessage({
+            command: "openFile",
+            path: clickedPath,
+          });
+        }}
       />
 
       {/* Show diff in CodeBlock when approval mode — only when not completed */}

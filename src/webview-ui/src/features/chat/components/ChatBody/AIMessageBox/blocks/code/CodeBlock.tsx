@@ -212,7 +212,8 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
   // Auto-scroll to first diff line on mount or when highlights change
   useEffect(() => {
-    if (!autoScrollToDiff || !hasHighlights || firstDiffLineIndex === -1) return;
+    if (!autoScrollToDiff || !hasHighlights || firstDiffLineIndex === -1)
+      return;
     const timer = setTimeout(() => {
       if (firstDiffRef.current) {
         firstDiffRef.current.scrollIntoView({
@@ -354,14 +355,6 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       {!isCollapsed && renderBody()}
     </div>
   );
-};
-
-// Legacy export for backward compatibility
-export const CodeRenderer: React.FC<{
-  content: string;
-  language?: string;
-}> = ({ content, language = "text" }) => {
-  return <CodeBlock code={content} language={language} enableWordWrap={true} />;
 };
 
 export default CodeBlock;

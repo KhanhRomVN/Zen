@@ -65,15 +65,38 @@ export class RevertFileExecutor implements ToolExecutor {
               action.params.new_content = msg.newContent;
             }
 
-            // Store output in toolOutputs
-            setToolOutputs((prev) => ({
-              ...prev,
-              [actionId]: {
-                output: "Reverted",
-                isError: false,
-                diagnostics: msg.diagnostics || undefined,
-              },
-            }));
+            // Store diagnostics in action params for persistence across reloads
+            if (msg.diagnostics) {
+              action.params.diagnostics = msg.diagnostics;
+
+              // WORKAROUND: Also store in localStorage for persistence
+              // action.params changes don't persist automatically
+              try {
+                const key = `revert-diagnostics-${actionId}`;
+                localStorage.setItem(key, JSON.stringify(msg.diagnostics));
+              } catch (e) {
+                console.error(
+                  "🔍 [DEBUG RevertFileExecutor] Failed to save to localStorage",
+                  e,
+                );
+              }
+            }
+
+            // Store output in toolOutputs (including content for persistence)
+            setToolOutputs((prev) => {
+              return {
+                ...prev,
+                [actionId]: {
+                  output: "Reverted",
+                  isError: false,
+                  diagnostics: msg.diagnostics || undefined,
+                  oldContent: msg.oldContent,
+                  newContent: msg.newContent,
+                  revertedFromVersion: msg.revertedFromVersion,
+                  revertedToVersion: msg.revertedToVersion,
+                },
+              };
+            });
 
             resolve(result);
           }

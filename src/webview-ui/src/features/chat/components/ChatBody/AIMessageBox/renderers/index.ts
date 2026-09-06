@@ -19,7 +19,6 @@ export { MarkdownRenderer } from "./MarkdownRenderer";
 export { QuestionRenderer } from "./QuestionRenderer";
 export { ErrorRenderer } from "./ErrorRenderer";
 export { WarningRenderer } from "./WarningRenderer";
-export { ThinkingRenderer } from "./ThinkingRenderer";
 
 // Shared types and utilities
 export type {

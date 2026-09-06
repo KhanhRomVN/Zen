@@ -6,20 +6,18 @@
  * ------------------------------------------------------------------
  */
 
-import React from 'react';
-
 export function SkillPanel() {
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        padding: '32px 16px',
-        textAlign: 'center',
-        color: 'var(--secondary-text)',
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        padding: "32px 16px",
+        textAlign: "center",
+        color: "var(--secondary-text)",
       }}
     >
       <svg
@@ -32,7 +30,7 @@ export function SkillPanel() {
         strokeWidth="1"
         strokeLinecap="round"
         strokeLinejoin="round"
-        style={{ marginBottom: '16px', opacity: 0.3 }}
+        style={{ marginBottom: "16px", opacity: 0.3 }}
       >
         <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
         <path d="M2 17l10 5 10-5"></path>
@@ -40,15 +38,15 @@ export function SkillPanel() {
       </svg>
       <h3
         style={{
-          fontSize: '16px',
+          fontSize: "16px",
           fontWeight: 600,
-          color: 'var(--primary-text)',
-          marginBottom: '8px',
+          color: "var(--primary-text)",
+          marginBottom: "8px",
         }}
       >
         Skills Marketplace
       </h3>
-      <p style={{ fontSize: '13px', opacity: 0.7, maxWidth: '300px' }}>
+      <p style={{ fontSize: "13px", opacity: 0.7, maxWidth: "300px" }}>
         Browse and install skills for Zen. Coming soon!
       </p>
     </div>

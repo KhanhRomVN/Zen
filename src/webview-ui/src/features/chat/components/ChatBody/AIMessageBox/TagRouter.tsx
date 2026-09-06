@@ -47,7 +47,6 @@ import {
   MarkdownRenderer, // markdown
   QuestionRenderer, // question
   WarningRenderer, // warning (not tag)
-  ThinkingRenderer, // thinking
 } from "./renderers";
 import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
 import { CodeBlock } from "./blocks/code/CodeBlock";
@@ -249,10 +248,6 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         isPulsing={false}
       />
     );
-  }
-
-  if (group.type === "thinking") {
-    return <ThinkingRenderer content={group.content} />;
   }
 
   if (group.type === "conversation_title") {

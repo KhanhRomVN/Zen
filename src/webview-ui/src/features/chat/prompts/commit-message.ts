@@ -145,8 +145,3 @@ ${fileContentsSection}
 Now follow STEP 1 first. Only proceed to STEP 2 if context is sufficient.
 `;
 }
-
-export const COMMIT_MESSAGE_PROMPT = getCommitMessagePrompt(
-  "vi",
-  "{gitStatus}",
-);

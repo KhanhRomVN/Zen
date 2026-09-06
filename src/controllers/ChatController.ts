@@ -36,6 +36,7 @@ import { GetHistoryHandler } from "../handlers/conversation/GetHistoryHandler";
 import { OpenConversationFolderHandler } from "../handlers/conversation/OpenConversationFolderHandler";
 import { RevertConversationHandler } from "../handlers/conversation/RevertConversationHandler";
 import { SaveConversationStateHandler } from "../handlers/conversation/SaveConversationStateHandler";
+import { SetConversationTitleHandler } from "../handlers/conversation/SetConversationTitleHandler";
 import { DeleteFileHandler } from "../handlers/tool/DeleteFileHandler";
 import { FileMiscHandler } from "../handlers/tool/FileMiscHandler";
 import { FindFilesHandler } from "../handlers/tool/FindFilesHandler";
@@ -65,6 +66,7 @@ export class ChatController {
   private deleteAllConversationsHandler: DeleteAllConversationsHandler;
   private openConversationFolderHandler: OpenConversationFolderHandler;
   private saveConversationStateHandler: SaveConversationStateHandler;
+  private setConversationTitleHandler: SetConversationTitleHandler;
   private revertConversationHandler: RevertConversationHandler;
   private readFileHandler: ReadFileHandler;
   private writeToFileHandler: WriteToFileHandler;
@@ -104,6 +106,9 @@ export class ChatController {
     this.deleteAllConversationsHandler = new DeleteAllConversationsHandler();
     this.openConversationFolderHandler = new OpenConversationFolderHandler();
     this.saveConversationStateHandler = new SaveConversationStateHandler(
+      this.fileLockManager,
+    );
+    this.setConversationTitleHandler = new SetConversationTitleHandler(
       this.fileLockManager,
     );
     this.revertConversationHandler = new RevertConversationHandler(
@@ -213,6 +218,12 @@ export class ChatController {
         case "saveConversationState":
           await this.saveConversationStateHandler.handleSaveConversationState(
             message,
+          );
+          break;
+        case "setConversationTitle":
+          await this.setConversationTitleHandler.handleSetConversationTitle(
+            message,
+            webviewView,
           );
           break;
         // File Operations

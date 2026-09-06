@@ -18,12 +18,10 @@ import { useMessagePagination } from "../../hooks/ui/useMessagePagination";
 import { useMessageParsing } from "../../hooks/messages/useMessageParsing";
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import SearchBar from "./SearchBar";
-import { ThinkingRenderer } from "./AIMessageBox/renderers/ThinkingRenderer";
 import ContinuingIndicator from "./ContinuingIndicatorBox";
 import ProcessingIndicator from "./ProcessingIndicator";
 import UserMessageBox from "./UserMessageBox";
 import AIMessageBox from "./AIMessageBox";
-import ModelInfoBar from "./ModelInfoBar";
 import { LoadMoreButton } from "./LoadMoreButton";
 
 interface ChatBodyProps {

@@ -301,22 +301,6 @@ export const getAllToolTypes = (): string[] => {
 };
 
 /**
- * Lấy tất cả UI tag types (chỉ ui tags)
- */
-export const getAllUITagTypes = (): string[] => {
-  return Object.entries(TAG_REGISTRY)
-    .filter(([_, def]) => def.category === "ui")
-    .map(([key]) => key);
-};
-
-/**
- * Lấy tất cả tag types (bao gồm cả tool và ui)
- */
-export const getAllTagTypes = (): string[] => {
-  return Object.keys(TAG_REGISTRY);
-};
-
-/**
  * Kiểm tra xem tool có yêu cầu xác nhận hay không dựa trên permission mode hiện tại
  */
 export const requiresConfirmation = (
@@ -328,26 +312,6 @@ export const requiresConfirmation = (
 
   const permission = tag.permissions[mode];
   return permission === "confirm";
-};
-
-/**
- * Kiểm tra xem tool hoặc UI tag có nên hiển thị approval UI hay không
- * Dựa trên permission của mode hiện tại
- */
-export const shouldShowApprovalUI = (
-  type: string,
-  mode: "approval" | "fullAccess" = "approval",
-): boolean => {
-  return requiresConfirmation(type, mode);
-};
-
-/**
- * Get all tools that have user-configurable permissions (non-git, non-ui tools)
- */
-export const getConfigurableTools = (): string[] => {
-  return Object.entries(TAG_REGISTRY)
-    .filter(([_, def]) => def.category === "tool")
-    .map(([_, def]) => def.id);
 };
 
 // ============= HELPER FUNCTIONS FOR FILE STATS =============
@@ -382,10 +346,6 @@ export const FILE_MUTATION_TOOLS = Object.entries(TAG_REGISTRY)
 ];
 
 export type FileMutationTool = (typeof FILE_MUTATION_TOOLS)[number];
-
-export const getFileMutationTools = (): readonly string[] => {
-  return FILE_MUTATION_TOOLS;
-};
 
 /**
  * Get timeout (ms) for a tool. Default: 60000ms (60s)
