@@ -49,6 +49,7 @@ import { WriteToFileHandler } from "../handlers/tool/WriteToFileHandler";
 import { GitDiffHandler } from "../handlers/tool/GitDiffHandler";
 import { GitStatusHandler } from "../handlers/tool/GitStatusHandler";
 import { GrepHandler } from "../handlers/tool/GrepHandler";
+import { SkillAPIHandler } from "../handlers/tool/SkillAPIHandler";
 
 // ── Managers ──
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -91,6 +92,7 @@ export class ChatController {
   private projectContextHandler: ProjectContextHandler;
   private grepHandler: GrepHandler;
   private storageHandler: StorageHandler;
+  private skillAPIHandler: SkillAPIHandler;
 
   constructor(
     private storageManager: GlobalStorageManager | undefined,
@@ -137,6 +139,7 @@ export class ChatController {
     this.projectContextHandler = new ProjectContextHandler();
     this.grepHandler = new GrepHandler(this.workspaceRoot);
     this.storageHandler = new StorageHandler(this.storageManager);
+    this.skillAPIHandler = new SkillAPIHandler();
   }
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
@@ -337,6 +340,9 @@ export class ChatController {
 
         case "gitCommit":
           await this.gitCommitHandler.handleGitCommit(message, webviewView);
+          break;
+        case "fetchSkillAPI":
+          await this.skillAPIHandler.handleFetchSkillAPI(message, webviewView);
           break;
       }
     } catch (error) {

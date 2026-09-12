@@ -7,7 +7,25 @@ import {
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function formatLines(count: number): string {
+  return `${count} ${count === 1 ? "line" : "lines"}`;
+}
+
+function countFilesRecursive(nodes: any[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node.type === "file") {
+      count += 1;
+    } else if (node.children && node.children.length > 0) {
+      count += countFilesRecursive(node.children);
+    }
+  }
+  return count;
 }
 
 export class ListFilesExecutor implements ToolExecutor {
@@ -80,7 +98,8 @@ export class ListFilesExecutor implements ToolExecutor {
                 if (node.type === "folder") {
                   result += `${indent}${node.name}/`;
                   if (node.children && node.children.length > 0) {
-                    result += ` (${node.children.length} files)`;
+                    const total = countFilesRecursive(node.children);
+                    result += ` (${total} ${total === 1 ? "file" : "files"} total)`;
                   }
                   result += "\n";
                   if (node.children && node.children.length > 0) {
@@ -88,7 +107,9 @@ export class ListFilesExecutor implements ToolExecutor {
                   }
                 } else {
                   result += `${indent}${node.name}`;
-                  if (node.size !== undefined) {
+                  if (node.lines !== undefined) {
+                    result += ` (${formatLines(node.lines)})`;
+                  } else if (node.size !== undefined) {
                     result += ` (${formatSize(node.size)})`;
                   }
                   result += "\n";

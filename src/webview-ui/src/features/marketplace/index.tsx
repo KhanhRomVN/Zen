@@ -32,7 +32,7 @@ const MarketplacePanel: React.FC<MarketplacePanelProps> = ({ isOpen, onClose }) 
         width: "100%",
         height: "100%",
         backgroundColor: "var(--secondary-bg)",
-        zIndex: 9999,
+        zIndex: 1000,
         display: "flex",
         flexDirection: "column",
       }}

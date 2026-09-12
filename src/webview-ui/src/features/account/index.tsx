@@ -161,7 +161,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
         width: "100%",
         height: "100%",
         backgroundColor: "var(--secondary-bg)",
-        zIndex: 50,
+        zIndex: 1000,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",

@@ -21,6 +21,71 @@ import * as path from "path";
 // ── Security ──
 import { SecurityValidator } from "../../utils/security";
 
+// ─── Constants ─────────────────────────────────────────────────────────
+/** Ngưỡng tối đa để đếm dòng — file lớn hơn sẽ fallback về hiển thị size. */
+const MAX_LINE_COUNT_FILE_SIZE = 1024 * 1024; // 1 MB
+
+/** Whitelist extension text — chỉ đếm dòng cho file text, bỏ qua binary/ảnh. */
+const TEXT_FILE_EXTENSIONS = new Set<string>([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".json",
+  ".md",
+  ".markdown",
+  ".txt",
+  ".css",
+  ".scss",
+  ".sass",
+  ".less",
+  ".html",
+  ".htm",
+  ".xml",
+  ".svg",
+  ".py",
+  ".go",
+  ".rs",
+  ".java",
+  ".kt",
+  ".kts",
+  ".swift",
+  ".c",
+  ".h",
+  ".cpp",
+  ".cc",
+  ".cxx",
+  ".hpp",
+  ".rb",
+  ".php",
+  ".cs",
+  ".dart",
+  ".lua",
+  ".yml",
+  ".yaml",
+  ".toml",
+  ".ini",
+  ".conf",
+  ".env",
+  ".sh",
+  ".bash",
+  ".zsh",
+  ".fish",
+  ".ps1",
+  ".bat",
+  ".cmd",
+  ".log",
+  ".vue",
+  ".svelte",
+  ".astro",
+  ".sql",
+  ".graphql",
+  ".gql",
+  ".proto",
+]);
+
 // ─── Class ──────────────────────────────────────────────────────────────
 export class ListFilesHandler {
   private async resolveWorkspacePathWithFallback(
@@ -149,10 +214,34 @@ export class ListFilesHandler {
             } catch {
               size = undefined;
             }
+
+            // Đếm số dòng cho file text ≤ 1MB; fallback size cho binary/file lớn
+            let lines: number | undefined;
+            const ext = path.extname(name).toLowerCase();
+            if (
+              size !== undefined &&
+              size <= MAX_LINE_COUNT_FILE_SIZE &&
+              TEXT_FILE_EXTENSIONS.has(ext)
+            ) {
+              try {
+                const buf = await vscode.workspace.fs.readFile(entryUri);
+                const text = Buffer.from(buf).toString("utf-8");
+                if (text.length === 0) {
+                  lines = 0;
+                } else {
+                  const nlCount = (text.match(/\n/g) || []).length;
+                  lines = text.endsWith("\n") ? nlCount : nlCount + 1;
+                }
+              } catch {
+                lines = undefined;
+              }
+            }
+
             results.push({
               name,
               type: "file",
               size,
+              lines,
             });
           }
         }

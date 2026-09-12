@@ -21,7 +21,25 @@ interface TreeBlockProps {
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function formatLines(count: number): string {
+  return `${count} ${count === 1 ? "line" : "lines"}`;
+}
+
+function countFilesRecursive(nodes: FileNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if (node.type === "file") {
+      count += 1;
+    } else if (node.children && node.children.length > 0) {
+      count += countFilesRecursive(node.children);
+    }
+  }
+  return count;
 }
 
 const TreeNode: React.FC<{
@@ -43,6 +61,10 @@ const TreeNode: React.FC<{
   };
 
   const hasChildren = node.children && node.children.length > 0;
+  const folderTotalFiles =
+    node.type === "folder" && hasChildren
+      ? countFilesRecursive(node.children!)
+      : 0;
   const iconPath =
     node.type === "folder"
       ? getFolderIconPath(node.name, isExpanded)
@@ -90,8 +112,18 @@ const TreeNode: React.FC<{
           }}
         />
         <span className="tree-node-name">{node.name}</span>
-        {node.type === "file" && node.size !== undefined && (
-          <span className="tree-node-meta">{formatFileSize(node.size)}</span>
+        {node.type === "file" &&
+          (node.lines !== undefined || node.size !== undefined) && (
+            <span className="tree-node-meta">
+              {node.lines !== undefined
+                ? formatLines(node.lines)
+                : formatFileSize(node.size!)}
+            </span>
+          )}
+        {node.type === "folder" && hasChildren && (
+          <span className="tree-node-meta">
+            {folderTotalFiles} {folderTotalFiles === 1 ? "file" : "files"} total
+          </span>
         )}
       </div>
       {node.type === "folder" && isExpanded && hasChildren && (
