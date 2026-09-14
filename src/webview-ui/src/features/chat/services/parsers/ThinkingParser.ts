@@ -24,7 +24,6 @@ export interface ThinkingExtractResult {
  */
 export const parseThinking = (content: string): ThinkingExtractResult => {
   const thinkingBlocks: string[] = [];
-
   // Tool tags that should NOT have their content scanned for thinking blocks
   // Use EXECUTABLE tools only (excludes UI category: markdown, question, code, thinking)
   // These are real tool calls that might contain literal <thinking> in their content

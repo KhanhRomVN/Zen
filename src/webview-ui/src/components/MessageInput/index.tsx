@@ -1076,6 +1076,82 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       fetchProviders();
     }, [fetchProviders]);
 
+    // 🔍 VALIDATION: Check if currentModel and currentAccount still exist after providers loaded
+    React.useEffect(() => {
+      if (providers.length === 0 || isLoadingCache) return;
+
+      let needsReset = false;
+
+      // Validate currentModel
+      if (currentModel?.id && currentModel?.providerId) {
+        const provider = providers.find(
+          (p: any) =>
+            p.provider_id?.toLowerCase() ===
+            currentModel.providerId?.toLowerCase(),
+        );
+
+        if (!provider) {
+          console.warn(
+            `[MessageInput] Provider ${currentModel.providerId} not found - resetting model`,
+          );
+          needsReset = true;
+        } else {
+          const modelExists = provider.models?.some(
+            (m: any) => m.id?.toLowerCase() === currentModel.id?.toLowerCase(),
+          );
+
+          if (!modelExists) {
+            console.warn(
+              `[MessageInput] Model ${currentModel.id} not found in provider ${currentModel.providerId} - resetting model`,
+            );
+            needsReset = true;
+          }
+        }
+      }
+
+      // Validate currentAccount (async check)
+      if (currentAccount?.id && currentModel?.providerId && !needsReset) {
+        const validateAccount = async () => {
+          try {
+            const response = await fetch(
+              `${apiUrl}/v1/accounts?page=1&limit=50&provider_id=${currentModel.providerId}`,
+            );
+            const result = await response.json();
+
+            if (result.success && result.data?.accounts) {
+              const accountExists = result.data.accounts.some(
+                (a: any) => a.id === currentAccount.id,
+              );
+
+              if (!accountExists) {
+                console.warn(
+                  `[MessageInput] Account ${currentAccount.id} not found - resetting account`,
+                );
+                setCurrentAccount(null);
+              }
+            }
+          } catch (error) {
+            console.error("[MessageInput] Failed to validate account:", error);
+          }
+        };
+
+        validateAccount();
+      }
+
+      if (needsReset) {
+        setCurrentModel(null);
+        setCurrentAccount(null);
+      }
+    }, [
+      providers,
+      currentModel,
+      currentAccount,
+      isLoadingCache,
+      apiUrl,
+      setCurrentModel,
+      setCurrentAccount,
+    ]);
+
     // Sync thinking and search toggles when model changes
     React.useEffect(() => {
       if (providers.length === 0 || !currentModel) {

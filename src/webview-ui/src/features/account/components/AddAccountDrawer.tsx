@@ -282,31 +282,8 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     y: number;
   } | null>(null);
 
-  // Login countdown state
-  const [loginCountdown, setLoginCountdown] = useState(30);
-
   // ── Store ──
   const { apiUrl } = useSettings();
-
-  // ── Effects ──
-  useEffect(() => {
-    if (!loading) {
-      setLoginCountdown(30);
-      return;
-    }
-    const timer = setInterval(() => {
-      setLoginCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          onOpenChange(false);
-          setLoading(false);
-          return 30;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [loading]);
 
   // ── Derived ──
   const sharedBackdrop = (onClickBackdrop: () => void) => (
@@ -387,7 +364,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
           setPendingBrowserProvider(provider);
           setTempSessionId(data.account.tempSessionId);
           setShowEmailDrawer(true);
-          setLoading(false);
+          // Keep loading = true to maintain countdown timer
         }
         // For browser-based providers with immediate credential (should not happen in new flow)
         else if (
@@ -422,11 +399,22 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         setError(data.message || "Login failed");
       }
     } catch (err: any) {
-      // For browser providers, if login fails (user closed browser or timeout), show email input drawer
+      // For browser providers, distinguish between user-closed and timeout
       if (provider.connection_type === "browser") {
-        setPendingBrowserProvider(provider);
-        setShowEmailDrawer(true);
-        setLoading(false);
+        // Check if this is a timeout error vs user closing browser
+        const errorMessage = err.message || String(err);
+        const isTimeout = errorMessage.toLowerCase().includes('timeout');
+        
+        if (isTimeout) {
+          // Server timeout - show error and stop loading
+          setError("Login timeout. Please try again.");
+          setLoading(false);
+        } else {
+          // User closed browser - show email input drawer
+          setPendingBrowserProvider(provider);
+          setShowEmailDrawer(true);
+          setLoading(false);
+        }
       } else {
         setError(err.message || "An error occurred");
         setLoading(false);
@@ -521,6 +509,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       setPendingBrowserProvider(null);
       setEmailInput("");
       setTempSessionId(null);
+      setLoading(false);
     }
   };
 
@@ -554,6 +543,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
           setShowEmailDrawer(false);
           setPendingBrowserProvider(null);
           setEmailInput("");
+          setLoading(false);
         })}
         {sharedSheet(
           <>
@@ -613,6 +603,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   setShowEmailDrawer(false);
                   setPendingBrowserProvider(null);
                   setEmailInput("");
+                  setLoading(false);
                 }}
                 style={{
                   padding: "7px",
@@ -698,6 +689,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   setShowEmailDrawer(false);
                   setPendingBrowserProvider(null);
                   setEmailInput("");
+                  setLoading(false);
                 }}
                 style={{
                   flex: 1,
@@ -1246,7 +1238,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   cursor: "pointer",
                 }}
               >
-                Cancel {loginCountdown}s
+                Cancel
               </button>
             </div>
           )}

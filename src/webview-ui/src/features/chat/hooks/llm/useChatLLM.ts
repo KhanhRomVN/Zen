@@ -449,22 +449,26 @@ export const useChatLLM = ({
             )
           : [];
 
-        if (localFiles.length > 0) {          
+        if (localFiles.length > 0) {
           if (!finalAccount?.id) {
-            console.error(`[Zen] No active account selected for file upload | finalAccount=${JSON.stringify(finalAccount)}`);
+            console.error(
+              `[Zen] No active account selected for file upload | finalAccount=${JSON.stringify(finalAccount)}`,
+            );
             throw new Error("No active account selected for file upload");
           }
-                    
+
           try {
             const uploadedIds = await uploadFiles(localFiles, finalAccount.id);
             ref_file_ids.push(...uploadedIds);
           } catch (uploadErr) {
             console.error(`[Zen] Upload failed with error:`, uploadErr);
-            console.error(`[Zen] Upload error stack:`, uploadErr instanceof Error ? uploadErr.stack : 'No stack');
+            console.error(
+              `[Zen] Upload error stack:`,
+              uploadErr instanceof Error ? uploadErr.stack : "No stack",
+            );
             throw uploadErr;
           }
         }
-      
 
         // Prepare messages for API
         let payloadMessages = updatedMessages
@@ -668,7 +672,11 @@ export const useChatLLM = ({
         let hasParsingError = false;
 
         try {
-          parsed = parseAIResponse(assistantMessage.content);
+          // 🔧 FIX: Parse rawResponse (includes thinking) instead of content
+          const contentToParse =
+            assistantMessage.rawResponse || assistantMessage.content;
+
+          parsed = parseAIResponse(contentToParse);
           toolSequence = parsed.contentBlocks
             .map((block: any, idx: number) => {
               if (block.type === "tool") {

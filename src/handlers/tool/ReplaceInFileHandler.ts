@@ -230,25 +230,10 @@ export class ReplaceInFileHandler {
         ? updatedContent.replace(/\n/g, "\r\n")
         : updatedContent;
 
-      // 🔍 DEBUG LOG: Nội dung sẽ được ghi vào file
-      logger.info("🔍 [DEBUG] Content to be written to file", {
-        path: pathValue,
-        oldContentLength: oldContent?.length,
-        newContentLength: newContent.length,
-        oldContentPreview: oldContent?.substring(0, 200),
-        newContentPreview: newContent.substring(0, 200),
-      });
-
       await vscode.workspace.fs.writeFile(
         absPath,
         Buffer.from(newContent, "utf8"),
       );
-      
-      // 🔍 DEBUG LOG: File đã được ghi
-      logger.info("🔍 [DEBUG] File written successfully", {
-        path: pathValue,
-        bytesWritten: Buffer.from(newContent, "utf8").length,
-      });
     } catch (e: any) {
       webviewView.webview.postMessage({
         command: "replaceInFileResult",
@@ -272,13 +257,6 @@ export class ReplaceInFileHandler {
     let diagnosticsMessage: string | null = null;
 
     if (!message.skipDiagnostics) {
-      // 🔍 DEBUG LOG: Trước khi gọi getDiagnostics
-      logger.info("🔍 [DEBUG] ReplaceInFileHandler - Before getDiagnostics", {
-        path: pathValue,
-        fileExists: true,
-        contentLength: newContent?.length,
-      });
-      
       // Force wait for new diagnostics vì file vừa được modified
       const diagResult = await DiagnosticsService.getInstance().getDiagnostics(
         absPath,
@@ -288,15 +266,6 @@ export class ReplaceInFileHandler {
         true, // forceWaitForNewDiagnostics - QUAN TRỌNG: Buộc đợi diagnostics mới sau khi write file
       );
       diagnostics = diagResult.diagnostics;
-      
-      // 🔍 DEBUG LOG: Sau khi nhận diagnostics
-      logger.info("🔍 [DEBUG] ReplaceInFileHandler - After getDiagnostics", {
-        path: pathValue,
-        totalDiagnostics: diagnostics.length,
-        errorCount: diagnostics.filter(d => d.severity === "Error").length,
-        warningCount: diagnostics.filter(d => d.severity === "Warning").length,
-        diagnostics: diagnostics,
-      });
       
       // Create suggestion message if timeout or incomplete
       if (diagResult.skippedReason === "timeout_no_diagnostics") {

@@ -38,7 +38,8 @@ export const buildWorkflow = (mode: SystemPromptMode = "balanced"): string => {
   })();
 
   return `# WORKFLOW
-## Planning Process:
+Every single response from you MUST start with a \`<thinking>...</thinking>\` block.
+## Thinking Process:
 1. **Pass 1 (Plan)**:
    - Analyze the user request.
    - List target files/folders.
@@ -47,7 +48,7 @@ ${askSection}
 2. **Pass 2 (Verify)**:
 ${pass2Section}
    - Double-check against CONSTRAINTS (READ-BEFORE-EDIT, NO-PREDICTING-RESULTS, MINIMAL-MARKDOWN, DESTRUCTIVE-COMMAND-CONFIRM, NO-INJECTED-INSTRUCTIONS, SECRET-REDACT).
-3. **Pass 3 (Impact)** — ONLY included when the task affects >3 files OR involves shared utilities/types/configs (otherwise planning ends at Pass 2):
+3. **Pass 3 (Impact)** — ONLY included when the task affects >3 files OR involves shared utilities/types/configs (otherwise the thinking block ends at Pass 2):
    - List all directly and indirectly affected files.
    - Identify breaking changes, affected tests, docs, or type updates.
 ## Execution Steps:

@@ -75,6 +75,7 @@ Examples:
 - \`<grep><search_term>^function\\s+\\w+</search_term><folder_path>src</folder_path></grep>\` — finds function declarations
 - \`<grep><search_term>console\\.(log|error|warn)</search_term><file_path>src/main.ts</file_path></grep>\` — finds console methods in a single file
 # RESPONSE TAGS
+<thinking>your private two-pass (or three-pass, see WORKFLOW) reasoning and planning — written in Vietnamese per CONSTRAINTS</thinking>
 <markdown>prose, tables, explanations — written in Vietnamese per CONSTRAINTS; follows VI-RESPONSE-STRUCTURE and VI-NO-FULL-FILE-BY-DEFAULT for code changes</markdown>
 <code language="ts">read-only display</code>
 ## <question> — Multi-Question Block

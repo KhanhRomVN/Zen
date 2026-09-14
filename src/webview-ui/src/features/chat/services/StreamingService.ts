@@ -27,6 +27,11 @@ export class StreamingService {
     config: StreamConfig,
     callbacks: StreamCallbacks,
   ): Promise<{ message: Message; backendConversationId: string }> {
+    // 🐛 DEBUG: Read thinking/search state from localStorage
+    const thinkingEnabled =
+      localStorage.getItem("zen-thinking-enabled") === "true";
+    const searchEnabled = localStorage.getItem("zen-search-enabled") === "true";
+
     const body = {
       modelId: config.model?.id,
       providerId: config.model?.providerId,
@@ -39,10 +44,8 @@ export class StreamingService {
       ...(config.parentMessageId
         ? { parent_message_id: config.parentMessageId }
         : {}),
-      is_thinking: localStorage.getItem("zen-thinking-enabled") === "true",
-      is_search: localStorage.getItem("zen-search-enabled") === "true",
-      thinking: localStorage.getItem("zen-thinking-enabled") === "true",
-      search: localStorage.getItem("zen-search-enabled") === "true",
+      thinking: thinkingEnabled,
+      search: searchEnabled,
       ...(config.refFileIds && config.refFileIds.length > 0
         ? { ref_file_ids: config.refFileIds }
         : {}),
@@ -213,7 +216,7 @@ export class StreamingService {
                 // Send raw content to onRawContent for ThinkingBlock display (no parsing)
                 if (updateBatch.content) {
                   callbacks.onRawContent?.(updateBatch.content);
-                  
+
                   // 🔧 Update streaming preview store (bypass React render cascade)
                   streamingPreviewStore.setContent(assistantMessage.content);
                 }
@@ -285,7 +288,11 @@ export class StreamingService {
       assistantMessage.token_usage = calculateTokens(assistantMessage.content);
     }
 
-    assistantMessage.rawResponse = assistantMessage.content;
+    // 🔧 FIX: Combine thinking + content for rawResponse so parser can extract thinking blocks
+    // Backend already wraps thinking in <thinking> tags, so just concatenate directly
+    assistantMessage.rawResponse = assistantMessage.thinking
+      ? `${assistantMessage.thinking}\n\n${assistantMessage.content}`
+      : assistantMessage.content;
 
     // 🔧 Stop streaming preview
     streamingPreviewStore.stopStreaming();

@@ -167,37 +167,10 @@ export class DiagnosticsService {
       const existingDiagnostics = vscode.languages.getDiagnostics(uri);
       const isDirty = doc?.isDirty ?? false;
 
-      // 🔍 DEBUG LOG: File already open, checking cache
-      logger.info("🔍 [DEBUG] File already open - checking cached diagnostics", {
-        path: pathValue,
-        isDirty,
-        cachedDiagnosticsCount: existingDiagnostics.length,
-        forceWaitForNewDiagnostics,
-        cachedDiagnostics: existingDiagnostics.map(d => ({
-          severity: d.severity === vscode.DiagnosticSeverity.Error ? "Error" : 
-                    d.severity === vscode.DiagnosticSeverity.Warning ? "Warning" :
-                    d.severity === vscode.DiagnosticSeverity.Information ? "Info" : "Hint",
-          message: d.message,
-          line: d.range.start.line + 1,
-        }))
-      });
-
       // Chỉ dùng cache nếu file không dirty và đã có diagnostics
       if (!isDirty && existingDiagnostics.length > 0) {
-        logger.info("🔍 [DEBUG] Using cached diagnostics (file not dirty)", {
-          path: pathValue,
-        });
         return true;
       }
-      
-      logger.info("🔍 [DEBUG] Cannot use cache - will wait for new diagnostics", {
-        path: pathValue,
-        reason: isDirty ? "file is dirty" : "no cached diagnostics",
-      });
-    } else if (forceWaitForNewDiagnostics) {
-      logger.info("🔍 [DEBUG] Force waiting for new diagnostics (file just modified)", {
-        path: pathValue,
-      });
     }
 
     // File mới mở → đợi LSP phân tích
@@ -264,22 +237,7 @@ export class DiagnosticsService {
         const matchedUri = e.uris.find((u) => u.fsPath === uri.fsPath);
         if (matchedUri) {
           eventCount++;
-          
-          // 🔍 DEBUG LOG: Diagnostic event received
-          const currentDiagnostics = vscode.languages.getDiagnostics(matchedUri);
-          logger.info("🔍 [DEBUG] Diagnostic event received", {
-            path: pathValue,
-            eventCount,
-            diagnosticsCount: currentDiagnostics.length,
-            diagnostics: currentDiagnostics.map(d => ({
-              severity: d.severity === vscode.DiagnosticSeverity.Error ? "Error" : 
-                        d.severity === vscode.DiagnosticSeverity.Warning ? "Warning" :
-                        d.severity === vscode.DiagnosticSeverity.Information ? "Info" : "Hint",
-              message: d.message,
-              line: d.range.start.line + 1,
-            }))
-          });
-          
+                    
           if (!hasReceivedEvent) {
             hasReceivedEvent = true;
             clearTimeout(fallbackHandle);
@@ -320,14 +278,6 @@ export class DiagnosticsService {
     needsManualCheck?: boolean;
   }> {
     const logger = LoggerService.getInstance();
-    
-    // 🔍 DEBUG LOG: Bắt đầu getDiagnostics
-    logger.info("🔍 [DEBUG] ========== START getDiagnostics ==========", {
-      path: pathValue,
-      maxTimeoutMs,
-      retryCount,
-      forceWaitForNewDiagnostics,
-    });
 
     if (this.isNonCodeFile(pathValue)) {
       return { diagnostics: [] };
@@ -364,13 +314,6 @@ export class DiagnosticsService {
       // Fallback 1: Đọc diagnostics hiện có (có thể đã có từ lần trước hoặc LSP đã phân tích nhưng chưa fire event)
       const fallbackDiagnostics = vscode.languages.getDiagnostics(uri);
       if (fallbackDiagnostics.length > 0) {
-        logger.info(
-          "[DiagnosticsService] ✅ Found existing diagnostics despite timeout",
-          {
-            path: pathValue,
-            count: fallbackDiagnostics.length,
-          },
-        );
         return {
           diagnostics: this.filterDiagnostics(fallbackDiagnostics),
         };
@@ -378,10 +321,6 @@ export class DiagnosticsService {
 
       // Fallback 2: Retry 1 lần duy nhất (LSP có thể cần thêm thời gian)
       if (retryCount === 0) {
-        logger.info(
-          "[DiagnosticsService] 🔄 Retrying diagnostics (LSP might need more time)...",
-          { path: pathValue },
-        );
         await new Promise((r) => setTimeout(r, 2000)); // Đợi thêm 2s
         return this.getDiagnostics(uri, pathValue, maxTimeoutMs, 1, forceWaitForNewDiagnostics);
       }
@@ -398,31 +337,7 @@ export class DiagnosticsService {
     }
 
     const allDiagnostics = vscode.languages.getDiagnostics(uri);
-    
-    // 🔍 DEBUG LOG: Raw diagnostics từ language server
-    logger.info("🔍 [DEBUG] Raw diagnostics from getDiagnostics()", {
-      path: pathValue,
-      totalCount: allDiagnostics.length,
-      diagnostics: allDiagnostics.map(d => ({
-        severity: d.severity === vscode.DiagnosticSeverity.Error ? "Error" : 
-                  d.severity === vscode.DiagnosticSeverity.Warning ? "Warning" :
-                  d.severity === vscode.DiagnosticSeverity.Information ? "Info" : "Hint",
-        message: d.message,
-        line: d.range.start.line + 1,
-        column: d.range.start.character + 1,
-      }))
-    });
-    
     const filteredDiagnostics = this.filterDiagnostics(allDiagnostics);
-    
-    // 🔍 DEBUG LOG: Filtered diagnostics (chỉ Error và Warning)
-    logger.info("🔍 [DEBUG] Filtered diagnostics (Error + Warning only)", {
-      path: pathValue,
-      filteredCount: filteredDiagnostics.length,
-      errorCount: filteredDiagnostics.filter(d => d.severity === "Error").length,
-      warningCount: filteredDiagnostics.filter(d => d.severity === "Warning").length,
-      diagnostics: filteredDiagnostics,
-    });
 
     return {
       diagnostics: filteredDiagnostics,

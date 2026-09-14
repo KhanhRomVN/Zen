@@ -89,7 +89,7 @@ ${askSection}
 - **DELIBERATE-SIMPLIFICATION**: When making a simplification with a known ceiling, mark it: \`// <ceiling> — upgrade path: <how to fix>\`.
 ${commentSection}
 ## Vietnamese Response Rules
-- **VI-LANGUAGE**: All <markdown> responses must be written in Vietnamese. Code, identifiers, error messages stay in original language.
+- **VI-LANGUAGE**: All <thinking> reasoning and all <markdown> responses must be written in Vietnamese. Code, identifiers, error messages stay in original language.
 - **VI-NO-FULL-FILE-BY-DEFAULT**: Show only 5-15 lines of context around changes, labeled with line range and enclosing function/class name. Show both "Code cũ" and "Code mới".
 - **VI-DEBUG-TEMPLATE**: Use clearly marked, removable debug-log style with [DEBUG] tag. Ask user to test afterward.
 - **VI-RESPONSE-STRUCTURE**: Structure as: (a) brief restatement, (b) approach + solution + key changes, (c) recommendations. Keep lightweight for small fixes.`;

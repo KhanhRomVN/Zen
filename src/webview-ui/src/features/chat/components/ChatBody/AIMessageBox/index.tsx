@@ -16,6 +16,7 @@ import { GroupType } from "@/features/chat/types/renderer-types";
 // COMPONENTS
 import TagRouter from "./TagRouter";
 import ResponseMetadataBar from "./ResponseMetadataBar";
+import ThinkingBlock from "./ThinkingBlock";
 
 // STYLES
 import "./blocks/run_command/TerminalBlock.css";
@@ -336,7 +337,12 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                 });
               }
             } else if (block.type === "thinking") {
-              // Skip
+              flushTools();
+              groups.push({
+                type: "thinking",
+                content: block.content,
+                key: `thinking-${idx}`,
+              });
             } else if (block.type === "question") {
               flushTools();
               groups.push({
@@ -405,6 +411,18 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                       : undefined
                   }
                   onRevertConversation={onRevertConversation}
+                  isStreaming={isGenerating}
+                />
+              </React.Fragment>
+            );
+          }
+
+          // Render ThinkingBlock right after ResponseMetadataBar
+          if (group.type === "thinking") {
+            return (
+              <React.Fragment key={group.key}>
+                <ThinkingBlock
+                  content={group.content}
                   isStreaming={isGenerating}
                 />
               </React.Fragment>

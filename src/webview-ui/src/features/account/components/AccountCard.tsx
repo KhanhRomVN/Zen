@@ -30,6 +30,7 @@ import {
 // ── Utils ──
 import { CopyableText } from "../utils";
 import { getFaviconUrl } from "@/utils/favicon";
+import { extractAccessToken, formatJwtExpiry, isJwtExpired } from "@/utils/jwt";
 
 // ── Services ──
 import { extensionService } from "../../../services/ExtensionService";
@@ -119,6 +120,11 @@ const AccountCard: React.FC<AccountCardProps> = ({
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  // Extract JWT token and check expiry
+  const accessToken = extractAccessToken(account.credential || '');
+  const tokenExpiry = accessToken ? formatJwtExpiry(accessToken) : null;
+  const isTokenExpired = accessToken ? isJwtExpired(accessToken) : false;
 
   // ── Handlers ──
   const handleCardClick = (e: React.MouseEvent) => {
@@ -282,6 +288,24 @@ const AccountCard: React.FC<AccountCardProps> = ({
                     : account.period_tokens ?? 0}{" "}
                 tokens
               </span>
+              {tokenExpiry && (
+                <span style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "4px", 
+                  fontSize: "10px", 
+                  color: isTokenExpired 
+                    ? "var(--vscode-editorError-foreground, #ef4444)" 
+                    : "var(--secondary-text)" 
+                }}>
+                  <Clock size={11} style={{ 
+                    color: isTokenExpired 
+                      ? "var(--vscode-editorError-foreground, #ef4444)" 
+                      : "var(--vscode-charts-blue, #3b82f6)" 
+                  }} />
+                  {isTokenExpired ? "Expired" : `Exp: ${tokenExpiry}`}
+                </span>
+              )}
             </div>
           </div>
 

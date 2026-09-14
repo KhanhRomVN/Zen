@@ -818,6 +818,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
               flexDirection: "column",
               height: "100%",
               overflow: "hidden",
+              backgroundColor: "var(--tertiary-bg)", // ✅ Ensure background covers model view
             }}
           >
             <div

@@ -148,7 +148,17 @@ export const useMessageParsing = (
     }
 
     // Parse fresh for streaming or cache miss
-    const parsed = parseAIResponse(msg.content);
+    // Use rawResponse if available (contains thinking tags), fallback to content
+    const contentToParse = msg.rawResponse || msg.content;
+    console.log('[useMessageParsing] Parsing message:', {
+      messageId: msg.id,
+      hasRawResponse: !!msg.rawResponse,
+      hasThinking: !!msg.thinking,
+      contentLength: contentToParse.length,
+      contentPreview: contentToParse.substring(0, 200),
+      thinkingPreview: msg.thinking?.substring(0, 100)
+    });
+    const parsed = parseAIResponse(contentToParse);
 
     // Cache the parse result (but always create new object for streaming)
     if (!isAssistantStreaming) {

@@ -36,20 +36,9 @@ function fetchViaExtension(payload: {
       .toString(36)
       .slice(2, 8)}`;
 
-    console.log("[DEBUG] fetchViaExtension: sending", {
-      requestId,
-      ...payload,
-    });
-
     messageDispatcher.register(
       requestId,
       (message: any) => {
-        console.log("[DEBUG] fetchViaExtension: response", {
-          requestId,
-          hasData: !!message.data,
-          hasError: !!message.error,
-          error: message.error,
-        });
         if (message.error) {
           reject(new Error(message.error));
         } else {
@@ -59,7 +48,9 @@ function fetchViaExtension(payload: {
       REQUEST_TIMEOUT_MS,
       () => {
         console.error("[DEBUG] fetchViaExtension: timeout", requestId);
-        reject(new Error(`fetchSkillAPI timeout after ${REQUEST_TIMEOUT_MS}ms`));
+        reject(
+          new Error(`fetchSkillAPI timeout after ${REQUEST_TIMEOUT_MS}ms`),
+        );
       },
     );
 
@@ -75,12 +66,10 @@ function fetchViaExtension(payload: {
  * API 1 — Leaderboard: lấy danh sách skill theo lượt xem.
  */
 export async function fetchLeaderboard(): Promise<SkillSummary[]> {
-  console.log("[DEBUG] fetchLeaderboard: calling via extension");
   try {
     const skills = (await fetchViaExtension({
       apiType: "leaderboard",
     })) as SkillSummary[];
-    console.log("[DEBUG] fetchLeaderboard: got", skills.length, "skills");
     if (!skills || skills.length === 0) {
       throw new Error("No skills returned from leaderboard");
     }
@@ -103,7 +92,6 @@ export async function searchSkills(
   limit: number = 24,
   offset: number = 0,
 ): Promise<SkillSearchResponse> {
-  console.log("[DEBUG] searchSkills: calling via extension", { query, limit, offset });
   try {
     const data = (await fetchViaExtension({
       apiType: "search",
@@ -111,7 +99,6 @@ export async function searchSkills(
       limit,
       offset,
     })) as SkillSearchResponse;
-    console.log("[DEBUG] searchSkills: got", data.skills?.length, "results");
     return data;
   } catch (err: any) {
     console.error("[DEBUG] searchSkills: ERROR", {
@@ -127,17 +114,11 @@ export async function searchSkills(
  * API 3 — Detail: lấy thông tin chi tiết của skill theo slug.
  */
 export async function fetchSkillDetail(slug: string): Promise<SkillDetail> {
-  console.log("[DEBUG] fetchSkillDetail: calling via extension", { slug });
   try {
     const detail = (await fetchViaExtension({
       apiType: "detail",
       slug,
     })) as SkillDetail;
-    console.log("[DEBUG] fetchSkillDetail: got", {
-      name: detail?.name,
-      description: detail?.description,
-      contentLength: detail?.content?.length,
-    });
     if (!detail) {
       throw new Error(`No detail returned for "${slug}"`);
     }

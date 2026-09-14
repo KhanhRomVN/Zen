@@ -42,14 +42,6 @@ export class RevertFileHandler {
       const filePath = message.file_path || message.path;
       const version = message.version;
 
-      logger.info(`[DEBUG revert_file] handleRevertFile called`, {
-        filePath,
-        version,
-        hasVersion: version !== undefined && version !== null,
-        conversationId: message.conversationId,
-        messageKeys: Object.keys(message),
-      });
-
       if (!filePath) {
         throw new Error("'file_path' is required");
       }
@@ -77,20 +69,11 @@ export class RevertFileHandler {
         historyManager.setActiveConversationId(message.conversationId);
         
         const currentVersion = await historyManager.getCurrentVersion(absPath);
-        
-        logger.info(`[DEBUG revert_file] Auto-calculating version`, {
-          filePath,
-          currentVersion,
-          hasHistory: currentVersion > 0,
-        });
 
         // Only use history-based revert if there's actual history (version > 0)
         if (currentVersion > 0) {
           actualVersion = currentVersion - 1; // Revert to previous version
-          logger.info(`[DEBUG revert_file] Using auto-calculated version`, {
-            filePath,
-            calculatedVersion: actualVersion,
-          });
+
         }
       }
 
@@ -119,26 +102,12 @@ export class RevertFileHandler {
 
         afterContent = history.fullContent;
 
-        logger.info(`[DEBUG revert_file] Before write file and deleteVersionsAfter`, {
-          filePath,
-          version: parseInt(actualVersion, 10),
-          revertedFromVersion,
-          revertedToVersion,
-          beforeContentLength: beforeContent.length,
-          afterContentLength: afterContent.length,
-        });
-
         await fs.promises.writeFile(absPath, afterContent, "utf-8");
 
         await historyManager.deleteVersionsAfter(
           absPath,
           parseInt(actualVersion, 10),
         );
-
-        logger.info(`[DEBUG revert_file] After deleteVersionsAfter`, {
-          filePath,
-          version: parseInt(actualVersion, 10),
-        });
       } else {
         const cpm = CheckpointManager.getInstance();
         const checkpoint = await cpm.getLastCheckpointForFile(absPath);
@@ -174,14 +143,6 @@ export class RevertFileHandler {
         filePath,
         30000,
       );
-
-      logger.info(`[DEBUG revert_file] Sending result`, {
-        filePath,
-        revertedFromVersion,
-        revertedToVersion,
-        hasOldContent: !!beforeContent,
-        hasNewContent: !!afterContent,
-      });
 
       webviewView.webview.postMessage({
         command: "revertFileResult",
