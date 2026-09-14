@@ -483,7 +483,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
           </div>
         </div>
 
-        {step === "model" ? (
+        {step === "model" && (
           <div
             style={{
               display: "flex",
@@ -810,7 +810,9 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
               )}
             </div>
           </div>
-        ) : (
+        )}
+
+        {step === "account" && (
           /* Account step */
           <div
             style={{
@@ -818,7 +820,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
               flexDirection: "column",
               height: "100%",
               overflow: "hidden",
-              backgroundColor: "var(--tertiary-bg)", // ✅ Ensure background covers model view
+              backgroundColor: "var(--tertiary-bg)",
             }}
           >
             <div

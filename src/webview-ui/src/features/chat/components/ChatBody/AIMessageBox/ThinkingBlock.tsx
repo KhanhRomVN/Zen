@@ -1,4 +1,5 @@
 import React from "react";
+import { Cpu } from "lucide-react";
 
 interface ThinkingBlockProps {
   content: string;
@@ -48,26 +49,6 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
     return { cleanContent: cleaned, elapsedTime: elapsed };
   }, [content]);
 
-  const SparkleIcon = (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ flexShrink: 0 }}
-    >
-      <path d="M12 3v18" />
-      <path d="M6 12h12" />
-      <path d="m7.5 7.5 9 9" />
-      <path d="m16.5 7.5-9 9" />
-    </svg>
-  );
-
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isStreaming) {
@@ -76,7 +57,7 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
   };
 
   const thinkingLabel = elapsedTime
-    ? `Thinking for ${elapsedTime.toFixed(2)}s`
+    ? `Thinking for ${elapsedTime}s`
     : "Thinking";
 
   return (
@@ -105,7 +86,7 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
             alignItems: "center",
           }}
         >
-          {SparkleIcon}
+          <Cpu size={14} />
         </span>
 
         <span
@@ -138,7 +119,7 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
         <div
           style={{
             marginTop: "8px",
-            padding: "0",
+            paddingLeft: "22px",
             fontSize: "12px",
             lineHeight: 1.6,
             color: "var(--vscode-descriptionForeground, #999)",
@@ -158,7 +139,7 @@ export const ThinkingBlock: React.FC<ThinkingBlockProps> = ({
         <div
           style={{
             marginTop: "8px",
-            padding: "0",
+            paddingLeft: "22px",
             fontSize: "11px",
             color: "var(--vscode-descriptionForeground, #999)",
             fontStyle: "italic",

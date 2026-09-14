@@ -143,14 +143,27 @@ export const parseThinking = (content: string): ThinkingExtractResult => {
 
       if (thinkingEndIndex !== -1) {
         // Found complete thinking block
-        const thinkingContent = content.substring(
+        let thinkingContent = content.substring(
           i + thinkingOpenTag.length,
           thinkingEndIndex,
         );
+        
+        // Check if there's a <thinking_elapsed> tag right after </thinking>
+        let endPos = thinkingEndIndex + "</thinking>".length;
+        const elapsedTagPattern = /^\s*<thinking_elapsed>([\d.]+)<\/thinking_elapsed>/i;
+        const remainingContent = content.substring(endPos);
+        const elapsedMatch = remainingContent.match(elapsedTagPattern);
+        
+        if (elapsedMatch) {
+          // Include the elapsed tag in the thinking content
+          thinkingContent += `\n<thinking_elapsed>${elapsedMatch[1]}</thinking_elapsed>`;
+          endPos += elapsedMatch[0].length;
+        }
+        
         const idx = thinkingBlocks.length;
         thinkingBlocks.push(thinkingContent);
         processed += `__THINKING_${idx}__`;
-        i = thinkingEndIndex + "</thinking>".length;
+        i = endPos;
 
         continue;
       } else {

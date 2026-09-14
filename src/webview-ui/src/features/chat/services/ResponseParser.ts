@@ -76,7 +76,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Remove metadata tags that should not be displayed as content
   // These tags are parsed separately by specific components or are internal metadata
   remainingContent = remainingContent
-    .replace(/<thinking_elapsed>.*?<\/thinking_elapsed>/gi, "")
     .replace(/<conversation_title>.*?<\/conversation_title>/gi, "");
 
   // Pre-extract <thinking> blocks BEFORE any tool scanning so that tool tags
