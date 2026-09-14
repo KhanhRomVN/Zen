@@ -34,7 +34,7 @@ import {
 // ── Components ──
 import AccountCard from "./components/AccountCard";
 import AddAccountDrawer from "./components/AddAccountDrawer";
-import ConfirmDeleteDrawer from "./components/ConfirmDeleteDrawer";
+import ConfirmDeleteAccountDrawer from "./components/ConfirmDeleteAccountDrawer";
 import {
   Dropdown,
   DropdownTrigger,
@@ -789,7 +789,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
         onSuccess={() => fetchAccounts(pagination.page, pagination.limit, true)}
       />
 
-      <ConfirmDeleteDrawer
+      <ConfirmDeleteAccountDrawer
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         onConfirm={executeDelete}

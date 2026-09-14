@@ -1,6 +1,6 @@
 /**
  * ------------------------------------------------------------------
- * ConfirmDeleteDrawer
+ * ConfirmDeleteAccountDrawer
  * ------------------------------------------------------------------
  * Bottom-sheet drawer xác nhận xóa tài khoản.
  * Hiển thị tiêu đề, số lượng tài khoản bị ảnh hưởng, và nút xác nhận/hủy.
@@ -9,18 +9,19 @@
  * - Hiển thị bottom sheet với animation slide-up
  * - Nút Delete có loading state khi đang xóa
  * - Chặn tương tác khi đang loading
+ * - Searchbar để lọc tài khoản khi xóa nhiều
  * ------------------------------------------------------------------
  */
 
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ──
-import React from "react";
+import React, { useState } from "react";
 
 // ── UI ──
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
-interface ConfirmDeleteDrawerProps {
+interface ConfirmDeleteAccountDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
@@ -30,7 +31,7 @@ interface ConfirmDeleteDrawerProps {
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
-const ConfirmDeleteDrawer: React.FC<ConfirmDeleteDrawerProps> = ({
+const ConfirmDeleteAccountDrawer: React.FC<ConfirmDeleteAccountDrawerProps> = ({
   open,
   onOpenChange,
   onConfirm,
@@ -38,6 +39,8 @@ const ConfirmDeleteDrawer: React.FC<ConfirmDeleteDrawerProps> = ({
   title,
   count,
 }) => {
+  const [searchQuery, setSearchQuery] = useState("");
+
   if (!open) return null;
 
   // ── Render ──
@@ -130,6 +133,47 @@ const ConfirmDeleteDrawer: React.FC<ConfirmDeleteDrawerProps> = ({
             </div>
           </div>
 
+          {/* Searchbar */}
+          <div style={{ position: "relative", marginBottom: "14px" }}>
+            <div
+              style={{
+                position: "absolute",
+                left: "10px",
+                top: 0,
+                height: "34px",
+                display: "flex",
+                alignItems: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <Search
+                size={14}
+                style={{
+                  color: "var(--vscode-input-placeholderForeground, var(--secondary-text))",
+                }}
+              />
+            </div>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search accounts..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px 8px 32px",
+                fontSize: "13px",
+                backgroundColor: "var(--input-bg)",
+                border: "none",
+                borderRadius: "8px",
+                color: "var(--primary-text)",
+                outline: "none",
+                boxSizing: "border-box",
+                height: "34px",
+              }}
+            />
+          </div>
+
           {/* Buttons */}
           <div style={{ display: "flex", gap: "8px" }}>
             <button
@@ -203,4 +247,4 @@ const ConfirmDeleteDrawer: React.FC<ConfirmDeleteDrawerProps> = ({
   );
 };
 
-export default ConfirmDeleteDrawer;
+export default ConfirmDeleteAccountDrawer;

@@ -107,4 +107,3 @@ RULE:
 4/ ko tự chạy các lệnh terminal khi chưa cho phép
 
 ở AIWeb2API/src/provider/provider-config.ts. có phần auth_method. nên ở phần Zen/src/webview-ui/src/features/account. lúc chọn provider sẽ hiển thị phần chọn method auth. vì ở AIWeb2API/src/provider/kiro đang có tạo 1 url như này "https://app.kiro.dev/account/device?user_code=<code>&login_provider=Github". nhưng sau khi thêm cơ chế chọn method cho auth_method ở Zen. sẽ có 2 lựa chọn google và github nên sẽ thành "https://app.kiro.dev/account/device?user_code=<code>&login_provider=Google" nếu là Google hoặc https://app.kiro.dev/account/device?user_code=<code>&login_provider=Github nếu chọn github
-

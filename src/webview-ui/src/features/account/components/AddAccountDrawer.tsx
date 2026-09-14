@@ -16,11 +16,11 @@
 
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ──
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ReactDOM from "react-dom";
 
 // ── UI ──
-import { Loader2, X, AlertCircle, ShieldCheck } from "lucide-react";
+import { Loader2, X, AlertCircle, ShieldCheck, Search, Globe, Key, ExternalLink } from "lucide-react";
 
 // ── Hooks ──
 import { useSettings } from "../../../context/SettingsContext";
@@ -31,6 +31,8 @@ import { getFaviconUrl } from "@/utils/favicon";
 interface Provider {
   provider_id: string;
   provider_name: string;
+  description?: string;
+  color?: string;
   website: string;
   website_url?: string;
   icon?: string;
@@ -64,12 +66,29 @@ const ProviderRow: React.FC<{
   const disabled = provider.is_enabled === false || loading;
 
   const connectionType = provider.connection_type || "https";
-  const platform = provider.platform || "web";
-  const authMethod =
-    provider.auth_method ||
-    (provider.auth_methods && provider.auth_methods.length > 0
-      ? provider.auth_methods[0]
-      : null);
+  
+  // Parse auth_methods: handle both string and array
+  let authMethods: string[] = [];
+  if (provider.auth_method) {
+    authMethods = [provider.auth_method];
+  } else if (provider.auth_methods) {
+    // If auth_methods is a string, try to parse it as JSON array first
+    if (typeof provider.auth_methods === 'string') {
+      const authMethodsStr = provider.auth_methods as string;
+      try {
+        const parsed = JSON.parse(authMethodsStr);
+        authMethods = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        // If not valid JSON, split by common separators
+        authMethods = authMethodsStr
+          .split(/[,;|\s]+/)
+          .map((m: string) => m.trim())
+          .filter((m: string) => m.length > 0);
+      }
+    } else if (Array.isArray(provider.auth_methods)) {
+      authMethods = provider.auth_methods;
+    }
+  }
 
   const connectionBadgeColor =
     connectionType === "browser"
@@ -81,6 +100,35 @@ const ProviderRow: React.FC<{
           bg: "rgba(34,197,94,0.1)",
           color: "var(--vscode-testing-iconPassed, #22c55e)",
         };
+
+  // Connection icon
+  const ConnectionIcon = connectionType === "browser" ? Globe : Globe;
+
+  // Auth method icon rendering
+  const renderAuthIcon = (method: string) => {
+    if (!method) return null;
+    
+    if (method === "google") {
+      return (
+        <img
+          src="./images/auth_icons/google.svg"
+          alt="Google"
+          style={{ width: "12px", height: "12px", objectFit: "contain" }}
+        />
+      );
+    }
+    if (method === "github") {
+      return (
+        <img
+          src="./images/auth_icons/github.svg"
+          alt="GitHub"
+          style={{ width: "12px", height: "12px", objectFit: "contain" }}
+        />
+      );
+    }
+    // Basic auth uses lucide icon
+    return <Key size={11} />;
+  };
 
   // ── Handlers ──
   const handleClick = () => {
@@ -160,11 +208,12 @@ const ProviderRow: React.FC<{
 
       {/* Text info */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Row 1: provider_name + connection_type badge */}
+        {/* Row 1: provider_name + connection_type badge (bên phải) */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: "8px",
           }}
         >
@@ -184,52 +233,97 @@ const ProviderRow: React.FC<{
             style={{
               fontSize: "9px",
               fontWeight: 600,
-              padding: "2px 7px",
-              borderRadius: "5px",
+              padding: "2px 5px",
+              borderRadius: "4px",
               backgroundColor: connectionBadgeColor.bg,
               color: connectionBadgeColor.color,
               flexShrink: 0,
               textTransform: "uppercase",
-              letterSpacing: "0.04em",
+              letterSpacing: "0.03em",
+              display: "flex",
+              alignItems: "center",
+              gap: "3px",
             }}
           >
+            <ConnectionIcon size={9} />
             {connectionType}
           </span>
         </div>
 
-        {/* Row 2: platform + auth_method */}
+        {/* Row 2: description (truncate nếu quá dài) */}
+        {provider.description && (
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--secondary-text)",
+              marginTop: "4px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {provider.description}
+          </div>
+        )}
+
+        {/* Row 3: auth_method badges (bên trái) + website_url (bên phải) */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "6px",
-            marginTop: "3px",
+            justifyContent: "space-between",
+            marginTop: "5px",
+            gap: "8px",
           }}
         >
-          <span
-            style={{
-              fontSize: "10px",
-              padding: "1px 6px",
-              borderRadius: "4px",
-              backgroundColor: "rgba(128,128,128,0.1)",
-              color: "var(--secondary-text)",
-            }}
-          >
-            {platform}
-          </span>
-          {authMethod && (
+          {/* Auth method badges */}
+          {authMethods.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                flexWrap: "wrap",
+              }}
+            >
+              {authMethods.map((method) => (
+                <div
+                  key={method}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    fontSize: "10px",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    backgroundColor: "rgba(128,128,128,0.1)",
+                    color: "var(--secondary-text)",
+                  }}
+                >
+                  {renderAuthIcon(method)}
+                  <span>{method}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Website URL - text only, not clickable */}
+          {provider.website_url && (
             <span
               style={{
                 fontSize: "10px",
-                padding: "1px 6px",
-                borderRadius: "4px",
-                backgroundColor: "rgba(128,128,128,0.1)",
                 color: "var(--secondary-text)",
+                flexShrink: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: "140px",
               }}
             >
-              {authMethod}
+              {provider.website_url.replace(/^https?:\/\//, "")}
             </span>
           )}
+          
           {provider.is_enabled === false && (
             <span
               style={{
@@ -238,7 +332,7 @@ const ProviderRow: React.FC<{
                 borderRadius: "4px",
                 backgroundColor: "rgba(128,128,128,0.15)",
                 color: "var(--secondary-text)",
-                marginLeft: "2px",
+                marginLeft: "auto",
               }}
             >
               Soon
@@ -261,6 +355,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
@@ -519,8 +614,10 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       setError("");
       setShowConfirm(false);
       setPendingAccount(null);
+      setSearchQuery("");
       return;
     }
+    setSearchQuery("");
     fetchProviders();
   }, [open]);
 
@@ -531,6 +628,17 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     document.addEventListener("click", closeMenu);
     return () => document.removeEventListener("click", closeMenu);
   }, [contextMenu]);
+
+  // Filter providers theo search query (khớp provider_name hoặc provider_id)
+  const filteredProviders = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return providers;
+    return providers.filter(
+      (p) =>
+        (p.provider_name || "").toLowerCase().includes(q) ||
+        (p.provider_id || "").toLowerCase().includes(q),
+    );
+  }, [providers, searchQuery]);
 
   if (!open) return null;
 
@@ -1052,6 +1160,54 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
             </button>
           </div>
 
+          {/* Search */}
+          <div
+            style={{
+              position: "relative",
+              padding: "12px 16px 0 16px",
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                left: "26px",
+                top: "12px",
+                height: "34px",
+                display: "flex",
+                alignItems: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <Search
+                size={14}
+                style={{
+                  color:
+                    "var(--vscode-input-placeholderForeground, var(--secondary-text))",
+                }}
+              />
+            </div>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search providers..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 12px 8px 32px",
+                fontSize: "13px",
+                backgroundColor: "var(--input-bg)",
+                border: "none",
+                borderRadius: "8px",
+                color: "var(--primary-text)",
+                outline: "none",
+                boxSizing: "border-box",
+                height: "34px",
+              }}
+            />
+          </div>
+
           {/* Provider list */}
           <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px" }}>
             {loadingProviders ? (
@@ -1079,7 +1235,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
               <div
                 style={{ display: "flex", flexDirection: "column", gap: "6px" }}
               >
-                {providers.map((p) => (
+                {filteredProviders.map((p) => (
                   <ProviderRow
                     key={p.provider_id}
                     provider={p}
@@ -1092,6 +1248,18 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                     loading={loading}
                   />
                 ))}
+                {filteredProviders.length === 0 && (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      color: "var(--secondary-text)",
+                      padding: "20px",
+                      fontSize: "12px",
+                    }}
+                  >
+                    No providers found
+                  </div>
+                )}
               </div>
             )}
 

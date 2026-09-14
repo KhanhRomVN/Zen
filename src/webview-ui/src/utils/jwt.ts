@@ -14,13 +14,25 @@
 export function getJwtExpiry(jwt: string): number | null {
   try {
     const parts = jwt.split('.');
-    if (parts.length < 2) return null;
+    if (parts.length < 2) {
+      console.debug('[JWT] getJwtExpiry - invalid token format:', {
+        partsCount: parts.length,
+      });
+      return null;
+    }
 
     // Decode base64url
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
     
+    console.debug('[JWT] getJwtExpiry - decoded payload:', {
+      hasExp: !!payload.exp,
+      exp: payload.exp,
+      expType: typeof payload.exp,
+    });
+
     return typeof payload.exp === 'number' ? payload.exp * 1000 : null; // Convert to milliseconds
-  } catch {
+  } catch (e) {
+    console.debug('[JWT] getJwtExpiry - parse error:', e);
     return null;
   }
 }
@@ -99,16 +111,32 @@ export function extractAccessToken(credential: string): string | null {
   if (credential.trim().startsWith('{')) {
     try {
       const parsed = JSON.parse(credential);
-      return parsed.accessToken || parsed.access_token || parsed.token || null;
+      const token = parsed.accessToken || parsed.access_token || parsed.token || parsed.secretKey || parsed.secret_key || null;
+      console.debug('[JWT] extractAccessToken - JSON format:', {
+        hasAccessToken: !!parsed.accessToken,
+        hasToken: !!parsed.token,
+        hasSecretKey: !!parsed.secretKey,
+        tokenPreview: token?.substring(0, 20),
+      });
+      return token;
     } catch {
       // Not valid JSON, continue
+      console.debug('[JWT] extractAccessToken - invalid JSON');
     }
   }
 
   // Check if it's a raw JWT (starts with eyJ)
   if (credential.startsWith('eyJ')) {
+    console.debug('[JWT] extractAccessToken - raw JWT format:', {
+      tokenPreview: credential.substring(0, 20),
+    });
     return credential;
   }
+
+  console.debug('[JWT] extractAccessToken - unknown format:', {
+    preview: credential.substring(0, 20),
+    startsWithEyJ: credential.startsWith('eyJ'),
+  });
 
   return null;
 }

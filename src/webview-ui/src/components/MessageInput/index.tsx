@@ -14,6 +14,7 @@ import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import StyleCodeDropdown from "./StyleCodeDropdown";
+import AttachmentDropdown from "./AttachmentDropdown";
 import { getFaviconUrl } from "../../utils/favicon";
 import { countTokens } from "../../utils/tokenizer";
 import type {
@@ -189,11 +190,26 @@ const useModelCapabilities = (
     return result;
   }, [currentModel, currentProviderConfig, currentModelConfig]);
 
+  const supportsImageGenerator = React.useMemo(() => {
+    return currentModel?.is_image_generator === true;
+  }, [currentModel]);
+
+  const supportsVideoGenerator = React.useMemo(() => {
+    return currentModel?.is_video_generator === true;
+  }, [currentModel]);
+
+  const supportsDeepResearch = React.useMemo(() => {
+    return currentModel?.is_deep_research === true;
+  }, [currentModel]);
+
   return {
     showThinkingButton,
     showSearchButton,
     showMemoryButton,
     supportsUpload,
+    supportsImageGenerator,
+    supportsVideoGenerator,
+    supportsDeepResearch,
   };
 };
 
@@ -966,11 +982,24 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       showSearchButton,
       showMemoryButton,
       supportsUpload,
+      supportsImageGenerator,
+      supportsVideoGenerator,
+      supportsDeepResearch,
     } = useModelCapabilities(
       currentModel,
       currentModelConfig,
       currentProviderConfig,
     );
+
+    // Debug: log model capabilities
+    React.useEffect(() => {
+      console.log("Current model capabilities:", {
+        model: currentModel,
+        supportsImageGenerator,
+        supportsVideoGenerator,
+        supportsDeepResearch,
+      });
+    }, [currentModel, supportsImageGenerator, supportsVideoGenerator, supportsDeepResearch]);
 
     useTextareaAutoResize(textareaRef, message);
 
@@ -1785,8 +1814,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 alignItems: "center",
               }}
             >
-              <div
-                onClick={() => {
+              <AttachmentDropdown
+                onSelectAttach={() => {
                   // Use the file input ref from parent
                   if (fileInputRef?.current) {
                     // Store textOnly flag on the input element for the change handler to use
@@ -1798,31 +1827,50 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     handleFileSelect();
                   }
                 }}
-                onMouseEnter={() => setIsPlusHovered(true)}
-                onMouseLeave={() => setIsPlusHovered(false)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: "22px",
-                  width: "22px",
-                  boxSizing: "border-box",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                  border: "1px solid rgba(128, 128, 128, 0.2)",
-                  background: isPlusHovered
-                    ? "rgba(128, 128, 128, 0.2)"
-                    : "rgba(128, 128, 128, 0.12)",
-                  color: "var(--vscode-foreground)",
-                  opacity: isPlusHovered ? 0.9 : 0.7,
+                onSelectImageGenerator={() => {
+                  // TODO: Implement image generator functionality
+                  console.log("Image Generator selected");
                 }}
-                title={
-                  supportsUpload ? "Attach files" : "Attach text files only"
+                onSelectVideoGenerator={() => {
+                  // TODO: Implement video generator functionality
+                  console.log("Video Generator selected");
+                }}
+                onSelectDeepResearch={() => {
+                  // TODO: Implement deep research functionality
+                  console.log("Deep Research selected");
+                }}
+                showImageGenerator={supportsImageGenerator}
+                showVideoGenerator={supportsVideoGenerator}
+                showDeepResearch={supportsDeepResearch}
+                triggerButton={
+                  <div
+                    onMouseEnter={() => setIsPlusHovered(true)}
+                    onMouseLeave={() => setIsPlusHovered(false)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "22px",
+                      width: "22px",
+                      boxSizing: "border-box",
+                      borderRadius: "4px",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease-in-out",
+                      border: "1px solid rgba(128, 128, 128, 0.2)",
+                      background: isPlusHovered
+                        ? "rgba(128, 128, 128, 0.2)"
+                        : "rgba(128, 128, 128, 0.12)",
+                      color: "var(--vscode-foreground)",
+                      opacity: isPlusHovered ? 0.9 : 0.7,
+                    }}
+                    title={
+                      supportsUpload ? "Attach files" : "Attach text files only"
+                    }
+                  >
+                    <Plus />
+                  </div>
                 }
-              >
-                <Plus />
-              </div>
+              />
 
               {/* Git Status Button */}
               {onGitPullRequest && (

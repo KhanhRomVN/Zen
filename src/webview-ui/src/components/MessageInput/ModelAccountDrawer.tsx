@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins } from "lucide-react";
+import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck } from "lucide-react";
 import { getFaviconUrl } from "@/utils/favicon";
 
 interface Provider {
@@ -70,6 +70,10 @@ const ModelTooltip: React.FC<ModelTooltipProps> = ({ model, x, y }) => {
   const hasImageUpload =
     model.is_image_upload === true || model.is_upload === true;
   const hasVideoUpload = model.is_video_upload === true;
+  const hasAudioUpload = model.is_audio_upload === true;
+  const hasImageGenerator = model.is_image_generator === true;
+  const hasVideoGenerator = model.is_video_generator === true;
+  const hasDeepResearch = model.is_deep_research === true;
 
   const rows: { label: string; value: React.ReactNode }[] = [
     {
@@ -93,6 +97,18 @@ const ModelTooltip: React.FC<ModelTooltipProps> = ({ model, x, y }) => {
       : []),
     ...(hasVideoUpload
       ? [{ label: "Video upload", value: <BoolBadge value={true} /> }]
+      : []),
+    ...(hasAudioUpload
+      ? [{ label: "Audio upload", value: <BoolBadge value={true} /> }]
+      : []),
+    ...(hasImageGenerator
+      ? [{ label: "Image generator", value: <BoolBadge value={true} /> }]
+      : []),
+    ...(hasVideoGenerator
+      ? [{ label: "Video generator", value: <BoolBadge value={true} /> }]
+      : []),
+    ...(hasDeepResearch
+      ? [{ label: "Deep research", value: <BoolBadge value={true} /> }]
       : []),
   ];
 
@@ -500,6 +516,24 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                 flexShrink: 0,
               }}
             >
+              <div
+                style={{
+                  position: "absolute",
+                  left: "22px",
+                  top: "12px",
+                  height: "34px",
+                  display: "flex",
+                  alignItems: "center",
+                  pointerEvents: "none",
+                }}
+              >
+                <Search
+                  size={14}
+                  style={{
+                    color: "var(--vscode-input-placeholderForeground, var(--secondary-text))",
+                  }}
+                />
+              </div>
               <input
                 autoFocus
                 type="text"
@@ -738,13 +772,37 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                                   {model.is_video_upload && (
                                     <Video
                                       size={12}
-                                      style={{ color: "var(--secondary-text)" }}
+                                      style={{ color: "#8b5cf6" }}
+                                    />
+                                  )}
+                                  {model.is_audio_upload && (
+                                    <Volume2
+                                      size={12}
+                                      style={{ color: "#f59e0b" }}
                                     />
                                   )}
                                   {model.is_image_upload && (
                                     <Image
                                       size={12}
-                                      style={{ color: "var(--secondary-text)" }}
+                                      style={{ color: "#10b981" }}
+                                    />
+                                  )}
+                                  {model.is_image_generator && (
+                                    <ImagePlus
+                                      size={12}
+                                      style={{ color: "#ec4899" }}
+                                    />
+                                  )}
+                                  {model.is_video_generator && (
+                                    <Film
+                                      size={12}
+                                      style={{ color: "#a855f7" }}
+                                    />
+                                  )}
+                                  {model.is_deep_research && (
+                                    <SearchCheck
+                                      size={12}
+                                      style={{ color: "#06b6d4" }}
                                     />
                                   )}
                                   {model.success_rate != null && (
@@ -830,6 +888,24 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                 flexShrink: 0,
               }}
             >
+              <div
+                style={{
+                  position: "absolute",
+                  left: "22px",
+                  top: "12px",
+                  height: "34px",
+                  display: "flex",
+                  alignItems: "center",
+                  pointerEvents: "none",
+                }}
+              >
+                <Search
+                  size={14}
+                  style={{
+                    color: "var(--vscode-input-placeholderForeground, var(--secondary-text))",
+                  }}
+                />
+              </div>
               <input
                 autoFocus
                 type="text"
