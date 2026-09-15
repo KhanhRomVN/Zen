@@ -16,7 +16,7 @@ interface AttachmentOption {
   show: boolean;
 }
 
-interface AttachmentDropdownProps {
+interface ActionDropdownProps {
   onSelectAttach: () => void;
   onSelectImageGenerator?: () => void;
   onSelectVideoGenerator?: () => void;
@@ -25,9 +25,11 @@ interface AttachmentDropdownProps {
   showVideoGenerator?: boolean;
   showDeepResearch?: boolean;
   triggerButton: React.ReactNode;
+  currentModel?: any;
+  currentModelConfig?: any;
 }
 
-const AttachmentDropdown: React.FC<AttachmentDropdownProps> = ({
+const ActionDropdown: React.FC<ActionDropdownProps> = ({
   onSelectAttach,
   onSelectImageGenerator,
   onSelectVideoGenerator,
@@ -36,14 +38,28 @@ const AttachmentDropdown: React.FC<AttachmentDropdownProps> = ({
   showVideoGenerator = false,
   showDeepResearch = false,
   triggerButton,
+  currentModel,
+  currentModelConfig,
 }) => {
+  // Prefer currentModelConfig (always fresh from API), fallback to currentModel (may be cached)
+  const modelCaps = currentModelConfig ?? currentModel;
+
+  const getAttachDesc = () => {
+    const types: string[] = ["text files"];
+    if (modelCaps?.is_image_upload) types.push("images");
+    if (modelCaps?.is_video_upload) types.push("videos");
+    if (modelCaps?.is_audio_upload) types.push("audio");
+    if (modelCaps?.is_file_upload) types.push("documents");
+    return `Attach ${types.join(", ")}`;
+  };
+
   const options: AttachmentOption[] = [
     {
       key: "attach",
       label: "Attach",
       icon: <Paperclip size={14} />,
       color: "#3b82f6",
-      desc: "Attach file, image, video or audio",
+      desc: getAttachDesc(),
       show: true, // Always show
     },
     {
@@ -73,9 +89,6 @@ const AttachmentDropdown: React.FC<AttachmentDropdownProps> = ({
   ];
 
   const visibleOptions = options.filter((opt) => opt.show);
-
-  // Debug: log visible options
-  console.log("AttachmentDropdown visible options:", visibleOptions);
 
   const handleSelect = (key: string) => {
     switch (key) {
@@ -166,4 +179,4 @@ const AttachmentDropdown: React.FC<AttachmentDropdownProps> = ({
   );
 };
 
-export default AttachmentDropdown;
+export default ActionDropdown;

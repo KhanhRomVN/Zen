@@ -2,18 +2,18 @@ import { useCallback } from "react";
 
 /**
  * Hook that provides a function to upload local files to the backend
- * and return their file_ids for use in chat requests.
+ * and return their file objects for use in chat requests.
  */
 export const useFileUpload = (apiUrl: string) => {
   /**
    * Uploads an array of file objects to the backend.
    * Files that already have a `file_id` are passed through as-is.
-   * Returns a list of file_ids to include in the API request.
+   * Returns a list of file objects to include in the API request.
    */
   const uploadFiles = useCallback(
-    async (files: any[], accountId: string): Promise<string[]> => {
+    async (files: any[], accountId: string): Promise<Array<{ file_id: string; url: string; type?: string; name?: string; file_type?: string }>> => {
       
-      const ref_file_ids: string[] = [];
+      const ref_file_ids: Array<{ file_id: string; url: string; type?: string; name?: string; file_type?: string }> = [];
 
       const localFiles = files.filter(
         (f: any) =>
@@ -25,9 +25,15 @@ export const useFileUpload = (apiUrl: string) => {
       );
 
       for (const file of localFiles) {        
-        // Already uploaded — reuse existing file_id
+        // Already uploaded — reuse existing file_id with url if available
         if (file.file_id) {
-          ref_file_ids.push(file.file_id);
+          ref_file_ids.push({
+            file_id: file.file_id,
+            url: file.url || '',
+            type: file.type?.startsWith('image/') ? 'image' : 'file',
+            name: file.name,
+            file_type: file.type
+          });
           continue;
         }
 
@@ -70,10 +76,17 @@ export const useFileUpload = (apiUrl: string) => {
           }
 
           const uploadData = await uploadRes.json();
-          if (uploadData.success && uploadData.data?.file_id) {
-            ref_file_ids.push(uploadData.data.file_id);
+          if (uploadData.success && uploadData.data?.file_id && uploadData.data?.url) {
+            // Push object with file_id AND url
+            ref_file_ids.push({
+              file_id: uploadData.data.file_id,
+              url: uploadData.data.url,
+              type: file.type?.startsWith('image/') ? 'image' : 'file',
+              name: uploadData.data.filename || file.name,
+              file_type: file.type
+            });
           } else {
-            const error = uploadData.error || "Unknown upload error";
+            const error = uploadData.error || "Upload response missing file_id or url";
             console.error(`[Zen Upload] Upload response invalid | name=${file.name} | error=${error}`);
             throw new Error(error);
           }

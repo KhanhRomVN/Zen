@@ -67,8 +67,7 @@ const formatTokens = (n: number) => {
 };
 
 const ModelTooltip: React.FC<ModelTooltipProps> = ({ model, x, y }) => {
-  const hasImageUpload =
-    model.is_image_upload === true || model.is_upload === true;
+  const hasImageUpload = model.is_image_upload === true;
   const hasVideoUpload = model.is_video_upload === true;
   const hasAudioUpload = model.is_audio_upload === true;
   const hasImageGenerator = model.is_image_generator === true;

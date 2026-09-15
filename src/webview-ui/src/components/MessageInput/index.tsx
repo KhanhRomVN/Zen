@@ -14,9 +14,10 @@ import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import StyleCodeDropdown from "./StyleCodeDropdown";
-import AttachmentDropdown from "./AttachmentDropdown";
+import ActionDropdown from "./ActionDropdown";
 import { getFaviconUrl } from "../../utils/favicon";
-import { countTokens } from "../../utils/tokenizer";
+import { countTokens, formatTokenCount } from "../../utils/tokenizer";
+import { buildAcceptString } from "../../features/chat/utils/fileUtils";
 import type {
   MessageInputProps,
   UploadedFile,
@@ -25,32 +26,6 @@ import type {
 import { PERMISSION_MODE } from "../../features/chat/constants/constants";
 
 export type { UploadedFile };
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Format token count to human-readable format with K/M/B suffix
- * Examples: 40000 → 40K, 400000 → 400K, 1000000 → 1M, 1500000 → 1.5M
- */
-const formatTokenCount = (count: number): string => {
-  if (count < 1000) {
-    return count.toString();
-  } else if (count < 1000000) {
-    // Use K for thousands
-    const k = count / 1000;
-    return k % 1 === 0 ? `${k}K` : `${k.toFixed(1)}K`;
-  } else if (count < 1000000000) {
-    // Use M for millions
-    const m = count / 1000000;
-    return m % 1 === 0 ? `${m}M` : `${m.toFixed(1)}M`;
-  } else {
-    // Use B for billions
-    const b = count / 1000000000;
-    return b % 1 === 0 ? `${b}B` : `${b.toFixed(1)}B`;
-  }
-};
 
 // ============================================================================
 // ICONS
@@ -179,15 +154,12 @@ const useModelCapabilities = (
   }, [currentModel]);
 
   const supportsUpload = React.useMemo(() => {
-    let result: boolean;
-    if (currentModel?.is_upload !== undefined) {
-      result = !!currentModel.is_upload;
-    } else if (currentModelConfig?.is_upload !== undefined) {
-      result = !!currentModelConfig.is_upload;
-    } else {
-      result = !!currentProviderConfig?.is_upload;
+    if (currentModel?.is_image_upload !== undefined) {
+      return !!currentModel.is_image_upload;
+    } else if (currentModelConfig?.is_image_upload !== undefined) {
+      return !!currentModelConfig.is_image_upload;
     }
-    return result;
+    return false;
   }, [currentModel, currentProviderConfig, currentModelConfig]);
 
   const supportsImageGenerator = React.useMemo(() => {
@@ -991,16 +963,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       currentProviderConfig,
     );
 
-    // Debug: log model capabilities
-    React.useEffect(() => {
-      console.log("Current model capabilities:", {
-        model: currentModel,
-        supportsImageGenerator,
-        supportsVideoGenerator,
-        supportsDeepResearch,
-      });
-    }, [currentModel, supportsImageGenerator, supportsVideoGenerator, supportsDeepResearch]);
-
     useTextareaAutoResize(textareaRef, message);
 
     const displayModel = React.useMemo(() => {
@@ -1399,7 +1361,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   favicon: faviconUrl,
                   is_thinking: modelObj?.is_thinking ?? false,
                   is_search: modelObj?.is_search ?? false,
-                  is_upload: modelObj?.is_upload ?? false,
+                  is_image_upload: modelObj?.is_image_upload ?? false,
+                  is_video_upload: modelObj?.is_video_upload ?? false,
+                  is_audio_upload: modelObj?.is_audio_upload ?? false,
+                  is_file_upload: modelObj?.is_file_upload ?? false,
                   is_memory: modelObj?.is_memory ?? prov?.is_memory ?? false,
                 };
 
@@ -1814,10 +1779,12 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 alignItems: "center",
               }}
             >
-              <AttachmentDropdown
+              <ActionDropdown
                 onSelectAttach={() => {
                   // Use the file input ref from parent
                   if (fileInputRef?.current) {
+                    // Set accept dynamically based on model capabilities (prefer modelConfig over cached model)
+                    fileInputRef.current.accept = buildAcceptString(currentModelConfig ?? currentModel);
                     // Store textOnly flag on the input element for the change handler to use
                     (fileInputRef.current as any).dataset.textOnly =
                       String(!supportsUpload);
@@ -1827,21 +1794,14 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     handleFileSelect();
                   }
                 }}
-                onSelectImageGenerator={() => {
-                  // TODO: Implement image generator functionality
-                  console.log("Image Generator selected");
-                }}
-                onSelectVideoGenerator={() => {
-                  // TODO: Implement video generator functionality
-                  console.log("Video Generator selected");
-                }}
-                onSelectDeepResearch={() => {
-                  // TODO: Implement deep research functionality
-                  console.log("Deep Research selected");
-                }}
+                onSelectImageGenerator={() => {}}
+                onSelectVideoGenerator={() => {}}
+                onSelectDeepResearch={() => {}}
                 showImageGenerator={supportsImageGenerator}
                 showVideoGenerator={supportsVideoGenerator}
                 showDeepResearch={supportsDeepResearch}
+                currentModel={currentModel}
+                currentModelConfig={currentModelConfig}
                 triggerButton={
                   <div
                     onMouseEnter={() => setIsPlusHovered(true)}

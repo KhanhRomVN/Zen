@@ -9,7 +9,7 @@ export interface StreamConfig {
   messages: Array<{ role: string; content: string }>;
   conversationId?: string;
   parentMessageId?: string;
-  refFileIds?: string[];
+  refFileIds?: Array<{ file_id: string; url: string; type?: string; name?: string; file_type?: string }>;
   abortSignal: AbortSignal;
 }
 

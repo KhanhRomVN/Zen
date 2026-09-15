@@ -540,7 +540,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
         multiple
         style={{ display: "none" }}
         onChange={handleFileInputChange}
-        accept="image/*,text/*"
       />
       <input
         ref={externalFileInputRef}

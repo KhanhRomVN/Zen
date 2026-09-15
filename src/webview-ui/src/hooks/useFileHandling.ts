@@ -200,7 +200,7 @@ export const useFileHandling = ({
         setUploadedFiles((prev) =>
           prev.map((f) =>
             f.id === file.id
-              ? { ...f, file_id: uploadData.data.file_id, isUploading: false }
+              ? { ...f, file_id: uploadData.data.file_id, url: uploadData.data.url || '', isUploading: false }
               : f,
           ),
         );

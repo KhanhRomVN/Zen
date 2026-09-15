@@ -36,3 +36,15 @@ export function countTokens(text: string): number {
     return Math.ceil(text.length / 4);
   }
 }
+
+/**
+ * Format token count to human-readable string with K/M/B suffix.
+ * Uses Math.round for consistent display across all components.
+ * Examples: 39500 → "40K", 1500000 → "2M"
+ */
+export const formatTokenCount = (count: number): string => {
+  if (count < 1000) return count.toString();
+  if (count < 1000000) return `${Math.round(count / 1000)}K`;
+  if (count < 1000000000) return `${Math.round(count / 1000000)}M`;
+  return `${Math.round(count / 1000000000)}B`;
+};

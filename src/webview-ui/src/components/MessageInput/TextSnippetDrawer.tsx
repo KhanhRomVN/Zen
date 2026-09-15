@@ -7,8 +7,6 @@ interface TextSnippetDrawerProps {
   content: string;
   title: string;
   onClose: () => void;
-  snippetNumber?: number; // For displaying "Snippet[1]"
-  lineCount?: number; // For displaying line count
 }
 
 const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
@@ -16,15 +14,8 @@ const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
   content,
   title,
   onClose,
-  snippetNumber,
-  lineCount,
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
-
-  // Format title
-  const displayTitle = snippetNumber && lineCount
-    ? `Snippet[${snippetNumber}] (${lineCount} lines)`
-    : title;
 
   // Close on Escape key
   useEffect(() => {
@@ -78,8 +69,7 @@ const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
           right: 0,
           maxHeight: "70vh",
           backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
-          borderTopLeftRadius: "24px",
-          borderTopRightRadius: "24px",
+          borderTop: "1px solid var(--border-color)",
           boxShadow: "0 -4px 12px rgba(0, 0, 0, 0.3)",
           zIndex: 99999,
           display: "flex",
@@ -87,35 +77,13 @@ const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
           animation: "slideUp 0.3s ease-out",
         }}
       >
-        {/* Drag Handle */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            paddingTop: "8px",
-            paddingBottom: "4px",
-            backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
-            borderTopLeftRadius: "24px",
-            borderTopRightRadius: "24px",
-          }}
-        >
-          <div
-            style={{
-              width: "40px",
-              height: "4px",
-              backgroundColor: "var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.5))",
-              borderRadius: "2px",
-            }}
-          />
-        </div>
-
         {/* Header */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "8px 16px 12px 16px",
+            padding: "12px 16px 12px 16px",
             borderBottom: "1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3))",
             backgroundColor: "var(--vscode-editor-background, #1e1e1e)",
           }}
@@ -127,37 +95,6 @@ const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
               gap: "12px",
             }}
           >
-            {/* Icon Badge */}
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "var(--vscode-editor-background, rgba(128, 128, 128, 0.1))",
-                border: "1.5px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.4))",
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <line x1="10" y1="9" x2="8" y2="9" />
-              </svg>
-            </div>
-
             {/* Title and Description */}
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <h3
@@ -168,7 +105,7 @@ const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
                   color: "var(--vscode-foreground, #ffffff)",
                 }}
               >
-                {displayTitle}
+                Text Snippet
               </h3>
               <div
                 style={{

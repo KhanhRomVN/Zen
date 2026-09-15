@@ -437,7 +437,7 @@ export const useChatLLM = ({
 
       try {
         // Upload local files
-        const ref_file_ids: string[] = [];
+        const ref_file_ids: Array<{ file_id: string; url: string; type?: string; name?: string; file_type?: string }> = [];
         const localFiles = files
           ? files.filter(
               (f: any) =>
@@ -458,8 +458,8 @@ export const useChatLLM = ({
           }
 
           try {
-            const uploadedIds = await uploadFiles(localFiles, finalAccount.id);
-            ref_file_ids.push(...uploadedIds);
+            const uploadedObjects = await uploadFiles(localFiles, finalAccount.id);
+            ref_file_ids.push(...uploadedObjects);
           } catch (uploadErr) {
             console.error(`[Zen] Upload failed with error:`, uploadErr);
             console.error(

@@ -16,6 +16,7 @@ export interface UploadedFile {
   /** Base64 or plain text content. */
   content: string;
   file_id?: string;
+  url?: string;
   isUploading?: boolean;
   error?: string;
 }

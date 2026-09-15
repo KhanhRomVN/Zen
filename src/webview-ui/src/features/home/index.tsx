@@ -585,7 +585,6 @@ const HomePanel: React.FC<HomePanelProps> = ({
         multiple
         style={{ display: "none" }}
         onChange={handleFileInputChange}
-        accept="image/*,text/*"
       />
       <input
         ref={externalFileInputRef}
