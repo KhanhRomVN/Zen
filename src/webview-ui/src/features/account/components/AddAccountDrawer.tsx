@@ -14,19 +14,30 @@
  * ------------------------------------------------------------------
  */
 
-// ─── Imports ────────────────────────────────────────────────────────────
+// ── Imports ────────────────────────────────────────────────────────────
 // ── React ──
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import ReactDOM from "react-dom";
 
 // ── UI ──
-import { Loader2, X, AlertCircle, ShieldCheck, Search, Globe, Key, ExternalLink } from "lucide-react";
+import {
+  Loader2,
+  X,
+  AlertCircle,
+  Search,
+  Globe,
+  Key,
+  KeyRound,
+  ExternalLink,
+  ChevronLeft,
+} from "lucide-react";
 
 // ── Hooks ──
 import { useSettings } from "../../../context/SettingsContext";
 
 // ── Utils ──
 import { getFaviconUrl } from "@/utils/favicon";
+import { CopyableText } from "../utils";
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface Provider {
   provider_id: string;
@@ -49,11 +60,92 @@ interface AddAccountDrawerProps {
   onSuccess: () => void;
 }
 
+// ─── MethodCard ─────────────────────────────────────────────────────────
+const MethodCard: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  desc: string;
+  onClick: () => void;
+  disabled?: boolean;
+}> = ({ icon, label, desc, onClick, disabled }) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={() => {
+        if (!disabled) onClick();
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "14px",
+        padding: "12px 14px",
+        borderRadius: "10px",
+        backgroundColor:
+          hovered && !disabled
+            ? "var(--hover-bg, rgba(128,128,128,0.07))"
+            : "var(--input-bg)",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.45 : 1,
+        transition: "all 0.13s ease",
+        border: "none",
+      }}
+    >
+      <div
+        style={{
+          width: "36px",
+          height: "36px",
+          borderRadius: "9px",
+          backgroundColor: "rgba(128,128,128,0.1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          color: "var(--primary-text)",
+        }}
+      >
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "var(--primary-text)",
+          }}
+        >
+          {label}
+        </div>
+        <div
+          style={{
+            fontSize: "11px",
+            color: "var(--secondary-text)",
+            marginTop: "2px",
+            opacity: 0.7,
+          }}
+        >
+          {desc}
+        </div>
+      </div>
+      <ChevronLeft
+        size={15}
+        style={{
+          color: "var(--secondary-text)",
+          transform: "rotate(180deg)",
+          opacity: 0.5,
+          flexShrink: 0,
+        }}
+      />
+    </div>
+  );
+};
+
 // ─── Constants ──────────────────────────────────────────────────────────
 // List row card
 const ProviderRow: React.FC<{
   provider: Provider;
-  onSelect: (method: "basic" | "cdp") => void;
+  onSelect: () => void;
   onContextMenu: (e: React.MouseEvent, provider: Provider) => void;
   loading: boolean;
 }> = ({ provider, onSelect, onContextMenu, loading }) => {
@@ -66,29 +158,35 @@ const ProviderRow: React.FC<{
   const disabled = provider.is_enabled === false || loading;
 
   const connectionType = provider.connection_type || "https";
-  
-  // Parse auth_methods: handle both string and array
-  let authMethods: string[] = [];
-  if (provider.auth_method) {
-    authMethods = [provider.auth_method];
-  } else if (provider.auth_methods) {
-    // If auth_methods is a string, try to parse it as JSON array first
-    if (typeof provider.auth_methods === 'string') {
-      const authMethodsStr = provider.auth_methods as string;
+
+  // Parse auth_methods: handle both string and array formats
+  const parseAuthMethods = (raw: any): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw))
+      return raw.filter((m: any) => typeof m === "string" && m.length > 0);
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (!trimmed) return [];
       try {
-        const parsed = JSON.parse(authMethodsStr);
-        authMethods = Array.isArray(parsed) ? parsed : [];
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed))
+          return parsed.filter(
+            (m: any) => typeof m === "string" && m.length > 0,
+          );
       } catch {
-        // If not valid JSON, split by common separators
-        authMethods = authMethodsStr
+        // not JSON — split by common separators
+        return trimmed
           .split(/[,;|\s]+/)
-          .map((m: string) => m.trim())
-          .filter((m: string) => m.length > 0);
+          .map((m) => m.trim())
+          .filter((m) => m.length > 0);
       }
-    } else if (Array.isArray(provider.auth_methods)) {
-      authMethods = provider.auth_methods;
     }
-  }
+    return [];
+  };
+
+  const authMethods = parseAuthMethods(
+    provider.auth_method ?? provider.auth_methods,
+  );
 
   const connectionBadgeColor =
     connectionType === "browser"
@@ -107,25 +205,36 @@ const ProviderRow: React.FC<{
   // Auth method icon rendering
   const renderAuthIcon = (method: string) => {
     if (!method) return null;
-    
-    if (method === "google") {
+
+    if (method === "google" || method === "github" || method === "x") {
+      const baseUri = (window as any).__zenImagesUri as string | undefined;
+      const src = baseUri ? `${baseUri}/auth_icons/${method}.svg` : undefined;
+
+      if (!src) {
+        console.warn(
+          "[AddAccountDrawer] window.__zenImagesUri is not available — cannot load auth icon for",
+          method,
+        );
+        return <Key size={11} />;
+      }
+
       return (
         <img
-          src="./images/auth_icons/google.svg"
-          alt="Google"
-          style={{ width: "12px", height: "12px", objectFit: "contain" }}
+          src={src}
+          alt={method}
+          style={{ width: "11px", height: "11px", objectFit: "contain" }}
+          onLoad={() => {}}
+          onError={(e) => {
+            console.error(
+              `[AddAccountDrawer] ❌ auth icon FAILED to load: ${src}`,
+              "img element:",
+              e.currentTarget,
+            );
+          }}
         />
       );
     }
-    if (method === "github") {
-      return (
-        <img
-          src="./images/auth_icons/github.svg"
-          alt="GitHub"
-          style={{ width: "12px", height: "12px", objectFit: "contain" }}
-        />
-      );
-    }
+
     // Basic auth uses lucide icon
     return <Key size={11} />;
   };
@@ -133,7 +242,7 @@ const ProviderRow: React.FC<{
   // ── Handlers ──
   const handleClick = () => {
     if (disabled) return;
-    onSelect("basic");
+    onSelect();
   };
 
   const handleRightClick = (e: React.MouseEvent) => {
@@ -282,7 +391,7 @@ const ProviderRow: React.FC<{
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "4px",
+                gap: "8px",
                 flexWrap: "wrap",
               }}
             >
@@ -294,9 +403,6 @@ const ProviderRow: React.FC<{
                     alignItems: "center",
                     gap: "4px",
                     fontSize: "10px",
-                    padding: "2px 6px",
-                    borderRadius: "4px",
-                    backgroundColor: "rgba(128,128,128,0.1)",
                     color: "var(--secondary-text)",
                   }}
                 >
@@ -323,7 +429,7 @@ const ProviderRow: React.FC<{
               {provider.website_url.replace(/^https?:\/\//, "")}
             </span>
           )}
-          
+
           {provider.is_enabled === false && (
             <span
               style={{
@@ -356,6 +462,20 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Method selection state
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
+    null,
+  );
+
+  // Device code flow state (Kiro, grok-build-cli, etc.)
+  const [deviceCodeInfo, setDeviceCodeInfo] = useState<{
+    user_code: string;
+    verification_url: string;
+    pollContext: string;
+    poll_interval: number;
+    provider: Provider;
+  } | null>(null);
 
   // Confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
@@ -454,6 +574,19 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       );
       const data = await response.json();
       if (data.success && data.account) {
+        // ── Device code flow (Kiro, grok-build-cli, etc.) ──
+        if (data.account.pending && data.account.user_code) {
+          setDeviceCodeInfo({
+            user_code: data.account.user_code,
+            verification_url: data.account.verification_url,
+            pollContext: data.account.tempSessionId,
+            poll_interval: data.account.poll_interval || 5,
+            provider,
+          });
+          setLoading(false);
+          return;
+        }
+
         // Check if this is a pending browser session (needs email)
         if (data.account.pending && data.account.tempSessionId) {
           setPendingBrowserProvider(provider);
@@ -498,8 +631,8 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       if (provider.connection_type === "browser") {
         // Check if this is a timeout error vs user closing browser
         const errorMessage = err.message || String(err);
-        const isTimeout = errorMessage.toLowerCase().includes('timeout');
-        
+        const isTimeout = errorMessage.toLowerCase().includes("timeout");
+
         if (isTimeout) {
           // Server timeout - show error and stop loading
           setError("Login timeout. Please try again.");
@@ -615,6 +748,8 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       setShowConfirm(false);
       setPendingAccount(null);
       setSearchQuery("");
+      setSelectedProvider(null);
+      setDeviceCodeInfo(null);
       return;
     }
     setSearchQuery("");
@@ -629,20 +764,473 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     return () => document.removeEventListener("click", closeMenu);
   }, [contextMenu]);
 
+  // Poll for device code completion (Kiro, grok-build-cli, etc.)
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!deviceCodeInfo) {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      return;
+    }
+
+    const intervalMs = Math.max(deviceCodeInfo.poll_interval * 1000, 3000);
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `${apiUrl}/v1/accounts/login/${deviceCodeInfo.provider.provider_id}/poll`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pollContext: deviceCodeInfo.pollContext }),
+          },
+        );
+        const data = await res.json();
+
+        if (data.error) {
+          clearInterval(pollTimerRef.current!);
+          pollTimerRef.current = null;
+          setDeviceCodeInfo(null);
+          setError(data.error);
+          return;
+        }
+
+        if (data.done && data.account) {
+          clearInterval(pollTimerRef.current!);
+          pollTimerRef.current = null;
+          setDeviceCodeInfo(null);
+          // Show confirm drawer so user can review before saving
+          setPendingAccount({
+            id: crypto.randomUUID(),
+            provider_id: data.account.provider_id,
+            email: data.account.email || "",
+            credential: data.account.credential,
+          });
+          setShowConfirm(true);
+        }
+      } catch {
+        // Network error — keep polling
+      }
+    }, intervalMs);
+
+    return () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [deviceCodeInfo, apiUrl]);
+
   // Filter providers theo search query (khớp provider_name hoặc provider_id)
+  // Ẩn provider không có auth_method (không cần đăng nhập)
   const filteredProviders = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return providers;
-    return providers.filter(
-      (p) =>
+    return providers.filter((p) => {
+      // Ẩn provider không có auth_method
+      const raw = (p as any).auth_method ?? (p as any).auth_methods;
+      let methods: string[] = [];
+      if (Array.isArray(raw))
+        methods = raw.filter((m: any) => typeof m === "string" && m.length > 0);
+      else if (typeof raw === "string" && raw.trim()) {
+        try {
+          const parsed = JSON.parse(raw.trim());
+          methods = Array.isArray(parsed) ? parsed.filter((m: any) => m) : [];
+        } catch {
+          methods = raw
+            .trim()
+            .split(/[,;|\s]+/)
+            .filter((m: string) => m.length > 0);
+        }
+      }
+      if (methods.length === 0) return false;
+
+      // Filter theo search query
+      if (!q) return true;
+      return (
         (p.provider_name || "").toLowerCase().includes(q) ||
-        (p.provider_id || "").toLowerCase().includes(q),
-    );
+        (p.provider_id || "").toLowerCase().includes(q)
+      );
+    });
   }, [providers, searchQuery]);
 
   if (!open) return null;
 
+  // ── Device code view (Kiro, grok-build-cli, etc.) ──
+  if (deviceCodeInfo) {
+    return (
+      <>
+        {sharedBackdrop(() => setDeviceCodeInfo(null))}
+        {sharedSheet(
+          <>
+            <div
+              style={{
+                padding: "12px 16px",
+                borderBottom: "1px solid var(--border-color)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexShrink: 0,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: "16px", fontWeight: 700, color: "var(--primary-text)" }}>
+                  Authorize in Browser
+                </div>
+                <div style={{ fontSize: "11px", color: "var(--secondary-text)", opacity: 0.7, marginTop: "2px" }}>
+                  {deviceCodeInfo.provider.provider_name}
+                </div>
+              </div>
+              <button
+                onClick={() => setDeviceCodeInfo(null)}
+                style={{
+                  padding: "6px", borderRadius: "4px", border: "none",
+                  background: "transparent", color: "var(--secondary-text)",
+                  cursor: "pointer", display: "flex", alignItems: "center",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(244,67,54,0.15)"; e.currentTarget.style.color = "#f44336"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "var(--secondary-text)"; }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+              {/* User code + open browser button */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
+                <div
+                  style={{
+                    fontSize: "20px", fontWeight: 700, letterSpacing: "0.15em",
+                    fontFamily: "monospace", color: "var(--primary-text)",
+                    backgroundColor: "var(--input-bg)",
+                    padding: "0 16px", borderRadius: "8px",
+                    border: "none",
+                    height: "34px",
+                    display: "flex", alignItems: "center",
+                  }}
+                >
+                  {deviceCodeInfo.user_code}
+                </div>
+                <a
+                  href={deviceCodeInfo.verification_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open Browser"
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: "34px", height: "34px", borderRadius: "8px",
+                    backgroundColor: "var(--input-bg)",
+                    border: "none",
+                    color: "var(--secondary-text)",
+                    flexShrink: 0,
+                    textDecoration: "none",
+                  }}
+                >
+                  <ExternalLink size={15} />
+                </a>
+              </div>
+
+              {/* Verification URL inputbar */}
+              <div style={{ width: "100%", position: "relative" }}>
+                <input
+                  readOnly
+                  value={deviceCodeInfo.verification_url}
+                  style={{
+                    width: "100%",
+                    padding: "8px 36px 8px 12px",
+                    borderRadius: "8px",
+                    backgroundColor: "var(--input-bg)",
+                    border: "none",
+                    color: "var(--secondary-text)",
+                    fontSize: "12px",
+                    fontFamily: "monospace",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    height: "34px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                />
+                <button
+                  onClick={() => navigator.clipboard.writeText(deviceCodeInfo.verification_url)}
+                  title="Copy URL"
+                  style={{
+                    position: "absolute", right: "6px", top: "50%", transform: "translateY(-50%)",
+                    padding: "4px", borderRadius: "4px", border: "none",
+                    background: "transparent", color: "var(--secondary-text)",
+                    cursor: "pointer", display: "flex", alignItems: "center",
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Waiting indicator */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--secondary-text)", fontSize: "12px" }}>
+                <Loader2 size={14} style={{ animation: "aaSpin 1s linear infinite" }} />
+                Waiting for authorization…
+              </div>
+
+              {error && (
+                <div
+                  style={{
+                    width: "100%", backgroundColor: "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.08))",
+                    borderRadius: "8px", padding: "8px 10px",
+                    fontSize: "12px", color: "var(--vscode-errorForeground)",
+                    display: "flex", alignItems: "center", gap: "6px",
+                  }}
+                >
+                  <AlertCircle size={12} />
+                  <span>{error}</span>
+                </div>
+              )}
+            </div>
+          </>,
+          "auto",
+        )}
+        <style>{`
+          @keyframes aaSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+          @keyframes aaFadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes aaSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `}</style>
+      </>
+    );
+  }
+
   // ── Render ──
+  // Method selection view
+  if (selectedProvider && !showEmailDrawer && !showConfirm) {
+    const raw =
+      (selectedProvider as any).auth_method ??
+      (selectedProvider as any).auth_methods;
+    const methods: string[] = (() => {
+      if (!raw) return [];
+      if (Array.isArray(raw))
+        return raw.filter((m: any) => typeof m === "string" && m.length > 0);
+      if (typeof raw === "string" && raw.trim()) {
+        try {
+          const p = JSON.parse(raw.trim());
+          return Array.isArray(p) ? p.filter((m: any) => m) : [];
+        } catch {
+          return raw
+            .trim()
+            .split(/[,;|\s]+/)
+            .filter((m: string) => m.length > 0);
+        }
+      }
+      return [];
+    })();
+
+    const methodMeta: Record<
+      string,
+      { label: string; desc: string; icon: React.ReactNode }
+    > = {
+      google: {
+        label: "Google",
+        desc: "Sign in with your Google account via OAuth",
+        icon: (() => {
+          const baseUri = (window as any).__zenImagesUri as string | undefined;
+          return baseUri ? (
+            <img
+              src={`${baseUri}/auth_icons/google.svg`}
+              alt="Google"
+              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+            />
+          ) : (
+            <Key size={18} />
+          );
+        })(),
+      },
+      github: {
+        label: "GitHub",
+        desc: "Sign in with your GitHub account via OAuth",
+        icon: (() => {
+          const baseUri = (window as any).__zenImagesUri as string | undefined;
+          return baseUri ? (
+            <img
+              src={`${baseUri}/auth_icons/github.svg`}
+              alt="GitHub"
+              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+            />
+          ) : (
+            <Key size={18} />
+          );
+        })(),
+      },
+      x: {
+        label: "X / xAI",
+        desc: "Sign in via device code — browser will open automatically",
+        icon: (() => {
+          const baseUri = (window as any).__zenImagesUri as string | undefined;
+          return baseUri ? (
+            <img
+              src={`${baseUri}/auth_icons/x.svg`}
+              alt="X"
+              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+            />
+          ) : (
+            <Key size={18} />
+          );
+        })(),
+      },
+      basic: {
+        label: "Basic",
+        desc: "Enter your email and password directly — no OAuth required",
+        icon: <Key size={18} />,
+      },
+    };
+
+    const iconUrl = getFaviconUrl(
+      selectedProvider.website_url || selectedProvider.website,
+    );
+
+    return (
+      <>
+        {sharedBackdrop(() => setSelectedProvider(null))}
+        {sharedSheet(
+          <>
+            {/* Header */}
+            <div
+              style={{
+                padding: "12px 16px",
+                borderBottom: "1px solid var(--border-color)",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                flexShrink: 0,
+              }}
+            >
+              <button
+                onClick={() => setSelectedProvider(null)}
+                style={{
+                  padding: "6px",
+                  borderRadius: "4px",
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--secondary-text)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  flexShrink: 0,
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(128,128,128,0.1)";
+                  e.currentTarget.style.color = "var(--primary-text)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = "var(--secondary-text)";
+                }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {iconUrl && (
+                <img
+                  src={iconUrl}
+                  alt={selectedProvider.provider_name}
+                  style={{
+                    width: "20px",
+                    height: "20px",
+                    borderRadius: "4px",
+                    objectFit: "contain",
+                  }}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              )}
+              <div>
+                <div
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    color: "var(--primary-text)",
+                  }}
+                >
+                  {selectedProvider.provider_name}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--secondary-text)",
+                    opacity: 0.7,
+                  }}
+                >
+                  Select a login method
+                </div>
+              </div>
+            </div>
+
+            {/* Method cards */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "12px 16px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              {methods.map((method) => {
+                const meta = methodMeta[method] ?? {
+                  label: method,
+                  desc: `Sign in with ${method}`,
+                  icon: <Key size={18} />,
+                };
+                return (
+                  <MethodCard
+                    key={method}
+                    icon={meta.icon}
+                    label={meta.label}
+                    desc={meta.desc}
+                    onClick={() => {
+                      setSelectedProvider(null);
+                      handleLogin(selectedProvider, "basic");
+                    }}
+                    disabled={loading}
+                  />
+                );
+              })}
+            </div>
+
+            {error && (
+              <div
+                style={{
+                  margin: "0 16px 12px",
+                  backgroundColor:
+                    "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.08))",
+                  borderRadius: "8px",
+                  padding: "8px 10px",
+                  fontSize: "12px",
+                  color: "var(--vscode-errorForeground)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <AlertCircle size={12} />
+                <span>{error}</span>
+              </div>
+            )}
+          </>,
+          "auto",
+        )}
+        <style>{`
+          @keyframes aaSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+          @keyframes aaFadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes aaSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `}</style>
+      </>
+    );
+  }
+
   // Email input for browser provider when login fails
   if (showEmailDrawer && pendingBrowserProvider) {
     return (
@@ -714,14 +1302,24 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   setLoading(false);
                 }}
                 style={{
-                  padding: "7px",
-                  borderRadius: "6px",
+                  padding: "6px",
+                  borderRadius: "4px",
                   border: "none",
-                  backgroundColor: "rgba(128,128,128,0.1)",
+                  background: "transparent",
                   color: "var(--secondary-text)",
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(244, 67, 54, 0.15)";
+                  e.currentTarget.style.color = "#f44336";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = "var(--secondary-text)";
                 }}
               >
                 <X size={16} />
@@ -856,6 +1454,12 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
 
   // Confirmation view
   if (showConfirm && pendingAccount) {
+    const credValue = pendingAccount.credential || pendingAccount.user_data_dir || "";
+    let credParsed: Record<string, any> | null = null;
+    try {
+      const raw = credValue.trim();
+      if (raw.startsWith("{")) credParsed = JSON.parse(raw);
+    } catch { /* ignore */ }
     return (
       <>
         {sharedBackdrop(() => {
@@ -867,7 +1471,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
             {/* Header */}
             <div
               style={{
-                padding: "4px 16px 12px",
+                padding: "12px 16px 12px",
                 borderBottom: "1px solid var(--border-color)",
                 display: "flex",
                 alignItems: "center",
@@ -875,57 +1479,23 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 flexShrink: 0,
               }}
             >
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <div
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    borderRadius: "9px",
-                    backgroundColor:
-                      "var(--vscode-testing-iconPassed-background, rgba(128,128,128,0.1))",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <ShieldCheck
-                    size={16}
-                    color="var(--vscode-testing-iconPassed, currentColor)"
-                  />
-                </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <div>
-                  <div
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 700,
-                      color: "var(--primary-text)",
-                    }}
-                  >
+                  <div style={{ fontSize: "16px", fontWeight: 700, color: "var(--primary-text)" }}>
                     Confirm Account
                   </div>
-                  <div
-                    style={{
-                      fontSize: "12px",
-                      color: "var(--secondary-text)",
-                      opacity: 0.7,
-                    }}
-                  >
+                  <div style={{ fontSize: "12px", color: "var(--secondary-text)", opacity: 0.7 }}>
                     Review captured details
                   </div>
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setShowConfirm(false);
-                  setPendingAccount(null);
-                }}
+                onClick={() => { setShowConfirm(false); setPendingAccount(null); }}
                 style={{
-                  padding: "7px",
-                  borderRadius: "6px",
+                  padding: "6px",
+                  borderRadius: "4px",
                   border: "none",
-                  backgroundColor: "rgba(128,128,128,0.1)",
+                  background: "transparent",
                   color: "var(--secondary-text)",
                   cursor: "pointer",
                   display: "flex",
@@ -945,6 +1515,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   gap: "12px",
                 }}
               >
+                {/* Email */}
                 <div>
                   <label
                     style={{
@@ -968,51 +1539,59 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                     }
                     style={{
                       width: "100%",
-                      padding: "9px 11px",
-                      borderRadius: "9px",
+                      padding: "8px 12px",
+                      borderRadius: "8px",
                       backgroundColor: "var(--input-bg)",
-                      border: "1px solid var(--border-color)",
+                      border: "none",
                       color: "var(--primary-text)",
                       fontSize: "13px",
                       outline: "none",
                       boxSizing: "border-box",
+                      height: "34px",
                     }}
                   />
                 </div>
-                <div>
-                  <label
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 500,
-                      color: "var(--secondary-text)",
-                      display: "block",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    Credential / Token
-                  </label>
-                  <input
-                    type="text"
-                    value={
-                      pendingAccount.credential
-                        ? `${pendingAccount.credential.substring(0, 10)}...${pendingAccount.credential.slice(-5)}`
-                        : "N/A"
-                    }
-                    readOnly
-                    style={{
-                      width: "100%",
-                      padding: "9px 11px",
-                      borderRadius: "9px",
-                      backgroundColor: "var(--input-bg)",
-                      border: "1px solid var(--border-color)",
-                      color: "var(--secondary-text)",
-                      fontSize: "12px",
-                      fontFamily: "monospace",
-                      outline: "none",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
+
+                {/* Credential — expand section style, no padding/border on wrapper */}
+                {credValue && (
+                  <div>
+                    <label
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: 500,
+                        color: "var(--secondary-text)",
+                        display: "block",
+                        marginBottom: "5px",
+                      }}
+                    >
+                      {pendingAccount.user_data_dir ? "User Data Dir" : "Credential / Token"}
+                    </label>
+                    <div style={{ fontSize: "12px" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {credParsed
+                          ? Object.entries(credParsed).map(([key, val]) => (
+                              <div key={key} style={{ minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                                  <KeyRound size={10} />
+                                  {key}
+                                </div>
+                                <CopyableText value={String(val ?? "")} monospace />
+                              </div>
+                            ))
+                          : (
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                                <KeyRound size={10} />
+                                {pendingAccount.user_data_dir ? "Path" : "Token"}
+                              </div>
+                              <CopyableText value={credValue} monospace />
+                            </div>
+                          )
+                        }
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {error && (
                   <div
@@ -1038,9 +1617,10 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
             {/* Actions */}
             <div
               style={{
-                padding: "12px 16px 20px",
+                padding: "12px 16px 12px",
                 borderTop: "1px solid var(--border-color)",
                 display: "flex",
+                justifyContent: "flex-end",
                 gap: "8px",
                 flexShrink: 0,
               }}
@@ -1051,37 +1631,36 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   setPendingAccount(null);
                 }}
                 style={{
-                  flex: 1,
-                  padding: "9px",
+                  padding: "8px 14px",
                   borderRadius: "9px",
-                  backgroundColor: "rgba(128,128,128,0.1)",
+                  backgroundColor: "rgba(128,128,128,0.08)",
                   border: "none",
                   color: "var(--secondary-text)",
                   fontSize: "12px",
                   fontWeight: 500,
                   cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
               >
-                Back
+                Cancel
               </button>
               <button
                 onClick={handleConfirmAccount}
                 disabled={confirmLoading || !pendingAccount.email}
                 style={{
-                  flex: 2,
-                  padding: "9px",
+                  padding: "8px 14px",
                   borderRadius: "9px",
-                  backgroundColor: "var(--vscode-button-background)",
+                  backgroundColor: "var(--vscode-button-secondaryBackground, rgba(var(--vscode-button-background-rgb, 0,120,212), 0.12))",
                   border: "none",
-                  color: "var(--vscode-button-foreground)",
+                  color: "var(--vscode-button-background, var(--vscode-textLink-foreground))",
                   fontSize: "12px",
                   fontWeight: 600,
-                  cursor: confirmLoading ? "not-allowed" : "pointer",
+                  cursor: confirmLoading || !pendingAccount.email ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
                   gap: "6px",
                   opacity: !pendingAccount.email ? 0.5 : 1,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {confirmLoading && (
@@ -1090,7 +1669,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                     style={{ animation: "aaSpin 1s linear infinite" }}
                   />
                 )}
-                {confirmLoading ? "Adding…" : "Confirm & Add"}
+                {confirmLoading ? "Adding…" : "Confirm"}
               </button>
             </div>
           </>,
@@ -1147,13 +1726,23 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
               onClick={() => onOpenChange(false)}
               style={{
                 padding: "6px",
-                borderRadius: "6px",
+                borderRadius: "4px",
                 border: "none",
-                backgroundColor: "rgba(128,128,128,0.1)",
+                background: "transparent",
                 color: "var(--secondary-text)",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "rgba(244, 67, 54, 0.15)";
+                e.currentTarget.style.color = "#f44336";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "var(--secondary-text)";
               }}
             >
               <X size={16} />
@@ -1239,7 +1828,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   <ProviderRow
                     key={p.provider_id}
                     provider={p}
-                    onSelect={(method) => handleLogin(p, method)}
+                    onSelect={() => setSelectedProvider(p)}
                     onContextMenu={(e, provider) => {
                       e.preventDefault();
                       e.stopPropagation();

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck } from "lucide-react";
+import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck, BarChart3 } from "lucide-react";
 import { getFaviconUrl } from "@/utils/favicon";
 
 interface Provider {
@@ -18,8 +18,8 @@ interface Account {
   email?: string;
   provider_id: string;
   is_enabled: boolean;
-  usage?: string;
-  reset_period?: string;
+  usage?: number;
+  reset_usage_at?: string;
   period_requests?: number;
   period_tokens?: number;
 }
@@ -325,34 +325,54 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
 
   // getFavicon moved to @/utils/favicon
 
+  // Helper: kiểm tra provider có yêu cầu auth không
+  const providerNeedsAuth = (provider: Provider): boolean => {
+    const raw = (provider as any).auth_method ?? (provider as any).auth_methods;
+    if (!raw) return false;
+    if (Array.isArray(raw)) return raw.filter((m: any) => typeof m === 'string' && m.length > 0).length > 0;
+    if (typeof raw === 'string' && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw.trim());
+        return Array.isArray(parsed) ? parsed.filter((m: any) => m).length > 0 : false;
+      } catch {
+        return raw.trim().split(/[,;|\s]+/).filter((m: string) => m.length > 0).length > 0;
+      }
+    }
+    return false;
+  };
+
   const filteredProviders = useMemo(() => {
     const mapped = providers
       .filter((p) => p.is_enabled !== false)
       .map((provider) => {
-        const filteredModels = (provider.models || []).filter(
-          (m) =>
-            (m.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (m.id || "").toLowerCase().includes(searchQuery.toLowerCase()),
-        );
+        const providerNameMatch = (provider.provider_name || "")
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+
+        // Nếu tên provider match → hiển thị toàn bộ models của provider đó
+        // Nếu không → filter models theo query
+        const filteredModels = providerNameMatch
+          ? (provider.models || [])
+          : (provider.models || []).filter(
+              (m) =>
+                (m.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (m.id || "").toLowerCase().includes(searchQuery.toLowerCase()),
+            );
+
         return { ...provider, models: filteredModels };
       })
-      .filter(
-        (p) =>
-          p.models.length > 0 ||
-          (p.provider_name || "")
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()),
-      );
+      .filter((p) => p.models.length > 0);
 
     // Sort priority:
-    //   0 = has models + has accounts  (top)
-    //   1 = has models, no accounts
+    //   0 = has models + (has accounts OR no auth needed)  (top)
+    //   1 = has models, needs auth but no accounts
     //   2 = has accounts, no models
-    //   3 = neither                    (bottom)
+    //   3 = neither                                         (bottom)
     const priority = (p: (typeof mapped)[0]) => {
       const hasModels = p.models.length > 0;
       const hasAccounts = (accountCountMap[p.provider_id] ?? 0) > 0;
-      if (hasModels && hasAccounts) return 0;
+      const noAuthNeeded = !providerNeedsAuth(p as any);
+      if (hasModels && (hasAccounts || noAuthNeeded)) return 0;
       if (hasModels && !hasAccounts) return 1;
       if (!hasModels && hasAccounts) return 2;
       return 3;
@@ -437,14 +457,23 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                   setAccountSearchQuery("");
                 }}
                 style={{
-                  background: "rgba(128,128,128,0.1)",
+                  background: "transparent",
                   border: "none",
                   cursor: "pointer",
                   padding: "6px",
-                  borderRadius: "6px",
+                  borderRadius: "4px",
                   color: "var(--secondary-text)",
                   display: "flex",
                   alignItems: "center",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)";
+                  e.currentTarget.style.color = "var(--primary-text)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = "var(--secondary-text)";
                 }}
               >
                 <ChevronLeft size={16} />
@@ -483,14 +512,23 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
             <button
               onClick={onClose}
               style={{
-                background: "rgba(128,128,128,0.1)",
+                background: "transparent",
                 border: "none",
                 cursor: "pointer",
                 padding: "6px",
-                borderRadius: "6px",
+                borderRadius: "4px",
                 color: "var(--secondary-text)",
                 display: "flex",
                 alignItems: "center",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "rgba(244, 67, 54, 0.15)";
+                e.currentTarget.style.color = "#f44336";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "transparent";
+                e.currentTarget.style.color = "var(--secondary-text)";
               }}
             >
               <X size={16} />
@@ -562,6 +600,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                 const accountCount = accountCountMap[provider.provider_id] ?? 0;
                 const hasModels = provider.models.length > 0;
                 const hasAccounts = accountCount > 0;
+                const needsAuth = providerNeedsAuth(provider);
                 const isCollapsed = collapsedProviders.has(
                   provider.provider_id,
                 );
@@ -603,7 +642,45 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                         />
                       )}
                       {provider.provider_name || provider.provider_id}
-                      {!isLoadingAccountMap && (
+                      {/* No models badge */}
+                      {!hasModels && (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            fontSize: "10px",
+                            fontWeight: 500,
+                            padding: "1px 6px",
+                            borderRadius: "4px",
+                            backgroundColor: "rgba(239, 68, 68, 0.1)",
+                            color: "#ef4444",
+                          }}
+                        >
+                          <span style={{ fontSize: "9px" }}>✕</span>
+                          No models
+                        </span>
+                      )}
+                      {/* No accounts badge — only for providers that require auth */}
+                      {needsAuth && !isLoadingAccountMap && !hasAccounts && (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "3px",
+                            fontSize: "10px",
+                            fontWeight: 500,
+                            padding: "1px 6px",
+                            borderRadius: "4px",
+                            backgroundColor: "rgba(234, 179, 8, 0.1)",
+                            color: "#eab308",
+                          }}
+                        >
+                          <span style={{ fontSize: "10px" }}>⚠</span>
+                          No accounts
+                        </span>
+                      )}
+                      {needsAuth && !isLoadingAccountMap && (
                         <span
                           style={{
                             marginLeft: "auto",
@@ -627,51 +704,11 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
 
                     {!isCollapsed && (
                       <>
-                        {/* No accounts warning */}
-                        {!isLoadingAccountMap && !hasAccounts && (
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "7px 10px",
-                              marginBottom: "6px",
-                              borderRadius: "4px",
-                              backgroundColor: "rgba(234, 179, 8, 0.08)",
-                              border: "1px solid rgba(234, 179, 8, 0.3)",
-                              fontSize: "11.5px",
-                              color: "#eab308",
-                            }}
-                          >
-                            <span>⚠</span>
-                            <span>No accounts added for this provider</span>
-                          </div>
-                        )}
-
-                        {/* No models warning */}
-                        {!hasModels && (
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "7px 10px",
-                              borderRadius: "4px",
-                              backgroundColor: "rgba(239, 68, 68, 0.08)",
-                              border: "1px solid rgba(239, 68, 68, 0.3)",
-                              fontSize: "11.5px",
-                              color: "#ef4444",
-                            }}
-                          >
-                            <span>✕</span>
-                            <span>No models available for this provider</span>
-                          </div>
-                        )}
-
                         {/* Model rows */}
                         {hasModels &&
                           provider.models.map((model) => {
-                            const isDisabled = !hasAccounts;
+                            // Provider không cần auth → luôn enabled; có auth → cần có account
+                            const isDisabled = needsAuth && !hasAccounts;
                             const successColor =
                               model.success_rate >= 80
                                 ? "#4ade80"
@@ -683,11 +720,21 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                                 key={model.id}
                                 onClick={() => {
                                   if (isDisabled) return;
-                                  setSelectedModel({
-                                    ...model,
-                                    provider_id: provider.provider_id,
-                                  });
-                                  setStep("account");
+                                  if (needsAuth) {
+                                    // Provider cần auth → chuyển sang bước chọn account
+                                    setSelectedModel({
+                                      ...model,
+                                      provider_id: provider.provider_id,
+                                    });
+                                    setStep("account");
+                                  } else {
+                                    // Provider không cần auth → select ngay, không cần account
+                                    onSelect({
+                                      providerId: provider.provider_id,
+                                      modelId: model.id,
+                                    });
+                                    onClose();
+                                  }
                                 }}
                                 onMouseEnter={(e) => {
                                   if (!isDisabled)
@@ -1028,6 +1075,8 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                             alignItems: "center",
                             gap: "10px",
                             marginTop: "2px",
+                            overflow: "hidden",
+                            minWidth: 0,
                           }}
                         >
                           <span
@@ -1037,6 +1086,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                               gap: "4px",
                               fontSize: "10px",
                               color: "var(--secondary-text)",
+                              flexShrink: 0,
                             }}
                           >
                             <Activity size={11} style={{ color: "#22c55e" }} />
@@ -1049,44 +1099,42 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                               gap: "4px",
                               fontSize: "10px",
                               color: "var(--secondary-text)",
+                              flexShrink: 0,
                             }}
                           >
                             <Coins size={11} style={{ color: "#f97316" }} />
                             {formatTokens(acc.period_tokens ?? 0)} tokens
                           </span>
+                          {acc.usage != null && (() => {
+                            const usageNum = Number(acc.usage);
+                            return (
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                  fontSize: "10px",
+                                  color: usageNum >= 90
+                                    ? "var(--vscode-editorError-foreground, #ef4444)"
+                                    : usageNum >= 70
+                                      ? "var(--vscode-editorWarning-foreground, #f97316)"
+                                      : "var(--secondary-text)",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <BarChart3 size={10} style={{
+                                  color: usageNum >= 90
+                                    ? "var(--vscode-editorError-foreground, #ef4444)"
+                                    : usageNum >= 70
+                                      ? "var(--vscode-editorWarning-foreground, #f97316)"
+                                      : "var(--vscode-charts-purple, #a855f7)",
+                                }} />
+                                {usageNum.toFixed(1)}%
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
-                      {acc.usage && (
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            backgroundColor:
-                              acc.usage.includes("5/5") ||
-                              acc.usage.toLowerCase().includes("limit") ||
-                              acc.usage.toLowerCase().includes("unknown")
-                                ? "rgba(239, 68, 68, 0.12)"
-                                : "rgba(34, 197, 94, 0.12)",
-                            color:
-                              acc.usage.includes("5/5") ||
-                              acc.usage.toLowerCase().includes("limit") ||
-                              acc.usage.toLowerCase().includes("unknown")
-                                ? "#f87171"
-                                : "#4ade80",
-                            fontWeight: 500,
-                            border:
-                              acc.usage.includes("5/5") ||
-                              acc.usage.toLowerCase().includes("limit") ||
-                              acc.usage.toLowerCase().includes("unknown")
-                                ? "1px solid rgba(239, 68, 68, 0.2)"
-                                : "1px solid rgba(34, 197, 94, 0.2)",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {acc.usage}
-                        </span>
-                      )}
                     </div>
                   ));
                 })()

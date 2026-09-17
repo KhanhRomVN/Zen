@@ -3,7 +3,7 @@ import {
   combinePrompts,
   combinePromptsForMode,
 } from "../prompts";
-import type { SystemPromptMode } from "../prompts";
+import type { SystemPromptMode, PromptLengthMode } from "../prompts";
 import { extensionService } from "@/services/ExtensionService";
 
 export interface PromptBuilderOptions {
@@ -16,6 +16,7 @@ export interface PromptBuilderOptions {
   files?: any[];
   userRequestCount: number;
   systemPromptMode?: SystemPromptMode;
+  promptLengthMode?: PromptLengthMode;
 }
 
 export class PromptBuilder {
@@ -30,6 +31,7 @@ export class PromptBuilder {
       files,
       userRequestCount,
       systemPromptMode,
+      promptLengthMode,
     } = options;
 
     let systemPrompt = "";
@@ -42,6 +44,7 @@ export class PromptBuilder {
         permissionMode,
         treeView,
         systemPromptMode,
+        promptLengthMode,
       );
     }
 
@@ -83,6 +86,7 @@ export class PromptBuilder {
     permissionMode: string,
     treeView: string,
     systemPromptMode?: SystemPromptMode,
+    promptLengthMode?: PromptLengthMode,
   ): Promise<string> {
     let systemInfo = {
       os: "Unknown OS",
@@ -117,6 +121,7 @@ export class PromptBuilder {
       {
         language: effectiveLang,
         systemInfo: systemInfo as any,
+        promptLengthMode: promptLengthMode || "long",
       },
       mode,
     );

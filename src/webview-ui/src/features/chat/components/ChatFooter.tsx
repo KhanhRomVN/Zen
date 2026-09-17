@@ -617,7 +617,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
               }),
             ),
           }}
-          conversationFileStats={conversationFileStats}
+          conversationFileStats={loadedConversationFileStats ?? undefined}
           onOpenGitStatus={onOpenGitStatus}
           onReviewClick={() => {}}
           responseRange={responseRange}
@@ -626,6 +626,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           onModelSwitch={onModelSwitch}
           autoScrollPaused={autoScrollPaused}
           scrollToBottom={scrollToBottom}
+          enableViewOnlyMode={true}
         />
         {(() => {
           return null;

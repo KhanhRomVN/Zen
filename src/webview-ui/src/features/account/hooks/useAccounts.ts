@@ -32,7 +32,9 @@ export const useAccounts = (isOpen: boolean) => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("");
-  const [statsPeriod, setStatsPeriod] = useState<"day" | "week" | "month">("day");
+  const [statsPeriod, setStatsPeriod] = useState<"day" | "week" | "month">(
+    "day",
+  );
   const [emailFilter, setEmailFilter] = useState<string[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     total: 0,
@@ -47,6 +49,8 @@ export const useAccounts = (isOpen: boolean) => {
   const [deleteItem, setDeleteItem] = useState<{
     id: string;
     email?: string;
+    provider_name?: string;
+    website_url?: string;
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -135,6 +139,8 @@ export const useAccounts = (isOpen: boolean) => {
                   period_tokens: dailyTokens,
                   user_data_dir: acc.user_data_dir,
                   is_active_cli: acc.is_active_cli,
+                  usage: acc.usage ?? null,
+                  reset_usage_at: acc.reset_usage_at ?? null,
                 };
               } catch (err) {
                 console.error(
@@ -153,6 +159,8 @@ export const useAccounts = (isOpen: boolean) => {
                   period_tokens: 0,
                   user_data_dir: acc.user_data_dir,
                   is_active_cli: acc.is_active_cli,
+                  usage: acc.usage ?? null,
+                  reset_usage_at: acc.reset_usage_at ?? null,
                 };
               }
             }),
@@ -223,8 +231,8 @@ export const useAccounts = (isOpen: boolean) => {
     }
   };
 
-  const handleDelete = (id: string, email?: string) => {
-    setDeleteItem({ id, email });
+  const handleDelete = (id: string, email?: string, provider_name?: string, website_url?: string) => {
+    setDeleteItem({ id, email, provider_name, website_url });
     setConfirmOpen(true);
   };
 
@@ -255,6 +263,23 @@ export const useAccounts = (isOpen: boolean) => {
     }
   };
 
+  const refreshAccountToken = async (id: string, providerId: string) => {
+    try {
+      const result = await callBackend(
+        `/v1/accounts/${id}/refresh-token`,
+        "POST",
+        {
+          provider_id: providerId,
+        },
+      );
+      if (result.success) {
+        fetchAccounts(pagination.page, pagination.limit, true);
+      }
+    } catch (err) {
+      console.error("Failed to refresh token:", err);
+    }
+  };
+
   return {
     accounts,
     allAccounts,
@@ -281,5 +306,6 @@ export const useAccounts = (isOpen: boolean) => {
     statsPeriod,
     setStatsPeriod,
     switchKiroAccount,
+    refreshAccountToken,
   };
 };

@@ -46,8 +46,7 @@ export interface FlatAccount extends Account {
   max_req_conversation?: number;
   max_token_conversation?: number;
   isActive?: boolean;
-  last_refreshed_at?: number;
-  usage?: string;
-  reset_period?: string;
+  usage?: number;
+  reset_usage_at?: string;
   is_active_cli?: boolean;
 }

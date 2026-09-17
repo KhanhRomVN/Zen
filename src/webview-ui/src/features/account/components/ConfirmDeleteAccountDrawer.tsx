@@ -3,22 +3,13 @@
  * ConfirmDeleteAccountDrawer
  * ------------------------------------------------------------------
  * Bottom-sheet drawer xác nhận xóa tài khoản.
- * Hiển thị tiêu đề, số lượng tài khoản bị ảnh hưởng, và nút xác nhận/hủy.
-
- * Main features:
- * - Hiển thị bottom sheet với animation slide-up
- * - Nút Delete có loading state khi đang xóa
- * - Chặn tương tác khi đang loading
- * - Searchbar để lọc tài khoản khi xóa nhiều
  * ------------------------------------------------------------------
  */
 
 // ─── Imports ────────────────────────────────────────────────────────────
-// ── React ──
-import React, { useState } from "react";
-
-// ── UI ──
-import { Loader2, Search } from "lucide-react";
+import React from "react";
+import { Loader2, Trash2 } from "lucide-react";
+import { getFaviconUrl } from "@/utils/favicon";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface ConfirmDeleteAccountDrawerProps {
@@ -26,7 +17,9 @@ interface ConfirmDeleteAccountDrawerProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   loading: boolean;
-  title: string;
+  email?: string;
+  providerName?: string;
+  websiteUrl?: string;
   count: number;
 }
 
@@ -36,14 +29,16 @@ const ConfirmDeleteAccountDrawer: React.FC<ConfirmDeleteAccountDrawerProps> = ({
   onOpenChange,
   onConfirm,
   loading,
-  title,
+  email,
+  providerName,
+  websiteUrl,
   count,
 }) => {
-  const [searchQuery, setSearchQuery] = useState("");
-
   if (!open) return null;
 
-  // ── Render ──
+  const faviconUrl = websiteUrl ? getFaviconUrl(websiteUrl) : null;
+  const isBulk = count > 1;
+
   return (
     <>
       {/* Backdrop */}
@@ -72,7 +67,7 @@ const ConfirmDeleteAccountDrawer: React.FC<ConfirmDeleteAccountDrawerProps> = ({
           boxShadow: "0 -8px 32px rgba(0,0,0,0.25)",
           zIndex: 201,
           animation: "cdSlideUp 0.22s ease",
-          padding: "0 0 max(20px, env(safe-area-inset-bottom)) 0",
+          padding: "0",
         }}
       >
         {/* Drag handle */}
@@ -81,119 +76,92 @@ const ConfirmDeleteAccountDrawer: React.FC<ConfirmDeleteAccountDrawerProps> = ({
         </div>
 
         {/* Content */}
-        <div style={{ padding: "4px 16px 16px" }}>
-          {/* Icon + text row */}
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
-            <div
-              style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                backgroundColor: "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.1))",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--vscode-errorForeground)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M3 6h18" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "var(--primary-text)",
-                  marginBottom: "2px",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {title}
-              </div>
-              <div style={{ fontSize: "11px", color: "var(--secondary-text)", opacity: 0.75 }}>
-                {count > 1
-                  ? `${count} accounts will be permanently removed.`
-                  : "This account will be permanently removed."}
-              </div>
-            </div>
+        <div style={{ padding: "12px 16px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+
+          {/* Badge icon */}
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "10px",
+              backgroundColor: "rgba(239,68,68,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Trash2 size={20} color="var(--vscode-errorForeground, #ef4444)" />
           </div>
 
-          {/* Searchbar */}
-          <div style={{ position: "relative", marginBottom: "14px" }}>
-            <div
-              style={{
-                position: "absolute",
-                left: "10px",
-                top: 0,
-                height: "34px",
-                display: "flex",
-                alignItems: "center",
-                pointerEvents: "none",
-              }}
-            >
-              <Search
-                size={14}
-                style={{
-                  color: "var(--vscode-input-placeholderForeground, var(--secondary-text))",
-                }}
-              />
-            </div>
-            <input
-              autoFocus
-              type="text"
-              placeholder="Search accounts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px 8px 32px",
-                fontSize: "13px",
-                backgroundColor: "var(--input-bg)",
-                border: "none",
-                borderRadius: "8px",
-                color: "var(--primary-text)",
-                outline: "none",
-                boxSizing: "border-box",
-                height: "34px",
-              }}
-            />
+          {/* Title */}
+          <div
+            style={{
+              fontSize: "15px",
+              fontWeight: 700,
+              color: "var(--primary-text)",
+              textAlign: "center",
+            }}
+          >
+            Delete Account?
+          </div>
+
+          {/* Account info */}
+          <div
+            style={{
+              fontSize: "12px",
+              color: "var(--secondary-text)",
+              opacity: 0.8,
+              textAlign: "center",
+              lineHeight: 1.5,
+            }}
+          >
+            {isBulk ? (
+              <span>Do you want to permanently delete {count} selected accounts? This action cannot be undone.</span>
+            ) : (
+              <span>
+                Do you want to permanently delete
+                {(providerName || email) && (
+                  <>
+                    {" "}the account
+                    {faviconUrl && (
+                      <img
+                        src={faviconUrl}
+                        alt=""
+                        width={12}
+                        height={12}
+                        style={{ borderRadius: "2px", flexShrink: 0, verticalAlign: "middle", margin: "0 3px" }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
+                    )}
+                    {providerName && <strong style={{ color: "var(--primary-text)", fontWeight: 600 }}>{providerName}</strong>}
+                    {providerName && email && " · "}
+                    {email && <strong style={{ color: "var(--primary-text)", fontWeight: 600 }}>{email}</strong>}
+                  </>
+                )}
+                ? This action cannot be undone.
+              </span>
+            )}
           </div>
 
           {/* Buttons */}
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div style={{ display: "flex", gap: "8px", width: "100%", marginTop: "4px" }}>
             <button
               onClick={() => onOpenChange(false)}
               disabled={loading}
               style={{
                 flex: 1,
-                padding: "8px 12px",
-                borderRadius: "8px",
-                backgroundColor: "rgba(128,128,128,0.1)",
+                padding: "9px",
+                borderRadius: "9px",
+                backgroundColor: "rgba(128,128,128,0.08)",
                 border: "none",
                 color: "var(--secondary-text)",
                 fontSize: "12px",
                 fontWeight: 500,
                 cursor: loading ? "not-allowed" : "pointer",
                 opacity: loading ? 0.5 : 1,
-                transition: "opacity 0.15s ease",
+                whiteSpace: "nowrap",
               }}
-              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.18)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"; }}
             >
               Cancel
             </button>
@@ -202,11 +170,11 @@ const ConfirmDeleteAccountDrawer: React.FC<ConfirmDeleteAccountDrawerProps> = ({
               disabled={loading}
               style={{
                 flex: 1,
-                padding: "8px 12px",
-                borderRadius: "8px",
-                backgroundColor: "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.15))",
+                padding: "9px",
+                borderRadius: "9px",
+                backgroundColor: "rgba(239,68,68,0.12)",
                 border: "none",
-                color: "var(--vscode-errorForeground)",
+                color: "var(--vscode-errorForeground, #ef4444)",
                 fontSize: "12px",
                 fontWeight: 600,
                 cursor: loading ? "not-allowed" : "pointer",
@@ -215,14 +183,10 @@ const ConfirmDeleteAccountDrawer: React.FC<ConfirmDeleteAccountDrawerProps> = ({
                 justifyContent: "center",
                 gap: "6px",
                 opacity: loading ? 0.7 : 1,
-                transition: "opacity 0.15s ease",
+                whiteSpace: "nowrap",
               }}
-              onMouseEnter={(e) => { if (!loading) e.currentTarget.style.opacity = "0.8"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.opacity = loading ? "0.7" : "1"; }}
             >
-              {loading && (
-                <Loader2 size={12} style={{ animation: "cdSpin 1s linear infinite" }} />
-              )}
+              {loading && <Loader2 size={12} style={{ animation: "cdSpin 1s linear infinite" }} />}
               {loading ? "Deleting…" : "Delete"}
             </button>
           </div>

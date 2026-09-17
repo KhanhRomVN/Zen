@@ -8,12 +8,19 @@ import {
   Scale,
   ShieldCheck,
   Plane,
+  AlignLeft,
+  Minus,
+  ChevronsUpDown,
+  Ban,
 } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
+import { combinePromptsForMode } from "../../features/chat/prompts";
+import type { SystemInfo } from "../../features/chat/prompts";
 import ModelAccountDrawer from "./ModelAccountDrawer";
 import StyleCodeDropdown from "./StyleCodeDropdown";
+import PromptLengthDropdown from "./PromptLengthDropdown";
 import ActionDropdown from "./ActionDropdown";
 import { getFaviconUrl } from "../../utils/favicon";
 import { countTokens, formatTokenCount } from "../../utils/tokenizer";
@@ -798,6 +805,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onRevertConversation,
     autoScrollPaused = false,
     scrollToBottom,
+    enableViewOnlyMode = false,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -914,10 +922,14 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       aiLanguage: preferredLanguage,
       systemPromptMode,
       setSystemPromptMode,
+      promptLengthMode,
+      setPromptLengthMode,
     } = useSettings();
     const [providers, setProviders] = React.useState<any[]>([]);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
     const [isSystemPromptHovered, setIsSystemPromptHovered] =
+      React.useState(false);
+    const [isPromptLengthHovered, setIsPromptLengthHovered] =
       React.useState(false);
 
     const [pendingModelSwitch, setPendingModelSwitch] = React.useState<{
@@ -949,6 +961,22 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       providers,
     );
 
+    // ─── View-only mode detection ────────────────────────────────────
+    // Provider không cần auth (auth_method rỗng) CHỈ disable input
+    // khi conversation được load từ HistoryCard (có loadedConversationFileStats)
+    // Conversation mới tạo → không disable
+    const isViewOnlyProvider = React.useMemo(() => {
+      if (!enableViewOnlyMode) return false;
+      if (!currentProviderConfig) return false;
+      
+      // Check if loaded from history (has conversation file stats from backend)
+      const isLoadedFromHistory = conversationFileStats != null;
+      if (!isLoadedFromHistory) return false; // Conversation mới → không disable
+      
+      const authMethod = currentProviderConfig.auth_method;
+      return Array.isArray(authMethod) && authMethod.length === 0;
+    }, [enableViewOnlyMode, currentProviderConfig, conversationFileStats]);
+
     const {
       showThinkingButton,
       showSearchButton,
@@ -973,7 +1001,64 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       return currentAccount || null;
     }, [currentAccount]);
 
-    // Calculate token count for message input (including text snippets)
+    // Dynamic placeholder text
+    const placeholderText = React.useMemo(() => {
+      if (isHistoryMode) {
+        return "History mode - enter a search query";
+      }
+      if (!isConnected) {
+        return "Connecting to backend...";
+      }
+      if (isLoadingCache) {
+        return "Loading cache...";
+      }
+      if (isProcessing) {
+        return "Processing...";
+      }
+      if (isViewOnlyProvider) {
+        return "This provider does not require authentication";
+      }
+      if (!currentModel) {
+        return "Select a model to start";
+      }
+      if (!currentAccount) {
+        return "Select an account to start";
+      }
+      
+      // Default: dynamic based on capabilities
+      const hints: string[] = [];
+      hints.push("@agent");
+      if (supportsUpload) {
+        hints.push("attach files");
+      }
+      if (showThinkingButton) {
+        hints.push("🧠 thinking");
+      }
+      if (showSearchButton) {
+        hints.push("🔍 search");
+      }
+      if (showMemoryButton) {
+        hints.push("💾 memory");
+      }
+      
+      return hints.length > 1 
+        ? `Message ${hints[0]} (Alt+@) · ${hints.slice(1).join(" · ")}`
+        : `Message ${hints[0]} (Alt+@)`;
+    }, [
+      isHistoryMode,
+      isConnected,
+      isLoadingCache,
+      isProcessing,
+      isViewOnlyProvider,
+      currentModel,
+      currentAccount,
+      supportsUpload,
+      showThinkingButton,
+      showSearchButton,
+      showMemoryButton,
+    ]);
+
+    // Calculate token count for message input (including system prompt + text snippets)
     const messageTokenCount = React.useMemo(() => {
       // Count tokens in textarea message
       let totalTokens = countTokens(message);
@@ -987,9 +1072,41 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
           }
         });
       }
+
+      // Add system prompt tokens (only for first message in conversation)
+      if (!isConversationStarted) {
+        try {
+          // Build system prompt with current settings
+          const systemPrompt = combinePromptsForMode(
+            {
+              language: preferredLanguage,
+              systemInfo: {
+                os: "Unknown OS",
+                ide: "Zen IDE",
+                shell: "unknown",
+                homeDir: "~",
+                cwd: folderPath || ".",
+                language: preferredLanguage,
+              } as SystemInfo,
+              promptLengthMode,
+            },
+            systemPromptMode,
+          );
+          const systemPromptTokens = countTokens(systemPrompt);
+          totalTokens += systemPromptTokens;
+        } catch (e) {
+          console.warn("[MessageInput] Failed to calculate system prompt tokens:", e);
+        }
+      }
+
       return totalTokens;
     }, [
       message,
+      isConversationStarted,
+      preferredLanguage,
+      promptLengthMode,
+      systemPromptMode,
+      folderPath,
       JSON.stringify(
         attachedItems?.map((item: any) => ({
           id: item.id,
@@ -1232,7 +1349,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               ? "1px dashed var(--vscode-errorForeground, #f44336)"
               : isTokenLimitExceeded
                 ? "2px dashed var(--vscode-errorForeground, #f44336)"
-                : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+                : isViewOnlyProvider
+                  ? "1px dashed #f44336"
+                  : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
             transition: "border 0.3s ease",
             marginTop:
               !isConversationStarted ||
@@ -1321,6 +1440,22 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       {displayAccount.email}
                     </span>
                   )}
+                  {displayAccount?.usage != null && (() => {
+                    const usageNum = Number(displayAccount.usage);
+                    return (
+                      <span style={{
+                        opacity: 0.85,
+                        marginLeft: "2px",
+                        color: usageNum >= 90
+                          ? "var(--vscode-editorError-foreground, #ef4444)"
+                          : usageNum >= 70
+                            ? "var(--vscode-editorWarning-foreground, #f97316)"
+                            : "var(--secondary-text)",
+                      }}>
+                        {usageNum.toFixed(1)}%
+                      </span>
+                    );
+                  })()}
                 </>
               ) : (
                 <>
@@ -1725,18 +1860,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 e.target.style.border = "none";
                 e.target.style.boxShadow = "none";
               }}
-              placeholder={
-                isHistoryMode
-                  ? "History mode - enter a search query"
-                  : !isConnected
-                    ? "Connecting to backend..."
-                    : isLoadingCache
-                      ? "Loading cache..."
-                      : isProcessing
-                        ? "Processing..."
-                        : "Message @agent (Alt+@)"
-              }
-              disabled={false}
+              placeholder={placeholderText}
+              disabled={isViewOnlyProvider}
               rows={1}
               style={{
                 width: "100%",
@@ -1939,6 +2064,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         icon: <Plane size={11} />,
                         color: "#f97316",
                       },
+                      short: {
+                        label: "Short",
+                        icon: <AlignLeft size={11} />,
+                        color: "#06b6d4",
+                      },
                     };
                     const meta =
                       modeMeta[systemPromptMode] || modeMeta.balanced;
@@ -1970,6 +2100,83 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                           userSelect: "none",
                         }}
                         title="Style Code"
+                      >
+                        {meta.icon}
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            letterSpacing: "0.3px",
+                          }}
+                        >
+                          {meta.label}
+                        </span>
+                      </button>
+                    );
+                  })()}
+                />
+              )}
+
+              {/* Prompt Length Selector - Home only */}
+              {!isConversationStarted && (
+                <PromptLengthDropdown
+                  currentMode={promptLengthMode}
+                  onSelect={setPromptLengthMode}
+                  triggerButton={(() => {
+                    const lengthMeta: Record<
+                      string,
+                      { label: string; icon: React.ReactNode; color: string }
+                    > = {
+                      short: {
+                        label: "Short",
+                        icon: <Minus size={11} />,
+                        color: "#22c55e",
+                      },
+                      medium: {
+                        label: "Medium",
+                        icon: <ChevronsUpDown size={11} />,
+                        color: "#3b82f6",
+                      },
+                      long: {
+                        label: "Long",
+                        icon: <AlignLeft size={11} />,
+                        color: "#a78bfa",
+                      },
+                      none: {
+                        label: "No Prompt",
+                        icon: <Ban size={11} />,
+                        color: "#ef4444",
+                      },
+                    };
+                    const meta = lengthMeta[promptLengthMode] || lengthMeta.long;
+                    return (
+                      <button
+                        onMouseEnter={() => setIsPromptLengthHovered(true)}
+                        onMouseLeave={() => setIsPromptLengthHovered(false)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          padding: "0 8px",
+                          height: "22px",
+                          boxSizing: "border-box",
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          letterSpacing: "0.3px",
+                          transition: "all 0.2s ease-in-out",
+                          border: "none",
+                          background: isPromptLengthHovered
+                            ? `color-mix(in srgb, ${meta.color} 20%, transparent)`
+                            : `color-mix(in srgb, ${meta.color} 12%, transparent)`,
+                          color: meta.color,
+                          opacity: 1,
+                          lineHeight: 1,
+                          verticalAlign: "middle",
+                          userSelect: "none",
+                        }}
+                        title="Prompt Length"
                       >
                         {meta.icon}
                         <span

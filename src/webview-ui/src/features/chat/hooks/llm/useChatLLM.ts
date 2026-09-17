@@ -129,7 +129,7 @@ export const useChatLLM = ({
   renderCountRef.current++;
 
   // Get context values
-  const { aiLanguage, permissionMode, systemPromptMode } = useSettings();
+  const { aiLanguage, permissionMode, systemPromptMode, promptLengthMode } = useSettings();
   const { treeView } = useProject();
   const { uploadFiles } = useFileUpload(apiUrl);
 
@@ -301,6 +301,7 @@ export const useChatLLM = ({
         files,
         userRequestCount: userRequestCountRef.current,
         systemPromptMode,
+        promptLengthMode,
       });
 
       const userMessage: Message = {

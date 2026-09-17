@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
-import type { SystemPromptMode } from "@/features/chat/prompts";
+import type { SystemPromptMode, PromptLengthMode } from "@/features/chat/prompts";
 import { PermissionMode } from "@/features/chat/types/tag-types";
 
 interface SettingsContextType {
@@ -16,7 +16,9 @@ interface SettingsContextType {
   setLiveWritePreview: (value: boolean) => void;
   systemPromptMode: SystemPromptMode;
   setSystemPromptMode: (mode: SystemPromptMode) => void;
-  }
+  promptLengthMode: PromptLengthMode;
+  setPromptLengthMode: (mode: PromptLengthMode) => void;
+}
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
   undefined,
@@ -59,6 +61,21 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       } catch (e) {}
       return "balanced";
+    });
+  const [promptLengthModeState, setPromptLengthModeState] =
+    useState<PromptLengthMode>(() => {
+      try {
+        const saved = localStorage.getItem("zen_prompt_length_mode");
+        if (
+          saved === "short" ||
+          saved === "medium" ||
+          saved === "long" ||
+          saved === "none"
+        ) {
+          return saved;
+        }
+      } catch (e) {}
+      return "long";
     });
   useEffect(() => {
     const storage = extensionService.getStorage();
@@ -122,6 +139,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_system_prompt_mode", mode);
   };
 
+  const setPromptLengthMode = (mode: PromptLengthMode) => {
+    setPromptLengthModeState(mode);
+    try {
+      localStorage.setItem("zen_prompt_length_mode", mode);
+    } catch (e) {}
+    const storage = extensionService.getStorage();
+    storage.set("zen_prompt_length_mode", mode);
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -137,6 +163,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setLiveWritePreview,
         systemPromptMode: systemPromptModeState,
         setSystemPromptMode,
+        promptLengthMode: promptLengthModeState,
+        setPromptLengthMode,
       }}
     >
       {children}

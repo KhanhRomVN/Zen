@@ -124,6 +124,26 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               {currentAccount.email}
             </span>
           )}
+          {currentAccount?.usage != null && (() => {
+            const usageNum = Number(currentAccount.usage);
+            return (
+              <span
+                style={{
+                  fontWeight: "normal",
+                  fontSize: "11px",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  color: usageNum >= 90
+                    ? "var(--vscode-editorError-foreground, #ef4444)"
+                    : usageNum >= 70
+                      ? "var(--vscode-editorWarning-foreground, #f97316)"
+                      : "var(--secondary-text)",
+                }}
+              >
+                {usageNum.toFixed(1)}%
+              </span>
+            );
+          })()}
           {currentTaskName && (
             <>
               <span style={{ opacity: 0.3 }}>|</span>

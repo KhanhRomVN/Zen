@@ -92,6 +92,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     statsPeriod,
     setStatsPeriod,
     switchKiroAccount,
+    refreshAccountToken,
   } = useAccounts(isOpen);
 
   // ── Derived ──
@@ -709,8 +710,12 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               isSelected={selectedAccounts.has(account.id)}
               anySelected={selectedAccounts.size > 0}
               onToggleSelect={() => toggleSelection(account.id)}
-              onDelete={() => handleDelete(account.id, account.email)}
+              onDelete={() => {
+                const pc = providerConfigs.find((p) => p.provider_id === account.provider_id);
+                handleDelete(account.id, account.email, pc?.provider_name, pc?.website);
+              }}
               onSwitch={() => switchKiroAccount(account.id)}
+              onRefreshToken={() => refreshAccountToken(account.id, account.provider_id)}
               providerConfig={providerConfigs.find(
                 (p) => p.provider_id === account.provider_id,
               )}
@@ -794,11 +799,9 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
         onOpenChange={setConfirmOpen}
         onConfirm={executeDelete}
         loading={deleteLoading}
-        title={
-          deleteItem
-            ? `Delete account ${deleteItem.email ?? ""}?`
-            : "Delete selected accounts"
-        }
+        email={deleteItem?.email}
+        providerName={deleteItem?.provider_name}
+        websiteUrl={deleteItem?.website_url}
         count={deleteItem ? 1 : selectedAccounts.size}
       />
 

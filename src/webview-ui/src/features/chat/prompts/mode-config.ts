@@ -1,4 +1,11 @@
-export type SystemPromptMode = "fast" | "balanced" | "thorough" | "autopilot";
+export type SystemPromptMode =
+  | "fast"
+  | "balanced"
+  | "thorough"
+  | "autopilot"
+  | "short";
+
+export type PromptLengthMode = "short" | "medium" | "long" | "none";
 
 export interface ModeBehaviorConfig {
   askConfirmation: "minimal" | "moderate" | "extensive" | "almost-never";
@@ -47,6 +54,16 @@ export const MODE_BEHAVIORS: Record<SystemPromptMode, ModeBehaviorConfig> = {
     commentStyle: "standard",
     testBehavior: "propose-existing",
     explanationLevel: "brief",
+    readBeforeEdit: true,
+    maxBatchSize: 4,
+    maxFilesPerTurn: 4,
+    runVerifyAfterChange: false,
+  },
+  short: {
+    askConfirmation: "minimal",
+    commentStyle: "minimal",
+    testBehavior: "none",
+    explanationLevel: "one-line",
     readBeforeEdit: true,
     maxBatchSize: 4,
     maxFilesPerTurn: 4,
