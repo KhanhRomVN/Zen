@@ -119,6 +119,13 @@ export async function fetchSkillDetail(slug: string): Promise<SkillDetail> {
       apiType: "detail",
       slug,
     })) as SkillDetail;
+    // [DEBUG] Xem toàn bộ data thô trả về từ extension cho detail skill
+    console.log("[DEBUG] fetchSkillDetail raw:", detail);
+    console.log("[DEBUG] fetchSkillDetail keys:", Object.keys(detail ?? {}));
+    console.log(
+      "[DEBUG] fetchSkillDetail JSON:",
+      JSON.stringify(detail, null, 2),
+    );
     if (!detail) {
       throw new Error(`No detail returned for "${slug}"`);
     }

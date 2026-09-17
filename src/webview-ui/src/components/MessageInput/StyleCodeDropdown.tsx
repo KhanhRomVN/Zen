@@ -14,7 +14,7 @@ interface StyleCodeDropdownProps {
   triggerButton: React.ReactNode;
 }
 
-const MODE_META: {
+export const STYLE_CODE_MODE_META: {
   key: SystemPromptMode;
   label: string;
   icon: React.ReactNode;
@@ -51,6 +51,18 @@ const MODE_META: {
   },
 ];
 
+/**
+ * Icon-only trigger cho StyleCode: icon thay đổi theo mode hiện tại.
+ */
+export const StyleCodeTriggerIcon: React.FC<{
+  mode: SystemPromptMode;
+}> = ({ mode }) => {
+  const meta =
+    STYLE_CODE_MODE_META.find((m) => m.key === mode) ??
+    STYLE_CODE_MODE_META[1];
+  return <>{meta.icon}</>;
+};
+
 const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
   currentMode,
   onSelect,
@@ -60,13 +72,14 @@ const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
     <Dropdown side="top" align="start" sideOffset={4}>
       <DropdownTrigger asChild>{triggerButton}</DropdownTrigger>
       <DropdownContent>
-        {MODE_META.map((meta) => {
+        {STYLE_CODE_MODE_META.map((meta) => {
           const isSelected = currentMode === meta.key;
           return (
             <DropdownItem
               key={meta.key}
               onClick={() => onSelect(meta.key)}
               noPadding
+              closeOnSelect={false}
             >
               <div
                 style={{

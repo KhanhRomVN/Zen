@@ -89,6 +89,12 @@ export function SkillPanel() {
     setSelectedSkill(null);
     try {
       const detail = await fetchSkillDetail(skill.slug);
+      // [DEBUG] Xem data detail skill nhận được ở component
+      console.log("[DEBUG] handleSkillClick detail:", detail);
+      console.log(
+        "[DEBUG] handleSkillClick detail keys:",
+        Object.keys(detail ?? {}),
+      );
       setSelectedSkill(detail);
     } catch (err: any) {
       setDetailError(err.message || "Failed to load skill detail");

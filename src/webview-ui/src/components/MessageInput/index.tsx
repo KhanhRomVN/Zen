@@ -1,28 +1,22 @@
 import React from "react";
-import {
-  Plus,
-  Send,
-  X,
-  GitPullRequestArrow,
-  Zap,
-  Scale,
-  ShieldCheck,
-  Plane,
-  AlignLeft,
-  Minus,
-  ChevronsUpDown,
-  Ban,
-} from "lucide-react";
+import { Plus, Send, X } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import { combinePromptsForMode } from "../../features/chat/prompts";
 import type { SystemInfo } from "../../features/chat/prompts";
 import ModelAccountDrawer from "./ModelAccountDrawer";
-import StyleCodeDropdown from "./StyleCodeDropdown";
-import PromptLengthDropdown from "./PromptLengthDropdown";
+import StyleCodeDropdown, {
+  StyleCodeTriggerIcon,
+  STYLE_CODE_MODE_META,
+} from "./StyleCodeDropdown";
+import PromptLengthDropdown, {
+  PromptLengthTriggerIcon,
+  PROMPT_LENGTH_MODE_META,
+} from "./PromptLengthDropdown";
 import ActionDropdown from "./ActionDropdown";
 import { getFaviconUrl } from "../../utils/favicon";
+import { getClientId } from "../../utils/clientId";
 import { countTokens, formatTokenCount } from "../../utils/tokenizer";
 import { buildAcceptString } from "../../features/chat/utils/fileUtils";
 import type {
@@ -41,8 +35,8 @@ export type { UploadedFile };
 const BrainCogIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="11"
-    height="11"
+    width="14"
+    height="14"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -72,8 +66,8 @@ const BrainCogIcon = () => (
 const GlobeIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="11"
-    height="11"
+    width="14"
+    height="14"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -91,8 +85,8 @@ const GlobeIcon = () => (
 const MemoryIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="11"
-    height="11"
+    width="14"
+    height="14"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
@@ -373,11 +367,13 @@ const useModelSelection = (
 // TOGGLE BUTTONS
 // ============================================================================
 
-const ThinkingButton: React.FC<ToggleButtonProps> = ({
-  isOn,
-  onClick,
-  title,
-}) => {
+/**
+ * Icon-only toggle button dùng chung cho Thinking / Search / Memory.
+ * `accentColor` xác định màu khi ON.
+ */
+const IconToggleButton: React.FC<
+  ToggleButtonProps & { accentColor: string; children: React.ReactNode }
+> = ({ isOn, onClick, title, accentColor, children }) => {
   const [isHovered, setIsHovered] = React.useState(false);
 
   return (
@@ -388,148 +384,49 @@ const ThinkingButton: React.FC<ToggleButtonProps> = ({
       style={{
         display: "flex",
         alignItems: "center",
-        gap: "4px",
-        padding: "0 8px",
-        height: "22px",
+        justifyContent: "center",
+        height: "24px",
+        width: "24px",
         boxSizing: "border-box",
-        borderRadius: "4px",
+        borderRadius: "5px",
         cursor: "pointer",
-        fontSize: "11px",
-        fontWeight: 600,
-        letterSpacing: "0.3px",
-        transition: "all 0.2s ease-in-out",
-        border: "none",
+        transition: "all 0.15s ease-in-out",
+        border: "1px solid transparent",
         background: isOn
           ? isHovered
-            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 20%, transparent)"
-            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground2, #a855f7) 12%, transparent)"
+            ? `color-mix(in srgb, ${accentColor} 22%, transparent)`
+            : `color-mix(in srgb, ${accentColor} 14%, transparent)`
           : isHovered
-            ? "rgba(128, 128, 128, 0.2)"
-            : "rgba(128, 128, 128, 0.12)",
-        color: isOn
-          ? "var(--vscode-editorBracketHighlight-foreground2, #a855f7)"
-          : "var(--vscode-foreground)",
-        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
-        lineHeight: 1,
-        verticalAlign: "middle",
+            ? "rgba(128, 128, 128, 0.16)"
+            : "transparent",
+        color: isOn ? accentColor : "var(--vscode-foreground)",
+        opacity: isOn ? 1 : isHovered ? 1 : 0.75,
+        padding: 0,
       }}
       title={title}
     >
-      <BrainCogIcon />
-      <span
-        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
-      >
-        Thinking
-      </span>
+      {children}
     </button>
   );
 };
 
-const SearchButton: React.FC<ToggleButtonProps> = ({
-  isOn,
-  onClick,
-  title,
-}) => {
-  const [isHovered, setIsHovered] = React.useState(false);
+const ThinkingButton: React.FC<ToggleButtonProps> = (props) => (
+  <IconToggleButton {...props} accentColor="#a855f7">
+    <BrainCogIcon />
+  </IconToggleButton>
+);
 
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "4px",
-        padding: "0 8px",
-        height: "22px",
-        boxSizing: "border-box",
-        borderRadius: "4px",
-        cursor: "pointer",
-        fontSize: "11px",
-        fontWeight: 600,
-        letterSpacing: "0.3px",
-        transition: "all 0.2s ease-in-out",
-        border: "none",
-        background: isOn
-          ? isHovered
-            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 20%, transparent)"
-            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground1, #0ea5e9) 12%, transparent)"
-          : isHovered
-            ? "rgba(128, 128, 128, 0.2)"
-            : "rgba(128, 128, 128, 0.12)",
-        color: isOn
-          ? "var(--vscode-editorBracketHighlight-foreground1, #0ea5e9)"
-          : "var(--vscode-foreground)",
-        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
-        lineHeight: 1,
-        verticalAlign: "middle",
-      }}
-      title={title}
-    >
-      <GlobeIcon />
-      <span
-        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
-      >
-        Search
-      </span>
-    </button>
-  );
-};
+const SearchButton: React.FC<ToggleButtonProps> = (props) => (
+  <IconToggleButton {...props} accentColor="#0ea5e9">
+    <GlobeIcon />
+  </IconToggleButton>
+);
 
-const MemoryButton: React.FC<ToggleButtonProps> = ({
-  isOn,
-  onClick,
-  title,
-}) => {
-  const [isHovered, setIsHovered] = React.useState(false);
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "4px",
-        padding: "0 8px",
-        height: "22px",
-        boxSizing: "border-box",
-        borderRadius: "4px",
-        cursor: "pointer",
-        fontSize: "11px",
-        fontWeight: 600,
-        letterSpacing: "0.3px",
-        transition: "all 0.2s ease-in-out",
-        border: isOn
-          ? "1px solid var(--vscode-editorBracketHighlight-foreground3, rgba(139, 92, 246, 0.4))"
-          : "1px solid rgba(128, 128, 128, 0.2)",
-        background: isOn
-          ? isHovered
-            ? "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #8b5cf6) 20%, transparent)"
-            : "color-mix(in srgb, var(--vscode-editorBracketHighlight-foreground3, #8b5cf6) 12%, transparent)"
-          : isHovered
-            ? "rgba(128, 128, 128, 0.2)"
-            : "rgba(128, 128, 128, 0.12)",
-        color: isOn
-          ? "var(--vscode-editorBracketHighlight-foreground3, #8b5cf6)"
-          : "var(--vscode-foreground)",
-        opacity: isOn ? 1 : isHovered ? 0.9 : 0.7,
-        lineHeight: 1,
-        verticalAlign: "middle",
-      }}
-      title={title}
-    >
-      <MemoryIcon />
-      <span
-        style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.3px" }}
-      >
-        Memory
-      </span>
-    </button>
-  );
-};
+const MemoryButton: React.FC<ToggleButtonProps> = (props) => (
+  <IconToggleButton {...props} accentColor="#8b5cf6">
+    <MemoryIcon />
+  </IconToggleButton>
+);
 
 // ============================================================================
 // GLOBAL PERMISSION BUTTON
@@ -938,7 +835,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     } | null>(null);
     const [isModelSwitchMode, setIsModelSwitchMode] = React.useState(false);
     const [isPlusHovered, setIsPlusHovered] = React.useState(false);
-    const [isGitHovered, setIsGitHovered] = React.useState(false);
 
     // Use custom hooks
     const [isThinking, toggleThinking, setIsThinking] = useToggleState(
@@ -955,6 +851,35 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       currentModel,
       currentAccount,
     );
+
+    // ─── Presence heartbeat ──────────────────────────────────────────
+    // Báo cho backend biết cửa sổ này đang active account nào, để các
+    // cửa sổ khác thấy badge "In use". Gửi ngay khi account đổi và lặp
+    // lại mỗi 20s; release account cũ khi đổi/đóng.
+    React.useEffect(() => {
+      const accountId = currentAccount?.id;
+      if (!accountId) return;
+      const clientId = getClientId();
+      let cancelled = false;
+      const beat = () => {
+        if (cancelled) return;
+        fetch(`${apiUrl}/v1/accounts/${accountId}/presence`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId }),
+        }).catch(() => {});
+      };
+      beat();
+      const intervalId = setInterval(beat, 20000);
+      return () => {
+        cancelled = true;
+        clearInterval(intervalId);
+        fetch(
+          `${apiUrl}/v1/accounts/${accountId}/presence?clientId=${encodeURIComponent(clientId)}`,
+          { method: "DELETE" },
+        ).catch(() => {});
+      };
+    }, [currentAccount?.id, apiUrl]);
 
     const { currentProviderConfig, currentModelConfig } = useProvidersConfig(
       currentModel,
@@ -1922,6 +1847,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 onSelectImageGenerator={() => {}}
                 onSelectVideoGenerator={() => {}}
                 onSelectDeepResearch={() => {}}
+                onSelectPullRequest={onGitPullRequest}
+                onToggleMemory={showMemoryButton ? toggleMemory : undefined}
+                isMemoryOn={isMemory}
                 showImageGenerator={supportsImageGenerator}
                 showVideoGenerator={supportsVideoGenerator}
                 showDeepResearch={supportsDeepResearch}
@@ -1957,57 +1885,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 }
               />
 
-              {/* Git Status Button */}
-              {onGitPullRequest && (
-                <div
-                  onClick={() => {
-                    if (!isGitLoading && !isProcessing && !isGitStatusVisible) {
-                      onGitPullRequest();
-                    }
-                  }}
-                  onMouseEnter={() => setIsGitHovered(true)}
-                  onMouseLeave={() => setIsGitHovered(false)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: "22px",
-                    width: "22px",
-                    boxSizing: "border-box",
-                    borderRadius: "4px",
-                    cursor:
-                      isGitLoading || isProcessing || isGitStatusVisible
-                        ? "default"
-                        : "pointer",
-                    transition: "all 0.2s ease-in-out",
-                    border: "1px solid rgba(128, 128, 128, 0.2)",
-                    background:
-                      isGitHovered &&
-                      !isGitLoading &&
-                      !isProcessing &&
-                      !isGitStatusVisible
-                        ? "rgba(128, 128, 128, 0.2)"
-                        : "rgba(128, 128, 128, 0.12)",
-                    color:
-                      isGitLoading || isProcessing || isGitStatusVisible
-                        ? "var(--vscode-descriptionForeground, #8c8c8c)"
-                        : "var(--vscode-foreground)",
-                    opacity:
-                      isGitHovered &&
-                      !isGitLoading &&
-                      !isProcessing &&
-                      !isGitStatusVisible
-                        ? 0.9
-                        : isGitLoading || isProcessing || isGitStatusVisible
-                          ? 0.5
-                          : 0.7,
-                  }}
-                  title="Git Pull Request"
-                >
-                  <GitPullRequestArrow size={12} strokeWidth={2.5} />
-                </div>
-              )}
-
               {showThinkingButton && (
                 <ThinkingButton
                   isOn={isThinking}
@@ -2034,44 +1911,26 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 />
               )}
 
+              <div
+                style={{
+                  width: "1px",
+                  height: "16px",
+                  background: "var(--border-color)",
+                  margin: "0 2px",
+                  flexShrink: 0,
+                }}
+              />
+
               {/* System Prompt Mode Selector - Home only */}
               {!isConversationStarted && (
                 <StyleCodeDropdown
                   currentMode={systemPromptMode}
                   onSelect={setSystemPromptMode}
                   triggerButton={(() => {
-                    const modeMeta: Record<
-                      string,
-                      { label: string; icon: React.ReactNode; color: string }
-                    > = {
-                      fast: {
-                        label: "Fast",
-                        icon: <Zap size={11} />,
-                        color: "#22c55e",
-                      },
-                      balanced: {
-                        label: "Balanced",
-                        icon: <Scale size={11} />,
-                        color: "#3b82f6",
-                      },
-                      thorough: {
-                        label: "Thorough",
-                        icon: <ShieldCheck size={11} />,
-                        color: "#a78bfa",
-                      },
-                      autopilot: {
-                        label: "Autopilot",
-                        icon: <Plane size={11} />,
-                        color: "#f97316",
-                      },
-                      short: {
-                        label: "Short",
-                        icon: <AlignLeft size={11} />,
-                        color: "#06b6d4",
-                      },
-                    };
                     const meta =
-                      modeMeta[systemPromptMode] || modeMeta.balanced;
+                      STYLE_CODE_MODE_META.find(
+                        (m) => m.key === systemPromptMode,
+                      ) ?? STYLE_CODE_MODE_META[1];
                     return (
                       <button
                         onMouseEnter={() => setIsSystemPromptHovered(true)}
@@ -2079,38 +1938,24 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "4px",
-                          padding: "0 8px",
-                          height: "22px",
+                          justifyContent: "center",
+                          height: "24px",
+                          width: "24px",
                           boxSizing: "border-box",
-                          borderRadius: "4px",
+                          borderRadius: "5px",
                           cursor: "pointer",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          letterSpacing: "0.3px",
-                          transition: "all 0.2s ease-in-out",
-                          border: "none",
+                          transition: "all 0.15s ease-in-out",
+                          border: "1px solid transparent",
                           background: isSystemPromptHovered
-                            ? `color-mix(in srgb, ${meta.color} 20%, transparent)`
-                            : `color-mix(in srgb, ${meta.color} 12%, transparent)`,
+                            ? "rgba(128, 128, 128, 0.16)"
+                            : "transparent",
                           color: meta.color,
                           opacity: 1,
-                          lineHeight: 1,
-                          verticalAlign: "middle",
-                          userSelect: "none",
+                          padding: 0,
                         }}
-                        title="Style Code"
+                        title={`Style Code — ${meta.label}`}
                       >
-                        {meta.icon}
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            letterSpacing: "0.3px",
-                          }}
-                        >
-                          {meta.label}
-                        </span>
+                        <StyleCodeTriggerIcon mode={systemPromptMode} />
                       </button>
                     );
                   })()}
@@ -2123,32 +1968,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   currentMode={promptLengthMode}
                   onSelect={setPromptLengthMode}
                   triggerButton={(() => {
-                    const lengthMeta: Record<
-                      string,
-                      { label: string; icon: React.ReactNode; color: string }
-                    > = {
-                      short: {
-                        label: "Short",
-                        icon: <Minus size={11} />,
-                        color: "#22c55e",
-                      },
-                      medium: {
-                        label: "Medium",
-                        icon: <ChevronsUpDown size={11} />,
-                        color: "#3b82f6",
-                      },
-                      long: {
-                        label: "Long",
-                        icon: <AlignLeft size={11} />,
-                        color: "#a78bfa",
-                      },
-                      none: {
-                        label: "No Prompt",
-                        icon: <Ban size={11} />,
-                        color: "#ef4444",
-                      },
-                    };
-                    const meta = lengthMeta[promptLengthMode] || lengthMeta.long;
+                    const meta =
+                      PROMPT_LENGTH_MODE_META.find(
+                        (m) => m.key === promptLengthMode,
+                      ) ?? PROMPT_LENGTH_MODE_META[3];
                     return (
                       <button
                         onMouseEnter={() => setIsPromptLengthHovered(true)}
@@ -2156,38 +1979,24 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "4px",
-                          padding: "0 8px",
-                          height: "22px",
+                          justifyContent: "center",
+                          height: "24px",
+                          width: "24px",
                           boxSizing: "border-box",
-                          borderRadius: "4px",
+                          borderRadius: "5px",
                           cursor: "pointer",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                          letterSpacing: "0.3px",
-                          transition: "all 0.2s ease-in-out",
-                          border: "none",
+                          transition: "all 0.15s ease-in-out",
+                          border: "1px solid transparent",
                           background: isPromptLengthHovered
-                            ? `color-mix(in srgb, ${meta.color} 20%, transparent)`
-                            : `color-mix(in srgb, ${meta.color} 12%, transparent)`,
+                            ? "rgba(128, 128, 128, 0.16)"
+                            : "transparent",
                           color: meta.color,
                           opacity: 1,
-                          lineHeight: 1,
-                          verticalAlign: "middle",
-                          userSelect: "none",
+                          padding: 0,
                         }}
-                        title="Prompt Length"
+                        title={`Prompt Length — ${meta.label}`}
                       >
-                        {meta.icon}
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            letterSpacing: "0.3px",
-                          }}
-                        >
-                          {meta.label}
-                        </span>
+                        <PromptLengthTriggerIcon mode={promptLengthMode} />
                       </button>
                     );
                   })()}

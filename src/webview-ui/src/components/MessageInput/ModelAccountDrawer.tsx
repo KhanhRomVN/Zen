@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck, BarChart3 } from "lucide-react";
+import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck, BarChart3, Clock } from "lucide-react";
 import { getFaviconUrl } from "@/utils/favicon";
+import { getClientId } from "@/utils/clientId";
+import { formatRelativeTime } from "@/utils/relativeTime";
 
 interface Provider {
   provider_id: string;
@@ -22,6 +24,10 @@ interface Account {
   reset_usage_at?: string;
   period_requests?: number;
   period_tokens?: number;
+  /** Timestamp (ms) lần gửi tin nhắn gần nhất của account này */
+  last_used_at?: number | null;
+  /** Số cửa sổ VSCode KHÁC đang active account này */
+  used_by_windows?: number;
 }
 
 interface ModelAccountDrawerProps {
@@ -215,6 +221,18 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
   const [accountCountMap, setAccountCountMap] = useState<
     Record<string, number>
   >({});
+  /** Số account đang được dùng (used_by_windows > 0) theo provider_id */
+  const [inUseCountMap, setInUseCountMap] = useState<Record<string, number>>(
+    {},
+  );
+  /** Tổng period_requests của tất cả account theo provider_id (tiêu chí sort #1) */
+  const [providerUsageMap, setProviderUsageMap] = useState<
+    Record<string, number>
+  >({});
+  /** last_used_at lớn nhất trong các account theo provider_id (tiêu chí sort #2) */
+  const [providerLastUsedMap, setProviderLastUsedMap] = useState<
+    Record<string, number>
+  >({});
   const [isLoadingAccountMap, setIsLoadingAccountMap] = useState(false);
 
   // tooltip state — follow mouse cursor directly
@@ -267,15 +285,34 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
 
       // Fetch all accounts once to build count map
       setIsLoadingAccountMap(true);
-      fetch(`${apiUrl}/v1/accounts?page=1&limit=200`)
+      fetch(
+        `${apiUrl}/v1/accounts?page=1&limit=200&clientId=${encodeURIComponent(getClientId())}`,
+      )
         .then((r) => r.json())
         .then((result) => {
           if (result.success && result.data?.accounts) {
             const map: Record<string, number> = {};
+            const inUseMap: Record<string, number> = {};
+            const usageMap: Record<string, number> = {};
+            const lastUsedMap: Record<string, number> = {};
             for (const acc of result.data.accounts as any[]) {
               map[acc.provider_id] = (map[acc.provider_id] || 0) + 1;
+              if ((acc.used_by_windows ?? 0) > 0) {
+                inUseMap[acc.provider_id] =
+                  (inUseMap[acc.provider_id] || 0) + 1;
+              }
+              usageMap[acc.provider_id] =
+                (usageMap[acc.provider_id] || 0) +
+                (Number(acc.period_requests) || 0);
+              const lastUsed = Number(acc.last_used_at) || 0;
+              if (lastUsed > (lastUsedMap[acc.provider_id] || 0)) {
+                lastUsedMap[acc.provider_id] = lastUsed;
+              }
             }
             setAccountCountMap(map);
+            setInUseCountMap(inUseMap);
+            setProviderUsageMap(usageMap);
+            setProviderLastUsedMap(lastUsedMap);
           } else {
             console.warn(
               "[QuickSwitchDrawer] Accounts fetch failed or empty:",
@@ -290,35 +327,42 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
     }
   }, [isOpen, apiUrl]);
 
-  // Fetch accounts when moving to account step
+  // Fetch accounts when moving to account step (poll mỗi 15s để cập nhật badge)
   useEffect(() => {
     if (step === "account" && selectedModel) {
       let isMounted = true;
-      setIsLoadingAccounts(true);
-      const url = `${apiUrl}/v1/accounts?page=1&limit=50&provider_id=${selectedModel.provider_id}`;
-      fetch(url)
-        .then((res) => res.json())
-        .then((result) => {
-          if (isMounted && result.success && result.data?.accounts) {
-            setProviderAccounts(result.data.accounts);
-          } else if (isMounted) {
-            console.warn(
-              "[QuickSwitchDrawer] No accounts in response:",
-              result,
-            );
-          }
-        })
-        .catch((err) =>
-          console.error(
-            "[QuickSwitchDrawer] Provider accounts fetch error:",
-            err,
-          ),
-        )
-        .finally(() => {
-          if (isMounted) setIsLoadingAccounts(false);
-        });
+      const url = `${apiUrl}/v1/accounts?page=1&limit=50&provider_id=${selectedModel.provider_id}&clientId=${encodeURIComponent(getClientId())}`;
+
+      const load = (showLoading: boolean) => {
+        if (showLoading) setIsLoadingAccounts(true);
+        fetch(url)
+          .then((res) => res.json())
+          .then((result) => {
+            if (isMounted && result.success && result.data?.accounts) {
+              setProviderAccounts(result.data.accounts);
+            } else if (isMounted) {
+              console.warn(
+                "[QuickSwitchDrawer] No accounts in response:",
+                result,
+              );
+            }
+          })
+          .catch((err) =>
+            console.error(
+              "[QuickSwitchDrawer] Provider accounts fetch error:",
+              err,
+            ),
+          )
+          .finally(() => {
+            if (isMounted && showLoading) setIsLoadingAccounts(false);
+          });
+      };
+
+      load(true);
+      const intervalId = setInterval(() => load(false), 15000);
       return () => {
         isMounted = false;
+        clearInterval(intervalId);
       };
     }
   }, [step, selectedModel, apiUrl]);
@@ -378,9 +422,31 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
       return 3;
     };
 
-    const sorted = [...mapped].sort((a, b) => priority(a) - priority(b));
+    // Sort 2 tầng:
+    //   Tầng 1: provider dùng nhiều nhất (tổng period_requests) giảm dần
+    //   Tầng 2: provider dùng gần nhất (last_used_at lớn nhất) giảm dần
+    //   Tie-break: priority cũ (đẩy provider chết/không model xuống dưới)
+    const sorted = [...mapped].sort((a, b) => {
+      const usageDiff =
+        (providerUsageMap[b.provider_id] ?? 0) -
+        (providerUsageMap[a.provider_id] ?? 0);
+      if (usageDiff !== 0) return usageDiff;
+
+      const lastUsedDiff =
+        (providerLastUsedMap[b.provider_id] ?? 0) -
+        (providerLastUsedMap[a.provider_id] ?? 0);
+      if (lastUsedDiff !== 0) return lastUsedDiff;
+
+      return priority(a) - priority(b);
+    });
     return sorted;
-  }, [providers, searchQuery, accountCountMap]);
+  }, [
+    providers,
+    searchQuery,
+    accountCountMap,
+    providerUsageMap,
+    providerLastUsedMap,
+  ]);
 
   const handleModelMouseEnter = (
     model: any,
@@ -686,13 +752,30 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                             marginLeft: "auto",
                             fontSize: "13px",
                             fontWeight: 400,
-                            opacity: 0.55,
                             display: "flex",
                             alignItems: "center",
                             gap: "4px",
                           }}
                         >
-                          {accountCount} account{accountCount !== 1 ? "s" : ""}
+                          {(() => {
+                            const inUseAcc =
+                              inUseCountMap[provider.provider_id] ?? 0;
+                            if (inUseAcc > 0) {
+                              return (
+                                <span
+                                  style={{ color: "var(--primary-text)" }}
+                                >
+                                  {inUseAcc}/{accountCount} accounts in use
+                                </span>
+                              );
+                            }
+                            return (
+                              <span style={{ opacity: 0.55 }}>
+                                {accountCount} account
+                                {accountCount !== 1 ? "s" : ""}
+                              </span>
+                            );
+                          })()}
                           {isCollapsed ? (
                             <ChevronRight size={15} />
                           ) : (
@@ -777,6 +860,37 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                                   >
                                     {model.name}
                                   </span>
+                                  {(() => {
+                                    const totalAcc = accountCount;
+                                    const inUseAcc =
+                                      inUseCountMap[provider.provider_id] ?? 0;
+                                    if (totalAcc === 0) return null;
+                                    const isActive = inUseAcc > 0;
+                                    return (
+                                      <span
+                                        title={`${inUseAcc}/${totalAcc} account đang được dùng`}
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          fontSize: "9px",
+                                          fontWeight: 600,
+                                          padding: "1px 6px",
+                                          borderRadius: "4px",
+                                          backgroundColor: isActive
+                                            ? "rgba(34, 197, 94, 0.14)"
+                                            : "rgba(128,128,128,0.1)",
+                                          color: isActive
+                                            ? "#22c55e"
+                                            : "var(--secondary-text)",
+                                          textTransform: "uppercase",
+                                          letterSpacing: "0.02em",
+                                          flexShrink: 0,
+                                        }}
+                                      >
+                                        {inUseAcc}/{totalAcc} In Use
+                                      </span>
+                                    );
+                                  })()}
                                   {model.is_thinking && (
                                     <span
                                       style={{
@@ -1061,13 +1175,41 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                             fontSize: "13px",
                             fontWeight: 500,
                             color: "var(--primary-text)",
-                            display: "block",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            minWidth: 0,
                           }}
                         >
-                          {acc.email || acc.name || acc.id}
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {acc.email || acc.name || acc.id}
+                          </span>
+                          {(acc.used_by_windows ?? 0) > 0 && (
+                            <span
+                              title={`Đang được dùng bởi ${acc.used_by_windows} cửa sổ VSCode khác`}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                fontSize: "9px",
+                                fontWeight: 600,
+                                padding: "1px 6px",
+                                borderRadius: "4px",
+                                backgroundColor: "rgba(234, 179, 8, 0.16)",
+                                color: "#eab308",
+                                flexShrink: 0,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.02em",
+                              }}
+                            >
+                              In use
+                            </span>
+                          )}
                         </span>
                         <div
                           style={{
@@ -1130,6 +1272,40 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                                       : "var(--vscode-charts-purple, #a855f7)",
                                 }} />
                                 {usageNum.toFixed(1)}%
+                              </span>
+                            );
+                          })()}
+                          {(() => {
+                            const rel = formatRelativeTime(
+                              acc.last_used_at ?? null,
+                            );
+                            if (!rel) return null;
+                            return (
+                              <span
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  fontSize: "10px",
+                                  color: "var(--secondary-text)",
+                                  flexShrink: 1,
+                                  overflow: "hidden",
+                                  minWidth: 0,
+                                }}
+                              >
+                                <Clock
+                                  size={11}
+                                  style={{ flexShrink: 0, color: "#3b82f6" }}
+                                />
+                                <span
+                                  style={{
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {rel}
+                                </span>
                               </span>
                             );
                           })()}
