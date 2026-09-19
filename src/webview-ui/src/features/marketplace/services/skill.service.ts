@@ -12,7 +12,11 @@
  * ------------------------------------------------------------------
  */
 
-import { SkillSummary, SkillSearchResponse, SkillDetail } from "./types";
+import {
+  SkillSummary,
+  SkillSearchResponse,
+  SkillDetail,
+} from "../types/skill.types";
 import {
   messageDispatcher,
   extensionService,
@@ -47,7 +51,7 @@ function fetchViaExtension(payload: {
       },
       REQUEST_TIMEOUT_MS,
       () => {
-        console.error("[DEBUG] fetchViaExtension: timeout", requestId);
+        console.error("fetchViaExtension: timeout", requestId);
         reject(
           new Error(`fetchSkillAPI timeout after ${REQUEST_TIMEOUT_MS}ms`),
         );
@@ -75,7 +79,7 @@ export async function fetchLeaderboard(): Promise<SkillSummary[]> {
     }
     return skills;
   } catch (err: any) {
-    console.error("[DEBUG] fetchLeaderboard: ERROR", {
+    console.error("fetchLeaderboard: ERROR", {
       name: err?.name,
       message: err?.message,
       cause: err?.cause,
@@ -101,7 +105,7 @@ export async function searchSkills(
     })) as SkillSearchResponse;
     return data;
   } catch (err: any) {
-    console.error("[DEBUG] searchSkills: ERROR", {
+    console.error("searchSkills: ERROR", {
       name: err?.name,
       message: err?.message,
       cause: err?.cause,
@@ -119,19 +123,12 @@ export async function fetchSkillDetail(slug: string): Promise<SkillDetail> {
       apiType: "detail",
       slug,
     })) as SkillDetail;
-    // [DEBUG] Xem toàn bộ data thô trả về từ extension cho detail skill
-    console.log("[DEBUG] fetchSkillDetail raw:", detail);
-    console.log("[DEBUG] fetchSkillDetail keys:", Object.keys(detail ?? {}));
-    console.log(
-      "[DEBUG] fetchSkillDetail JSON:",
-      JSON.stringify(detail, null, 2),
-    );
     if (!detail) {
       throw new Error(`No detail returned for "${slug}"`);
     }
     return detail;
   } catch (err: any) {
-    console.error("[DEBUG] fetchSkillDetail: ERROR", {
+    console.error("fetchSkillDetail: ERROR", {
       name: err?.name,
       message: err?.message,
       cause: err?.cause,

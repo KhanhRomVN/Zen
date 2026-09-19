@@ -1,1 +1,0 @@
-export { SkillPanel } from './SkillPanel';

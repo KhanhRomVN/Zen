@@ -199,6 +199,121 @@ const ModelTooltip: React.FC<ModelTooltipProps> = ({ model, x, y }) => {
   );
 };
 
+// ─── Skeleton blocks ──────────────────────────────────────────────────────────
+function DrawerSkeletonLine({
+  width,
+  height = 10,
+  radius = 4,
+  style,
+}: {
+  width: string | number;
+  height?: number;
+  radius?: number;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      className="drawer-skeleton-shimmer"
+      style={{
+        width,
+        height,
+        borderRadius: radius,
+        backgroundColor: "rgba(128,128,128,0.15)",
+        ...style,
+      }}
+    />
+  );
+}
+
+/** Skeleton cho danh sách model — mỗi provider 1 header + vài model row. */
+function ModelListSkeleton() {
+  return (
+    <div>
+      {[0, 1, 2].map((pi) => (
+        <div key={pi} style={{ marginBottom: "16px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              marginBottom: "10px",
+            }}
+          >
+            <DrawerSkeletonLine width={16} height={16} radius={3} />
+            <DrawerSkeletonLine width={120} height={13} />
+          </div>
+          {[0, 1].map((mi) => (
+            <div
+              key={mi}
+              style={{
+                padding: "8px 12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}
+            >
+              <DrawerSkeletonLine width="45%" height={12} />
+              <DrawerSkeletonLine width="70%" height={9} />
+            </div>
+          ))}
+        </div>
+      ))}
+      <style>{`
+        @keyframes drawerShimmer {
+          0% { opacity: 0.55; }
+          50% { opacity: 1; }
+          100% { opacity: 0.55; }
+        }
+        .drawer-skeleton-shimmer {
+          animation: drawerShimmer 1.4s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/** Skeleton cho danh sách account — avatar + email + stats. */
+function AccountListSkeleton() {
+  return (
+    <div>
+      {[0, 1, 2, 3].map((i) => (
+        <div
+          key={i}
+          style={{
+            padding: "8px 12px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
+        >
+          <DrawerSkeletonLine width={28} height={28} radius={7} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <DrawerSkeletonLine
+              width="60%"
+              height={11}
+              style={{ marginBottom: "6px" }}
+            />
+            <div style={{ display: "flex", gap: "10px" }}>
+              <DrawerSkeletonLine width={52} height={9} />
+              <DrawerSkeletonLine width={52} height={9} />
+            </div>
+          </div>
+        </div>
+      ))}
+      <style>{`
+        @keyframes drawerShimmer {
+          0% { opacity: 0.55; }
+          50% { opacity: 1; }
+          100% { opacity: 0.55; }
+        }
+        .drawer-skeleton-shimmer {
+          animation: drawerShimmer 1.4s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
   isOpen,
@@ -283,42 +398,58 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
       setProviderAccounts([]);
       setTooltipModel(null);
 
-      // Fetch all accounts once to build count map
+      // Fetch all accounts (paginated) to build count map.
+      // Không dùng limit cứng vì có thể có >200 accounts → bỏ sót provider.
       setIsLoadingAccountMap(true);
-      fetch(
-        `${apiUrl}/v1/accounts?page=1&limit=200&clientId=${encodeURIComponent(getClientId())}`,
-      )
-        .then((r) => r.json())
-        .then((result) => {
-          if (result.success && result.data?.accounts) {
-            const map: Record<string, number> = {};
-            const inUseMap: Record<string, number> = {};
-            const usageMap: Record<string, number> = {};
-            const lastUsedMap: Record<string, number> = {};
-            for (const acc of result.data.accounts as any[]) {
-              map[acc.provider_id] = (map[acc.provider_id] || 0) + 1;
-              if ((acc.used_by_windows ?? 0) > 0) {
-                inUseMap[acc.provider_id] =
-                  (inUseMap[acc.provider_id] || 0) + 1;
-              }
-              usageMap[acc.provider_id] =
-                (usageMap[acc.provider_id] || 0) +
-                (Number(acc.period_requests) || 0);
-              const lastUsed = Number(acc.last_used_at) || 0;
-              if (lastUsed > (lastUsedMap[acc.provider_id] || 0)) {
-                lastUsedMap[acc.provider_id] = lastUsed;
-              }
-            }
-            setAccountCountMap(map);
-            setInUseCountMap(inUseMap);
-            setProviderUsageMap(usageMap);
-            setProviderLastUsedMap(lastUsedMap);
-          } else {
-            console.warn(
-              "[QuickSwitchDrawer] Accounts fetch failed or empty:",
-              result,
-            );
+      const PAGE_SIZE = 200;
+      const clientId = encodeURIComponent(getClientId());
+
+      const fetchAllAccounts = async (): Promise<any[]> => {
+        const all: any[] = [];
+        let page = 1;
+        // hard cap 50 trang (10k accounts) để tránh vòng lặp vô hạn nếu API lỗi.
+        while (page <= 50) {
+          const res = await fetch(
+            `${apiUrl}/v1/accounts?page=${page}&limit=${PAGE_SIZE}&clientId=${clientId}`,
+          );
+          const result = await res.json();
+          if (!result?.success || !result.data?.accounts?.length) break;
+          all.push(...result.data.accounts);
+          const totalPages = result.data.pagination?.total_pages ?? 1;
+          if (page >= totalPages) break;
+          page++;
+        }
+        return all;
+      };
+
+      fetchAllAccounts()
+        .then((accounts) => {
+          if (accounts.length === 0) {
+            console.warn("[QuickSwitchDrawer] Accounts fetch returned empty");
+            return;
           }
+          const map: Record<string, number> = {};
+          const inUseMap: Record<string, number> = {};
+          const usageMap: Record<string, number> = {};
+          const lastUsedMap: Record<string, number> = {};
+          for (const acc of accounts) {
+            map[acc.provider_id] = (map[acc.provider_id] || 0) + 1;
+            if ((acc.used_by_windows ?? 0) > 0) {
+              inUseMap[acc.provider_id] =
+                (inUseMap[acc.provider_id] || 0) + 1;
+            }
+            usageMap[acc.provider_id] =
+              (usageMap[acc.provider_id] || 0) +
+              (Number(acc.period_requests) || 0);
+            const lastUsed = Number(acc.last_used_at) || 0;
+            if (lastUsed > (lastUsedMap[acc.provider_id] || 0)) {
+              lastUsedMap[acc.provider_id] = lastUsed;
+            }
+          }
+          setAccountCountMap(map);
+          setInUseCountMap(inUseMap);
+          setProviderUsageMap(usageMap);
+          setProviderLastUsedMap(lastUsedMap);
         })
         .catch((err) =>
           console.error("[QuickSwitchDrawer] Accounts fetch error:", err),
@@ -662,7 +793,10 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
               className="custom-scrollbar"
               style={{ flex: 1, overflowY: "auto", padding: "12px" }}
             >
-              {filteredProviders.map((provider) => {
+              {isLoadingAccountMap && providers.length === 0 ? (
+                <ModelListSkeleton />
+              ) : (
+                filteredProviders.map((provider) => {
                 const accountCount = accountCountMap[provider.provider_id] ?? 0;
                 const hasModels = provider.models.length > 0;
                 const hasAccounts = accountCount > 0;
@@ -792,6 +926,11 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                           provider.models.map((model) => {
                             // Provider không cần auth → luôn enabled; có auth → cần có account
                             const isDisabled = needsAuth && !hasAccounts;
+                            // Provider có ít nhất 1 account đang được cửa sổ khác dùng.
+                            // Presence hiện chỉ key theo accountId (không có modelId), nên
+                            // mọi model trong provider sáng badge khi có account in-use.
+                            const providerHasInUse =
+                              (inUseCountMap[provider.provider_id] ?? 0) > 0;
                             const successColor =
                               model.success_rate >= 80
                                 ? "#4ade80"
@@ -860,37 +999,28 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                                   >
                                     {model.name}
                                   </span>
-                                  {(() => {
-                                    const totalAcc = accountCount;
-                                    const inUseAcc =
-                                      inUseCountMap[provider.provider_id] ?? 0;
-                                    if (totalAcc === 0) return null;
-                                    const isActive = inUseAcc > 0;
-                                    return (
-                                      <span
-                                        title={`${inUseAcc}/${totalAcc} account đang được dùng`}
-                                        style={{
-                                          display: "inline-flex",
-                                          alignItems: "center",
-                                          fontSize: "9px",
-                                          fontWeight: 600,
-                                          padding: "1px 6px",
-                                          borderRadius: "4px",
-                                          backgroundColor: isActive
-                                            ? "rgba(34, 197, 94, 0.14)"
-                                            : "rgba(128,128,128,0.1)",
-                                          color: isActive
-                                            ? "#22c55e"
-                                            : "var(--secondary-text)",
-                                          textTransform: "uppercase",
-                                          letterSpacing: "0.02em",
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        {inUseAcc}/{totalAcc} In Use
-                                      </span>
-                                    );
-                                  })()}
+                                  {providerHasInUse && (
+                                    <span
+                                      title={`${inUseCountMap[provider.provider_id] ?? 0}/${accountCount} account đang được cửa sổ VSCode khác dùng`}
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        fontSize: "9px",
+                                        fontWeight: 600,
+                                        padding: "1px 6px",
+                                        borderRadius: "4px",
+                                        backgroundColor:
+                                          "rgba(234, 179, 8, 0.16)",
+                                        color: "#eab308",
+                                        flexShrink: 0,
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.02em",
+                                      }}
+                                    >
+                                      {inUseCountMap[provider.provider_id] ?? 0}/
+                                      {accountCount} in use
+                                    </span>
+                                  )}
                                   {model.is_thinking && (
                                     <span
                                       style={{
@@ -1012,9 +1142,10 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                     )}
                   </div>
                 );
-              })}
+              })
+              )}
 
-              {filteredProviders.length === 0 && (
+              {!isLoadingAccountMap && filteredProviders.length === 0 && (
                 <div
                   style={{
                     textAlign: "center",
@@ -1092,16 +1223,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
               style={{ flex: 1, overflowY: "auto", padding: "12px" }}
             >
               {isLoadingAccounts ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    color: "var(--secondary-text)",
-                    padding: "20px",
-                    fontSize: "12px",
-                  }}
-                >
-                  Loading accounts...
-                </div>
+                <AccountListSkeleton />
               ) : providerAccounts.length > 0 ? (
                 (() => {
                   const filtered = providerAccounts.filter((acc) =>

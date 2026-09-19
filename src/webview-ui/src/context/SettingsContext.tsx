@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { extensionService } from "../services/ExtensionService";
-import type { SystemPromptMode, PromptLengthMode } from "@/features/chat/prompts";
+import type {
+  SystemPromptMode,
+  PromptLengthMode,
+} from "@/features/chat/prompts";
 import { PermissionMode } from "@/features/chat/types/tag-types";
 
 interface SettingsContextType {
@@ -18,6 +21,9 @@ interface SettingsContextType {
   setSystemPromptMode: (mode: SystemPromptMode) => void;
   promptLengthMode: PromptLengthMode;
   setPromptLengthMode: (mode: PromptLengthMode) => void;
+  /** System path tới thư mục chứa các profile Chromium */
+  chromiumProfileDir: string;
+  setChromiumProfileDir: (path: string) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -34,15 +40,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (e) {}
     return "English";
   });
-  const [commitMessageLanguage, setCommitMessageLanguageState] = useState<
-    string
-  >(() => {
-    try {
-      const saved = localStorage.getItem("zen_commit_message_language");
-      if (saved) return saved;
-    } catch (e) {}
-    return "en";
-  });
+  const [commitMessageLanguage, setCommitMessageLanguageState] =
+    useState<string>(() => {
+      try {
+        const saved = localStorage.getItem("zen_commit_message_language");
+        if (saved) return saved;
+      } catch (e) {}
+      return "en";
+    });
   const [apiUrl, setApiUrlState] = useState("http://localhost:8888");
   const [permissionModeState, setPermissionModeState] =
     useState<PermissionMode>("fullAccess");
@@ -77,6 +82,22 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch (e) {}
       return "long";
     });
+  const [chromiumProfileDir, setChromiumProfileDirState] = useState<string>(
+    () => {
+      try {
+        const saved = localStorage.getItem("zen_chromium_profile_dir");
+        if (saved) return saved;
+      } catch (e) {}
+      return "";
+    },
+  );
+  const [databasePath, setDatabasePathState] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem("zen_database_path");
+      if (saved) return saved;
+    } catch (e) {}
+    return "";
+  });
   useEffect(() => {
     const storage = extensionService.getStorage();
 
@@ -92,6 +113,33 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     });
   }, []);
+
+  // Khi apiUrl đổi → fetch config từ backend để đồng bộ (backend là nguồn chân lý).
+  useEffect(() => {
+    if (!apiUrl) return;
+    let cancelled = false;
+    fetch(`${apiUrl}/v1/config`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (cancelled || !res?.success || !res.data) return;
+        const { chromium_profile_dir } = res.data;
+        if (chromium_profile_dir != null) {
+          setChromiumProfileDirState(chromium_profile_dir);
+          try {
+            localStorage.setItem(
+              "zen_chromium_profile_dir",
+              chromium_profile_dir,
+            );
+          } catch (e) {}
+        }
+      })
+      .catch(() => {
+        /* backend chưa sẵn sàng — giữ giá trị local cache */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [apiUrl]);
 
   const setAiLanguage = (lang: string) => {
     setAiLanguageState(lang);
@@ -148,6 +196,37 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_prompt_length_mode", mode);
   };
 
+  const setDatabasePath = (path: string) => {
+    setDatabasePathState(path);
+    try {
+      localStorage.setItem("zen_database_path", path);
+    } catch (e) {}
+    // Đồng bộ backend (fire-and-forget); backend là nguồn chân lý.
+    if (apiUrl) {
+      fetch(`${apiUrl}/v1/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ database_path: path }),
+      }).catch((e) => console.warn("[Settings] save database_path failed", e));
+    }
+  };
+
+  const setChromiumProfileDir = (path: string) => {
+    setChromiumProfileDirState(path);
+    try {
+      localStorage.setItem("zen_chromium_profile_dir", path);
+    } catch (e) {}
+    if (apiUrl) {
+      fetch(`${apiUrl}/v1/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chromium_profile_dir: path }),
+      }).catch((e) =>
+        console.warn("[Settings] save chromium_profile_dir failed", e),
+      );
+    }
+  };
+
   return (
     <SettingsContext.Provider
       value={{
@@ -165,6 +244,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setSystemPromptMode,
         promptLengthMode: promptLengthModeState,
         setPromptLengthMode,
+        chromiumProfileDir,
+        setChromiumProfileDir,
       }}
     >
       {children}

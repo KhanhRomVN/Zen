@@ -1,0 +1,2556 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Marketplace</title>
+    <style>
+      /* ============================================================
+         TOKENS
+         - Nhóm legacy: giữ nguyên để HEADER render y hệt bản gốc.
+         - Nhóm --sf-* / --ink-* / --accent-*: token của UI dựng lại.
+         KHÔNG còn token/màu nào gắn với "category" nữa.
+         ============================================================ */
+      :root {
+        --primary-bg: var(--vscode-editor-background, #1a1b1e);
+        --secondary-bg: var(--vscode-sideBar-background, #1a1b1e);
+        --tertiary-bg: var(--vscode-panel-background, #202227);
+        --hover-bg: var(--vscode-list-hoverBackground, #26282e);
+
+        --primary-text: var(--vscode-foreground, #e4e4e8);
+        --secondary-text: var(--vscode-descriptionForeground, #8b8d97);
+        --accent-text: var(--vscode-textLink-foreground, #4fc3f7);
+
+        --border-color: var(--vscode-panel-border, #34363d);
+        --input-bg: var(--vscode-input-background, #26282e);
+        --input-bg-light: var(--vscode-input-background, #2c2e35);
+
+        --vscode-focusBorder: #d9a441;
+        --vscode-errorForeground: #e0715f;
+        --vscode-textLink-foreground: #8ca8cc;
+        --vscode-button-background: #d9a441;
+
+        --sf-base: var(--vscode-sideBar-background, #1a1b1e);
+        --sf-raise: #202227;
+        --sf-sunken: #141519;
+        --sf-hover: rgba(255, 255, 255, 0.035);
+        --sf-press: rgba(255, 255, 255, 0.07);
+
+        --line: rgba(255, 255, 255, 0.07);
+        --line-strong: rgba(255, 255, 255, 0.13);
+
+        --ink-1: var(--vscode-foreground, #e4e4e8);
+        --ink-2: #a0a2ad;
+        --ink-3: #74767f;
+
+        --accent: #d9a441;
+        --accent-hi: #ecba5c;
+        --accent-dim: rgba(217, 164, 65, 0.14);
+        --accent-line: rgba(217, 164, 65, 0.4);
+        --accent-ink: #171308;
+
+        --danger: #e0715f;
+        --ok: #79bd8c;
+
+        --r-sm: 5px;
+        --r-md: 8px;
+        --r-lg: 11px;
+
+        --mono: var(
+          --vscode-editor-font-family,
+          "JetBrains Mono",
+          "SF Mono",
+          ui-monospace,
+          Menlo,
+          Consolas,
+          monospace
+        );
+      }
+
+      body.vscode-light {
+        --sf-raise: #ffffff;
+        --sf-sunken: #f1f1f4;
+        --sf-hover: rgba(0, 0, 0, 0.035);
+        --sf-press: rgba(0, 0, 0, 0.07);
+        --line: rgba(0, 0, 0, 0.09);
+        --line-strong: rgba(0, 0, 0, 0.16);
+        --ink-2: #5a5c66;
+        --ink-3: #82848e;
+        --accent: #a8762a;
+        --accent-hi: #8d6220;
+        --accent-dim: rgba(168, 118, 42, 0.12);
+        --accent-ink: #ffffff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background-color: var(--primary-bg);
+        color: var(--primary-text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      input {
+        font: inherit;
+      }
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+        border-radius: 3px;
+      }
+
+      .scroll-y {
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+      }
+      .scroll-y:hover {
+        scrollbar-color: var(--line-strong) transparent;
+      }
+      .scroll-y::-webkit-scrollbar {
+        width: 10px;
+      }
+      .scroll-y::-webkit-scrollbar-thumb {
+        background-color: transparent;
+        border: 3px solid transparent;
+        border-radius: 99px;
+        background-clip: content-box;
+      }
+      .scroll-y:hover::-webkit-scrollbar-thumb {
+        background-color: var(--line-strong);
+      }
+
+      /* Phone frame — wrapper preview trung tính */
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .phone-frame {
+        position: relative;
+        width: min(420px, 90vw);
+        height: min(860px, 90vh);
+        aspect-ratio: 9 / 19.5;
+        margin: auto;
+      }
+
+      .marketplace-panel {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background-color: var(--sf-base);
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* ---------- HEADER (giữ nguyên) ---------- */
+      .marketplace-header {
+        padding: 16px 16px 7px;
+        border-top: 1px solid var(--border-color);
+        flex-shrink: 0;
+        background-color: var(--tertiary-bg);
+      }
+      .marketplace-header__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .marketplace-header__left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .marketplace-header__title-wrap {
+        margin-bottom: 3px;
+      }
+      .marketplace-header__title {
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--primary-text);
+        letter-spacing: 0.01em;
+      }
+      .marketplace-header__subtitle {
+        margin: 0;
+        font-size: 13px;
+        color: var(--secondary-text);
+        opacity: 0.7;
+        line-height: 1.4;
+      }
+      .marketplace-header__close {
+        padding: 5px;
+        border-radius: 6px;
+        flex-shrink: 0;
+        background-color: rgba(128, 128, 128, 0.1);
+        border: none;
+        color: var(--secondary-text);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .marketplace-header__close:hover {
+        background-color: rgba(239, 68, 68, 0.12);
+        color: var(--vscode-errorForeground);
+      }
+
+      /* ---------- TABS ---------- */
+      .marketplace-tabbar {
+        display: flex;
+        align-items: stretch;
+        gap: 2px;
+        padding: 0 12px;
+        background-color: var(--tertiary-bg);
+        border-bottom: 1px solid var(--line);
+        flex-shrink: 0;
+      }
+      .marketplace-tabbar__tab {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 10px 10px;
+        font-size: 12.5px;
+        color: var(--ink-3);
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: color 0.12s ease;
+      }
+      .marketplace-tabbar__tab:hover {
+        color: var(--ink-2);
+      }
+      .marketplace-tabbar__tab::after {
+        content: "";
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: -1px;
+        height: 2px;
+        border-radius: 2px 2px 0 0;
+        background-color: transparent;
+      }
+      .marketplace-tabbar__tab.is-active {
+        color: var(--ink-1);
+        font-weight: 600;
+      }
+      .marketplace-tabbar__tab.is-active::after {
+        background-color: var(--accent);
+      }
+      .marketplace-tabbar__count {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-3);
+        background-color: var(--sf-press);
+        border-radius: 99px;
+        padding: 1px 5px;
+        line-height: 1.5;
+      }
+      .marketplace-tabbar__tab.is-active .marketplace-tabbar__count {
+        color: var(--accent);
+        background-color: var(--accent-dim);
+      }
+
+      .marketplace-content {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .marketplace-content__pane {
+        display: none;
+        flex: 1;
+        min-height: 0;
+      }
+      .marketplace-content__pane.is-active {
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ============================================================
+         SkillPanel — 3 view: list / manager (cùng lớp) + detail (đè lên)
+         ============================================================ */
+      .skill-panel {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .skill-toolbar {
+        flex-shrink: 0;
+        padding: 10px 12px 0;
+      }
+
+      /* Segmented: chuyển list-skill-view ↔ manager-skill-view */
+      .seg {
+        display: inline-flex;
+        padding: 2px;
+        gap: 2px;
+        border-radius: var(--r-md);
+        background-color: var(--sf-sunken);
+        box-shadow: inset 0 0 0 1px var(--line);
+        margin-bottom: 9px;
+      }
+      .seg__item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 26px;
+        padding: 0 12px;
+        border: none;
+        border-radius: 6px;
+        background-color: transparent;
+        color: var(--ink-3);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.12s ease;
+      }
+      .seg__item:hover {
+        color: var(--ink-1);
+      }
+      .seg__item.is-active {
+        background-color: var(--sf-raise);
+        color: var(--ink-1);
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+      }
+      .seg__badge {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-3);
+      }
+      .seg__item.is-active .seg__badge {
+        color: var(--accent);
+      }
+
+      /* Search — cao hơn bản trước (36px) */
+      .skill-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .skill-search__icon {
+        position: absolute;
+        left: 11px;
+        color: var(--ink-3);
+        pointer-events: none;
+      }
+      .skill-search__input {
+        width: 100%;
+        height: 36px;
+        padding: 0 34px 0 33px;
+        border-radius: var(--r-md);
+        border: 1px solid var(--line);
+        background-color: var(--sf-sunken);
+        color: var(--ink-1);
+        font-size: 13px;
+        outline: none;
+        transition:
+          border-color 0.12s ease,
+          background-color 0.12s ease;
+      }
+      .skill-search__input::placeholder {
+        color: var(--ink-3);
+      }
+      .skill-search__input:focus {
+        border-color: var(--accent-line);
+        background-color: var(--sf-raise);
+      }
+      .skill-search__clear {
+        position: absolute;
+        right: 7px;
+        width: 22px;
+        height: 22px;
+        border: none;
+        border-radius: var(--r-sm);
+        background-color: transparent;
+        color: var(--ink-3);
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .skill-search__clear:hover {
+        background-color: var(--sf-press);
+        color: var(--ink-1);
+      }
+      .skill-search__clear.is-visible {
+        display: flex;
+      }
+
+      .skill-meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 12px 7px;
+        flex-shrink: 0;
+      }
+      .skill-meta-row__count {
+        font-size: 11px;
+        color: var(--ink-3);
+        font-variant-numeric: tabular-nums;
+      }
+      .skill-sort {
+        height: 22px;
+        border: none;
+        background-color: transparent;
+        color: var(--ink-2);
+        font-size: 11px;
+        cursor: pointer;
+        border-radius: var(--r-sm);
+        padding: 0 4px;
+      }
+      .skill-sort:hover {
+        background-color: var(--sf-hover);
+        color: var(--ink-1);
+      }
+      .skill-sort option {
+        background-color: var(--sf-raise);
+        color: var(--ink-1);
+      }
+
+      .skill-view {
+        flex: 1;
+        min-height: 0;
+        display: none;
+        flex-direction: column;
+      }
+      .skill-view.is-active {
+        display: flex;
+      }
+
+      .skill-list {
+        flex: 1;
+        min-height: 0;
+        padding-bottom: 12px;
+      }
+
+      /* ---------- Row ---------- */
+      .skill-row {
+        position: relative;
+        width: 100%;
+        text-align: left;
+        padding: 11px 12px 12px 15px;
+        border: none;
+        border-top: 1px solid var(--line);
+        background-color: transparent;
+        color: inherit;
+        cursor: pointer;
+        transition: background-color 0.12s ease;
+      }
+      .skill-row:last-child {
+        border-bottom: 1px solid var(--line);
+      }
+      .skill-row::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: -1px;
+        bottom: 0;
+        width: 2px;
+        background-color: var(--tile, var(--accent));
+        opacity: 0;
+        transition: opacity 0.12s ease;
+      }
+      .skill-row:hover {
+        background-color: var(--sf-hover);
+      }
+      .skill-row:hover::before {
+        opacity: 1;
+      }
+      .skill-row.is-installed::before {
+        opacity: 0.45;
+      }
+
+      .skill-row__head {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .tile {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--mono);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--tile);
+        background-color: color-mix(in srgb, var(--tile) 14%, transparent);
+        box-shadow: inset 0 0 0 1px
+          color-mix(in srgb, var(--tile) 26%, transparent);
+      }
+      .tile--sm {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--r-md);
+        font-size: 12px;
+      }
+      .tile--xs {
+        width: 26px;
+        height: 26px;
+        border-radius: var(--r-sm);
+        font-size: 10px;
+      }
+      .tile--lg {
+        width: 46px;
+        height: 46px;
+        border-radius: var(--r-lg);
+        font-size: 17px;
+      }
+
+      .skill-row__id {
+        flex: 1;
+        min-width: 0;
+        padding-top: 1px;
+      }
+      .skill-row__name {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink-1);
+        line-height: 1.35;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .skill-row__author {
+        display: block;
+        font-size: 11px;
+        color: var(--ink-3);
+        margin-top: 1px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .skill-row__desc {
+        margin: 8px 0 0;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--ink-2);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .skill-row__stats {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 9px;
+        color: var(--ink-3);
+      }
+      .skill-stat {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+      }
+      .skill-stat svg {
+        opacity: 0.75;
+      }
+
+      /* ---------- Install ---------- */
+      .btn-install {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        height: 26px;
+        padding: 0 11px;
+        border-radius: var(--r-md);
+        border: 1px solid var(--line-strong);
+        background-color: transparent;
+        color: var(--ink-1);
+        font-size: 11.5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.12s ease;
+      }
+      .btn-install:hover {
+        border-color: var(--accent-line);
+        background-color: var(--accent-dim);
+        color: var(--accent-hi);
+      }
+      .btn-install.is-installed {
+        border-color: transparent;
+        background-color: color-mix(in srgb, var(--ok) 13%, transparent);
+        color: var(--ok);
+      }
+      .btn-install.is-installed:hover {
+        background-color: color-mix(in srgb, var(--danger) 13%, transparent);
+        color: var(--danger);
+      }
+      .btn-install.is-busy {
+        color: var(--ink-3);
+        border-color: var(--line);
+        pointer-events: none;
+      }
+
+      /* ---------- Skeleton ---------- */
+      .skill-skeleton {
+        padding: 11px 12px 12px 15px;
+        border-top: 1px solid var(--line);
+      }
+      .sk-line {
+        border-radius: 4px;
+        background: linear-gradient(
+          90deg,
+          var(--sf-press) 0%,
+          var(--sf-hover) 40%,
+          var(--sf-press) 80%
+        );
+        background-size: 280% 100%;
+        animation: sk 1.4s ease-in-out infinite;
+      }
+      @keyframes sk {
+        from {
+          background-position: 130% 0;
+        }
+        to {
+          background-position: -60% 0;
+        }
+      }
+      .skill-skeleton__head {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      /* ---------- States ---------- */
+      .skill-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 6px;
+        padding: 52px 24px;
+        color: var(--ink-3);
+      }
+      .skill-state__icon {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--r-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--sf-press);
+        color: var(--ink-3);
+        margin-bottom: 4px;
+      }
+      .skill-state__title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink-1);
+      }
+      .skill-state__body {
+        font-size: 12px;
+        line-height: 1.55;
+        color: var(--ink-3);
+        max-width: 250px;
+        margin: 0;
+      }
+      .skill-state__body b {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .skill-state--error .skill-state__icon {
+        background-color: color-mix(in srgb, var(--danger) 13%, transparent);
+        color: var(--danger);
+      }
+      .btn-quiet {
+        margin-top: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 12px;
+        border-radius: var(--r-md);
+        border: 1px solid var(--line-strong);
+        background-color: transparent;
+        color: var(--ink-1);
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.12s ease;
+      }
+      .btn-quiet:hover {
+        background-color: var(--sf-hover);
+        border-color: var(--accent-line);
+        color: var(--accent-hi);
+      }
+
+      /* ============================================================
+         manager-skill-view — skill đã cài + folder
+         ============================================================ */
+      .mgr-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 12px 7px;
+        flex-shrink: 0;
+      }
+      .mgr-bar__count {
+        font-size: 11px;
+        color: var(--ink-3);
+        font-variant-numeric: tabular-nums;
+      }
+      .btn-mini {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 24px;
+        padding: 0 9px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--line-strong);
+        background-color: transparent;
+        color: var(--ink-2);
+        font-size: 11.5px;
+        cursor: pointer;
+        transition: all 0.12s ease;
+      }
+      .btn-mini:hover {
+        color: var(--accent-hi);
+        border-color: var(--accent-line);
+        background-color: var(--accent-dim);
+      }
+
+      .mgr-list {
+        flex: 1;
+        min-height: 0;
+        padding: 0 0 14px;
+      }
+
+      .folder {
+        border-top: 1px solid var(--line);
+      }
+      .folder__head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        width: 100%;
+        padding: 8px 10px 8px 12px;
+        border: none;
+        background-color: transparent;
+        color: inherit;
+        cursor: pointer;
+        text-align: left;
+      }
+      .folder__head:hover {
+        background-color: var(--sf-hover);
+      }
+      .folder__chev {
+        color: var(--ink-3);
+        display: inline-flex;
+        transition: transform 0.14s ease;
+      }
+      .folder.is-collapsed .folder__chev {
+        transform: rotate(-90deg);
+      }
+      .folder__name {
+        flex: 1;
+        min-width: 0;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-1);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .folder__n {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-3);
+        background-color: var(--sf-press);
+        border-radius: 99px;
+        padding: 1px 6px;
+      }
+      .folder__tools {
+        display: flex;
+        gap: 2px;
+        opacity: 0;
+        transition: opacity 0.12s ease;
+      }
+      .folder__head:hover .folder__tools,
+      .folder__tools:focus-within {
+        opacity: 1;
+      }
+      .folder__body {
+        padding-bottom: 4px;
+      }
+      .folder.is-collapsed .folder__body {
+        display: none;
+      }
+
+      .mgr-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 7px 10px 7px 20px;
+      }
+      .mgr-row:hover {
+        background-color: var(--sf-hover);
+      }
+      .mgr-row__id {
+        flex: 1;
+        min-width: 0;
+        cursor: pointer;
+      }
+      .mgr-row__name {
+        display: block;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--ink-1);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .mgr-row.is-off .mgr-row__name,
+      .mgr-row.is-off .tile {
+        opacity: 0.45;
+      }
+      .mgr-row__author {
+        display: block;
+        font-size: 10.5px;
+        color: var(--ink-3);
+        margin-top: 1px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .mgr-row__tools {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        flex-shrink: 0;
+      }
+
+      .icon-btn {
+        width: 26px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: var(--r-sm);
+        background-color: transparent;
+        color: var(--ink-3);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.12s ease;
+      }
+      .icon-btn:hover {
+        background-color: var(--sf-press);
+        color: var(--ink-1);
+      }
+      .icon-btn--danger:hover {
+        color: var(--danger);
+        background-color: color-mix(in srgb, var(--danger) 13%, transparent);
+      }
+
+      /* Toggle bật/tắt skill */
+      .toggle {
+        position: relative;
+        width: 28px;
+        height: 16px;
+        border-radius: 99px;
+        border: none;
+        background-color: var(--sf-press);
+        box-shadow: inset 0 0 0 1px var(--line-strong);
+        cursor: pointer;
+        flex-shrink: 0;
+        transition:
+          background-color 0.14s ease,
+          box-shadow 0.14s ease;
+      }
+      .toggle::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 10px;
+        height: 10px;
+        border-radius: 99px;
+        background-color: var(--ink-3);
+        transition:
+          transform 0.14s ease,
+          background-color 0.14s ease;
+      }
+      .toggle.is-on {
+        background-color: color-mix(in srgb, var(--ok) 34%, transparent);
+        box-shadow: inset 0 0 0 1px
+          color-mix(in srgb, var(--ok) 45%, transparent);
+      }
+      .toggle.is-on::after {
+        transform: translateX(12px);
+        background-color: var(--ok);
+      }
+
+      /* Input tạo folder */
+      .folder-new {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 12px;
+        border-top: 1px solid var(--line);
+        background-color: var(--sf-hover);
+      }
+      .folder-new input {
+        flex: 1;
+        min-width: 0;
+        height: 26px;
+        padding: 0 9px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--accent-line);
+        background-color: var(--sf-sunken);
+        color: var(--ink-1);
+        font-size: 12px;
+        outline: none;
+      }
+
+      /* Popover chọn folder */
+      .pop {
+        position: absolute;
+        z-index: 30;
+        min-width: 158px;
+        max-width: 220px;
+        padding: 4px;
+        border-radius: var(--r-md);
+        background-color: var(--sf-raise);
+        box-shadow:
+          0 0 0 1px var(--line-strong),
+          0 10px 28px rgba(0, 0, 0, 0.45);
+      }
+      .pop__label {
+        padding: 5px 8px 4px;
+        font-size: 10.5px;
+        color: var(--ink-3);
+      }
+      .pop__item {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        width: 100%;
+        padding: 6px 8px;
+        border: none;
+        border-radius: var(--r-sm);
+        background-color: transparent;
+        color: var(--ink-1);
+        font-size: 12px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .pop__item:hover {
+        background-color: var(--sf-press);
+      }
+      .pop__item span {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .pop__item.is-current {
+        color: var(--accent);
+      }
+      .pop__sep {
+        height: 1px;
+        margin: 4px 2px;
+        background-color: var(--line);
+      }
+
+      /* ============================================================
+         detail-skill-view
+         Không còn topbar "← slug". Back là một pill nổi trên hero,
+         khi cuộn xuống pill dính lại và tên skill hiện ra cạnh nó.
+         ============================================================ */
+      .skill-detail {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        background-color: var(--sf-base);
+        z-index: 10;
+        transform: translateX(100%);
+        visibility: hidden;
+        transition:
+          transform 0.18s cubic-bezier(0.32, 0.72, 0, 1),
+          visibility 0.18s;
+      }
+      .skill-detail.is-open {
+        transform: translateX(0);
+        visibility: visible;
+      }
+
+      .skill-detail__nav {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        height: 42px;
+        padding: 0 10px;
+        background-color: transparent;
+        border-bottom: 1px solid transparent;
+        transition:
+          background-color 0.14s ease,
+          border-color 0.14s ease;
+      }
+      .skill-detail__nav.is-stuck {
+        background-color: var(--sf-base);
+        border-bottom-color: var(--line);
+      }
+      .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 26px;
+        padding: 0 10px 0 7px;
+        border-radius: 99px;
+        border: 1px solid var(--line);
+        background-color: var(--sf-raise);
+        color: var(--ink-2);
+        font-size: 11.5px;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.12s ease;
+      }
+      .btn-back:hover {
+        color: var(--ink-1);
+        border-color: var(--line-strong);
+      }
+      .skill-detail__nav-title {
+        flex: 1;
+        min-width: 0;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--ink-1);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        opacity: 0;
+        transform: translateY(3px);
+        transition:
+          opacity 0.14s ease,
+          transform 0.14s ease;
+      }
+      .skill-detail__nav.is-stuck .skill-detail__nav-title {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .skill-detail__body {
+        flex: 1;
+        min-height: 0;
+        padding-top: 42px;
+      }
+
+      .skill-detail__hero {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 6px 14px 14px;
+      }
+      .skill-detail__title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 650;
+        line-height: 1.25;
+        color: var(--ink-1);
+        word-break: break-word;
+      }
+      .skill-detail__author {
+        margin-top: 3px;
+        font-size: 12px;
+        color: var(--ink-3);
+      }
+      .skill-detail__author b {
+        color: var(--ink-2);
+        font-weight: 500;
+      }
+      .skill-detail__hero-actions {
+        margin-left: auto;
+        flex-shrink: 0;
+        padding-top: 2px;
+      }
+
+      .skill-detail__figures {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .skill-figure {
+        padding: 11px 14px;
+      }
+      .skill-figure + .skill-figure {
+        border-left: 1px solid var(--line);
+      }
+      .skill-figure__value {
+        font-family: var(--mono);
+        font-size: 14px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-1);
+        line-height: 1.2;
+      }
+      .skill-figure__label {
+        margin-top: 3px;
+        font-size: 10.5px;
+        color: var(--ink-3);
+      }
+
+      .skill-detail__lead {
+        margin: 0;
+        padding: 14px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--ink-2);
+        border-bottom: 1px solid var(--line);
+      }
+      .skill-detail__section {
+        padding: 14px;
+      }
+      .skill-detail__heading {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink-1);
+        margin: 0 0 9px;
+      }
+      .skill-detail__about {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        line-height: 1.7;
+        color: var(--ink-2);
+      }
+
+      .skill-detail__actions {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-top: 1px solid var(--line);
+        background-color: var(--tertiary-bg);
+      }
+      .btn-primary {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        height: 32px;
+        border-radius: var(--r-md);
+        border: none;
+        background-color: var(--accent);
+        color: var(--accent-ink);
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background-color 0.12s ease,
+          color 0.12s ease;
+      }
+      .btn-primary:hover {
+        background-color: var(--accent-hi);
+      }
+      .btn-primary.is-installed {
+        background-color: color-mix(in srgb, var(--ok) 16%, transparent);
+        color: var(--ok);
+        box-shadow: inset 0 0 0 1px
+          color-mix(in srgb, var(--ok) 32%, transparent);
+      }
+      .btn-primary.is-installed:hover {
+        background-color: color-mix(in srgb, var(--danger) 14%, transparent);
+        color: var(--danger);
+        box-shadow: inset 0 0 0 1px
+          color-mix(in srgb, var(--danger) 30%, transparent);
+      }
+
+      /* MCP */
+      .mcp-panel {
+        flex: 1;
+        min-height: 0;
+        padding: 18px 14px 14px;
+      }
+      .mcp-panel__lead {
+        margin: 0 0 4px;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--ink-1);
+      }
+      .mcp-panel__desc {
+        margin: 0 0 16px;
+        font-size: 12.5px;
+        line-height: 1.6;
+        color: var(--ink-3);
+      }
+      .mcp-ghost {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 12px;
+        border-radius: var(--r-md);
+        border: 1px dashed var(--line);
+        margin-bottom: 8px;
+      }
+      .mcp-ghost__tile {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--r-sm);
+        background-color: var(--sf-press);
+        flex-shrink: 0;
+      }
+      .mcp-ghost__lines {
+        flex: 1;
+        min-width: 0;
+      }
+      .mcp-ghost__l1,
+      .mcp-ghost__l2 {
+        height: 7px;
+        border-radius: 4px;
+        background-color: var(--sf-press);
+      }
+      .mcp-ghost__l1 {
+        width: 40%;
+      }
+      .mcp-ghost__l2 {
+        width: 72%;
+        margin-top: 6px;
+        opacity: 0.6;
+      }
+      .mcp-ghost__badge {
+        font-size: 10.5px;
+        color: var(--ink-3);
+        border: 1px solid var(--line);
+        border-radius: 99px;
+        padding: 2px 8px;
+        flex-shrink: 0;
+      }
+      .mcp-panel__foot {
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        font-size: 12px;
+        line-height: 1.6;
+        color: var(--ink-3);
+      }
+      .mcp-panel__foot a {
+        color: var(--vscode-textLink-foreground);
+        text-decoration: none;
+      }
+
+      .toast {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        z-index: 60;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 11px;
+        border-radius: var(--r-md);
+        background-color: var(--sf-raise);
+        box-shadow:
+          0 0 0 1px var(--line-strong),
+          0 8px 24px rgba(0, 0, 0, 0.4);
+        font-size: 12px;
+        color: var(--ink-1);
+        opacity: 0;
+        transform: translateY(6px);
+        pointer-events: none;
+        transition:
+          opacity 0.16s ease,
+          transform 0.16s ease;
+      }
+      .toast.is-open {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .toast svg {
+        color: var(--ok);
+        flex-shrink: 0;
+      }
+
+      .spin {
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone-frame">
+      <div class="marketplace-panel">
+        <!-- ========== HEADER (giữ nguyên) ========== -->
+        <div class="marketplace-header">
+          <div class="marketplace-header__row">
+            <div class="marketplace-header__left">
+              <div>
+                <div class="marketplace-header__title-wrap">
+                  <span class="marketplace-header__title">Marketplace</span>
+                </div>
+                <p class="marketplace-header__subtitle">
+                  Install skills and MCP servers
+                </p>
+              </div>
+            </div>
+            <button
+              class="marketplace-header__close"
+              type="button"
+              title="Close Marketplace"
+              aria-label="Close Marketplace"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- ========== TABS ========== -->
+        <div class="marketplace-tabbar" role="tablist">
+          <button
+            class="marketplace-tabbar__tab is-active"
+            data-tab="SKILL"
+            role="tab"
+          >
+            Skills
+            <span class="marketplace-tabbar__count" id="tab-skill-count"
+              >5</span
+            >
+          </button>
+          <button class="marketplace-tabbar__tab" data-tab="MCP" role="tab">
+            MCP servers
+          </button>
+        </div>
+
+        <div class="marketplace-content">
+          <!-- ---------- SKILL ---------- -->
+          <div class="marketplace-content__pane is-active" data-pane="SKILL">
+            <div class="skill-panel" id="skill-panel">
+              <div class="skill-toolbar">
+                <div class="seg" role="tablist">
+                  <button
+                    class="seg__item is-active"
+                    data-view="list"
+                    role="tab"
+                  >
+                    Browse
+                  </button>
+                  <button class="seg__item" data-view="manager" role="tab">
+                    Installed
+                    <span class="seg__badge" id="seg-installed-count">0</span>
+                  </button>
+                </div>
+
+                <div class="skill-search">
+                  <svg
+                    class="skill-search__icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="m21 21-4.3-4.3" />
+                  </svg>
+                  <input
+                    id="skill-search-input"
+                    class="skill-search__input"
+                    type="text"
+                    placeholder="Search skills"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <button
+                    id="skill-search-clear"
+                    class="skill-search__clear"
+                    type="button"
+                    title="Clear search"
+                    aria-label="Clear search"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- ===== list-skill-view ===== -->
+              <div class="skill-view is-active" data-view="list">
+                <div class="skill-meta-row">
+                  <span class="skill-meta-row__count" id="skill-count"></span>
+                  <select
+                    class="skill-sort"
+                    id="skill-sort"
+                    aria-label="Sort skills"
+                  >
+                    <option value="installs">Most installed</option>
+                    <option value="views">Most viewed</option>
+                    <option value="name">Name A–Z</option>
+                  </select>
+                </div>
+                <div class="skill-list scroll-y" id="skill-list"></div>
+              </div>
+
+              <!-- ===== manager-skill-view ===== -->
+              <div class="skill-view" data-view="manager">
+                <div class="mgr-bar">
+                  <span class="mgr-bar__count" id="mgr-count"></span>
+                  <button class="btn-mini" type="button" id="mgr-new-folder">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 10v6" />
+                      <path d="M9 13h6" />
+                      <path
+                        d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
+                      />
+                    </svg>
+                    New folder
+                  </button>
+                </div>
+                <div class="mgr-list scroll-y" id="mgr-list"></div>
+              </div>
+
+              <!-- ===== detail-skill-view ===== -->
+              <div class="skill-detail" id="skill-detail" aria-hidden="true">
+                <div class="skill-detail__nav" id="skill-detail-nav">
+                  <button class="btn-back" type="button" id="skill-detail-back">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m15 18-6-6 6-6" />
+                    </svg>
+                    <span id="skill-detail-back-label">All skills</span>
+                  </button>
+                  <span
+                    class="skill-detail__nav-title"
+                    id="skill-detail-nav-title"
+                  ></span>
+                </div>
+                <div
+                  class="skill-detail__body scroll-y"
+                  id="skill-detail-body"
+                ></div>
+                <div
+                  class="skill-detail__actions"
+                  id="skill-detail-actions"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ---------- MCP ---------- -->
+          <div class="marketplace-content__pane" data-pane="MCP">
+            <div class="mcp-panel scroll-y">
+              <p class="mcp-panel__lead">MCP servers are coming soon</p>
+              <p class="mcp-panel__desc">
+                Connect the agent to databases, issue trackers and internal
+                APIs. Browsing and one-click connect land in a future release.
+              </p>
+              <div class="mcp-ghost">
+                <div class="mcp-ghost__tile"></div>
+                <div class="mcp-ghost__lines">
+                  <div class="mcp-ghost__l1"></div>
+                  <div class="mcp-ghost__l2"></div>
+                </div>
+                <span class="mcp-ghost__badge">Soon</span>
+              </div>
+              <div class="mcp-ghost">
+                <div class="mcp-ghost__tile"></div>
+                <div class="mcp-ghost__lines">
+                  <div class="mcp-ghost__l1"></div>
+                  <div class="mcp-ghost__l2"></div>
+                </div>
+                <span class="mcp-ghost__badge">Soon</span>
+              </div>
+              <div class="mcp-ghost">
+                <div class="mcp-ghost__tile"></div>
+                <div class="mcp-ghost__lines">
+                  <div class="mcp-ghost__l1"></div>
+                  <div class="mcp-ghost__l2"></div>
+                </div>
+                <span class="mcp-ghost__badge">Soon</span>
+              </div>
+              <p class="mcp-panel__foot">
+                Already running a server? Add it by hand in
+                <a href="#" onclick="return false;">mcp.json</a> and the agent
+                picks it up on the next reload.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="toast" id="toast">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+          <span id="toast-text"></span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ================================================================
+      // ⚠️ MOCK DATA — KHÔNG PHẢI REAL DATA
+      // File HTML tĩnh, không có extension host để postMessage nên không
+      // gọi được `services/skill.service.ts`. Khi nối real data: xem
+      // `hooks/useSkillMarketplace.ts` + `services/skill.service.ts`.
+      //
+      // Field dùng trong UI này: slug, name, author, description, views,
+      // installs, sourceUrl, content. KHÔNG dùng `category` — đã bỏ.
+      // ================================================================
+
+      var mockSkills = [
+        {
+          id: 5,
+          slug: "nano-banana-pro",
+          name: "nano-banana-pro",
+          author: "garg-aayush",
+          description:
+            'Generate and edit images using Google\'s Nano Banana Pro (Gemini 3 Pro Image) API. Use when the user asks to generate, create, edit, modify, change, alter, or update images. Also use when user references an existing image file and asks to modify it in any way (e.g., "modify this image", "change the background", "replace X with Y"). Supports both text-to-image generation and image-to-image editing with configurable resolution (1K default, 2K, or 4K for high resolution). DO NOT read the image file first - use this skill directly with the --input-image parameter.',
+          views: 2500,
+          installs: 16600,
+          sourceUrl:
+            "https://github.com/garg-aayush/tutorials/tree/main/claude-skills/nano-banana-pro",
+          content:
+            '# Nano Banana Pro Image Generation & Editing\n\nGenerate new images or edit existing ones using Google\'s Nano Banana Pro API (Gemini 3 Pro Image).\n\n## Usage\n\nRun the script using absolute path (do NOT cd to skill directory first):\n\n**Generate new image:**\n\n    uv run ~/.claude/skills/nano-banana-pro/scripts/generate_image.py --prompt "your image description" --filename "output-name.png" [--resolution 1K|2K|4K] [--api-key KEY]\n\n**Edit existing image:**\n\n    uv run ~/.claude/skills/nano-banana-pro/scripts/generate_image.py --prompt "editing instructions" --filename "output-name.png" --input-image "path/to/input.png" [--resolution 1K|2K|4K] [--api-key KEY]\n\n**Important:** Always run from the user\'s current working directory so images are saved where the user is working, not in the skill directory.\n\n## Resolution Options\n\nThe Gemini 3 Pro Image API supports three resolutions (uppercase K required):\n\n- **1K** (default) - ~1024px resolution\n- **2K** - ~2048px resolution\n- **4K** - ~4096px resolution\n\nMap user requests to API parameters:\n- No mention of resolution -> `1K`\n- "low resolution", "1080", "1080p", "1K" -> `1K`\n- "2K", "2048", "normal", "medium resolution" -> `2K`\n- "high resolution", "high-res", "hi-res", "4K", "ultra" -> `4K`\n\n## API Key\n\nThe script checks for API key in this order:\n1. `--api-key` argument (use if user provided key in chat)\n2. `GEMINI_API_KEY` environment variable\n\nIf neither is available, the script exits with an error message.\n\n## Filename Generation\n\nGenerate filenames with the pattern: `yyyy-mm-dd-hh-mm-ss-name.png`\n\n**Format:** `{timestamp}-{descriptive-name}.png`\n- Timestamp: Current date/time in format `yyyy-mm-dd-hh-mm-ss` (24-hour format)\n- Name: Descriptive lowercase text with hyphens\n- Keep the descriptive part concise (1-5 words typically)\n- Use context from user\'s prompt or conversation\n- If unclear, use random identifier (e.g., `x9k2`, `a7b3`)\n\n## Image Editing\n\nWhen the user wants to modify an existing image:\n1. Check if they provide an image path or reference an image in the current directory\n2. Use `--input-image` parameter with the path to the image\n3. The prompt should contain editing instructions\n4. Common editing tasks: add/remove elements, change style, adjust colors, blur background\n\n## Output\n\n- Saves PNG to current directory (or specified path if filename includes directory)\n- Script outputs the full path to the generated image\n- **Do not read the image back** - just inform the user of the saved path',
+        },
+        {
+          id: 1,
+          slug: "web-scraper",
+          name: "Web Scraper",
+          author: "mcp.directory",
+          description:
+            "Extract structured data from any website with a single prompt. Handles pagination, JS rendering and rate limits automatically.",
+          views: 1280000,
+          installs: 45200,
+          sourceUrl: "https://mcp.directory/skills/web-scraper",
+          content:
+            "# Web Scraper\n\nUsage:\n  /scrape <url> --selector <css>\n\nSupports pagination via --pages <n> and export to json/csv.",
+        },
+        {
+          id: 2,
+          slug: "pdf-summarizer",
+          name: "PDF Summarizer",
+          author: "acme-labs",
+          description:
+            "Summarize long PDFs into key bullet points. Supports scanned documents via built-in OCR.",
+          views: 320400,
+          installs: 12800,
+          sourceUrl: "https://mcp.directory/skills/pdf-summarizer",
+          content:
+            "# PDF Summarizer\n\nUsage:\n  /summarize-pdf <file> [--lang en|vi]\n\nReturns markdown summary with sections.",
+        },
+        {
+          id: 3,
+          slug: "code-reviewer",
+          name: "Code Reviewer",
+          author: "zen-team",
+          description:
+            "Automatic PR review with focus on security, performance and readability. Works on diffs only to keep cost low.",
+          views: 89400,
+          installs: 3210,
+          sourceUrl: "https://mcp.directory/skills/code-reviewer",
+          content:
+            "# Code Reviewer\n\nUsage:\n  /review [--diff <ref>] [--focus security,perf]",
+        },
+        {
+          id: 4,
+          slug: "sql-helper",
+          name: "SQL Helper",
+          author: "dbguild",
+          description:
+            "Write, explain and optimize SQL queries. Supports Postgres, MySQL, SQLite and MSSQL dialects.",
+          views: 45200,
+          installs: 1890,
+          sourceUrl: "https://mcp.directory/skills/sql-helper",
+          content:
+            "# SQL Helper\n\nUsage:\n  /sql <natural language>\n  /sql-explain <query>\n  /sql-optimize <query>",
+        },
+      ];
+
+      // ---------------- helpers ----------------
+      function formatNumber(n) {
+        if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+        if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+        return String(n);
+      }
+      function escHtml(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "\x26amp;")
+          .replace(/</g, "\x26lt;")
+          .replace(/>/g, "\x26gt;")
+          .replace(/"/g, "\x26quot;");
+      }
+
+      // Màu tile suy ra từ slug bằng hash — deterministic, không phải
+      // metadata. Cùng slug luôn ra cùng màu, không cần field nào thêm.
+      var TILE_PALETTE = [
+        "#8ca8cc",
+        "#79bd8c",
+        "#9b9ae0",
+        "#6ab0bf",
+        "#c08fb0",
+        "#a0a6b3",
+      ];
+      function tileColor(slug) {
+        var h = 0;
+        var s = String(slug || "");
+        for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+        return TILE_PALETTE[h % TILE_PALETTE.length];
+      }
+      function monogram(skill) {
+        var s = (skill.slug || skill.name || "?").replace(/[^a-z0-9]/gi, "");
+        return escHtml(s.slice(0, 2).toUpperCase());
+      }
+
+      var ICON = {
+        download:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>',
+        eye: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>',
+        plus: '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+        check:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+        refresh:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>',
+        external:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',
+        search:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+        box: '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-9"/><path d="M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z"/><path d="M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13"/></svg>',
+        alert:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+        folder:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
+        chevron:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+        pencil:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>',
+        trash:
+          '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+      };
+
+      // ---------------- state ----------------
+      var state = {
+        status: "loading",
+        error: "",
+        view: "list", // list | manager
+        query: "",
+        sort: "installs",
+        installed: {}, // slug -> { enabled, folderId }
+        folders: [{ id: "f1", name: "Daily drivers", collapsed: false }],
+        selected: null,
+        backTo: "list", // view để quay lại từ detail
+      };
+
+      // Pre-seed cho preview
+      state.installed["nano-banana-pro"] = { enabled: true, folderId: null };
+      state.installed["code-reviewer"] = { enabled: true, folderId: "f1" };
+
+      var els = {
+        panel: document.getElementById("skill-panel"),
+        tabs: document.querySelectorAll(".marketplace-tabbar__tab"),
+        panes: document.querySelectorAll(".marketplace-content__pane"),
+        segs: document.querySelectorAll(".seg__item"),
+        views: document.querySelectorAll(".skill-view"),
+        segCount: document.getElementById("seg-installed-count"),
+        list: document.getElementById("skill-list"),
+        count: document.getElementById("skill-count"),
+        sort: document.getElementById("skill-sort"),
+        input: document.getElementById("skill-search-input"),
+        clear: document.getElementById("skill-search-clear"),
+        mgrList: document.getElementById("mgr-list"),
+        mgrCount: document.getElementById("mgr-count"),
+        mgrNewFolder: document.getElementById("mgr-new-folder"),
+        detail: document.getElementById("skill-detail"),
+        detailNav: document.getElementById("skill-detail-nav"),
+        detailNavTitle: document.getElementById("skill-detail-nav-title"),
+        detailBackLabel: document.getElementById("skill-detail-back-label"),
+        detailBody: document.getElementById("skill-detail-body"),
+        detailActions: document.getElementById("skill-detail-actions"),
+        tabCount: document.getElementById("tab-skill-count"),
+        toast: document.getElementById("toast"),
+        toastText: document.getElementById("toast-text"),
+      };
+
+      var toastTimer = null;
+      function toast(msg) {
+        els.toastText.textContent = msg;
+        els.toast.classList.add("is-open");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          els.toast.classList.remove("is-open");
+        }, 1900);
+      }
+
+      function getSkill(slug) {
+        return mockSkills.find(function (s) {
+          return s.slug === slug;
+        });
+      }
+      function installedSlugs() {
+        return Object.keys(state.installed);
+      }
+
+      // ---------------- tabs / views ----------------
+      els.tabs.forEach(function (el) {
+        el.addEventListener("click", function () {
+          var tab = el.getAttribute("data-tab");
+          els.tabs.forEach(function (t) {
+            t.classList.toggle("is-active", t === el);
+          });
+          els.panes.forEach(function (p) {
+            p.classList.toggle(
+              "is-active",
+              p.getAttribute("data-pane") === tab,
+            );
+          });
+        });
+      });
+
+      function setView(view) {
+        state.view = view;
+        els.segs.forEach(function (s) {
+          s.classList.toggle("is-active", s.getAttribute("data-view") === view);
+        });
+        els.views.forEach(function (v) {
+          v.classList.toggle("is-active", v.getAttribute("data-view") === view);
+        });
+        els.input.placeholder =
+          view === "manager" ? "Search installed skills" : "Search skills";
+        render();
+      }
+      els.segs.forEach(function (s) {
+        s.addEventListener("click", function () {
+          setView(s.getAttribute("data-view"));
+        });
+      });
+
+      // ---------------- list-skill-view ----------------
+      function matches(s) {
+        var q = state.query.trim().toLowerCase();
+        if (!q) return true;
+        return (
+          (s.name || "").toLowerCase().indexOf(q) !== -1 ||
+          (s.description || "").toLowerCase().indexOf(q) !== -1 ||
+          (s.author || "").toLowerCase().indexOf(q) !== -1
+        );
+      }
+
+      function visibleSkills() {
+        var out = mockSkills.filter(matches);
+        out.sort(function (a, b) {
+          if (state.sort === "name") return a.name.localeCompare(b.name);
+          return (b[state.sort] || 0) - (a[state.sort] || 0);
+        });
+        return out;
+      }
+
+      function rowHtml(skill) {
+        var installed = !!state.installed[skill.slug];
+        return (
+          '<div class="skill-row' +
+          (installed ? " is-installed" : "") +
+          '" data-slug="' +
+          escHtml(skill.slug) +
+          '" style="--tile:' +
+          tileColor(skill.slug) +
+          '" role="button" tabindex="0">' +
+          '  <div class="skill-row__head">' +
+          '    <div class="tile tile--sm">' +
+          monogram(skill) +
+          "</div>" +
+          '    <div class="skill-row__id">' +
+          '      <span class="skill-row__name">' +
+          escHtml(skill.name) +
+          "</span>" +
+          '      <span class="skill-row__author">by ' +
+          escHtml(skill.author) +
+          "</span>" +
+          "    </div>" +
+          '    <button class="btn-install' +
+          (installed ? " is-installed" : "") +
+          '" type="button" data-install="' +
+          escHtml(skill.slug) +
+          '">' +
+          (installed ? ICON.check + "Installed" : ICON.plus + "Install") +
+          "</button>" +
+          "  </div>" +
+          '  <p class="skill-row__desc">' +
+          escHtml(skill.description || "No description yet.") +
+          "</p>" +
+          '  <div class="skill-row__stats">' +
+          '    <span class="skill-stat">' +
+          ICON.download +
+          formatNumber(skill.installs) +
+          "</span>" +
+          '    <span class="skill-stat">' +
+          ICON.eye +
+          formatNumber(skill.views) +
+          "</span>" +
+          "  </div>" +
+          "</div>"
+        );
+      }
+
+      function skeletonHtml() {
+        var one =
+          '<div class="skill-skeleton">' +
+          '  <div class="skill-skeleton__head">' +
+          '    <div class="sk-line" style="width:32px;height:32px;border-radius:8px"></div>' +
+          '    <div style="flex:1">' +
+          '      <div class="sk-line" style="width:45%;height:10px"></div>' +
+          '      <div class="sk-line" style="width:28%;height:8px;margin-top:6px"></div>' +
+          "    </div>" +
+          "  </div>" +
+          '  <div class="sk-line" style="width:100%;height:8px;margin-top:12px"></div>' +
+          '  <div class="sk-line" style="width:70%;height:8px;margin-top:6px"></div>' +
+          "</div>";
+        return one + one + one + one;
+      }
+
+      function stateHtml(kind) {
+        if (kind === "error") {
+          return (
+            '<div class="skill-state skill-state--error">' +
+            '<div class="skill-state__icon">' +
+            ICON.alert +
+            "</div>" +
+            '<div class="skill-state__title">Could not load the registry</div>' +
+            '<p class="skill-state__body">' +
+            escHtml(state.error) +
+            "</p>" +
+            '<button class="btn-quiet" id="skill-retry">' +
+            ICON.refresh +
+            "Try again</button>" +
+            "</div>"
+          );
+        }
+        if (kind === "no-results") {
+          return (
+            '<div class="skill-state">' +
+            '<div class="skill-state__icon">' +
+            ICON.search +
+            "</div>" +
+            '<div class="skill-state__title">Nothing matches that search</div>' +
+            '<p class="skill-state__body">No skill matches <b>' +
+            escHtml(state.query) +
+            "</b>. Try a shorter word.</p>" +
+            '<button class="btn-quiet" id="skill-reset">Clear search</button>' +
+            "</div>"
+          );
+        }
+        return (
+          '<div class="skill-state">' +
+          '<div class="skill-state__icon">' +
+          ICON.box +
+          "</div>" +
+          '<div class="skill-state__title">No skills in this registry</div>' +
+          '<p class="skill-state__body">Point the agent at a registry source, then refresh to browse what is available.</p>' +
+          '<button class="btn-quiet" id="skill-retry">' +
+          ICON.refresh +
+          "Refresh</button>" +
+          "</div>"
+        );
+      }
+
+      function renderList() {
+        els.tabCount.textContent = String(mockSkills.length);
+
+        if (state.status === "loading") {
+          els.list.innerHTML = skeletonHtml();
+          els.count.textContent = "Loading skills";
+          return;
+        }
+        if (state.status === "error") {
+          els.list.innerHTML = stateHtml("error");
+          els.count.textContent = "";
+          var r = document.getElementById("skill-retry");
+          if (r) r.onclick = load;
+          return;
+        }
+
+        var rows = visibleSkills();
+        if (rows.length === 0) {
+          els.list.innerHTML = stateHtml(
+            mockSkills.length === 0 ? "empty" : "no-results",
+          );
+          els.count.textContent = "0 skills";
+          var reset = document.getElementById("skill-reset");
+          if (reset) reset.onclick = clearSearch;
+          var retry = document.getElementById("skill-retry");
+          if (retry) retry.onclick = load;
+          return;
+        }
+
+        els.count.textContent =
+          rows.length + (rows.length === 1 ? " skill" : " skills");
+        els.list.innerHTML = rows.map(rowHtml).join("");
+
+        Array.prototype.forEach.call(
+          els.list.querySelectorAll(".skill-row"),
+          function (row) {
+            var slug = row.getAttribute("data-slug");
+            function open() {
+              var s = getSkill(slug);
+              if (s) openDetail(s, "list");
+            }
+            row.addEventListener("click", open);
+            row.addEventListener("keydown", function (e) {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                open();
+              }
+            });
+          },
+        );
+        bindActions(els.list);
+      }
+
+      // ---------------- manager-skill-view ----------------
+      function folderById(id) {
+        return state.folders.find(function (f) {
+          return f.id === id;
+        });
+      }
+
+      function mgrRowHtml(slug) {
+        var skill = getSkill(slug);
+        if (!skill) return "";
+        var rec = state.installed[slug];
+        return (
+          '<div class="mgr-row' +
+          (rec.enabled ? "" : " is-off") +
+          '" style="--tile:' +
+          tileColor(slug) +
+          '">' +
+          '  <div class="tile tile--xs">' +
+          monogram(skill) +
+          "</div>" +
+          '  <div class="mgr-row__id" data-open="' +
+          escHtml(slug) +
+          '" role="button" tabindex="0">' +
+          '    <span class="mgr-row__name">' +
+          escHtml(skill.name) +
+          "</span>" +
+          '    <span class="mgr-row__author">by ' +
+          escHtml(skill.author) +
+          "</span>" +
+          "  </div>" +
+          '  <div class="mgr-row__tools">' +
+          '    <button class="toggle' +
+          (rec.enabled ? " is-on" : "") +
+          '" type="button" data-toggle="' +
+          escHtml(slug) +
+          '" title="' +
+          (rec.enabled ? "Disable" : "Enable") +
+          '" aria-label="' +
+          (rec.enabled ? "Disable" : "Enable") +
+          '"></button>' +
+          '    <button class="icon-btn" type="button" data-move="' +
+          escHtml(slug) +
+          '" title="Move to folder" aria-label="Move to folder">' +
+          ICON.folder +
+          "</button>" +
+          '    <button class="icon-btn icon-btn--danger" type="button" data-remove="' +
+          escHtml(slug) +
+          '" title="Uninstall" aria-label="Uninstall">' +
+          ICON.trash +
+          "</button>" +
+          "  </div>" +
+          "</div>"
+        );
+      }
+
+      function groupHtml(id, name, slugs, removable) {
+        var f = id ? folderById(id) : null;
+        var collapsed = f ? f.collapsed : false;
+        var body = slugs.length
+          ? slugs.map(mgrRowHtml).join("")
+          : '<div style="padding:8px 12px 10px 20px;font-size:11.5px;color:var(--ink-3)">Empty — move a skill here from its folder icon.</div>';
+
+        return (
+          '<div class="folder' +
+          (collapsed ? " is-collapsed" : "") +
+          '" data-folder="' +
+          escHtml(id || "root") +
+          '">' +
+          '  <button class="folder__head" type="button" data-collapse="' +
+          escHtml(id || "root") +
+          '">' +
+          '    <span class="folder__chev">' +
+          ICON.chevron +
+          "</span>" +
+          '    <span class="folder__name">' +
+          escHtml(name) +
+          "</span>" +
+          '    <span class="folder__n">' +
+          slugs.length +
+          "</span>" +
+          (removable
+            ? '    <span class="folder__tools">' +
+              '<span class="icon-btn" role="button" tabindex="0" data-rename="' +
+              escHtml(id) +
+              '" title="Rename folder">' +
+              ICON.pencil +
+              "</span>" +
+              '<span class="icon-btn icon-btn--danger" role="button" tabindex="0" data-delfolder="' +
+              escHtml(id) +
+              '" title="Delete folder">' +
+              ICON.trash +
+              "</span>" +
+              "</span>"
+            : "") +
+          "  </button>" +
+          '  <div class="folder__body">' +
+          body +
+          "</div>" +
+          "</div>"
+        );
+      }
+
+      function renderManager() {
+        var all = installedSlugs().filter(function (slug) {
+          var s = getSkill(slug);
+          return s && matches(s);
+        });
+
+        els.segCount.textContent = String(installedSlugs().length);
+
+        if (installedSlugs().length === 0) {
+          els.mgrCount.textContent = "";
+          els.mgrList.innerHTML =
+            '<div class="skill-state">' +
+            '<div class="skill-state__icon">' +
+            ICON.box +
+            "</div>" +
+            '<div class="skill-state__title">No skills installed yet</div>' +
+            '<p class="skill-state__body">Install a skill from Browse, then group your skills into folders here.</p>' +
+            '<button class="btn-quiet" id="mgr-go-browse">Browse skills</button>' +
+            "</div>";
+          var go = document.getElementById("mgr-go-browse");
+          if (go)
+            go.onclick = function () {
+              setView("list");
+            };
+          return;
+        }
+
+        var enabled = all.filter(function (s) {
+          return state.installed[s].enabled;
+        }).length;
+        els.mgrCount.textContent =
+          all.length + " installed · " + enabled + " enabled";
+
+        var html = "";
+        state.folders.forEach(function (f) {
+          var slugs = all.filter(function (s) {
+            return state.installed[s].folderId === f.id;
+          });
+          html += groupHtml(f.id, f.name, slugs, true);
+        });
+        var loose = all.filter(function (s) {
+          return !state.installed[s].folderId;
+        });
+        html += groupHtml(null, "Ungrouped", loose, false);
+
+        els.mgrList.innerHTML = html;
+        bindManager();
+      }
+
+      function bindManager() {
+        var root = els.mgrList;
+
+        Array.prototype.forEach.call(
+          root.querySelectorAll("[data-collapse]"),
+          function (btn) {
+            btn.onclick = function (e) {
+              if (e.target.closest("[data-rename],[data-delfolder]")) return;
+              var id = btn.getAttribute("data-collapse");
+              var f = folderById(id);
+              if (f) {
+                f.collapsed = !f.collapsed;
+              } else {
+                btn.parentNode.classList.toggle("is-collapsed");
+                return;
+              }
+              renderManager();
+            };
+          },
+        );
+
+        Array.prototype.forEach.call(
+          root.querySelectorAll("[data-open]"),
+          function (el) {
+            el.onclick = function () {
+              var s = getSkill(el.getAttribute("data-open"));
+              if (s) openDetail(s, "manager");
+            };
+          },
+        );
+
+        Array.prototype.forEach.call(
+          root.querySelectorAll("[data-toggle]"),
+          function (btn) {
+            btn.onclick = function () {
+              var slug = btn.getAttribute("data-toggle");
+              var rec = state.installed[slug];
+              rec.enabled = !rec.enabled;
+              toast(
+                (rec.enabled ? "Enabled " : "Disabled ") + getSkill(slug).name,
+              );
+              renderManager();
+            };
+          },
+        );
+
+        Array.prototype.forEach.call(
+          root.querySelectorAll("[data-remove]"),
+          function (btn) {
+            btn.onclick = function () {
+              var slug = btn.getAttribute("data-remove");
+              delete state.installed[slug];
+              toast("Removed " + getSkill(slug).name);
+              render();
+            };
+          },
+        );
+
+        Array.prototype.forEach.call(
+          root.querySelectorAll("[data-move]"),
+          function (btn) {
+            btn.onclick = function (e) {
+              e.stopPropagation();
+              openMovePopover(btn, btn.getAttribute("data-move"));
+            };
+          },
+        );
+
+        Array.prototype.forEach.call(
+          root.querySelectorAll("[data-rename]"),
+          function (btn) {
+            btn.onclick = function (e) {
+              e.stopPropagation();
+              startFolderInput(btn.getAttribute("data-rename"));
+            };
+          },
+        );
+
+        Array.prototype.forEach.call(
+          root.querySelectorAll("[data-delfolder]"),
+          function (btn) {
+            btn.onclick = function (e) {
+              e.stopPropagation();
+              var id = btn.getAttribute("data-delfolder");
+              installedSlugs().forEach(function (s) {
+                if (state.installed[s].folderId === id)
+                  state.installed[s].folderId = null;
+              });
+              state.folders = state.folders.filter(function (f) {
+                return f.id !== id;
+              });
+              toast("Folder deleted, skills kept");
+              renderManager();
+            };
+          },
+        );
+      }
+
+      // --- popover: move skill vào folder ---
+      var openPop = null;
+      function closePop() {
+        if (openPop) {
+          openPop.remove();
+          openPop = null;
+        }
+      }
+      document.addEventListener("click", closePop);
+
+      function openMovePopover(anchor, slug) {
+        closePop();
+        var rec = state.installed[slug];
+        var pop = document.createElement("div");
+        pop.className = "pop";
+        var html = '<div class="pop__label">Move to</div>';
+        state.folders.forEach(function (f) {
+          html +=
+            '<button class="pop__item' +
+            (rec.folderId === f.id ? " is-current" : "") +
+            '" data-to="' +
+            escHtml(f.id) +
+            '">' +
+            ICON.folder +
+            "<span>" +
+            escHtml(f.name) +
+            "</span>" +
+            (rec.folderId === f.id ? ICON.check : "") +
+            "</button>";
+        });
+        html +=
+          '<div class="pop__sep"></div><button class="pop__item' +
+          (rec.folderId ? "" : " is-current") +
+          '" data-to="">' +
+          "<span>Ungrouped</span>" +
+          (rec.folderId ? "" : ICON.check) +
+          "</button>";
+        pop.innerHTML = html;
+
+        els.panel.appendChild(pop);
+        var pr = els.panel.getBoundingClientRect();
+        var ar = anchor.getBoundingClientRect();
+        var top = ar.bottom - pr.top + 4;
+        pop.style.top = Math.min(top, pr.height - pop.offsetHeight - 8) + "px";
+        pop.style.right = Math.max(8, pr.right - ar.right - 4) + "px";
+
+        pop.addEventListener("click", function (e) {
+          e.stopPropagation();
+        });
+        Array.prototype.forEach.call(
+          pop.querySelectorAll("[data-to]"),
+          function (b) {
+            b.onclick = function () {
+              rec.folderId = b.getAttribute("data-to") || null;
+              closePop();
+              renderManager();
+            };
+          },
+        );
+        openPop = pop;
+      }
+
+      // --- tạo / đổi tên folder ---
+      function startFolderInput(editId) {
+        var existing = els.mgrList.querySelector(".folder-new");
+        if (existing) existing.remove();
+
+        var f = editId ? folderById(editId) : null;
+        var box = document.createElement("div");
+        box.className = "folder-new";
+        box.innerHTML =
+          '<input type="text" placeholder="Folder name" value="' +
+          escHtml(f ? f.name : "") +
+          '" />' +
+          '<button class="btn-mini" data-ok>' +
+          (f ? "Rename" : "Create") +
+          "</button>";
+        els.mgrList.insertBefore(box, els.mgrList.firstChild);
+
+        var input = box.querySelector("input");
+        input.focus();
+        input.select();
+
+        function commit() {
+          var name = input.value.trim();
+          if (!name) {
+            box.remove();
+            return;
+          }
+          if (f) {
+            f.name = name;
+          } else {
+            state.folders.push({
+              id: "f" + Date.now(),
+              name: name,
+              collapsed: false,
+            });
+          }
+          renderManager();
+        }
+        box.querySelector("[data-ok]").onclick = commit;
+        input.onkeydown = function (e) {
+          if (e.key === "Enter") commit();
+          if (e.key === "Escape") box.remove();
+        };
+      }
+      els.mgrNewFolder.addEventListener("click", function () {
+        startFolderInput(null);
+      });
+
+      // ---------------- detail-skill-view ----------------
+      function detailHtml(skill) {
+        var figures =
+          '<div class="skill-detail__figures">' +
+          '<div class="skill-figure"><div class="skill-figure__value">' +
+          formatNumber(skill.installs) +
+          '</div><div class="skill-figure__label">installs</div></div>' +
+          '<div class="skill-figure"><div class="skill-figure__value">' +
+          formatNumber(skill.views) +
+          '</div><div class="skill-figure__label">views</div></div>' +
+          "</div>";
+
+        var sourceBtn = skill.sourceUrl
+          ? '<div class="skill-detail__hero-actions">' +
+            '<a class="icon-btn" href="' +
+            escHtml(skill.sourceUrl) +
+            '" target="_blank" rel="noreferrer" title="Open source repository" aria-label="Open source repository">' +
+            ICON.external +
+            "</a></div>"
+          : "";
+
+        var lead = skill.description
+          ? '<p class="skill-detail__lead">' +
+            escHtml(skill.description) +
+            "</p>"
+          : "";
+
+        var about = skill.content
+          ? '<div class="skill-detail__section">' +
+            '<h4 class="skill-detail__heading">About this skill</h4>' +
+            '<pre class="skill-detail__about">' +
+            escHtml(skill.content) +
+            "</pre></div>"
+          : "";
+
+        return (
+          '<div class="skill-detail__hero" style="--tile:' +
+          tileColor(skill.slug) +
+          '">' +
+          '<div class="tile tile--lg">' +
+          monogram(skill) +
+          "</div>" +
+          '<div style="min-width:0">' +
+          '<h3 class="skill-detail__title">' +
+          escHtml(skill.name) +
+          "</h3>" +
+          '<div class="skill-detail__author">by <b>' +
+          escHtml(skill.author) +
+          "</b></div>" +
+          "</div>" +
+          sourceBtn +
+          "</div>" +
+          figures +
+          lead +
+          about
+        );
+      }
+
+      function detailActionsHtml(skill) {
+        var installed = !!state.installed[skill.slug];
+        return (
+          '<button class="btn-primary' +
+          (installed ? " is-installed" : "") +
+          '" type="button" data-install="' +
+          escHtml(skill.slug) +
+          '">' +
+          (installed ? ICON.check + "Installed" : ICON.plus + "Install skill") +
+          "</button>"
+        );
+      }
+
+      function openDetail(skill, from) {
+        state.selected = skill;
+        state.backTo = from || "list";
+        els.detailBackLabel.textContent =
+          state.backTo === "manager" ? "Installed" : "All skills";
+        els.detailNavTitle.textContent = skill.name;
+        els.detailBody.innerHTML = detailHtml(skill);
+        els.detailActions.innerHTML = detailActionsHtml(skill);
+        els.detailBody.scrollTop = 0;
+        els.detailNav.classList.remove("is-stuck");
+        els.detail.classList.add("is-open");
+        els.detail.setAttribute("aria-hidden", "false");
+        bindActions(els.detail);
+      }
+
+      function closeDetail() {
+        els.detail.classList.remove("is-open");
+        els.detail.setAttribute("aria-hidden", "true");
+        state.selected = null;
+      }
+
+      els.detailBody.addEventListener("scroll", function () {
+        els.detailNav.classList.toggle(
+          "is-stuck",
+          els.detailBody.scrollTop > 26,
+        );
+      });
+      document
+        .getElementById("skill-detail-back")
+        .addEventListener("click", closeDetail);
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          if (openPop) return closePop();
+          if (state.selected) closeDetail();
+        }
+      });
+
+      // ---------------- install ----------------
+      function toggleInstall(slug, btn) {
+        var skill = getSkill(slug);
+        if (!skill) return;
+
+        if (state.installed[slug]) {
+          delete state.installed[slug];
+          toast("Removed " + skill.name);
+          afterInstallChange(skill);
+          return;
+        }
+
+        btn.classList.add("is-busy");
+        btn.innerHTML =
+          '<span class="spin" style="display:inline-flex">' +
+          ICON.refresh +
+          "</span>Installing";
+        setTimeout(function () {
+          state.installed[slug] = { enabled: true, folderId: null };
+          toast("Installed " + skill.name);
+          afterInstallChange(skill);
+        }, 700);
+      }
+
+      function afterInstallChange(skill) {
+        render();
+        if (state.selected && state.selected.slug === skill.slug) {
+          els.detailActions.innerHTML = detailActionsHtml(skill);
+          bindActions(els.detail);
+        }
+      }
+
+      function bindActions(root) {
+        Array.prototype.forEach.call(
+          root.querySelectorAll("[data-install]"),
+          function (btn) {
+            btn.onclick = function (e) {
+              e.stopPropagation();
+              toggleInstall(btn.getAttribute("data-install"), btn);
+            };
+          },
+        );
+      }
+
+      // ---------------- render / load ----------------
+      function render() {
+        els.segCount.textContent = String(installedSlugs().length);
+        if (state.view === "list") renderList();
+        else renderManager();
+      }
+
+      function clearSearch() {
+        state.query = "";
+        els.input.value = "";
+        els.clear.classList.remove("is-visible");
+        els.input.focus();
+        render();
+      }
+
+      els.input.addEventListener("input", function (e) {
+        state.query = e.target.value;
+        els.clear.classList.toggle("is-visible", !!state.query);
+        render();
+      });
+      els.clear.addEventListener("click", clearSearch);
+      els.sort.addEventListener("change", function (e) {
+        state.sort = e.target.value;
+        renderList();
+      });
+
+      function load() {
+        state.status = "loading";
+        state.error = "";
+        render();
+        setTimeout(function () {
+          state.status = "ready";
+          render();
+        }, 850);
+      }
+
+      load();
+    </script>
+  </body>
+</html>

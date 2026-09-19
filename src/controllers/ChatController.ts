@@ -50,6 +50,7 @@ import { GitDiffHandler } from "../handlers/tool/GitDiffHandler";
 import { GitStatusHandler } from "../handlers/tool/GitStatusHandler";
 import { GrepHandler } from "../handlers/tool/GrepHandler";
 import { SkillAPIHandler } from "../handlers/tool/SkillAPIHandler";
+import { SkillInstallHandler } from "../handlers/tool/SkillInstallHandler";
 
 // ── Managers ──
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -93,6 +94,7 @@ export class ChatController {
   private grepHandler: GrepHandler;
   private storageHandler: StorageHandler;
   private skillAPIHandler: SkillAPIHandler;
+  private skillInstallHandler: SkillInstallHandler;
 
   constructor(
     private storageManager: GlobalStorageManager | undefined,
@@ -140,6 +142,7 @@ export class ChatController {
     this.grepHandler = new GrepHandler(this.workspaceRoot);
     this.storageHandler = new StorageHandler(this.storageManager);
     this.skillAPIHandler = new SkillAPIHandler();
+    this.skillInstallHandler = new SkillInstallHandler();
   }
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
@@ -170,14 +173,22 @@ export class ChatController {
           break;
         case "openLspFolder":
           await this.fileOpenHandler.handleOpenFolder({
-            path: path.join(os.homedir(), ".khanhromvn-zen", "lsp", message.packageName),
+            path: path.join(
+              os.homedir(),
+              ".khanhromvn-zen",
+              "lsp",
+              message.packageName,
+            ),
           });
           break;
         case "openTempImage":
           await this.previewHandler.handleOpenTempImage(message);
           break;
         case "importAccounts":
-          await this.accountImportExportHandler.handleImportAccounts(message, webviewView);
+          await this.accountImportExportHandler.handleImportAccounts(
+            message,
+            webviewView,
+          );
           break;
         case "exportAccounts":
           await this.accountImportExportHandler.handleExportAccounts(message);
@@ -289,7 +300,9 @@ export class ChatController {
           await this.previewHandler.handleOpenWriteToFile(message);
           break;
         case "openViewReplaceHistoryVersion":
-          await this.previewHandler.handleOpenViewReplaceHistoryVersion(message);
+          await this.previewHandler.handleOpenViewReplaceHistoryVersion(
+            message,
+          );
           break;
 
         // Terminal
@@ -343,6 +356,14 @@ export class ChatController {
           break;
         case "fetchSkillAPI":
           await this.skillAPIHandler.handleFetchSkillAPI(message, webviewView);
+          break;
+        case "listInstalledSkills":
+        case "installSkill":
+        case "uninstallSkill":
+          await this.skillInstallHandler.handleSkillInstall(
+            message,
+            webviewView,
+          );
           break;
       }
     } catch (error) {

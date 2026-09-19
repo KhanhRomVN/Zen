@@ -1152,15 +1152,25 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             const result = await response.json();
 
             if (result.success && result.data?.accounts) {
-              const accountExists = result.data.accounts.some(
+              const matchedAccount = result.data.accounts.find(
                 (a: any) => a.id === currentAccount.id,
               );
 
-              if (!accountExists) {
+              if (!matchedAccount) {
                 console.warn(
                   `[MessageInput] Account ${currentAccount.id} not found - resetting account`,
                 );
                 setCurrentAccount(null);
+              } else if (
+                matchedAccount.email &&
+                matchedAccount.email !== currentAccount.email
+              ) {
+                // Email trong cache là snapshot cũ — account có thể đã bị sửa ở cửa sổ khác.
+                // Cập nhật lại để triggerUI hiển thị email mới nhất từ server.
+                setCurrentAccount({
+                  ...currentAccount,
+                  email: matchedAccount.email,
+                });
               }
             }
           } catch (error) {

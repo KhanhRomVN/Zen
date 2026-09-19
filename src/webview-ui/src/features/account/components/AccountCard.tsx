@@ -17,7 +17,7 @@
 import React, { useState, useEffect } from "react";
 
 // ── UI ──
-import { Trash2, RefreshCw, CheckCircle, Activity, Coins, Fingerprint, KeyRound, BarChart3, Clock, FolderOpen, Copy, Key } from "lucide-react";
+import { Trash2, RefreshCw, CheckCircle, Activity, Coins, Fingerprint, KeyRound, BarChart3, Clock, FolderOpen, Copy, Key, Pencil } from "lucide-react";
 
 // ── Components ──
 import {
@@ -47,6 +47,7 @@ interface AccountCardProps {
   onDelete: () => void;
   onSwitch: () => void;
   onRefreshToken?: () => void;
+  onEdit?: () => void;
   providerConfig?: any;
 }
 
@@ -100,6 +101,7 @@ const AccountCard: React.FC<AccountCardProps> = ({
   onDelete,
   onSwitch,
   onRefreshToken,
+  onEdit,
   providerConfig,
 }) => {
   // ── State ──
@@ -541,6 +543,11 @@ const AccountCard: React.FC<AccountCardProps> = ({
         <DropdownItem icon={<Copy size={14} />} onClick={handleCopyAccount}>
           Copy as JSON
         </DropdownItem>
+        {onEdit && (
+          <DropdownItem icon={<Pencil size={14} />} onClick={onEdit}>
+            Edit Account
+          </DropdownItem>
+        )}
         {onRefreshToken && (
           <DropdownItem 
             icon={<Key size={14} />} 

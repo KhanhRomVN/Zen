@@ -3,7 +3,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { getFileIconPath, getFolderIconPath } from "@/utils/fileIconMapper";
 import { extensionService } from "@/services/ExtensionService";
-import { CodeBlock } from "../code/CodeBlock";
+import { CodeBlock } from "../../features/chat/components/ChatBody/AIMessageBox/blocks/code/CodeBlock";
 
 const ABSOLUTE_PATH_REGEX = /^(\/[^\s<>"'`]+|[A-Za-z]:\\[^\s<>"'`]+)/;
 const RELATIVE_PATH_WITH_FOLDERS_REGEX =

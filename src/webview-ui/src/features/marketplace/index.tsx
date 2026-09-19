@@ -7,15 +7,18 @@
  */
 
 import React, { useState } from "react";
-import { SkillPanel } from "./SKILL";
-import { MCPPanel } from "./MCP";
+import { SkillPanel } from "./components/Skill";
+import { MCPPanel } from "./components/MCPPanel";
 
 interface MarketplacePanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const MarketplacePanel: React.FC<MarketplacePanelProps> = ({ isOpen, onClose }) => {
+const MarketplacePanel: React.FC<MarketplacePanelProps> = ({
+  isOpen,
+  onClose,
+}) => {
   const [closeHover, setCloseHover] = useState(false);
   const [activeTab, setActiveTab] = useState("SKILL");
 
@@ -142,9 +145,15 @@ const MarketplacePanel: React.FC<MarketplacePanelProps> = ({ isOpen, onClose }) 
               padding: "10px 12px",
               fontSize: "13px",
               fontWeight: activeTab === tab ? 600 : 400,
-              color: activeTab === tab ? "var(--primary-text)" : "var(--secondary-text)",
+              color:
+                activeTab === tab
+                  ? "var(--primary-text)"
+                  : "var(--secondary-text)",
               cursor: "pointer",
-              borderBottom: activeTab === tab ? "2px solid var(--vscode-focusBorder, #007acc)" : "2px solid transparent",
+              borderBottom:
+                activeTab === tab
+                  ? "2px solid var(--vscode-focusBorder, #007acc)"
+                  : "2px solid transparent",
               transition: "all 0.15s ease",
               userSelect: "none",
             }}

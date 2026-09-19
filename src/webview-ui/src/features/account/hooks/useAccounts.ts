@@ -23,15 +23,41 @@ import { useSettings } from "../../../context/SettingsContext";
 // ── Types ──
 import { FlatAccount, Pagination } from "../types";
 
+// ── Utils ──
+import { extractAccessToken, isJwtExpired } from "../../../utils/jwt";
+
+/** Trạng thái tài khoản dùng cho status badges ở AccountPanel. */
+export type AccountStatus = "active" | "expired" | "error" | "inactive";
+
+/**
+ * Suy ra trạng thái của một tài khoản từ dữ liệu hiện có.
+ * - active   : is_active_cli === true
+ * - expired  : JWT token (accessToken) đã hết hạn
+ * - inactive : is_active_cli === false (không phải active/expired)
+ * - error    : chưa có nguồn dữ liệu → luôn 0 (chỗ giữ cho tương lai)
+ */
+export const getAccountStatus = (account: FlatAccount): AccountStatus => {
+  if (account.is_active_cli === true) {
+    // Vẫn ưu tiên báo expired nếu token đã hết hạn
+    const token = extractAccessToken(account.credential || "");
+    if (token && isJwtExpired(token)) return "expired";
+    return "active";
+  }
+  const token = extractAccessToken(account.credential || "");
+  if (token && isJwtExpired(token)) return "expired";
+  if (account.is_active_cli === false) return "inactive";
+  return "inactive";
+};
+
 // ─── Hook ───────────────────────────────────────────────────────────────
 export const useAccounts = (isOpen: boolean) => {
   // ── State ──
-  const [accounts, setAccounts] = useState<FlatAccount[]>([]);
   const [allAccounts, setAllAccounts] = useState<FlatAccount[]>([]);
   const [providerConfigs, setProviderConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<AccountStatus | "">("");
   const [statsPeriod, setStatsPeriod] = useState<"day" | "week" | "month">(
     "day",
   );
@@ -96,7 +122,8 @@ export const useAccounts = (isOpen: boolean) => {
           period: statsPeriod,
           offset: "0",
         });
-        if (searchQuery) params.append("email", searchQuery);
+        // searchQuery không gửi lên backend — search đa trường (email + provider_id
+        // + provider_name) được thực hiện client-side sau khi fetch.
         if (providerFilter && providerFilter !== "")
           params.append("provider_id", providerFilter);
         if (emailFilter.length === 1) params.append("email", emailFilter[0]);
@@ -166,7 +193,6 @@ export const useAccounts = (isOpen: boolean) => {
             }),
           );
 
-          setAccounts(accountsWithDailyStats);
           setAllAccounts(accountsWithDailyStats);
           setPagination({
             total: result.data.pagination?.total || 0,
@@ -183,7 +209,6 @@ export const useAccounts = (isOpen: boolean) => {
     },
     [
       isOpen,
-      searchQuery,
       providerFilter,
       emailFilter,
       providerConfigs.length,
@@ -201,11 +226,12 @@ export const useAccounts = (isOpen: boolean) => {
     }
   }, [isOpen]);
 
+  // searchQuery được filter client-side → không cần re-fetch khi gõ
   useEffect(() => {
     if (isOpen) {
       fetchAccounts(1, pagination.limit);
     }
-  }, [searchQuery, providerFilter, emailFilter, statsPeriod]);
+  }, [providerFilter, emailFilter, statsPeriod]);
 
   // ── Handlers ──
   const executeDelete = async () => {
@@ -280,9 +306,43 @@ export const useAccounts = (isOpen: boolean) => {
     }
   };
 
+  // ── Derived ──
+  // Provider name lookup để phục vụ search mở rộng (email | provider_id | provider_name)
+  const providerNameById = new Map<string, string>(
+    providerConfigs.map((p) => [p.provider_id, p.provider_name || ""]),
+  );
+
+  // Đếm status trên TOÀN BỘ tài khoản đã fetch (không filter bởi statusFilter)
+  const statusCounts: Record<AccountStatus, number> = {
+    active: 0,
+    expired: 0,
+    error: 0,
+    inactive: 0,
+  };
+  for (const acc of allAccounts) {
+    statusCounts[getAccountStatus(acc)] += 1;
+  }
+
+  // Áp dụng filter client-side: search mở rộng + status. Provider filter vẫn
+  // do backend xử lý (đã dùng làm query param trong fetchAccounts).
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const accounts = allAccounts.filter((acc) => {
+    if (statusFilter && getAccountStatus(acc) !== statusFilter) return false;
+    if (!normalizedQuery) return true;
+    const providerName = providerNameById.get(acc.provider_id) || "";
+    return (
+      (acc.email || "").toLowerCase().includes(normalizedQuery) ||
+      (acc.provider_id || "").toLowerCase().includes(normalizedQuery) ||
+      providerName.toLowerCase().includes(normalizedQuery)
+    );
+  });
+
   return {
     accounts,
     allAccounts,
+    statusCounts,
+    statusFilter,
+    setStatusFilter,
     loading,
     providerConfigs,
     searchQuery,

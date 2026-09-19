@@ -34,7 +34,9 @@ import {
 // ── Components ──
 import AccountCard from "./components/AccountCard";
 import AddAccountDrawer from "./components/AddAccountDrawer";
+import EditAccountDrawer from "./components/EditAccountDrawer";
 import ConfirmDeleteAccountDrawer from "./components/ConfirmDeleteAccountDrawer";
+import { AccountListSkeleton } from "./components/AccountListSkeleton";
 import {
   Dropdown,
   DropdownTrigger,
@@ -49,6 +51,9 @@ import { useSettings } from "../../context/SettingsContext";
 // ── Services ──
 import { extensionService } from "../../services/ExtensionService";
 
+// ── Types ──
+import { FlatAccount } from "./types";
+
 // ── Utils ──
 import { getFaviconUrl } from "../../utils/favicon";
 
@@ -62,6 +67,7 @@ interface AccountPanelProps {
 const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
   // ── State ──
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editAccount, setEditAccount] = useState<FlatAccount | null>(null);
   const [closeHover, setCloseHover] = useState(false);
   const { apiUrl } = useSettings();
 
@@ -93,6 +99,9 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
     setStatsPeriod,
     switchKiroAccount,
     refreshAccountToken,
+    statusCounts,
+    statusFilter,
+    setStatusFilter,
   } = useAccounts(isOpen);
 
   // ── Derived ──
@@ -266,7 +275,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           <div style={{ position: "relative", flex: 1 }}>
             <input
               type="text"
-              placeholder="Search by email..."
+              placeholder="Search by email, provider ID or provider name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="account-search-input"
@@ -452,7 +461,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           </Dropdown>
         </div>
 
-        {/* Status badges */}
+        {/* Status badges — click để filter (chỉ Active/Expired có dữ liệu) */}
         <div
           style={{
             display: "flex",
@@ -461,50 +470,44 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
             flexWrap: "wrap",
           }}
         >
-          <span
-            style={{
-              fontSize: "11px",
-              padding: "3px 8px",
-              borderRadius: "12px",
-              backgroundColor: "var(--input-bg)",
-              color: "var(--secondary-text)",
-            }}
-          >
-            đang hoạt động[0]
-          </span>
-          <span
-            style={{
-              fontSize: "11px",
-              padding: "3px 8px",
-              borderRadius: "12px",
-              backgroundColor: "var(--input-bg)",
-              color: "var(--secondary-text)",
-            }}
-          >
-            hết hạn[0]
-          </span>
-          <span
-            style={{
-              fontSize: "11px",
-              padding: "3px 8px",
-              borderRadius: "12px",
-              backgroundColor: "var(--input-bg)",
-              color: "var(--secondary-text)",
-            }}
-          >
-            đang lỗi[0]
-          </span>
-          <span
-            style={{
-              fontSize: "11px",
-              padding: "3px 8px",
-              borderRadius: "12px",
-              backgroundColor: "var(--input-bg)",
-              color: "var(--secondary-text)",
-            }}
-          >
-            ngừng hoạt động[0]
-          </span>
+          {(
+            [
+              { key: "active", label: "Active", count: statusCounts.active },
+              { key: "expired", label: "Expired", count: statusCounts.expired },
+              { key: "error", label: "Error", count: 0, disabled: true },
+              { key: "inactive", label: "Inactive", count: statusCounts.inactive },
+            ] as const
+          ).map((b) => {
+            const isOn = statusFilter === b.key;
+            const disabled = "disabled" in b && b.disabled;
+            return (
+              <button
+                key={b.key}
+                type="button"
+                disabled={disabled}
+                onClick={() =>
+                  !disabled && setStatusFilter(isOn ? "" : (b.key as any))
+                }
+                title={disabled ? "No data source yet" : `Filter: ${b.label}`}
+                style={{
+                  fontSize: "11px",
+                  padding: "3px 8px",
+                  borderRadius: "12px",
+                  border: "none",
+                  backgroundColor: isOn
+                    ? "color-mix(in srgb, var(--vscode-button-background) 25%, transparent)"
+                    : "var(--input-bg)",
+                  color: isOn
+                    ? "var(--vscode-button-background)"
+                    : "var(--secondary-text)",
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  opacity: disabled ? 0.5 : 1,
+                }}
+              >
+                {b.label}[{b.count}]
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -655,26 +658,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
         }}
       >
         {loading && accounts.length === 0 ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "200px",
-              color: "var(--secondary-text)",
-              gap: "12px",
-            }}
-          >
-            <Loader2
-              size={28}
-              style={{
-                animation: "spin 1s linear infinite",
-                color: "var(--accent-text)",
-              }}
-            />
-            <span style={{ fontSize: "12px" }}>Loading accounts...</span>
-          </div>
+          <AccountListSkeleton count={5} />
         ) : accounts.length === 0 ? (
           <div
             style={{
@@ -693,11 +677,13 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               <p
                 style={{ fontSize: "14px", fontWeight: 500, margin: "0 0 4px" }}
               >
-                {searchQuery ? "No matching accounts" : "No accounts yet"}
+                {searchQuery || statusFilter
+                  ? "No matching accounts"
+                  : "No accounts yet"}
               </p>
               <p style={{ fontSize: "11px", margin: 0, opacity: 0.7 }}>
-                {searchQuery
-                  ? "Try a different search"
+                {searchQuery || statusFilter
+                  ? "Try a different search or filter"
                   : "Click the + button to add one"}
               </p>
             </div>
@@ -716,6 +702,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               }}
               onSwitch={() => switchKiroAccount(account.id)}
               onRefreshToken={() => refreshAccountToken(account.id, account.provider_id)}
+              onEdit={() => setEditAccount(account)}
               providerConfig={providerConfigs.find(
                 (p) => p.provider_id === account.provider_id,
               )}
@@ -792,6 +779,18 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSuccess={() => fetchAccounts(pagination.page, pagination.limit, true)}
+      />
+
+      <EditAccountDrawer
+        open={!!editAccount}
+        account={editAccount}
+        onOpenChange={(o) => { if (!o) setEditAccount(null); }}
+        onSuccess={() => fetchAccounts(pagination.page, pagination.limit, true)}
+        providerConfig={
+          editAccount
+            ? providerConfigs.find((p) => p.provider_id === editAccount.provider_id) ?? null
+            : null
+        }
       />
 
       <ConfirmDeleteAccountDrawer

@@ -20,7 +20,7 @@ import ThinkingBlock from "./ThinkingBlock";
 
 // STYLES
 import "./blocks/run_command/TerminalBlock.css";
-import "./blocks/markdown/MarkdownBlock.css";
+import "../../../../../components/MarkdownBlock/MarkdownBlock.css";
 
 interface AIMessageBoxProps {
   message: Message;

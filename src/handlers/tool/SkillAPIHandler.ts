@@ -8,7 +8,7 @@
  * APIs:
  * - leaderboard : GET /skills (rsc:1) → parse initialSkills từ RSC
  * - search      : GET /api/v1/skills?q=... → JSON thuần
- * - detail      : GET /skills/{slug} (rsc:1) → parse markdown từ RSC
+ * - detail      : GET /skills/{slug} (rsc:1) → parse skill object + markdown từ RSC
  * ------------------------------------------------------------------
  */
 
@@ -29,8 +29,16 @@ interface SkillSummary {
 }
 
 interface SkillDetail {
+  id?: number;
+  slug?: string;
   name: string;
+  author?: string;
   description: string;
+  seoDescription?: string;
+  sourceUrl?: string;
+  category?: string;
+  views?: number;
+  installs?: number;
   content: string;
 }
 
@@ -46,6 +54,69 @@ function parseLeaderboardRSC(text: string): SkillSummary[] {
   }
 }
 
+/**
+ * Chuẩn hoá giá trị placeholder của RSC.
+ * RSC dùng "$undefined" cho field undefined — convert về undefined thật.
+ */
+function normalizeRSCValue(value: any): any {
+  if (value === "$undefined" || value === "$null") return undefined;
+  return value;
+}
+
+/**
+ * Trích nội dung markdown của SKILL.md từ RSC payload dựa vào lazy reference.
+ *
+ * Cấu trúc block trong payload:
+ *   <blockId>:T<hex>,---\n
+ *   name: <skill-name>\n
+ *   description: <desc>\n
+ *   ---\n
+ *   <markdown content>
+ *   \n<nextBlockId>:<char>...   ← ranh giới block kế tiếp
+ *
+ * @param text   Full RSC payload
+ * @param ref    Lazy reference dạng "$31" (trỏ tới block ID 31)
+ * @returns      Phần markdown body (đã strip frontmatter), hoặc "" nếu không tìm thấy
+ */
+function extractContentByRef(text: string, ref: string): string {
+  // ref dạng "$31" → blockId = "31"
+  const refMatch = ref.match(/^\$([0-9a-f]+)$/i);
+  if (!refMatch) return "";
+  const blockId = refMatch[1];
+
+  // Tìm header block: "<blockId>:T<hex>,---\n".
+  // Lưu ý: block có thể nối liền sau '}' (vd: "}31:T10e4,---"), nên KHÔNG
+  // dùng (?:\n|^) mà dùng [^0-9a-f] để tránh bắt nhầm suffix như "a31:".
+  const headerRe = new RegExp(
+    `(?:^|[^0-9a-f])${blockId}:T[0-9a-f]+,---\\n`,
+    "i",
+  );
+  const headerMatch = text.match(headerRe);
+  if (!headerMatch || headerMatch.index === undefined) return "";
+
+  const bodyStart = headerMatch.index + headerMatch[0].length;
+
+  // Tìm dòng đóng frontmatter: "\n---\n"
+  const frontmatterClose = text.indexOf("\n---\n", bodyStart);
+  if (frontmatterClose === -1) return "";
+
+  const contentStart = frontmatterClose + 5; // bỏ "\n---\n"
+
+  // Tìm block kế tiếp: "\n<hex>:[A-Za-z{[\"$]"
+  const remaining = text.substring(contentStart);
+  const nextBlock = remaining.match(/\n[0-9a-f]+:[A-Za-z{["$]/i);
+  const contentEnd =
+    nextBlock && nextBlock.index !== undefined
+      ? contentStart + nextBlock.index
+      : text.length;
+
+  return text.substring(contentStart, contentEnd).trim();
+}
+
+/**
+ * Fallback regex khi không parse được object skill từ RSC payload.
+ * Giữ lại để tránh vỡ hoàn toàn nếu format RSC thay đổi.
+ */
 function parseSkillDetailFallback(text: string): SkillDetail | null {
   try {
     const patterns = [
@@ -58,7 +129,7 @@ function parseSkillDetailFallback(text: string): SkillDetail | null {
       if (match) {
         const name = match[1].replace(/\\"/g, '"').replace(/\\\\/g, "\\");
         const description = match[2]
-          .replace(/\\\"/g, '"')
+          .replace(/\\"/g, '"')
           .replace(/\\\\/g, "\\")
           .replace(/\\n/g, "\n");
 
@@ -72,50 +143,73 @@ function parseSkillDetailFallback(text: string): SkillDetail | null {
   }
 }
 
+/**
+ * Parse skill detail từ RSC payload.
+ *
+ * Chiến lược:
+ * 1. Trích object "skill":{...} đầy đủ metadata (id, slug, author, views, installs, ...).
+ * 2. Đọc lazy ref trong field "content" (dạng "$31") → trỏ tới block markdown.
+ * 3. Trích markdown body của block đó.
+ * 4. Fallback về regex nếu bước 1-3 thất bại.
+ */
 function parseSkillDetailRSC(text: string): SkillDetail | null {
   try {
-    // 1. Tìm block "T<number>,---\n" — bắt đầu markdown block
-    const blockMatch = text.match(/T\d+,---\n/);
-    if (!blockMatch || blockMatch.index === undefined) {
-      return parseSkillDetailFallback(text);
-    }
-    const blockStart = blockMatch.index;
-    const blockHeader = blockMatch[0];
-    const frontmatterStart = blockStart + blockHeader.length;
-
-    // 2. Tìm frontmatter close: "\n---\n" (dấu --- đứng riêng trên dòng)
-    const frontmatterClose = text.indexOf("\n---\n", frontmatterStart);
-    if (frontmatterClose === -1) {
+    // Bước 1: tìm object skill đầy đủ
+    const skillMatch = text.match(
+      /"skill":(\{"id":[\s\S]*?\}),"relatedSkills"/,
+    );
+    if (!skillMatch) {
+      console.warn(
+        "[SkillAPIHandler] no \"skill\":{...} block found, using fallback",
+      );
       return parseSkillDetailFallback(text);
     }
 
-    // 3. Parse frontmatter
-    const frontmatter = text.substring(frontmatterStart, frontmatterClose);
-    const nameMatch = frontmatter.match(/name:\s*(.+?)(?:\n|$)/);
-    const descMatch = frontmatter.match(/description:\s*(.+?)(?:\n|$)/);
-    if (!nameMatch) {
+    let skill: any;
+    try {
+      skill = JSON.parse(skillMatch[1]);
+    } catch (err: any) {
+      console.error(
+        "[SkillAPIHandler] JSON.parse skill object failed:",
+        err.message,
+      );
       return parseSkillDetailFallback(text);
     }
-    const name = nameMatch[1].trim();
-    const description = descMatch?.[1]?.trim() || "";
 
-    // 4. Markdown content bắt đầu sau "\n---\n" (5 ký tự)
-    const contentStart = frontmatterClose + 5;
+    // Bước 2 + 3: trích markdown content qua lazy ref
+    let content = "";
+    if (typeof skill.content === "string") {
+      content = extractContentByRef(text, skill.content);
+    }
 
-    // 5. Tìm block RSC tiếp theo: "\n[0-9a-f]+:" + type char
-    const remaining = text.substring(contentStart);
-    const nextBlockMatch = remaining.match(/\n[0-9a-f]+:(?:[A-Z]|[{$\"\\[])/);
-    const contentEnd =
-      nextBlockMatch && nextBlockMatch.index !== undefined
-        ? contentStart + nextBlockMatch.index + 1
-        : text.length;
+    // Bước 4: build kết quả, normalize placeholder RSC
+    const detail: SkillDetail = {
+      id: skill.id,
+      slug: skill.slug,
+      name: skill.name || skill.slug || "Unknown",
+      author: skill.author,
+      description: skill.description || "",
+      seoDescription: normalizeRSCValue(skill.seoDescription),
+      sourceUrl: skill.sourceUrl,
+      category: skill.category || undefined,
+      views: typeof skill.views === "number" ? skill.views : undefined,
+      installs: typeof skill.installs === "number" ? skill.installs : undefined,
+      content,
+    };
 
-    const content = text.substring(contentStart, contentEnd).trim();
+    // Nếu không extract được content, fallback để ít nhất có description
+    if (!content) {
+      console.warn(
+        "[SkillAPIHandler] empty content extracted, fallback for markdown body",
+      );
+      const fallback = parseSkillDetailFallback(text);
+      if (fallback?.content) detail.content = fallback.content;
+    }
 
-    return { name, description, content };
+    return detail;
   } catch (err: any) {
     console.error("[SkillAPIHandler] parse detail error:", err.message);
-    return null;
+    return parseSkillDetailFallback(text);
   }
 }
 

@@ -380,6 +380,7 @@ export function Dropdown({
                     zIndex: 9999,
                     top: position.top,
                     left: position.left,
+                    width: position.width,
                     opacity: 1,
                     transition: "opacity 0.15s ease",
                     pointerEvents: "auto",
