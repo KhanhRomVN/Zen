@@ -1,11 +1,16 @@
 import React from "react";
-import { Paperclip, Image, Video, Search, GitPullRequestArrow } from "lucide-react";
+import { useRef, useState } from "react";
+import { Paperclip, Image, Video, Search, GitCommitHorizontal } from "lucide-react";
 import {
   Dropdown,
   DropdownTrigger,
   DropdownContent,
   DropdownItem,
 } from "../ui/Dropdown";
+import {
+  extensionService,
+  messageDispatcher,
+} from "../../services/ExtensionService";
 
 interface AttachmentOption {
   key: string;
@@ -14,6 +19,9 @@ interface AttachmentOption {
   color: string;
   desc: string;
   show: boolean;
+  /** Vô hiệu hóa item (vẫn hiển thị, kèm tooltip lý do). */
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 interface ActionDropdownProps {
@@ -52,6 +60,44 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 }) => {
   // Prefer currentModelConfig (always fresh from API), fallback to currentModel (may be cached)
   const modelCaps = currentModelConfig ?? currentModel;
+
+  // Trạng thái kiểm tra git — chỉ dùng cho item Generate Commit Message
+  const [gitReady, setGitReady] = useState<{
+    checking: boolean;
+    ok: boolean;
+    reason?: string;
+  }>({ checking: false, ok: false });
+  const gitCheckIdRef = useRef<string | null>(null);
+
+  // Mỗi lần mở dropdown: hỏi extension xem workspace có .git và đã git add chưa
+  const handleOpenChange = (open: boolean) => {
+    if (!open || !onSelectPullRequest) return;
+    const requestId = `gitCheckReady-${Date.now()}`;
+    gitCheckIdRef.current = requestId;
+    setGitReady({ checking: true, ok: false, reason: "Checking git..." });
+    messageDispatcher.register(
+      requestId,
+      (msg: any) => {
+        if (gitCheckIdRef.current !== requestId) return;
+        const ok = !!msg.hasGit && !!msg.hasStaged;
+        setGitReady({
+          checking: false,
+          ok,
+          reason: ok ? undefined : msg.reason,
+        });
+      },
+      5000,
+      () => {
+        if (gitCheckIdRef.current !== requestId) return;
+        setGitReady({
+          checking: false,
+          ok: false,
+          reason: "Git check timed out, reopen the menu to retry",
+        });
+      },
+    );
+    extensionService.postMessage({ command: "gitCheckReady", requestId });
+  };
 
   const getAttachDesc = () => {
     const types: string[] = ["text files"];
@@ -97,11 +143,13 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     },
     {
       key: "pull-request",
-      label: "Create Pull Request",
-      icon: <GitPullRequestArrow size={14} strokeWidth={2.3} />,
+      label: "Generate Commit Message",
+      icon: <GitCommitHorizontal size={14} strokeWidth={2.3} />,
       color: "#f59e0b",
-      desc: "Open a PR from current changes",
+      desc: "Generate a commit message from staged changes",
       show: !!onSelectPullRequest,
+      disabled: !gitReady.ok,
+      disabledReason: gitReady.reason,
     },
   ];
 
@@ -128,7 +176,12 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
   };
 
   return (
-    <Dropdown side="top" align="start" sideOffset={4}>
+    <Dropdown
+      side="top"
+      align="start"
+      sideOffset={4}
+      onOpenChange={handleOpenChange}
+    >
       <DropdownTrigger asChild>{triggerButton}</DropdownTrigger>
       <DropdownContent>
         {visibleOptions.map((option) => {
@@ -136,6 +189,8 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
             <DropdownItem
               key={option.key}
               onClick={() => handleSelect(option.key)}
+              disabled={option.disabled}
+              title={option.disabled ? option.disabledReason : undefined}
               noPadding
             >
               <div
@@ -182,9 +237,6 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
                       fontSize: "11px",
                       color: "var(--secondary-text)",
                       lineHeight: 1.4,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
                     }}
                   >
                     {option.desc}
@@ -253,9 +305,6 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
                     fontSize: "11px",
                     color: "var(--secondary-text)",
                     lineHeight: 1.4,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
                   }}
                 >
                   Reference saved memories & chat history

@@ -185,7 +185,13 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
 
   // ── Store ──
-  const { apiUrl } = useSettings();
+  const { apiUrl, activeDatabaseManagerId } = useSettings();
+
+  const dbHeaders = () => {
+    const h: Record<string, string> = {};
+    if (activeDatabaseManagerId) h["x-database-manager-id"] = activeDatabaseManagerId;
+    return h;
+  };
 
   const folderPath = (window as any).__zenWorkspaceFolderPath as
     | string
@@ -347,9 +353,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
     const fetchStats = async () => {
       try {
         const [statsRes, accountsRes, providersRes] = await Promise.all([
-          fetch(`${apiUrl}/v1/stats?period=day`),
-          fetch(`${apiUrl}/v1/accounts?page=1&limit=1000`),
-          fetch(`${apiUrl}/v1/providers`),
+          fetch(`${apiUrl}/v1/stats?period=day`, { headers: dbHeaders() }),
+          fetch(`${apiUrl}/v1/accounts?page=1&limit=1000`, { headers: dbHeaders() }),
+          fetch(`${apiUrl}/v1/providers`, { headers: dbHeaders() }),
         ]);
         if (statsRes.ok) {
           const stats = await statsRes.json();

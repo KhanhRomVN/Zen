@@ -24,6 +24,9 @@ interface SettingsContextType {
   /** System path tới thư mục chứa các profile Chromium */
   chromiumProfileDir: string;
   setChromiumProfileDir: (path: string) => void;
+  /** ID của database manager đang được chọn cho workspace hiện tại */
+  activeDatabaseManagerId: string | null;
+  setActiveDatabaseManagerId: (id: string | null) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -82,22 +85,33 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch (e) {}
       return "long";
     });
-  const [chromiumProfileDir, setChromiumProfileDirState] = useState<string>(
+  // Backend (SQLite) là nguồn chân lý duy nhất → không cache ở localStorage.
+  const [chromiumProfileDir, setChromiumProfileDirState] =
+    useState<string>("");
+  // Timer debounce cho việc PUT chromium_profile_dir lên backend.
+  const chromiumSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  // Key lưu per-workspace: dùng workspace path để phân biệt
+  const workspaceKey = () => {
+    try {
+      const wp = (window as any).__zenWorkspaceFolderPath as string | null;
+      return wp ? `zen_active_db_manager__${wp}` : "zen_active_db_manager__global";
+    } catch {
+      return "zen_active_db_manager__global";
+    }
+  };
+
+  const [activeDatabaseManagerId, setActiveDatabaseManagerIdState] = useState<string | null>(
     () => {
       try {
-        const saved = localStorage.getItem("zen_chromium_profile_dir");
-        if (saved) return saved;
-      } catch (e) {}
-      return "";
+        return localStorage.getItem(workspaceKey());
+      } catch {
+        return null;
+      }
     },
   );
-  const [databasePath, setDatabasePathState] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem("zen_database_path");
-      if (saved) return saved;
-    } catch (e) {}
-    return "";
-  });
   useEffect(() => {
     const storage = extensionService.getStorage();
 
@@ -123,18 +137,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       .then((res) => {
         if (cancelled || !res?.success || !res.data) return;
         const { chromium_profile_dir } = res.data;
-        if (chromium_profile_dir != null) {
-          setChromiumProfileDirState(chromium_profile_dir);
-          try {
-            localStorage.setItem(
-              "zen_chromium_profile_dir",
-              chromium_profile_dir,
-            );
-          } catch (e) {}
-        }
+        // Luôn áp giá trị từ backend; null nghĩa là chưa cấu hình → input rỗng.
+        setChromiumProfileDirState(chromium_profile_dir ?? "");
+        // Dọn key cache cũ còn sót từ phiên bản trước.
+        try {
+          localStorage.removeItem("zen_chromium_profile_dir");
+        } catch (e) {}
       })
       .catch(() => {
-        /* backend chưa sẵn sàng — giữ giá trị local cache */
+        /* backend chưa sẵn sàng — giữ giá trị hiện tại trong state */
       });
     return () => {
       cancelled = true;
@@ -196,35 +207,41 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.set("zen_prompt_length_mode", mode);
   };
 
-  const setDatabasePath = (path: string) => {
-    setDatabasePathState(path);
-    try {
-      localStorage.setItem("zen_database_path", path);
-    } catch (e) {}
-    // Đồng bộ backend (fire-and-forget); backend là nguồn chân lý.
-    if (apiUrl) {
-      fetch(`${apiUrl}/v1/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ database_path: path }),
-      }).catch((e) => console.warn("[Settings] save database_path failed", e));
-    }
-  };
-
   const setChromiumProfileDir = (path: string) => {
     setChromiumProfileDirState(path);
-    try {
-      localStorage.setItem("zen_chromium_profile_dir", path);
-    } catch (e) {}
-    if (apiUrl) {
+    if (chromiumSaveTimer.current) clearTimeout(chromiumSaveTimer.current);
+    if (!apiUrl) return;
+    // Debounce 500ms: chỉ gửi giá trị cuối cùng thay vì PUT mỗi lần gõ phím.
+    chromiumSaveTimer.current = setTimeout(() => {
       fetch(`${apiUrl}/v1/config`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ chromium_profile_dir: path }),
-      }).catch((e) =>
-        console.warn("[Settings] save chromium_profile_dir failed", e),
-      );
-    }
+      })
+        .then((r) => {
+          if (!r.ok) {
+            console.warn(
+              "[Settings] save chromium_profile_dir rejected",
+              r.status,
+            );
+          }
+        })
+        .catch((e) =>
+          console.warn("[Settings] save chromium_profile_dir failed", e),
+        );
+    }, 500);
+  };
+
+  const setActiveDatabaseManagerId = (id: string | null) => {
+    setActiveDatabaseManagerIdState(id);
+    try {
+      const key = workspaceKey();
+      if (id) {
+        localStorage.setItem(key, id);
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch (e) {}
   };
 
   return (
@@ -246,6 +263,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setPromptLengthMode,
         chromiumProfileDir,
         setChromiumProfileDir,
+        activeDatabaseManagerId,
+        setActiveDatabaseManagerId,
       }}
     >
       {children}

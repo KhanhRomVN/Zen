@@ -7,38 +7,49 @@ import {
   Trash2,
   ExternalLink,
 } from "lucide-react";
-import type { SkillSummary } from "../../types/skill.types";
-import { formatNumber } from "../../utils/formatNumber";
+import type { SkillSummary } from "../../../types/skill.types";
+import { formatNumber } from "../../../utils/formatNumber";
 import {
   Dropdown,
   DropdownTrigger,
   DropdownContent,
   DropdownItem,
-} from "../../../../components/ui/Dropdown";
+} from "../../../../../components/ui/Dropdown";
 
 interface SkillCardProps {
   skill: SkillSummary;
   installed: boolean;
   onClick: (skill: SkillSummary) => void;
-  onToggleInstall: (skill: SkillSummary) => void;
+  /** Mở drawer chọn group trước khi install (không install trực tiếp). */
+  onInstallClick: (skill: SkillSummary) => void;
+  /** Uninstall trực tiếp (không qua drawer). */
+  onUninstall: (skill: SkillSummary) => void;
 }
 
 /**
  * Thẻ hiển thị tóm tắt 1 skill: name, author, description (2 dòng),
- * views và installs. Có nút Install/Installed ở góc phải trên và
- * context menu chuột phải (View detail, Install/Uninstall, Homepage).
+ * views và installs. Button ở góc phải trên có 3 state:
+ * - "Install"    : chưa cài, soft-style (bg button 18% + text primary)
+ * - "Installed"  : đã cài, solid (bg button + text trắng)
+ * - "Uninstall"  : hover vào "Installed", soft-style error
  */
 export function SkillCard({
   skill,
   installed,
   onClick,
-  onToggleInstall,
+  onInstallClick,
+  onUninstall,
 }: SkillCardProps) {
   const [hovered, setHovered] = React.useState(false);
+  const [btnHovered, setBtnHovered] = React.useState(false);
 
-  const handleInstallClick = (e: React.MouseEvent) => {
+  const handlePrimaryClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onToggleInstall(skill);
+    if (installed) {
+      onUninstall(skill);
+    } else {
+      onInstallClick(skill);
+    }
   };
 
   const handleOpenHomepage = (e?: React.MouseEvent) => {
@@ -47,6 +58,29 @@ export function SkillCard({
       window.open(skill.sourceUrl, "_blank", "noopener,noreferrer");
     }
   };
+
+  const buttonStyle: React.CSSProperties = !installed
+    ? {
+        backgroundColor:
+          "color-mix(in srgb, var(--vscode-button-background) 18%, transparent)",
+        color: "var(--primary-text)",
+      }
+    : btnHovered
+      ? {
+          backgroundColor:
+            "color-mix(in srgb, var(--vscode-errorForeground, #ef4444) 18%, transparent)",
+          color: "var(--vscode-errorForeground, #ef4444)",
+        }
+      : {
+          backgroundColor: "var(--vscode-button-background)",
+          color: "#fff",
+        };
+
+  const buttonLabel = installed
+    ? btnHovered
+      ? "Uninstall"
+      : "Installed"
+    : "Install";
 
   return (
     <Dropdown trigger="contextmenu" align="end" side="right">
@@ -58,20 +92,19 @@ export function SkillCard({
           style={{
             padding: "12px 14px",
             borderRadius: "10px",
-            backgroundColor: hovered
-              ? "var(--hover-bg)"
-              : "var(--input-bg)",
+            backgroundColor: hovered ? "var(--hover-bg)" : "var(--input-bg)",
             cursor: "pointer",
             transition: "background-color 0.15s ease",
             position: "relative",
             height: "100%",
           }}
         >
-          {/* Install / Installed button — góc phải trên */}
+          {/* Install / Installed / Uninstall — góc phải trên */}
           <button
             type="button"
-            onClick={handleInstallClick}
-            title={installed ? "Uninstall skill" : "Install skill"}
+            onClick={handlePrimaryClick}
+            onMouseEnter={() => setBtnHovered(true)}
+            onMouseLeave={() => setBtnHovered(false)}
             style={{
               position: "absolute",
               top: "10px",
@@ -84,14 +117,12 @@ export function SkillCard({
               fontSize: "12px",
               fontWeight: 500,
               cursor: "pointer",
-              backgroundColor:
-                "color-mix(in srgb, var(--vscode-button-background) 18%, transparent)",
-              color: "var(--vscode-button-background)",
               transition: "all 0.15s ease",
               zIndex: 1,
+              ...buttonStyle,
             }}
           >
-            {installed ? "Installed" : "Install"}
+            {buttonLabel}
           </button>
 
           {/* Title */}
@@ -110,7 +141,7 @@ export function SkillCard({
             {skill.name}
           </div>
 
-          {/* Author — giữa title và description */}
+          {/* Author */}
           {skill.author && (
             <div
               style={{
@@ -183,13 +214,22 @@ export function SkillCard({
         >
           View skill details
         </DropdownItem>
-        <DropdownItem
-          icon={installed ? <Trash2 size={14} /> : <Plus size={14} />}
-          variant={installed ? "error" : undefined}
-          onClick={() => onToggleInstall(skill)}
-        >
-          {installed ? "Uninstall skill" : "Install skill"}
-        </DropdownItem>
+        {installed ? (
+          <DropdownItem
+            icon={<Trash2 size={14} />}
+            variant="error"
+            onClick={() => onUninstall(skill)}
+          >
+            Uninstall skill
+          </DropdownItem>
+        ) : (
+          <DropdownItem
+            icon={<Plus size={14} />}
+            onClick={() => onInstallClick(skill)}
+          >
+            Install skill
+          </DropdownItem>
+        )}
         {skill.sourceUrl && (
           <DropdownItem
             icon={<ExternalLink size={14} />}

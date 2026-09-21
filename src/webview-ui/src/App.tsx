@@ -91,6 +91,7 @@ const App: React.FC = () => {
           setShowSettings(false);
           setShowAccounts(false);
           setShowMarketplace(false);
+          window.dispatchEvent(new CustomEvent("zen:panel-change"));
           break;
         case "showSettings":
           if (currentChat) {
@@ -102,6 +103,7 @@ const App: React.FC = () => {
           setShowHistory(false);
           setShowAccounts(false);
           setShowMarketplace(false);
+          window.dispatchEvent(new CustomEvent("zen:panel-change"));
           break;
         case "showAccounts":
           if (currentChat) {
@@ -113,6 +115,7 @@ const App: React.FC = () => {
           setShowHistory(false);
           setShowSettings(false);
           setShowMarketplace(false);
+          window.dispatchEvent(new CustomEvent("zen:panel-change"));
           break;
         case "showMarketplace":
           if (currentChat) {
@@ -124,6 +127,7 @@ const App: React.FC = () => {
           setShowHistory(false);
           setShowSettings(false);
           setShowAccounts(false);
+          window.dispatchEvent(new CustomEvent("zen:panel-change"));
           break;
         case "newChat":
           setShowHistory(false);

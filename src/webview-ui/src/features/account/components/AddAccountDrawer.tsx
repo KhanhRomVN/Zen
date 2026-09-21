@@ -30,10 +30,19 @@ import {
   KeyRound,
   ExternalLink,
   ChevronLeft,
+  UserX,
 } from "lucide-react";
 
 // ── Hooks ──
+import { useDbFetch } from "../../../services/useDbFetch";
+import { useActiveDatabaseManagerName } from "../../../hooks/useActiveDatabaseManagerName";
 import { useSettings } from "../../../context/SettingsContext";
+
+// ── Services ──
+import {
+  extensionService,
+  messageDispatcher,
+} from "../../../services/ExtensionService";
 
 // ── Utils ──
 import { getFaviconUrl } from "@/utils/favicon";
@@ -59,6 +68,9 @@ interface AddAccountDrawerProps {
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
+
+/** Email chứa ký tự "*" (email bị che) → không hợp lệ để tạo account. */
+const hasInvalidEmailChar = (value: string): boolean => value.includes("*");
 
 // ─── MethodCard ─────────────────────────────────────────────────────────
 const MethodCard: React.FC<{
@@ -450,6 +462,300 @@ const ProviderRow: React.FC<{
   );
 };
 
+// ─── ProviderFavicon ────────────────────────────────────────────────────
+/** Favicon nhỏ của provider; tự ẩn nếu không có URL hoặc ảnh lỗi. */
+const ProviderFavicon: React.FC<{ provider: Provider; size?: number }> = ({
+  provider,
+  size = 20,
+}) => {
+  const [imgError, setImgError] = useState(false);
+  const iconUrl = getFaviconUrl(provider.website_url || provider.website);
+  if (!iconUrl || imgError) return null;
+  return (
+    <img
+      src={iconUrl}
+      alt={provider.provider_name}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        borderRadius: "4px",
+        objectFit: "contain",
+        flexShrink: 0,
+      }}
+      onError={() => setImgError(true)}
+    />
+  );
+};
+
+// ─── ProfileCard ────────────────────────────────────────────────────────
+/** Card 1 hoặc 2 dòng: badge soft-style bên trái, label (+ desc tùy chọn). */
+const ProfileCard: React.FC<{
+  badge: React.ReactNode;
+  badgeBg: string;
+  badgeColor: string;
+  label: string;
+  desc?: string;
+  onClick: () => void;
+  disabled?: boolean;
+}> = ({ badge, badgeBg, badgeColor, label, desc, onClick, disabled }) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onClick={() => {
+        if (!disabled) onClick();
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "14px",
+        padding: "12px 14px",
+        borderRadius: "10px",
+        backgroundColor:
+          hovered && !disabled
+            ? "var(--hover-bg, rgba(128,128,128,0.07))"
+            : "var(--input-bg)",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.45 : 1,
+        transition: "all 0.13s ease",
+        border: "none",
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{
+          width: "36px",
+          height: "36px",
+          borderRadius: "9px",
+          backgroundColor: badgeBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          color: badgeColor,
+        }}
+      >
+        {badge}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: "13px",
+            fontWeight: 600,
+            color: "var(--primary-text)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </div>
+        {desc && (
+          <div
+            style={{
+              fontSize: "11px",
+              color: "var(--secondary-text)",
+              marginTop: "2px",
+              opacity: 0.7,
+            }}
+          >
+            {desc}
+          </div>
+        )}
+      </div>
+      <ChevronLeft
+        size={15}
+        style={{
+          color: "var(--secondary-text)",
+          transform: "rotate(180deg)",
+          opacity: 0.5,
+          flexShrink: 0,
+        }}
+      />
+    </div>
+  );
+};
+
+// ─── ProfilePicker ──────────────────────────────────────────────────────
+/**
+ * Searchbar + danh sách Chromium profile (card "No profile" luôn hiện đầu).
+ * State search nằm trong component → tự reset mỗi lần mở lại bước chọn profile.
+ */
+const ProfilePicker: React.FC<{
+  folders: string[];
+  loading: boolean;
+  error: string;
+  disabled: boolean;
+  /** Đường dẫn thư mục chứa các profile (chromiumProfileDir). */
+  baseDir?: string;
+  onSelect: (folder?: string) => void;
+}> = ({ folders, loading, error, disabled, baseDir, onSelect }) => {
+  const [query, setQuery] = useState("");
+
+  // Rút gọn đường dẫn: …/<thư mục cha>/<folder> (hỗ trợ cả "/" và "\")
+  const shortPath = (folder: string) => {
+    const parent = (baseDir || "")
+      .split(/[\\/]+/)
+      .filter(Boolean)
+      .pop();
+    return parent ? `…/${parent}/${folder}` : `…/${folder}`;
+  };
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? folders.filter((f) => f.toLowerCase().includes(q)) : folders;
+  }, [folders, query]);
+
+  // Màu soft-style cố định theo chữ cái đầu (cùng chữ → cùng màu)
+  const getTone = (folder: string) => {
+    const first = folder.trim().charAt(0).toUpperCase();
+    const hue = ((first.charCodeAt(0) || 0) * 47) % 360;
+    return {
+      first: first || "?",
+      bg: `hsla(${hue}, 70%, 55%, 0.15)`,
+      color: `hsl(${hue}, 70%, 55%)`,
+    };
+  };
+
+  return (
+    <>
+      {/* Searchbar */}
+      <div style={{ padding: "10px 16px", flexShrink: 0 }}>
+        <div style={{ position: "relative" }}>
+          <Search
+            size={14}
+            style={{
+              position: "absolute",
+              left: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              color: "var(--secondary-text)",
+              pointerEvents: "none",
+            }}
+          />
+          <input
+            autoFocus
+            type="text"
+            placeholder="Search profiles..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px 8px 32px",
+              fontSize: "13px",
+              backgroundColor: "var(--input-bg)",
+              border: "none",
+              borderRadius: "8px",
+              color: "var(--primary-text)",
+              outline: "none",
+              boxSizing: "border-box",
+              height: "34px",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Profile cards */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          padding: "0 16px 12px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+        }}
+      >
+        <ProfileCard
+          badge={<UserX size={18} />}
+          badgeBg="rgba(59,130,246,0.12)"
+          badgeColor="#3b82f6"
+          label="No profile"
+          desc="Login as default with a fresh browser window"
+          onClick={() => onSelect()}
+          disabled={disabled}
+        />
+
+        {loading && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "12px",
+              color: "var(--secondary-text)",
+              fontSize: "12px",
+            }}
+          >
+            <Loader2
+              size={14}
+              style={{ animation: "aaSpin 1s linear infinite" }}
+            />
+            Loading profiles…
+          </div>
+        )}
+
+        {!loading && error && (
+          <div
+            style={{
+              backgroundColor:
+                "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.08))",
+              borderRadius: "8px",
+              padding: "8px 10px",
+              fontSize: "12px",
+              color: "var(--vscode-errorForeground)",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <AlertCircle size={12} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {!loading &&
+          !error &&
+          filtered.map((folder) => {
+            const tone = getTone(folder);
+            return (
+              <ProfileCard
+                key={folder}
+                badge={
+                  <span style={{ fontSize: "14px", fontWeight: 700 }}>
+                    {tone.first}
+                  </span>
+                }
+                badgeBg={tone.bg}
+                badgeColor={tone.color}
+                label={folder}
+                desc={shortPath(folder)}
+                onClick={() => onSelect(folder)}
+                disabled={disabled}
+              />
+            );
+          })}
+
+        {!loading && !error && filtered.length === 0 && (
+          <div
+            style={{
+              textAlign: "center",
+              color: "var(--secondary-text)",
+              padding: "12px",
+              fontSize: "12px",
+            }}
+          >
+            {query.trim() ? "No matching profiles" : "No available profiles"}
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
 // ─── Component ──────────────────────────────────────────────────────────
 const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   open,
@@ -497,8 +803,19 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     y: number;
   } | null>(null);
 
+  // Profile step state (hiển thị sau khi chọn auth method)
+  const [profileStepProvider, setProfileStepProvider] =
+    useState<Provider | null>(null);
+  const [profileFolders, setProfileFolders] = useState<string[]>([]);
+  const [existingEmails, setExistingEmails] = useState<Set<string>>(new Set());
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [profilesError, setProfilesError] = useState("");
+  const profileReqRef = useRef(0);
+
   // ── Store ──
-  const { apiUrl } = useSettings();
+  const dbFetch = useDbFetch();
+  const activeDbName = useActiveDatabaseManagerName();
+  const { chromiumProfileDir } = useSettings();
 
   // ── Derived ──
   const sharedBackdrop = (onClickBackdrop: () => void) => (
@@ -539,7 +856,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   const fetchProviders = async () => {
     setLoadingProviders(true);
     try {
-      const response = await fetch(`${apiUrl}/v1/providers`);
+      const response = await dbFetch(`/v1/providers`);
       const data = await response.json();
       if (data.success && data.data) {
         const sorted = [...data.data].sort((a: Provider, b: Provider) => {
@@ -555,21 +872,96 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     }
   };
 
+  // Chọn auth method → chưa login ngay, chuyển sang bước chọn Chromium profile
+  const handlePickMethod = (provider: Provider) => {
+    const reqToken = ++profileReqRef.current;
+    setSelectedProvider(null);
+    setProfileStepProvider(provider);
+    setProfileFolders([]);
+    setProfilesError("");
+
+    if (!chromiumProfileDir) {
+      setProfilesLoading(false);
+      setProfilesError(
+        "Chromium Profile Folder chưa được cấu hình trong Settings",
+      );
+      return;
+    }
+
+    setProfilesLoading(true);
+    const requestId = `listChromiumProfiles-${Date.now()}`;
+
+    // Extension host chỉ quét folder cấp 1 (không đệ quy) để tránh lag
+    const foldersPromise = new Promise<string[]>((resolve, reject) => {
+      messageDispatcher.register(
+        requestId,
+        (msg: any) => {
+          if (msg.error) reject(new Error(msg.error));
+          else resolve(Array.isArray(msg.folders) ? msg.folders : []);
+        },
+        8000,
+        () => reject(new Error("Quét Chromium Profile Folder quá thời gian")),
+      );
+      extensionService.postMessage({
+        command: "listChromiumProfiles",
+        requestId,
+        path: chromiumProfileDir,
+      });
+    });
+
+    // Email của các account đã có cùng provider → ẩn profile trùng tên
+    const emailsPromise = dbFetch(
+      `/v1/accounts?page=1&limit=1000&provider_id=${encodeURIComponent(provider.provider_id)}`,
+    )
+      .then((res) => res.json())
+      .then(
+        (data) =>
+          new Set<string>(
+            (data?.data?.accounts ?? [])
+              .map((a: any) =>
+                String(a.email || "")
+                  .trim()
+                  .toLowerCase(),
+              )
+              .filter(Boolean),
+          ),
+      )
+      .catch(() => new Set<string>());
+
+    Promise.all([foldersPromise, emailsPromise])
+      .then(([folders, emails]) => {
+        if (profileReqRef.current !== reqToken) return;
+        setProfileFolders(folders);
+        setExistingEmails(emails);
+      })
+      .catch((err: any) => {
+        if (profileReqRef.current !== reqToken) return;
+        setProfilesError(err?.message || "Không đọc được danh sách profile");
+      })
+      .finally(() => {
+        if (profileReqRef.current === reqToken) setProfilesLoading(false);
+      });
+  };
+
   const handleLogin = async (
     provider: Provider,
     loginMethod: "basic" | "cdp" = "basic",
+    profileFolder?: string,
   ) => {
     if (!provider || provider.is_enabled === false) return;
     setLoading(true);
     setError("");
     setContextMenu(null);
     try {
-      const response = await fetch(
-        `${apiUrl}/v1/accounts/login/${provider.provider_id}`,
+      const response = await dbFetch(
+        `/v1/accounts/login/${provider.provider_id}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ method: loginMethod }),
+          body: JSON.stringify({
+            method: loginMethod,
+            ...(profileFolder ? { profile_folder: profileFolder } : {}),
+          }),
         },
       );
       const data = await response.json();
@@ -601,7 +993,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         ) {
           // Browser provider: account already has credential (session ID)
           // Just save it directly without showing confirm drawer
-          const saveResponse = await fetch(`${apiUrl}/v1/accounts`, {
+          const saveResponse = await dbFetch(`/v1/accounts`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -656,7 +1048,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     if (!pendingAccount) return;
     setConfirmLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/v1/accounts`, {
+      const response = await dbFetch(`/v1/accounts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -687,8 +1079,8 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       let response;
       if (tempSessionId) {
         // Complete pending session with email
-        response = await fetch(
-          `${apiUrl}/v1/browser-sessions/complete/${tempSessionId}`,
+        response = await dbFetch(
+          `/v1/browser-sessions/complete/${tempSessionId}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -697,8 +1089,8 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         );
       } else {
         // Fallback: try to get credential from login
-        const loginResponse = await fetch(
-          `${apiUrl}/v1/accounts/login/${pendingBrowserProvider.provider_id}`,
+        const loginResponse = await dbFetch(
+          `/v1/accounts/login/${pendingBrowserProvider.provider_id}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -707,7 +1099,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         );
         const loginData = await loginResponse.json();
 
-        response = await fetch(`${apiUrl}/v1/accounts`, {
+        response = await dbFetch(`/v1/accounts`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -749,6 +1141,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       setPendingAccount(null);
       setSearchQuery("");
       setSelectedProvider(null);
+      setProfileStepProvider(null);
       setDeviceCodeInfo(null);
       return;
     }
@@ -778,8 +1171,8 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     const intervalMs = Math.max(deviceCodeInfo.poll_interval * 1000, 3000);
     pollTimerRef.current = setInterval(async () => {
       try {
-        const res = await fetch(
-          `${apiUrl}/v1/accounts/login/${deviceCodeInfo.provider.provider_id}/poll`,
+        const res = await dbFetch(
+          `/v1/accounts/login/${deviceCodeInfo.provider.provider_id}/poll`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -820,7 +1213,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         pollTimerRef.current = null;
       }
     };
-  }, [deviceCodeInfo, apiUrl]);
+  }, [deviceCodeInfo, dbFetch]);
 
   // Filter providers theo search query (khớp provider_name hoặc provider_id)
   // Ẩn provider không có auth_method (không cần đăng nhập)
@@ -874,39 +1267,86 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
               }}
             >
               <div>
-                <div style={{ fontSize: "16px", fontWeight: 700, color: "var(--primary-text)" }}>
+                <div
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    color: "var(--primary-text)",
+                  }}
+                >
                   Authorize in Browser
                 </div>
-                <div style={{ fontSize: "11px", color: "var(--secondary-text)", opacity: 0.7, marginTop: "2px" }}>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--secondary-text)",
+                    opacity: 0.7,
+                    marginTop: "2px",
+                  }}
+                >
                   {deviceCodeInfo.provider.provider_name}
                 </div>
               </div>
               <button
                 onClick={() => setDeviceCodeInfo(null)}
                 style={{
-                  padding: "6px", borderRadius: "4px", border: "none",
-                  background: "transparent", color: "var(--secondary-text)",
-                  cursor: "pointer", display: "flex", alignItems: "center",
+                  padding: "6px",
+                  borderRadius: "4px",
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--secondary-text)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(244,67,54,0.15)"; e.currentTarget.style.color = "#f44336"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "var(--secondary-text)"; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor =
+                    "rgba(244,67,54,0.15)";
+                  e.currentTarget.style.color = "#f44336";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = "var(--secondary-text)";
+                }}
               >
                 <X size={16} />
               </button>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                padding: "20px 16px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "16px",
+              }}
+            >
               {/* User code + open browser button */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", justifyContent: "center" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  justifyContent: "center",
+                }}
+              >
                 <div
                   style={{
-                    fontSize: "20px", fontWeight: 700, letterSpacing: "0.15em",
-                    fontFamily: "monospace", color: "var(--primary-text)",
+                    fontSize: "20px",
+                    fontWeight: 700,
+                    letterSpacing: "0.15em",
+                    fontFamily: "monospace",
+                    color: "var(--primary-text)",
                     backgroundColor: "var(--input-bg)",
-                    padding: "0 16px", borderRadius: "8px",
+                    padding: "0 16px",
+                    borderRadius: "8px",
                     border: "none",
                     height: "34px",
-                    display: "flex", alignItems: "center",
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
                   {deviceCodeInfo.user_code}
@@ -917,8 +1357,12 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   rel="noreferrer"
                   title="Open Browser"
                   style={{
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    width: "34px", height: "34px", borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "34px",
+                    height: "34px",
+                    borderRadius: "8px",
                     backgroundColor: "var(--input-bg)",
                     border: "none",
                     color: "var(--secondary-text)",
@@ -953,16 +1397,37 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   }}
                 />
                 <button
-                  onClick={() => navigator.clipboard.writeText(deviceCodeInfo.verification_url)}
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      deviceCodeInfo.verification_url,
+                    )
+                  }
                   title="Copy URL"
                   style={{
-                    position: "absolute", right: "6px", top: "50%", transform: "translateY(-50%)",
-                    padding: "4px", borderRadius: "4px", border: "none",
-                    background: "transparent", color: "var(--secondary-text)",
-                    cursor: "pointer", display: "flex", alignItems: "center",
+                    position: "absolute",
+                    right: "6px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    padding: "4px",
+                    borderRadius: "4px",
+                    border: "none",
+                    background: "transparent",
+                    color: "var(--secondary-text)",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
                   }}
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                   </svg>
@@ -970,18 +1435,35 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
               </div>
 
               {/* Waiting indicator */}
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--secondary-text)", fontSize: "12px" }}>
-                <Loader2 size={14} style={{ animation: "aaSpin 1s linear infinite" }} />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  color: "var(--secondary-text)",
+                  fontSize: "12px",
+                }}
+              >
+                <Loader2
+                  size={14}
+                  style={{ animation: "aaSpin 1s linear infinite" }}
+                />
                 Waiting for authorization…
               </div>
 
               {error && (
                 <div
                   style={{
-                    width: "100%", backgroundColor: "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.08))",
-                    borderRadius: "8px", padding: "8px 10px",
-                    fontSize: "12px", color: "var(--vscode-errorForeground)",
-                    display: "flex", alignItems: "center", gap: "6px",
+                    width: "100%",
+                    backgroundColor:
+                      "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.08))",
+                    borderRadius: "8px",
+                    padding: "8px 10px",
+                    fontSize: "12px",
+                    color: "var(--vscode-errorForeground)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
                   }}
                 >
                   <AlertCircle size={12} />
@@ -1002,6 +1484,101 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   }
 
   // ── Render ──
+  // Profile selection step (sau khi chọn auth method, trước khi login)
+  if (profileStepProvider && !showEmailDrawer && !showConfirm) {
+    // Ẩn profile đã có account cùng provider (folderName trùng email)
+    const visibleFolders = profileFolders.filter(
+      (name) => !existingEmails.has(name.trim().toLowerCase()),
+    );
+    const backToMethods = () => {
+      setSelectedProvider(profileStepProvider);
+      setProfileStepProvider(null);
+    };
+    const startLogin = (folder?: string) => {
+      const provider = profileStepProvider;
+      setProfileStepProvider(null);
+      handleLogin(provider, "basic", folder);
+    };
+
+    return (
+      <>
+        {sharedBackdrop(() => setProfileStepProvider(null))}
+        {sharedSheet(
+          <>
+            {/* Header */}
+            <div
+              style={{
+                padding: "12px 16px",
+                borderBottom: "1px solid var(--border-color)",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                flexShrink: 0,
+              }}
+            >
+              <button
+                onClick={backToMethods}
+                style={{
+                  padding: "6px",
+                  borderRadius: "4px",
+                  border: "none",
+                  background: "transparent",
+                  color: "var(--secondary-text)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <div>
+                <div
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    color: "var(--primary-text)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <ProviderFavicon provider={profileStepProvider} />
+                  <span>{profileStepProvider.provider_name}</span>
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "var(--secondary-text)",
+                    opacity: 0.7,
+                  }}
+                >
+                  Select a Chromium profile
+                </div>
+              </div>
+            </div>
+
+            {/* Searchbar + Profile cards */}
+            <ProfilePicker
+              folders={visibleFolders}
+              loading={profilesLoading}
+              error={profilesError}
+              disabled={loading}
+              baseDir={chromiumProfileDir}
+              onSelect={startLogin}
+            />
+          </>,
+          "50%",
+        )}
+        <style>{`
+          @keyframes aaSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+          @keyframes aaFadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes aaSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `}</style>
+      </>
+    );
+  }
+
   // Method selection view
   if (selectedProvider && !showEmailDrawer && !showConfirm) {
     const raw =
@@ -1190,10 +1767,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                     icon={meta.icon}
                     label={meta.label}
                     desc={meta.desc}
-                    onClick={() => {
-                      setSelectedProvider(null);
-                      handleLogin(selectedProvider, "basic");
-                    }}
+                    onClick={() => handlePickMethod(selectedProvider)}
                     disabled={loading}
                   />
                 );
@@ -1220,7 +1794,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
               </div>
             )}
           </>,
-          "auto",
+          "50%",
         )}
         <style>{`
           @keyframes aaSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -1454,12 +2028,15 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
 
   // Confirmation view
   if (showConfirm && pendingAccount) {
-    const credValue = pendingAccount.credential || pendingAccount.user_data_dir || "";
+    const credValue =
+      pendingAccount.credential || pendingAccount.user_data_dir || "";
     let credParsed: Record<string, any> | null = null;
     try {
       const raw = credValue.trim();
       if (raw.startsWith("{")) credParsed = JSON.parse(raw);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     return (
       <>
         {sharedBackdrop(() => {
@@ -1479,18 +2056,35 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 flexShrink: 0,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
                 <div>
-                  <div style={{ fontSize: "16px", fontWeight: 700, color: "var(--primary-text)" }}>
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 700,
+                      color: "var(--primary-text)",
+                    }}
+                  >
                     Confirm Account
                   </div>
-                  <div style={{ fontSize: "12px", color: "var(--secondary-text)", opacity: 0.7 }}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--secondary-text)",
+                      opacity: 0.7,
+                    }}
+                  >
                     Review captured details
                   </div>
                 </div>
               </div>
               <button
-                onClick={() => { setShowConfirm(false); setPendingAccount(null); }}
+                onClick={() => {
+                  setShowConfirm(false);
+                  setPendingAccount(null);
+                }}
                 style={{
                   padding: "6px",
                   borderRadius: "4px",
@@ -1564,30 +2158,58 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                         marginBottom: "5px",
                       }}
                     >
-                      {pendingAccount.user_data_dir ? "User Data Dir" : "Credential / Token"}
+                      {pendingAccount.user_data_dir
+                        ? "User Data Dir"
+                        : "Credential / Token"}
                     </label>
                     <div style={{ fontSize: "12px" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                        {credParsed
-                          ? Object.entries(credParsed).map(([key, val]) => (
-                              <div key={key} style={{ minWidth: 0 }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
-                                  <KeyRound size={10} />
-                                  {key}
-                                </div>
-                                <CopyableText value={String(val ?? "")} monospace />
-                              </div>
-                            ))
-                          : (
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", color: "var(--secondary-text)", marginBottom: "2px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "10px",
+                        }}
+                      >
+                        {credParsed ? (
+                          Object.entries(credParsed).map(([key, val]) => (
+                            <div key={key} style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  fontSize: "10px",
+                                  color: "var(--secondary-text)",
+                                  marginBottom: "2px",
+                                }}
+                              >
                                 <KeyRound size={10} />
-                                {pendingAccount.user_data_dir ? "Path" : "Token"}
+                                {key}
                               </div>
-                              <CopyableText value={credValue} monospace />
+                              <CopyableText
+                                value={String(val ?? "")}
+                                monospace
+                              />
                             </div>
-                          )
-                        }
+                          ))
+                        ) : (
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontSize: "10px",
+                                color: "var(--secondary-text)",
+                                marginBottom: "2px",
+                              }}
+                            >
+                              <KeyRound size={10} />
+                              {pendingAccount.user_data_dir ? "Path" : "Token"}
+                            </div>
+                            <CopyableText value={credValue} monospace />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1650,12 +2272,17 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 style={{
                   padding: "8px 14px",
                   borderRadius: "9px",
-                  backgroundColor: "var(--vscode-button-secondaryBackground, rgba(var(--vscode-button-background-rgb, 0,120,212), 0.12))",
+                  backgroundColor:
+                    "var(--vscode-button-secondaryBackground, rgba(var(--vscode-button-background-rgb, 0,120,212), 0.12))",
                   border: "none",
-                  color: "var(--vscode-button-background, var(--vscode-textLink-foreground))",
+                  color:
+                    "var(--vscode-button-background, var(--vscode-textLink-foreground))",
                   fontSize: "12px",
                   fontWeight: 600,
-                  cursor: confirmLoading || !pendingAccount.email ? "not-allowed" : "pointer",
+                  cursor:
+                    confirmLoading || !pendingAccount.email
+                      ? "not-allowed"
+                      : "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
@@ -1707,9 +2334,28 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   fontSize: "17px",
                   fontWeight: 700,
                   color: "var(--primary-text)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
                 }}
               >
                 Add Account
+                {activeDbName && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 500,
+                      padding: "2px 7px",
+                      borderRadius: "4px",
+                      backgroundColor: "rgba(59, 130, 246, 0.12)",
+                      color: "#3b82f6",
+                      letterSpacing: "0.01em",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {activeDbName}
+                  </span>
+                )}
               </div>
               <div
                 style={{

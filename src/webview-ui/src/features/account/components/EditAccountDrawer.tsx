@@ -23,7 +23,7 @@ import { Loader2, X, AlertCircle } from "lucide-react";
 import { getFaviconUrl } from "@/utils/favicon";
 
 // ── Hooks ──
-import { useSettings } from "../../../context/SettingsContext";
+import { useDbFetch } from "../../../services/useDbFetch";
 
 // ── Types ──
 import { FlatAccount } from "../types";
@@ -129,7 +129,7 @@ const EditAccountDrawer: React.FC<EditAccountDrawerProps> = ({
   const [error, setError] = useState("");
 
   // ── Store ──
-  const { apiUrl } = useSettings();
+  const dbFetch = useDbFetch();
 
   // ── Derived ──
   // Parse credential thành các field khi account thay đổi
@@ -189,7 +189,7 @@ const EditAccountDrawer: React.FC<EditAccountDrawerProps> = ({
         credential = credFields[0]?.value ?? "";
       }
 
-      const response = await fetch(`${apiUrl}/v1/accounts/${account.id}`, {
+      const response = await dbFetch(`/v1/accounts/${account.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), credential }),

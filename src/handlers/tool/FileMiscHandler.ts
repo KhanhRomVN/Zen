@@ -16,6 +16,7 @@
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── Node ──
 import * as path from "path";
+import * as fs from "fs";
 
 // ── VSCode ──
 import * as vscode from "vscode";
@@ -151,6 +152,34 @@ export class FileMiscHandler {
         error: e.message,
       });
     }
+  }
+
+  // ── Check Path Exists ──
+  /**
+   * Kiểm tra path (file/folder) có tồn tại trên hệ thống không.
+   * Dùng fs.existsSync với absolute path nên hoạt động cả ngoài workspace
+   * (VD: file SQLite trong thư mục home của người dùng).
+   */
+  public handleCheckPathExists(message: any, webviewView: vscode.WebviewView) {
+    let exists = false;
+    try {
+      if (typeof message.path === "string" && message.path.trim()) {
+        const absPath = path.isAbsolute(message.path)
+          ? message.path
+          : path.join(
+              vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "",
+              message.path,
+            );
+        exists = fs.existsSync(absPath);
+      }
+    } catch {
+      exists = false;
+    }
+    webviewView.webview.postMessage({
+      command: "pathExistsResult",
+      requestId: message.requestId,
+      exists,
+    });
   }
 
   // ── Get File Content ──

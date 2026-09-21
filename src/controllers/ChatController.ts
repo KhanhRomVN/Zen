@@ -22,6 +22,7 @@ import { ProjectContextHandler } from "../handlers/system/ProjectContextHandler"
 import { StorageHandler } from "../handlers/storage/StorageHandler";
 import { ThemeHandler } from "../handlers/system/ThemeHandler";
 import { FileOpenHandler } from "../handlers/system/FileOpenHandler";
+import { ProfileFolderHandler } from "../handlers/system/ProfileFolderHandler";
 import { AccountImportExportHandler } from "../handlers/account/AccountImportExportHandler";
 import { DiffViewHandler } from "../handlers/system/DiffViewHandler";
 import { PreviewHandler } from "../handlers/system/PreviewHandler";
@@ -51,6 +52,7 @@ import { GitStatusHandler } from "../handlers/tool/GitStatusHandler";
 import { GrepHandler } from "../handlers/tool/GrepHandler";
 import { SkillAPIHandler } from "../handlers/tool/SkillAPIHandler";
 import { SkillInstallHandler } from "../handlers/tool/SkillInstallHandler";
+import { SkillWorkspaceStateHandler } from "../handlers/tool/SkillWorkspaceStateHandler";
 
 // ── Managers ──
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -86,6 +88,7 @@ export class ChatController {
   private terminalInputHandler: TerminalInputHandler;
   private themeHandler: ThemeHandler;
   private fileOpenHandler: FileOpenHandler;
+  private profileFolderHandler: ProfileFolderHandler;
   private accountImportExportHandler: AccountImportExportHandler;
   private diffViewHandler: DiffViewHandler;
   private previewHandler: PreviewHandler;
@@ -95,9 +98,11 @@ export class ChatController {
   private storageHandler: StorageHandler;
   private skillAPIHandler: SkillAPIHandler;
   private skillInstallHandler: SkillInstallHandler;
+  private skillWorkspaceStateHandler: SkillWorkspaceStateHandler;
 
   constructor(
     private storageManager: GlobalStorageManager | undefined,
+    private extContext: vscode.ExtensionContext,
     private workspaceRoot: string,
     private terminalManager: TerminalManager,
     private fileLockManager: FileLockManager,
@@ -134,6 +139,7 @@ export class ChatController {
     this.terminalInputHandler = new TerminalInputHandler(this.terminalManager);
     this.themeHandler = new ThemeHandler();
     this.fileOpenHandler = new FileOpenHandler();
+    this.profileFolderHandler = new ProfileFolderHandler();
     this.accountImportExportHandler = new AccountImportExportHandler();
     this.diffViewHandler = new DiffViewHandler();
     this.previewHandler = new PreviewHandler();
@@ -143,6 +149,9 @@ export class ChatController {
     this.storageHandler = new StorageHandler(this.storageManager);
     this.skillAPIHandler = new SkillAPIHandler();
     this.skillInstallHandler = new SkillInstallHandler();
+    this.skillWorkspaceStateHandler = new SkillWorkspaceStateHandler(
+      this.extContext,
+    );
   }
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
@@ -171,6 +180,24 @@ export class ChatController {
         case "openFolder":
           await this.fileOpenHandler.handleOpenFolder(message);
           break;
+        case "pickPath":
+          await this.fileOpenHandler.handlePickPath(message, webviewView);
+          break;
+        case "listChromiumProfiles":
+          await this.profileFolderHandler.handleListChromiumProfiles(
+            message,
+            webviewView,
+          );
+          break;
+        case "gitCheckReady":
+          await this.gitStatusHandler.handleCheckGitReady(message, webviewView);
+          break;
+        case "openPath":
+          await this.fileOpenHandler.handleOpenFolder(message);
+          break;
+        case "createFolderAndOpen":
+          await this.fileOpenHandler.handleCreateFolderAndOpen(message);
+          break;
         case "openLspFolder":
           await this.fileOpenHandler.handleOpenFolder({
             path: path.join(
@@ -179,6 +206,11 @@ export class ChatController {
               "lsp",
               message.packageName,
             ),
+          });
+          break;
+        case "openSkillsFolder":
+          await this.fileOpenHandler.handleOpenFolder({
+            path: path.join(os.homedir(), ".khanhromvn-zen", "skills"),
           });
           break;
         case "openTempImage":
@@ -290,6 +322,9 @@ export class ChatController {
         case "getFileContent":
           await this.fileMiscHandler.handleGetFileContent(message, webviewView);
           break;
+        case "checkPathExists":
+          this.fileMiscHandler.handleCheckPathExists(message, webviewView);
+          break;
         case "deleteFile":
           await this.deleteFileHandler.handleDeleteFile(message, webviewView);
           break;
@@ -361,6 +396,13 @@ export class ChatController {
         case "installSkill":
         case "uninstallSkill":
           await this.skillInstallHandler.handleSkillInstall(
+            message,
+            webviewView,
+          );
+          break;
+        case "loadSkillWorkspaceState":
+        case "saveSkillWorkspaceState":
+          await this.skillWorkspaceStateHandler.handleSkillWorkspaceState(
             message,
             webviewView,
           );

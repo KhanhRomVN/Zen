@@ -47,6 +47,7 @@ import {
 // ── Hooks ──
 import { useAccounts } from "./hooks/useAccounts";
 import { useSettings } from "../../context/SettingsContext";
+import { useActiveDatabaseManagerName } from "../../hooks/useActiveDatabaseManagerName";
 
 // ── Services ──
 import { extensionService } from "../../services/ExtensionService";
@@ -70,6 +71,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
   const [editAccount, setEditAccount] = useState<FlatAccount | null>(null);
   const [closeHover, setCloseHover] = useState(false);
   const { apiUrl } = useSettings();
+  const activeDbName = useActiveDatabaseManagerName();
 
   // ── Store ──
   const {
@@ -196,7 +198,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <div>
-              <div style={{ marginBottom: "3px" }}>
+              <div style={{ marginBottom: "3px", display: "flex", alignItems: "center", gap: "8px" }}>
                 <span
                   style={{
                     fontWeight: 700,
@@ -207,6 +209,22 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 >
                   Accounts
                 </span>
+                {activeDbName && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 500,
+                      padding: "2px 7px",
+                      borderRadius: "4px",
+                      backgroundColor: "rgba(59, 130, 246, 0.12)",
+                      color: "#3b82f6",
+                      letterSpacing: "0.01em",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {activeDbName}
+                  </span>
+                )}
               </div>
               <p
                 style={{

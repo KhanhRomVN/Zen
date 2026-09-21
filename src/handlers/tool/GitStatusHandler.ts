@@ -20,6 +20,73 @@ import { exec } from "child_process";
 
 // ─── Class ──────────────────────────────────────────────────────────────
 export class GitStatusHandler {
+  /**
+   * Kiểm tra workspace có thư mục .git và đã có file staged (git add) chưa.
+   * Trả về qua `gitCheckReadyResult`: { hasGit, hasStaged, reason? }.
+   */
+  public async handleCheckGitReady(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    const reply = (payload: {
+      hasGit: boolean;
+      hasStaged: boolean;
+      reason?: string;
+    }) =>
+      webviewView.webview.postMessage({
+        command: "gitCheckReadyResult",
+        requestId: message.requestId,
+        ...payload,
+      });
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      reply({
+        hasGit: false,
+        hasStaged: false,
+        reason: "Chưa mở workspace",
+      });
+      return;
+    }
+
+    try {
+      await vscode.workspace.fs.stat(
+        vscode.Uri.joinPath(workspaceFolder.uri, ".git"),
+      );
+    } catch {
+      reply({
+        hasGit: false,
+        hasStaged: false,
+        reason: "Workspace không có thư mục .git",
+      });
+      return;
+    }
+
+    exec(
+      "git diff --cached --name-only",
+      { cwd: workspaceFolder.uri.fsPath, maxBuffer: 1024 * 1024 * 10 },
+      (err: any, stdout: string, stderr: string) => {
+        if (err) {
+          reply({
+            hasGit: true,
+            hasStaged: false,
+            reason:
+              err.code === "ENOENT"
+                ? "Git chưa được cài hoặc không có trong PATH"
+                : stderr || err.message || "Không kiểm tra được git",
+          });
+          return;
+        }
+        const hasStaged = stdout.split("\n").some((l) => l.trim().length > 0);
+        reply({
+          hasGit: true,
+          hasStaged,
+          reason: hasStaged ? undefined : "Chưa có file nào được git add",
+        });
+      },
+    );
+  }
+
   public async handleRunGitStatus(
     message: any,
     webviewView: vscode.WebviewView,

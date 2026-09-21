@@ -38,6 +38,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly _extensionUri: vscode.Uri,
     private readonly _storageManager: GlobalStorageManager,
+    private readonly _extContext: vscode.ExtensionContext,
   ) {
     this._terminalManager = new TerminalManager();
     this._fileLockManager = new FileLockManager();
@@ -72,6 +73,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
 
     this.chatController = new ChatController(
       this._storageManager,
+      this._extContext,
       workspaceRoot,
       this._terminalManager,
       this._fileLockManager,

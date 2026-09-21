@@ -1,6 +1,6 @@
 export interface LogEntry {
   timestamp: number;
-  level: 'log' | 'warn' | 'error';
+  level: "log" | "warn" | "error";
   message: string;
   data?: any;
   stack?: string;
@@ -11,13 +11,13 @@ class Logger {
   private maxLogs = 1000;
   private listeners: Set<() => void> = new Set();
 
-  private addLog(level: LogEntry['level'], message: string, ...args: any[]) {
+  private addLog(level: LogEntry["level"], message: string, ...args: any[]) {
     const entry: LogEntry = {
       timestamp: Date.now(),
       level,
       message: String(message),
       data: args.length > 0 ? args : undefined,
-      stack: level === 'error' ? new Error().stack : undefined,
+      stack: level === "error" ? new Error().stack : undefined,
     };
 
     this.logs.push(entry);
@@ -28,7 +28,7 @@ class Logger {
     }
 
     // Notify listeners
-    this.listeners.forEach(listener => listener());
+    this.listeners.forEach((listener) => listener());
 
     // Log ra console gốc
     const originalConsole = (window as any).__originalConsole || console;
@@ -37,15 +37,15 @@ class Logger {
   }
 
   log(message: string, ...args: any[]) {
-    this.addLog('log', message, ...args);
+    this.addLog("log", message, ...args);
   }
 
   warn(message: string, ...args: any[]) {
-    this.addLog('warn', message, ...args);
+    this.addLog("warn", message, ...args);
   }
 
   error(message: string, ...args: any[]) {
-    this.addLog('error', message, ...args);
+    this.addLog("error", message, ...args);
   }
 
   getLogs(): LogEntry[] {
@@ -54,7 +54,7 @@ class Logger {
 
   clearLogs() {
     this.logs = [];
-    this.listeners.forEach(listener => listener());
+    this.listeners.forEach((listener) => listener());
   }
 
   subscribe(listener: () => void) {

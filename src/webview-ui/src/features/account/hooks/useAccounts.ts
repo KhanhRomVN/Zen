@@ -81,22 +81,26 @@ export const useAccounts = (isOpen: boolean) => {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // ── Store ──
-  const { apiUrl } = useSettings();
+  const { apiUrl, activeDatabaseManagerId } = useSettings();
 
   // ── Callbacks ──
   const callBackend = useCallback(
     async (endpoint: string, method: string = "GET", body?: any) => {
       const url = `${apiUrl}${endpoint}`;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (activeDatabaseManagerId) {
+        headers["x-database-manager-id"] = activeDatabaseManagerId;
+      }
       const options: RequestInit = {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers,
         cache: "no-store", // Prevent caching
       };
       if (body) options.body = JSON.stringify(body);
       const response = await fetch(url, options);
       return response.json();
     },
-    [apiUrl],
+    [apiUrl, activeDatabaseManagerId],
   );
 
   const fetchAccounts = useCallback(

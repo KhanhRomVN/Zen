@@ -3,9 +3,10 @@ import { Plus, Send, X } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
+import { useDbFetch } from "../../services/useDbFetch";
 import { combinePromptsForMode } from "../../features/chat/prompts";
 import type { SystemInfo } from "../../features/chat/prompts";
-import ModelAccountDrawer from "./ModelAccountDrawer";
+import ProviderModelDrawer from "./ProviderModelDrawer";
 import StyleCodeDropdown, {
   StyleCodeTriggerIcon,
   STYLE_CODE_MODE_META,
@@ -821,7 +822,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       setSystemPromptMode,
       promptLengthMode,
       setPromptLengthMode,
+      activeDatabaseManagerId,
     } = useSettings();
+
+    const dbFetch = useDbFetch();
     const [providers, setProviders] = React.useState<any[]>([]);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
     const [isSystemPromptHovered, setIsSystemPromptHovered] =
@@ -863,7 +867,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       let cancelled = false;
       const beat = () => {
         if (cancelled) return;
-        fetch(`${apiUrl}/v1/accounts/${accountId}/presence`, {
+        dbFetch(`/v1/accounts/${accountId}/presence`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ clientId }),
@@ -874,12 +878,12 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       return () => {
         cancelled = true;
         clearInterval(intervalId);
-        fetch(
-          `${apiUrl}/v1/accounts/${accountId}/presence?clientId=${encodeURIComponent(clientId)}`,
+        dbFetch(
+          `/v1/accounts/${accountId}/presence?clientId=${encodeURIComponent(clientId)}`,
           { method: "DELETE" },
         ).catch(() => {});
       };
-    }, [currentAccount?.id, apiUrl]);
+    }, [currentAccount?.id, apiUrl, dbFetch]);
 
     const { currentProviderConfig, currentModelConfig } = useProvidersConfig(
       currentModel,
@@ -1068,8 +1072,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       localStorage.setItem("zen-memory-enabled", String(newState));
 
       try {
-        const response = await fetch(
-          `${apiUrl}/v1/accounts/${currentAccount.id}/memory`,
+        const response = await dbFetch(
+          `/v1/accounts/${currentAccount.id}/memory`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -1094,7 +1098,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
     const fetchProviders = React.useCallback(async () => {
       try {
-        const response = await fetch(`${apiUrl}/v1/providers`);
+        const response = await dbFetch(`/v1/providers`);
         const result = await response.json();
         if (result.success) {
           setProviders(result.data.filter((p: any) => p.is_enabled));
@@ -1102,12 +1106,28 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       } catch (error) {
         // console.error("Failed to fetch providers:", error);
       }
-    }, [apiUrl]);
+    }, [dbFetch]);
 
     // Initial fetch
     React.useEffect(() => {
       fetchProviders();
     }, [fetchProviders]);
+
+    // Re-fetch providers every time the model drawer opens so stale data
+    // (e.g. "No accounts" after user just added an account) is never shown.
+    React.useEffect(() => {
+      if (showModelDrawer) {
+        fetchProviders();
+      }
+    }, [showModelDrawer, fetchProviders]);
+
+    // Close model drawer when user navigates to another panel (Accounts, Settings, etc.)
+    // so the drawer doesn't linger behind when they come back.
+    React.useEffect(() => {
+      const handler = () => setShowModelDrawer(false);
+      window.addEventListener("zen:panel-change", handler);
+      return () => window.removeEventListener("zen:panel-change", handler);
+    }, []);
 
     // 🔍 VALIDATION: Check if currentModel and currentAccount still exist after providers loaded
     React.useEffect(() => {
@@ -1158,8 +1178,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
               if (!matchedAccount) {
                 console.warn(
-                  `[MessageInput] Account ${currentAccount.id} not found - resetting account`,
+                  `[MessageInput] Account ${currentAccount.id} not found - resetting model + account`,
                 );
+                // Account đã bị xóa → reset luôn model để triggerUI về "Select Model",
+                // tránh giữ provider_id + model_id mà thiếu account.
+                setCurrentModel(null);
                 setCurrentAccount(null);
               } else if (
                 matchedAccount.email &&
@@ -1300,7 +1323,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
           {!isConversationStarted && (
             <div
               onClick={() => {
-                if (providers.length === 0) fetchProviders();
                 setShowModelDrawer((v) => !v);
               }}
               style={{
@@ -1405,7 +1427,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
           )}
 
           {showModelDrawer && (
-            <ModelAccountDrawer
+            <ProviderModelDrawer
               isOpen={showModelDrawer}
               onClose={() => setShowModelDrawer(false)}
               providers={providers}
@@ -1912,15 +1934,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 />
               )}
 
-              {/* Memory Toggle */}
-              {showMemoryButton && (
-                <MemoryButton
-                  isOn={isMemory}
-                  onClick={toggleMemory}
-                  title="Toggle Memory Reference (Saved memories & chat history)"
-                />
-              )}
-
               <div
                 style={{
                   width: "1px",
@@ -1930,7 +1943,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   flexShrink: 0,
                 }}
               />
-
               {/* System Prompt Mode Selector - Home only */}
               {!isConversationStarted && (
                 <StyleCodeDropdown

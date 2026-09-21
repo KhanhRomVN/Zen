@@ -27,20 +27,43 @@ export class AccountImportExportHandler {
 
     const fileUris = await vscode.window.showOpenDialog({
       canSelectMany: false,
-      filters: { JSON: ["json"] },
+      canSelectFiles: true,
+      canSelectFolders: false,
+      filters: {
+        "JSON Files": ["json"],
+        "SQLite Databases": ["sqlite", "sqlite3", "db"],
+        "All Files": ["*"],
+      },
+      openLabel: "Import",
     });
     if (!fileUris || fileUris.length === 0) return;
 
     try {
-      const content = fs.readFileSync(fileUris[0].fsPath, "utf8");
-      const parsed = JSON.parse(content);
-      const response = await fetch(`${apiUrl}/v1/accounts/import`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed),
-      });
-      const result = await response.json();
-      webviewView.webview.postMessage({ requestId: message.requestId, result });
+      const filePath = fileUris[0].fsPath;
+      const ext = path.extname(filePath).toLowerCase();
+      const isSqlite = ext === ".sqlite" || ext === ".sqlite3" || ext === ".db";
+
+      if (isSqlite) {
+        // Gửi kèm filePath để backend tự đọc sqlite và import
+        const response = await fetch(`${apiUrl}/v1/accounts/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ __importFromSqlitePath: filePath }),
+        });
+        const result = await response.json();
+        webviewView.webview.postMessage({ requestId: message.requestId, result });
+      } else {
+        // JSON file — đọc và parse như cũ
+        const content = fs.readFileSync(filePath, "utf8");
+        const parsed = JSON.parse(content);
+        const response = await fetch(`${apiUrl}/v1/accounts/import`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(parsed),
+        });
+        const result = await response.json();
+        webviewView.webview.postMessage({ requestId: message.requestId, result });
+      }
     } catch (error: any) {
       webviewView.webview.postMessage({
         requestId: message.requestId,

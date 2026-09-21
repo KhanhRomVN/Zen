@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zen Settings — Fake UI</title>
+    <style>
+      /* ── Font (cùng file font với webview thật) ── */
+      @font-face {
+        font-family: "Inter";
+        src: url("src/webview-ui/src/styles/fonts/Inter-VariableFont_opsz,wght.ttf")
+          format("truetype");
+        font-weight: 100 900;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      /* ── Theme variables (giá trị fallback của variables.css) ── */
+      :root {
+        --primary-bg: #1e1e1e;
+        --secondary-bg: #252526;
+        --tertiary-bg: #2d2d30;
+        --hover-bg: #2a2d2e;
+        --primary-text: #cccccc;
+        --secondary-text: #858585;
+        --border-color: #3e3e42;
+        --input-bg: #3c3c3c;
+        --button-primary: #0e639c;
+      }
+
+      /* ── Global (giống global.css) ── */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+      }
+
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, sans-serif;
+        font-size: 13px;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        overflow: hidden;
+        background: var(--primary-bg);
+        color: var(--primary-text);
+      }
+
+      /* Scrollbar mặc định của VS Code webview */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-corner {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(121, 121, 121, 0.4);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 100, 100, 0.7);
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      /* ── Div khung: chỉ quy định ratio (width = 1/4 trang, height tối đa 100%, căn giữa ngang) ── */
+      #ui-frame {
+        width: 25vw;
+        height: 100%;
+        margin: 0 auto;
+      }
+
+      /* ── Icon (lucide-style) ── */
+      .ico {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        flex-shrink: 0;
+      }
+
+      /* ── SettingsPanel ── */
+      .panel {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background-color: var(--secondary-bg);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .header {
+        padding: 16px 16px 7px;
+        border-top: 1px solid var(--border-color);
+        flex-shrink: 0;
+        background-color: var(--tertiary-bg);
+      }
+      .header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .title-wrap {
+        margin-bottom: 3px;
+      }
+      .title {
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--primary-text);
+        letter-spacing: 0.01em;
+      }
+      .subtitle {
+        margin: 0;
+        font-size: 13px;
+        color: var(--secondary-text);
+        opacity: 0.7;
+        line-height: 1.4;
+      }
+      .close-btn {
+        padding: 5px;
+        border-radius: 6px;
+        flex-shrink: 0;
+        background-color: rgba(128, 128, 128, 0.1);
+        border: none;
+        color: var(--secondary-text);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .close-btn:hover {
+        background-color: rgba(239, 68, 68, 0.12);
+        color: #f48771;
+      }
+
+      .tabbar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border-color);
+        background-color: var(--tertiary-bg);
+        flex-shrink: 0;
+      }
+      .tab {
+        padding: 10px 12px;
+        font-size: 13px;
+        font-weight: 400;
+        color: var(--secondary-text);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s ease;
+        user-select: none;
+      }
+      .tab.active {
+        font-weight: 600;
+        color: var(--primary-text);
+        border-bottom: 2px solid #007acc;
+      }
+
+      .content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      /* ── GeneralSettings ── */
+      .general {
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+
+      /* ── GroupSection ── */
+      .group {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .group-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .badge.blue {
+        color: #1565c0;
+        background-color: rgba(21, 101, 192, 0.15);
+      }
+      .badge.purple {
+        color: #6a1b9a;
+        background-color: rgba(106, 27, 154, 0.15);
+      }
+      .badge.green {
+        color: #2e7d32;
+        background-color: rgba(46, 125, 50, 0.15);
+      }
+      .group-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+        min-width: 0;
+      }
+      .group-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-text);
+        letter-spacing: 0.01em;
+      }
+      .group-desc {
+        font-size: 12px;
+        color: var(--secondary-text);
+        opacity: 0.75;
+        line-height: 1.4;
+      }
+      .group-action {
+        flex-shrink: 0;
+      }
+      .group-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* ── Fields ── */
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .field.sm {
+        gap: 6px;
+      }
+      .field-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-text);
+      }
+      .field-label.sm {
+        font-size: 12px;
+        color: var(--secondary-text);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      /* Input/button trong webview thật không set font-family nên dùng font mặc định của trình duyệt */
+      .input {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 13px;
+        background-color: var(--input-bg);
+        border: none;
+        border-radius: 8px;
+        color: var(--primary-text);
+        outline: none;
+        box-sizing: border-box;
+        height: 34px;
+      }
+      .select {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+      }
+      .select-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .ellipsis {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dd {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+      }
+      .green-ico {
+        color: #2e7d32;
+      }
+
+      /* ── Add button ── */
+      .add-btn {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border: none;
+        border-radius: 8px;
+        background-color: rgba(46, 125, 50, 0.15);
+        color: #2e7d32;
+      }
+
+      /* ── DatabaseManagerCard ── */
+      .card {
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: context-menu;
+        background-color: var(--input-bg);
+      }
+      .card-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        flex-shrink: 0;
+      }
+      .card-text {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .card-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--primary-text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .card-info {
+        font-size: 11px;
+        color: var(--secondary-text);
+        opacity: 0.8;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Icon sprite (lucide) -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-x" viewBox="0 0 24 24">
+        <path d="M18 6 6 18" />
+        <path d="m6 6 12 12" />
+      </symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24">
+        <path d="m6 9 6 6 6-6" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M5 12h14" />
+        <path d="M12 5v14" />
+      </symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <path d="m9 12 2 2 4-4" />
+      </symbol>
+      <symbol id="i-server" viewBox="0 0 24 24">
+        <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+        <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+        <line x1="6" x2="6.01" y1="6" y2="6" />
+        <line x1="6" x2="6.01" y1="18" y2="18" />
+      </symbol>
+      <symbol id="i-languages" viewBox="0 0 24 24">
+        <path d="m5 8 6 6" />
+        <path d="m4 14 6-6 2-3" />
+        <path d="M2 5h12" />
+        <path d="M7 2h1" />
+        <path d="m22 22-5-10-5 10" />
+        <path d="M14 18h6" />
+      </symbol>
+      <symbol id="i-database" viewBox="0 0 24 24">
+        <ellipse cx="12" cy="5" rx="9" ry="3" />
+        <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+        <path d="M3 12A9 3 0 0 0 21 12" />
+      </symbol>
+      <symbol id="i-hard-drive" viewBox="0 0 24 24">
+        <line x1="22" x2="2" y1="12" y2="12" />
+        <path
+          d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
+        />
+        <line x1="6" x2="6.01" y1="16" y2="16" />
+        <line x1="10" x2="10.01" y1="16" y2="16" />
+      </symbol>
+    </svg>
+
+    <div id="ui-frame">
+      <div class="panel">
+        <!-- Header -->
+        <div class="header">
+          <div class="header-row">
+            <div class="header-left">
+              <div>
+                <div class="title-wrap">
+                  <span class="title">Zen Settings</span>
+                </div>
+                <p class="subtitle">Configure Zen extension settings</p>
+              </div>
+            </div>
+            <button class="close-btn" title="Close Settings">
+              <svg class="ico" width="14" height="14"><use href="#i-x" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabbar -->
+        <div class="tabbar">
+          <span class="tab active">General</span>
+          <span class="tab">Feature</span>
+          <span class="tab">About</span>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+          <div class="general">
+            <!-- Backend Connection -->
+            <section class="group">
+              <div class="group-header">
+                <div class="badge blue">
+                  <svg class="ico" width="16" height="16">
+                    <use href="#i-server" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Backend Connection</span>
+                  <span class="group-desc"
+                    >Backend API address and Chromium profile folder.</span
+                  >
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="field">
+                  <label class="field-label">Backend API URL</label>
+                  <input
+                    class="input"
+                    type="text"
+                    value="http://localhost:8888"
+                    placeholder="http://localhost:8888"
+                  />
+                </div>
+                <div class="field">
+                  <label class="field-label">Chromium Profile Folder</label>
+                  <input
+                    class="input"
+                    type="text"
+                    value="/home/user/.elara/profiles"
+                    placeholder="/home/user/.elara/profiles"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <!-- Language -->
+            <section class="group">
+              <div class="group-header">
+                <div class="badge purple">
+                  <svg class="ico" width="16" height="16">
+                    <use href="#i-languages" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Language</span>
+                  <span class="group-desc"
+                    >AI response language and commit message language.</span
+                  >
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="field">
+                  <label class="field-label">AI Language</label>
+                  <div class="dd">
+                    <button type="button" class="input select">
+                      <span class="select-left">
+                        <span>🇺🇸</span>
+                        <span>English</span>
+                      </span>
+                      <svg class="ico" width="12" height="12">
+                        <use href="#i-chevron-down" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label">Commit Message Language</label>
+                  <div class="dd">
+                    <button type="button" class="input select">
+                      <span class="select-left">
+                        <span>🇺🇸</span>
+                        <span>English</span>
+                      </span>
+                      <svg class="ico" width="12" height="12">
+                        <use href="#i-chevron-down" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Database Managers -->
+            <section class="group">
+              <div class="group-header">
+                <div class="badge green">
+                  <svg class="ico" width="16" height="16">
+                    <use href="#i-database" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Database Managers</span>
+                  <span class="group-desc"
+                    >Manage local or remote database connections.</span
+                  >
+                </div>
+                <div class="group-action">
+                  <button
+                    type="button"
+                    class="add-btn"
+                    title="Add database manager"
+                    aria-label="Add database manager"
+                  >
+                    <svg class="ico" width="16" height="16">
+                      <use href="#i-plus" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="group-body">
+                <!-- Active database selector -->
+                <div class="field sm">
+                  <label class="field-label sm"
+                    >Active Database (this workspace)</label
+                  >
+                  <div class="dd">
+                    <button type="button" class="input select">
+                      <span class="select-left">
+                        <svg class="ico green-ico" width="14" height="14">
+                          <use href="#i-check-circle" />
+                        </svg>
+                        <span class="ellipsis">Local Workspace DB</span>
+                      </span>
+                      <svg class="ico" width="12" height="12">
+                        <use href="#i-chevron-down" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Cards -->
+                <div class="card">
+                  <div class="card-badge" style="background-color: #0e639c">
+                    <svg class="ico" width="16" height="16">
+                      <use href="#i-database" />
+                    </svg>
+                  </div>
+                  <div class="card-text">
+                    <span class="card-name">Local Workspace DB</span>
+                    <span class="card-info"
+                      >File · /home/user/.elara/database.sqlite</span
+                    >
+                  </div>
+                </div>
+
+                <div class="card">
+                  <div class="card-badge" style="background-color: #2e7d32">
+                    <svg class="ico" width="16" height="16">
+                      <use href="#i-server" />
+                    </svg>
+                  </div>
+                  <div class="card-text">
+                    <span class="card-name">Production Postgres</span>
+                    <span class="card-info"
+                      >Connection · db.example.com:5432/appdb</span
+                    >
+                  </div>
+                </div>
+
+                <div class="card">
+                  <div class="card-badge" style="background-color: #6a1b9a">
+                    <svg class="ico" width="16" height="16">
+                      <use href="#i-hard-drive" />
+                    </svg>
+                  </div>
+                  <div class="card-text">
+                    <span class="card-name">Analytics Archive</span>
+                    <span class="card-info"
+                      >File · /data/analytics/archive.sqlite</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

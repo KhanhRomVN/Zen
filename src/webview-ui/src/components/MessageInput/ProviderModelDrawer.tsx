@@ -4,6 +4,7 @@ import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video
 import { getFaviconUrl } from "@/utils/favicon";
 import { getClientId } from "@/utils/clientId";
 import { formatRelativeTime } from "@/utils/relativeTime";
+import { useActiveDatabaseManagerName } from "@/hooks/useActiveDatabaseManagerName";
 
 interface Provider {
   provider_id: string;
@@ -12,6 +13,8 @@ interface Provider {
   is_enabled: boolean;
   total_accounts?: number;
   models: any[];
+  /** Error message khi getModels() thất bại */
+  models_error?: string;
 }
 
 interface Account {
@@ -30,7 +33,7 @@ interface Account {
   used_by_windows?: number;
 }
 
-interface ModelAccountDrawerProps {
+interface ProviderModelDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   providers: Provider[];
@@ -315,13 +318,14 @@ function AccountListSkeleton() {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
+const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   isOpen,
   onClose,
   providers,
   apiUrl,
   onSelect,
 }) => {
+  const activeDbName = useActiveDatabaseManagerName();
   const [step, setStep] = useState<"model" | "account">("model");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState<any | null>(null);
@@ -536,7 +540,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
 
         return { ...provider, models: filteredModels };
       })
-      .filter((p) => p.models.length > 0);
+      .filter((p) => p.models.length > 0 || !!(p as any).models_error);
 
     // Sort priority:
     //   0 = has models + (has accounts OR no auth needed)  (top)
@@ -685,9 +689,28 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                   fontWeight: 700,
                   color: "var(--primary-text)",
                   letterSpacing: "0.01em",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
                 }}
               >
                 {step === "model" ? "Quick Switch" : "Select Account"}
+                {activeDbName && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 500,
+                      padding: "2px 7px",
+                      borderRadius: "4px",
+                      backgroundColor: "rgba(59, 130, 246, 0.12)",
+                      color: "#3b82f6",
+                      letterSpacing: "0.01em",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {activeDbName}
+                  </span>
+                )}
               </span>
               <span
                 style={{
@@ -842,8 +865,39 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                         />
                       )}
                       {provider.provider_name || provider.provider_id}
-                      {/* No models badge */}
-                      {!hasModels && (
+                      {/* Models error badge — getModels() thất bại */}
+                      {provider.models_error && (() => {
+                        const isNoAccountError = provider.models_error.startsWith("No accounts configured");
+                        return (
+                          <span
+                            title={provider.models_error}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                              fontSize: "10px",
+                              fontWeight: 500,
+                              padding: "1px 6px",
+                              borderRadius: "4px",
+                              backgroundColor: isNoAccountError
+                                ? "rgba(234, 179, 8, 0.1)"
+                                : "rgba(239, 68, 68, 0.1)",
+                              color: isNoAccountError ? "#eab308" : "#ef4444",
+                              maxWidth: "200px",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <span style={{ fontSize: "9px", flexShrink: 0 }}>
+                              {isNoAccountError ? "⚠" : "✕"}
+                            </span>
+                            {isNoAccountError ? "No accounts" : "Error fetching models"}
+                          </span>
+                        );
+                      })()}
+                      {/* No models badge — provider enabled nhưng không có model nào (và không có lỗi) */}
+                      {!hasModels && !provider.models_error && (
                         <span
                           style={{
                             display: "inline-flex",
@@ -862,7 +916,7 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                         </span>
                       )}
                       {/* No accounts badge — only for providers that require auth */}
-                      {needsAuth && !isLoadingAccountMap && !hasAccounts && (
+                      {needsAuth && !isLoadingAccountMap && !hasAccounts && !provider.models_error && (
                         <span
                           style={{
                             display: "inline-flex",
@@ -921,16 +975,35 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
 
                     {!isCollapsed && (
                       <>
+                        {/* Error message khi getModels() thất bại */}
+                        {provider.models_error && (() => {
+                          const isNoAccountError = provider.models_error.startsWith("No accounts configured");
+                          return (
+                            <div
+                              style={{
+                                padding: "8px 12px",
+                                borderRadius: "6px",
+                                backgroundColor: isNoAccountError
+                                  ? "rgba(234, 179, 8, 0.07)"
+                                  : "rgba(239, 68, 68, 0.07)",
+                                border: isNoAccountError
+                                  ? "1px solid rgba(234, 179, 8, 0.2)"
+                                  : "1px solid rgba(239, 68, 68, 0.2)",
+                                fontSize: "11px",
+                                color: isNoAccountError ? "#eab308" : "#ef4444",
+                                lineHeight: 1.5,
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              <span style={{ opacity: 0.85 }}>{provider.models_error}</span>
+                            </div>
+                          );
+                        })()}
                         {/* Model rows */}
                         {hasModels &&
                           provider.models.map((model) => {
                             // Provider không cần auth → luôn enabled; có auth → cần có account
                             const isDisabled = needsAuth && !hasAccounts;
-                            // Provider có ít nhất 1 account đang được cửa sổ khác dùng.
-                            // Presence hiện chỉ key theo accountId (không có modelId), nên
-                            // mọi model trong provider sáng badge khi có account in-use.
-                            const providerHasInUse =
-                              (inUseCountMap[provider.provider_id] ?? 0) > 0;
                             const successColor =
                               model.success_rate >= 80
                                 ? "#4ade80"
@@ -999,28 +1072,6 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
                                   >
                                     {model.name}
                                   </span>
-                                  {providerHasInUse && (
-                                    <span
-                                      title={`${inUseCountMap[provider.provider_id] ?? 0}/${accountCount} account đang được cửa sổ VSCode khác dùng`}
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        fontSize: "9px",
-                                        fontWeight: 600,
-                                        padding: "1px 6px",
-                                        borderRadius: "4px",
-                                        backgroundColor:
-                                          "rgba(234, 179, 8, 0.16)",
-                                        color: "#eab308",
-                                        flexShrink: 0,
-                                        textTransform: "uppercase",
-                                        letterSpacing: "0.02em",
-                                      }}
-                                    >
-                                      {inUseCountMap[provider.provider_id] ?? 0}/
-                                      {accountCount} in use
-                                    </span>
-                                  )}
                                   {model.is_thinking && (
                                     <span
                                       style={{
@@ -1474,4 +1525,4 @@ const ModelAccountDrawer: React.FC<ModelAccountDrawerProps> = ({
   );
 };
 
-export default ModelAccountDrawer;
+export default ProviderModelDrawer;

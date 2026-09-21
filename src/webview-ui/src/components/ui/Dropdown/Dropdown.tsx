@@ -380,12 +380,10 @@ export function Dropdown({
                     zIndex: 9999,
                     top: position.top,
                     left: position.left,
-                    width: position.width,
                     opacity: 1,
                     transition: "opacity 0.15s ease",
                     pointerEvents: "auto",
                     backgroundColor: "var(--tertiary-bg)",
-                    border: "1px solid var(--border-color)",
                     borderRadius: "10px",
                     boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
                     minWidth: "200px",
@@ -393,15 +391,30 @@ export function Dropdown({
                   }}
                 >
                   {searchable && (
-                    <div className="p-2 border-b border-border bg-background">
+                    <div
+                      className="dropdown-searchbar"
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                      }}
+                    >
                       <input
                         type="text"
                         placeholder="Search actions..."
                         value={searchText}
                         onChange={(e) => setSearchText(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm bg-input-background border border-border rounded-lg outline-none text-text-primary placeholder:text-text-tertiary"
                         autoFocus
                         onClick={(e) => e.stopPropagation()}
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          padding: "6px 10px",
+                          fontSize: "13px",
+                          backgroundColor: "transparent",
+                          border: "none",
+                          outline: "none",
+                          color: "var(--primary-text)",
+                        }}
                       />
                     </div>
                   )}
@@ -417,7 +430,6 @@ export function Dropdown({
                   transition: "opacity 0.15s ease",
                   pointerEvents: "auto",
                   backgroundColor: "var(--tertiary-bg)",
-                  border: "1px solid var(--border-color)",
                   borderRadius: "10px",
                   boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
                   minWidth: "200px",

@@ -22,6 +22,7 @@ export async function activate(extContext: vscode.ExtensionContext) {
   const provider = new ChatViewProvider(
     extContext.extensionUri,
     storageManager,
+    extContext,
   );
   provider.getTerminalManager().closeAll(); // clean up any leftover processes from previous session
 

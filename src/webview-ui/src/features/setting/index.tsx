@@ -18,9 +18,9 @@
 import React, { useState } from "react";
 
 // ── Components ──
-import GeneralSettings from "./General";
-import FeatureSettings from "./Feature";
-import AboutSettings from "./About";
+import GeneralSettings from "./components/General";
+import FeatureSettings from "./components/Feature";
+import AboutSettings from "./components/About";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface SettingsPanelProps {
@@ -157,9 +157,15 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
               padding: "10px 12px",
               fontSize: "13px",
               fontWeight: activeTab === tab ? 600 : 400,
-              color: activeTab === tab ? "var(--primary-text)" : "var(--secondary-text)",
+              color:
+                activeTab === tab
+                  ? "var(--primary-text)"
+                  : "var(--secondary-text)",
               cursor: "pointer",
-              borderBottom: activeTab === tab ? "2px solid var(--vscode-focusBorder, #007acc)" : "2px solid transparent",
+              borderBottom:
+                activeTab === tab
+                  ? "2px solid var(--vscode-focusBorder, #007acc)"
+                  : "2px solid transparent",
               transition: "all 0.15s ease",
               userSelect: "none",
             }}
@@ -189,6 +195,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         {`
           .language-dropdown-content > div {
             max-height: 180px !important;
+          }
+          .dropdown-searchbar {
+            width: 100%;
+            box-sizing: border-box;
+            background-color: var(--input-bg);
+            border-bottom: 1px solid var(--border-color);
           }
         `}
       </style>
