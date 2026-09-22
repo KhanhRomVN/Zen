@@ -14,6 +14,10 @@ export { DeleteFileExecutor } from "./DeleteFileExecutor";
 export { GrepExecutor } from "./GrepExecutor";
 export { GitDiffExecutor } from "./GitDiffExecutor";
 export { ConversationTitleExecutor } from "./ConversationTitleExecutor";
+export { SearchSkillExecutor } from "./SearchSkillExecutor";
+export { ListSkillExecutor } from "./ListSkillExecutor";
+export { ReadSkillExecutor } from "./ReadSkillExecutor";
+export { InstallSkillExecutor } from "./InstallSkillExecutor";
 
 // Executor factory
 import { ToolExecutor } from "../../types/executor-types";
@@ -29,6 +33,10 @@ import { DeleteFileExecutor } from "./DeleteFileExecutor";
 import { GrepExecutor } from "./GrepExecutor";
 import { GitDiffExecutor } from "./GitDiffExecutor";
 import { ConversationTitleExecutor } from "./ConversationTitleExecutor";
+import { SearchSkillExecutor } from "./SearchSkillExecutor";
+import { ListSkillExecutor } from "./ListSkillExecutor";
+import { ReadSkillExecutor } from "./ReadSkillExecutor";
+import { InstallSkillExecutor } from "./InstallSkillExecutor";
 
 /**
  * Factory function to get the appropriate executor for a given action type
@@ -72,6 +80,14 @@ export function getExecutor(
       return new GitDiffExecutor();
     case "conversation_title":
       return new ConversationTitleExecutor();
+    case "search_skill":
+      return new SearchSkillExecutor();
+    case "list_skill":
+      return new ListSkillExecutor();
+    case "read_skill":
+      return new ReadSkillExecutor();
+    case "install_skill":
+      return new InstallSkillExecutor();
     case "git_status":
       // git_status is display-only, no executor needed
       return null;

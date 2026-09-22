@@ -27,6 +27,18 @@ interface SettingsContextType {
   /** ID của database manager đang được chọn cho workspace hiện tại */
   activeDatabaseManagerId: string | null;
   setActiveDatabaseManagerId: (id: string | null) => void;
+  /** Tự động tạo checkpoint trước khi write/replace/delete file */
+  checkpointEnabled: boolean;
+  setCheckpointEnabled: (value: boolean) => void;
+  /** Lấy diagnostics (lỗi/cảnh báo) từ language server sau khi sửa file */
+  diagnosticEnabled: boolean;
+  setDiagnosticEnabled: (value: boolean) => void;
+  /** Hiển thị ResponseMetadataBar (token usage) dưới mỗi response */
+  showMetadataBar: boolean;
+  setShowMetadataBar: (value: boolean) => void;
+  /** Đính kèm danh sách SKILL (tên + mô tả) vào system-prompt */
+  useSkillEnabled: boolean;
+  setUseSkillEnabled: (value: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -103,6 +115,28 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  // Đọc boolean từ localStorage; dùng fallback khi chưa có giá trị hợp lệ
+  const loadBool = (key: string, fallback: boolean): boolean => {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved === "true") return true;
+      if (saved === "false") return false;
+    } catch (e) {}
+    return fallback;
+  };
+  const [checkpointEnabled, setCheckpointEnabledState] = useState<boolean>(() =>
+    loadBool("zen_checkpoint_enabled", true),
+  );
+  const [diagnosticEnabled, setDiagnosticEnabledState] = useState<boolean>(() =>
+    loadBool("zen_diagnostic_enabled", true),
+  );
+  const [showMetadataBar, setShowMetadataBarState] = useState<boolean>(() =>
+    loadBool("zen_show_metadata_bar", true),
+  );
+  const [useSkillEnabled, setUseSkillEnabledState] = useState<boolean>(() =>
+    loadBool("zen_use_skill_enabled", true),
+  );
+
   const [activeDatabaseManagerId, setActiveDatabaseManagerIdState] = useState<string | null>(
     () => {
       try {
@@ -127,6 +161,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     });
   }, []);
+
+  // Đồng bộ cờ checkpoint/diagnostic sang extension host (FeatureSettingsService)
+  // vì các Manager/Service đó chạy độc lập, không đọc được localStorage của webview.
+  useEffect(() => {
+    extensionService.postMessage({
+      command: "syncFeatureSettings",
+      checkpointEnabled,
+      diagnosticEnabled,
+    });
+  }, [checkpointEnabled, diagnosticEnabled]);
 
   // Khi apiUrl đổi → fetch config từ backend để đồng bộ (backend là nguồn chân lý).
   useEffect(() => {
@@ -232,7 +276,37 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     }, 500);
   };
 
+  // Lưu boolean vào localStorage + extension storage (cùng pattern với setSystemPromptMode)
+  const persistBool = (key: string, value: boolean) => {
+    try {
+      localStorage.setItem(key, String(value));
+    } catch (e) {}
+    const storage = extensionService.getStorage();
+    storage.set(key, String(value));
+  };
+
+  const setCheckpointEnabled = (value: boolean) => {
+    setCheckpointEnabledState(value);
+    persistBool("zen_checkpoint_enabled", value);
+  };
+
+  const setDiagnosticEnabled = (value: boolean) => {
+    setDiagnosticEnabledState(value);
+    persistBool("zen_diagnostic_enabled", value);
+  };
+
+  const setShowMetadataBar = (value: boolean) => {
+    setShowMetadataBarState(value);
+    persistBool("zen_show_metadata_bar", value);
+  };
+
+  const setUseSkillEnabled = (value: boolean) => {
+    setUseSkillEnabledState(value);
+    persistBool("zen_use_skill_enabled", value);
+  };
+
   const setActiveDatabaseManagerId = (id: string | null) => {
+    const previousId = activeDatabaseManagerId;
     setActiveDatabaseManagerIdState(id);
     try {
       const key = workspaceKey();
@@ -242,6 +316,19 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         localStorage.removeItem(key);
       }
     } catch (e) {}
+
+    // Đổi sang database khác → xóa cache provider/model/account đang dùng
+    // của workspace (localStorage + extension storage), tránh MessageInput
+    // tự nạp lại lựa chọn thuộc về database trước đó.
+    if (previousId !== id) {
+      try {
+        const wp = (window as any).__zenWorkspaceFolderPath as string | null;
+        const modelSelectionKey = `zen-model-selection:${wp || "global"}`;
+        localStorage.removeItem(modelSelectionKey);
+        const storage = extensionService.getStorage();
+        storage.delete(modelSelectionKey).catch(() => {});
+      } catch (e) {}
+    }
   };
 
   return (
@@ -265,6 +352,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setChromiumProfileDir,
         activeDatabaseManagerId,
         setActiveDatabaseManagerId,
+        checkpointEnabled,
+        setCheckpointEnabled,
+        diagnosticEnabled,
+        setDiagnosticEnabled,
+        showMetadataBar,
+        setShowMetadataBar,
+        useSkillEnabled,
+        setUseSkillEnabled,
       }}
     >
       {children}

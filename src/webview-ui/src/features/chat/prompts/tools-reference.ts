@@ -1,5 +1,4 @@
 export const TOOLS_REFERENCE = `# TOOLS
-
 Use XML tags for all tool calls:
 <read_file><file_path>path/to/file</file_path></read_file>
 <read_file><file_path>path/to/file</file_path><start_line>1</start_line><end_line>50</end_line></read_file>
@@ -73,7 +72,18 @@ Use XML tags for all tool calls:
 Examples:
 - \`<grep><search_term>import.*ContextMenu</search_term><folder_path>src/renderer/src</folder_path></grep>\` — finds lines containing "import" followed by "ContextMenu"
 - \`<grep><search_term>^function\\s+\\w+</search_term><folder_path>src</folder_path></grep>\` — finds function declarations
-- \`<grep><search_term>console\\.(log|error|warn)</search_term><file_path>src/main.ts</file_path></grep>\` — finds console methods in a single file
+- \`<grep><search_term>console\.(log|error|warn)</search_term><file_path>src/main.ts</file_path></grep>\` — finds console methods in a single file
+**search_skill**: Search skills on mcp.directory (SKILL marketplace) by keyword. Returns a list of matching skills, each with name, description, total views, and total installs.
+- \`search_term\`: The keyword to search for (required)
+- Example: \`<search_skill><search_term>pptx</search_term></search_skill>\`
+**list_skill**: List skills already installed locally (in \`~/.khanhromvn-zen/skills/\`). No parameters.
+- Example: \`<list_skill></list_skill>\`
+**read_skill**: Read the full detail and markdown content of one skill by its slug (fetched from mcp.directory, not limited to locally installed skills). Use this to see a skill's full instructions before installing or following it.
+- \`slug\`: The skill's slug (required, obtained from search_skill or list_skill results)
+- Example: \`<read_skill><slug>pptx-pro</slug></read_skill>\`
+**install_skill**: Install a skill locally by its slug (fetches full detail then saves it, same as clicking Install in the Marketplace UI).
+- \`slug\`: The skill's slug (required)
+- Example: \`<install_skill><slug>pptx-pro</slug></install_skill>\`
 # RESPONSE TAGS
 <markdown>prose, tables, explanations — written in Vietnamese per CONSTRAINTS; follows VI-RESPONSE-STRUCTURE and VI-NO-FULL-FILE-BY-DEFAULT for code changes</markdown>
 <code language="ts">read-only display</code>

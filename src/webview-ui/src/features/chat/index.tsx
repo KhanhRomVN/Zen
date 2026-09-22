@@ -282,6 +282,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     [removeAttachedItem, removeAttachedItemFromCache],
   );
 
+  // Chỉ gắn được 1 rule tại một thời điểm: gỡ rule cũ (nếu có) trước khi gắn rule mới.
+  const handleSelectRule = useCallback(
+    (item: any) => {
+      const existingRule = attachedItems.find((i: any) => i.type === "rule");
+      if (existingRule) {
+        handleRemoveAttachedItem(existingRule.id);
+      }
+      addAttachedItemWithCache(item);
+    },
+    [attachedItems, handleRemoveAttachedItem, addAttachedItemWithCache],
+  );
+
   // --- Wrapped Send Message ---
   const wrappedSendMessage = useCallback(
     async (
@@ -734,6 +746,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onRevertConversation={handleRevertConversation}
         autoScrollPaused={autoScrollPaused}
         scrollToBottom={scrollToBottomRef.current || undefined}
+        onSelectRule={handleSelectRule}
       />
     </div>
   );

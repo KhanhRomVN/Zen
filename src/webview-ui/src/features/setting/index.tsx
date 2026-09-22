@@ -17,10 +17,28 @@
 // ── React ──
 import React, { useState } from "react";
 
+// ── Icons ──
+import { SlidersHorizontal, Database, Sparkles, Info } from "lucide-react";
+
 // ── Components ──
 import GeneralSettings from "./components/General";
+import DatabaseSettings from "./components/Database";
 import FeatureSettings from "./components/Feature";
 import AboutSettings from "./components/About";
+
+// ─── Tabs ───────────────────────────────────────────────────────────────
+/** Danh sách tab Settings: mỗi tab có icon và màu nhận diện riêng. */
+const TABS: Array<{
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+}> = [
+  { id: "General", label: "General", icon: SlidersHorizontal, color: "#1e88e5" },
+  { id: "Database", label: "Database", icon: Database, color: "#43a047" },
+  { id: "Feature", label: "Feature", icon: Sparkles, color: "#fb8c00" },
+  { id: "About", label: "About", icon: Info, color: "#8e24aa" },
+];
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface SettingsPanelProps {
@@ -149,30 +167,44 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
           flexShrink: 0,
         }}
       >
-        {["General", "Feature", "About"].map((tab) => (
-          <span
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: "10px 12px",
-              fontSize: "13px",
-              fontWeight: activeTab === tab ? 600 : 400,
-              color:
-                activeTab === tab
+        {TABS.map(({ id, label, icon: Icon, color }) => {
+          const isActive = activeTab === id;
+          return (
+            <span
+              key={id}
+              onClick={() => setActiveTab(id)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "10px 12px",
+                fontSize: "13px",
+                fontWeight: isActive ? 600 : 400,
+                color: isActive
                   ? "var(--primary-text)"
                   : "var(--secondary-text)",
-              cursor: "pointer",
-              borderBottom:
-                activeTab === tab
-                  ? "2px solid var(--vscode-focusBorder, #007acc)"
+                cursor: "pointer",
+                borderBottom: isActive
+                  ? `2px solid ${color}`
                   : "2px solid transparent",
-              transition: "all 0.15s ease",
-              userSelect: "none",
-            }}
-          >
-            {tab}
-          </span>
-        ))}
+                transition: "all 0.15s ease",
+                userSelect: "none",
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  color,
+                  opacity: isActive ? 1 : 0.7,
+                  transition: "opacity 0.15s ease",
+                }}
+              >
+                <Icon size={14} />
+              </span>
+              {label}
+            </span>
+          );
+        })}
       </div>
 
       {/* Content */}
@@ -187,6 +219,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
         }}
       >
         {activeTab === "General" && <GeneralSettings />}
+        {activeTab === "Database" && <DatabaseSettings />}
         {activeTab === "Feature" && <FeatureSettings />}
         {activeTab === "About" && <AboutSettings />}
       </div>

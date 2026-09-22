@@ -1,10 +1,12 @@
-/** An item attached to the chat input (file, folder, external, or text-snippet). */
+/** An item attached to the chat input (file, folder, external, text-snippet, or rule). */
 export interface AttachedItem {
   id: string;
   path: string;
-  type: "file" | "external" | "text-snippet";
-  content?: string; // For text-snippet type
+  type: "file" | "external" | "text-snippet" | "rule";
+  content?: string; // For text-snippet and rule types
   lineCount?: number; // For text-snippet type
+  /** ID gốc của rule trong rules.json (dùng để phân biệt các rule khi cần) */
+  ruleId?: string;
 }
 
 /** A file uploaded by the user (local or already uploaded to backend). */

@@ -1,58 +1,157 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zen Settings — Fake UI</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Zen Settings — Fake UI v2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      /* ── Font (cùng file font với webview thật) ── */
-      @font-face {
-        font-family: "Inter";
-        src: url("src/webview-ui/src/styles/fonts/Inter-VariableFont_opsz,wght.ttf")
-          format("truetype");
-        font-weight: 100 900;
-        font-style: normal;
-        font-display: swap;
-      }
+      /* =========================================================
+         Trong webview THẬT, thay <link> Google Fonts ở trên bằng:
 
-      /* ── Theme variables (giá trị fallback của variables.css) ── */
+         @font-face {
+           font-family: "Inter";
+           src: url("src/webview-ui/src/styles/fonts/Inter-VariableFont_opsz,wght.ttf")
+             format("truetype");
+           font-weight: 100 900;
+           font-display: swap;
+         }
+         ========================================================= */
+
+      /* ── Design tokens ─────────────────────────────────────── */
       :root {
-        --primary-bg: #1e1e1e;
-        --secondary-bg: #252526;
-        --tertiary-bg: #2d2d30;
-        --hover-bg: #2a2d2e;
-        --primary-text: #cccccc;
-        --secondary-text: #858585;
-        --border-color: #3e3e42;
-        --input-bg: #3c3c3c;
-        --button-primary: #0e639c;
+        /* Surfaces */
+        --bg-app: #1e1e1e;
+        --bg-panel: #202022;
+        --bg-chrome: #252528;
+        --bg-elev: #2a2a2e;
+        --bg-input: #303034;
+        --bg-hover: rgba(255, 255, 255, 0.055);
+        --bg-press: rgba(255, 255, 255, 0.09);
+
+        /* Lines */
+        --line: #37373d;
+        --line-soft: rgba(255, 255, 255, 0.07);
+
+        /* Text */
+        --fg: #e6e6e9;
+        --fg-muted: #a0a0a8;
+        --fg-dim: #74747d;
+
+        /* Accents */
+        --accent: #4c9dfb;
+        --accent-fg: #ffffff;
+        --accent-soft: rgba(76, 157, 251, 0.15);
+        --accent-line: rgba(76, 157, 251, 0.45);
+
+        --ok: #3fb950;
+        --ok-soft: rgba(63, 185, 80, 0.15);
+        --warn: #e3b341;
+        --warn-soft: rgba(227, 179, 65, 0.15);
+        --danger: #f85149;
+        --danger-soft: rgba(248, 81, 73, 0.14);
+        --violet: #a371f7;
+        --violet-soft: rgba(163, 113, 247, 0.15);
+        --teal: #39c5cf;
+        --teal-soft: rgba(57, 197, 207, 0.15);
+
+        /* Shape */
+        --r-sm: 6px;
+        --r-md: 8px;
+        --r-lg: 12px;
+        --ring: 0 0 0 2px var(--bg-panel), 0 0 0 4px var(--accent-line);
+
+        --sans:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        --mono:
+          "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+          monospace;
       }
 
-      /* ── Global (giống global.css) ── */
+      /* VS Code light theme */
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          --bg-app: #ffffff;
+          --bg-panel: #f8f8f8;
+          --bg-chrome: #f0f0f0;
+          --bg-elev: #ffffff;
+          --bg-input: #ffffff;
+          --bg-hover: rgba(0, 0, 0, 0.04);
+          --bg-press: rgba(0, 0, 0, 0.07);
+          --line: #d8d8dc;
+          --line-soft: rgba(0, 0, 0, 0.08);
+          --fg: #24242a;
+          --fg-muted: #5c5c66;
+          --fg-dim: #8a8a94;
+          --accent: #0b6fd4;
+          --accent-soft: rgba(11, 111, 212, 0.1);
+          --accent-line: rgba(11, 111, 212, 0.4);
+          --ok: #1a7f37;
+          --ok-soft: rgba(26, 127, 55, 0.1);
+          --warn: #9a6700;
+          --warn-soft: rgba(154, 103, 0, 0.12);
+          --danger: #cf222e;
+          --danger-soft: rgba(207, 34, 46, 0.1);
+          --violet: #7c4dda;
+          --violet-soft: rgba(124, 77, 218, 0.1);
+          --teal: #137c86;
+          --teal-soft: rgba(19, 124, 134, 0.1);
+        }
+      }
+
+      /* ── Reset ─────────────────────────────────────────────── */
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
       }
-
       html,
       body {
         width: 100%;
         height: 100%;
       }
-
+      html {
+        scroll-padding-top: env(safe-area-inset-top, 0px);
+      }
       body {
-        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-          Roboto, sans-serif;
+        font-family: var(--sans);
         font-size: 13px;
+        line-height: 1.45;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        background: var(--bg-app);
+        color: var(--fg);
         overflow: hidden;
-        background: var(--primary-bg);
-        color: var(--primary-text);
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      :focus-visible {
+        outline: none;
+        box-shadow: var(--ring);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
       }
 
-      /* Scrollbar mặc định của VS Code webview */
+      /* Scrollbar kiểu VS Code */
       ::-webkit-scrollbar {
         width: 10px;
         height: 10px;
@@ -60,140 +159,191 @@
       ::-webkit-scrollbar-corner {
         background: transparent;
       }
-      ::-webkit-scrollbar-thumb {
-        background: rgba(121, 121, 121, 0.4);
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: rgba(100, 100, 100, 0.7);
-      }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
-
-      /* ── Div khung: chỉ quy định ratio (width = 1/4 trang, height tối đa 100%, căn giữa ngang) ── */
-      #ui-frame {
-        width: 25vw;
-        height: 100%;
-        margin: 0 auto;
+      ::-webkit-scrollbar-thumb {
+        background: rgba(121, 121, 121, 0.35);
+        border-radius: 6px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(140, 140, 140, 0.6);
+        background-clip: padding-box;
       }
 
-      /* ── Icon (lucide-style) ── */
+      /* ── Khung mô phỏng sidebar ────────────────────────────── */
+      #ui-frame {
+        width: clamp(320px, 25vw, 440px);
+        height: 100%;
+        margin: 0 auto;
+        border-left: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+      }
+      @media (max-width: 560px) {
+        #ui-frame {
+          width: 100%;
+          border: none;
+        }
+      }
+
       .ico {
         fill: none;
         stroke: currentColor;
-        stroke-width: 2;
+        stroke-width: 1.75;
         stroke-linecap: round;
         stroke-linejoin: round;
         flex-shrink: 0;
       }
 
-      /* ── SettingsPanel ── */
+      /* ── Panel ─────────────────────────────────────────────── */
       .panel {
         position: relative;
         width: 100%;
         height: 100%;
-        background-color: var(--secondary-bg);
+        background: var(--bg-panel);
         display: flex;
         flex-direction: column;
       }
 
+      /* Header */
       .header {
-        padding: 16px 16px 7px;
-        border-top: 1px solid var(--border-color);
+        padding: 14px 14px 10px;
+        background: var(--bg-chrome);
+        border-top: 1px solid var(--line);
         flex-shrink: 0;
-        background-color: var(--tertiary-bg);
       }
       .header-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
-        gap: 12px;
+        gap: 10px;
       }
-      .header-left {
+      .title-line {
         display: flex;
         align-items: center;
-        gap: 12px;
-      }
-      .title-wrap {
-        margin-bottom: 3px;
+        gap: 8px;
       }
       .title {
+        font-size: 15px;
         font-weight: 700;
-        font-size: 16px;
-        color: var(--primary-text);
-        letter-spacing: 0.01em;
+        letter-spacing: -0.01em;
       }
-      .subtitle {
-        margin: 0;
-        font-size: 13px;
-        color: var(--secondary-text);
-        opacity: 0.7;
+      .ver-pill {
+        font-family: var(--mono);
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
         line-height: 1.4;
       }
-      .close-btn {
-        padding: 5px;
-        border-radius: 6px;
-        flex-shrink: 0;
-        background-color: rgba(128, 128, 128, 0.1);
-        border: none;
-        color: var(--secondary-text);
-        cursor: pointer;
-        transition: all 0.15s ease;
-        display: flex;
+      .subtitle {
+        margin-top: 2px;
+        font-size: 12px;
+        color: var(--fg-muted);
+      }
+      .icon-btn {
+        width: 26px;
+        height: 26px;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
+        border: none;
+        border-radius: var(--r-sm);
+        background: transparent;
+        color: var(--fg-muted);
+        cursor: pointer;
+        transition:
+          background 0.12s ease,
+          color 0.12s ease;
       }
-      .close-btn:hover {
-        background-color: rgba(239, 68, 68, 0.12);
-        color: #f48771;
+      .icon-btn:hover {
+        background: var(--bg-hover);
+        color: var(--fg);
+      }
+      .icon-btn.danger:hover {
+        background: var(--danger-soft);
+        color: var(--danger);
       }
 
+      /* Tabbar — icon pill, tab đang mở tự bung label */
       .tabbar {
         display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 0 16px;
-        border-bottom: 1px solid var(--border-color);
-        background-color: var(--tertiary-bg);
+        gap: 3px;
+        padding: 8px 10px;
+        background: var(--bg-chrome);
+        border-bottom: 1px solid var(--line);
         flex-shrink: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .tabbar::-webkit-scrollbar {
+        display: none;
       }
       .tab {
-        padding: 10px 12px;
-        font-size: 13px;
-        font-weight: 400;
-        color: var(--secondary-text);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+        padding: 6px 8px;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--fg-muted);
         cursor: pointer;
-        border-bottom: 2px solid transparent;
-        transition: all 0.15s ease;
-        user-select: none;
+        transition:
+          background 0.14s ease,
+          color 0.14s ease,
+          padding 0.2s cubic-bezier(0.3, 0, 0, 1);
       }
-      .tab.active {
+      .tab-label {
+        max-width: 0;
+        opacity: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        font-size: 12.5px;
         font-weight: 600;
-        color: var(--primary-text);
-        border-bottom: 2px solid #007acc;
+        transition:
+          max-width 0.22s cubic-bezier(0.3, 0, 0, 1),
+          opacity 0.16s ease;
+      }
+      .tab:hover {
+        background: var(--bg-hover);
+        color: var(--fg);
+      }
+      .tab[aria-selected="true"] {
+        background: var(--accent-soft);
+        color: var(--accent);
+        padding-right: 11px;
+      }
+      .tab[aria-selected="true"] .tab-label {
+        max-width: 130px;
+        opacity: 1;
       }
 
+      /* Content */
       .content {
         flex: 1;
         overflow-y: auto;
-        padding: 20px;
+        overflow-x: hidden;
+        padding: 18px 14px 28px;
+      }
+      .tabpanel[hidden] {
+        display: none;
+      }
+      .stack {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 26px;
       }
 
-      /* ── GeneralSettings ── */
-      .general {
-        display: flex;
-        flex-direction: column;
-        gap: 28px;
-      }
-
-      /* ── GroupSection ── */
+      /* ── Group ─────────────────────────────────────────────── */
       .group {
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 12px;
       }
       .group-header {
         display: flex;
@@ -201,93 +351,118 @@
         gap: 10px;
       }
       .badge {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
+        width: 30px;
+        height: 30px;
+        border-radius: var(--r-md);
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
       }
       .badge.blue {
-        color: #1565c0;
-        background-color: rgba(21, 101, 192, 0.15);
+        color: var(--accent);
+        background: var(--accent-soft);
       }
-      .badge.purple {
-        color: #6a1b9a;
-        background-color: rgba(106, 27, 154, 0.15);
+      .badge.violet {
+        color: var(--violet);
+        background: var(--violet-soft);
       }
-      .badge.green {
-        color: #2e7d32;
-        background-color: rgba(46, 125, 50, 0.15);
+      .badge.teal {
+        color: var(--teal);
+        background: var(--teal-soft);
+      }
+      .badge.warn {
+        color: var(--warn);
+        background: var(--warn-soft);
       }
       .group-text {
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
         flex: 1;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
       }
       .group-title {
-        font-size: 14px;
+        font-size: 13.5px;
         font-weight: 600;
-        color: var(--primary-text);
-        letter-spacing: 0.01em;
       }
       .group-desc {
         font-size: 12px;
-        color: var(--secondary-text);
-        opacity: 0.75;
-        line-height: 1.4;
-      }
-      .group-action {
-        flex-shrink: 0;
+        color: var(--fg-muted);
       }
       .group-body {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 14px;
       }
 
-      /* ── Fields ── */
+      /* ── Fields ────────────────────────────────────────────── */
       .field {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-      }
-      .field.sm {
         gap: 6px;
       }
       .field-label {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--primary-text);
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--fg);
       }
-      .field-label.sm {
-        font-size: 12px;
-        color: var(--secondary-text);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+      .field-hint {
+        font-size: 11.5px;
+        color: var(--fg-dim);
       }
-
-      /* Input/button trong webview thật không set font-family nên dùng font mặc định của trình duyệt */
       .input {
         width: 100%;
-        padding: 8px 12px;
-        font-size: 13px;
-        background-color: var(--input-bg);
-        border: none;
-        border-radius: 8px;
-        color: var(--primary-text);
+        height: 32px;
+        padding: 0 10px;
+        font-size: 12.5px;
+        background: var(--bg-input);
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        color: var(--fg);
         outline: none;
-        box-sizing: border-box;
-        height: 34px;
+        transition:
+          border-color 0.12s ease,
+          background 0.12s ease;
+      }
+      .input::placeholder {
+        color: var(--fg-dim);
+      }
+      .input:hover {
+        border-color: var(--line);
+      }
+      .input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .input.mono {
+        font-family: var(--mono);
+        font-size: 11.5px;
+      }
+      .input-with-icon {
+        position: relative;
+      }
+      .input-with-icon .input {
+        padding-right: 32px;
+      }
+      .input-affix {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+
+      /* Select giả lập */
+      .dd {
+        position: relative;
       }
       .select {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 8px;
         cursor: pointer;
+        text-align: left;
       }
       .select-left {
         display: flex;
@@ -300,74 +475,952 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .dd {
-        position: relative;
-        display: inline-block;
-        width: 100%;
+      .select .chev {
+        color: var(--fg-dim);
+        transition: transform 0.16s ease;
       }
-      .green-ico {
-        color: #2e7d32;
+      .dd.open .chev {
+        transform: rotate(180deg);
+      }
+      .dd-menu {
+        position: absolute;
+        z-index: 20;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        padding: 4px;
+        background: var(--bg-elev);
+        border: 1px solid var(--line);
+        border-radius: var(--r-md);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        display: none;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      .dd.open .dd-menu {
+        display: block;
+      }
+      .dd-item {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 8px;
+        border: none;
+        border-radius: var(--r-sm);
+        background: transparent;
+        font-size: 12.5px;
+        cursor: pointer;
+        text-align: left;
+      }
+      .dd-item:hover {
+        background: var(--bg-hover);
+      }
+      .dd-item[aria-selected="true"] {
+        color: var(--accent);
+        background: var(--accent-soft);
       }
 
-      /* ── Add button ── */
-      .add-btn {
+      /* Buttons */
+      .btn {
+        height: 32px;
+        padding: 0 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font-size: 12.5px;
+        font-weight: 500;
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        background: var(--bg-input);
+        color: var(--fg);
+        cursor: pointer;
+        transition:
+          background 0.12s ease,
+          border-color 0.12s ease;
+      }
+      .btn:hover {
+        background: var(--bg-press);
+        border-color: var(--line);
+      }
+      .btn.primary {
+        background: var(--accent);
+        border-color: transparent;
+        color: var(--accent-fg);
+      }
+      .btn.primary:hover {
+        filter: brightness(1.08);
+      }
+      .btn.block {
+        width: 100%;
+      }
+      .btn.tiny {
+        height: 26px;
+        padding: 0 9px;
+        font-size: 11.5px;
+      }
+      .btn-add {
         width: 28px;
         height: 28px;
+        padding: 0;
+        border-radius: var(--r-md);
+        background: var(--teal-soft);
+        border-color: transparent;
+        color: var(--teal);
+      }
+      .btn-add:hover {
+        background: var(--teal-soft);
+        filter: brightness(1.25);
+      }
+
+      /* Toggle switch */
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .row-text {
+        min-width: 0;
+      }
+      .row-title {
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+      .row-desc {
+        font-size: 11.5px;
+        color: var(--fg-dim);
+        margin-top: 1px;
+      }
+      .switch {
+        position: relative;
+        width: 34px;
+        height: 20px;
+        flex-shrink: 0;
+        border: none;
+        border-radius: 999px;
+        background: var(--bg-input);
+        box-shadow: inset 0 0 0 1px var(--line);
+        cursor: pointer;
+        transition:
+          background 0.16s ease,
+          box-shadow 0.16s ease;
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--fg-dim);
+        transition:
+          transform 0.16s cubic-bezier(0.3, 0, 0, 1),
+          background 0.16s;
+      }
+      .switch[aria-checked="true"] {
+        background: var(--accent);
+        box-shadow: none;
+      }
+      .switch[aria-checked="true"]::after {
+        transform: translateX(14px);
+        background: #fff;
+      }
+
+      /* Segmented control */
+      .seg {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2px;
+        padding: 3px;
+        background: var(--bg-input);
+        border-radius: var(--r-md);
+        box-shadow: inset 0 0 0 1px var(--line-soft);
+      }
+      .seg-btn {
+        position: relative;
+        z-index: 1;
+        padding: 6px 4px;
+        border: none;
+        border-radius: var(--r-sm);
+        background: transparent;
+        color: var(--fg-muted);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.14s ease;
+      }
+      .seg-btn:hover {
+        color: var(--fg);
+      }
+      .seg-thumb {
+        position: absolute;
+        z-index: 0;
+        top: 3px;
+        bottom: 3px;
+        border-radius: var(--r-sm);
+        background: var(--bg-elev);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        transition:
+          transform 0.2s cubic-bezier(0.3, 0, 0, 1),
+          width 0.2s;
+      }
+      .seg-btn[aria-checked="true"] {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .seg-note {
+        display: flex;
+        gap: 7px;
+        align-items: flex-start;
+        padding: 9px 10px;
+        border-radius: var(--r-md);
+        background: var(--bg-input);
+        font-size: 11.5px;
+        color: var(--fg-muted);
+        border-left: 2px solid var(--accent);
+      }
+
+      /* Slider */
+      .slider-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+      }
+      .slider-val {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--accent);
+      }
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        border-radius: 999px;
+        background: var(--bg-input);
+        box-shadow: inset 0 0 0 1px var(--line-soft);
+        cursor: pointer;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--accent);
+        border: 2px solid var(--bg-panel);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+      }
+      input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--bg-panel);
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      /* ── Database Managers ─────────────────────────────────── */
+      .db-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .db-count {
+        font-size: 11.5px;
+        color: var(--fg-dim);
+      }
+      .db-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .db-item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        padding: 9px 10px 9px 12px;
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        background: var(--bg-input);
+        cursor: pointer;
+        text-align: left;
+        transition:
+          border-color 0.14s ease,
+          background 0.14s ease;
+      }
+      .db-item::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%) scaleY(0.2);
+        width: 3px;
+        height: 60%;
+        border-radius: 0 3px 3px 0;
+        background: var(--accent);
+        opacity: 0;
+        transition:
+          opacity 0.16s ease,
+          transform 0.16s ease;
+      }
+      .db-item:hover {
+        background: var(--bg-elev);
+        border-color: var(--line);
+      }
+      .db-item[data-active="true"] {
+        border-color: var(--accent-line);
+        background: var(--accent-soft);
+      }
+      .db-item[data-active="true"]::before {
+        opacity: 1;
+        transform: translateY(-50%) scaleY(1);
+      }
+      .db-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: var(--r-sm);
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
-        border: none;
-        border-radius: 8px;
-        background-color: rgba(46, 125, 50, 0.15);
-        color: #2e7d32;
+        flex-shrink: 0;
+      }
+      .db-icon.sqlite {
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .db-icon.postgres {
+        color: var(--teal);
+        background: var(--teal-soft);
+      }
+      .db-icon.mysql {
+        color: var(--warn);
+        background: var(--warn-soft);
+      }
+      .db-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .db-name-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+      .db-name {
+        font-size: 12.5px;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .chip {
+        flex-shrink: 0;
+        font-size: 10px;
+        font-weight: 500;
+        padding: 1px 5px;
+        border-radius: 4px;
+        background: var(--bg-press);
+        color: var(--fg-muted);
+        line-height: 1.5;
+      }
+      .chip.active {
+        background: var(--accent);
+        color: var(--accent-fg);
+      }
+      .db-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        font-size: 11px;
+        color: var(--fg-dim);
+      }
+      .db-target {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        direction: rtl;
+        text-align: left;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--fg-dim);
+      }
+      .dot.ok {
+        background: var(--ok);
+        box-shadow: 0 0 0 3px var(--ok-soft);
+      }
+      .dot.warn {
+        background: var(--warn);
+        box-shadow: 0 0 0 3px var(--warn-soft);
+      }
+      .dot.err {
+        background: var(--danger);
+        box-shadow: 0 0 0 3px var(--danger-soft);
+      }
+      .db-status {
+        flex-shrink: 0;
+      }
+      .db-actions {
+        display: flex;
+        align-items: center;
+        gap: 1px;
+        flex-shrink: 0;
+        opacity: 0;
+        transition: opacity 0.14s ease;
+      }
+      .db-item:hover .db-actions,
+      .db-item:focus-within .db-actions {
+        opacity: 1;
+      }
+      @media (hover: none) {
+        .db-actions {
+          opacity: 1;
+        }
       }
 
-      /* ── DatabaseManagerCard ── */
-      .card {
-        border-radius: 8px;
-        padding: 12px;
+      .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 22px 16px;
+        text-align: center;
+        border: 1px dashed var(--line);
+        border-radius: var(--r-lg);
+        color: var(--fg-muted);
+      }
+      .empty-title {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--fg);
+      }
+      .empty-desc {
+        font-size: 11.5px;
+        max-width: 30ch;
+      }
+
+      /* ── About ─────────────────────────────────────────────── */
+      .about {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+      .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 26px 12px 22px;
+        border-radius: var(--r-lg);
+        background: radial-gradient(
+          120% 90% at 50% 0%,
+          var(--accent-soft) 0%,
+          transparent 70%
+        );
+      }
+      .enso {
+        color: var(--accent);
+        animation: draw 1.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+      }
+      @keyframes draw {
+        from {
+          stroke-dashoffset: 210;
+          opacity: 0;
+        }
+        to {
+          stroke-dashoffset: 26;
+          opacity: 1;
+        }
+      }
+      .hero-name {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+      .hero-tag {
+        font-size: 12.5px;
+        color: var(--fg-muted);
+        text-align: center;
+        max-width: 32ch;
+      }
+      .hero-pills {
+        display: flex;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .pill {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--fg-muted);
+      }
+      .pill.ok {
+        border-color: transparent;
+        background: var(--ok-soft);
+        color: var(--ok);
+      }
+
+      .facts {
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        overflow: hidden;
+      }
+      .fact {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 9px 11px;
+        font-size: 12px;
+      }
+      .fact + .fact {
+        border-top: 1px solid var(--line-soft);
+      }
+      .fact-k {
+        color: var(--fg-muted);
+        flex-shrink: 0;
+      }
+      .fact-v {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--fg);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .links {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        background: var(--bg-input);
+        font-size: 12px;
+        color: var(--fg);
+        text-decoration: none;
+        transition:
+          background 0.12s ease,
+          border-color 0.12s ease;
+      }
+      .link:hover {
+        background: var(--bg-elev);
+        border-color: var(--line);
+      }
+      .link svg {
+        color: var(--fg-muted);
+      }
+
+      .credit {
+        text-align: center;
+        font-size: 11.5px;
+        color: var(--fg-dim);
+        padding-top: 2px;
+      }
+      .credit a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+      .credit a:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Developer cards (About) ───────────────────────────── */
+      .sub-head {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        margin-bottom: 8px;
+      }
+      .sub-title {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .sub-desc {
+        font-size: 11.5px;
+        color: var(--fg-dim);
+      }
+      .devs {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .dev {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 11px;
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        background: var(--bg-input);
+      }
+      .dev-top {
         display: flex;
         align-items: center;
         gap: 10px;
-        cursor: context-menu;
-        background-color: var(--input-bg);
+        min-width: 0;
       }
-      .card-badge {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
+      .dev-av {
+        width: 36px;
+        height: 36px;
+        flex-shrink: 0;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
         color: #fff;
-        flex-shrink: 0;
       }
-      .card-text {
+      .dev-id {
+        min-width: 0;
         display: flex;
         flex-direction: column;
-        min-width: 0;
       }
-      .card-name {
+      .dev-name {
         font-size: 13px;
         font-weight: 600;
-        color: var(--primary-text);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .card-info {
-        font-size: 11px;
-        color: var(--secondary-text);
-        opacity: 0.8;
+      .dev-role {
+        font-size: 11.5px;
+        color: var(--fg-dim);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      .dev-socials {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .social {
+        width: 30px;
+        height: 30px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-sm);
+        background: var(--bg-panel);
+        color: var(--fg-muted);
+        text-decoration: none;
+        transition:
+          color 0.14s ease,
+          border-color 0.14s ease,
+          background 0.14s ease;
+      }
+      .social:hover {
+        background: var(--bg-elev);
+        border-color: currentColor;
+      }
+      .social[data-net="github"]:hover {
+        color: var(--fg);
+      }
+      .social[data-net="linkedin"]:hover {
+        color: #0a66c2;
+      }
+      .social[data-net="x"]:hover {
+        color: var(--fg);
+      }
+      .social[data-net="facebook"]:hover {
+        color: #1877f2;
+      }
+      .social[data-net="mail"]:hover {
+        color: #ea4335;
+      }
+
+      /* ── Providers ─────────────────────────────────────────── */
+      .prov-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .prov {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 9px 10px;
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        background: var(--bg-input);
+      }
+      .prov[data-default="true"] {
+        border-color: var(--accent-line);
+        background: var(--accent-soft);
+      }
+      .prov-logo {
+        width: 30px;
+        height: 30px;
+        flex-shrink: 0;
+        border-radius: var(--r-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 700;
+        color: #fff;
+      }
+      .prov-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .prov-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .prov-key {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--fg-dim);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .prov-actions {
+        display: flex;
+        gap: 1px;
+        flex-shrink: 0;
+      }
+
+      /* ── Rules ─────────────────────────────────────────────── */
+      .ta {
+        width: 100%;
+        min-height: 130px;
+        padding: 9px 10px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        line-height: 1.65;
+        background: var(--bg-input);
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        color: var(--fg);
+        outline: none;
+        resize: vertical;
+        transition: border-color 0.12s ease;
+      }
+      .ta:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .ta-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 11px;
+        color: var(--fg-dim);
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .chip-x {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 5px 3px 8px;
+        border: 1px solid var(--line-soft);
+        border-radius: 999px;
+        background: var(--bg-input);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--fg-muted);
+      }
+      .chip-x button {
+        display: flex;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: var(--fg-dim);
+        cursor: pointer;
+        border-radius: 50%;
+      }
+      .chip-x button:hover {
+        color: var(--danger);
+      }
+
+      /* ── Usage ─────────────────────────────────────────────── */
+      .kpis {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .kpi {
+        padding: 10px 11px;
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        background: var(--bg-input);
+      }
+      .kpi-v {
+        font-size: 19px;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.2;
+      }
+      .kpi-k {
+        font-size: 11px;
+        color: var(--fg-dim);
+        margin-top: 1px;
+      }
+      .kpi-delta {
+        font-size: 10.5px;
+        color: var(--ok);
+      }
+      .spark {
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+        height: 82px;
+        padding: 10px 11px 8px;
+        border: 1px solid var(--line-soft);
+        border-radius: var(--r-md);
+        background: var(--bg-input);
+      }
+      .spark-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 5px;
+        height: 100%;
+        cursor: default;
+      }
+      .spark-bar {
+        width: 100%;
+        border-radius: 3px 3px 0 0;
+        background: var(--accent-soft);
+        transition: background 0.14s ease;
+      }
+      .spark-col:hover .spark-bar {
+        background: var(--accent);
+      }
+      .spark-bar.hi {
+        background: var(--accent);
+      }
+      .spark-d {
+        font-size: 9.5px;
+        color: var(--fg-dim);
+      }
+      .usage-row {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .usage-top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        min-width: 0;
+      }
+      .usage-name {
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .usage-val {
+        flex-shrink: 0;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--fg-dim);
+      }
+      .meter {
+        height: 5px;
+        border-radius: 999px;
+        background: var(--bg-press);
+        overflow: hidden;
+      }
+      .meter-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+      .meter-fill.teal {
+        background: var(--teal);
+      }
+      .meter-fill.violet {
+        background: var(--violet);
+      }
+      .meter-fill.warn {
+        background: var(--warn);
+      }
+
+      /* Toast */
+      .toast {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 14px;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 11px;
+        border-radius: var(--r-md);
+        background: var(--bg-elev);
+        border: 1px solid var(--line);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        font-size: 12px;
+        opacity: 0;
+        transform: translateY(8px);
+        pointer-events: none;
+        transition:
+          opacity 0.2s ease,
+          transform 0.2s ease;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
       }
     </style>
   </head>
   <body>
-    <!-- Icon sprite (lucide) -->
+    <!-- ── Icon sprite (lucide) ── -->
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
       <symbol id="i-x" viewBox="0 0 24 24">
         <path d="M18 6 6 18" />
@@ -380,13 +1433,9 @@
         <path d="M5 12h14" />
         <path d="M12 5v14" />
       </symbol>
-      <symbol id="i-check-circle" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10" />
-        <path d="m9 12 2 2 4-4" />
-      </symbol>
       <symbol id="i-server" viewBox="0 0 24 24">
-        <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
-        <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+        <rect width="20" height="8" x="2" y="2" rx="2" />
+        <rect width="20" height="8" x="2" y="14" rx="2" />
         <line x1="6" x2="6.01" y1="6" y2="6" />
         <line x1="6" x2="6.01" y1="18" y2="18" />
       </symbol>
@@ -409,72 +1458,307 @@
           d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"
         />
         <line x1="6" x2="6.01" y1="16" y2="16" />
-        <line x1="10" x2="10.01" y1="16" y2="16" />
+      </symbol>
+      <symbol id="i-plug" viewBox="0 0 24 24">
+        <path d="M12 22v-5" />
+        <path d="M9 7V2" />
+        <path d="M15 7V2" />
+        <path d="M6 13V8h12v5a5 5 0 0 1-10 0Z" />
+      </symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24">
+        <path
+          d="M21.17 2.83a3 3 0 0 0-4.24 0L3 16.76V21h4.24L21.17 7.07a3 3 0 0 0 0-4.24Z"
+        />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M3 6h18" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.3-4.3" />
+      </symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24">
+        <path
+          d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+        />
+      </symbol>
+      <symbol id="i-history" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+        <path d="M3 3v5h5" />
+        <path d="M12 7v5l3 2" />
+      </symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24">
+        <path d="M9.9 2.1 12 7l4.9 2.1L12 11.2 9.9 16 7.8 11.2 3 9.1 7.8 7Z" />
+        <path d="M18 3v4" />
+        <path d="M20 5h-4" />
+      </symbol>
+      <symbol id="i-github" viewBox="0 0 24 24">
+        <path
+          d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"
+        />
+        <path d="M9 18c-4.51 2-5-2-7-2" />
+      </symbol>
+      <symbol id="i-bug" viewBox="0 0 24 24">
+        <path d="m8 2 1.88 1.88" />
+        <path d="M14.12 3.88 16 2" />
+        <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" />
+        <path
+          d="M12 20a6 6 0 0 0 6-6v-3a4 4 0 0 0-4-4h-4a4 4 0 0 0-4 4v3a6 6 0 0 0 6 6Z"
+        />
+        <path d="M6 13H2" />
+        <path d="M22 13h-4" />
+        <path d="m19 6-2.5 2" />
+        <path d="m5 6 2.5 2" />
+      </symbol>
+      <symbol id="i-book" viewBox="0 0 24 24">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path
+          d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+        />
+      </symbol>
+      <symbol id="i-scale" viewBox="0 0 24 24">
+        <path d="M12 3v18" />
+        <path d="M5 7h14" />
+        <path d="m3 14 3-7 3 7a3 3 0 0 1-6 0Z" />
+        <path d="m15 14 3-7 3 7a3 3 0 0 1-6 0Z" />
+      </symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+        <path d="M21 3v5h-5" />
+        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+        <path d="M3 21v-5h5" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="M20 6 9 17l-5-5" />
+      </symbol>
+      <symbol id="i-info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 16v-4" />
+        <path d="M12 8h.01" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path
+          d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"
+        />
+      </symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24">
+        <line x1="4" x2="4" y1="21" y2="14" />
+        <line x1="4" x2="4" y1="10" y2="3" />
+        <line x1="12" x2="12" y1="21" y2="12" />
+        <line x1="12" x2="12" y1="8" y2="3" />
+        <line x1="20" x2="20" y1="21" y2="16" />
+        <line x1="20" x2="20" y1="12" y2="3" />
+        <line x1="2" x2="6" y1="14" y2="14" />
+        <line x1="10" x2="14" y1="8" y2="8" />
+        <line x1="18" x2="22" y1="16" y2="16" />
+      </symbol>
+      <symbol id="i-toggle" viewBox="0 0 24 24">
+        <rect width="20" height="12" x="2" y="6" rx="6" />
+        <circle cx="16" cy="12" r="2" />
+      </symbol>
+      <symbol id="i-cpu" viewBox="0 0 24 24">
+        <rect width="16" height="16" x="4" y="4" rx="2" />
+        <rect width="6" height="6" x="9" y="9" rx="1" />
+        <path d="M15 2v2" />
+        <path d="M15 20v2" />
+        <path d="M2 15h2" />
+        <path d="M2 9h2" />
+        <path d="M20 15h2" />
+        <path d="M20 9h2" />
+        <path d="M9 2v2" />
+        <path d="M9 20v2" />
+      </symbol>
+      <symbol id="i-scroll" viewBox="0 0 24 24">
+        <path d="M19 17V5a2 2 0 0 0-2-2H4" />
+        <path
+          d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"
+        />
+      </symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24">
+        <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+        <path d="M7 16v-3" />
+        <path d="M12 16v-7" />
+        <path d="M17 16v-5" />
+      </symbol>
+      <symbol id="i-linkedin" viewBox="0 0 24 24">
+        <path
+          d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"
+        />
+        <rect width="4" height="12" x="2" y="9" />
+        <circle cx="4" cy="4" r="2" />
+      </symbol>
+      <symbol id="i-facebook" viewBox="0 0 24 24">
+        <path
+          d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"
+        />
+      </symbol>
+      <symbol id="i-x-social" viewBox="0 0 24 24">
+        <path
+          d="M4 3l7.5 9.8L4.3 21h2.2l6-6.6 5 6.6H20l-7.8-10.2L19.5 3h-2.2l-5.5 6L7.2 3z"
+        />
+      </symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24">
+        <rect width="20" height="16" x="2" y="4" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      </symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24">
+        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+        <circle cx="12" cy="12" r="3" />
+      </symbol>
+      <symbol id="i-star" viewBox="0 0 24 24">
+        <path
+          d="M11.5 3.2a.6.6 0 0 1 1 0l2.3 4.7 5.2.8a.6.6 0 0 1 .3 1l-3.7 3.6.9 5.1a.6.6 0 0 1-.9.7L12 16.7l-4.6 2.4a.6.6 0 0 1-.9-.7l.9-5.1-3.7-3.6a.6.6 0 0 1 .3-1l5.2-.8z"
+        />
       </symbol>
     </svg>
 
     <div id="ui-frame">
       <div class="panel">
-        <!-- Header -->
+        <!-- ── Header ── -->
         <div class="header">
           <div class="header-row">
-            <div class="header-left">
-              <div>
-                <div class="title-wrap">
-                  <span class="title">Zen Settings</span>
-                </div>
-                <p class="subtitle">Configure Zen extension settings</p>
+            <div>
+              <div class="title-line">
+                <span class="title">Zen Settings</span>
+                <span class="ver-pill">v2.2.2</span>
               </div>
+              <p class="subtitle">
+                Tuỳ chỉnh cách Zen làm việc trong workspace
+              </p>
             </div>
-            <button class="close-btn" title="Close Settings">
-              <svg class="ico" width="14" height="14"><use href="#i-x" /></svg>
+            <button class="icon-btn danger" title="Đóng Settings">
+              <svg class="ico" width="15" height="15"><use href="#i-x" /></svg>
             </button>
           </div>
         </div>
 
-        <!-- Tabbar -->
-        <div class="tabbar">
-          <span class="tab active">General</span>
-          <span class="tab">Feature</span>
-          <span class="tab">About</span>
+        <!-- ── Tabs ── -->
+        <div class="tabbar" role="tablist">
+          <button
+            class="tab"
+            role="tab"
+            aria-selected="true"
+            data-tab="general"
+            title="General"
+          >
+            <svg class="ico" width="15" height="15">
+              <use href="#i-sliders" />
+            </svg>
+            <span class="tab-label">General</span>
+          </button>
+          <button
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="feature"
+            title="Feature"
+          >
+            <svg class="ico" width="15" height="15">
+              <use href="#i-toggle" />
+            </svg>
+            <span class="tab-label">Feature</span>
+          </button>
+          <button
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="providers"
+            title="Providers"
+          >
+            <svg class="ico" width="15" height="15"><use href="#i-cpu" /></svg>
+            <span class="tab-label">Providers</span>
+          </button>
+          <button
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="rules"
+            title="Rules"
+          >
+            <svg class="ico" width="15" height="15">
+              <use href="#i-scroll" />
+            </svg>
+            <span class="tab-label">Rules</span>
+          </button>
+          <button
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="usage"
+            title="Usage"
+          >
+            <svg class="ico" width="15" height="15">
+              <use href="#i-chart" />
+            </svg>
+            <span class="tab-label">Usage</span>
+          </button>
+          <button
+            class="tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="about"
+            title="About"
+          >
+            <svg class="ico" width="15" height="15"><use href="#i-info" /></svg>
+            <span class="tab-label">About</span>
+          </button>
         </div>
 
-        <!-- Content -->
+        <!-- ── Content ── -->
         <div class="content">
-          <div class="general">
+          <!-- ═══════════ GENERAL ═══════════ -->
+          <div class="tabpanel stack" id="tab-general" role="tabpanel">
             <!-- Backend Connection -->
             <section class="group">
               <div class="group-header">
                 <div class="badge blue">
-                  <svg class="ico" width="16" height="16">
+                  <svg class="ico" width="15" height="15">
                     <use href="#i-server" />
                   </svg>
                 </div>
                 <div class="group-text">
-                  <span class="group-title">Backend Connection</span>
+                  <span class="group-title">Kết nối backend</span>
                   <span class="group-desc"
-                    >Backend API address and Chromium profile folder.</span
+                    >Địa chỉ API và thư mục profile Chromium.</span
                   >
                 </div>
               </div>
               <div class="group-body">
                 <div class="field">
-                  <label class="field-label">Backend API URL</label>
-                  <input
-                    class="input"
-                    type="text"
-                    value="http://localhost:8888"
-                    placeholder="http://localhost:8888"
-                  />
+                  <label class="field-label" for="f-api">Backend API URL</label>
+                  <div class="input-with-icon">
+                    <input
+                      class="input mono"
+                      id="f-api"
+                      type="text"
+                      value="http://localhost:8888"
+                    />
+                    <span
+                      class="input-affix dot ok"
+                      title="Đang kết nối · 12ms"
+                    ></span>
+                  </div>
+                  <span class="field-hint">Đang chạy · phản hồi 12ms</span>
                 </div>
                 <div class="field">
-                  <label class="field-label">Chromium Profile Folder</label>
-                  <input
-                    class="input"
-                    type="text"
-                    value="/home/user/.elara/profiles"
-                    placeholder="/home/user/.elara/profiles"
-                  />
+                  <label class="field-label" for="f-profile"
+                    >Thư mục profile Chromium</label
+                  >
+                  <div class="input-with-icon">
+                    <input
+                      class="input mono"
+                      id="f-profile"
+                      type="text"
+                      value="~/.zen/profiles"
+                    />
+                    <button class="icon-btn input-affix" title="Chọn thư mục">
+                      <svg class="ico" width="14" height="14">
+                        <use href="#i-folder" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </section>
@@ -482,46 +1766,93 @@
             <!-- Language -->
             <section class="group">
               <div class="group-header">
-                <div class="badge purple">
-                  <svg class="ico" width="16" height="16">
+                <div class="badge violet">
+                  <svg class="ico" width="15" height="15">
                     <use href="#i-languages" />
                   </svg>
                 </div>
                 <div class="group-text">
-                  <span class="group-title">Language</span>
+                  <span class="group-title">Ngôn ngữ</span>
                   <span class="group-desc"
-                    >AI response language and commit message language.</span
+                    >Ngôn ngữ AI trả lời và viết commit message.</span
                   >
                 </div>
               </div>
               <div class="group-body">
                 <div class="field">
-                  <label class="field-label">AI Language</label>
-                  <div class="dd">
-                    <button type="button" class="input select">
+                  <label class="field-label">AI trả lời bằng</label>
+                  <div class="dd" data-dd>
+                    <button type="button" class="input select" data-dd-trigger>
                       <span class="select-left">
-                        <span>🇺🇸</span>
-                        <span>English</span>
+                        <span>🇻🇳</span><span class="ellipsis">Tiếng Việt</span>
                       </span>
-                      <svg class="ico" width="12" height="12">
+                      <svg class="ico chev" width="12" height="12">
                         <use href="#i-chevron-down" />
                       </svg>
                     </button>
+                    <div class="dd-menu" role="listbox">
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="true"
+                      >
+                        <span>🇻🇳</span> Tiếng Việt
+                      </button>
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="false"
+                      >
+                        <span>🇺🇸</span> English
+                      </button>
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="false"
+                      >
+                        <span>🇯🇵</span> 日本語
+                      </button>
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="false"
+                      >
+                        <span>🇨🇳</span> 简体中文
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div class="field">
-                  <label class="field-label">Commit Message Language</label>
-                  <div class="dd">
-                    <button type="button" class="input select">
+                  <label class="field-label">Commit message</label>
+                  <div class="dd" data-dd>
+                    <button type="button" class="input select" data-dd-trigger>
                       <span class="select-left">
-                        <span>🇺🇸</span>
-                        <span>English</span>
+                        <span>🇺🇸</span><span class="ellipsis">English</span>
                       </span>
-                      <svg class="ico" width="12" height="12">
+                      <svg class="ico chev" width="12" height="12">
                         <use href="#i-chevron-down" />
                       </svg>
                     </button>
+                    <div class="dd-menu" role="listbox">
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="true"
+                      >
+                        <span>🇺🇸</span> English
+                      </button>
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="false"
+                      >
+                        <span>🇻🇳</span> Tiếng Việt
+                      </button>
+                    </div>
                   </div>
+                  <span class="field-hint"
+                    >Giữ English nếu repo có nhiều người đóng góp.</span
+                  >
                 </div>
               </div>
             </section>
@@ -529,98 +1860,1521 @@
             <!-- Database Managers -->
             <section class="group">
               <div class="group-header">
-                <div class="badge green">
-                  <svg class="ico" width="16" height="16">
+                <div class="badge teal">
+                  <svg class="ico" width="15" height="15">
                     <use href="#i-database" />
                   </svg>
                 </div>
                 <div class="group-text">
-                  <span class="group-title">Database Managers</span>
-                  <span class="group-desc"
-                    >Manage local or remote database connections.</span
-                  >
+                  <span class="group-title">Cơ sở dữ liệu</span>
+                  <span class="group-desc">
+                    Chọn một kết nối để Zen đọc schema và chạy query trong
+                    workspace này.
+                  </span>
                 </div>
-                <div class="group-action">
-                  <button
-                    type="button"
-                    class="add-btn"
-                    title="Add database manager"
-                    aria-label="Add database manager"
+                <button
+                  class="btn btn-add"
+                  id="db-add"
+                  title="Thêm kết nối"
+                  aria-label="Thêm kết nối"
+                >
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-plus" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="group-body">
+                <div class="db-toolbar">
+                  <span class="db-count" id="db-count"
+                    >3 kết nối · 1 đang dùng</span
                   >
-                    <svg class="ico" width="16" height="16">
-                      <use href="#i-plus" />
+                  <button class="btn tiny" id="db-test-all">
+                    <svg class="ico" width="12" height="12">
+                      <use href="#i-plug" />
                     </svg>
+                    Kiểm tra tất cả
                   </button>
                 </div>
-              </div>
-              <div class="group-body">
-                <!-- Active database selector -->
-                <div class="field sm">
-                  <label class="field-label sm"
-                    >Active Database (this workspace)</label
+
+                <div
+                  class="db-list"
+                  id="db-list"
+                  role="radiogroup"
+                  aria-label="Kết nối đang dùng"
+                >
+                  <!-- item: active -->
+                  <div
+                    class="db-item"
+                    role="radio"
+                    tabindex="0"
+                    aria-checked="true"
+                    data-active="true"
                   >
-                  <div class="dd">
-                    <button type="button" class="input select">
-                      <span class="select-left">
-                        <svg class="ico green-ico" width="14" height="14">
-                          <use href="#i-check-circle" />
-                        </svg>
-                        <span class="ellipsis">Local Workspace DB</span>
-                      </span>
-                      <svg class="ico" width="12" height="12">
-                        <use href="#i-chevron-down" />
+                    <div class="db-icon sqlite">
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-database" />
                       </svg>
-                    </button>
+                    </div>
+                    <div class="db-main">
+                      <div class="db-name-row">
+                        <span class="db-name">Local Workspace DB</span>
+                        <span class="chip active">Đang dùng</span>
+                      </div>
+                      <div class="db-meta">
+                        <span class="dot ok"></span>
+                        <span class="db-target">~/.zen/database.sqlite</span>
+                      </div>
+                    </div>
+                    <div class="db-actions">
+                      <button class="icon-btn" title="Kiểm tra kết nối">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-plug" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn" title="Sửa">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-pencil" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn danger" title="Xoá" data-remove>
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-trash" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- item: có cảnh báo -->
+                  <div
+                    class="db-item"
+                    role="radio"
+                    tabindex="0"
+                    aria-checked="false"
+                    data-active="false"
+                  >
+                    <div class="db-icon postgres">
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-server" />
+                      </svg>
+                    </div>
+                    <div class="db-main">
+                      <div class="db-name-row">
+                        <span class="db-name">Production Postgres</span>
+                        <span class="chip">chỉ đọc</span>
+                      </div>
+                      <div class="db-meta">
+                        <span class="dot warn"></span>
+                        <span class="db-target">db.example.com:5432/appdb</span>
+                      </div>
+                    </div>
+                    <div class="db-actions">
+                      <button class="icon-btn" title="Kiểm tra kết nối">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-plug" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn" title="Sửa">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-pencil" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn danger" title="Xoá" data-remove>
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-trash" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- item: lỗi -->
+                  <div
+                    class="db-item"
+                    role="radio"
+                    tabindex="0"
+                    aria-checked="false"
+                    data-active="false"
+                  >
+                    <div class="db-icon mysql">
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-hard-drive" />
+                      </svg>
+                    </div>
+                    <div class="db-main">
+                      <div class="db-name-row">
+                        <span class="db-name">Analytics Archive</span>
+                      </div>
+                      <div class="db-meta">
+                        <span class="dot err"></span>
+                        <span class="db-target"
+                          >/data/analytics/archive.sqlite</span
+                        >
+                      </div>
+                    </div>
+                    <div class="db-actions">
+                      <button class="icon-btn" title="Kiểm tra kết nối">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-plug" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn" title="Sửa">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-pencil" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn danger" title="Xoá" data-remove>
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-trash" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <!-- Cards -->
-                <div class="card">
-                  <div class="card-badge" style="background-color: #0e639c">
-                    <svg class="ico" width="16" height="16">
-                      <use href="#i-database" />
+                <!-- Empty state -->
+                <div class="empty" id="db-empty" hidden>
+                  <svg
+                    class="ico"
+                    width="20"
+                    height="20"
+                    style="color: var(--fg-dim)"
+                  >
+                    <use href="#i-database" />
+                  </svg>
+                  <span class="empty-title">Chưa có kết nối nào</span>
+                  <span class="empty-desc">
+                    Thêm một file SQLite hoặc connection string để Zen đọc được
+                    schema của bạn.
+                  </span>
+                  <button class="btn tiny primary" data-add-from-empty>
+                    <svg class="ico" width="12" height="12">
+                      <use href="#i-plus" />
                     </svg>
-                  </div>
-                  <div class="card-text">
-                    <span class="card-name">Local Workspace DB</span>
-                    <span class="card-info"
-                      >File · /home/user/.elara/database.sqlite</span
-                    >
-                  </div>
-                </div>
-
-                <div class="card">
-                  <div class="card-badge" style="background-color: #2e7d32">
-                    <svg class="ico" width="16" height="16">
-                      <use href="#i-server" />
-                    </svg>
-                  </div>
-                  <div class="card-text">
-                    <span class="card-name">Production Postgres</span>
-                    <span class="card-info"
-                      >Connection · db.example.com:5432/appdb</span
-                    >
-                  </div>
-                </div>
-
-                <div class="card">
-                  <div class="card-badge" style="background-color: #6a1b9a">
-                    <svg class="ico" width="16" height="16">
-                      <use href="#i-hard-drive" />
-                    </svg>
-                  </div>
-                  <div class="card-text">
-                    <span class="card-name">Analytics Archive</span>
-                    <span class="card-info"
-                      >File · /data/analytics/archive.sqlite</span
-                    >
-                  </div>
+                    Thêm kết nối
+                  </button>
                 </div>
               </div>
             </section>
           </div>
+
+          <!-- ═══════════ FEATURE ═══════════ -->
+          <div class="tabpanel stack" id="tab-feature" role="tabpanel" hidden>
+            <!-- Permission -->
+            <section class="group">
+              <div class="group-header">
+                <div class="badge warn">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-shield" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Quyền của AI</span>
+                  <span class="group-desc"
+                    >Mức tự do mặc định khi bắt đầu hội thoại mới.</span
+                  >
+                </div>
+              </div>
+              <div class="group-body">
+                <div
+                  class="seg"
+                  id="perm-seg"
+                  role="radiogroup"
+                  aria-label="Permission mode"
+                >
+                  <div class="seg-thumb" id="seg-thumb"></div>
+                  <button
+                    class="seg-btn"
+                    role="radio"
+                    aria-checked="false"
+                    data-note="AI chỉ đọc được code, mọi thao tác ghi file và chạy lệnh đều bị chặn."
+                  >
+                    Read only
+                  </button>
+                  <button
+                    class="seg-btn"
+                    role="radio"
+                    aria-checked="true"
+                    data-note="Đọc file chạy tự động. Ghi file và chạy lệnh sẽ hỏi bạn trước."
+                  >
+                    Approval
+                  </button>
+                  <button
+                    class="seg-btn"
+                    role="radio"
+                    aria-checked="false"
+                    data-note="Mọi tool chạy ngay không hỏi. Chỉ dùng khi bạn tin tưởng tác vụ."
+                  >
+                    Full access
+                  </button>
+                </div>
+                <div class="seg-note">
+                  <svg
+                    class="ico"
+                    width="13"
+                    height="13"
+                    style="margin-top: 1px"
+                  >
+                    <use href="#i-info" />
+                  </svg>
+                  <span id="perm-note"
+                    >Đọc file chạy tự động. Ghi file và chạy lệnh sẽ hỏi bạn
+                    trước.</span
+                  >
+                </div>
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Hỏi lại trước khi xoá file</div>
+                    <div class="row-desc">
+                      Luôn xác nhận kể cả ở Full access
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+              </div>
+            </section>
+
+            <!-- Checkpoint -->
+            <section class="group">
+              <div class="group-header">
+                <div class="badge teal">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-history" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Checkpoint &amp; lịch sử</span>
+                  <span class="group-desc"
+                    >Lưu ảnh chụp file trước mỗi lần AI chỉnh sửa.</span
+                  >
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Tạo checkpoint tự động</div>
+                    <div class="row-desc">Cho phép hoàn tác từng thay đổi</div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Lưu lịch sử hội thoại</div>
+                    <div class="row-desc">
+                      Mở lại các chat cũ bất cứ lúc nào
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+                <div class="field">
+                  <div class="slider-head">
+                    <label class="field-label" for="f-ctx"
+                      >Kích thước ngữ cảnh</label
+                    >
+                    <span class="slider-val" id="ctx-val">32K tokens</span>
+                  </div>
+                  <input
+                    type="range"
+                    id="f-ctx"
+                    min="1"
+                    max="6"
+                    step="1"
+                    value="4"
+                  />
+                  <span class="field-hint"
+                    >Ngữ cảnh lớn hơn cho câu trả lời tốt hơn nhưng tốn token
+                    hơn.</span
+                  >
+                </div>
+              </div>
+            </section>
+
+            <!-- Chat -->
+            <section class="group">
+              <div class="group-header">
+                <div class="badge violet">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-sparkles" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Trải nghiệm chat</span>
+                  <span class="group-desc"
+                    >Cách Zen hiển thị và mở rộng khả năng của AI.</span
+                  >
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Hiển thị theo thời gian thực</div>
+                    <div class="row-desc">
+                      Stream từng token thay vì chờ trọn câu trả lời
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Tự cập nhật skill đã cài</div>
+                    <div class="row-desc">
+                      Lấy bản mới từ Marketplace khi khởi động
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="false"
+                  ></button>
+                </div>
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Gửi kèm file đang mở</div>
+                    <div class="row-desc">
+                      Tự thêm file trong editor vào ngữ cảnh
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ═══════════ PROVIDERS ═══════════ -->
+          <div class="tabpanel stack" id="tab-providers" role="tabpanel" hidden>
+            <section class="group">
+              <div class="group-header">
+                <div class="badge blue">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-cpu" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Nhà cung cấp</span>
+                  <span class="group-desc">
+                    Tài khoản đã lưu. Nhà cung cấp mặc định được dùng cho mọi
+                    chat mới.
+                  </span>
+                </div>
+                <button
+                  class="btn btn-add"
+                  title="Thêm nhà cung cấp"
+                  aria-label="Thêm nhà cung cấp"
+                >
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-plus" />
+                  </svg>
+                </button>
+              </div>
+              <div class="group-body">
+                <div class="prov-list" id="prov-list">
+                  <div class="prov" data-default="true">
+                    <div class="prov-logo" style="background: #4d6bfe">DS</div>
+                    <div class="prov-main">
+                      <div class="prov-name">
+                        DeepSeek <span class="chip active">Mặc định</span>
+                      </div>
+                      <div class="prov-key">
+                        <span class="dot ok"></span>sk-••••••••••3f2a
+                      </div>
+                    </div>
+                    <div class="prov-actions">
+                      <button
+                        class="icon-btn"
+                        title="Đặt làm mặc định"
+                        data-set-default
+                        hidden
+                      >
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-star" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn" title="Hiện API key">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-eye" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn" title="Sửa">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-pencil" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="prov" data-default="false">
+                    <div class="prov-logo" style="background: #d97757">CL</div>
+                    <div class="prov-main">
+                      <div class="prov-name">Claude</div>
+                      <div class="prov-key">
+                        <span class="dot ok"></span>sk-ant-••••••7b10
+                      </div>
+                    </div>
+                    <div class="prov-actions">
+                      <button
+                        class="icon-btn"
+                        title="Đặt làm mặc định"
+                        data-set-default
+                      >
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-star" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn" title="Sửa">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-pencil" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="prov" data-default="false">
+                    <div class="prov-logo" style="background: #1a73e8">GM</div>
+                    <div class="prov-main">
+                      <div class="prov-name">Gemini</div>
+                      <div class="prov-key">
+                        <span class="dot warn"></span>hết hạn mức hôm nay
+                      </div>
+                    </div>
+                    <div class="prov-actions">
+                      <button
+                        class="icon-btn"
+                        title="Đặt làm mặc định"
+                        data-set-default
+                      >
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-star" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn" title="Sửa">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-pencil" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="prov" data-default="false">
+                    <div class="prov-logo" style="background: #3f8f5f">OL</div>
+                    <div class="prov-main">
+                      <div class="prov-name">Ollama</div>
+                      <div class="prov-key">
+                        <span class="dot"></span>localhost:11434 · chưa chạy
+                      </div>
+                    </div>
+                    <div class="prov-actions">
+                      <button
+                        class="icon-btn"
+                        title="Đặt làm mặc định"
+                        data-set-default
+                      >
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-star" />
+                        </svg>
+                      </button>
+                      <button class="icon-btn" title="Sửa">
+                        <svg class="ico" width="14" height="14">
+                          <use href="#i-pencil" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="group">
+              <div class="group-header">
+                <div class="badge violet">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-sparkles" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Model</span>
+                  <span class="group-desc"
+                    >Model dùng khi mở chat mới và khi gặp lỗi.</span
+                  >
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="field">
+                  <label class="field-label">Model mặc định</label>
+                  <div class="dd" data-dd>
+                    <button type="button" class="input select" data-dd-trigger>
+                      <span class="select-left">
+                        <svg class="ico" width="13" height="13">
+                          <use href="#i-cpu" />
+                        </svg>
+                        <span class="ellipsis">deepseek-chat</span>
+                      </span>
+                      <svg class="ico chev" width="12" height="12">
+                        <use href="#i-chevron-down" />
+                      </svg>
+                    </button>
+                    <div class="dd-menu" role="listbox">
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="true"
+                      >
+                        <svg class="ico" width="13" height="13">
+                          <use href="#i-cpu" />
+                        </svg>
+                        deepseek-chat
+                      </button>
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="false"
+                      >
+                        <svg class="ico" width="13" height="13">
+                          <use href="#i-cpu" />
+                        </svg>
+                        deepseek-reasoner
+                      </button>
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="false"
+                      >
+                        <svg class="ico" width="13" height="13">
+                          <use href="#i-cpu" />
+                        </svg>
+                        claude-sonnet-4-6
+                      </button>
+                      <button
+                        class="dd-item"
+                        role="option"
+                        aria-selected="false"
+                      >
+                        <svg class="ico" width="13" height="13">
+                          <use href="#i-cpu" />
+                        </svg>
+                        gemini-2.5-pro
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Tự chuyển khi lỗi</div>
+                    <div class="row-desc">
+                      Gặp rate-limit thì dùng nhà cung cấp kế tiếp
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Nhớ model theo từng chat</div>
+                    <div class="row-desc">
+                      Mở lại chat cũ sẽ giữ đúng model đã dùng
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ═══════════ RULES ═══════════ -->
+          <div class="tabpanel stack" id="tab-rules" role="tabpanel" hidden>
+            <section class="group">
+              <div class="group-header">
+                <div class="badge teal">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-scroll" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Hướng dẫn cho project</span>
+                  <span class="group-desc">
+                    Gửi kèm mọi tin nhắn trong workspace này. Viết quy ước code,
+                    stack, giọng văn.
+                  </span>
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="field">
+                  <textarea class="ta" id="rules-ta" spellcheck="false">
+- Dự án dùng React 18 + TypeScript strict + Tailwind.
+- Không thêm dependency mới nếu chưa hỏi.
+- Trả lời bằng tiếng Việt, code comment bằng tiếng Anh.
+- Luôn giữ nguyên indent gốc khi sửa file.</textarea
+                  >
+                  <div class="ta-foot">
+                    <span id="rules-count">198 ký tự · ~62 tokens</span>
+                    <button
+                      class="btn tiny"
+                      data-toast="Đã ghi vào .zen/rules.md"
+                    >
+                      Lưu ra .zen/rules.md
+                    </button>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Đọc AGENTS.md trong repo</div>
+                    <div class="row-desc">
+                      Nếu có, nội dung sẽ được nối vào phần trên
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+              </div>
+            </section>
+
+            <section class="group">
+              <div class="group-header">
+                <div class="badge warn">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-shield" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Vùng cấm</span>
+                  <span class="group-desc">
+                    Zen không đọc, không sửa và không gửi các đường dẫn khớp mẫu
+                    sau.
+                  </span>
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="chips" id="ignore-chips">
+                  <span class="chip-x"
+                    >.env*<button aria-label="Xoá mẫu .env*">
+                      <svg class="ico" width="11" height="11">
+                        <use href="#i-x" />
+                      </svg></button
+                  ></span>
+                  <span class="chip-x"
+                    >**/node_modules<button aria-label="Xoá mẫu node_modules">
+                      <svg class="ico" width="11" height="11">
+                        <use href="#i-x" />
+                      </svg></button
+                  ></span>
+                  <span class="chip-x"
+                    >**/*.pem<button aria-label="Xoá mẫu pem">
+                      <svg class="ico" width="11" height="11">
+                        <use href="#i-x" />
+                      </svg></button
+                  ></span>
+                  <span class="chip-x"
+                    >dist/<button aria-label="Xoá mẫu dist">
+                      <svg class="ico" width="11" height="11">
+                        <use href="#i-x" />
+                      </svg></button
+                  ></span>
+                  <span class="chip-x"
+                    >**/secrets/**<button aria-label="Xoá mẫu secrets">
+                      <svg class="ico" width="11" height="11">
+                        <use href="#i-x" />
+                      </svg></button
+                  ></span>
+                </div>
+                <div class="field">
+                  <input
+                    class="input mono"
+                    id="ignore-input"
+                    type="text"
+                    placeholder="Thêm mẫu rồi nhấn Enter"
+                  />
+                  <span class="field-hint"
+                    >Dùng cú pháp glob giống .gitignore.</span
+                  >
+                </div>
+                <div class="row">
+                  <div class="row-text">
+                    <div class="row-title">Cảnh báo khi dán secret</div>
+                    <div class="row-desc">
+                      Chặn gửi chuỗi trông giống API key
+                    </div>
+                  </div>
+                  <button
+                    class="switch"
+                    role="switch"
+                    aria-checked="true"
+                  ></button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- ═══════════ USAGE ═══════════ -->
+          <div class="tabpanel stack" id="tab-usage" role="tabpanel" hidden>
+            <section class="group">
+              <div class="group-header">
+                <div class="badge blue">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-chart" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">7 ngày qua</span>
+                  <span class="group-desc"
+                    >Thống kê lưu cục bộ, không gửi đi đâu cả.</span
+                  >
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="kpis">
+                  <div class="kpi">
+                    <div class="kpi-v">1.24M</div>
+                    <div class="kpi-k">token đã dùng</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-v">318</div>
+                    <div class="kpi-k">tin nhắn</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-v">96</div>
+                    <div class="kpi-k">file đã sửa</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi-v">$0.00</div>
+                    <div class="kpi-k">chi phí ước tính</div>
+                  </div>
+                </div>
+
+                <div
+                  class="spark"
+                  role="img"
+                  aria-label="Token theo ngày trong 7 ngày qua"
+                >
+                  <div class="spark-col" title="Thứ 2 · 98K">
+                    <div class="spark-bar" style="height: 34%"></div>
+                    <span class="spark-d">T2</span>
+                  </div>
+                  <div class="spark-col" title="Thứ 3 · 176K">
+                    <div class="spark-bar" style="height: 61%"></div>
+                    <span class="spark-d">T3</span>
+                  </div>
+                  <div class="spark-col" title="Thứ 4 · 142K">
+                    <div class="spark-bar" style="height: 49%"></div>
+                    <span class="spark-d">T4</span>
+                  </div>
+                  <div class="spark-col" title="Thứ 5 · 288K">
+                    <div class="spark-bar hi" style="height: 100%"></div>
+                    <span class="spark-d">T5</span>
+                  </div>
+                  <div class="spark-col" title="Thứ 6 · 210K">
+                    <div class="spark-bar" style="height: 73%"></div>
+                    <span class="spark-d">T6</span>
+                  </div>
+                  <div class="spark-col" title="Thứ 7 · 64K">
+                    <div class="spark-bar" style="height: 22%"></div>
+                    <span class="spark-d">T7</span>
+                  </div>
+                  <div class="spark-col" title="Chủ nhật · 262K">
+                    <div class="spark-bar" style="height: 91%"></div>
+                    <span class="spark-d">CN</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="group">
+              <div class="group-header">
+                <div class="badge violet">
+                  <svg class="ico" width="15" height="15">
+                    <use href="#i-cpu" />
+                  </svg>
+                </div>
+                <div class="group-text">
+                  <span class="group-title">Theo model</span>
+                  <span class="group-desc"
+                    >Phần trăm token của từng model trong tuần.</span
+                  >
+                </div>
+              </div>
+              <div class="group-body">
+                <div class="usage-row">
+                  <div class="usage-top">
+                    <span class="usage-name">deepseek-chat</span>
+                    <span class="usage-val">742K · 60%</span>
+                  </div>
+                  <div class="meter">
+                    <div class="meter-fill" style="width: 60%"></div>
+                  </div>
+                </div>
+                <div class="usage-row">
+                  <div class="usage-top">
+                    <span class="usage-name">claude-sonnet-4-6</span>
+                    <span class="usage-val">310K · 25%</span>
+                  </div>
+                  <div class="meter">
+                    <div class="meter-fill teal" style="width: 25%"></div>
+                  </div>
+                </div>
+                <div class="usage-row">
+                  <div class="usage-top">
+                    <span class="usage-name">gemini-2.5-pro</span>
+                    <span class="usage-val">124K · 10%</span>
+                  </div>
+                  <div class="meter">
+                    <div class="meter-fill violet" style="width: 10%"></div>
+                  </div>
+                </div>
+                <div class="usage-row">
+                  <div class="usage-top">
+                    <span class="usage-name">qwen3-coder (local)</span>
+                    <span class="usage-val">62K · 5%</span>
+                  </div>
+                  <div class="meter">
+                    <div class="meter-fill warn" style="width: 5%"></div>
+                  </div>
+                </div>
+                <button class="btn block" data-toast="Đã xoá thống kê cục bộ">
+                  <svg class="ico" width="14" height="14">
+                    <use href="#i-trash" />
+                  </svg>
+                  Xoá thống kê
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <!-- ═══════════ ABOUT ═══════════ -->
+          <div class="tabpanel about" id="tab-about" role="tabpanel" hidden>
+            <div class="hero">
+              <svg
+                width="58"
+                height="58"
+                viewBox="0 0 64 64"
+                aria-hidden="true"
+              >
+                <circle
+                  class="enso"
+                  cx="32"
+                  cy="32"
+                  r="25"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="5"
+                  stroke-linecap="round"
+                  stroke-dasharray="157"
+                  stroke-dashoffset="26"
+                  transform="rotate(125 32 32)"
+                />
+              </svg>
+              <div class="hero-name">Zen</div>
+              <p class="hero-tag">
+                AI chat ngay trong editor. Kết nối mọi LLM, không thuê bao.
+              </p>
+              <div class="hero-pills">
+                <span class="pill">2.2.2</span>
+                <span class="pill ok">Đã là bản mới nhất</span>
+              </div>
+            </div>
+
+            <div class="facts">
+              <div class="fact">
+                <span class="fact-k">Backend</span>
+                <span class="fact-v"
+                  ><span class="dot ok"></span>localhost:8888</span
+                >
+              </div>
+              <div class="fact">
+                <span class="fact-k">Provider</span>
+                <span class="fact-v">deepseek · deepseek-chat</span>
+              </div>
+              <div class="fact">
+                <span class="fact-k">VS Code</span>
+                <span class="fact-v">1.96.2</span>
+              </div>
+              <div class="fact">
+                <span class="fact-k">Kiểm tra lần cuối</span>
+                <span class="fact-v">2 giờ trước</span>
+              </div>
+            </div>
+
+            <div class="links">
+              <a class="link" href="#" data-demo>
+                <svg class="ico" width="15" height="15">
+                  <use href="#i-github" />
+                </svg>
+                Mã nguồn
+              </a>
+              <a class="link" href="#" data-demo>
+                <svg class="ico" width="15" height="15">
+                  <use href="#i-bug" />
+                </svg>
+                Báo lỗi
+              </a>
+              <a class="link" href="#" data-demo>
+                <svg class="ico" width="15" height="15">
+                  <use href="#i-book" />
+                </svg>
+                Tài liệu
+              </a>
+              <a class="link" href="#" data-demo>
+                <svg class="ico" width="15" height="15">
+                  <use href="#i-scale" />
+                </svg>
+                Giấy phép MIT
+              </a>
+            </div>
+
+            <div class="group-body">
+              <button class="btn block primary" id="btn-update">
+                <svg class="ico" width="14" height="14">
+                  <use href="#i-refresh" />
+                </svg>
+                Kiểm tra cập nhật
+              </button>
+              <button class="btn block" id="btn-diag">
+                <svg class="ico" width="14" height="14">
+                  <use href="#i-info" />
+                </svg>
+                Sao chép thông tin chẩn đoán
+              </button>
+            </div>
+
+            <!-- ── Đội ngũ phát triển ──
+                 TODO: thay tên, handle và href thật của 2 developer -->
+            <div>
+              <div class="sub-head">
+                <span class="sub-title">Đội ngũ phát triển</span>
+                <span class="sub-desc">Hai người viết và duy trì Zen.</span>
+              </div>
+              <div class="devs">
+                <div class="dev">
+                  <div class="dev-top">
+                    <div
+                      class="dev-av"
+                      style="
+                        background: linear-gradient(135deg, #4c9dfb, #39c5cf);
+                      "
+                    >
+                      KR
+                    </div>
+                    <div class="dev-id">
+                      <span class="dev-name">KhanhRomVN</span>
+                      <span class="dev-role"
+                        >Tác giả · kiến trúc &amp; backend agent</span
+                      >
+                    </div>
+                  </div>
+                  <div class="dev-socials">
+                    <a
+                      class="social"
+                      data-net="github"
+                      data-demo
+                      href="#"
+                      title="GitHub"
+                      aria-label="GitHub của KhanhRomVN"
+                    >
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-github" />
+                      </svg>
+                    </a>
+                    <a
+                      class="social"
+                      data-net="linkedin"
+                      data-demo
+                      href="#"
+                      title="LinkedIn"
+                      aria-label="LinkedIn của KhanhRomVN"
+                    >
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-linkedin" />
+                      </svg>
+                    </a>
+                    <a
+                      class="social"
+                      data-net="x"
+                      data-demo
+                      href="#"
+                      title="X"
+                      aria-label="X của KhanhRomVN"
+                    >
+                      <svg
+                        class="ico"
+                        width="14"
+                        height="14"
+                        style="stroke-width: 1.2; fill: currentColor"
+                      >
+                        <use href="#i-x-social" />
+                      </svg>
+                    </a>
+                    <a
+                      class="social"
+                      data-net="facebook"
+                      data-demo
+                      href="#"
+                      title="Facebook"
+                      aria-label="Facebook của KhanhRomVN"
+                    >
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-facebook" />
+                      </svg>
+                    </a>
+                    <a
+                      class="social"
+                      data-net="mail"
+                      data-demo
+                      href="#"
+                      title="khanhromvn@gmail.com"
+                      aria-label="Email KhanhRomVN"
+                    >
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-mail" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+
+                <div class="dev">
+                  <div class="dev-top">
+                    <div
+                      class="dev-av"
+                      style="
+                        background: linear-gradient(135deg, #a371f7, #f85149);
+                      "
+                    >
+                      NX
+                    </div>
+                    <div class="dev-id">
+                      <span class="dev-name">Nghệ Xương</span>
+                      <span class="dev-role"
+                        >Đồng phát triển · webview &amp; thiết kế</span
+                      >
+                    </div>
+                  </div>
+                  <div class="dev-socials">
+                    <a
+                      class="social"
+                      data-net="github"
+                      data-demo
+                      href="#"
+                      title="GitHub"
+                      aria-label="GitHub của Nghệ Xương"
+                    >
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-github" />
+                      </svg>
+                    </a>
+                    <a
+                      class="social"
+                      data-net="linkedin"
+                      data-demo
+                      href="#"
+                      title="LinkedIn"
+                      aria-label="LinkedIn của Nghệ Xương"
+                    >
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-linkedin" />
+                      </svg>
+                    </a>
+                    <a
+                      class="social"
+                      data-net="x"
+                      data-demo
+                      href="#"
+                      title="X"
+                      aria-label="X của Nghệ Xương"
+                    >
+                      <svg
+                        class="ico"
+                        width="14"
+                        height="14"
+                        style="stroke-width: 1.2; fill: currentColor"
+                      >
+                        <use href="#i-x-social" />
+                      </svg>
+                    </a>
+                    <a
+                      class="social"
+                      data-net="facebook"
+                      data-demo
+                      href="#"
+                      title="Facebook"
+                      aria-label="Facebook của Nghệ Xương"
+                    >
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-facebook" />
+                      </svg>
+                    </a>
+                    <a
+                      class="social"
+                      data-net="mail"
+                      data-demo
+                      href="#"
+                      title="Email"
+                      aria-label="Email Nghệ Xương"
+                    >
+                      <svg class="ico" width="15" height="15">
+                        <use href="#i-mail" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p class="credit">
+              Góp ý hoặc báo lỗi đều được chào đón —
+              <a href="#" data-demo>mở issue trên GitHub</a>
+            </p>
+          </div>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="toast">
+          <svg class="ico" width="14" height="14" style="color: var(--ok)">
+            <use href="#i-check" />
+          </svg>
+          <span id="toast-msg">Đã lưu</span>
         </div>
       </div>
     </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        /* ── Toast ── */
+        var toastEl = document.getElementById("toast");
+        var toastMsg = document.getElementById("toast-msg");
+        var toastTimer = null;
+        function toast(msg) {
+          toastMsg.textContent = msg;
+          toastEl.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(function () {
+            toastEl.classList.remove("show");
+          }, 1800);
+        }
+
+        /* ── Tabs ── */
+        var tabs = document.querySelectorAll(".tab");
+        tabs.forEach(function (tab) {
+          tab.addEventListener("click", function () {
+            tabs.forEach(function (t) {
+              t.setAttribute("aria-selected", String(t === tab));
+            });
+            document.querySelectorAll(".tabpanel").forEach(function (p) {
+              p.hidden = p.id !== "tab-" + tab.dataset.tab;
+            });
+            document.querySelector(".content").scrollTop = 0;
+            // tabbar cuộn ngang -> kéo tab vừa chọn vào tầm nhìn
+            tab.scrollIntoView({
+              inline: "nearest",
+              block: "nearest",
+              behavior: "smooth",
+            });
+          });
+        });
+
+        /* ── Dropdown ── */
+        document.querySelectorAll("[data-dd]").forEach(function (dd) {
+          var trigger = dd.querySelector("[data-dd-trigger]");
+          var label = trigger.querySelector(".select-left");
+          trigger.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var wasOpen = dd.classList.contains("open");
+            closeAllDd();
+            if (!wasOpen) dd.classList.add("open");
+          });
+          dd.querySelectorAll(".dd-item").forEach(function (item) {
+            item.addEventListener("click", function () {
+              dd.querySelectorAll(".dd-item").forEach(function (i) {
+                i.setAttribute("aria-selected", String(i === item));
+              });
+              label.innerHTML = item.innerHTML;
+              var span = label.querySelector("span:last-child");
+              if (span) span.className = "ellipsis";
+              dd.classList.remove("open");
+            });
+          });
+        });
+        function closeAllDd() {
+          document.querySelectorAll("[data-dd].open").forEach(function (d) {
+            d.classList.remove("open");
+          });
+        }
+        document.addEventListener("click", closeAllDd);
+
+        /* ── Switch ── */
+        document.querySelectorAll(".switch").forEach(function (sw) {
+          sw.addEventListener("click", function () {
+            sw.setAttribute(
+              "aria-checked",
+              sw.getAttribute("aria-checked") === "true" ? "false" : "true",
+            );
+          });
+        });
+
+        /* ── Segmented control ── */
+        var seg = document.getElementById("perm-seg");
+        if (seg) {
+          var segBtns = seg.querySelectorAll(".seg-btn");
+          var thumb = document.getElementById("seg-thumb");
+          var note = document.getElementById("perm-note");
+          function moveThumb(btn) {
+            thumb.style.width = btn.offsetWidth + "px";
+            thumb.style.transform =
+              "translateX(" + (btn.offsetLeft - 3) + "px)";
+          }
+          segBtns.forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              segBtns.forEach(function (b) {
+                b.setAttribute("aria-checked", String(b === btn));
+              });
+              moveThumb(btn);
+              note.textContent = btn.dataset.note;
+            });
+          });
+          function syncThumb() {
+            var active = seg.querySelector('.seg-btn[aria-checked="true"]');
+            if (active) moveThumb(active);
+          }
+          window.addEventListener("resize", syncThumb);
+          // Tab Feature ẩn lúc load -> đo lại khi mở tab
+          document
+            .querySelector('[data-tab="feature"]')
+            .addEventListener("click", function () {
+              requestAnimationFrame(syncThumb);
+            });
+          requestAnimationFrame(syncThumb);
+        }
+
+        /* ── Context slider ── */
+        var ctx = document.getElementById("f-ctx");
+        var ctxVal = document.getElementById("ctx-val");
+        var CTX = ["4K", "8K", "16K", "32K", "64K", "128K"];
+        if (ctx) {
+          ctx.addEventListener("input", function () {
+            ctxVal.textContent = CTX[ctx.value - 1] + " tokens";
+          });
+        }
+
+        /* ── Database list ── */
+        var list = document.getElementById("db-list");
+        var empty = document.getElementById("db-empty");
+        var count = document.getElementById("db-count");
+
+        function refreshDb() {
+          var items = list.querySelectorAll(".db-item");
+          var active = list.querySelectorAll('.db-item[data-active="true"]');
+          empty.hidden = items.length > 0;
+          list.hidden = items.length === 0;
+          count.textContent =
+            items.length + " kết nối · " + active.length + " đang dùng";
+        }
+
+        function setActive(item) {
+          list.querySelectorAll(".db-item").forEach(function (el) {
+            var on = el === item;
+            el.dataset.active = String(on);
+            el.setAttribute("aria-checked", String(on));
+            var row = el.querySelector(".db-name-row");
+            var chip = row.querySelector(".chip.active");
+            if (on && !chip) {
+              var c = document.createElement("span");
+              c.className = "chip active";
+              c.textContent = "Đang dùng";
+              row.appendChild(c);
+            } else if (!on && chip) {
+              chip.remove();
+            }
+          });
+          refreshDb();
+        }
+
+        list.addEventListener("click", function (e) {
+          var removeBtn = e.target.closest("[data-remove]");
+          var item = e.target.closest(".db-item");
+          if (!item) return;
+          if (removeBtn) {
+            var name = item.querySelector(".db-name").textContent;
+            item.remove();
+            refreshDb();
+            toast("Đã xoá " + name);
+            return;
+          }
+          if (e.target.closest(".db-actions")) {
+            toast("Đang kiểm tra kết nối…");
+            return;
+          }
+          setActive(item);
+        });
+
+        list.addEventListener("keydown", function (e) {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          var item = e.target.closest(".db-item");
+          if (!item) return;
+          e.preventDefault();
+          setActive(item);
+        });
+
+        function addDemoDb() {
+          var el = document.createElement("div");
+          el.className = "db-item";
+          el.setAttribute("role", "radio");
+          el.setAttribute("tabindex", "0");
+          el.setAttribute("aria-checked", "false");
+          el.dataset.active = "false";
+          el.innerHTML =
+            '<div class="db-icon postgres"><svg class="ico" width="15" height="15"><use href="#i-server"/></svg></div>' +
+            '<div class="db-main"><div class="db-name-row"><span class="db-name">Kết nối mới</span></div>' +
+            '<div class="db-meta"><span class="dot"></span><span class="db-target">chưa cấu hình</span></div></div>' +
+            '<div class="db-actions">' +
+            '<button class="icon-btn" title="Kiểm tra kết nối"><svg class="ico" width="14" height="14"><use href="#i-plug"/></svg></button>' +
+            '<button class="icon-btn" title="Sửa"><svg class="ico" width="14" height="14"><use href="#i-pencil"/></svg></button>' +
+            '<button class="icon-btn danger" title="Xoá" data-remove><svg class="ico" width="14" height="14"><use href="#i-trash"/></svg></button>' +
+            "</div>";
+          list.appendChild(el);
+          refreshDb();
+          toast("Đã thêm kết nối mới");
+        }
+
+        document.getElementById("db-add").addEventListener("click", addDemoDb);
+        document
+          .querySelector("[data-add-from-empty]")
+          .addEventListener("click", addDemoDb);
+        document
+          .getElementById("db-test-all")
+          .addEventListener("click", function () {
+            toast("Đang kiểm tra 3 kết nối…");
+          });
+
+        /* ── About ── */
+        document
+          .getElementById("btn-update")
+          .addEventListener("click", function () {
+            toast("Zen đã là bản mới nhất");
+          });
+        document
+          .getElementById("btn-diag")
+          .addEventListener("click", function () {
+            toast("Đã sao chép thông tin chẩn đoán");
+          });
+        document.querySelectorAll("[data-demo]").forEach(function (a) {
+          a.addEventListener("click", function (e) {
+            e.preventDefault();
+            toast("Mở liên kết trong trình duyệt");
+          });
+        });
+
+        /* ── Providers: đặt mặc định ── */
+        var provList = document.getElementById("prov-list");
+        if (provList) {
+          provList.addEventListener("click", function (e) {
+            var btn = e.target.closest("[data-set-default]");
+            if (!btn) return;
+            var item = btn.closest(".prov");
+            provList.querySelectorAll(".prov").forEach(function (p) {
+              var on = p === item;
+              p.dataset.default = String(on);
+              var nameRow = p.querySelector(".prov-name");
+              var chip = nameRow.querySelector(".chip.active");
+              var star = p.querySelector("[data-set-default]");
+              if (on) {
+                if (!chip) {
+                  var c = document.createElement("span");
+                  c.className = "chip active";
+                  c.textContent = "Mặc định";
+                  nameRow.appendChild(c);
+                }
+                if (star) star.hidden = true;
+              } else {
+                if (chip) chip.remove();
+                if (star) star.hidden = false;
+              }
+            });
+            toast(
+              "Đã đặt " +
+                item
+                  .querySelector(".prov-name")
+                  .childNodes[0].textContent.trim() +
+                " làm mặc định",
+            );
+          });
+        }
+
+        /* ── Rules: đếm ký tự ── */
+        var ta = document.getElementById("rules-ta");
+        var taCount = document.getElementById("rules-count");
+        function countRules() {
+          var n = ta.value.length;
+          taCount.textContent =
+            n + " ký tự · ~" + Math.round(n / 3.2) + " tokens";
+        }
+        if (ta) {
+          ta.addEventListener("input", countRules);
+          countRules();
+        }
+
+        /* ── Rules: ignore patterns ── */
+        var chips = document.getElementById("ignore-chips");
+        var chipInput = document.getElementById("ignore-input");
+        if (chips) {
+          chips.addEventListener("click", function (e) {
+            var btn = e.target.closest("button");
+            if (!btn) return;
+            var chip = btn.closest(".chip-x");
+            var val = chip.childNodes[0].textContent.trim();
+            chip.remove();
+            toast("Đã bỏ mẫu " + val);
+          });
+          chipInput.addEventListener("keydown", function (e) {
+            if (e.key !== "Enter") return;
+            var val = chipInput.value.trim();
+            if (!val) return;
+            var chip = document.createElement("span");
+            chip.className = "chip-x";
+            chip.innerHTML =
+              val +
+              '<button aria-label="Xoá mẫu ' +
+              val +
+              '"><svg class="ico" width="11" height="11"><use href="#i-x"/></svg></button>';
+            chips.appendChild(chip);
+            chipInput.value = "";
+          });
+        }
+
+        /* ── Nút có data-toast ── */
+        document.querySelectorAll("[data-toast]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            toast(btn.dataset.toast);
+          });
+        });
+
+        refreshDb();
+      })();
+    </script>
   </body>
 </html>

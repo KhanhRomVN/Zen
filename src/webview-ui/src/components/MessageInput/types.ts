@@ -1,4 +1,5 @@
 import type { FileMutationTool } from "@/features/chat/constants/constants";
+import type { AttachedItem } from "@/types/file-uploader";
 
 export interface UploadedFile {
   id: string;
@@ -89,6 +90,10 @@ export interface MessageInputProps {
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
   enableViewOnlyMode?: boolean;
+  /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
+  onSelectRule?: (item: AttachedItem) => void;
+  /** Gỡ 1 attached item theo id — dùng để gỡ badge Rule khỏi toolbar. */
+  onRemoveAttachedItem?: (id: string) => void;
 }
 
 export interface ToggleButtonProps {

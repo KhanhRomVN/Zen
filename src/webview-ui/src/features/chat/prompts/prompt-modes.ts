@@ -4,7 +4,6 @@ import { buildWorkflow } from "./workflow";
 import { buildConstraints } from "./constraints";
 import { TOOL_VALIDATION } from "./tool-validation";
 import { TOOLS_REFERENCE } from "./tools-reference";
-import { EXAMPLES } from "./examples";
 import type { SystemPromptMode, PromptLengthMode } from "./mode-config";
 
 export type { SystemPromptMode, PromptLengthMode } from "./mode-config";
@@ -56,7 +55,6 @@ export function buildPromptForMode(
       TOOL_VALIDATION,
       TOOLS_REFERENCE,
       buildSystemContext(systemInfo),
-      EXAMPLES,
     ];
     return sections.join("\n\n---\n\n");
   }

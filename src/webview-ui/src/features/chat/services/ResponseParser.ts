@@ -18,6 +18,10 @@ import { parseMarkdown } from "./parsers/MarkdownParser";
 import { parseQuestion } from "./parsers/QuestionParser";
 import { parseThinking } from "./parsers/ThinkingParser";
 import { parseConversationTitle } from "./parsers/ConversationTitleParser";
+import { parseSearchSkill } from "./parsers/SearchSkillParser";
+import { parseListSkill } from "./parsers/ListSkillParser";
+import { parseReadSkill } from "./parsers/ReadSkillParser";
+import { parseInstallSkill } from "./parsers/InstallSkillParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
 import { TagType } from "../types/tag-types";
 
@@ -652,6 +656,26 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               action = { type: "commit_message" as const, params, rawXml };
               break;
             }
+            case "search_skill": {
+              const params = parseSearchSkill(innerContent || "");
+              action = { type: "search_skill" as const, params, rawXml };
+              break;
+            }
+            case "list_skill": {
+              const params = parseListSkill(innerContent || "");
+              action = { type: "list_skill" as const, params, rawXml };
+              break;
+            }
+            case "read_skill": {
+              const params = parseReadSkill(innerContent || "");
+              action = { type: "read_skill" as const, params, rawXml };
+              break;
+            }
+            case "install_skill": {
+              const params = parseInstallSkill(innerContent || "");
+              action = { type: "install_skill" as const, params, rawXml };
+              break;
+            }
             default:
               // Fallback to ToolParser for any unhandled tools
               action = parseToolAction(toolName, innerContent || "", rawXml);
@@ -802,6 +826,18 @@ export const formatActionForDisplay = (action: ToolAction): string => {
     case "git_status":
       const count = action.params.items?.length || 0;
       return `git_status: ${count} changes`;
+
+    case "search_skill":
+      return `search_skill: ${action.params.search_term || ""}`;
+
+    case "list_skill":
+      return `list_skill`;
+
+    case "read_skill":
+      return `read_skill: ${action.params.slug || ""}`;
+
+    case "install_skill":
+      return `install_skill: ${action.params.slug || ""}`;
 
     default:
       return ``;

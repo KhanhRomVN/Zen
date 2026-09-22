@@ -704,6 +704,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     autoScrollPaused = false,
     scrollToBottom,
     enableViewOnlyMode = false,
+    onSelectRule,
+    onRemoveAttachedItem,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -826,6 +828,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     } = useSettings();
 
     const dbFetch = useDbFetch();
+    const prevDbManagerIdRef = React.useRef(activeDatabaseManagerId);
+    React.useEffect(() => {
+      if (prevDbManagerIdRef.current === activeDatabaseManagerId) return;
+      prevDbManagerIdRef.current = activeDatabaseManagerId;
+      setCurrentModel(null);
+      setCurrentAccount(null);
+    }, [activeDatabaseManagerId, setCurrentModel, setCurrentAccount]);
     const [providers, setProviders] = React.useState<any[]>([]);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
     const [isSystemPromptHovered, setIsSystemPromptHovered] =
@@ -1166,8 +1175,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       if (currentAccount?.id && currentModel?.providerId && !needsReset) {
         const validateAccount = async () => {
           try {
-            const response = await fetch(
-              `${apiUrl}/v1/accounts?page=1&limit=50&provider_id=${currentModel.providerId}`,
+            const response = await dbFetch(
+              `/v1/accounts?page=1&limit=50&provider_id=${currentModel.providerId}`,
             );
             const result = await response.json();
 
@@ -1213,7 +1222,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       currentModel,
       currentAccount,
       isLoadingCache,
-      apiUrl,
+      dbFetch,
       setCurrentModel,
       setCurrentAccount,
     ]);
@@ -1266,8 +1275,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       ) {
         const fetchAccountsForProvider = async () => {
           try {
-            const response = await fetch(
-              `${apiUrl}/v1/accounts?page=1&limit=50&provider_id=${currentModel.providerId}`,
+            const response = await dbFetch(
+              `/v1/accounts?page=1&limit=50&provider_id=${currentModel.providerId}`,
             );
             const result = await response.json();
             if (result.success && result.data?.accounts) {
@@ -1285,7 +1294,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
         };
         fetchAccountsForProvider();
       }
-    }, [providers, currentModel, currentAccount, apiUrl, setCurrentAccount]);
+    }, [providers, currentModel, currentAccount, dbFetch, setCurrentAccount]);
 
     // TRACK PROPS CHANGES - removed for performance
 
@@ -1385,7 +1394,55 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       />
                     );
                   })()}
-                  {displayModel.providerId}/{displayModel.id}
+                  {displayModel.providerId}/{(() => {
+                    // Tách effort suffix khỏi model id để hiển thị riêng
+                    const EFFORT_LEVELS_TRIGGER = ["low", "medium", "high", "xhigh", "max"] as const;
+                    type EffortLvl = (typeof EFFORT_LEVELS_TRIGGER)[number];
+                    const EFFORT_COLOR_TRIGGER: Record<EffortLvl, string> = {
+                      low: "#6b7280",
+                      medium: "#3b82f6",
+                      high: "#10b981",
+                      xhigh: "#f59e0b",
+                      max: "#ef4444",
+                    };
+                    const EFFORT_LABEL_TRIGGER: Record<EffortLvl, string> = {
+                      low: "Low",
+                      medium: "Medium",
+                      high: "High",
+                      xhigh: "Extra",
+                      max: "Max",
+                    };
+                    let baseId = displayModel.id;
+                    let effort: EffortLvl | null = null;
+                    for (const lvl of EFFORT_LEVELS_TRIGGER) {
+                      if (displayModel.id.endsWith(`-${lvl}`)) {
+                        baseId = displayModel.id.slice(0, -(lvl.length + 1));
+                        effort = lvl;
+                        break;
+                      }
+                    }
+                    if (!effort) return <>{baseId}</>;
+                    const effortColor = EFFORT_COLOR_TRIGGER[effort];
+                    return (
+                      <>
+                        {baseId}{" "}
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            padding: "1px 5px",
+                            borderRadius: "3px",
+                            backgroundColor: `color-mix(in srgb, ${effortColor} 15%, transparent)`,
+                            color: effortColor,
+                            letterSpacing: "0.02em",
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          {EFFORT_LABEL_TRIGGER[effort]}
+                        </span>
+                      </>
+                    );
+                  })()}
                   {displayAccount?.email && (
                     <span
                       style={{
@@ -1481,8 +1538,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   // Fetch memory state from server
                   const fetchMemoryState = async () => {
                     try {
-                      const response = await fetch(
-                        `${apiUrl}/v1/accounts/${selected.accountId}/memory`,
+                      const response = await dbFetch(
+                        `/v1/accounts/${selected.accountId}/memory`,
                       );
                       const result = await response.json();
                       if (result.success && result.data) {
@@ -1887,6 +1944,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 showDeepResearch={supportsDeepResearch}
                 currentModel={currentModel}
                 currentModelConfig={currentModelConfig}
+                onSelectRule={onSelectRule}
                 triggerButton={
                   <div
                     onMouseEnter={() => setIsPlusHovered(true)}
@@ -2027,7 +2085,58 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             </div>
 
             {/* Right Icons */}
-            <div style={{ display: "flex", gap: "var(--spacing-xs)" }}>
+            <div style={{ display: "flex", gap: "var(--spacing-xs)", alignItems: "center" }}>
+              {/* Rule Badge — hiển thị rule đang gắn kèm, cạnh badge token */}
+              {(() => {
+                const activeRule = attachedItems?.find(
+                  (i: any) => i.type === "rule",
+                );
+                if (!activeRule) return null;
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      padding: "4px 8px",
+                      borderRadius: "var(--border-radius)",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#facc15",
+                      backgroundColor:
+                        "color-mix(in srgb, #facc15 12%, transparent)",
+                      whiteSpace: "nowrap",
+                    }}
+                    title={`Rule: ${activeRule.path}`}
+                  >
+                    <span
+                      style={{
+                        maxWidth: "120px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {activeRule.path}
+                    </span>
+                    {onRemoveAttachedItem && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveAttachedItem(activeRule.id);
+                        }}
+                        style={{
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <X size={11} strokeWidth={2.5} />
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Token Count Badge / Stop Button */}
               {isConnected && (
                 <div

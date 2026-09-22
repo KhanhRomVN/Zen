@@ -1,6 +1,5 @@
 export interface SystemInfo {
   os: string;
-  ide: string;
   shell: string;
   homeDir: string;
   cwd: string;
@@ -21,7 +20,7 @@ export const buildSystemContext = (info: SystemInfo): string => {
   const maxFiles = info.maxFilesPerSession ?? 3;
 
   return `# SYSTEM ENVIRONMENT
-OS: ${effectiveOS}, IDE: ${info.ide}, Shell: ${isWindows ? "PowerShell / CMD" : info.shell}, Home: ${info.homeDir}, CWD: ${info.cwd}, Language: ${info.language}
+OS: ${effectiveOS}, Shell: ${isWindows ? "PowerShell / CMD" : info.shell}, Home: ${info.homeDir}, CWD: ${info.cwd}, Language: ${info.language}
 ## Path & Execution Limits
 - All paths MUST be relative to CWD: \`${info.cwd}\`
 - Do NOT use bare \`cd\` — combine: \`cd dir && npm install\`

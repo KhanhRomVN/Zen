@@ -1,0 +1,52 @@
+[
+  {
+    "status": 200,
+    "type": "fetch",
+    "host": "claude.ai",
+    "path": "/api/organizations/bb8efd7a-e973-4271-84ab-2f85ad59ebef/chat_conversations/66718525-8198-4c5a-ab71-0781be8f93df/title",
+    "method": "POST",
+    "protocol": "https",
+    "requestHeaders": {
+      "anthropic-anonymous-id": "claudeai.v1.07854a27-6f1c-4bb2-a6f8-0db948b44e47",
+      "x-activity-session-id": "8d9a24e3-1e92-4a9e-abd6-0a7555060e44",
+      "x-datadog-parent-id": "2813418642769181414",
+      "sec-ch-ua-platform": "\"Linux\"",
+      "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
+      "sec-ch-ua-mobile": "?0",
+      "anthropic-client-sha": "e6691846c58ea894fbea6896d570a7f0f8db877a",
+      "x-datadog-trace-id": "10187575018742014668",
+      "traceparent": "00-00000000000000008d618980e2c2e2cc-270b455976b7fae6-01",
+      "content-type": "application/json",
+      "anthropic-client-build": "1790036350",
+      "anthropic-client-capabilities": "mfa_sms_v1",
+      "anthropic-client-platform": "web_claude_ai",
+      "tracestate": "dd=s:1;o:rum",
+      "x-datadog-origin": "rum",
+      "anthropic-device-id": "6c9e5798-0d9c-4bb2-957f-4bd743a94370",
+      "Referer": "https://claude.ai/chat/66718525-8198-4c5a-ab71-0781be8f93df",
+      "anthropic-client-version": "1.0.0",
+      "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+      "x-datadog-sampling-priority": "1"
+    },
+    "responseHeaders": {
+      "X-Robots-Tag": "none",
+      "Content-Encoding": "br",
+      "cf-cache-status": "DYNAMIC",
+      "request-id": "req_011CfJZJSkSskw6jmE7ceMSn",
+      "server-timing": "x-originResponse;dur=732",
+      "alt-svc": "h3=\":443\"; ma=86400",
+      "Date": "Tue, 22 Sep 2026 13:29:07 GMT",
+      "Content-Type": "application/json",
+      "vary": "Origin, Accept-Encoding",
+      "Transfer-Encoding": "chunked",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "Connection": "keep-alive",
+      "access-control-allow-credentials": "true",
+      "CF-RAY": "a3f1a815da1f4d96-SIN",
+      "access-control-allow-origin": "https://claude.ai",
+      "Server": "cloudflare"
+    },
+    "requestBody": "{\"message_content\":\"```\\n**Turn 2** — Read result doesn't resolve all ambiguity → ask with a ranked recommendation:\\n```xml\\n<markdown>\\n`auth.routes.ts` currently has no rate-limit middleware. The project also has no Redis client in its dependencies.\\n</markdown>\\n<question>\\n  <q id=\\\"1\\\" type=\\\"single\\\" label=\\\"Which library should be used for rate limiting?\\\">\\n    <option>express-rate-limit (recommended — no Redis dependency in the project, simple in-memory limiter is the best fit)</option>\\n    <option>rate-limiter-flexible (supports Redis, only worth it if you plan to run multiple instances)</option>\\n    <option>Write custom middleware without external library</option>\\n  </q>\\n  <q id=\\\"2\\\" type=\\\"text\\\" label=\\\"What is the desired limit per IP (requests per minute)?\\\" />\\n</question>\\n```\\n---\\n## Ex 16: SELF-CHECK-MANDATORY — Pass 2 detects hidden assumption ✅\\n**User**: \\\"Fix CORS issue on backend\\\"\\n**Turn 1**:\\n```xml\\n<markdown>\\nNeed a bit more information before finding the right place to fix CORS.\\n</markdown>\\n<question>\\n  <q id=\\\"1\\\" type=\\\"text\\\" label=\\\"Which framework is the backend using (Express/Fastify/NestJS/other)?\\\" />\\n  <q id=\\\"2\\\" type=\\\"text\\\" label=\\\"What is the frontend origin/URL that needs to be allowed?\\\" />\\n</question>\\n```\\n---\\n## Ex 17: IMPORT-PATH-DEPTH-VERIFY — Error appears right after AI's own path edit ✅\\n**Turn N** — replace_in_file returns a ts:2307 error right after the path was changed:\\n```xml\\n<markdown>\\nĐếm lại số cấp thư mục cho thấy `../../../components/ui/Table` (3 cấp) chỉ trỏ tới `features/components/ui/Table`, không phải `src/renderer/src/components/ui/Table` như cần — thiếu 1 cấp. Lỗi TS là chính xác. Sẽ revert lại path đúng (4 cấp).\\n</markdown>\\n<replace_in_file>\\n<file_path>src/renderer/src/features/Setting/components/Database/DataTable.tsx</file_path>\\n<old_content>} from '../../../components/ui/Table';</old_content>\\n<new_content>} from '../../../../components/ui/Table';</new_content>\\n</replace_in_file>\\n```\\n## Available Skills\\nInstalled skills you can use. When a task matches a skill's description, read its file for the full instructions before acting.\\n- **nano-banana-pro**: Generate and edit images using Google's Nano Banana Pro (Gemini 3 Pro Image) API. Use when the user asks to generate, create, edit, modify, change, alter, or update images. Also use when user referenc… (file: /home/khanhromvn/.khanhromvn-zen/skills/nano-banana-pro.json)\\n## User Message\\n<user-message>\\nđọc file README.md\\n</user-message>\",\"recent_titles\":[]}",
+    "responseBody": "{\"title\":\"Read README.md file\"}\n"
+  }
+]

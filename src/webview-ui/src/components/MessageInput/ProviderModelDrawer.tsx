@@ -1,10 +1,72 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck, BarChart3, Clock } from "lucide-react";
+import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck, BarChart3, Clock, Zap, Feather, Gauge, Flame, Sparkles, Cpu } from "lucide-react";
 import { getFaviconUrl } from "@/utils/favicon";
 import { getClientId } from "@/utils/clientId";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import { useActiveDatabaseManagerName } from "@/hooks/useActiveDatabaseManagerName";
+import { useDbFetch } from "@/services/useDbFetch";
+
+// ─── Effort helpers ───────────────────────────────────────────────────────────
+
+/** Thứ tự mức effort — khớp với EFFORT_LEVELS bên AIWeb2API. */
+const EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"] as const;
+type EffortLevel = (typeof EFFORT_LEVELS)[number];
+
+/** Màu tương ứng 5 mốc effort. */
+const EFFORT_COLOR: Record<EffortLevel, string> = {
+  low: "#6b7280",     // gray
+  medium: "#3b82f6",  // blue
+  high: "#10b981",    // green
+  xhigh: "#f59e0b",   // amber
+  max: "#ef4444",     // red
+};
+
+/** Label hiển thị thân thiện. */
+const EFFORT_LABEL: Record<EffortLevel, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra",
+  max: "Max",
+};
+
+/** Metadata đầy đủ cho từng mức effort — icon, description. */
+const EFFORT_META: Record<EffortLevel, { icon: React.ElementType; description: string }> = {
+  low: {
+    icon: Feather,
+    description: "Minimal thinking — fastest responses, best for simple or factual tasks.",
+  },
+  medium: {
+    icon: Gauge,
+    description: "Balanced thinking — good reasoning without heavy compute overhead.",
+  },
+  high: {
+    icon: Flame,
+    description: "Deep reasoning — handles complex logic, multi-step problems well.",
+  },
+  xhigh: {
+    icon: Sparkles,
+    description: "Extra intense thinking — for difficult research and nuanced analysis.",
+  },
+  max: {
+    icon: Cpu,
+    description: "Maximum effort — full cognitive power, slowest but most thorough.",
+  },
+};
+
+/**
+ * Tách `effort` suffix khỏi model id dạng `<base>-<effort>`.
+ * Nếu không khớp → trả `{ base: modelId, effort: null }`.
+ */
+function splitModelAndEffort(modelId: string): { base: string; effort: EffortLevel | null } {
+  for (const lvl of EFFORT_LEVELS) {
+    if (modelId.endsWith(`-${lvl}`)) {
+      return { base: modelId.slice(0, -(lvl.length + 1)), effort: lvl };
+    }
+  }
+  return { base: modelId, effort: null };
+}
 
 interface Provider {
   provider_id: string;
@@ -326,9 +388,12 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   onSelect,
 }) => {
   const activeDbName = useActiveDatabaseManagerName();
-  const [step, setStep] = useState<"model" | "account">("model");
+  const dbFetch = useDbFetch();
+  const [step, setStep] = useState<"model" | "effort" | "account">("model");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState<any | null>(null);
+  /** Các effort option của model đang chọn (chỉ set khi model có effort) */
+  const [effortOptions, setEffortOptions] = useState<EffortLevel[]>([]);
   const [providerAccounts, setProviderAccounts] = useState<Account[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [accountSearchQuery, setAccountSearchQuery] = useState("");
@@ -399,6 +464,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
       setSearchQuery("");
       setAccountSearchQuery("");
       setSelectedModel(null);
+      setEffortOptions([]);
       setProviderAccounts([]);
       setTooltipModel(null);
 
@@ -413,8 +479,8 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
         let page = 1;
         // hard cap 50 trang (10k accounts) để tránh vòng lặp vô hạn nếu API lỗi.
         while (page <= 50) {
-          const res = await fetch(
-            `${apiUrl}/v1/accounts?page=${page}&limit=${PAGE_SIZE}&clientId=${clientId}`,
+          const res = await dbFetch(
+            `/v1/accounts?page=${page}&limit=${PAGE_SIZE}&clientId=${clientId}`,
           );
           const result = await res.json();
           if (!result?.success || !result.data?.accounts?.length) break;
@@ -460,17 +526,19 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
         )
         .finally(() => setIsLoadingAccountMap(false));
     }
-  }, [isOpen, apiUrl]);
+    // dbFetch tự đổi identity khi apiUrl hoặc activeDatabaseManagerId đổi →
+    // đảm bảo refetch đúng database khi user chuyển database.
+  }, [isOpen, dbFetch]);
 
   // Fetch accounts when moving to account step (poll mỗi 15s để cập nhật badge)
   useEffect(() => {
     if (step === "account" && selectedModel) {
       let isMounted = true;
-      const url = `${apiUrl}/v1/accounts?page=1&limit=50&provider_id=${selectedModel.provider_id}&clientId=${encodeURIComponent(getClientId())}`;
+      const url = `/v1/accounts?page=1&limit=50&provider_id=${selectedModel.provider_id}&clientId=${encodeURIComponent(getClientId())}`;
 
       const load = (showLoading: boolean) => {
         if (showLoading) setIsLoadingAccounts(true);
-        fetch(url)
+        dbFetch(url)
           .then((res) => res.json())
           .then((result) => {
             if (isMounted && result.success && result.data?.accounts) {
@@ -500,7 +568,9 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
         clearInterval(intervalId);
       };
     }
-  }, [step, selectedModel, apiUrl]);
+    // dbFetch tự đổi identity khi activeDatabaseManagerId đổi → refetch đúng
+    // database, tránh danh sách account của database cũ bị treo lại.
+  }, [step, selectedModel, dbFetch]);
 
   // getFavicon moved to @/utils/favicon
 
@@ -654,8 +724,45 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
             {step === "account" && (
               <button
                 onClick={() => {
-                  setStep("model");
+                  // Nếu model có effort → quay lại bước effort, không phải model
+                  if (effortOptions.length > 0) {
+                    // Bỏ effort suffix khỏi selectedModel.id để về lại base id
+                    const { base } = splitModelAndEffort(selectedModel?.id ?? "");
+                    setSelectedModel((prev: any) => prev ? { ...prev, id: base } : prev);
+                    setStep("effort");
+                  } else {
+                    setStep("model");
+                  }
                   setAccountSearchQuery("");
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "6px",
+                  borderRadius: "4px",
+                  color: "var(--secondary-text)",
+                  display: "flex",
+                  alignItems: "center",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)";
+                  e.currentTarget.style.color = "var(--primary-text)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = "var(--secondary-text)";
+                }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+            )}
+            {step === "effort" && (
+              <button
+                onClick={() => {
+                  setStep("model");
+                  setEffortOptions([]);
                 }}
                 style={{
                   background: "transparent",
@@ -694,7 +801,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                   gap: "8px",
                 }}
               >
-                {step === "model" ? "Quick Switch" : "Select Account"}
+                {step === "model" ? "Quick Switch" : step === "effort" ? "Select Effort" : "Select Account"}
                 {activeDbName && (
                   <span
                     style={{
@@ -1001,7 +1108,17 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                         })()}
                         {/* Model rows */}
                         {hasModels &&
-                          provider.models.map((model) => {
+                          (() => {
+                            // Dedup: gom các entry cùng base model (khác effort) thành 1 row.
+                            // Giữ entry đầu tiên tìm thấy cho mỗi base id.
+                            const seen = new Set<string>();
+                            const dedupedModels = provider.models.filter((m: any) => {
+                              const { base } = splitModelAndEffort(m.id);
+                              if (seen.has(base)) return false;
+                              seen.add(base);
+                              return true;
+                            });
+                            return dedupedModels.map((model: any) => {
                             // Provider không cần auth → luôn enabled; có auth → cần có account
                             const isDisabled = needsAuth && !hasAccounts;
                             const successColor =
@@ -1015,15 +1132,34 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                 key={model.id}
                                 onClick={() => {
                                   if (isDisabled) return;
-                                  if (needsAuth) {
-                                    // Provider cần auth → chuyển sang bước chọn account
-                                    setSelectedModel({
-                                      ...model,
-                                      provider_id: provider.provider_id,
-                                    });
+                                  // Tách base model id và các effort options từ provider models
+                                  // Provider trả về nhiều entry dạng <base>-<effort> cho mỗi effort level.
+                                  // Ta gom lại các effort option của cùng base model.
+                                  const { base: baseId } = splitModelAndEffort(model.id);
+                                  const allEfforts = (provider.models as any[])
+                                    .map((m: any) => splitModelAndEffort(m.id))
+                                    .filter((parsed) => parsed.base === baseId && parsed.effort !== null)
+                                    .map((parsed) => parsed.effort as EffortLevel);
+                                  // Unique + preserve order theo EFFORT_LEVELS
+                                  const uniqueEfforts = EFFORT_LEVELS.filter((lvl) =>
+                                    allEfforts.includes(lvl),
+                                  );
+
+                                  // Model base (không có effort suffix)
+                                  const baseModel = { ...model, id: baseId, provider_id: provider.provider_id };
+
+                                  if (uniqueEfforts.length > 0) {
+                                    // Model có effort → đi qua step chọn effort
+                                    setSelectedModel(baseModel);
+                                    setEffortOptions(uniqueEfforts);
+                                    setStep("effort");
+                                  } else if (needsAuth) {
+                                    // Không có effort, cần auth → chọn account
+                                    setSelectedModel({ ...model, provider_id: provider.provider_id });
+                                    setEffortOptions([]);
                                     setStep("account");
                                   } else {
-                                    // Provider không cần auth → select ngay, không cần account
+                                    // Không có effort, không cần auth → select ngay
                                     onSelect({
                                       providerId: provider.provider_id,
                                       modelId: model.id,
@@ -1070,7 +1206,22 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                       color: "var(--primary-text)",
                                     }}
                                   >
-                                    {model.name}
+                                    {splitModelAndEffort(model.id).base === model.id
+                                      ? model.name
+                                      : (() => {
+                                          // Model name có thể chứa " Medium", " High",... suffix từ getModels()
+                                          // Lấy base name (bỏ effort suffix trong tên nếu có)
+                                          const effortSuffixes = ["Low", "Medium", "High", "Extra", "Max"];
+                                          let baseName = model.name;
+                                          for (const s of effortSuffixes) {
+                                            if (baseName.endsWith(` ${s}`)) {
+                                              baseName = baseName.slice(0, -(s.length + 1));
+                                              break;
+                                            }
+                                          }
+                                          return baseName;
+                                        })()
+                                    }
                                   </span>
                                   {model.is_thinking && (
                                     <span
@@ -1188,7 +1339,8 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                 )}
                               </div>
                             );
-                          })}
+                          });
+                          })()}
                       </>
                     )}
                   </div>
@@ -1208,6 +1360,120 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                   No models found
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {step === "effort" && (
+          /* Effort step */
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+              overflow: "hidden",
+              backgroundColor: "var(--tertiary-bg)",
+            }}
+          >
+            <div
+              className="custom-scrollbar"
+              style={{ flex: 1, overflowY: "auto", padding: "12px" }}
+            >
+              {effortOptions.map((lvl) => {
+                const color = EFFORT_COLOR[lvl];
+                const meta = EFFORT_META[lvl];
+                const Icon = meta.icon;
+                return (
+                  <div
+                    key={lvl}
+                    onClick={() => {
+                      const finalModelId = `${selectedModel.id}-${lvl}`;
+                      const prov = providers.find(
+                        (p: any) => p.provider_id === selectedModel.provider_id,
+                      );
+                      const raw = prov ? ((prov as any).auth_method ?? (prov as any).auth_methods) : null;
+                      let providerNeedsAuthForModel = false;
+                      if (Array.isArray(raw)) providerNeedsAuthForModel = raw.filter((m: any) => typeof m === "string" && m.length > 0).length > 0;
+                      else if (typeof raw === "string" && raw.trim()) {
+                        try {
+                          const parsed = JSON.parse(raw.trim());
+                          providerNeedsAuthForModel = Array.isArray(parsed) ? parsed.filter((m: any) => m).length > 0 : false;
+                        } catch {
+                          providerNeedsAuthForModel = raw.trim().split(/[,;|\s]+/).filter((m: string) => m.length > 0).length > 0;
+                        }
+                      }
+                      setSelectedModel((prev: any) => ({ ...prev, id: finalModelId }));
+                      if (providerNeedsAuthForModel) {
+                        setStep("account");
+                      } else {
+                        onSelect({ providerId: selectedModel.provider_id, modelId: finalModelId });
+                        onClose();
+                      }
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "var(--hover-bg, rgba(128,128,128,0.07))";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "var(--input-bg)";
+                    }}
+                    style={{
+                      padding: "12px 14px",
+                      cursor: "pointer",
+                      borderRadius: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "14px",
+                      marginBottom: "8px",
+                      border: "none",
+                      backgroundColor: "var(--input-bg)",
+                      transition: "background-color 0.15s",
+                    }}
+                  >
+                    {/* Icon box */}
+                    <div
+                      style={{
+                        width: "36px",
+                        height: "36px",
+                        borderRadius: "8px",
+                        backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon size={17} style={{ color }} />
+                    </div>
+                    {/* Text */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          fontWeight: 700,
+                          color,
+                          marginBottom: "3px",
+                          letterSpacing: "0.01em",
+                        }}
+                      >
+                        {EFFORT_LABEL[lvl]}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--secondary-text)",
+                          opacity: 0.75,
+                          lineHeight: 1.45,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {meta.description}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1445,6 +1711,46 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                       : "var(--vscode-charts-purple, #a855f7)",
                                 }} />
                                 {usageNum.toFixed(1)}%
+                              </span>
+                            );
+                          })()}
+                          {acc.reset_usage_at != null && (() => {
+                            const resetDate = new Date(acc.reset_usage_at);
+                            if (isNaN(resetDate.getTime())) return null;
+                            const now = new Date();
+                            const diffMs = resetDate.getTime() - now.getTime();
+                            const isPast = diffMs <= 0;
+                            const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+                            const label = isPast
+                              ? "Reset done"
+                              : diffHours < 1
+                                ? "Resets <1h"
+                                : diffHours < 24
+                                  ? `Resets ${diffHours}h`
+                                  : `Resets ${Math.ceil(diffHours / 24)}d`;
+                            const resetFormatted = resetDate.toLocaleString();
+                            return (
+                              <span
+                                title={`Usage resets at: ${resetFormatted}`}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "3px",
+                                  fontSize: "10px",
+                                  color: isPast
+                                    ? "#22c55e"
+                                    : "#f97316",
+                                  flexShrink: 0,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                <Clock size={10} style={{
+                                  flexShrink: 0,
+                                  color: isPast ? "#22c55e" : "#f97316",
+                                }} />
+                                {label}
                               </span>
                             );
                           })()}

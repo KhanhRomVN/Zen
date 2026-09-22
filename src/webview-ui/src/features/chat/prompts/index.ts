@@ -1,16 +1,19 @@
 import { buildPromptForMode } from "./prompt-modes";
-import type { SystemPromptMode, PromptModeConfig, PromptLengthMode } from "./prompt-modes";
+import type { SystemPromptMode, PromptModeConfig } from "./prompt-modes";
 
 export { buildIdentityPrompt } from "./identity";
 export { buildWorkflow } from "./workflow";
 export { TOOLS_REFERENCE } from "./tools-reference";
 export { buildSystemContext } from "./system-context";
 export type { SystemInfo } from "./system-context";
-export { EXAMPLES } from "./examples";
 export { buildConstraints } from "./constraints";
 export { TOOL_VALIDATION } from "./tool-validation";
 export { buildPromptForMode } from "./prompt-modes";
-export type { SystemPromptMode, PromptModeConfig, PromptLengthMode } from "./prompt-modes";
+export type {
+  SystemPromptMode,
+  PromptModeConfig,
+  PromptLengthMode,
+} from "./prompt-modes";
 export { MODE_BEHAVIORS } from "./mode-config";
 export type { ModeBehaviorConfig } from "./mode-config";
 
@@ -34,18 +37,4 @@ export const combinePromptsForMode = (
   mode: SystemPromptMode,
 ): string => {
   return buildPromptForMode(config, mode);
-};
-
-export const getDefaultPrompt = (language: string = "English"): string => {
-  return combinePrompts({
-    language,
-    systemInfo: {
-      os: "Unknown OS",
-      ide: "Zen IDE",
-      shell: "unknown",
-      homeDir: "~",
-      cwd: ".",
-      language,
-    },
-  });
 };

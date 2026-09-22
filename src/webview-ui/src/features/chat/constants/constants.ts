@@ -258,6 +258,50 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     },
   },
 
+  search_skill: {
+    id: "search_skill",
+    title: "SEARCH SKILL",
+    category: "tool",
+    timeout: 20000,
+    permissions: {
+      approval: "allow",
+      fullAccess: "allow",
+    },
+  },
+
+  list_skill: {
+    id: "list_skill",
+    title: "LIST SKILL",
+    category: "tool",
+    timeout: 20000,
+    permissions: {
+      approval: "allow",
+      fullAccess: "allow",
+    },
+  },
+
+  read_skill: {
+    id: "read_skill",
+    title: "READ SKILL",
+    category: "tool",
+    timeout: 20000,
+    permissions: {
+      approval: "allow",
+      fullAccess: "allow",
+    },
+  },
+
+  install_skill: {
+    id: "install_skill",
+    title: "INSTALL SKILL",
+    category: "tool",
+    timeout: 20000,
+    permissions: {
+      approval: "confirm",
+      fullAccess: "allow",
+    },
+  },
+
   conversation_title: {
     id: "conversation_title",
     title: "TITLE",

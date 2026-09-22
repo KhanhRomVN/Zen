@@ -18,6 +18,9 @@ import TagRouter from "./TagRouter";
 import ResponseMetadataBar from "./ResponseMetadataBar";
 import ThinkingBlock from "./ThinkingBlock";
 
+// CONTEXT
+import { useSettings } from "@/context/SettingsContext";
+
 // STYLES
 import "./blocks/run_command/TerminalBlock.css";
 import "../../../../../components/MarkdownBlock/MarkdownBlock.css";
@@ -114,6 +117,9 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
+
+  // Tắt trong Settings → ẩn ResponseMetadataBar (kéo theo nút Retry/Revert)
+  const { showMetadataBar } = useSettings();
 
   //   Cache previousUserMessage lookup. Only recompute when the message
   // list length changes or the current message id changes (not on every render
@@ -399,6 +405,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
           const isLastGroup = index === renderGroups.length - 1;
 
           if (group.type === "response_number") {
+            if (!showMetadataBar) return null;
             return (
               <React.Fragment key={group.key}>
                 <ResponseMetadataBar

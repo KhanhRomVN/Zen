@@ -104,12 +104,12 @@ export const useAccounts = (isOpen: boolean) => {
   );
 
   const fetchAccounts = useCallback(
-    async (page = 1, limit = 20, silent = false) => {
+    async (page = 1, limit = 20, silent = false, forceProviders = false) => {
       if (!isOpen) return;
       if (!silent) setLoading(true);
       try {
-        // Fetch providers first if empty
-        if (providerConfigs.length === 0) {
+        // Fetch providers nếu chưa có, hoặc bị ép refetch (khi đổi database)
+        if (providerConfigs.length === 0 || forceProviders) {
           try {
             const pResult = await callBackend("/v1/providers");
             if (pResult.success && pResult.data) {
@@ -224,11 +224,13 @@ export const useAccounts = (isOpen: boolean) => {
   // ── Effects ──
   useEffect(() => {
     if (isOpen) {
-      // Reset to page 1 and force fresh fetch when panel opens
+      // Reset về trang 1 + ép refetch providers mỗi khi panel mở HOẶC đổi
+      // database (tránh hiện account/provider của database trước đó).
       setPagination((prev) => ({ ...prev, page: 1 }));
-      fetchAccounts(1, pagination.limit, false);
+      fetchAccounts(1, pagination.limit, false, true);
     }
-  }, [isOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeDatabaseManagerId]);
 
   // searchQuery được filter client-side → không cần re-fetch khi gõ
   useEffect(() => {

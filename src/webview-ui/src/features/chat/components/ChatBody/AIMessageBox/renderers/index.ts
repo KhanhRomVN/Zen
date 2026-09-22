@@ -15,6 +15,7 @@ export { ViewReplaceHistoryRenderer } from "./ViewReplaceHistoryRenderer";
 export { RunCommandRenderer } from "./RunCommandRenderer";
 export { GitStatusRenderer } from "./GitStatusRenderer";
 export { CommitMessageRenderer } from "./CommitMessageRenderer";
+export { SkillToolRenderer } from "./SkillToolRenderer";
 export { MarkdownRenderer } from "./MarkdownRenderer";
 export { QuestionRenderer } from "./QuestionRenderer";
 export { ErrorRenderer } from "./ErrorRenderer";

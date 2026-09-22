@@ -70,6 +70,8 @@ interface ChatFooterProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
+  /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
+  onSelectRule?: (item: any) => void;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -122,6 +124,7 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   onRevertConversation,
   autoScrollPaused = false,
   scrollToBottom,
+  onSelectRule,
 }) => {
   // 🔍 PERFORMANCE DEBUG
   const renderCountRef = React.useRef(0);
@@ -627,6 +630,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           autoScrollPaused={autoScrollPaused}
           scrollToBottom={scrollToBottom}
           enableViewOnlyMode={true}
+          onSelectRule={onSelectRule}
+          onRemoveAttachedItem={removeAttachedItem}
         />
         {(() => {
           return null;

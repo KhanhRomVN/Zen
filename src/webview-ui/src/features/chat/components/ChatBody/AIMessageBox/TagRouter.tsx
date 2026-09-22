@@ -47,6 +47,7 @@ import {
   MarkdownRenderer, // markdown
   QuestionRenderer, // question
   WarningRenderer, // warning (not tag)
+  SkillToolRenderer, // search_skill, list_skill, read_skill, install_skill
 } from "./renderers";
 import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
 import { CodeBlock } from "./blocks/code/CodeBlock";
@@ -1047,6 +1048,39 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
       <>
         {toolGroup.map(({ action, index }) => (
           <GrepRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastMessage={isLastMessage}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
+            toolOutputs={toolOutputs}
+            allMessages={allMessages}
+            fileStatsMap={fileStatsMap}
+            onToolClick={onToolClick}
+            conversationId={conversationId}
+          />
+        ))}
+      </>
+    );
+  }
+
+  // Handle SKILL marketplace tools: search_skill, list_skill, read_skill, install_skill
+  if (
+    toolType === "search_skill" ||
+    toolType === "list_skill" ||
+    toolType === "read_skill" ||
+    toolType === "install_skill"
+  ) {
+    return (
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <SkillToolRenderer
             key={index}
             action={action}
             actionIndex={index}

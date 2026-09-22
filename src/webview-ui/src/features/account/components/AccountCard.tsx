@@ -30,7 +30,7 @@ import {
 // ── Utils ──
 import { CopyableText } from "../utils";
 import { getFaviconUrl } from "@/utils/favicon";
-import { extractAccessToken, formatJwtExpiry, isJwtExpired } from "@/utils/jwt";
+import { extractAccessToken, formatJwtExpiry, isJwtExpired, extractCookieSessionExpiry, formatExpiryMs } from "@/utils/jwt";
 
 // ── Services ──
 import { extensionService } from "../../../services/ExtensionService";
@@ -145,8 +145,19 @@ const AccountCard: React.FC<AccountCardProps> = ({
   // Luôn dùng accessToken để tính expiry vì refreshToken không nhất thiết là JWT
   const accessToken = extractAccessToken(account.credential || '');
   const expiryToken = accessToken;
-  const tokenExpiry = expiryToken ? formatJwtExpiry(expiryToken) : null;
-  const isTokenExpired = expiryToken ? isJwtExpired(expiryToken) : false;
+  const tokenExpiry = expiryToken
+    ? formatJwtExpiry(expiryToken)
+    : (() => {
+        // Fallback: cookie-based credential (e.g. Claude sessionKeyExpiresAt)
+        const cookieExpMs = extractCookieSessionExpiry(account.credential || '');
+        return cookieExpMs !== null ? formatExpiryMs(cookieExpMs) : null;
+      })();
+  const isTokenExpired = expiryToken
+    ? isJwtExpired(expiryToken)
+    : (() => {
+        const cookieExpMs = extractCookieSessionExpiry(account.credential || '');
+        return cookieExpMs !== null ? Date.now() >= cookieExpMs : false;
+      })();
 
   // ── Handlers ──
   const handleCardClick = (e: React.MouseEvent) => {
@@ -350,6 +361,50 @@ const AccountCard: React.FC<AccountCardProps> = ({
                   </span>
                 </span>
               )}
+              {account.reset_usage_at != null && (() => {
+                const resetDate = new Date(account.reset_usage_at);
+                const isValid = !isNaN(resetDate.getTime());
+                if (!isValid) return null;
+                const now = new Date();
+                const diffMs = resetDate.getTime() - now.getTime();
+                const isPast = diffMs <= 0;
+                const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+                const label = isPast
+                  ? "Reset done"
+                  : diffHours < 1
+                    ? "Resets <1h"
+                    : diffHours < 24
+                      ? `Resets ${diffHours}h`
+                      : `Resets ${Math.ceil(diffHours / 24)}d`;
+                return (
+                  <span
+                    title={`Usage resets at: ${formatIsoDate(account.reset_usage_at)}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "3px",
+                      fontSize: "10px",
+                      color: isPast
+                        ? "var(--vscode-testing-iconPassed, #22c55e)"
+                        : "var(--vscode-editorWarning-foreground, #f97316)",
+                      flexShrink: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <Clock size={10} style={{
+                      flexShrink: 0,
+                      color: isPast
+                        ? "var(--vscode-testing-iconPassed, #22c55e)"
+                        : "var(--vscode-editorWarning-foreground, #f97316)",
+                    }} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {label}
+                    </span>
+                  </span>
+                );
+              })()}
               {tokenExpiry && (
                 <span style={{
                   display: "flex",

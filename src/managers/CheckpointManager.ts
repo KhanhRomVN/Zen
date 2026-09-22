@@ -23,6 +23,9 @@ import * as path from "path";
 // ── VSCode ──
 import * as vscode from "vscode";
 
+// ── Services ──
+import { FeatureSettingsService } from "../services/FeatureSettingsService";
+
 // ─── Interfaces ─────────────────────────────────────────────────────────
 export interface Checkpoint {
   id: string;
@@ -128,6 +131,9 @@ export class CheckpointManager {
   ) {
     const debugStart = Date.now();
     if (!this.activeConversationId) {
+      return;
+    }
+    if (!FeatureSettingsService.getInstance().checkpointEnabled) {
       return;
     }
 

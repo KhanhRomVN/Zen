@@ -123,3 +123,41 @@ export function extractAccessToken(credential: string): string | null {
 
   return null;
 }
+
+/**
+ * Extract session expiry from cookie-based credential (e.g. Claude).
+ * Looks for `sessionKeyExpiresAt` (Unix timestamp in seconds) in JSON credential.
+ * @param credential - Credential string (JSON)
+ * @returns Expiry timestamp in milliseconds, or null if not found
+ */
+export function extractCookieSessionExpiry(credential: string): number | null {
+  if (!credential) return null;
+  if (!credential.trim().startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(credential);
+    if (typeof parsed.sessionKeyExpiresAt === "number" && parsed.sessionKeyExpiresAt > 0) {
+      return parsed.sessionKeyExpiresAt * 1000; // convert seconds → milliseconds
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+/**
+ * Format a millisecond timestamp as a countdown string.
+ * Same format as formatJwtExpiry: "3d 5h", "12h", "45m", "Expired"
+ */
+export function formatExpiryMs(expiryMs: number): string {
+  const diff = expiryMs - Date.now();
+  if (diff <= 0) return "Expired";
+
+  const minutes = Math.floor(diff / (60 * 1000));
+  const hours = Math.floor(diff / (60 * 60 * 1000));
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+
+  if (hours === 0) return `${minutes}m`;
+  if (days === 0) return `${hours}h`;
+  const remainingHours = hours % 24;
+  return remainingHours === 0 ? `${days}d` : `${days}d ${remainingHours}h`;
+}

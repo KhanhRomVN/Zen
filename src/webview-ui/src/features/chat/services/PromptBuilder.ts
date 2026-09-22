@@ -1,10 +1,7 @@
-import {
-  getDefaultPrompt,
-  combinePrompts,
-  combinePromptsForMode,
-} from "../prompts";
+import { combinePromptsForMode } from "../prompts";
 import type { SystemPromptMode, PromptLengthMode } from "../prompts";
 import { extensionService } from "@/services/ExtensionService";
+import { listInstalledSkills } from "@/features/marketplace/services/skillInstall.service";
 
 export interface PromptBuilderOptions {
   content: string;
@@ -17,6 +14,8 @@ export interface PromptBuilderOptions {
   userRequestCount: number;
   systemPromptMode?: SystemPromptMode;
   promptLengthMode?: PromptLengthMode;
+  /** Đính kèm danh sách SKILL đã cài vào system-prompt (mặc định: tắt) */
+  useSkillEnabled?: boolean;
 }
 
 export class PromptBuilder {
@@ -32,6 +31,7 @@ export class PromptBuilder {
       userRequestCount,
       systemPromptMode,
       promptLengthMode,
+      useSkillEnabled,
     } = options;
 
     let systemPrompt = "";
@@ -45,6 +45,7 @@ export class PromptBuilder {
         treeView,
         systemPromptMode,
         promptLengthMode,
+        useSkillEnabled,
       );
     }
 
@@ -87,6 +88,7 @@ export class PromptBuilder {
     treeView: string,
     systemPromptMode?: SystemPromptMode,
     promptLengthMode?: PromptLengthMode,
+    useSkillEnabled?: boolean,
   ): Promise<string> {
     let systemInfo = {
       os: "Unknown OS",
@@ -126,7 +128,34 @@ export class PromptBuilder {
       mode,
     );
 
-    return systemPrompt;
+    if (!useSkillEnabled) return systemPrompt;
+
+    const skillsSection = await this.buildSkillsSection(systemInfo.homeDir);
+    return `${systemPrompt}${skillsSection}`;
+  }
+
+  /**
+   * Tạo section "Available Skills" từ các skill đã cài trong ~/.khanhromvn-zen/skills.
+   * Trả về chuỗi rỗng nếu chưa cài skill nào hoặc đọc danh sách thất bại.
+   */
+  private static async buildSkillsSection(homeDir: string): Promise<string> {
+    try {
+      const skills = (await listInstalledSkills()).filter((s) => !!s.slug);
+      if (skills.length === 0) return "";
+
+      const lines = skills.map((s) => {
+        const desc = (s.description || "").replace(/\s+/g, " ").trim();
+        const shortDesc = desc.length > 200 ? `${desc.slice(0, 200)}…` : desc;
+        // Cùng quy tắc chuẩn hoá tên file với SkillInstallHandler.slugToFile
+        const safeSlug = (s.slug as string).replace(/[^a-zA-Z0-9._-]/g, "_");
+        return `- **${s.name}**: ${shortDesc} (file: ${homeDir}/.khanhromvn-zen/skills/${safeSlug}.json)`;
+      });
+
+      return `\n\n## Available Skills\nInstalled skills you can use. When a task matches a skill's description, read its file for the full instructions before acting.\n${lines.join("\n")}`;
+    } catch (e) {
+      console.warn("[PromptBuilder] Failed to load installed skills:", e);
+      return "";
+    }
   }
 
   private static async buildAttachedContext(files: any[]): Promise<string> {
@@ -136,7 +165,8 @@ export class PromptBuilder {
         f.id?.startsWith("rule-") ||
         f.id?.startsWith("terminal-") ||
         f.id?.startsWith("snippet-") || // 🚀 NEW: Support text snippets
-        f.id?.startsWith("external-"), // 🚀 NEW: Support external files
+        f.id?.startsWith("external-") || // 🚀 NEW: Support external files
+        f.type === "rule",
     );
 
     if (attachedItems.length === 0) return "";
@@ -153,6 +183,7 @@ export class PromptBuilder {
     const externalItems = attachedItems.filter(
       (f: any) => f.type === "external",
     ); // 🚀 NEW
+    const ruleItems = attachedItems.filter((f: any) => f.type === "rule");
 
     if (fileItems.length > 0) {
       attachedContextStr += "\n### Files\n";
@@ -182,6 +213,12 @@ export class PromptBuilder {
       externalItems.forEach((f: any) => {
         attachedContextStr += `#### ${f.path}\n\`\`\`\n${f.content || ""}\n\`\`\`\n`;
       });
+    }
+
+    // Rule do người dùng chọn đính kèm — phải tuân theo trong suốt phiên làm việc.
+    if (ruleItems.length > 0) {
+      attachedContextStr += "\n### Rule\n";
+      attachedContextStr += `You must strictly follow this rule (\"${ruleItems[0].path}\") for the rest of this conversation:\n\`\`\`\n${ruleItems[0].content || ""}\n\`\`\`\n`;
     }
 
     return attachedContextStr;

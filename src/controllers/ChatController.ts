@@ -53,6 +53,7 @@ import { GrepHandler } from "../handlers/tool/GrepHandler";
 import { SkillAPIHandler } from "../handlers/tool/SkillAPIHandler";
 import { SkillInstallHandler } from "../handlers/tool/SkillInstallHandler";
 import { SkillWorkspaceStateHandler } from "../handlers/tool/SkillWorkspaceStateHandler";
+import { RuleHandler } from "../handlers/tool/RuleHandler";
 
 // ── Managers ──
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -61,6 +62,9 @@ import { TerminalManager } from "../managers/TerminalManager";
 
 // ── Storage ──
 import { GlobalStorageManager } from "../storage/GlobalStorageManager";
+
+// ── Services ──
+import { FeatureSettingsService } from "../services/FeatureSettingsService";
 
 // ─── Class ──────────────────────────────────────────────────────────────
 export class ChatController {
@@ -99,6 +103,7 @@ export class ChatController {
   private skillAPIHandler: SkillAPIHandler;
   private skillInstallHandler: SkillInstallHandler;
   private skillWorkspaceStateHandler: SkillWorkspaceStateHandler;
+  private ruleHandler: RuleHandler;
 
   constructor(
     private storageManager: GlobalStorageManager | undefined,
@@ -152,6 +157,7 @@ export class ChatController {
     this.skillWorkspaceStateHandler = new SkillWorkspaceStateHandler(
       this.extContext,
     );
+    this.ruleHandler = new RuleHandler();
   }
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
@@ -406,6 +412,16 @@ export class ChatController {
             message,
             webviewView,
           );
+          break;
+        case "syncFeatureSettings":
+          FeatureSettingsService.getInstance().sync({
+            checkpointEnabled: message.checkpointEnabled,
+            diagnosticEnabled: message.diagnosticEnabled,
+          });
+          break;
+        case "listRules":
+        case "createRule":
+          await this.ruleHandler.handleRuleOperation(message, webviewView);
           break;
       }
     } catch (error) {

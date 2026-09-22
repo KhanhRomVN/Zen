@@ -17,6 +17,7 @@ import * as vscode from "vscode";
 
 // ── Services ──
 import { LoggerService } from "./LoggerService";
+import { FeatureSettingsService } from "./FeatureSettingsService";
 
 // ─── Class ──────────────────────────────────────────────────────────────
 export class DiagnosticsService {
@@ -278,6 +279,13 @@ export class DiagnosticsService {
     needsManualCheck?: boolean;
   }> {
     const logger = LoggerService.getInstance();
+
+    if (!FeatureSettingsService.getInstance().diagnosticEnabled) {
+      return {
+        diagnostics: [],
+        skippedReason: "Diagnostics đã bị tắt trong Settings.",
+      };
+    }
 
     if (this.isNonCodeFile(pathValue)) {
       return { diagnostics: [] };

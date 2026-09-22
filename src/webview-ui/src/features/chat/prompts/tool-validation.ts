@@ -16,7 +16,10 @@ The following XML tags are the ONLY valid tool tags. Using any other tag names w
 - \`<git_status>\` - Check git status
 - \`<git_diff>\` - Show git diff
 - \`<commit_message>\` - Generate commit message
-
+- \`<search_skill>\` - Search skills on mcp.directory by keyword
+- \`<list_skill>\` - List locally installed skills
+- \`<read_skill>\` - Read a skill's full detail/content by slug
+- \`<install_skill>\` - Install a skill locally by slug
 **Response Tags (NOT tools):**
 - \`<conversation_title>\` - Set/update conversation title. **Required: call it in your first response, and call it again whenever the current task/goal changes from the previous conversation title. Do NOT treat this as a one-time action — always refresh the title when the conversation shifts to a new task.** Keep the title short (max ~80 chars), written in the user's language.
 - \`<markdown>\` - Text responses to user
