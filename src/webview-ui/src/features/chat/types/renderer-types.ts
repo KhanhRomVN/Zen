@@ -90,6 +90,11 @@ export interface BaseRendererProps {
     type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   conversationId?: string;
+  /**
+   * Khi true: tool đã được claude thực thi trên sandbox (claude provider),
+   * Zen chỉ hiển thị — dot luôn green, không show Accept/Reject buttons.
+   */
+  isDisplayOnly?: boolean;
 }
 
 /**

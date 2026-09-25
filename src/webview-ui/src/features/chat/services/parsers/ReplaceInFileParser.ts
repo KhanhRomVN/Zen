@@ -4,7 +4,11 @@ export interface ReplaceInFileParams {
   file_path: string;
   old_content: string;
   new_content: string;
-  _validationError?: string; // Internal flag for validation errors
+  _validationError?: string;
+  /** Tên tool gốc của claude trước khi convert (vd: "str_replace") */
+  original_tool_name?: string;
+  /** Sandbox path gốc của claude trước khi map về workspace */
+  original_path?: string;
 }
 
 /**
@@ -41,6 +45,8 @@ export const parseReplaceInFile = (
   let filePath = extractParamValue(innerContent, "file_path");
   let oldContent = extractParamValue(innerContent, "old_content");
   let newContent = extractParamValue(innerContent, "new_content");
+  const originalToolName = extractParamValue(innerContent, "original_tool_name") || undefined;
+  const originalPath = extractParamValue(innerContent, "original_path") || undefined;
 
   // Fallback: Try alternative tag names if standard ones don't work
   if (!filePath) {
@@ -141,5 +147,7 @@ export const parseReplaceInFile = (
     file_path: filePath || "",
     old_content: oldContent || "",
     new_content: newContent || "",
+    original_tool_name: originalToolName,
+    original_path: originalPath,
   };
 };

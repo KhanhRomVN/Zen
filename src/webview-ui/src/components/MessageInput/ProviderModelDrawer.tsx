@@ -105,6 +105,7 @@ interface ProviderModelDrawerProps {
     modelId: string;
     accountId?: string;
     email?: string;
+    accountProviderId?: string;
   }) => void;
 }
 
@@ -1148,11 +1149,31 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                   // Model base (không có effort suffix)
                                   const baseModel = { ...model, id: baseId, provider_id: provider.provider_id };
 
-                                  if (uniqueEfforts.length > 0) {
-                                    // Model có effort → đi qua step chọn effort
+                                  if (uniqueEfforts.length > 1) {
+                                    // Model có nhiều effort → đi qua step chọn effort
                                     setSelectedModel(baseModel);
                                     setEffortOptions(uniqueEfforts);
                                     setStep("effort");
+                                  } else if (uniqueEfforts.length === 1) {
+                                    // Model chỉ có 1 effort duy nhất → auto-apply effort,
+                                    // bỏ qua effortCard (không cần user chọn khi chỉ có 1 option).
+                                    const autoEffort = uniqueEfforts[0];
+                                    const autoModelId = `${baseId}-${autoEffort}`;
+                                    if (needsAuth) {
+                                      setSelectedModel({
+                                        ...model,
+                                        id: autoModelId,
+                                        provider_id: provider.provider_id,
+                                      });
+                                      setEffortOptions([]);
+                                      setStep("account");
+                                    } else {
+                                      onSelect({
+                                        providerId: provider.provider_id,
+                                        modelId: autoModelId,
+                                      });
+                                      onClose();
+                                    }
                                   } else if (needsAuth) {
                                     // Không có effort, cần auth → chọn account
                                     setSelectedModel({ ...model, provider_id: provider.provider_id });
@@ -1571,6 +1592,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                           modelId: selectedModel.id,
                           accountId: acc.id,
                           email: acc.email,
+                          accountProviderId: acc.provider_id,
                         });
                         onClose();
                       }}

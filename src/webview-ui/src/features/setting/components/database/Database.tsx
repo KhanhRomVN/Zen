@@ -6,21 +6,24 @@
  * (local-file/connection), click card để chọn database active cho
  * workspace hiện tại. Thêm/sửa thông qua DatabaseManagerDrawer.
  * Tab này độc lập hoàn toàn với tab General.
+ *
+ * Status hiển thị được lấy từ `last_test_status` (do AIWeb2API connect
+ * toàn bộ DB khi khởi động) — không cần chạy health check khi mở tab.
  * ------------------------------------------------------------------
  */
 
 import React from "react";
-import { Database, Plus, Plug, Loader2 } from "lucide-react";
-import { useSettings } from "../../../context/SettingsContext";
-import { extensionService } from "../../../services/ExtensionService";
-import { useDbFetch } from "../../../services/useDbFetch";
+import { Database, Plus } from "lucide-react";
+import { useSettings } from "../../../../context/SettingsContext";
+import { extensionService } from "../../../../services/ExtensionService";
+import { useDbFetch } from "../../../../services/useDbFetch";
 import GroupSection from "./GroupSection";
 import DatabaseManagerCard, {
-  DatabaseManagerRow,
-  DbStatus,
+  type DatabaseManagerRow,
+  type DbStatus,
 } from "./DatabaseManagerCard";
 import DatabaseManagerDrawer, {
-  DatabaseManagerPayload,
+  type DatabaseManagerPayload,
 } from "./DatabaseManagerDrawer";
 
 /**
@@ -96,8 +99,9 @@ const runCheck = async (
 
 /**
  * Tab Database Managers: fetch list từ backend, hiển thị card, cho phép
- * chọn active/thêm/sửa/xóa. Tự kiểm tra trạng thái tất cả connection khi
- * mở tab và khi bấm "Check all".
+ * chọn active/thêm/sửa/xóa. Status được lấy từ last_test_status do
+ * AIWeb2API đã connect toàn bộ DB khi khởi động — không cần check lại khi
+ * mở tab.
  */
 const DatabaseSettings: React.FC = () => {
   const { apiUrl, activeDatabaseManagerId, setActiveDatabaseManagerId } =
@@ -121,56 +125,62 @@ const DatabaseSettings: React.FC = () => {
     setStatuses((prev) => ({ ...prev, [m.id]: result }));
   }, []);
 
-  const load = React.useCallback(
-    (testAfter: boolean) => {
-      if (!apiUrl) return;
-      setLoading(true);
-      const headers: Record<string, string> = {};
-      if (activeDatabaseManagerId)
-        headers["x-database-manager-id"] = activeDatabaseManagerId;
-      fetch(`${apiUrl}/v1/database-managers`, { headers })
-        .then((r) => r.json())
-        .then((res) => {
-          if (res?.success && Array.isArray(res.data)) {
-            const rows: DatabaseManagerRow[] = res.data;
-            setManagers(rows);
-            setLoaded(true);
-            // Chỉ manager được backend route thực sự (xem middleware
-            // database-context để biết engine nào hỗ trợ).
-            const routableRows = rows.filter(isRoutable);
-            // Auto-select database đầu tiên nếu chưa có lựa chọn hoặc ID hiện tại
-            // không còn routable (VD: đang trỏ tới connection type đã bị chặn).
-            if (routableRows.length > 0) {
-              const stillRoutable = routableRows.some(
-                (m) => m.id === activeDatabaseManagerId,
-              );
-              if (!activeDatabaseManagerId || !stillRoutable) {
-                setActiveDatabaseManagerId(routableRows[0].id);
+  const load = React.useCallback(() => {
+    if (!apiUrl) return;
+    setLoading(true);
+    const headers: Record<string, string> = {};
+    if (activeDatabaseManagerId)
+      headers["x-database-manager-id"] = activeDatabaseManagerId;
+    fetch(`${apiUrl}/v1/database-managers`, { headers })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.success && Array.isArray(res.data)) {
+          const rows: DatabaseManagerRow[] = res.data;
+          setManagers(rows);
+          setLoaded(true);
+          // Ánh xạ last_test_status → DbStatus để hiển thị ngay, không cần
+          // chạy lại health check (AIWeb2API đã connect DB khi khởi động).
+          setStatuses((prev) => {
+            const next = { ...prev };
+            rows.forEach((row) => {
+              if (!(row.id in next)) {
+                const s = row.last_test_status;
+                next[row.id] =
+                  s === "success"
+                    ? { state: "ok" }
+                    : s === "error"
+                      ? { state: "error", message: "Last test failed" }
+                      : { state: "idle" };
               }
+            });
+            return next;
+          });
+          // Chỉ manager được backend route thực sự (xem middleware
+          // database-context để biết engine nào hỗ trợ).
+          const routableRows = rows.filter(isRoutable);
+          // Auto-select database đầu tiên nếu chưa có lựa chọn hoặc ID hiện tại
+          // không còn routable (VD: đang trỏ tới connection type đã bị chặn).
+          if (routableRows.length > 0) {
+            const stillRoutable = routableRows.some(
+              (m) => m.id === activeDatabaseManagerId,
+            );
+            if (!activeDatabaseManagerId || !stillRoutable) {
+              setActiveDatabaseManagerId(routableRows[0].id);
             }
-            if (testAfter) rows.forEach((row) => void checkOne(row));
           }
-        })
-        .catch(() => {
-          /* backend chưa sẵn sàng — giữ list cũ */
-        })
-        .finally(() => setLoading(false));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    },
-    [apiUrl],
-  );
+        }
+      })
+      .catch(() => {
+        /* backend chưa sẵn sàng — giữ list cũ */
+      })
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]);
 
   React.useEffect(() => {
-    load(true);
+    load();
   }, [load]);
 
-  const checkAll = () => managers.forEach((m) => void checkOne(m));
-  const anyChecking = managers.some(
-    (m) => statuses[m.id]?.state === "checking",
-  );
-  const activeCount = managers.some((m) => m.id === activeDatabaseManagerId)
-    ? 1
-    : 0;
   const openCreate = () => setDrawer({ open: true, initial: null });
 
   return (
@@ -203,60 +213,6 @@ const DatabaseSettings: React.FC = () => {
           </button>
         }
       >
-        {/* Toolbar: đếm + kiểm tra tất cả */}
-        {managers.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "8px",
-            }}
-          >
-            <span
-              style={{
-                fontSize: "11.5px",
-                color: "var(--secondary-text)",
-                opacity: 0.8,
-              }}
-            >
-              {managers.length}{" "}
-              {managers.length === 1 ? "connection" : "connections"} ·{" "}
-              {activeCount} active
-            </span>
-            <button
-              type="button"
-              onClick={checkAll}
-              disabled={anyChecking}
-              style={{
-                height: "26px",
-                padding: "0 9px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "11.5px",
-                fontWeight: 500,
-                border: "none",
-                borderRadius: "8px",
-                backgroundColor: "var(--input-bg)",
-                color: "var(--primary-text)",
-                cursor: anyChecking ? "wait" : "pointer",
-                opacity: anyChecking ? 0.7 : 1,
-              }}
-            >
-              {anyChecking ? (
-                <Loader2
-                  size={12}
-                  style={{ animation: "dbSpin 1s linear infinite" }}
-                />
-              ) : (
-                <Plug size={12} />
-              )}
-              Check all
-            </button>
-          </div>
-        )}
-
         {/* Danh sách card */}
         {managers.length > 0 && (
           <div
@@ -279,7 +235,7 @@ const DatabaseSettings: React.FC = () => {
                   })
                 }
                 onTest={(row) => void checkOne(row)}
-                onChanged={() => load(false)}
+                onChanged={() => load()}
               />
             ))}
           </div>
@@ -362,7 +318,7 @@ const DatabaseSettings: React.FC = () => {
         open={drawer.open}
         initial={drawer.initial}
         onOpenChange={(open) => setDrawer((d) => ({ ...d, open }))}
-        onSaved={() => load(true)}
+        onSaved={() => load()}
       />
     </>
   );

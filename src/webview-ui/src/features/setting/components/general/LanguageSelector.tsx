@@ -15,7 +15,7 @@
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ──
 import React, { useState, useEffect, useRef } from "react";
-import { getCountryFlagEmoji } from "../../../utils/countryFlags";
+import { getCountryFlagEmoji } from "../../../../utils/countryFlags";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface LanguageSelectorProps {

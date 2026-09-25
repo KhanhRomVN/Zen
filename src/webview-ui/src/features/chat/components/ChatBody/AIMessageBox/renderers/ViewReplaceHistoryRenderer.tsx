@@ -24,6 +24,7 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
   messageId,
   isLastItemInList,
   toolOutputs,
+  isDisplayOnly = false,
 }) => {
   const actionId = `${messageId}-action-${actionIndex}`;
   const [isExpanded, setIsExpanded] = useState(false);
@@ -55,7 +56,7 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
   // Determine color based on status
   const historyColor = isError
     ? "var(--vscode-errorForeground, #ff4d4d)"
-    : isCompleted
+    : (isDisplayOnly || isCompleted)
       ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
       : "var(--vscode-textLink-foreground, #9370db)";
 

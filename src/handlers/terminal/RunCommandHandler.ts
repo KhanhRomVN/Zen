@@ -13,6 +13,7 @@
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── Node ──
 import * as os from "os";
+import * as path from "path";
 
 // ── VSCode ──
 import * as vscode from "vscode";
@@ -41,7 +42,7 @@ export class RunCommandHandler {
         if (isAbsolute) {
           cwd = message.folderPath;
         } else {
-          cwd = `${workspacePath}/${message.folderPath}`;
+          cwd = path.join(workspacePath, message.folderPath);
         }
       }
 

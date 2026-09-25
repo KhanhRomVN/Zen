@@ -8,6 +8,8 @@ const DEBUG_PARSER =
 export interface WriteToFileParams {
   file_path: string;
   content: string;
+  /** Tên tool gốc trước khi convert (vd: "create_file" từ Claude) — dùng cho result string */
+  original_tool_name?: string;
 }
 
 /**
@@ -43,6 +45,9 @@ export const parseWriteToFile = (
   // Parse according to tools-reference.ts schema: file_path and content
   const filePath = extractParamValue(innerContent, "file_path");
   const content = extractParamValue(innerContent, "content");
+  // Optional: original tool name emitted by ClaudeContentProcessor when converting
+  // e.g. create_file → write_to_file
+  const originalToolName = extractParamValue(innerContent, "original_tool_name") || undefined;
 
   // Check for missing closing tags with specific error messages
   const missingClosingTags: string[] = [];
@@ -71,6 +76,7 @@ export const parseWriteToFile = (
     return {
       file_path: filePath || "",
       content: content || "",
+      original_tool_name: originalToolName,
       isError: true,
       errorMessage: `Missing closing tag(s): ${missingClosingTags.map(tag => `</${tag}>`).join(", ")}`,
     };
@@ -95,6 +101,7 @@ export const parseWriteToFile = (
     return {
       file_path: filePath || "",
       content: content || "",
+      original_tool_name: originalToolName,
       isError: true,
       errorMessage: `Missing required parameter(s): ${missingParams.join(", ")}`,
     };
@@ -103,5 +110,6 @@ export const parseWriteToFile = (
   return {
     file_path: filePath || "",
     content: content || "",
+    original_tool_name: originalToolName,
   };
 };

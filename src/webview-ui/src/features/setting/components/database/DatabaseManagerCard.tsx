@@ -30,14 +30,16 @@ import {
   DropdownTrigger,
   DropdownContent,
   DropdownItem,
-} from "../../../components/ui/Dropdown";
-import { useDbFetch } from "../../../services/useDbFetch";
-import { extensionService } from "../../../services/ExtensionService";
+} from "../../../../components/ui/Dropdown";
+import { useDbFetch } from "../../../../services/useDbFetch";
+import { extensionService } from "../../../../services/ExtensionService";
 import type { DatabaseManagerPayload, DbType } from "./DatabaseManagerDrawer";
 import ConfirmDeleteDatabaseManagerDrawer from "./ConfirmDeleteDatabaseManagerDrawer";
 
-export interface DatabaseManagerRow
-  extends Omit<DatabaseManagerPayload, "icon" | "color"> {
+export interface DatabaseManagerRow extends Omit<
+  DatabaseManagerPayload,
+  "icon" | "color"
+> {
   id: string;
   icon: string | null;
   color: string | null;
@@ -473,7 +475,10 @@ const DatabaseManagerCard: React.FC<DatabaseManagerCardProps> = ({
           <span style={{ display: "none" }} />
         </DropdownTrigger>
         <DropdownContent>
-          <DropdownItem icon={<Plug size={14} />} onClick={() => onTest(manager)}>
+          <DropdownItem
+            icon={<Plug size={14} />}
+            onClick={() => onTest(manager)}
+          >
             Test connection
           </DropdownItem>
           {manager.type === "local-file" && manager.file_path && (

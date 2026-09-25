@@ -38,6 +38,7 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
   fileStatsMap,
   onToolClick,
   conversationId,
+  isDisplayOnly = false,
 }) => {
   const toolType = action.type;
   const actionId = `${messageId}-action-${actionIndex}`;
@@ -69,7 +70,7 @@ export const DeleteFileRenderer: React.FC<BaseRendererProps> = ({
 
   const statusColor = isError
     ? "var(--vscode-errorForeground, #f14c4c)"
-    : isCompleted
+    : (isDisplayOnly || isCompleted)
       ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
       : "var(--vscode-descriptionForeground)";
 

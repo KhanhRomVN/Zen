@@ -6,6 +6,7 @@ import RevertConfirmModal from "./RevertConfirmModal";
 interface UserMessageBoxProps {
   message: Message;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
+  onRegenerateRequest?: (messageId: string) => void;
 }
 
 /**
@@ -48,6 +49,7 @@ const parseQuestionAnswerFromContent = (
 const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   message,
   onRevertConversation,
+  onRegenerateRequest,
 }) => {
   const [showRevertModal, setShowRevertModal] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
@@ -93,7 +95,7 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   };
 
   const handleRegenerate = () => {
-    // TODO: Implement regenerate logic - resend this message
+    onRegenerateRequest?.(message.id);
   };
 
   return (

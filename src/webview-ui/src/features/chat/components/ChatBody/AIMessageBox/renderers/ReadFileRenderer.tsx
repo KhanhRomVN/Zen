@@ -39,6 +39,7 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
   onToolClick,
   conversationId,
   isRestored,
+  isDisplayOnly = false,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
   const [cachedDiagnostics, setCachedDiagnostics] = React.useState<
@@ -278,14 +279,14 @@ export const ReadFileRenderer: React.FC<BaseRendererProps> = ({
         statusColor={
           isError
             ? "var(--vscode-errorForeground)"
-            : isCompleted
+            : (isDisplayOnly || isCompleted)
               ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
               : isActiveGroup
                 ? "var(--vscode-descriptionForeground)"
                 : "var(--vscode-descriptionForeground)"
         }
         isError={isError}
-        isWaitingApproval={!!isActiveGroup && !isCompleted}
+        isWaitingApproval={!isDisplayOnly && !!isActiveGroup && !isCompleted}
         toolType="read_file"
         tooltipMeta={{
           lineRange: lineRangeText || undefined,

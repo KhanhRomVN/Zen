@@ -9,30 +9,56 @@ export const useFileUpload = (apiUrl: string) => {
    * Uploads an array of file objects to the backend.
    * Files that already have a `file_id` are passed through as-is.
    * Returns a list of file objects to include in the API request.
+   *
+   * @param conversationId - Bắt buộc với Claude provider.
+   *   Claude upload endpoint gắn file với conversation cụ thể —
+   *   nếu thiếu, file bị upload vào conversation ngẫu nhiên khác với
+   *   conversation dùng khi gửi message → lỗi "file not found".
+   *   Caller phải sinh UUID trước khi gọi uploadFiles và dùng lại
+   *   UUID đó làm conversationId khi gọi StreamingService.streamChat.
    */
   const uploadFiles = useCallback(
-    async (files: any[], accountId: string): Promise<Array<{ file_id: string; url: string; type?: string; name?: string; file_type?: string }>> => {
-      
-      const ref_file_ids: Array<{ file_id: string; url: string; type?: string; name?: string; file_type?: string }> = [];
+    async (
+      files: any[],
+      accountId: string,
+      conversationId?: string,
+    ): Promise<Array<{
+      file_id: string;
+      conversation_id?: string;
+      url: string;
+      type?: string;
+      name?: string;
+      file_type?: string;
+    }>> => {
+
+      const ref_file_ids: Array<{
+        file_id: string;
+        conversation_id?: string;
+        url: string;
+        type?: string;
+        name?: string;
+        file_type?: string;
+      }> = [];
 
       const localFiles = files.filter(
         (f: any) =>
           !f.id?.startsWith("attached-") &&
           !f.id?.startsWith("rule-") &&
           !f.id?.startsWith("terminal-") &&
-          !f.id?.startsWith("snippet-") && // 🚀 FIX: Don't upload text snippets
-          !f.id?.startsWith("external-"), // 🚀 FIX: Don't upload external files (content already in them)
+          !f.id?.startsWith("snippet-") &&
+          !f.id?.startsWith("external-"),
       );
 
-      for (const file of localFiles) {        
-        // Already uploaded — reuse existing file_id with url if available
+      for (const file of localFiles) {
+        // Already uploaded — reuse existing file_id
         if (file.file_id) {
           ref_file_ids.push({
             file_id: file.file_id,
-            url: file.url || '',
-            type: file.type?.startsWith('image/') ? 'image' : 'file',
+            conversation_id: file.conversation_id,
+            url: file.url || "",
+            type: file.type?.startsWith("image/") ? "image" : "file",
             name: file.name,
-            file_type: file.type
+            file_type: file.type,
           });
           continue;
         }
@@ -60,40 +86,49 @@ export const useFileUpload = (apiUrl: string) => {
 
           const formData = new FormData();
           formData.append("file", blob, file.name);
+          // Truyền conversationId để backend (Claude provider) upload file
+          // vào đúng conversation, tránh lỗi file not found khi gửi message.
+          if (conversationId) {
+            formData.append("conversationId", conversationId);
+          }
 
           const uploadUrl = `${apiUrl}/v1/uploads/accounts/${accountId}/uploads`;
-
-          const uploadRes = await fetch(uploadUrl, { 
-            method: "POST", 
-            body: formData 
+          const uploadRes = await fetch(uploadUrl, {
+            method: "POST",
+            body: formData,
           });
-
 
           if (!uploadRes.ok) {
             const errorText = await uploadRes.text();
-            console.error(`[Zen Upload] Upload failed | name=${file.name} | status=${uploadRes.status} | error=${errorText}`);
-            throw new Error(`Upload API returned status ${uploadRes.status}: ${errorText}`);
+            console.error(
+              `[Zen Upload] Upload failed | name=${file.name} | status=${uploadRes.status} | error=${errorText}`,
+            );
+            throw new Error(
+              `Upload API returned status ${uploadRes.status}: ${errorText}`,
+            );
           }
 
           const uploadData = await uploadRes.json();
-          if (uploadData.success && uploadData.data?.file_id && uploadData.data?.url) {
-            // Push object with file_id AND url
+          if (uploadData.success && uploadData.data?.file_id) {
             ref_file_ids.push({
               file_id: uploadData.data.file_id,
-              url: uploadData.data.url,
-              type: file.type?.startsWith('image/') ? 'image' : 'file',
+              conversation_id: uploadData.data.conversation_id,
+              url: uploadData.data.url || "",
+              type: file.type?.startsWith("image/") ? "image" : "file",
               name: uploadData.data.filename || file.name,
-              file_type: file.type
+              file_type: file.type,
             });
           } else {
-            const error = uploadData.error || "Upload response missing file_id or url";
-            console.error(`[Zen Upload] Upload response invalid | name=${file.name} | error=${error}`);
+            const error =
+              uploadData.error || "Upload response missing file_id";
+            console.error(
+              `[Zen Upload] Upload response invalid | name=${file.name} | error=${error}`,
+            );
             throw new Error(error);
           }
         } catch (err) {
           const errorMsg = `Failed to upload ${file.name}: ${err instanceof Error ? err.message : String(err)}`;
           console.error(`[Zen Upload] Upload exception | name=${file.name}`, err);
-          console.error(`[Zen Upload] Error stack | name=${file.name}`, err instanceof Error ? err.stack : 'No stack trace');
           throw new Error(errorMsg);
         }
       }

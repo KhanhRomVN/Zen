@@ -5,11 +5,17 @@ import {
   DropdownTrigger,
   DropdownContent,
 } from "../ui/Dropdown";
+import { Ban } from "lucide-react";
 
 interface PromptLengthDropdownProps {
   currentMode: PromptLengthMode;
   onSelect: (mode: PromptLengthMode) => void;
   triggerButton: React.ReactNode;
+  /**
+   * Khi true, chỉ "None" được phép chọn — short/medium/long bị disabled.
+   * Dùng khi provider có anti-system-prompt-injection.
+   */
+  isNoneOnly?: boolean;
 }
 
 /**
@@ -23,6 +29,8 @@ export const PROMPT_LENGTH_MODE_META: {
   barHeight: number;
   color: string;
   desc: string;
+  /** Nếu true, option này không gắn system prompt. */
+  isNoPrompt?: boolean;
 }[] = [
   {
     key: "none",
@@ -31,6 +39,7 @@ export const PROMPT_LENGTH_MODE_META: {
     barHeight: 4,
     color: "#64748b",
     desc: "No system prompt — only your message is sent",
+    isNoPrompt: true,
   },
   {
     key: "short",
@@ -107,6 +116,7 @@ const PromptLengthDropdown: React.FC<PromptLengthDropdownProps> = ({
   currentMode,
   onSelect,
   triggerButton,
+  isNoneOnly = false,
 }) => {
   const current =
     PROMPT_LENGTH_MODE_META.find((m) => m.key === currentMode) ??
@@ -120,11 +130,35 @@ const PromptLengthDropdown: React.FC<PromptLengthDropdownProps> = ({
           .zen-pl-step .zen-pl-bar {
             transition: background 0.15s ease, box-shadow 0.15s ease;
           }
-          .zen-pl-step:hover .zen-pl-bar {
+          .zen-pl-step:not(.zen-pl-disabled):hover .zen-pl-bar {
             background: rgba(128, 128, 128, 0.4);
           }
         `}</style>
         <div style={{ padding: "10px 12px 8px" }}>
+
+          {/* Banner khi isNoneOnly */}
+          {isNoneOnly && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize: "10.5px",
+                color: "#f59e0b",
+                lineHeight: 1.4,
+                marginBottom: "10px",
+                paddingBottom: "8px",
+                borderBottom:
+                  "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+              }}
+            >
+              <Ban size={11} style={{ flexShrink: 0 }} />
+              <span>
+                This provider injects its own prompt — only None is available.
+              </span>
+            </div>
+          )}
+
           {/* Header: label + value pill */}
           <div
             style={{
@@ -174,19 +208,29 @@ const PromptLengthDropdown: React.FC<PromptLengthDropdownProps> = ({
           >
             {PROMPT_LENGTH_MODE_META.map((meta) => {
               const isSelected = currentMode === meta.key;
+              const isDisabled = isNoneOnly && !meta.isNoPrompt;
+
               return (
                 <div
                   key={meta.key}
-                  className={`zen-pl-step${isSelected ? " zen-pl-selected" : ""}`}
-                  onClick={() => onSelect(meta.key)}
-                  title={meta.desc}
+                  className={`zen-pl-step${isSelected ? " zen-pl-selected" : ""}${isDisabled ? " zen-pl-disabled" : ""}`}
+                  onClick={() => {
+                    if (!isDisabled) onSelect(meta.key);
+                  }}
+                  title={
+                    isDisabled
+                      ? "Unavailable — provider uses its own system prompt"
+                      : meta.desc
+                  }
                   style={{
                     flex: 1,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     gap: "6px",
-                    cursor: "pointer",
+                    cursor: isDisabled ? "not-allowed" : "pointer",
+                    opacity: isDisabled ? 0.3 : 1,
+                    transition: "opacity 0.15s ease",
                   }}
                 >
                   <div
@@ -195,8 +239,10 @@ const PromptLengthDropdown: React.FC<PromptLengthDropdownProps> = ({
                       width: "100%",
                       height: `${meta.barHeight}px`,
                       borderRadius: "3px 3px 1px 1px",
-                      background: isSelected ? meta.color : undefined,
-                      boxShadow: isSelected
+                      background: isSelected && !isDisabled
+                        ? meta.color
+                        : undefined,
+                      boxShadow: isSelected && !isDisabled
                         ? `0 0 0 1px color-mix(in srgb, ${meta.color} 50%, transparent)`
                         : undefined,
                     }}
@@ -205,7 +251,7 @@ const PromptLengthDropdown: React.FC<PromptLengthDropdownProps> = ({
                     style={{
                       fontSize: "9.5px",
                       fontWeight: 600,
-                      color: isSelected
+                      color: isSelected && !isDisabled
                         ? meta.color
                         : "var(--secondary-text)",
                       lineHeight: 1,

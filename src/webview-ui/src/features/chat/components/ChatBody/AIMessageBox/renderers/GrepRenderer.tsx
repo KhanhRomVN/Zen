@@ -35,6 +35,7 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
   allMessages,
   onToolClick,
   conversationId,
+  isDisplayOnly = false,
 }) => {
   const [isGrepCollapsed, setIsGrepCollapsed] = React.useState(true);
   const actionId = `${messageId}-action-${actionIndex}`;
@@ -234,14 +235,14 @@ export const GrepRenderer: React.FC<BaseRendererProps> = ({
         statusColor={
           isError
             ? "var(--vscode-errorForeground)"
-            : grepCompleted
+            : (isDisplayOnly || grepCompleted)
               ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
               : isActiveGroup
                 ? "var(--vscode-descriptionForeground)"
                 : "var(--vscode-descriptionForeground)"
         }
         isError={isError}
-        isWaitingApproval={!!isActiveGroup && !grepCompleted}
+        isWaitingApproval={!isDisplayOnly && !!isActiveGroup && !grepCompleted}
         toolType="grep"
         path={(() => {
           const folderPath =

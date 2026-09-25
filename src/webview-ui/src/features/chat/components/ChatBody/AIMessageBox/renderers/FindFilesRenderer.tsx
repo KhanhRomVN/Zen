@@ -35,6 +35,7 @@ export const FindFilesRenderer: React.FC<BaseRendererProps> = ({
   allMessages,
   onToolClick,
   conversationId,
+  isDisplayOnly = false,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(true);
 
@@ -151,14 +152,14 @@ export const FindFilesRenderer: React.FC<BaseRendererProps> = ({
         statusColor={
           isError
             ? "var(--vscode-errorForeground)"
-            : isCompleted
+            : (isDisplayOnly || isCompleted)
               ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
               : isActiveGroup
                 ? "var(--vscode-descriptionForeground)"
                 : "var(--vscode-descriptionForeground)"
         }
         isError={isError}
-        isWaitingApproval={!!isActiveGroup && !isCompleted}
+        isWaitingApproval={!isDisplayOnly && !!isActiveGroup && !isCompleted}
         toolType="find_files"
         isPartial={isPartial}
       />

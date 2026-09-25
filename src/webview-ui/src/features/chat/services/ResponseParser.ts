@@ -593,6 +593,13 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
             case "write_to_file": {
               const params = parseWriteToFile(innerContent || "");
+              console.log("[ResponseParser] write_to_file parsed:", {
+                file_path: params.file_path,
+                content_length: params.content?.length || 0,
+                original_tool_name: params.original_tool_name,
+                isError: (params as any).isError,
+                errorMessage: (params as any).errorMessage,
+              });
               // Validation moved to post-stream processing in useChatLLM
               action = { type: "write_to_file" as const, params, rawXml };
               break;

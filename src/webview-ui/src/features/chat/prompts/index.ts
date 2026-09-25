@@ -8,6 +8,9 @@ export { buildSystemContext } from "./system-context";
 export type { SystemInfo } from "./system-context";
 export { buildConstraints } from "./constraints";
 export { TOOL_VALIDATION } from "./tool-validation";
+// EXAMPLE used to be a plain constant; it is now mode-aware (see example.ts)
+// so it is exported as a builder function instead.
+export { buildExample } from "./example";
 export { buildPromptForMode } from "./prompt-modes";
 export type {
   SystemPromptMode,

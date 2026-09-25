@@ -3,6 +3,7 @@ import { MODE_BEHAVIORS } from "./mode-config";
 
 export const buildConstraints = (
   mode: SystemPromptMode = "balanced",
+  language: string = "English",
 ): string => {
   const behavior = MODE_BEHAVIORS[mode];
 
@@ -56,6 +57,19 @@ export const buildConstraints = (
     }
   })();
 
+  // Consolidated here from identity.ts (see note in identity.ts) so
+  // mode-dependent behavior text lives in exactly one place.
+  const explanationSection = (() => {
+    switch (behavior.explanationLevel) {
+      case "one-line":
+        return `- **EXPLANATION-LEVEL**: After completing code changes, give a ONE-sentence summary of what was done. Do NOT explain the reasoning, trade-offs, or alternatives.`;
+      case "brief":
+        return `- **EXPLANATION-LEVEL**: After completing code changes, give 2-3 sentences: what was done + why this approach was chosen.`;
+      case "detailed":
+        return `- **EXPLANATION-LEVEL**: After completing code changes, give a thorough explanation: what was done, why this approach, trade-offs considered, and remaining risks or follow-ups.`;
+    }
+  })();
+
   return `# CONSTRAINTS
 - **READ-BEFORE-EDIT**: read_file turn 1 → STOP. replace_in_file/write_to_file turn 2. Do not write or assume the outcome of a read/search call in the same turn.
 - **NO-PREDICTING-RESULTS**: Never assume, predict, or fake tool results. You must output the tool call, STOP, and wait for the actual results before making any decisions or invoking subsequent dependent tools.
@@ -65,6 +79,8 @@ export const buildConstraints = (
 - **MAX-2-SEARCH**: 2 failed searches → ask user, do not guess.
 - **GITIGNORE**: Ignored path → tell user, ask before accessing.
 - **RUNTIME-VERIFY**: After fixing runtime/IPC/UI bugs, ask user to test. Never self-declare "fixed".
+- **CONTRADICTION-CLARIFY**: If a result from EXPLORE, READ, or a run_command reveals information that contradicts the current plan, exposes multiple valid interpretations of the original request, or expands the scope beyond what was originally asked → STOP before EXECUTE and raise it via <question>. Do not silently reinterpret the request or adjust the plan without surfacing the contradiction first.
+- **PARTIAL-ANSWER-FOLLOWUP**: If the user's reply to a <question> block only answers some of the <q> items, do not assume or default the unanswered ones. Re-ask only the unanswered <q> items in a new <question> block before proceeding with any part of the plan that depends on them.
 ${testSection}
 - **SECRET-REDACT**: When read_file returns content likely to contain secrets (.env, credentials, keys, tokens), redact sensitive values before quoting back to the user.
 - **PATTERN-REUSE**: Before fixing a bug, check if the same pattern exists elsewhere. If yes, copy it exactly.
@@ -88,9 +104,10 @@ ${askSection}
 - **ROOT-CAUSE-FIX**: A bug report names a symptom. Grep every caller. Fix the shared function once.
 - **DELIBERATE-SIMPLIFICATION**: When making a simplification with a known ceiling, mark it: \`// <ceiling> — upgrade path: <how to fix>\`.
 ${commentSection}
-## Vietnamese Response Rules
-- **VI-LANGUAGE**: All <markdown> responses must be written in Vietnamese. Code, identifiers, error messages stay in original language.
-- **VI-NO-FULL-FILE-BY-DEFAULT**: Show only 5-15 lines of context around changes, labeled with line range and enclosing function/class name. Show both "Code cũ" and "Code mới".
-- **VI-DEBUG-TEMPLATE**: Use clearly marked, removable debug-log style with [DEBUG] tag. Ask user to test afterward.
-- **VI-RESPONSE-STRUCTURE**: Structure as: (a) brief restatement, (b) approach + solution + key changes, (c) recommendations. Keep lightweight for small fixes.`;
+## Response Language Rules
+- **RESPONSE-LANGUAGE**: All <markdown> responses must be written in ${language}. Code, identifiers, and error messages stay in their original language — never translate code itself.
+- **NO-FULL-FILE-BY-DEFAULT**: For code changes, show only 5-15 lines of context around the change, labeled with the line range and enclosing function/class name. Show both a "before" block and an "after" block (label them in ${language}, e.g. the equivalent of "Old code" / "New code").
+- **DEBUG-TEMPLATE**: When adding temporary debug output, use a clearly marked, removable debug-log style with a \`[DEBUG]\` tag, and ask the user to test afterward.
+${explanationSection}
+- **RESPONSE-STRUCTURE**: Structure the response as: (a) a brief restatement of the task, (b) approach + solution + key changes, (c) recommendations. Keep it lightweight for small fixes — don't force all three parts for a one-line change.`;
 };

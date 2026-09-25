@@ -21,10 +21,10 @@ import React, { useState } from "react";
 import { SlidersHorizontal, Database, Sparkles, Info } from "lucide-react";
 
 // ── Components ──
-import GeneralSettings from "./components/General";
-import DatabaseSettings from "./components/Database";
-import FeatureSettings from "./components/Feature";
-import AboutSettings from "./components/About";
+import GeneralSettings from "./components/general/General";
+import DatabaseSettings from "./components/database/Database";
+import FeatureSettings from "./components/feature/Feature";
+import AboutSettings from "./components/about/About";
 
 // ─── Tabs ───────────────────────────────────────────────────────────────
 /** Danh sách tab Settings: mỗi tab có icon và màu nhận diện riêng. */

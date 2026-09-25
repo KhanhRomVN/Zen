@@ -1,5 +1,6 @@
 import { combinePromptsForMode } from "../prompts";
 import type { SystemPromptMode, PromptLengthMode } from "../prompts";
+import { buildClaudePrompt } from "../prompts/claude-system-prompt";
 import { extensionService } from "@/services/ExtensionService";
 import { listInstalledSkills } from "@/features/marketplace/services/skillInstall.service";
 
@@ -16,6 +17,8 @@ export interface PromptBuilderOptions {
   promptLengthMode?: PromptLengthMode;
   /** Đính kèm danh sách SKILL đã cài vào system-prompt (mặc định: tắt) */
   useSkillEnabled?: boolean;
+  /** Provider ID của model đang dùng — nếu "claude" thì dùng claude-system-prompt */
+  providerId?: string;
 }
 
 export class PromptBuilder {
@@ -32,6 +35,7 @@ export class PromptBuilder {
       systemPromptMode,
       promptLengthMode,
       useSkillEnabled,
+      providerId,
     } = options;
 
     let systemPrompt = "";
@@ -46,6 +50,7 @@ export class PromptBuilder {
         systemPromptMode,
         promptLengthMode,
         useSkillEnabled,
+        providerId,
       );
     }
 
@@ -89,6 +94,7 @@ export class PromptBuilder {
     systemPromptMode?: SystemPromptMode,
     promptLengthMode?: PromptLengthMode,
     useSkillEnabled?: boolean,
+    providerId?: string,
   ): Promise<string> {
     let systemInfo = {
       os: "Unknown OS",
@@ -115,6 +121,17 @@ export class PromptBuilder {
     }
 
     const effectiveLang = aiLanguage;
+
+    // Provider claude → dùng claude-system-prompt riêng
+    if (providerId === "claude") {
+      const claudePrompt = buildClaudePrompt({
+        language: effectiveLang,
+      });
+      if (!useSkillEnabled) return claudePrompt;
+      const skillsSection = await this.buildSkillsSection(systemInfo.homeDir);
+      return `${claudePrompt}${skillsSection}`;
+    }
+
     const mode: SystemPromptMode = systemPromptMode || "balanced";
 
     // Use combinePromptsForMode to support simple/medium/promax modes.

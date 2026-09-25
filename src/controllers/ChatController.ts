@@ -54,6 +54,7 @@ import { SkillAPIHandler } from "../handlers/tool/SkillAPIHandler";
 import { SkillInstallHandler } from "../handlers/tool/SkillInstallHandler";
 import { SkillWorkspaceStateHandler } from "../handlers/tool/SkillWorkspaceStateHandler";
 import { RuleHandler } from "../handlers/tool/RuleHandler";
+import { WorkspaceZipHandler } from "../handlers/system/WorkspaceZipHandler";
 
 // ── Managers ──
 import { CheckpointManager } from "../managers/CheckpointManager";
@@ -104,6 +105,7 @@ export class ChatController {
   private skillInstallHandler: SkillInstallHandler;
   private skillWorkspaceStateHandler: SkillWorkspaceStateHandler;
   private ruleHandler: RuleHandler;
+  private workspaceZipHandler: WorkspaceZipHandler;
 
   constructor(
     private storageManager: GlobalStorageManager | undefined,
@@ -158,6 +160,7 @@ export class ChatController {
       this.extContext,
     );
     this.ruleHandler = new RuleHandler();
+    this.workspaceZipHandler = new WorkspaceZipHandler();
   }
 
   public async handleMessage(message: any, webviewView: vscode.WebviewView) {
@@ -422,6 +425,9 @@ export class ChatController {
         case "listRules":
         case "createRule":
           await this.ruleHandler.handleRuleOperation(message, webviewView);
+          break;
+        case "zipWorkspace":
+          await this.workspaceZipHandler.handleZipWorkspace(message, webviewView);
           break;
       }
     } catch (error) {

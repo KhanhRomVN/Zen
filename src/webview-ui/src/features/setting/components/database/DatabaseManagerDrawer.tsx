@@ -24,14 +24,14 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { extensionService } from "../../../services/ExtensionService";
+import { extensionService } from "../../../../services/ExtensionService";
 import {
   Dropdown,
   DropdownTrigger,
   DropdownContent,
   DropdownItem,
-} from "../../../components/ui/Dropdown";
-import { useDbFetch } from "../../../services/useDbFetch";
+} from "../../../../components/ui/Dropdown";
+import { useDbFetch } from "../../../../services/useDbFetch";
 
 export type ManagerType = "local-file" | "connection";
 export type DbType =
@@ -203,7 +203,8 @@ const DrawerBody: React.FC<Omit<DatabaseManagerDrawerProps, "open">> = ({
   const [name, setName] = useState(initial?.name ?? "");
   const [type, setType] = useState<ManagerType>(initial?.type ?? "local-file");
   const [dbType, setDbType] = useState<DbType>(
-    initial?.db_type ?? (initial?.type === "connection" ? "postgres" : "sqlite"),
+    initial?.db_type ??
+      (initial?.type === "connection" ? "postgres" : "sqlite"),
   );
   const [filePath, setFilePath] = useState(initial?.file_path ?? "");
   const [host, setHost] = useState(initial?.host ?? "");
@@ -266,9 +267,23 @@ const DrawerBody: React.FC<Omit<DatabaseManagerDrawerProps, "open">> = ({
     };
   }, [type, filePath]);
 
+  // Tên bị cấm — dành riêng cho fallback database connection của AIWeb2API.
+  const RESERVED_NAMES = ["aiweb2api"];
+  const RESERVED_FILES = ["aiweb2api.sqlite"];
+
+  const isReservedName = RESERVED_NAMES.includes(name.trim().toLowerCase());
+  const isReservedFile =
+    type === "local-file" &&
+    RESERVED_FILES.includes(
+      filePath.trim().split(/[\\/]/).pop()?.toLowerCase() ?? "",
+    );
+
   // local-file yêu cầu file tồn tại; connection yêu cầu test connection thành công.
   const canSave =
-    !!name.trim() && (type === "local-file" ? fileExists : testOk);
+    !!name.trim() &&
+    !isReservedName &&
+    !isReservedFile &&
+    (type === "local-file" ? fileExists : testOk);
 
   const buildPayload = (): DatabaseManagerPayload => ({
     id: initial?.id,
@@ -784,6 +799,29 @@ const DrawerBody: React.FC<Omit<DatabaseManagerDrawerProps, "open">> = ({
                 )}
               </div>
             </>
+          )}
+
+          {(isReservedName || isReservedFile) && (
+            <div
+              style={{
+                backgroundColor:
+                  "var(--vscode-inputValidation-errorBackground, rgba(239,68,68,0.08))",
+                borderRadius: "8px",
+                padding: "8px 10px",
+                fontSize: "12px",
+                color: "var(--vscode-errorForeground)",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              <AlertCircle size={12} style={{ flexShrink: 0 }} />
+              <span>
+                {isReservedName
+                  ? `"${name.trim()}" is reserved for the AIWeb2API fallback database. Please choose a different name.`
+                  : `"aiweb2api.sqlite" is reserved for the AIWeb2API fallback database. Please choose a different file.`}
+              </span>
+            </div>
           )}
 
           {error && (

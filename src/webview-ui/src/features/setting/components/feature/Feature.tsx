@@ -11,9 +11,9 @@
 
 import React from "react";
 import { ShieldCheck, Wrench, MessageSquare } from "lucide-react";
-import { useSettings } from "../../../context/SettingsContext";
-import type { PermissionMode } from "../../chat/types/tag-types";
-import GroupSection from "./GroupSection";
+import { useSettings } from "../../../../context/SettingsContext";
+import type { PermissionMode } from "../../../chat/types/tag-types";
+import GroupSection from "../database/GroupSection";
 
 const ACCENT = "#1565c0";
 
@@ -116,8 +116,6 @@ const FeatureSettings: React.FC = () => {
   const {
     permissionMode,
     setPermissionMode,
-    checkpointEnabled,
-    setCheckpointEnabled,
     diagnosticEnabled,
     setDiagnosticEnabled,
     showMetadataBar,
@@ -197,12 +195,6 @@ const FeatureSettings: React.FC = () => {
         title="Agent Behavior"
         description="Safety net and extra context for the agent."
       >
-        <ToggleRow
-          title="Create checkpoints"
-          description="Automatically create a checkpoint before the agent writes, replaces or deletes files."
-          checked={checkpointEnabled}
-          onChange={setCheckpointEnabled}
-        />
         <ToggleRow
           title="Use VSCode diagnostics"
           description="Fetch errors and warnings from the language server after the agent edits a file."

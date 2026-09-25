@@ -1,5 +1,5 @@
 import React from "react";
-import { Zap, Scale, ShieldCheck, Plane } from "lucide-react";
+import { Zap, Scale, ShieldCheck, Plane, Ban } from "lucide-react";
 import type { SystemPromptMode } from "../../features/chat/prompts";
 import {
   Dropdown,
@@ -12,6 +12,11 @@ interface StyleCodeDropdownProps {
   currentMode: SystemPromptMode;
   onSelect: (mode: SystemPromptMode) => void;
   triggerButton: React.ReactNode;
+  /**
+   * Khi true (provider có anti-system-prompt-injection), tất cả các style
+   * code có gắn prompt sẽ bị disabled — chỉ "None" có thể chọn.
+   */
+  isAntiInjection?: boolean;
 }
 
 export const STYLE_CODE_MODE_META: {
@@ -20,7 +25,17 @@ export const STYLE_CODE_MODE_META: {
   icon: React.ReactNode;
   color: string;
   desc: string;
+  /** Nếu true, option này không gắn system prompt nào. */
+  isNoPrompt?: boolean;
 }[] = [
+  {
+    key: "none",
+    label: "None",
+    icon: <Ban size={14} />,
+    color: "#64748b",
+    desc: "No style applied — no system prompt injected",
+    isNoPrompt: true,
+  },
   {
     key: "fast",
     label: "Fast",
@@ -59,7 +74,7 @@ export const StyleCodeTriggerIcon: React.FC<{
 }> = ({ mode }) => {
   const meta =
     STYLE_CODE_MODE_META.find((m) => m.key === mode) ??
-    STYLE_CODE_MODE_META[1];
+    STYLE_CODE_MODE_META.find((m) => m.key === "balanced")!;
   return <>{meta.icon}</>;
 };
 
@@ -67,17 +82,46 @@ const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
   currentMode,
   onSelect,
   triggerButton,
+  isAntiInjection = false,
 }) => {
   return (
     <Dropdown side="top" align="start" sideOffset={4}>
       <DropdownTrigger asChild>{triggerButton}</DropdownTrigger>
       <DropdownContent>
+        {/* Banner khi provider có anti-injection */}
+        {isAntiInjection && (
+          <div
+            style={{
+              padding: "7px 12px 6px",
+              borderBottom:
+                "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "10.5px",
+              color: "#f59e0b",
+              lineHeight: 1.4,
+            }}
+          >
+            <Ban size={11} style={{ flexShrink: 0 }} />
+            <span>
+              This provider injects its own system prompt — style presets are
+              unavailable.
+            </span>
+          </div>
+        )}
+
         {STYLE_CODE_MODE_META.map((meta) => {
           const isSelected = currentMode === meta.key;
+          // Khi anti-injection: chỉ option "none" có thể click, còn lại bị disabled
+          const isDisabled = isAntiInjection && !meta.isNoPrompt;
+
           return (
             <DropdownItem
               key={meta.key}
-              onClick={() => onSelect(meta.key)}
+              onClick={() => {
+                if (!isDisabled) onSelect(meta.key);
+              }}
               noPadding
               closeOnSelect={false}
             >
@@ -88,14 +132,25 @@ const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
-                  backgroundColor: isSelected
-                    ? `color-mix(in srgb, ${meta.color} 10%, transparent)`
-                    : "transparent",
-                  borderLeft: isSelected
-                    ? `3px solid ${meta.color}`
-                    : "3px solid transparent",
+                  backgroundColor: isDisabled
+                    ? "transparent"
+                    : isSelected
+                      ? `color-mix(in srgb, ${meta.color} 10%, transparent)`
+                      : "transparent",
+                  borderLeft: isDisabled
+                    ? "3px solid transparent"
+                    : isSelected
+                      ? `3px solid ${meta.color}`
+                      : "3px solid transparent",
                   transition: "all 0.15s ease",
+                  opacity: isDisabled ? 0.35 : 1,
+                  cursor: isDisabled ? "not-allowed" : "pointer",
                 }}
+                title={
+                  isDisabled
+                    ? "Unavailable — provider uses its own system prompt"
+                    : meta.desc
+                }
               >
                 {/* Badge Icon */}
                 <span
@@ -106,8 +161,10 @@ const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
                     width: "32px",
                     height: "32px",
                     borderRadius: "8px",
-                    backgroundColor: `color-mix(in srgb, ${meta.color} 15%, transparent)`,
-                    color: meta.color,
+                    backgroundColor: isDisabled
+                      ? "rgba(128,128,128,0.08)"
+                      : `color-mix(in srgb, ${meta.color} 15%, transparent)`,
+                    color: isDisabled ? "var(--secondary-text)" : meta.color,
                     flexShrink: 0,
                   }}
                 >
@@ -120,7 +177,9 @@ const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
                     style={{
                       fontSize: "13px",
                       fontWeight: 600,
-                      color: "var(--primary-text)",
+                      color: isDisabled
+                        ? "var(--secondary-text)"
+                        : "var(--primary-text)",
                       marginBottom: "2px",
                     }}
                   >
@@ -136,12 +195,14 @@ const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {meta.desc}
+                    {isDisabled
+                      ? "Unavailable — provider uses its own system prompt"
+                      : meta.desc}
                   </div>
                 </div>
 
                 {/* Active indicator */}
-                {isSelected && (
+                {isSelected && !isDisabled && (
                   <span
                     style={{
                       fontSize: "10px",

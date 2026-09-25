@@ -23,6 +23,7 @@ import { useConversationRefs } from "./useConversationRefs";
 import { useMessageHandlers } from "./useMessageHandlers";
 import { PromptBuilder } from "../../services/PromptBuilder";
 import { StreamingService } from "../../services/StreamingService";
+import { processClaudeContent } from "../../services/ClaudeContentProcessor";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
 
 interface UseChatLLMProps {
@@ -130,7 +131,7 @@ export const useChatLLM = ({
 
   // Get context values
   const { aiLanguage, permissionMode, systemPromptMode, promptLengthMode, useSkillEnabled } = useSettings();
-  const { treeView } = useProject();
+  const { treeView, rootPath } = useProject();
   const { uploadFiles } = useFileUpload(apiUrl);
 
   // Local state
@@ -213,6 +214,51 @@ export const useChatLLM = ({
   }, [dispatchStreaming]);
 
   /**
+   * Gửi command "zipWorkspace" tới extension host và đợi kết quả.
+   * Dùng Promise-based pattern với requestId để match response.
+   * Timeout 60 giây (workspace lớn có thể mất thời gian).
+   */
+  const requestWorkspaceZip = useCallback((): Promise<{
+    base64: string;
+    mimeType: string;
+    fileName: string;
+    fileCount: number;
+    skippedCount: number;
+    sizeBytes: number;
+  } | null> => {
+    return new Promise((resolve) => {
+      const requestId = `zip-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const TIMEOUT_MS = 60_000;
+
+      const timer = setTimeout(() => {
+        window.removeEventListener("message", handler);
+        console.warn("[Zen][Claude] Workspace zip timed out");
+        resolve(null);
+      }, TIMEOUT_MS);
+
+      const handler = (event: MessageEvent) => {
+        const msg = event.data;
+        if (
+          msg.command === "zipWorkspaceResult" &&
+          msg.requestId === requestId
+        ) {
+          clearTimeout(timer);
+          window.removeEventListener("message", handler);
+          if (msg.error) {
+            console.error("[Zen][Claude] zipWorkspaceResult error:", msg.error);
+            resolve(null);
+          } else {
+            resolve(msg.data);
+          }
+        }
+      };
+
+      window.addEventListener("message", handler);
+      extensionService.postMessage({ command: "zipWorkspace", requestId });
+    });
+  }, []);
+
+  /**
    * Send message - main chat logic
    */
   const sendMessage = useCallback(
@@ -291,6 +337,10 @@ export const useChatLLM = ({
       }
 
       // Build prompt using PromptBuilder
+      // Khi provider là claude: tắt SKILL feature (skill prompt không phù hợp với claude.ai web)
+      const isClaudeProvider =
+        (model?.providerId ?? lastUsedModelRef.current?.providerId) === "claude";
+
       const promptPayload = await PromptBuilder.buildPrompt({
         content,
         isReq1,
@@ -302,7 +352,8 @@ export const useChatLLM = ({
         userRequestCount: userRequestCountRef.current,
         systemPromptMode,
         promptLengthMode,
-        useSkillEnabled,
+        useSkillEnabled: isClaudeProvider ? false : useSkillEnabled,
+        providerId: model?.providerId ?? lastUsedModelRef.current?.providerId,
       });
 
       const userMessage: Message = {
@@ -439,7 +490,7 @@ export const useChatLLM = ({
 
       try {
         // Upload local files
-        const ref_file_ids: Array<{ file_id: string; url: string; type?: string; name?: string; file_type?: string }> = [];
+        const ref_file_ids: Array<{ file_id: string; conversation_id?: string; url: string; type?: string; name?: string; file_type?: string }> = [];
         const localFiles = files
           ? files.filter(
               (f: any) =>
@@ -451,6 +502,60 @@ export const useChatLLM = ({
             )
           : [];
 
+        // ── Claude: sinh conversationId TRƯỚC KHI upload ─────────────────
+        // Claude gắn file với conversation tại thời điểm upload. Nếu upload
+        // và gửi message dùng 2 conversationId khác nhau → server không tìm
+        // thấy file. Giải pháp: sinh UUID ở đây, dùng cho cả upload lẫn
+        // streamChat. Nếu đã có backendConversationId (conversation cũ) thì
+        // dùng lại nó.
+        const claudeUploadConversationId: string | undefined = isClaudeProvider
+          ? backendConversationIdRef.current ||
+            (effectiveChatUuid
+              ? sessionStorage.getItem(`zen-backend-conv:${effectiveChatUuid}`) || undefined
+              : undefined) ||
+            crypto.randomUUID()
+          : undefined;
+
+        // ── Claude provider: zip workspace và gửi kèm message đầu tiên ──
+        // isReq1 = true nghĩa là đây là message đầu tiên của conversation mới.
+        // Chỉ zip khi không phải tool result (skipFirstRequestLogic = false).
+        if (isClaudeProvider && isReq1 && !skipFirstRequestLogic) {
+          try {
+            console.log("[Zen][Claude] Zipping workspace for first message...");
+            const zipResult = await requestWorkspaceZip();
+            if (zipResult) {
+              const zipFile = {
+                id: `file-workspace-zip-${Date.now()}`,
+                name: zipResult.fileName,
+                size: zipResult.sizeBytes,
+                type: zipResult.mimeType,
+                content: `data:${zipResult.mimeType};base64,${zipResult.base64}`,
+              };
+              console.log(
+                `[Zen][Claude] Workspace zip ready | fileName=${zipResult.fileName} | files=${zipResult.fileCount} | size=${zipResult.sizeBytes} bytes`,
+              );
+
+              // Upload zip riêng — lỗi ở đây không block gửi message
+              if (finalAccount?.id) {
+                try {
+                  const zipUploaded = await uploadFiles([zipFile], finalAccount.id, claudeUploadConversationId);
+                  ref_file_ids.push(...zipUploaded);
+                  console.log(
+                    `[Zen][Claude] Workspace zip uploaded | file_id=${zipUploaded[0]?.file_id} | conversation_id=${claudeUploadConversationId}`,
+                  );
+                } catch (zipUploadErr) {
+                  console.warn(
+                    "[Zen][Claude] Workspace zip upload failed (non-fatal, sending message without zip):",
+                    zipUploadErr,
+                  );
+                }
+              }
+            }
+          } catch (zipErr) {
+            console.warn("[Zen][Claude] Failed to zip workspace (non-fatal):", zipErr);
+          }
+        }
+
         if (localFiles.length > 0) {
           if (!finalAccount?.id) {
             console.error(
@@ -460,7 +565,7 @@ export const useChatLLM = ({
           }
 
           try {
-            const uploadedObjects = await uploadFiles(localFiles, finalAccount.id);
+            const uploadedObjects = await uploadFiles(localFiles, finalAccount.id, claudeUploadConversationId);
             ref_file_ids.push(...uploadedObjects);
           } catch (uploadErr) {
             console.error(`[Zen] Upload failed with error:`, uploadErr);
@@ -484,8 +589,23 @@ export const useChatLLM = ({
         const effectiveParentMessageId =
           qwenParentIdRef.current ?? parentMessageId;
 
+        // [DEBUG] Log request summary
+        console.log(
+          `[Zen][sendMessage] REQUEST SUMMARY` +
+          ` | msgCount=${payloadMessages.length}` +
+          ` | conversationId=${backendConversationIdRef.current || "(none)"}` +
+          ` | parentMessageId=${effectiveParentMessageId ?? "(none)"}` +
+          ` | model=${finalModel?.id ?? "(none)"}` +
+          ` | skipFirstReq=${skipFirstRequestLogic}` +
+          ` | isReq1=${isReq1}` +
+          ` | promptPreview="${payloadMessages[payloadMessages.length - 1]?.content?.slice(0, 80).replace(/\n/g, " ")}"`
+        );
+
         // Conversation ID to send
+        // Claude: dùng claudeUploadConversationId (đã sinh trước upload)
+        // để đảm bảo file và message dùng cùng 1 conversationId.
         const convIdToSend =
+          (isClaudeProvider && claudeUploadConversationId) ||
           backendConversationIdRef.current ||
           (effectiveChatUuid
             ? sessionStorage.getItem(`zen-backend-conv:${effectiveChatUuid}`) ||
@@ -519,6 +639,10 @@ export const useChatLLM = ({
 
         // Add placeholder to messages
         setMessages((prev) => [...prev, placeholderAssistant]);
+
+        // Ref để bridge finalContent từ onContent callback sang sau khi streamChat return
+        // (assistantMessage chưa tồn tại khi callback được định nghĩa)
+        const claudeParsedContentRef = { value: "" };
 
         // Stream the response using StreamingService
         const { message: assistantMessage, backendConversationId } =
@@ -574,6 +698,18 @@ export const useChatLLM = ({
                 // Tranh 130+ lan re-render toan bo UI moi khi stream
               },
               onContent: (content) => {
+                // Nếu provider là claude → strip conversation_title + parse tool markers.
+                // Path mapping luôn bật (không dùng disablePathMapping) vì claude.ai
+                // web vẫn dùng sandbox path /home/claude/work/... cần convert về workspace.
+                let finalContent = content;
+                if (finalModel?.providerId === "claude") {
+                  const processed = processClaudeContent(content, rootPath);
+                  finalContent = processed.content;
+                }
+
+                // Lưu vào ref để apply vào assistantMessage sau khi streamChat return
+                claudeParsedContentRef.value = finalContent;
+
                 // Update UI with parsed content (called ONCE at the end with full content)
                 setMessages((prev) => {
                   const targetIndex = prev.findIndex(
@@ -586,7 +722,7 @@ export const useChatLLM = ({
                   // Replace content and clear thinking
                   const updatedMessage = {
                     ...currentMessage,
-                    content: content, // Replace with full parsed content
+                    content: finalContent, // Replace with full parsed content
                     thinking: undefined, // Clear thinking field after parsing
                   };
                   const newArray = prev.slice();
@@ -599,6 +735,15 @@ export const useChatLLM = ({
 
         // Merge the final message from StreamingService with our tracked message
         assistantMessage.id = assistantMessageId;
+
+        // Apply parsed content (claude provider: strip markers + convert tools)
+        if (claudeParsedContentRef.value) {
+          assistantMessage.content = claudeParsedContentRef.value;
+          // rawResponse được dùng bởi parseAIResponse — cần sync lại
+          assistantMessage.rawResponse = assistantMessage.thinking
+            ? `${assistantMessage.thinking}\n\n${claudeParsedContentRef.value}`
+            : claudeParsedContentRef.value;
+        }
 
         // Store backend conversation ID
         if (backendConversationId) {
@@ -857,12 +1002,32 @@ export const useChatLLM = ({
           onToolRequest &&
           parsed.actions?.length > 0
         ) {
-          onToolRequest(
-            parsed.actions,
-            assistantMessage,
-            true,
-            TOOL_ACTION_TYPES.ACCEPT,
-          );
+          // Claude provider: chỉ execute write_to_file và replace_in_file.
+          // Các tool khác (read_file, run_command, ...) chỉ hiển thị UI, không thực thi —
+          // vì claude đã tự chạy chúng trên sandbox riêng, kết quả đã có trong nội dung response.
+          const isClaudeConversation =
+            assistantMessage.providerId === "claude" ||
+            lastUsedModelRef.current?.providerId === "claude";
+
+          const CLAUDE_EXECUTABLE_TOOLS = new Set([
+            "write_to_file",
+            "replace_in_file",
+          ]);
+
+          const executableActions = isClaudeConversation
+            ? parsed.actions.filter((a: ToolAction) =>
+                CLAUDE_EXECUTABLE_TOOLS.has(a.type),
+              )
+            : parsed.actions;
+
+          if (executableActions.length > 0) {
+            onToolRequest(
+              executableActions,
+              assistantMessage,
+              true,
+              TOOL_ACTION_TYPES.ACCEPT,
+            );
+          }
         } else if (parsed && parsed.actions?.length > 0 && hasParsingError) {
           console.warn(
             `[Zen][sendMessage] Skipping onToolRequest due to parsing error`,

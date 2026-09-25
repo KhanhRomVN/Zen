@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useCallback } from "react";
 import {
   parseAIResponse,
   ParsedResponse,
@@ -66,6 +66,7 @@ interface ChatBodyProps {
     folderPath: string | null,
   ) => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
+  onRegenerateRequest?: (messageId: string) => void;
   onAutoScrollPausedChange?: (paused: boolean) => void;
   scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
   isContinuing?: boolean;
@@ -81,6 +82,7 @@ interface ChatBodyProps {
 }
 
 export interface ExtendedChatBodyProps extends ChatBodyProps {
+  onRegenerateRequest?: (messageId: string) => void;
   executionState?: {
     total: number;
     completed: number;
@@ -294,6 +296,7 @@ interface MessageBoxProps {
   ) => void;
   onSelectOption?: (messageId: string, option: string) => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
+  onRegenerateRequest?: (messageId: string) => void;
   singleLineReviewActions?: Record<
     string,
     { action: any; actionId: string; messageId: string }
@@ -316,13 +319,14 @@ interface MessageBoxProps {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
-  const { message, onRevertConversation } = props;
+  const { message, onRevertConversation, onRegenerateRequest } = props;
 
   if (message.role === "user") {
     return (
       <UserMessageBox
         message={message}
         onRevertConversation={onRevertConversation}
+        onRegenerateRequest={onRegenerateRequest}
       />
     );
   }
@@ -391,6 +395,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   onContinue,
   hasInitialMessage = false,
   onRevertConversation,
+  onRegenerateRequest,
   onAutoScrollPausedChange,
   scrollToBottomRef,
   singleLineReviewActions,
@@ -456,6 +461,66 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     bodyRef,
     messages,
     isProcessing,
+  );
+
+  // Regenerate a user message: revert to this message (removes it + everything
+  // after) then resend its own rawRequest content unchanged.
+  const handleRegenerateRequest = useCallback(
+    (messageId: string) => {
+      const msgIndex = messages.findIndex((m) => m.id === messageId);
+      if (msgIndex === -1) return;
+
+      const userMsg = messages[msgIndex];
+      if (userMsg.role !== "user") return;
+
+      if (onRevertConversation) {
+        onRevertConversation(messageId, userMsg.timestamp);
+      }
+
+      if (onSendMessage && userMsg.rawRequest) {
+        // Small delay to let revert complete
+        setTimeout(() => {
+          let rawReq = userMsg.rawRequest || "";
+
+          // Replace old permission mode with current mode
+          const permissionModePattern =
+            /<permission-mode>Active:\s*(approval|full-access|fullAccess)<\/permission-mode>/;
+          const currentMode = permissionMode;
+
+          if (permissionModePattern.test(rawReq)) {
+            rawReq = rawReq.replace(
+              permissionModePattern,
+              `<permission-mode>Active: ${currentMode}</permission-mode>`,
+            );
+          }
+
+          // Extract original content from formatted rawRequest
+          const userContentMatch = rawReq.match(
+            /<user-message>\n?([\s\S]*?)\n?<\/user-message>/,
+          );
+
+          let contentToSend: string;
+          let shouldSkipLogic: boolean;
+
+          if (userContentMatch) {
+            contentToSend = userContentMatch[1];
+            shouldSkipLogic = false;
+          } else {
+            contentToSend = rawReq;
+            shouldSkipLogic = true;
+          }
+
+          onSendMessage(
+            contentToSend,
+            userMsg.uploadedFiles,
+            undefined,
+            undefined,
+            shouldSkipLogic,
+          );
+        }, 100);
+      }
+    },
+    [messages, onRevertConversation, onSendMessage, permissionMode],
   );
 
   const prevPausedRef = useRef(false);
@@ -692,6 +757,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   onSendMessage={onSendMessage}
                   onSelectOption={onSelectOption}
                   onRevertConversation={onRevertConversation}
+                  onRegenerateRequest={handleRegenerateRequest}
                   singleLineReviewActions={singleLineReviewActions}
                   onConfirmSingleLineAction={onConfirmSingleLineAction}
                   onRejectSingleLineAction={onRejectSingleLineAction}

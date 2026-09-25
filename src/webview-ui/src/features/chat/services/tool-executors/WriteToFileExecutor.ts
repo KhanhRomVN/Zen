@@ -24,6 +24,8 @@ export class WriteToFileExecutor implements ToolExecutor {
       const requestId = `write-${Date.now()}-${Math.random()}`;
       const filePath = action.params.path || action.params.file_path;
       const actionId = action.actionId;
+      // Dùng tên tool gốc trong result string (vd: "create_file" khi convert từ Claude)
+      const toolName = action.params.original_tool_name || "write_to_file";
 
       extensionService.postMessage({
         command: "writeFile",
@@ -53,10 +55,10 @@ export class WriteToFileExecutor implements ToolExecutor {
               },
             }));
             resolve(
-              `[write_to_file for '${filePath}'] Result: Error - ${msg.error}`,
+              `[${toolName} for '${filePath}'] Result: Error - ${msg.error}`,
             );
           } else {
-            let result = `[write_to_file for '${filePath}'] Result: File written successfully`;
+            let result = `[${toolName} for '${filePath}'] Result: File written successfully`;
 
             // Add skippedReason if diagnostics were skipped (file too large / timeout)
             if (msg.skippedReason) {
@@ -73,7 +75,7 @@ export class WriteToFileExecutor implements ToolExecutor {
                   d.severity === "Warning" || d.severity === "warning",
               ).length;
 
-              result = `[write_to_file for '${filePath}'] Result: File written successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
+              result = `[${toolName} for '${filePath}'] Result: File written successfully with ${errorCount} error(s), ${warningCount} warning(s)`;
 
               const contentLines = action.params.content.split("\n");
               result += formatDiagnostics(msg.diagnostics, contentLines);
@@ -106,7 +108,7 @@ export class WriteToFileExecutor implements ToolExecutor {
             },
           }));
           resolve(
-            `[write_to_file for '${filePath}'] Result: Error - ${timeoutError}`,
+            `[${toolName} for '${filePath}'] Result: Error - ${timeoutError}`,
           );
         },
       );

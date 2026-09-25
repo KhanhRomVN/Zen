@@ -23,6 +23,10 @@ export class ReplaceInFileExecutor implements ToolExecutor {
     return new Promise((resolve) => {
       const filePath = action.params.path || action.params.file_path;
       const actionId = action.actionId;
+      // Nếu tool được convert từ claude (vd: str_replace → replace_in_file),
+      // dùng tên tool gốc và sandbox path để build result string trả về cho claude.
+      const resultToolName = action.params.original_tool_name || "replace_in_file";
+      const resultPath = action.params.original_path || filePath;
 
       // Check for validation error from parser
       if (action.params._validationError) {
@@ -31,7 +35,7 @@ export class ReplaceInFileExecutor implements ToolExecutor {
           `[Zen][replace_in_file] Validation error | file="${filePath}" | error="${errMsg}"`,
         );
         resolve(
-          `[replace_in_file for '${filePath}'] Result: Error - ${errMsg}`,
+          `[${resultToolName} for '${resultPath}'] Result: Error - ${errMsg}`,
         );
         return;
       }
@@ -72,13 +76,13 @@ export class ReplaceInFileExecutor implements ToolExecutor {
               },
             }));
             resolve(
-              `[replace_in_file for '${filePath}'] Result: Error - ${msg.error}`,
+              `[${resultToolName} for '${resultPath}'] Result: Error - ${msg.error}`,
             );
           } else {
             // Build version info if available
             const versionInfo = msg.version ? ` (version #${msg.version})` : "";
 
-            let result = `[replace_in_file for '${filePath}'] Result: File updated successfully${versionInfo}`;
+            let result = `[${resultToolName} for '${resultPath}'] Result: File updated successfully${versionInfo}`;
 
             // Add diagnostics if any
             if (msg.diagnostics && msg.diagnostics.length > 0) {
@@ -90,7 +94,7 @@ export class ReplaceInFileExecutor implements ToolExecutor {
                   d.severity === "Warning" || d.severity === "warning",
               ).length;
 
-              result = `[replace_in_file for '${filePath}'] Result: File updated successfully${versionInfo} with ${errorCount} error(s), ${warningCount} warning(s)`;
+              result = `[${resultToolName} for '${resultPath}'] Result: File updated successfully${versionInfo} with ${errorCount} error(s), ${warningCount} warning(s)`;
 
               const contentLines = (
                 msg.content ||
@@ -130,7 +134,7 @@ export class ReplaceInFileExecutor implements ToolExecutor {
             },
           }));
           resolve(
-            `[replace_in_file for '${filePath}'] Result: Error - ${timeoutError}`,
+            `[${resultToolName} for '${resultPath}'] Result: Error - ${timeoutError}`,
           );
         },
       );

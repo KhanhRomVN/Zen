@@ -75,7 +75,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
           saved === "fast" ||
           saved === "balanced" ||
           saved === "thorough" ||
-          saved === "autopilot"
+          saved === "autopilot" ||
+          saved === "short" ||
+          saved === "none"
         ) {
           return saved;
         }
@@ -95,7 +97,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
           return saved;
         }
       } catch (e) {}
-      return "long";
+      return "none";
     });
   // Backend (SQLite) là nguồn chân lý duy nhất → không cache ở localStorage.
   const [chromiumProfileDir, setChromiumProfileDirState] =

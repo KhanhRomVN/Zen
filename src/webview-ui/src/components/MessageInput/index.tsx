@@ -1,7 +1,7 @@
 import React from "react";
 import { Plus, Send, X } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
-import { LANGUAGES } from "../../features/setting/components/LanguageSelector";
+import { LANGUAGES } from "../../features/setting/components/general/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import { useDbFetch } from "../../services/useDbFetch";
 import { combinePromptsForMode } from "../../features/chat/prompts";
@@ -906,11 +906,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const isViewOnlyProvider = React.useMemo(() => {
       if (!enableViewOnlyMode) return false;
       if (!currentProviderConfig) return false;
-      
+
       // Check if loaded from history (has conversation file stats from backend)
       const isLoadedFromHistory = conversationFileStats != null;
       if (!isLoadedFromHistory) return false; // Conversation mới → không disable
-      
+
       const authMethod = currentProviderConfig.auth_method;
       return Array.isArray(authMethod) && authMethod.length === 0;
     }, [enableViewOnlyMode, currentProviderConfig, conversationFileStats]);
@@ -962,7 +962,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       if (!currentAccount) {
         return "Select an account to start";
       }
-      
+
       // Default: dynamic based on capabilities
       const hints: string[] = [];
       hints.push("@agent");
@@ -978,8 +978,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       if (showMemoryButton) {
         hints.push("💾 memory");
       }
-      
-      return hints.length > 1 
+
+      return hints.length > 1
         ? `Message ${hints[0]} (Alt+@) · ${hints.slice(1).join(" · ")}`
         : `Message ${hints[0]} (Alt+@)`;
     }, [
@@ -1033,7 +1033,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
           const systemPromptTokens = countTokens(systemPrompt);
           totalTokens += systemPromptTokens;
         } catch (e) {
-          console.warn("[MessageInput] Failed to calculate system prompt tokens:", e);
+          console.warn(
+            "[MessageInput] Failed to calculate system prompt tokens:",
+            e,
+          );
         }
       }
 
@@ -1265,6 +1268,25 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       setIsSearch,
     ]);
 
+    // Auto-fix promptLengthMode & systemPromptMode khi provider có anti_system_prompt_injection
+    React.useEffect(() => {
+      if (!currentProviderConfig) return;
+      if (!(currentProviderConfig as any).anti_system_prompt_injection) return;
+      // Fix cứng về "none" — không cho user chọn option khác
+      if (promptLengthMode !== "none") {
+        setPromptLengthMode("none");
+      }
+      if (systemPromptMode !== "none") {
+        setSystemPromptMode("none");
+      }
+    }, [
+      currentProviderConfig,
+      promptLengthMode,
+      systemPromptMode,
+      setPromptLengthMode,
+      setSystemPromptMode,
+    ]);
+
     // Handle auto-selection of account from cache once providers are loaded
     React.useEffect(() => {
       if (
@@ -1394,9 +1416,16 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       />
                     );
                   })()}
-                  {displayModel.providerId}/{(() => {
+                  {displayModel.providerId}/
+                  {(() => {
                     // Tách effort suffix khỏi model id để hiển thị riêng
-                    const EFFORT_LEVELS_TRIGGER = ["low", "medium", "high", "xhigh", "max"] as const;
+                    const EFFORT_LEVELS_TRIGGER = [
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh",
+                      "max",
+                    ] as const;
                     type EffortLvl = (typeof EFFORT_LEVELS_TRIGGER)[number];
                     const EFFORT_COLOR_TRIGGER: Record<EffortLvl, string> = {
                       low: "#6b7280",
@@ -1412,16 +1441,37 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       xhigh: "Extra",
                       max: "Max",
                     };
-                    let baseId = displayModel.id;
-                    let effort: EffortLvl | null = null;
-                    for (const lvl of EFFORT_LEVELS_TRIGGER) {
-                      if (displayModel.id.endsWith(`-${lvl}`)) {
-                        baseId = displayModel.id.slice(0, -(lvl.length + 1));
-                        effort = lvl;
-                        break;
+
+                    const splitEffort = (id: string): { base: string; effort: EffortLvl | null } => {
+                      for (const lvl of EFFORT_LEVELS_TRIGGER) {
+                        if (id.endsWith(`-${lvl}`)) {
+                          return { base: id.slice(0, -(lvl.length + 1)), effort: lvl };
+                        }
                       }
+                      return { base: id, effort: null };
+                    };
+
+                    const { base: baseId, effort } = splitEffort(displayModel.id);
+
+                    // Đếm số effort options của model này trong provider
+                    let effortCount = 0;
+                    const provForCount = providers.find(
+                      (p: any) => p.provider_id === displayModel.providerId
+                    );
+                    if (provForCount?.models) {
+                      const uniqueEfforts = new Set<string>();
+                      for (const m of provForCount.models as any[]) {
+                        const parsed = splitEffort(m.id);
+                        if (parsed.base === baseId && parsed.effort !== null) {
+                          uniqueEfforts.add(parsed.effort);
+                        }
+                      }
+                      effortCount = uniqueEfforts.size;
                     }
-                    if (!effort) return <>{baseId}</>;
+
+                    // Chỉ hiển thị badge khi có >= 2 effort options
+                    if (!effort || effortCount < 2) return <>{displayModel.id}</>;
+
                     const effortColor = EFFORT_COLOR_TRIGGER[effort];
                     return (
                       <>
@@ -1454,22 +1504,26 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       {displayAccount.email}
                     </span>
                   )}
-                  {displayAccount?.usage != null && (() => {
-                    const usageNum = Number(displayAccount.usage);
-                    return (
-                      <span style={{
-                        opacity: 0.85,
-                        marginLeft: "2px",
-                        color: usageNum >= 90
-                          ? "var(--vscode-editorError-foreground, #ef4444)"
-                          : usageNum >= 70
-                            ? "var(--vscode-editorWarning-foreground, #f97316)"
-                            : "var(--secondary-text)",
-                      }}>
-                        {usageNum.toFixed(1)}%
-                      </span>
-                    );
-                  })()}
+                  {displayAccount?.usage != null &&
+                    (() => {
+                      const usageNum = Number(displayAccount.usage);
+                      return (
+                        <span
+                          style={{
+                            opacity: 0.85,
+                            marginLeft: "2px",
+                            color:
+                              usageNum >= 90
+                                ? "var(--vscode-editorError-foreground, #ef4444)"
+                                : usageNum >= 70
+                                  ? "var(--vscode-editorWarning-foreground, #f97316)"
+                                  : "var(--secondary-text)",
+                          }}
+                        >
+                          {usageNum.toFixed(1)}%
+                        </span>
+                      );
+                    })()}
                 </>
               ) : (
                 <>
@@ -1520,6 +1574,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 const newAccount = {
                   id: selected.accountId,
                   email: selected.email,
+                  provider_id: selected.accountProviderId,
                 };
 
                 if (isModelSwitchMode) {
@@ -1923,7 +1978,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   // Use the file input ref from parent
                   if (fileInputRef?.current) {
                     // Set accept dynamically based on model capabilities (prefer modelConfig over cached model)
-                    fileInputRef.current.accept = buildAcceptString(currentModelConfig ?? currentModel);
+                    fileInputRef.current.accept = buildAcceptString(
+                      currentModelConfig ?? currentModel,
+                    );
                     // Store textOnly flag on the input element for the change handler to use
                     (fileInputRef.current as any).dataset.textOnly =
                       String(!supportsUpload);
@@ -2003,50 +2060,63 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               />
               {/* System Prompt Mode Selector - Home only */}
               {!isConversationStarted && (
-                <StyleCodeDropdown
-                  currentMode={systemPromptMode}
-                  onSelect={setSystemPromptMode}
-                  triggerButton={(() => {
-                    const meta =
-                      STYLE_CODE_MODE_META.find(
-                        (m) => m.key === systemPromptMode,
-                      ) ?? STYLE_CODE_MODE_META[1];
-                    return (
-                      <button
-                        onMouseEnter={() => setIsSystemPromptHovered(true)}
-                        onMouseLeave={() => setIsSystemPromptHovered(false)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          height: "24px",
-                          width: "24px",
-                          boxSizing: "border-box",
-                          borderRadius: "5px",
-                          cursor: "pointer",
-                          transition: "all 0.15s ease-in-out",
-                          border: "1px solid transparent",
-                          background: isSystemPromptHovered
-                            ? "rgba(128, 128, 128, 0.16)"
-                            : "transparent",
-                          color: meta.color,
-                          opacity: 1,
-                          padding: 0,
-                        }}
-                        title={`Style Code — ${meta.label}`}
-                      >
-                        <StyleCodeTriggerIcon mode={systemPromptMode} />
-                      </button>
-                    );
-                  })()}
-                />
+                (() => {
+                  const isAntiInjection =
+                    !!(currentProviderConfig as any)?.anti_system_prompt_injection;
+                  const meta =
+                    STYLE_CODE_MODE_META.find(
+                      (m) => m.key === systemPromptMode,
+                    ) ?? STYLE_CODE_MODE_META.find((m) => m.key === "balanced")!;
+
+                  return (
+                    <StyleCodeDropdown
+                      currentMode={systemPromptMode}
+                      onSelect={(mode) => {
+                        if (isAntiInjection && mode !== "none") return;
+                        setSystemPromptMode(mode);
+                      }}
+                      isAntiInjection={isAntiInjection}
+                      triggerButton={
+                        <button
+                          onMouseEnter={() => setIsSystemPromptHovered(true)}
+                          onMouseLeave={() => setIsSystemPromptHovered(false)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            height: "24px",
+                            width: "24px",
+                            boxSizing: "border-box",
+                            borderRadius: "5px",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease-in-out",
+                            border: "1px solid transparent",
+                            background: isSystemPromptHovered
+                              ? "rgba(128, 128, 128, 0.16)"
+                              : "transparent",
+                            color: meta.color,
+                            opacity: 1,
+                            padding: 0,
+                          }}
+                          title={`Style Code — ${meta.label}`}
+                        >
+                          <StyleCodeTriggerIcon mode={systemPromptMode} />
+                        </button>
+                      }
+                    />
+                  );
+                })()
               )}
 
               {/* Prompt Length Selector - Home only */}
               {!isConversationStarted && (
                 <PromptLengthDropdown
                   currentMode={promptLengthMode}
-                  onSelect={setPromptLengthMode}
+                  onSelect={(mode) => {
+                    if (!!(currentProviderConfig as any)?.anti_system_prompt_injection && mode !== "none") return;
+                    setPromptLengthMode(mode);
+                  }}
+                  isNoneOnly={!!(currentProviderConfig as any)?.anti_system_prompt_injection}
                   triggerButton={(() => {
                     const meta =
                       PROMPT_LENGTH_MODE_META.find(
@@ -2085,7 +2155,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             </div>
 
             {/* Right Icons */}
-            <div style={{ display: "flex", gap: "var(--spacing-xs)", alignItems: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "var(--spacing-xs)",
+                alignItems: "center",
+              }}
+            >
               {/* Rule Badge — hiển thị rule đang gắn kèm, cạnh badge token */}
               {(() => {
                 const activeRule = attachedItems?.find(

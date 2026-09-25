@@ -52,6 +52,7 @@ interface RunCommandRendererProps {
     type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
   ) => void;
   storedOutput?: string | null;
+  isDisplayOnly?: boolean;
 }
 
 export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
@@ -68,6 +69,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
   rootPath,
   onToolClick,
   storedOutput,
+  isDisplayOnly = false,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isRejectedLocal, setIsRejectedLocal] = React.useState(false);
@@ -127,15 +129,17 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
     (outputData as any)?.terminalId || action.params.terminal_id;
   const hasOutput = !!outputData || !!extractedOutput || !!storedOutput;
   const isTerminalBusy =
-    !isRejected &&
-    (hasOutput
-      ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY
-      : terminalId
-        ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY ||
-          (isActionClicked && terminalStatus?.[terminalId] === undefined)
-        : isActionClicked);
+    isDisplayOnly
+      ? false // display-only: không có terminal thật, không busy
+      : !isRejected &&
+        (hasOutput
+          ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY
+          : terminalId
+            ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY ||
+              (isActionClicked && terminalStatus?.[terminalId] === undefined)
+            : isActionClicked);
   const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
-  const isCompleted = hasOutput && !isTerminalBusy;
+  const isCompleted = isDisplayOnly ? true : (hasOutput && !isTerminalBusy);
 
   // Calculate execution time (if completed)
   const [executionTime, setExecutionTime] = React.useState<string>("");
@@ -210,7 +214,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
         statusColor={
           isRejected
             ? "var(--vscode-errorForeground)"
-            : isCompleted
+            : (isDisplayOnly || isCompleted)
               ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
               : isTerminalBusy || (isActionClicked && !outputData)
                 ? "var(--vscode-editorWarning-foreground, #e3b341)"
@@ -219,7 +223,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                   : "var(--vscode-descriptionForeground)"
         }
         isError={isRejected}
-        isWaitingApproval={!!isActiveGroup && !isCompleted && !isTerminalBusy}
+        isWaitingApproval={!isDisplayOnly && !!isActiveGroup && !isCompleted && !isTerminalBusy}
         toolType="run_command"
         isPartial={isTerminalBusy}
         path={displayFolderPath}

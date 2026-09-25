@@ -11,15 +11,15 @@
 
 import React from "react";
 import { Server, Languages } from "lucide-react";
-import { useSettings } from "../../../context/SettingsContext";
+import { useSettings } from "../../../../context/SettingsContext";
 import {
   Dropdown,
   DropdownTrigger,
   DropdownContent,
   DropdownItem,
-} from "../../../components/ui/Dropdown";
+} from "../../../../components/ui/Dropdown";
 import { LANGUAGES } from "./LanguageSelector";
-import GroupSection from "./GroupSection";
+import GroupSection from "../database/GroupSection";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",

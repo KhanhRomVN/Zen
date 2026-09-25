@@ -2,7 +2,7 @@
   "name": "khanhromvn-zen",
   "displayName": "Zen - Free AI Chat For ALL LLM",
   "description": "A powerful VSCode extension that brings AI chat capabilities directly into your development environment",
-  "version": "2.2.7",
+  "version": "2.2.89",
   "publisher": "KhanhRomVN",
   "license": "MIT",
   "capabilities": {
@@ -175,7 +175,8 @@
     "test": "vscode-test",
     "unit-test": "mocha out/test/**/*.test.js",
     "find-unused": "node ts-reap/dist/cli.js check --tsconfig tsconfig.json --scope \"src\" --ignore \"src/webview-ui\"",
-    "find-unused:webview": "cd src/webview-ui && node ../../ts-reap/dist/cli.js check --tsconfig tsconfig.json --scope \"src\""
+    "find-unused:webview": "cd src/webview-ui && node ../../ts-reap/dist/cli.js check --tsconfig tsconfig.json --scope \"src\"",
+    "pack": "node scripts/pack.mjs"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

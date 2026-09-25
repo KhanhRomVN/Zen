@@ -1,4 +1,4 @@
-import { LANGUAGES } from "../../setting/components/LanguageSelector";
+import { LANGUAGES } from "../../setting/components/general/LanguageSelector";
 
 export function getCommitMessagePrompt(
   language: string,

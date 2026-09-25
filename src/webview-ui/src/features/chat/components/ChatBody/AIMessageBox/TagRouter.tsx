@@ -111,6 +111,8 @@ interface TagRouterProps {
   ) => void;
   isBlockedByPrecedingInteraction?: boolean;
   firstUnclickedActionIndex?: number;
+  /** True khi message được tạo bởi claude provider — các tool read/run chỉ display-only */
+  isClaudeProvider?: boolean;
 }
 
 const TagRouterInternal: React.FC<TagRouterProps> = ({
@@ -147,6 +149,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   onSendMessage,
   isBlockedByPrecedingInteraction = false,
   firstUnclickedActionIndex,
+  isClaudeProvider = false,
 }) => {
   const { rootPath } = useProject();
 
@@ -434,6 +437,14 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   const toolType = firstAction.type;
   const isLastItemInList = isLastGroup;
 
+  // Claude provider: các tool này đã được claude tự chạy trên sandbox.
+  // Zen chỉ hiển thị (display-only) — dot green, không execute, không show Accept/Reject.
+  const CLAUDE_DISPLAY_ONLY_TOOLS = new Set([
+    "read_file", "run_command", "list_files", "find_files",
+    "grep", "delete_file", "view_replace_history",
+  ]);
+  const isDisplayOnly = isClaudeProvider && CLAUDE_DISPLAY_ONLY_TOOLS.has(toolType);
+
   // Handle malformed/error tool actions - show custom header + ErrorBlock
   if (firstAction.isError) {
     const errorColor = "var(--vscode-errorForeground, #f44336)";
@@ -672,13 +683,14 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         action={action}
         actionIndex={actionIndex}
         messageId={messageId}
-        isActionClicked={clickedActions.has(
+        isActionClicked={isDisplayOnly || clickedActions.has(
           `${messageId}-action-${actionIndex}`,
         )}
         isLastItemInList={isLastItemInList}
         toolOutputs={toolOutputs}
         fileStatsMap={fileStatsMap}
         onToolClick={onToolClick}
+        isDisplayOnly={isDisplayOnly}
       />
     );
   }
@@ -779,7 +791,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         action={firstAction}
         actionIndex={toolGroup[0].index}
         messageId={messageId}
-        isActionClicked={clickedActions.has(
+        isActionClicked={isDisplayOnly || clickedActions.has(
           `${messageId}-action-${toolGroup[0].index}`,
         )}
         isRejected={rejectedActions?.has(
@@ -967,7 +979,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isRestored={isRestored}
@@ -980,6 +992,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             fileStatsMap={fileStatsMap}
             onToolClick={onToolClick}
             conversationId={conversationId}
+            isDisplayOnly={isDisplayOnly}
           />
         ))}
       </>
@@ -996,7 +1009,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isLastItemInList={
@@ -1008,6 +1021,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             fileStatsMap={fileStatsMap}
             onToolClick={onToolClick}
             conversationId={conversationId}
+            isDisplayOnly={isDisplayOnly}
           />
         ))}
       </>
@@ -1024,7 +1038,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isLastItemInList={
@@ -1036,6 +1050,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             fileStatsMap={fileStatsMap}
             onToolClick={onToolClick}
             conversationId={conversationId}
+            isDisplayOnly={isDisplayOnly}
           />
         ))}
       </>
@@ -1052,7 +1067,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isLastItemInList={
@@ -1064,6 +1079,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             fileStatsMap={fileStatsMap}
             onToolClick={onToolClick}
             conversationId={conversationId}
+            isDisplayOnly={isDisplayOnly}
           />
         ))}
       </>
@@ -1113,7 +1129,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isLastItemInList={
@@ -1125,6 +1141,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             fileStatsMap={fileStatsMap}
             onToolClick={onToolClick}
             conversationId={conversationId}
+            isDisplayOnly={isDisplayOnly}
           />
         ))}
       </>
