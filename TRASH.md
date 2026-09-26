@@ -1,61 +1,16 @@
-gặp lỗi khi nhận response như này
+sửa lỗi gặp lỗi Browser closed unexpectedly thì server bị tắt đột ngột
 
-<markdown>
-**Nhiệm vụ**: Sửa lỗi cú pháp (unexpected token) trong file `ServiceView.tsx`.
+[ERROR] [src/services/login.service.ts:381] [LoginService] Browser closed unexpectedly for qwen
+/home/khanhromvn/Documents/Coding/AIWeb2API & Zen/AIWeb2API/src/services/login.service.ts:388
+        const error = new Error('Browser closed unexpectedly');
+                      ^
 
-**Cách tiếp cận & Giải pháp**:
-Đã xóa bỏ khối JSX điều kiện bị trùng lặp (do lỗi copy/paste hoặc merge conflict) khiến compiler báo lỗi cú pháp ở dòng 366.
-
-**Code cũ (Khối render bị lặp)**:
-</markdown>
-<code language="tsx">
-{isDraft ? (
-  <ServiceEmailForm
-    key={service.id || 'draft'}
-    service={service}
-    autoSave={false}
-    onChange={setDraftData}
-  />
-) : (
-  <ServiceEmailView
-    key={service.id || 'draft'}
-    service={service}
-  />
-)}
-) : (
-  <ServiceEmailView
-    key={service.id || 'draft'}
-    service={service}
-  />
-)}
-</code>
-<markdown>
-**Code mới**:
-</markdown>
-<code language="tsx">
-{isDraft ? (
-  <ServiceEmailForm
-    key={service.id || 'draft'}
-    service={service}
-    autoSave={false}
-    onChange={setDraftData}
-  />
-) : (
-  <ServiceEmailView
-    key={service.id || 'draft'}
-    service={service}
-  />
-)}
-</code>
-<markdown>
-**Khuyến nghị**: Lỗi biên dịch đã được xử lý. Bạn có thể tiếp tục phát triển hoặc build lại project để xác nhận.
-</markdown>
-
-  onRegenerateRequest?: (messageId: string) => void;cccccc
-thì ở Zen. phần src/webview-ui/src/features/chat/components/ChatBody/AIMessageBox chỉ hiển thị phần src/webview-ui/src/features/chat/components/ChatBody/AIMessageBox/ResponseMetadataBar.tsx. ko thấy UI bên dưới ResponseMetadataBar. next request của nó là:
-
-```
-Output: [code] Tool execution blocked by permission policy (fullAccess).
-
-Output: [code] Tool execution blocked by permission policy (fullAccess).
-```
+Error: Browser closed unexpectedly
+    at CDPService.<anonymous> (/home/khanhromvn/Documents/Coding/AIWeb2API & Zen/AIWeb2API/src/services/login.service.ts:388:23)
+    at CDPService.emit (node:events:519:28)
+    at ChildProcess.<anonymous> (/home/khanhromvn/Documents/Coding/AIWeb2API & Zen/AIWeb2API/src/services/cdp.service.ts:207:12)
+    at ChildProcess.emit (node:events:519:28)
+    at ChildProcess._handle.onexit (node:internal/child_process:293:12)
+    at Process.callbackTrampoline (node:internal/async_hooks:130:17) {
+  code: 'BROWSER_CLOSED'
+}

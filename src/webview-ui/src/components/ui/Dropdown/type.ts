@@ -15,6 +15,8 @@ export interface DropdownProps {
   position?: { top: number; left: number };
   searchable?: boolean;
   closeOnSelect?: boolean;
+  /** Minimum width of the dropdown content. Defaults to "200px". Set to "trigger" to match trigger width. */
+  minWidth?: string | 'trigger';
 }
 
 export interface DropdownTriggerProps {

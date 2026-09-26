@@ -12,6 +12,9 @@
  */
 
 // ─── Imports ────────────────────────────────────────────────────────────
+// ── Node ──
+import * as fs from "fs";
+
 // ── VSCode ──
 import * as vscode from "vscode";
 
@@ -52,9 +55,24 @@ export class FindFilesHandler {
           100, // Max 100 results
         );
 
-        const matches = files.map((fileUri) => ({
-          path: vscode.workspace.asRelativePath(fileUri, false),
-        }));
+        const matches = await Promise.all(
+          files.map(async (fileUri) => {
+            let firstLine: string | null = null;
+            try {
+              const content = await fs.promises.readFile(fileUri.fsPath, "utf-8");
+              const lines = content.split(/\r?\n/);
+              if (lines.length > 0) {
+                firstLine = lines[0].trim();
+              }
+            } catch {
+              // Không đọc được file (binary, permission...) → giữ null
+            }
+            return {
+              path: vscode.workspace.asRelativePath(fileUri, false),
+              file_line: firstLine,
+            };
+          }),
+        );
 
         webviewView.webview.postMessage({
           command: "findFilesResult",

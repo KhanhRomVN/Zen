@@ -94,6 +94,14 @@ export interface MessageInputProps {
   onSelectRule?: (item: AttachedItem) => void;
   /** Gỡ 1 attached item theo id — dùng để gỡ badge Rule khỏi toolbar. */
   onRemoveAttachedItem?: (id: string) => void;
+  /** Per-conversation override: diagnostic enabled (chỉ hiển thị ở Home panel) */
+  conversationDiagnosticEnabled?: boolean;
+  /** Per-conversation override: skill enabled (chỉ hiển thị ở Home panel) */
+  conversationUseSkillEnabled?: boolean;
+  /** Callback khi toggle diagnostic thay đổi */
+  onConversationDiagnosticToggle?: () => void;
+  /** Callback khi toggle skill thay đổi */
+  onConversationUseSkillToggle?: () => void;
 }
 
 export interface ToggleButtonProps {

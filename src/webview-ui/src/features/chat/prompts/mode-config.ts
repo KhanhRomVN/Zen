@@ -16,6 +16,21 @@ export type SystemPromptMode =
 // SystemPromptMode="short", or vice versa.
 export type PromptLengthMode = "short" | "medium" | "long" | "none";
 
+/**
+ * Hard cap on total LINE COUNT across all files targeted by a single
+ * read_file batch (turn). This replaces an earlier per-mode "estimated
+ * token budget" design: a model cannot reliably estimate tokens, but it CAN
+ * sum a concrete line-count number that list_files/find_files/grep already
+ * report per file. Deliberately a single flat constant, not a per-mode
+ * value — unlike write behavior, "how many lines is safe to read at once"
+ * does not vary with how cautious/fast the mode is, so every mode shares
+ * this one number. Consumed by:
+ *   - constraints.ts     → READ-LINE-BUDGET
+ *   - system-context.ts  → the READ-LINE-BUDGET summary line
+ *   - tools-reference.ts → File Size Metadata note
+ */
+export const MAX_READ_LINES_PER_TURN = 1500;
+
 export interface ModeBehaviorConfig {
   askConfirmation: "minimal" | "moderate" | "extensive" | "almost-never";
   commentStyle: "minimal" | "standard" | "comprehensive" | "standard";
@@ -23,18 +38,19 @@ export interface ModeBehaviorConfig {
   explanationLevel: "one-line" | "brief" | "detailed" | "brief";
   readBeforeEdit: boolean;
   /**
-   * Single source of truth for "how many tool calls of the same type / files
-   * may be read-written-replaced per turn without asking the user".
+   * WRITE-ONLY cap. Governs how many write_to_file / replace_in_file /
+   * delete_file calls may run in a single turn without asking the user.
    * Consumed directly by:
-   *   - constraints.ts     → TOOL-BATCH-LIMIT
-   *   - system-context.ts  → MAX-FILES-PER-REQUEST
+   *   - constraints.ts     → WRITE-BATCH-LIMIT
+   *   - system-context.ts  → MAX-WRITE-FILES-PER-REQUEST
    * so the two rules can never quote different numbers for the same mode.
    *
-   * There used to be a second, separate `maxFilesPerTurn` field here that was
-   * never read anywhere in the prompt builders and had already drifted out
-   * of sync with this one (both were maintained by hand in parallel) — it
-   * has been removed rather than wired in, since a single field covers both
-   * use sites.
+   * This field USED TO also gate read_file batches (old TOOL-BATCH-LIMIT /
+   * MAX-FILES-PER-REQUEST applied the same fixed file-count to reads and
+   * writes). That coupling has been removed: reading is no longer capped by
+   * file COUNT, nor by an estimated token budget — see MAX_READ_LINES_PER_TURN
+   * above, a flat, exactly-countable line-count cap driven by the line-count
+   * metadata list_files, find_files, and grep now return per file.
    */
   maxBatchSize: number;
   runVerifyAfterChange: boolean;

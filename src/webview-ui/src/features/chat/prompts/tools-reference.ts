@@ -23,6 +23,10 @@ Use XML tags for all tool calls:
 <conversation_title>Short title for this conversation</conversation_title>
 <run_command><command>your command here</command></run_command>
 <run_command><command>your command here</command><folder_path>path/to/folder</folder_path></run_command>
+
+## File Line-Count Metadata & READ-LINE-BUDGET
+\`list_files\`, \`find_files\`, and \`grep\` results now include, for every file they return, its exact line count (e.g. \`(340 lines)\`). read_file itself has NO cap on the number of files per turn — instead, before batching read_file calls, sum this line count across every file you intend to read this turn and keep the total at or under 1500 lines (see READ-LINE-BUDGET in CONSTRAINTS). This is a precise sum, not an estimate. Do not guess a file's line count — if you are about to read a file whose line count you don't already know from a prior list_files/find_files/grep result, call one of those first. For any single file that alone would exceed the remaining budget, read only the relevant slice with \`start_line\`/\`end_line\` (the matching line numbers grep already reports are a good starting point for choosing the range) instead of the whole file.
+
 **conversation_title**: Set or update the title of the current conversation. This is a UI tag (like thinking/markdown) — not an executable tool. Call it whenever you want to set or refresh the conversation title, including on your first response. You MUST call it again whenever the current task or goal changes from the existing title. Do NOT treat this as a one-time action — if the user switches to a new task, refresh the title immediately.
 - Text content: The title (required). Keep it short and specific (max ~80 characters), written in the user's language.
 - Examples:
@@ -39,10 +43,16 @@ Use XML tags for all tool calls:
 - Returns: List of versions with format: [Version N] Errors: X, Warnings: Y
 - Example: \`<view_replace_history><file_path>src/utils.ts</file_path></view_replace_history>\` — shows all replace_in_file history for src/utils.ts
 - Use this before revert_file to see which version to revert to
-**find_files**: Search for files by name (respects .gitignore).
+**list_files**: List files and folders under a path (respects .gitignore). Each file entry includes its exact line count (see File Line-Count Metadata & READ-LINE-BUDGET above) so a read batch can be sized before any read_file call is made.
+- \`folder_path\`: The folder to list (required)
+- \`depth\`: (optional) How many levels deep to list. Omit for a shallow (1-level) listing, or pass a number, or \`max\` for the full subtree.
+- Examples:
+  - \`<list_files><folder_path>src/features/chat</folder_path></list_files>\` — shallow listing
+  - \`<list_files><folder_path>src/features/chat</folder_path><depth>max</depth></list_files>\` — full subtree
+**find_files**: Search for files by name (respects .gitignore). Each match includes its exact line count (see File Line-Count Metadata & READ-LINE-BUDGET above).
 - \`file_name\`: The file name or pattern to search for (required, only one file name per call)
 - \`folder_path\`: (optional) The folder path to search within. If provided, searches only in that folder and its subfolders. If omitted, searches the entire workspace.
-- Returns: A list of all matching file paths found.
+- Returns: A list of all matching file paths found, each with its line count.
 - Examples:
   - \`<find_files><file_name>config.json</file_name></find_files>\` — finds all files named "config.json" in the entire workspace
   - \`<find_files><file_name>*.test.ts</file_name><folder_path>src/components</folder_path></find_files>\` — finds test files only in src/components folder
@@ -62,13 +72,13 @@ Use XML tags for all tool calls:
   - broken: read -p "Enter value: " x
   - correct: printf "Enter value: " >&2; read x
 **run_command exit codes**: A non-zero exit code means the command failed. If the output contains "Error - Exit code N", treat the command as failed and diagnose before continuing.
-**grep**: Search for a string across files using **regular expressions** (not a plain literal string).
+**grep**: Search for a string across files using **regular expressions** (not a plain literal string). Each matching file's entry includes its exact line count (see File Line-Count Metadata & READ-LINE-BUDGET above), so matches in large files can be read as a slice via start_line/end_line instead of whole.
 - \`search_term\`: The regex pattern to search for (case-insensitive).
   - Supports full JavaScript regex syntax: \`.*\`, \`[A-Z]\`, \`\\d+\`, \`(foo|bar)\`, etc.
   - The regex is applied to each line of text files.
   - Invalid regex patterns will throw an error.
 - Provide EITHER \`file_path\` (single file) OR \`folder_path\` (recursively search all files in folder and subfolders).
-- Returns: For each matching file, a list of matching lines with their line numbers.
+- Returns: For each matching file, its line count plus a list of matching lines with their line numbers.
 Examples:
 - \`<grep><search_term>import.*ContextMenu</search_term><folder_path>src/renderer/src</folder_path></grep>\` — finds lines containing "import" followed by "ContextMenu"
 - \`<grep><search_term>^function\\s+\\w+</search_term><folder_path>src</folder_path></grep>\` — finds function declarations

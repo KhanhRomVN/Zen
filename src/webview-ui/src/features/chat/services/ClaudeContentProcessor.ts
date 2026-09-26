@@ -37,7 +37,8 @@ export interface ProcessClaudeContentOptions {
 
 // ─── Constants ────────────────────────────────────────────────────────────
 
-const CONVERSATION_TITLE_REGEX = /<conversation_title>[\s\S]*?<\/conversation_title>\s*/gi;
+const CONVERSATION_TITLE_REGEX =
+  /<conversation_title>[\s\S]*?<\/conversation_title>\s*/gi;
 const TOOL_MARKER_START = "__CLAUDE_TOOL__:";
 const TOOL_MARKER_END = "__END_TOOL__";
 
@@ -48,10 +49,7 @@ const TOOL_MARKER_END = "__END_TOOL__";
  *   /mnt/user-data/uploads/ — file upload tạm thời
  *   /mnt/user-data/         — toàn bộ vùng sandbox data
  */
-const SANDBOX_SKIP_PREFIXES = [
-  "/mnt/user-data/",
-  "/mnt/",
-];
+const SANDBOX_SKIP_PREFIXES = ["/mnt/user-data/", "/mnt/"];
 
 // ─── Path Mapper ──────────────────────────────────────────────────────────
 
@@ -73,17 +71,11 @@ function isSandboxInternalPath(p: string): boolean {
  */
 function mapSandboxPath(sandboxPath: string, workspacePath: string): string {
   const DEBUG = "[mapSandboxPath]";
-  console.log(
-    `${DEBUG} IN  sandboxPath=${JSON.stringify(sandboxPath)} workspacePath=${JSON.stringify(workspacePath)}`,
-  );
-
   if (!sandboxPath) {
-    console.log(`${DEBUG} OUT empty path → return as-is`);
     return sandboxPath;
   }
 
   if (sandboxPath.startsWith("./") || sandboxPath.startsWith("../")) {
-    console.log(`${DEBUG} OUT relative (./ or ../) → return as-is: ${JSON.stringify(sandboxPath)}`);
     return sandboxPath;
   }
 
@@ -94,14 +86,12 @@ function mapSandboxPath(sandboxPath: string, workspacePath: string): string {
     const afterWork = sandboxPath.slice(WORK_PREFIX.length);
     const slashIdx = afterWork.indexOf("/");
     if (slashIdx === -1) {
-      console.log(`${DEBUG} OUT sandbox work root only → workspacePath: ${JSON.stringify(workspacePath)}`);
       return workspacePath;
     }
     const rel = afterWork.slice(slashIdx + 1);
     const result = rel
       ? `${workspacePath.replace(/\/$/, "")}/${rel}`
       : workspacePath;
-    console.log(`${DEBUG} OUT sandbox work path → ${JSON.stringify(result)}`);
     return result;
   }
 
@@ -112,7 +102,6 @@ function mapSandboxPath(sandboxPath: string, workspacePath: string): string {
     const slashIdx = afterHome.indexOf("/");
     if (slashIdx === -1) {
       // Chỉ có tên folder, không có sub-path → root workspace
-      console.log(`${DEBUG} OUT sandbox home root only → workspacePath: ${JSON.stringify(workspacePath)}`);
       return workspacePath;
     }
     const segment = afterHome.slice(0, slashIdx); // "Zentri" hoặc "work"
@@ -122,7 +111,6 @@ function mapSandboxPath(sandboxPath: string, workspacePath: string): string {
       const afterWork = afterHome.slice(slashIdx + 1); // "<project>/<rest>"
       const workSlashIdx = afterWork.indexOf("/");
       if (workSlashIdx === -1) {
-        console.log(`${DEBUG} OUT sandbox work root only → workspacePath`);
         return workspacePath;
       }
       rel = afterWork.slice(workSlashIdx + 1);
@@ -133,18 +121,15 @@ function mapSandboxPath(sandboxPath: string, workspacePath: string): string {
     const result = rel
       ? `${workspacePath.replace(/\/$/, "")}/${rel}`
       : workspacePath;
-    console.log(`${DEBUG} OUT sandbox home path → ${JSON.stringify(result)}`);
     return result;
   }
 
   // Relative path không có ./ prefix (vd: "README.md", "src/utils.ts")
   if (!sandboxPath.startsWith("/")) {
     const result = `${workspacePath.replace(/\/$/, "")}/${sandboxPath}`;
-    console.log(`${DEBUG} OUT relative (no prefix) → ${JSON.stringify(result)}`);
     return result;
   }
 
-  console.log(`${DEBUG} OUT absolute non-sandbox → return as-is: ${JSON.stringify(sandboxPath)}`);
   return sandboxPath;
 }
 
@@ -216,18 +201,11 @@ function convertBashTool(
   const match = command.match(cdPrefixRegex);
 
   if (!match) {
-    console.log(
-      `[convertBashTool] SKIP — command does not start with "cd /home/claude/<projectName> &&": ${JSON.stringify(command.slice(0, 100))}`,
-    );
     return null;
   }
 
   const projectName = match[1];
   const actualCommand = match[2];
-
-  console.log(
-    `[convertBashTool] VALID — projectName="${projectName}", actualCommand="${actualCommand.slice(0, 60)}..."`,
-  );
 
   // Return Zen XML with stripped command (to be run from workspace root)
   return `<run_command><command>${actualCommand}</command>${restartTag}</run_command>`;
@@ -248,10 +226,6 @@ function convertTool(
 ): string | null {
   // Lấy path chính của tool để kiểm tra sandbox-internal
   const rawPath = (input.path as string) || "";
-
-  console.log(
-    `[convertTool] name="${name}" rawPath=${JSON.stringify(rawPath)} ws=${JSON.stringify(ws)} disablePathMapping=${disablePathMapping}`,
-  );
 
   switch (name) {
     case "str_replace": {
@@ -300,12 +274,11 @@ export function processClaudeContent(
   const DEBUG_PREFIX = "[ClaudeContentProcessor]";
   const disablePathMapping = options.disablePathMapping ?? false;
 
-  // ── Step 1: Strip <conversation_title> ──────────────────────────────
-  const beforeStrip = rawContent;
-  let content = rawContent.replace(CONVERSATION_TITLE_REGEX, "");
-  if (content !== beforeStrip) {
-    console.log(`${DEBUG_PREFIX} Stripped <conversation_title> tag`);
-  }
+  // ── Step 1: Keep <conversation_title> intact ─────────────────────────
+  // Previously stripped here, but ResponseParser needs the tag present to
+  // create a conversation_title contentBlock. Display stripping is handled
+  // later in TagRouter/AIMessageBox.
+  let content = rawContent;
 
   // ── Step 2: Parse tool markers ───────────────────────────────────────
   let convertedToolCount = 0;
@@ -313,14 +286,13 @@ export function processClaudeContent(
   let result = "";
   let remaining = content;
 
-  console.log(
-    `${DEBUG_PREFIX} Starting tool marker parse. workspacePath="${workspacePath}", contentLength=${content.length}, disablePathMapping=${disablePathMapping}`,
-  );
-
   const hasAnyMarker = content.includes(TOOL_MARKER_START);
   if (!hasAnyMarker) {
-    console.log(`${DEBUG_PREFIX} No tool markers found — returning as-is`);
-    return { content: content.trim(), convertedToolCount: 0, detectedOnlyCount: 0 };
+    return {
+      content: content.trim(),
+      convertedToolCount: 0,
+      detectedOnlyCount: 0,
+    };
   }
 
   let markerIndex = 0;
@@ -362,34 +334,21 @@ export function processClaudeContent(
       continue; // bỏ marker này
     }
 
-    console.log(
-      `${DEBUG_PREFIX} Marker #${markerIndex}: name="${toolCall.name}", id="${toolCall.id}", inputKeys=${Object.keys(toolCall.input).join(",")}`,
+    const zenXml = convertTool(
+      toolCall.name,
+      toolCall.input,
+      workspacePath,
+      disablePathMapping,
     );
-
-    const zenXml = convertTool(toolCall.name, toolCall.input, workspacePath, disablePathMapping);
 
     if (zenXml === null) {
       const rawPath = (toolCall.input.path as string) || "";
       if (isSandboxInternalPath(rawPath)) {
-        console.log(
-          `${DEBUG_PREFIX} Marker #${markerIndex} (${toolCall.name}): skipped — sandbox-internal path "${rawPath}"`,
-        );
       } else {
-        console.log(
-          `${DEBUG_PREFIX} Marker #${markerIndex} (${toolCall.name}): unknown tool, skipped`,
-        );
       }
     } else if (zenXml === "") {
-      // Không còn detected-only sau khi refactor, branch này không bao giờ xảy ra.
-      // Giữ lại để tránh silent bug nếu có regression.
-      console.warn(
-        `${DEBUG_PREFIX} Marker #${markerIndex} (${toolCall.name}): unexpected empty XML (should not happen)`,
-      );
       detectedOnlyCount++;
     } else {
-      console.log(
-        `${DEBUG_PREFIX} Marker #${markerIndex} (${toolCall.name}): converted to Zen XML:\n${zenXml}`,
-      );
       result += zenXml;
       convertedToolCount++;
     }
@@ -398,9 +357,5 @@ export function processClaudeContent(
   }
 
   const finalContent = result.trim();
-  console.log(
-    `${DEBUG_PREFIX} Done. converted=${convertedToolCount}, detectedOnly=${detectedOnlyCount}, finalLength=${finalContent.length}`,
-  );
-
   return { content: finalContent, convertedToolCount, detectedOnlyCount };
 }

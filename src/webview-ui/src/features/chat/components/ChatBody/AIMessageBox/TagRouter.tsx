@@ -152,7 +152,6 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   isClaudeProvider = false,
 }) => {
   const { rootPath } = useProject();
-
   // Handle UI blocks (markdown, code, question, error, warning)
   if (group.type === "markdown") {
     return (
@@ -440,10 +439,16 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   // Claude provider: các tool này đã được claude tự chạy trên sandbox.
   // Zen chỉ hiển thị (display-only) — dot green, không execute, không show Accept/Reject.
   const CLAUDE_DISPLAY_ONLY_TOOLS = new Set([
-    "read_file", "run_command", "list_files", "find_files",
-    "grep", "delete_file", "view_replace_history",
+    "read_file",
+    "run_command",
+    "list_files",
+    "find_files",
+    "grep",
+    "delete_file",
+    "view_replace_history",
   ]);
-  const isDisplayOnly = isClaudeProvider && CLAUDE_DISPLAY_ONLY_TOOLS.has(toolType);
+  const isDisplayOnly =
+    isClaudeProvider && CLAUDE_DISPLAY_ONLY_TOOLS.has(toolType);
 
   // Handle malformed/error tool actions - show custom header + ErrorBlock
   if (firstAction.isError) {
@@ -683,9 +688,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         action={action}
         actionIndex={actionIndex}
         messageId={messageId}
-        isActionClicked={isDisplayOnly || clickedActions.has(
-          `${messageId}-action-${actionIndex}`,
-        )}
+        isActionClicked={
+          isDisplayOnly ||
+          clickedActions.has(`${messageId}-action-${actionIndex}`)
+        }
         isLastItemInList={isLastItemInList}
         toolOutputs={toolOutputs}
         fileStatsMap={fileStatsMap}
@@ -791,9 +797,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         action={firstAction}
         actionIndex={toolGroup[0].index}
         messageId={messageId}
-        isActionClicked={isDisplayOnly || clickedActions.has(
-          `${messageId}-action-${toolGroup[0].index}`,
-        )}
+        isActionClicked={
+          isDisplayOnly ||
+          clickedActions.has(`${messageId}-action-${toolGroup[0].index}`)
+        }
         isRejected={rejectedActions?.has(
           `${messageId}-action-${toolGroup[0].index}`,
         )}
@@ -979,7 +986,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={
+              isDisplayOnly ||
+              clickedActions.has(`${messageId}-action-${index}`)
+            }
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isRestored={isRestored}
@@ -1009,7 +1019,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={
+              isDisplayOnly ||
+              clickedActions.has(`${messageId}-action-${index}`)
+            }
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isLastItemInList={
@@ -1038,7 +1051,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={
+              isDisplayOnly ||
+              clickedActions.has(`${messageId}-action-${index}`)
+            }
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isLastItemInList={
@@ -1067,7 +1083,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={
+              isDisplayOnly ||
+              clickedActions.has(`${messageId}-action-${index}`)
+            }
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isLastItemInList={
@@ -1129,7 +1148,10 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             action={action}
             actionIndex={index}
             messageId={messageId}
-            isActionClicked={isDisplayOnly || clickedActions.has(`${messageId}-action-${index}`)}
+            isActionClicked={
+              isDisplayOnly ||
+              clickedActions.has(`${messageId}-action-${index}`)
+            }
             isActiveGroup={isActiveGroup && index === toolGroup[0].index}
             isLastMessage={isLastMessage}
             isLastItemInList={

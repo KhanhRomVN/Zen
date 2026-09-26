@@ -16,6 +16,10 @@ export interface ChatMetadata {
   totalRequests: number;
   totalTokenUsage: number;
   uniqueTaskCount?: number;
+  /** Per-conversation override: bật/tắt VSCode diagnostics */
+  diagnosticEnabled?: boolean;
+  /** Per-conversation override: bật/tắt SKILL trong system prompt */
+  useSkillEnabled?: boolean;
 }
 
 export const logChatToWorkspace = (chatUuid: string, message: any) => {
@@ -80,6 +84,10 @@ export const saveConversation = async (
     totalDeletions: number;
   },
   skipSave: boolean = false,
+  conversationOverrides?: {
+    diagnosticEnabled?: boolean;
+    useSkillEnabled?: boolean;
+  },
 ): Promise<string> => {
   try {
     const storage = (window as any).storage;
@@ -113,6 +121,8 @@ export const saveConversation = async (
     let existingSingleLineReviewActions:
       | Record<string, { action: any; actionId: string; messageId: string }>
       | undefined;
+    let existingDiagnosticEnabled: boolean | undefined;
+    let existingUseSkillEnabled: boolean | undefined;
 
     const cached = ConversationCache.get(convId);
     if (cached) {
@@ -129,6 +139,8 @@ export const saveConversation = async (
         existingCreatedAt = parsed.metadata?.createdAt;
         existingLastModified = parsed.metadata?.lastModified;
         existingTitle = parsed.metadata?.title;
+        existingDiagnosticEnabled = parsed.metadata?.diagnosticEnabled;
+        existingUseSkillEnabled = parsed.metadata?.useSkillEnabled;
         if (!existingBackendConversationId) {
           existingBackendConversationId = parsed.backendConversationId;
         }
@@ -176,10 +188,7 @@ export const saveConversation = async (
         id: key,
         sessionId,
         folderPath,
-        title:
-          title ||
-          existingTitle ||
-          "New Conversation",
+        title: title || existingTitle || "New Conversation",
         lastModified: skipTimestampUpdate
           ? existingLastModified || Date.now()
           : Date.now(),
@@ -187,6 +196,10 @@ export const saveConversation = async (
         createdAt: existingCreatedAt || Date.now(),
         totalRequests,
         totalTokenUsage,
+        diagnosticEnabled:
+          conversationOverrides?.diagnosticEnabled ?? existingDiagnosticEnabled,
+        useSkillEnabled:
+          conversationOverrides?.useSkillEnabled ?? existingUseSkillEnabled,
       } as ChatMetadata,
     };
 

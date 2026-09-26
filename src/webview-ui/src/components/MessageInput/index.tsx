@@ -368,63 +368,190 @@ const useModelSelection = (
 // TOGGLE BUTTONS
 // ============================================================================
 
+// ─── SimpleTooltip ────────────────────────────────────────────────────────────
+/**
+ * Custom tooltip dùng position:fixed để hiển thị đúng trong VSCode webview.
+ * Native browser `title` attribute không hoạt động trong webview VSCode.
+ * Nhận `content` là ReactNode để hỗ trợ text có màu.
+ */
+const SimpleTooltip: React.FC<{
+  content: React.ReactNode;
+  children: React.ReactElement;
+}> = ({ content, children }) => {
+  const [pos, setPos] = React.useState<{ x: number; y: number } | null>(null);
+
+  const show = (e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setPos({ x: rect.left + rect.width / 2, y: rect.top - 6 });
+  };
+
+  const hide = () => setPos(null);
+
+  return (
+    <>
+      {React.cloneElement(children, {
+        onMouseEnter: (e: React.MouseEvent) => {
+          children.props.onMouseEnter?.(e);
+          show(e);
+        },
+        onMouseLeave: (e: React.MouseEvent) => {
+          children.props.onMouseLeave?.(e);
+          hide();
+        },
+      })}
+      {pos && (
+        <div
+          style={{
+            position: "fixed",
+            left: pos.x,
+            top: pos.y,
+            transform: "translate(-50%, -100%)",
+            zIndex: 99999,
+            backgroundColor:
+              "var(--vscode-editorHoverWidget-background, #252526)",
+            border: "1px solid var(--vscode-editorHoverWidget-border, #454545)",
+            borderRadius: "5px",
+            padding: "4px 8px",
+            fontSize: "11px",
+            color: "var(--vscode-foreground)",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            boxShadow: "0 3px 10px rgba(0,0,0,0.35)",
+            marginBottom: "4px",
+            display: "flex",
+            alignItems: "center",
+            gap: "4px",
+          }}
+        >
+          {content}
+        </div>
+      )}
+    </>
+  );
+};
+
+/** Helper render "Label <ON|OFF>" với màu accent khi ON, mờ khi OFF */
+const TooltipToggle = ({
+  label,
+  isOn,
+  accentColor,
+}: {
+  label: string;
+  isOn: boolean;
+  accentColor: string;
+}) => (
+  <>
+    <span>{label}</span>
+    <span
+      style={{
+        fontWeight: 700,
+        color: isOn ? accentColor : "var(--vscode-descriptionForeground, #888)",
+        opacity: isOn ? 1 : 0.6,
+      }}
+    >
+      {isOn ? "ON" : "OFF"}
+    </span>
+  </>
+);
+
 /**
  * Icon-only toggle button dùng chung cho Thinking / Search / Memory.
  * `accentColor` xác định màu khi ON.
  */
 const IconToggleButton: React.FC<
-  ToggleButtonProps & { accentColor: string; children: React.ReactNode }
-> = ({ isOn, onClick, title, accentColor, children }) => {
+  ToggleButtonProps & {
+    accentColor: string;
+    children: React.ReactNode;
+    tooltipContent: React.ReactNode;
+  }
+> = ({ isOn, onClick, accentColor, children, tooltipContent }) => {
   const [isHovered, setIsHovered] = React.useState(false);
 
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "24px",
-        width: "24px",
-        boxSizing: "border-box",
-        borderRadius: "5px",
-        cursor: "pointer",
-        transition: "all 0.15s ease-in-out",
-        border: "1px solid transparent",
-        background: isOn
-          ? isHovered
-            ? `color-mix(in srgb, ${accentColor} 22%, transparent)`
-            : `color-mix(in srgb, ${accentColor} 14%, transparent)`
-          : isHovered
-            ? "rgba(128, 128, 128, 0.16)"
-            : "transparent",
-        color: isOn ? accentColor : "var(--vscode-foreground)",
-        opacity: isOn ? 1 : isHovered ? 1 : 0.75,
-        padding: 0,
-      }}
-      title={title}
-    >
-      {children}
-    </button>
+    <SimpleTooltip content={tooltipContent}>
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "24px",
+          width: "24px",
+          boxSizing: "border-box",
+          borderRadius: "5px",
+          cursor: "pointer",
+          transition: "all 0.15s ease-in-out",
+          border: "1px solid transparent",
+          background: isOn
+            ? isHovered
+              ? `color-mix(in srgb, ${accentColor} 22%, transparent)`
+              : `color-mix(in srgb, ${accentColor} 14%, transparent)`
+            : isHovered
+              ? "rgba(128, 128, 128, 0.16)"
+              : "transparent",
+          color: isOn ? accentColor : "var(--vscode-foreground)",
+          opacity: isOn ? 1 : isHovered ? 1 : 0.75,
+          padding: 0,
+        }}
+      >
+        {children}
+      </button>
+    </SimpleTooltip>
   );
 };
 
-const ThinkingButton: React.FC<ToggleButtonProps> = (props) => (
-  <IconToggleButton {...props} accentColor="#a855f7">
+const ThinkingButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => (
+  <IconToggleButton
+    isOn={isOn}
+    onClick={onClick}
+    title={title}
+    accentColor="#a855f7"
+    tooltipContent={
+      <TooltipToggle label="Thinking" isOn={isOn} accentColor="#a855f7" />
+    }
+  >
     <BrainCogIcon />
   </IconToggleButton>
 );
 
-const SearchButton: React.FC<ToggleButtonProps> = (props) => (
-  <IconToggleButton {...props} accentColor="#0ea5e9">
+const SearchButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => (
+  <IconToggleButton
+    isOn={isOn}
+    onClick={onClick}
+    title={title}
+    accentColor="#0ea5e9"
+    tooltipContent={
+      <TooltipToggle label="Search" isOn={isOn} accentColor="#0ea5e9" />
+    }
+  >
     <GlobeIcon />
   </IconToggleButton>
 );
 
-const MemoryButton: React.FC<ToggleButtonProps> = (props) => (
-  <IconToggleButton {...props} accentColor="#8b5cf6">
+const MemoryButton: React.FC<ToggleButtonProps> = ({
+  isOn,
+  onClick,
+  title,
+}) => (
+  <IconToggleButton
+    isOn={isOn}
+    onClick={onClick}
+    title={title}
+    accentColor="#8b5cf6"
+    tooltipContent={
+      <TooltipToggle label="Memory" isOn={isOn} accentColor="#8b5cf6" />
+    }
+  >
     <MemoryIcon />
   </IconToggleButton>
 );
@@ -706,6 +833,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     enableViewOnlyMode = false,
     onSelectRule,
     onRemoveAttachedItem,
+    conversationDiagnosticEnabled,
+    conversationUseSkillEnabled,
+    onConversationDiagnosticToggle,
+    onConversationUseSkillToggle,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -963,25 +1094,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
         return "Select an account to start";
       }
 
-      // Default: dynamic based on capabilities
-      const hints: string[] = [];
-      hints.push("@agent");
-      if (supportsUpload) {
-        hints.push("attach files");
-      }
-      if (showThinkingButton) {
-        hints.push("🧠 thinking");
-      }
-      if (showSearchButton) {
-        hints.push("🔍 search");
-      }
-      if (showMemoryButton) {
-        hints.push("💾 memory");
-      }
-
-      return hints.length > 1
-        ? `Message ${hints[0]} (Alt+@) · ${hints.slice(1).join(" · ")}`
-        : `Message ${hints[0]} (Alt+@)`;
+      // Default: concise single-line placeholder, no emoji
+      return "Type a message...";
     }, [
       isHistoryMode,
       isConnected,
@@ -1441,37 +1555,16 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       xhigh: "Extra",
                       max: "Max",
                     };
-
-                    const splitEffort = (id: string): { base: string; effort: EffortLvl | null } => {
-                      for (const lvl of EFFORT_LEVELS_TRIGGER) {
-                        if (id.endsWith(`-${lvl}`)) {
-                          return { base: id.slice(0, -(lvl.length + 1)), effort: lvl };
-                        }
+                    let baseId = displayModel.id;
+                    let effort: EffortLvl | null = null;
+                    for (const lvl of EFFORT_LEVELS_TRIGGER) {
+                      if (displayModel.id.endsWith(`-${lvl}`)) {
+                        baseId = displayModel.id.slice(0, -(lvl.length + 1));
+                        effort = lvl;
+                        break;
                       }
-                      return { base: id, effort: null };
-                    };
-
-                    const { base: baseId, effort } = splitEffort(displayModel.id);
-
-                    // Đếm số effort options của model này trong provider
-                    let effortCount = 0;
-                    const provForCount = providers.find(
-                      (p: any) => p.provider_id === displayModel.providerId
-                    );
-                    if (provForCount?.models) {
-                      const uniqueEfforts = new Set<string>();
-                      for (const m of provForCount.models as any[]) {
-                        const parsed = splitEffort(m.id);
-                        if (parsed.base === baseId && parsed.effort !== null) {
-                          uniqueEfforts.add(parsed.effort);
-                        }
-                      }
-                      effortCount = uniqueEfforts.size;
                     }
-
-                    // Chỉ hiển thị badge khi có >= 2 effort options
-                    if (!effort || effortCount < 2) return <>{displayModel.id}</>;
-
+                    if (!effort) return <>{baseId}</>;
                     const effortColor = EFFORT_COLOR_TRIGGER[effort];
                     return (
                       <>
@@ -1929,6 +2022,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 e.target.style.border = "none";
                 e.target.style.boxShadow = "none";
               }}
+              className="zen-message-input"
               placeholder={placeholderText}
               disabled={isViewOnlyProvider}
               rows={1}
@@ -2059,14 +2153,15 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 }}
               />
               {/* System Prompt Mode Selector - Home only */}
-              {!isConversationStarted && (
+              {!isConversationStarted &&
                 (() => {
-                  const isAntiInjection =
-                    !!(currentProviderConfig as any)?.anti_system_prompt_injection;
+                  const isAntiInjection = !!(currentProviderConfig as any)
+                    ?.anti_system_prompt_injection;
                   const meta =
                     STYLE_CODE_MODE_META.find(
                       (m) => m.key === systemPromptMode,
-                    ) ?? STYLE_CODE_MODE_META.find((m) => m.key === "balanced")!;
+                    ) ??
+                    STYLE_CODE_MODE_META.find((m) => m.key === "balanced")!;
 
                   return (
                     <StyleCodeDropdown
@@ -2076,10 +2171,88 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         setSystemPromptMode(mode);
                       }}
                       isAntiInjection={isAntiInjection}
+                      isPromptLengthNone={promptLengthMode === "none"}
                       triggerButton={
+                        <SimpleTooltip
+                          content={
+                            <>
+                              <span>Style Code</span>
+                              <span
+                                style={{ fontWeight: 700, color: meta.color }}
+                              >
+                                {meta.label}
+                              </span>
+                            </>
+                          }
+                        >
+                          <button
+                            onMouseEnter={() => setIsSystemPromptHovered(true)}
+                            onMouseLeave={() => setIsSystemPromptHovered(false)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              height: "24px",
+                              width: "24px",
+                              boxSizing: "border-box",
+                              borderRadius: "5px",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease-in-out",
+                              border: "1px solid transparent",
+                              background: isSystemPromptHovered
+                                ? "rgba(128, 128, 128, 0.16)"
+                                : "transparent",
+                              color: meta.color,
+                              opacity: 1,
+                              padding: 0,
+                            }}
+                          >
+                            <StyleCodeTriggerIcon mode={systemPromptMode} />
+                          </button>
+                        </SimpleTooltip>
+                      }
+                    />
+                  );
+                })()}
+
+              {/* Prompt Length Selector - Home only */}
+              {!isConversationStarted && (
+                <PromptLengthDropdown
+                  currentMode={promptLengthMode}
+                  onSelect={(mode) => {
+                    if (
+                      !!(currentProviderConfig as any)
+                        ?.anti_system_prompt_injection &&
+                      mode !== "none"
+                    )
+                      return;
+                    setPromptLengthMode(mode);
+                  }}
+                  isNoneOnly={
+                    !!(currentProviderConfig as any)
+                      ?.anti_system_prompt_injection
+                  }
+                  triggerButton={(() => {
+                    const meta =
+                      PROMPT_LENGTH_MODE_META.find(
+                        (m) => m.key === promptLengthMode,
+                      ) ?? PROMPT_LENGTH_MODE_META[3];
+                    return (
+                      <SimpleTooltip
+                        content={
+                          <>
+                            <span>Prompt Length</span>
+                            <span
+                              style={{ fontWeight: 700, color: meta.color }}
+                            >
+                              {meta.label}
+                            </span>
+                          </>
+                        }
+                      >
                         <button
-                          onMouseEnter={() => setIsSystemPromptHovered(true)}
-                          onMouseLeave={() => setIsSystemPromptHovered(false)}
+                          onMouseEnter={() => setIsPromptLengthHovered(true)}
+                          onMouseLeave={() => setIsPromptLengthHovered(false)}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -2091,66 +2264,131 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                             cursor: "pointer",
                             transition: "all 0.15s ease-in-out",
                             border: "1px solid transparent",
-                            background: isSystemPromptHovered
+                            background: isPromptLengthHovered
                               ? "rgba(128, 128, 128, 0.16)"
                               : "transparent",
                             color: meta.color,
                             opacity: 1,
                             padding: 0,
                           }}
-                          title={`Style Code — ${meta.label}`}
                         >
-                          <StyleCodeTriggerIcon mode={systemPromptMode} />
+                          <PromptLengthTriggerIcon mode={promptLengthMode} />
                         </button>
-                      }
-                    />
-                  );
-                })()
-              )}
-
-              {/* Prompt Length Selector - Home only */}
-              {!isConversationStarted && (
-                <PromptLengthDropdown
-                  currentMode={promptLengthMode}
-                  onSelect={(mode) => {
-                    if (!!(currentProviderConfig as any)?.anti_system_prompt_injection && mode !== "none") return;
-                    setPromptLengthMode(mode);
-                  }}
-                  isNoneOnly={!!(currentProviderConfig as any)?.anti_system_prompt_injection}
-                  triggerButton={(() => {
-                    const meta =
-                      PROMPT_LENGTH_MODE_META.find(
-                        (m) => m.key === promptLengthMode,
-                      ) ?? PROMPT_LENGTH_MODE_META[3];
-                    return (
-                      <button
-                        onMouseEnter={() => setIsPromptLengthHovered(true)}
-                        onMouseLeave={() => setIsPromptLengthHovered(false)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          height: "24px",
-                          width: "24px",
-                          boxSizing: "border-box",
-                          borderRadius: "5px",
-                          cursor: "pointer",
-                          transition: "all 0.15s ease-in-out",
-                          border: "1px solid transparent",
-                          background: isPromptLengthHovered
-                            ? "rgba(128, 128, 128, 0.16)"
-                            : "transparent",
-                          color: meta.color,
-                          opacity: 1,
-                          padding: 0,
-                        }}
-                        title={`Prompt Length — ${meta.label}`}
-                      >
-                        <PromptLengthTriggerIcon mode={promptLengthMode} />
-                      </button>
+                      </SimpleTooltip>
                     );
                   })()}
                 />
+              )}
+
+              {/* Diagnostic Toggle - Home only */}
+              {!isConversationStarted && onConversationDiagnosticToggle && (
+                <SimpleTooltip
+                  content={
+                    <TooltipToggle
+                      label="Diagnostics"
+                      isOn={!!conversationDiagnosticEnabled}
+                      accentColor="#22c55e"
+                    />
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log(
+                        "[MessageInput] Diagnostic toggle clicked — current:",
+                        conversationDiagnosticEnabled,
+                      );
+                      onConversationDiagnosticToggle();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "24px",
+                      width: "24px",
+                      boxSizing: "border-box",
+                      borderRadius: "5px",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease-in-out",
+                      border: "1px solid transparent",
+                      background: conversationDiagnosticEnabled
+                        ? "rgba(34, 197, 94, 0.16)"
+                        : "transparent",
+                      color: conversationDiagnosticEnabled
+                        ? "#22c55e"
+                        : "var(--vscode-descriptionForeground, #888)",
+                      opacity: 1,
+                      padding: 0,
+                    }}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 2v4" />
+                      <path d="m16.2 7.8 2.9-2.9" />
+                      <path d="M18 12h4" />
+                      <path d="m16.2 16.2 2.9 2.9" />
+                      <path d="M12 18v4" />
+                      <path d="m4.9 19.1 2.9-2.9" />
+                      <path d="M2 12h4" />
+                      <path d="m4.9 4.9 2.9 2.9" />
+                    </svg>
+                  </button>
+                </SimpleTooltip>
+              )}
+
+              {/* Skill Toggle - Home only */}
+              {!isConversationStarted && onConversationUseSkillToggle && (
+                <SimpleTooltip
+                  content={
+                    <TooltipToggle
+                      label="Skill"
+                      isOn={!!conversationUseSkillEnabled}
+                      accentColor="#6366f1"
+                    />
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      console.log(
+                        "[MessageInput] Skill toggle clicked — current:",
+                        conversationUseSkillEnabled,
+                      );
+                      onConversationUseSkillToggle();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: "24px",
+                      width: "24px",
+                      boxSizing: "border-box",
+                      borderRadius: "5px",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease-in-out",
+                      border: "1px solid transparent",
+                      background: conversationUseSkillEnabled
+                        ? "rgba(99, 102, 241, 0.16)"
+                        : "transparent",
+                      color: conversationUseSkillEnabled
+                        ? "#6366f1"
+                        : "var(--vscode-descriptionForeground, #888)",
+                      opacity: 1,
+                      padding: 0,
+                    }}
+                  >
+                    <BrainCogIcon />
+                  </button>
+                </SimpleTooltip>
               )}
             </div>
 
@@ -2402,7 +2640,7 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     messagesLengthSame &&
     responseRangesSame &&
     conversationFileStatsSame &&
-    attachedItemsSame; // 🔧 FIX: Include attachedItems check
+    attachedItemsSame;
 
   return shouldSkip;
 });

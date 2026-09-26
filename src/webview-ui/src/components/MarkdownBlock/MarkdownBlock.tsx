@@ -4,6 +4,7 @@ import DOMPurify from "dompurify";
 import { getFileIconPath, getFolderIconPath } from "@/utils/fileIconMapper";
 import { extensionService } from "@/services/ExtensionService";
 import { CodeBlock } from "../../features/chat/components/ChatBody/AIMessageBox/blocks/code/CodeBlock";
+import { parseMarkdown } from "../../features/chat/services/parsers/MarkdownParser";
 
 const ABSOLUTE_PATH_REGEX = /^(\/[^\s<>"'`]+|[A-Za-z]:\\[^\s<>"'`]+)/;
 const RELATIVE_PATH_WITH_FOLDERS_REGEX =
@@ -321,8 +322,9 @@ const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(
     const resolvedMap = knownFilePaths || new Map<string, string>();
 
     const reactNodes = React.useMemo(() => {
-      // 1. Render markdown → sanitized HTML
-      const rawHtml = marked.parse(content) as string;
+      // 1. Preprocess custom tags, then render markdown → sanitized HTML
+      const processedContent = parseMarkdown(content);
+      const rawHtml = marked.parse(processedContent) as string;
 
       const sanitized = DOMPurify.sanitize(rawHtml, {
         USE_PROFILES: { html: true },

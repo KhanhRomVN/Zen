@@ -264,6 +264,12 @@ export class ChatController {
             webviewView,
           );
           break;
+        case "getRevertPreview":
+          await this.revertConversationHandler.handleGetRevertPreview(
+            message,
+            webviewView,
+          );
+          break;
         case "openConversationFolder":
           await this.openConversationFolderHandler.handleOpenConversationFolder(
             message,
@@ -347,6 +353,9 @@ export class ChatController {
           await this.previewHandler.handleOpenViewReplaceHistoryVersion(
             message,
           );
+          break;
+        case "openRevertFilePreview":
+          await this.previewHandler.handleOpenRevertFilePreview(message);
           break;
 
         // Terminal

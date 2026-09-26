@@ -47,6 +47,10 @@ export interface Message {
   rejectedActions?: string[];
   /** DeepSeek parent_message_id for revert support. */
   response_message_id?: string;
+  /** Qwen: fid (UUID) of the user message as sent to the provider. Used for regenerate/edit. */
+  providerFid?: string;
+  /** Qwen: parent_message_id that was active when this user message was sent. Used for regenerate/edit. */
+  providerParentId?: string;
   /** Pre-parsed message content (cached for performance) */
   parsed?: ParsedResponse;
   /** Raw API request body (JSON string) sent to LLM provider. */

@@ -5,6 +5,11 @@
  * Bottom-sheet drawer xác nhận revert conversation về điểm này.
  * UI dựa theo mockup: impact bar, grouped files (restore/undo/remove),
  * collapsible groups, search.
+ *
+ * Clicking a file row opens a preview in the editor:
+ *   - restore  (delete_file)             → temp tab with restored content
+ *   - remove   (create_file/write_to_file) → temp tab with current content
+ *   - undo     (replace_in_file / …)     → diff view (after revert ↔ current)
  * ------------------------------------------------------------------
  */
 
@@ -33,7 +38,7 @@ interface GroupDef {
   icon: React.ReactNode;
 }
 
-interface RevertConfirmModalProps {
+interface RevertConfirmDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -124,15 +129,30 @@ const XIcon = () => (
 
 const FileRow: React.FC<{
   entry: RevertFileEntry;
+  groupKey: GroupKey;
   accentColor: string;
   query: string;
   borderTop: boolean;
-}> = ({ entry, accentColor, query, borderTop }) => {
+  conversationId?: string;
+}> = ({ entry, groupKey, accentColor, query, borderTop, conversationId }) => {
   const { filePath, additions, deletions, actionType } = entry;
   const slashIdx = filePath.lastIndexOf("/");
   const dirPart  = slashIdx >= 0 ? filePath.slice(0, slashIdx + 1) : "";
   const namePart = slashIdx >= 0 ? filePath.slice(slashIdx + 1) : filePath;
-  const isUndo   = actionType !== "delete_file" && actionType !== "write_to_file" && actionType !== "create_file";
+  const isUndo   = groupKey === "undo";
+
+  const [hovered, setHovered] = React.useState(false);
+
+  const handleClick = () => {
+    const vscodeApi = (window as any).vscodeApi;
+    if (!vscodeApi) return;
+    vscodeApi.postMessage({
+      command: "openRevertFilePreview",
+      filePath,
+      actionType: groupKey,   // "restore" | "undo" | "remove"
+      conversationId,
+    });
+  };
 
   const highlight = (text: string) => {
     if (!query) return <>{text}</>;
@@ -151,12 +171,18 @@ const FileRow: React.FC<{
 
   return (
     <div
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         display: "flex",
         alignItems: "center",
         gap: "10px",
         padding: "8px 14px 8px 48px",
         borderTop: borderTop ? "1px solid var(--border-color, rgba(255,255,255,0.06))" : "none",
+        cursor: "pointer",
+        backgroundColor: hovered ? "rgba(255,255,255,0.04)" : "transparent",
+        transition: "background 0.1s",
       }}
     >
       {/* File icon */}
@@ -193,6 +219,28 @@ const FileRow: React.FC<{
           </div>
         )}
       </div>
+
+      {/* Preview hint icon — only visible on hover */}
+      <div
+        style={{
+          opacity: hovered ? 0.5 : 0,
+          transition: "opacity 0.1s",
+          color: "var(--secondary-text, var(--vscode-descriptionForeground))",
+          flexShrink: 0,
+        }}
+      >
+        {isUndo ? (
+          /* diff icon */
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 7H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h4"/><path d="M15 7h4a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-4"/><path d="M12 2v20"/>
+          </svg>
+        ) : (
+          /* eye icon */
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        )}
+      </div>
     </div>
   );
 };
@@ -204,7 +252,8 @@ const FileGroup: React.FC<{
   files: RevertFileEntry[];
   query: string;
   forceOpen: boolean;
-}> = ({ def, files, query, forceOpen }) => {
+  conversationId?: string;
+}> = ({ def, files, query, forceOpen, conversationId }) => {
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => { if (forceOpen) setOpen(true); }, [forceOpen]);
 
@@ -231,10 +280,8 @@ const FileGroup: React.FC<{
           userSelect: "none",
           transition: "background 0.12s",
         }}
-        onMouseEnter={e => (e.currentTarget.style.background = "transparent")}
-        onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
       >
-        {/* Badge */}
+        {/* Group icon badge */}
         <div
           style={{
             width: "26px",
@@ -261,23 +308,7 @@ const FileGroup: React.FC<{
           </div>
         </div>
 
-        {/* Count pill */}
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            color: "var(--secondary-text, var(--vscode-descriptionForeground))",
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid var(--border-color, rgba(255,255,255,0.07))",
-            borderRadius: "99px",
-            padding: "2px 9px",
-            flexShrink: 0,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {files.length}
-        </div>
-
+        {/* Chevron */}
         <div style={{ color: "var(--secondary-text, var(--vscode-descriptionForeground))", opacity: 0.5 }}>
           <ChevronIcon open={open} />
         </div>
@@ -291,8 +322,16 @@ const FileGroup: React.FC<{
           transition: "max-height 0.22s ease",
         }}
       >
-        {files.map((f, i) => (
-          <FileRow key={f.filePath} entry={f} accentColor={def.accentColor} query={query} borderTop={true} />
+        {files.map((f) => (
+          <FileRow
+            key={f.filePath}
+            entry={f}
+            groupKey={def.key}
+            accentColor={def.accentColor}
+            query={query}
+            borderTop={true}
+            conversationId={conversationId}
+          />
         ))}
       </div>
     </div>
@@ -301,7 +340,7 @@ const FileGroup: React.FC<{
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-const RevertConfirmModal: React.FC<RevertConfirmModalProps> = ({
+const RevertConfirmDrawer: React.FC<RevertConfirmDrawerProps> = ({
   isOpen,
   onClose,
   onConfirm,
@@ -541,6 +580,7 @@ const RevertConfirmModal: React.FC<RevertConfirmModalProps> = ({
                   files={grouped[def.key]}
                   query={query}
                   forceOpen={hasSearch}
+                  conversationId={conversationId}
                 />
               ))}
             </div>
@@ -636,4 +676,4 @@ const RevertConfirmModal: React.FC<RevertConfirmModalProps> = ({
   );
 };
 
-export default RevertConfirmModal;
+export default RevertConfirmDrawer;

@@ -74,6 +74,10 @@ const App: React.FC = () => {
     files: any[];
     model: any;
     account: any;
+    conversationOverrides?: {
+      diagnosticEnabled?: boolean;
+      useSkillEnabled?: boolean;
+    };
   } | null>(null);
 
   useEffect(() => {
@@ -146,12 +150,22 @@ const App: React.FC = () => {
   }, [currentChat]);
 
   const handleHomeSendMessage = useCallback(
-    (content: string, files: any[], model: any, account: any) => {
+    (
+      content: string,
+      files: any[],
+      model: any,
+      account: any,
+      conversationOverrides?: {
+        diagnosticEnabled?: boolean;
+        useSkillEnabled?: boolean;
+      },
+    ) => {
       setInitialMessageData({
         content,
         files,
         model,
         account,
+        conversationOverrides,
       });
       const newSession: ChatSession = {
         sessionId: Date.now(),

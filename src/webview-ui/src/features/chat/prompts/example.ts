@@ -305,7 +305,7 @@ These show how tools are sequenced across turns. Each "Turn N" is one assistant 
 \`\`\`
 
 ### Batch 4: Creating a new feature — multiple new files in one batch
-**Description**: LAZY-LADDER already confirmed nothing existing covers this. Independent new files are created together in one BATCH turn, respecting the per-type tool call cap for the active mode.
+**Description**: LAZY-LADDER already confirmed nothing existing covers this. Independent new files are created together in one BATCH turn, respecting WRITE-BATCH-LIMIT for the active mode.
 \`\`\`xml
 <!-- Turn 1: check nothing similar already exists, and find a naming convention to copy (CONVENTION-CHECK) -->
 <find_files><file_name>*-store.ts</file_name><folder_path>src/features</folder_path></find_files>
@@ -496,6 +496,30 @@ const EXAMPLE_CORE_TAIL = `
     <option>Start a new one on a different port</option>
   </q>
 </question>
+\`\`\`
+
+### Batch 16: READ-LINE-BUDGET — using file line-count metadata to trim a read batch
+**Description**: grep/find_files/list_files return an exact line count per file. Before batching read_file calls, that count is summed against the fixed 1500-line-per-turn budget; oversized files are read as a slice (start_line/end_line) instead of being read whole, rather than being silently dropped. There is no cap on the NUMBER of files read here — three files are read in one batch below purely because that's what the task needs and the total stays under 1500 lines, not because of any file-count limit.
+\`\`\`xml
+<!-- Turn 1: explore — grep returns an exact line count alongside each match -->
+<grep><search_term>class OrderProcessor</search_term><folder_path>src/features/orders</folder_path></grep>
+<!-- Result: order-processor.ts (1200 lines) matches at line 640; order-types.ts (80 lines) and order-utils.ts (150 lines) also match -->
+
+<!-- Turn 2 (after results returned): reading order-processor.ts whole (1200) + the other two whole (80+150) = 1430 lines, under the 1500 budget, so all three are read as-is -->
+<read_file><file_path>src/features/orders/order-processor.ts</file_path></read_file>
+<read_file><file_path>src/features/orders/order-types.ts</file_path></read_file>
+<read_file><file_path>src/features/orders/order-utils.ts</file_path></read_file>
+\`\`\`
+
+### Batch 17: READ-LINE-BUDGET — a single file alone exceeds the budget
+**Description**: One matching file is larger than the whole 1500-line budget by itself. Instead of skipping it or reading it whole and blowing the budget, only the relevant slice around the match is read.
+\`\`\`xml
+<!-- Turn 1 -->
+<grep><search_term>function legacyMigrate</search_term><folder_path>src/scripts</folder_path></grep>
+<!-- Result: migrate-legacy.ts (3400 lines) matches at line 2210 -->
+
+<!-- Turn 2 (after result returned): 3400 lines alone exceeds the 1500 budget, so read only a slice around the match instead of the whole file -->
+<read_file><file_path>src/scripts/migrate-legacy.ts</file_path><start_line>2150</start_line><end_line>2300</end_line></read_file>
 \`\`\`
 `;
 

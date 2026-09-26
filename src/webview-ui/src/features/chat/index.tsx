@@ -8,6 +8,9 @@ import React, {
 import { useSettings } from "../../context/SettingsContext";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 
+// Services
+import { getConversationKey } from "./services/ConversationService";
+
 // Core chat hooks
 import { useChatLLM } from "./hooks/llm/useChatLLM";
 import { useToolExecution } from "./hooks/tools/useToolExecution";
@@ -53,6 +56,10 @@ interface ChatPanelProps {
     files: any[];
     model: any;
     account: any;
+    conversationOverrides?: {
+      diagnosticEnabled?: boolean;
+      useSkillEnabled?: boolean;
+    };
   } | null;
   onClearInitialData?: () => void;
 }
@@ -64,6 +71,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   initialMessageData,
   onClearInitialData,
 }) => {
+  // Per-conversation overrides restored from saved metadata
+  const [restoredConversationOverrides, setRestoredConversationOverrides] =
+    useState<{
+      diagnosticEnabled?: boolean;
+      useSkillEnabled?: boolean;
+    } | undefined>(undefined);
+
   // Track render count for performance monitoring
   const renderCountRef = useRef(0);
   renderCountRef.current++;
@@ -172,6 +186,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   } = useChatLLM({
     apiUrl,
     selectedTab: currentChat,
+    conversationOverrides:
+      initialMessageData?.conversationOverrides ?? restoredConversationOverrides,
     onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
       handleToolRequest(
         actions,
@@ -304,6 +320,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       skipFirstRequestLogic?: boolean,
       actionIds?: string[],
       uiHidden?: boolean,
+      extraOptions?: { user_action?: string; edit_message_id?: string; parent_message_id?: string },
     ) => {
       if (!skipFirstRequestLogic) {
         isStoppedRef.current = false;
@@ -315,10 +332,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         scrollToBottomRef.current();
       }
 
-      const parentMsgId = revertParentMessageIdRef.current || undefined;
-      revertParentMessageIdRef.current = null;
-      if (parentMsgId && currentConversationId) {
-        sessionStorage.removeItem(`zen-revert-parent:${currentConversationId}`);
+      // For Qwen edit/regenerate: extraOptions.parent_message_id takes priority over revertParentMessageId
+      const parentMsgId =
+        extraOptions?.parent_message_id ??
+        revertParentMessageIdRef.current ??
+        undefined;
+      if (!extraOptions?.parent_message_id) {
+        revertParentMessageIdRef.current = null;
+        if (parentMsgId && currentConversationId) {
+          sessionStorage.removeItem(
+            `zen-revert-parent:${currentConversationId}`,
+          );
+        }
+      } else {
+        revertParentMessageIdRef.current = null;
       }
       return sendMessage(
         content,
@@ -329,6 +356,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         actionIds,
         uiHidden,
         parentMsgId,
+        extraOptions,
       );
     },
     [sendMessage, currentConversationId],
@@ -527,8 +555,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       skip?: boolean,
       ids?: string[],
       hidden?: boolean,
+      extraOptions?: { user_action?: string; edit_message_id?: string; parent_message_id?: string },
     ) => {
-      wrappedSendMessage(c, f, m, a, skip, ids, hidden);
+      wrappedSendMessage(c, f, m, a, skip, ids, hidden, extraOptions);
     },
     [wrappedSendMessage],
   );
@@ -572,6 +601,45 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       setCurrentAccount(initialMessageData.account);
     }
   }, [initialMessageData, setCurrentModel, setCurrentAccount]);
+
+  // Restore per-conversation overrides from saved metadata when loading a conversation
+  useEffect(() => {
+    const convId = (currentChat as any)?.conversationId;
+    if (!convId) {
+      setRestoredConversationOverrides(undefined);
+      return;
+    }
+    // Skip if this is a new chat from Home panel (initialMessageData will handle it)
+    if (initialMessageData) return;
+
+    const loadOverrides = async () => {
+      try {
+        const storage = (window as any).storage;
+        if (!storage) return;
+        const key = getConversationKey(
+          currentChat?.sessionId ?? -1,
+          currentChat?.folderPath ?? null,
+          convId,
+        );
+        const raw = await storage.get(key, false);
+        if (raw?.value) {
+          const parsed = JSON.parse(raw.value);
+          const meta = parsed?.metadata;
+          if (meta && (meta.diagnosticEnabled !== undefined || meta.useSkillEnabled !== undefined)) {
+            setRestoredConversationOverrides({
+              diagnosticEnabled: meta.diagnosticEnabled,
+              useSkillEnabled: meta.useSkillEnabled,
+            });
+          } else {
+            setRestoredConversationOverrides(undefined);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadOverrides();
+  }, [currentChat?.sessionId, currentChat?.folderPath, (currentChat as any)?.conversationId, initialMessageData]);
 
   // Process initial message
   useEffect(() => {

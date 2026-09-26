@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, createContext, useContext } from "react";
 import React from "react";
 import { createPortal } from "react-dom";
 import { DropdownProps } from "./type";
-type Position = { top: number; left: number; width?: number };
+type Position = { top: number; left: number };
 
 interface DropdownContextType {
   close: () => void;
@@ -35,6 +35,7 @@ export function Dropdown({
   position: manualPosition,
   searchable = false,
   closeOnSelect = true,
+  minWidth = "200px",
 }: DropdownProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -42,8 +43,11 @@ export function Dropdown({
   const setOpen = (value: boolean) => {
     if (controlledOpen === undefined) setInternalOpen(value);
     onOpenChange?.(value);
-    // Reset search when closing
-    if (!value) setSearchText("");
+    // Reset search and context menu position when closing
+    if (!value) {
+      setSearchText("");
+      setContextMenuPosition(null);
+    }
   };
   const close = () => setOpen(false);
 
@@ -52,9 +56,9 @@ export function Dropdown({
   const [position, setPosition] = useState<Position>({
     top: 0,
     left: 0,
-    width: undefined,
   });
   const [isPositioned, setIsPositioned] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   // Calculate position for fixed strategy
   const calculateFixedPosition = (): Position | null => {
@@ -163,7 +167,7 @@ export function Dropdown({
       }
     }
 
-    return { top: finalTop, left: finalLeft, width: triggerRect.width };
+    return { top: finalTop, left: finalLeft };
   };
 
   const updatePosition = () => {
@@ -171,6 +175,27 @@ export function Dropdown({
       // Use manual position if provided (e.g., for context menus)
       if (manualPosition) {
         setPosition(manualPosition);
+        setIsPositioned(true);
+        return;
+      }
+      // Use captured context menu mouse position when available
+      if (trigger === "contextmenu" && contextMenuPosition && contentRef.current) {
+        const contentRect = contentRef.current.getBoundingClientRect();
+        const margin = 8;
+        let top = contextMenuPosition.top;
+        let left = contextMenuPosition.left;
+
+        // Clamp to viewport so the menu doesn't overflow off-screen
+        if (left + contentRect.width > window.innerWidth - margin) {
+          left = window.innerWidth - contentRect.width - margin;
+        }
+        if (left < margin) left = margin;
+        if (top + contentRect.height > window.innerHeight - margin) {
+          top = window.innerHeight - contentRect.height - margin;
+        }
+        if (top < margin) top = margin;
+
+        setPosition({ top, left });
         setIsPositioned(true);
         return;
       }
@@ -362,7 +387,11 @@ export function Dropdown({
             trigger === "contextmenu"
               ? (e) => {
                   e.preventDefault();
-                  setOpen(!open);
+                  // Capture mouse position for context menu placement
+                  if (!manualPosition) {
+                    setContextMenuPosition({ top: e.clientY, left: e.clientX });
+                  }
+                  setOpen(true);
                 }
               : undefined
           }
@@ -380,13 +409,15 @@ export function Dropdown({
                     zIndex: 9999,
                     top: position.top,
                     left: position.left,
+                    ...(minWidth === "trigger"
+                      ? { width: triggerRef.current?.getBoundingClientRect().width ?? "auto" }
+                      : { minWidth }),
                     opacity: 1,
                     transition: "opacity 0.15s ease",
                     pointerEvents: "auto",
                     backgroundColor: "var(--tertiary-bg)",
                     borderRadius: "10px",
-                    boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                    minWidth: "200px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08), 0 0 0 1px var(--primary, rgba(99,102,241,0.15))",
                     overflow: "hidden",
                   }}
                 >
@@ -396,6 +427,7 @@ export function Dropdown({
                       style={{
                         width: "100%",
                         boxSizing: "border-box",
+                        backgroundColor: "transparent",
                       }}
                     >
                       <input
@@ -431,19 +463,19 @@ export function Dropdown({
                   pointerEvents: "auto",
                   backgroundColor: "var(--tertiary-bg)",
                   borderRadius: "10px",
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                  minWidth: "200px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08), 0 0 0 1px var(--primary, rgba(99,102,241,0.15))",
+                  ...(minWidth === "trigger" ? {} : { minWidth }),
                   overflow: "hidden",
                 }}
               >
                 {searchable && (
-                  <div className="p-2 border-b border-border bg-background">
+                  <div className="p-2 border-b border-border" style={{ backgroundColor: "transparent" }}>
                     <input
                       type="text"
                       placeholder="Search actions..."
                       value={searchText}
                       onChange={(e) => setSearchText(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm bg-input-background border border-border rounded-lg outline-none text-text-primary placeholder:text-text-tertiary"
+                      className="w-full px-3 py-1.5 text-sm bg-transparent border border-border rounded-lg outline-none text-text-primary placeholder:text-text-tertiary"
                       autoFocus
                       onClick={(e) => e.stopPropagation()}
                     />

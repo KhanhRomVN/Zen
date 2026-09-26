@@ -17,6 +17,8 @@ export interface PromptBuilderOptions {
   promptLengthMode?: PromptLengthMode;
   /** Đính kèm danh sách SKILL đã cài vào system-prompt (mặc định: tắt) */
   useSkillEnabled?: boolean;
+  /** Per-conversation override: bật/tắt VSCode diagnostics trong system prompt */
+  diagnosticEnabled?: boolean;
   /** Provider ID của model đang dùng — nếu "claude" thì dùng claude-system-prompt */
   providerId?: string;
 }
@@ -35,6 +37,7 @@ export class PromptBuilder {
       systemPromptMode,
       promptLengthMode,
       useSkillEnabled,
+      diagnosticEnabled,
       providerId,
     } = options;
 
@@ -50,6 +53,7 @@ export class PromptBuilder {
         systemPromptMode,
         promptLengthMode,
         useSkillEnabled,
+        diagnosticEnabled,
         providerId,
       );
     }
@@ -94,6 +98,7 @@ export class PromptBuilder {
     systemPromptMode?: SystemPromptMode,
     promptLengthMode?: PromptLengthMode,
     useSkillEnabled?: boolean,
+    diagnosticEnabled?: boolean,
     providerId?: string,
   ): Promise<string> {
     let systemInfo = {
@@ -122,6 +127,9 @@ export class PromptBuilder {
 
     const effectiveLang = aiLanguage;
 
+    // promptLengthMode === "none" → không gắn system prompt, trả về chuỗi rỗng ngay
+    if (promptLengthMode === "none") return "";
+
     // Provider claude → dùng claude-system-prompt riêng
     if (providerId === "claude") {
       const claudePrompt = buildClaudePrompt({
@@ -141,6 +149,7 @@ export class PromptBuilder {
         language: effectiveLang,
         systemInfo: systemInfo as any,
         promptLengthMode: promptLengthMode || "long",
+        diagnosticEnabled: diagnosticEnabled ?? true,
       },
       mode,
     );

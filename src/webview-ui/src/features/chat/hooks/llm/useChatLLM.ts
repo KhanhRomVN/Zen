@@ -26,9 +26,16 @@ import { StreamingService } from "../../services/StreamingService";
 import { processClaudeContent } from "../../services/ClaudeContentProcessor";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
 
+interface ConversationOverrides {
+  diagnosticEnabled?: boolean;
+  useSkillEnabled?: boolean;
+}
+
 interface UseChatLLMProps {
   apiUrl: string;
   selectedTab: ChatSession | null;
+  /** Per-conversation feature overrides from Home panel */
+  conversationOverrides?: ConversationOverrides;
   onConversationIdChange?: (id: string) => void;
   onToolRequest?: (
     actions: ToolAction[],
@@ -98,10 +105,18 @@ export const parseQuestionAnswerTag = (
 export const useChatLLM = ({
   apiUrl,
   selectedTab,
+  conversationOverrides,
   onConversationIdChange,
   onToolRequest,
   onMalformedTool,
 }: UseChatLLMProps) => {
+  // Ref to hold per-conversation overrides (from Home panel or restored from metadata)
+  const conversationOverridesRef = useRef<ConversationOverrides | undefined>(
+    conversationOverrides,
+  );
+  useEffect(() => {
+    conversationOverridesRef.current = conversationOverrides;
+  }, [conversationOverrides]);
   // Use extracted hooks
   const {
     streamingState,
@@ -130,7 +145,13 @@ export const useChatLLM = ({
   renderCountRef.current++;
 
   // Get context values
-  const { aiLanguage, permissionMode, systemPromptMode, promptLengthMode, useSkillEnabled } = useSettings();
+  const {
+    aiLanguage,
+    permissionMode,
+    systemPromptMode,
+    promptLengthMode,
+    useSkillEnabled,
+  } = useSettings();
   const { treeView, rootPath } = useProject();
   const { uploadFiles } = useFileUpload(apiUrl);
 
@@ -271,6 +292,11 @@ export const useChatLLM = ({
       actionIds?: string[],
       uiHidden?: boolean,
       parentMessageId?: string,
+      extraOptions?: {
+        user_action?: string;
+        edit_message_id?: string;
+        parent_message_id?: string;
+      },
     ) => {
       if (isProcessingRef.current && !skipFirstRequestLogic) {
         console.warn(
@@ -286,8 +312,31 @@ export const useChatLLM = ({
       const currentMessages = messagesRef.current;
       let filteredMessages = currentMessages.filter((m) => !m.isCancelled);
 
+      // For Qwen edit/regenerate: trim UI messages so only history up to (and including)
+      // the edited user message is kept. Qwen handles server-side deletion of children.
+      if (
+        extraOptions?.user_action === "edit" &&
+        extraOptions.edit_message_id
+      ) {
+        const editFid = extraOptions.edit_message_id;
+        const editIdx = filteredMessages.findIndex(
+          (m) => m.role === "user" && m.providerFid === editFid,
+        );
+
+        if (editIdx !== -1) {
+          filteredMessages = filteredMessages.slice(0, editIdx + 1);
+          messagesRef.current = filteredMessages;
+          setMessages(filteredMessages);
+        }
+      }
+
       // Check if last message pair is complete; clean up incomplete pairs before sending
-      if (!skipFirstRequestLogic && filteredMessages.length > 0) {
+      const isEditFlow = extraOptions?.user_action === "edit";
+      if (
+        !skipFirstRequestLogic &&
+        !isEditFlow &&
+        filteredMessages.length > 0
+      ) {
         const lastMsg = filteredMessages[filteredMessages.length - 1];
 
         if (lastMsg.role === "user") {
@@ -339,7 +388,18 @@ export const useChatLLM = ({
       // Build prompt using PromptBuilder
       // Khi provider là claude: tắt SKILL feature (skill prompt không phù hợp với claude.ai web)
       const isClaudeProvider =
-        (model?.providerId ?? lastUsedModelRef.current?.providerId) === "claude";
+        (model?.providerId ?? lastUsedModelRef.current?.providerId) ===
+        "claude";
+
+      // Per-conversation overrides take priority over global settings
+      const effectiveUseSkill =
+        conversationOverridesRef.current?.useSkillEnabled !== undefined
+          ? conversationOverridesRef.current.useSkillEnabled
+          : useSkillEnabled;
+      const effectiveDiagnostic =
+        conversationOverridesRef.current?.diagnosticEnabled !== undefined
+          ? conversationOverridesRef.current.diagnosticEnabled
+          : undefined; // undefined = use default (true) in PromptBuilder
 
       const promptPayload = await PromptBuilder.buildPrompt({
         content,
@@ -352,7 +412,8 @@ export const useChatLLM = ({
         userRequestCount: userRequestCountRef.current,
         systemPromptMode,
         promptLengthMode,
-        useSkillEnabled: isClaudeProvider ? false : useSkillEnabled,
+        useSkillEnabled: isClaudeProvider ? false : effectiveUseSkill,
+        diagnosticEnabled: effectiveDiagnostic,
         providerId: model?.providerId ?? lastUsedModelRef.current?.providerId,
       });
 
@@ -431,6 +492,11 @@ export const useChatLLM = ({
         false,
         undefined,
         backendConversationIdRef.current || undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        conversationOverridesRef.current,
       );
 
       // Resolve model and account
@@ -490,7 +556,14 @@ export const useChatLLM = ({
 
       try {
         // Upload local files
-        const ref_file_ids: Array<{ file_id: string; conversation_id?: string; url: string; type?: string; name?: string; file_type?: string }> = [];
+        const ref_file_ids: Array<{
+          file_id: string;
+          conversation_id?: string;
+          url: string;
+          type?: string;
+          name?: string;
+          file_type?: string;
+        }> = [];
         const localFiles = files
           ? files.filter(
               (f: any) =>
@@ -511,7 +584,9 @@ export const useChatLLM = ({
         const claudeUploadConversationId: string | undefined = isClaudeProvider
           ? backendConversationIdRef.current ||
             (effectiveChatUuid
-              ? sessionStorage.getItem(`zen-backend-conv:${effectiveChatUuid}`) || undefined
+              ? sessionStorage.getItem(
+                  `zen-backend-conv:${effectiveChatUuid}`,
+                ) || undefined
               : undefined) ||
             crypto.randomUUID()
           : undefined;
@@ -521,7 +596,6 @@ export const useChatLLM = ({
         // Chỉ zip khi không phải tool result (skipFirstRequestLogic = false).
         if (isClaudeProvider && isReq1 && !skipFirstRequestLogic) {
           try {
-            console.log("[Zen][Claude] Zipping workspace for first message...");
             const zipResult = await requestWorkspaceZip();
             if (zipResult) {
               const zipFile = {
@@ -531,18 +605,16 @@ export const useChatLLM = ({
                 type: zipResult.mimeType,
                 content: `data:${zipResult.mimeType};base64,${zipResult.base64}`,
               };
-              console.log(
-                `[Zen][Claude] Workspace zip ready | fileName=${zipResult.fileName} | files=${zipResult.fileCount} | size=${zipResult.sizeBytes} bytes`,
-              );
 
               // Upload zip riêng — lỗi ở đây không block gửi message
               if (finalAccount?.id) {
                 try {
-                  const zipUploaded = await uploadFiles([zipFile], finalAccount.id, claudeUploadConversationId);
-                  ref_file_ids.push(...zipUploaded);
-                  console.log(
-                    `[Zen][Claude] Workspace zip uploaded | file_id=${zipUploaded[0]?.file_id} | conversation_id=${claudeUploadConversationId}`,
+                  const zipUploaded = await uploadFiles(
+                    [zipFile],
+                    finalAccount.id,
+                    claudeUploadConversationId,
                   );
+                  ref_file_ids.push(...zipUploaded);
                 } catch (zipUploadErr) {
                   console.warn(
                     "[Zen][Claude] Workspace zip upload failed (non-fatal, sending message without zip):",
@@ -552,7 +624,10 @@ export const useChatLLM = ({
               }
             }
           } catch (zipErr) {
-            console.warn("[Zen][Claude] Failed to zip workspace (non-fatal):", zipErr);
+            console.warn(
+              "[Zen][Claude] Failed to zip workspace (non-fatal):",
+              zipErr,
+            );
           }
         }
 
@@ -565,7 +640,11 @@ export const useChatLLM = ({
           }
 
           try {
-            const uploadedObjects = await uploadFiles(localFiles, finalAccount.id, claudeUploadConversationId);
+            const uploadedObjects = await uploadFiles(
+              localFiles,
+              finalAccount.id,
+              claudeUploadConversationId,
+            );
             ref_file_ids.push(...uploadedObjects);
           } catch (uploadErr) {
             console.error(`[Zen] Upload failed with error:`, uploadErr);
@@ -588,18 +667,6 @@ export const useChatLLM = ({
         // Effective parent message ID
         const effectiveParentMessageId =
           qwenParentIdRef.current ?? parentMessageId;
-
-        // [DEBUG] Log request summary
-        console.log(
-          `[Zen][sendMessage] REQUEST SUMMARY` +
-          ` | msgCount=${payloadMessages.length}` +
-          ` | conversationId=${backendConversationIdRef.current || "(none)"}` +
-          ` | parentMessageId=${effectiveParentMessageId ?? "(none)"}` +
-          ` | model=${finalModel?.id ?? "(none)"}` +
-          ` | skipFirstReq=${skipFirstRequestLogic}` +
-          ` | isReq1=${isReq1}` +
-          ` | promptPreview="${payloadMessages[payloadMessages.length - 1]?.content?.slice(0, 80).replace(/\n/g, " ")}"`
-        );
 
         // Conversation ID to send
         // Claude: dùng claudeUploadConversationId (đã sinh trước upload)
@@ -627,6 +694,34 @@ export const useChatLLM = ({
               : m,
           ),
         );
+
+        // For Qwen regenerate support: save the fid and parentId used for this message
+        // so that handleRegenerateRequest can pass them back as edit_message_id / parent_message_id.
+        const isQwenProvider =
+          (finalModel?.providerId ?? "").toLowerCase() === "qwen";
+        // Pre-generate fid for Qwen messages (both normal chat and edit).
+        // This fid is passed to the provider so the server stores the exact same UUID,
+        // allowing us to reference it later for regenerate/edit.
+        const qwenMessageFid =
+          isQwenProvider && !skipFirstRequestLogic
+            ? crypto.randomUUID()
+            : undefined;
+
+        if (qwenMessageFid) {
+          userMessage.providerFid = qwenMessageFid;
+          userMessage.providerParentId = effectiveParentMessageId ?? undefined;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === userMessage.id
+                ? {
+                    ...m,
+                    providerFid: qwenMessageFid,
+                    providerParentId: effectiveParentMessageId ?? undefined,
+                  }
+                : m,
+            ),
+          );
+        }
 
         // Create placeholder assistant message
         const assistantMessageId = `msg-${Date.now()}-assistant`;
@@ -656,6 +751,16 @@ export const useChatLLM = ({
               parentMessageId: effectiveParentMessageId,
               refFileIds: ref_file_ids,
               abortSignal: abortController.signal,
+              // Pass the pre-generated fid so the provider stores the exact UUID we saved.
+              // For edit flow: editMessageId is the fid to overwrite (same value as messageFid).
+              // For chat flow: messageFid ensures the stored fid matches what Qwen server uses.
+              ...(qwenMessageFid ? { messageFid: qwenMessageFid } : {}),
+              ...(extraOptions?.user_action
+                ? { userAction: extraOptions.user_action }
+                : {}),
+              ...(extraOptions?.edit_message_id
+                ? { editMessageId: extraOptions.edit_message_id }
+                : {}),
             },
             {
               onMetadata: (meta) => {
@@ -809,6 +914,7 @@ export const useChatLLM = ({
           undefined,
           undefined,
           false, // skipSave = false → always save response immediately
+          conversationOverridesRef.current,
         );
 
         // Parse response to extract tool sequence with error handling
@@ -981,6 +1087,7 @@ export const useChatLLM = ({
           undefined,
           undefined,
           false, // skipSave = false → update with parsed data (or error state)
+          conversationOverridesRef.current,
         );
 
         // 🚨 DETECT ONLY-THINKING RESPONSE
@@ -1142,6 +1249,11 @@ export const useChatLLM = ({
           true,
           undefined,
           backendConversationIdRef.current,
+          undefined,
+          undefined,
+          undefined,
+          false,
+          conversationOverridesRef.current,
         );
 
         if (parsedPayload && parsedPayload.answers) {

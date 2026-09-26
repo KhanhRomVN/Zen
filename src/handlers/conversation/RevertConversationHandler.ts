@@ -31,29 +31,109 @@ import { PathService } from "../../services/PathService";
 // ─── Functions ──────────────────────────────────────────────────────────
 /**
  * Parse actions from message content (markdown format)
- * Extracts tool actions like [replace_in_file for 'file.txt']
+ * Extracts tool actions like [replace_in_file for 'file.txt'] or [write_to_file for 'file.txt']
  */
 function parseActionsFromContent(content: string): Array<{
   type: string;
   filePath?: string;
   actionId?: string;
+  additions?: number;
+  deletions?: number;
 }> {
-  const actions: Array<{ type: string; filePath?: string; actionId?: string }> =
-    [];
+  const actions: Array<{
+    type: string;
+    filePath?: string;
+    actionId?: string;
+    additions?: number;
+    deletions?: number;
+  }> = [];
 
-  // Pattern: [tool_name for 'file_path']
-  const toolPattern = /\[(\w+)\s+for\s+'([^']+)'\]/g;
+  // File-modifying tools to track
+  const FILE_TOOLS = [
+    "replace_in_file",
+    "write_to_file",
+    "create_file",
+    "delete_file",
+    "rename_file",
+    "move_file",
+  ];
+
+  // Pattern 1: tool result format — [tool_name for 'file_path'] Result: ...
+  const toolResultPattern = /\[(\w+)\s+for\s+'([^']+)'\]/g;
   let match;
-
-  while ((match = toolPattern.exec(content)) !== null) {
+  while ((match = toolResultPattern.exec(content)) !== null) {
     const toolName = match[1];
     const filePath = match[2];
+    if (FILE_TOOLS.includes(toolName)) {
+      actions.push({ type: toolName, filePath });
+    }
+  }
 
-    if (toolName === "replace_in_file") {
+  // Pattern 2: XML tag format in assistant messages — parse with stats
+  // write_to_file / create_file: count lines in <content>
+  const writePattern =
+    /<(write_to_file|create_file)>\s*<file_path>([^<]+)<\/file_path>\s*<content>([\s\S]*?)<\/content>/g;
+  while ((match = writePattern.exec(content)) !== null) {
+    const toolName = match[1];
+    const filePath = match[2].trim();
+    const fileContent = match[3];
+    const lineCount = fileContent.split("\n").length;
+    const alreadyCaptured = actions.some(
+      (a) => a.filePath === filePath && a.type === toolName,
+    );
+    if (!alreadyCaptured) {
       actions.push({
-        type: "replace_in_file",
+        type: toolName,
         filePath,
+        additions: lineCount,
+        deletions: 0,
       });
+    } else {
+      // Enrich existing entry with stats
+      const existing = actions.find(
+        (a) => a.filePath === filePath && a.type === toolName,
+      );
+      if (existing) {
+        existing.additions = lineCount;
+        existing.deletions = 0;
+      }
+    }
+  }
+
+  // replace_in_file: count lines in <old_str> (deletions) and <new_str> (additions)
+  const replacePattern =
+    /<replace_in_file>\s*<file_path>([^<]+)<\/file_path>\s*<old_str>([\s\S]*?)<\/old_str>\s*<new_str>([\s\S]*?)<\/new_str>/g;
+  while ((match = replacePattern.exec(content)) !== null) {
+    const filePath = match[1].trim();
+    const oldStr = match[2];
+    const newStr = match[3];
+    const deletions = oldStr.split("\n").length;
+    const additions = newStr.split("\n").length;
+    const alreadyCaptured = actions.some(
+      (a) => a.filePath === filePath && a.type === "replace_in_file",
+    );
+    if (!alreadyCaptured) {
+      actions.push({ type: "replace_in_file", filePath, additions, deletions });
+    } else {
+      const existing = actions.find(
+        (a) => a.filePath === filePath && a.type === "replace_in_file",
+      );
+      if (existing) {
+        existing.additions = additions;
+        existing.deletions = deletions;
+      }
+    }
+  }
+
+  // delete_file
+  const deletePattern = /<delete_file>\s*<file_path>([^<]+)<\/file_path>/g;
+  while ((match = deletePattern.exec(content)) !== null) {
+    const filePath = match[1].trim();
+    const alreadyCaptured = actions.some(
+      (a) => a.filePath === filePath && a.type === "delete_file",
+    );
+    if (!alreadyCaptured) {
+      actions.push({ type: "delete_file", filePath });
     }
   }
 
@@ -257,6 +337,146 @@ export class RevertConversationHandler {
       webviewView.webview.postMessage({
         command: "conversationRevertedError",
         error: e.message,
+      });
+    }
+  }
+
+  /**
+   * Preview which files would be affected by reverting to a given message.
+   * Returns a list of file paths without actually performing the revert.
+   */
+  public async handleGetRevertPreview(
+    message: any,
+    webviewView: vscode.WebviewView,
+  ) {
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        webviewView.webview.postMessage({
+          command: "revertPreviewResult",
+          messageId: message.messageId,
+          files: [],
+        });
+        return;
+      }
+
+      const { conversationId, messageId } = message;
+      if (!conversationId || !messageId) {
+        webviewView.webview.postMessage({
+          command: "revertPreviewResult",
+          messageId,
+          files: [],
+        });
+        return;
+      }
+
+      const projectContextDir = this.getProjectContextDir(
+        workspaceFolder.uri.fsPath,
+      );
+      const logPath = path.join(projectContextDir, `${conversationId}.json`);
+
+      if (!fs.existsSync(logPath)) {
+        webviewView.webview.postMessage({
+          command: "revertPreviewResult",
+          messageId,
+          files: [],
+        });
+        return;
+      }
+
+      const fileData = await fs.promises.readFile(logPath, "utf-8");
+      let parsed: any;
+      try {
+        parsed = JSON.parse(fileData);
+      } catch {
+        webviewView.webview.postMessage({
+          command: "revertPreviewResult",
+          messageId,
+          files: [],
+        });
+        return;
+      }
+
+      let content: any[];
+      if (Array.isArray(parsed)) {
+        content = parsed;
+      } else if (parsed && Array.isArray(parsed.messages)) {
+        content = parsed.messages;
+      } else {
+        webviewView.webview.postMessage({
+          command: "revertPreviewResult",
+          messageId,
+          files: [],
+        });
+        return;
+      }
+
+      const index = content.findIndex((m: any) => m.id === messageId);
+      if (index === -1) {
+        webviewView.webview.postMessage({
+          command: "revertPreviewResult",
+          messageId,
+          files: [],
+        });
+        return;
+      }
+
+      const messagesToDelete = content.slice(index);
+      // Map filePath → { type, additions, deletions } — last write wins per file
+      const fileMap = new Map<
+        string,
+        { type: string; additions: number; deletions: number }
+      >();
+      for (const msg of messagesToDelete) {
+        const isToolMessage = msg.role === "user" && msg.id.includes("-tool");
+        const isAssistantMessage = msg.role === "assistant";
+
+        if ((isToolMessage || isAssistantMessage) && msg.content) {
+          const parsedActions = parseActionsFromContent(msg.content);
+          for (const action of parsedActions) {
+            if (action.filePath) {
+              const absolutePath = this.resolveToAbsolute(
+                workspaceFolder,
+                action.filePath,
+              );
+              const relativePath = path.relative(
+                workspaceFolder.uri.fsPath,
+                absolutePath,
+              );
+              const existing = fileMap.get(relativePath);
+              if (!existing) {
+                fileMap.set(relativePath, {
+                  type: action.type,
+                  additions: action.additions ?? 0,
+                  deletions: action.deletions ?? 0,
+                });
+              } else {
+                // Accumulate stats for multiple edits on same file
+                existing.additions += action.additions ?? 0;
+                existing.deletions += action.deletions ?? 0;
+              }
+            }
+          }
+        }
+      }
+
+      const files = Array.from(fileMap.entries()).map(([filePath, stats]) => ({
+        filePath,
+        actionType: stats.type,
+        additions: stats.additions,
+        deletions: stats.deletions,
+      }));
+
+      webviewView.webview.postMessage({
+        command: "revertPreviewResult",
+        messageId,
+        files,
+      });
+    } catch (e: any) {
+      webviewView.webview.postMessage({
+        command: "revertPreviewResult",
+        messageId: message.messageId,
+        files: [],
       });
     }
   }

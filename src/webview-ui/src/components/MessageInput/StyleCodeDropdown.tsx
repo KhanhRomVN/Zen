@@ -17,6 +17,11 @@ interface StyleCodeDropdownProps {
    * code có gắn prompt sẽ bị disabled — chỉ "None" có thể chọn.
    */
   isAntiInjection?: boolean;
+  /**
+   * Khi true (promptLengthMode === "none"), overlay blur che toàn bộ dropdown
+   * vì không có system prompt nào để style.
+   */
+  isPromptLengthNone?: boolean;
 }
 
 export const STYLE_CODE_MODE_META: {
@@ -25,17 +30,7 @@ export const STYLE_CODE_MODE_META: {
   icon: React.ReactNode;
   color: string;
   desc: string;
-  /** Nếu true, option này không gắn system prompt nào. */
-  isNoPrompt?: boolean;
 }[] = [
-  {
-    key: "none",
-    label: "None",
-    icon: <Ban size={14} />,
-    color: "#64748b",
-    desc: "No style applied — no system prompt injected",
-    isNoPrompt: true,
-  },
   {
     key: "fast",
     label: "Fast",
@@ -83,11 +78,43 @@ const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
   onSelect,
   triggerButton,
   isAntiInjection = false,
+  isPromptLengthNone = false,
 }) => {
   return (
     <Dropdown side="top" align="start" sideOffset={4}>
       <DropdownTrigger asChild>{triggerButton}</DropdownTrigger>
       <DropdownContent>
+        {/* Blur overlay khi promptLengthMode === "none" */}
+        {isPromptLengthNone && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 10,
+              backdropFilter: "blur(3px)",
+              backgroundColor: "color-mix(in srgb, var(--tertiary-bg) 60%, transparent)",
+              borderRadius: "10px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              pointerEvents: "all",
+            }}
+          >
+            <Ban size={16} style={{ color: "var(--vscode-descriptionForeground)", opacity: 0.7 }} />
+            <span style={{
+              fontSize: "11px",
+              color: "var(--vscode-descriptionForeground)",
+              textAlign: "center",
+              padding: "0 12px",
+              lineHeight: 1.4,
+            }}>
+              Style requires a prompt length.<br />Select Short, Medium, or Long first.
+            </span>
+          </div>
+        )}
+
         {/* Banner khi provider có anti-injection */}
         {isAntiInjection && (
           <div
@@ -113,8 +140,7 @@ const StyleCodeDropdown: React.FC<StyleCodeDropdownProps> = ({
 
         {STYLE_CODE_MODE_META.map((meta) => {
           const isSelected = currentMode === meta.key;
-          // Khi anti-injection: chỉ option "none" có thể click, còn lại bị disabled
-          const isDisabled = isAntiInjection && !meta.isNoPrompt;
+          const isDisabled = isAntiInjection;
 
           return (
             <DropdownItem

@@ -52,3 +52,10 @@ body {
 .spin {
   animation: spin 1s linear infinite;
 }
+
+/* MessageInput placeholder: single line with ellipsis, no wrap */
+.zen-message-input::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

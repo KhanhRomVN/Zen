@@ -12,7 +12,7 @@ import { countTokens } from "@/utils/tokenizer";
 
 // COMPONENTS
 import CodeBlock from "./blocks/code/CodeBlock";
-import RevertConfirmModal from "../RevertConfirmModal";
+import RevertConfirmDrawer from "../RevertConfirmDrawer";
 
 interface ResponseMetadataBarProps {
   responseNumber: number;
@@ -21,6 +21,7 @@ interface ResponseMetadataBarProps {
   onRetryRequest?: () => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   isStreaming?: boolean; // 🔧 NEW: flag to indicate if this response is currently streaming
+  conversationId?: string;
 }
 
 /**
@@ -34,13 +35,12 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
   onRetryRequest,
   onRevertConversation,
   isStreaming = false,
+  conversationId,
 }) => {
   const [requestChecked, setRequestChecked] = React.useState(false);
   const [responseChecked, setResponseChecked] = React.useState(false);
   const [parseDebugChecked, setParseDebugChecked] = React.useState(false);
-  const [showRetryModal, setShowRetryModal] = React.useState(false);
   const [showRevertModal, setShowRevertModal] = React.useState(false);
-  const [isRetryHovered, setIsRetryHovered] = React.useState(false);
   const [isRevertHovered, setIsRevertHovered] = React.useState(false);
 
   // 🔧 Subscribe to streaming content for real-time token counting
@@ -101,24 +101,6 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
     </svg>
   );
 
-  const RetryIcon = (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ flexShrink: 0 }}
-    >
-      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-    </svg>
-  );
-
   const RevertIcon = (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -164,20 +146,9 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
     </svg>
   );
 
-  const handleRetryClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowRetryModal(true);
-  };
-
   const handleRevertClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowRevertModal(true);
-  };
-
-  const handleConfirmRetry = () => {
-    if (onRetryRequest) {
-      onRetryRequest();
-    }
   };
 
   const handleConfirmRevert = () => {
@@ -243,28 +214,6 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
               {reqTokens.toLocaleString()}
             </span>
           </div>
-
-          {/* Retry Icon - Only show when request is active (checked) */}
-          {onRetryRequest && previousUserMessage && requestChecked && (
-            <div
-              onClick={handleRetryClick}
-              onMouseEnter={() => setIsRetryHovered(true)}
-              onMouseLeave={() => setIsRetryHovered(false)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                cursor: "pointer",
-                color: "var(--vscode-charts-yellow, #f9dd66)",
-                textDecoration: isRetryHovered ? "underline" : "none",
-                textUnderlineOffset: "3px",
-                transition: "opacity 0.2s ease",
-                opacity: isRetryHovered ? 1 : 0.7,
-              }}
-              title="Retry this request"
-            >
-              {RetryIcon}
-            </div>
-          )}
 
           {/* Revert Icon - Only show when request is active (checked) */}
           {onRevertConversation && requestChecked && (
@@ -654,22 +603,15 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
         </div>
       )}
 
-      {/* Retry Confirmation Modal */}
-      <RevertConfirmModal
-        isOpen={showRetryModal}
-        onClose={() => setShowRetryModal(false)}
-        onConfirm={handleConfirmRetry}
-        title="Retry this request?"
-        description="This will resend the request from this point. If there are messages after this one, they will be removed and any file changes from those messages will be reverted."
-      />
-
       {/* Revert Confirmation Modal */}
-      <RevertConfirmModal
+      <RevertConfirmDrawer
         isOpen={showRevertModal}
         onClose={() => setShowRevertModal(false)}
         onConfirm={handleConfirmRevert}
         title="Revert conversation to this point?"
         description="This will remove all messages after this response and revert any file changes from those messages."
+        messageId={message.id}
+        conversationId={conversationId}
       />
     </div>
   );

@@ -419,6 +419,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                   }
                   onRevertConversation={onRevertConversation}
                   isStreaming={isGenerating}
+                  conversationId={conversationId}
                 />
               </React.Fragment>
             );

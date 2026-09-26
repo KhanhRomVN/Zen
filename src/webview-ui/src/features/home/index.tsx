@@ -145,6 +145,10 @@ interface HomePanelProps {
     files: any[],
     model: any,
     account: any,
+    conversationOverrides?: {
+      diagnosticEnabled?: boolean;
+      useSkillEnabled?: boolean;
+    },
   ) => void;
   onLoadConversation: (
     conversationId: string,
@@ -184,8 +188,45 @@ const HomePanel: React.FC<HomePanelProps> = ({
   >({});
   const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
 
-  // ── Store ──
-  const { apiUrl, activeDatabaseManagerId } = useSettings();
+  // ── Per-conversation feature toggles (default from global settings) ──
+  const {
+    apiUrl,
+    activeDatabaseManagerId,
+    diagnosticEnabled: globalDiagnosticEnabled,
+    useSkillEnabled: globalUseSkillEnabled,
+  } = useSettings();
+
+  const [conversationDiagnosticEnabled, setConversationDiagnosticEnabled] =
+    React.useState(globalDiagnosticEnabled);
+  const [conversationUseSkillEnabled, setConversationUseSkillEnabled] =
+    React.useState(globalUseSkillEnabled);
+
+  // DEBUG: log mỗi khi state thay đổi
+  React.useEffect(() => {
+    console.log("[Home] conversationDiagnosticEnabled changed →", conversationDiagnosticEnabled);
+  }, [conversationDiagnosticEnabled]);
+  React.useEffect(() => {
+    console.log("[Home] conversationUseSkillEnabled changed →", conversationUseSkillEnabled);
+  }, [conversationUseSkillEnabled]);
+
+  // Chỉ sync 1 lần khi global settings load xong lần đầu (từ localStorage/storage async).
+  // Không sync liên tục để tránh ghi đè giá trị user đã toggle.
+  const didSyncDiagnosticRef = React.useRef(false);
+  const didSyncSkillRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!didSyncDiagnosticRef.current && globalDiagnosticEnabled !== undefined) {
+      didSyncDiagnosticRef.current = true;
+      console.log("[Home] initial sync globalDiagnosticEnabled →", globalDiagnosticEnabled);
+      setConversationDiagnosticEnabled(globalDiagnosticEnabled);
+    }
+  }, [globalDiagnosticEnabled]);
+  React.useEffect(() => {
+    if (!didSyncSkillRef.current && globalUseSkillEnabled !== undefined) {
+      didSyncSkillRef.current = true;
+      console.log("[Home] initial sync globalUseSkillEnabled →", globalUseSkillEnabled);
+      setConversationUseSkillEnabled(globalUseSkillEnabled);
+    }
+  }, [globalUseSkillEnabled]);
 
   const dbHeaders = () => {
     const h: Record<string, string> = {};
@@ -298,6 +339,10 @@ const HomePanel: React.FC<HomePanelProps> = ({
           [...uploadedFiles, ...attachedItems],
           model,
           account,
+          {
+            diagnosticEnabled: conversationDiagnosticEnabled,
+            useSkillEnabled: conversationUseSkillEnabled,
+          },
         );
         setMessage("");
         clearDraft(); // Clear draft after sending
@@ -644,6 +689,10 @@ const HomePanel: React.FC<HomePanelProps> = ({
         setCurrentAccount={setCurrentAccount}
         isProcessing={false}
         isStreaming={false}
+        conversationDiagnosticEnabled={conversationDiagnosticEnabled}
+        conversationUseSkillEnabled={conversationUseSkillEnabled}
+        onConversationDiagnosticToggle={() => setConversationDiagnosticEnabled((v) => !v)}
+        onConversationUseSkillToggle={() => setConversationUseSkillEnabled((v) => !v)}
       />
     </div>
   );

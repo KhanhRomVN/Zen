@@ -77,10 +77,9 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Hide </no_response> markers
   remainingContent = remainingContent.replace(/<\/no_response\s*>/gi, "");
 
-  // Remove metadata tags that should not be displayed as content
-  // These tags are parsed separately by specific components or are internal metadata
-  remainingContent = remainingContent
-    .replace(/<conversation_title>.*?<\/conversation_title>/gi, "");
+  // NOTE: <conversation_title> is NOT stripped here — it must remain in content
+  // so the tool-pattern scanner below can create a contentBlock for it.
+  // Display stripping happens later in TagRouter/AIMessageBox.
 
   // Pre-extract <thinking> blocks BEFORE any tool scanning so that tool tags
   // inside a thinking block are never mistaken for real tool calls.
@@ -218,9 +217,11 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   };
 
   const pushTextOrCodeBlocks = (baseType: "markdown", content: string) => {
-    // Updated regex to make newline optional after language identifier
-    // Matches: ```js\ncode``` OR ```js code``` (with or without newline)
-    const regex = /```(\w*)\n?([\s\S]*?)```/g;
+    // Combined regex matches both fenced code blocks AND <code language="...">...</code> tags
+    // Group 1-2: fenced code block (```lang\n...\n```)
+    // Group 3-4: <code> tag (<code language="lang">...</code>)
+    const regex =
+      /```(\w*)\n?([\s\S]*?)```|<code\s+language=["']?(\w+)["']?>\s*([\s\S]*?)<\/code>/gi;
     let lastIndex = 0;
     let match;
     const segments: any[] = [];
@@ -231,16 +232,21 @@ export const parseAIResponse = (content: string): ParsedResponse => {
         segments.push({ type: baseType, content: textBefore });
       }
 
-      const language = match[1] || "text";
-      let codeContent = match[2].trimEnd();
+      // Determine which pattern matched
+      const isFencedBlock = match[1] !== undefined && match[2] !== undefined;
+      const language = isFencedBlock ? match[1] || "text" : match[3] || "text";
+      let codeContent = isFencedBlock ? match[2].trimEnd() : match[4].trimEnd();
 
-      // If there was no newline after language identifier, the first char might be
-      // part of the language name, not code. Let's check and adjust.
-      // E.g., "```jsfunction" should be language="js", code="function"
-      if (match[0].match(/```\w+[^\n]/)) {
-        // No newline after language - content starts immediately
-        // The regex already captured it correctly, just trim start
-        codeContent = codeContent.trimStart();
+      // Fenced block specific adjustments
+      if (isFencedBlock) {
+        // If there was no newline after language identifier, the first char might be
+        // part of the language name, not code. Let's check and adjust.
+        // E.g., "```jsfunction" should be language="js", code="function"
+        if (match[0].match(/```\w+[^\n]/)) {
+          // No newline after language - content starts immediately
+          // The regex already captured it correctly, just trim start
+          codeContent = codeContent.trimStart();
+        }
       }
 
       // If AI wraps content in ```markdown ... ```, treat it as markdown, not a code block
@@ -571,6 +577,19 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               result.followupOptions = options;
             }
           }
+        } else if (toolName === "code") {
+          // Handle <code language="xxx">...</code> as a display code block
+          const langMatch = /language=["']?(\w+)["']?/i.exec(rawXml);
+          const language = langMatch ? langMatch[1] : "text";
+          const codeContent = (innerContent || "").trim();
+
+          if (codeContent.length > 0) {
+            result.contentBlocks.push({
+              type: "code",
+              content: codeContent,
+              language,
+            });
+          }
         } else if (toolName === "conversation_title") {
           const content = parseConversationTitle(innerContent || "");
           if (content.title && content.title.trim().length > 0) {
@@ -593,13 +612,6 @@ export const parseAIResponse = (content: string): ParsedResponse => {
             }
             case "write_to_file": {
               const params = parseWriteToFile(innerContent || "");
-              console.log("[ResponseParser] write_to_file parsed:", {
-                file_path: params.file_path,
-                content_length: params.content?.length || 0,
-                original_tool_name: params.original_tool_name,
-                isError: (params as any).isError,
-                errorMessage: (params as any).errorMessage,
-              });
               // Validation moved to post-stream processing in useChatLLM
               action = { type: "write_to_file" as const, params, rawXml };
               break;
@@ -762,7 +774,7 @@ export const parseAIResponse = (content: string): ParsedResponse => {
   // Replace contentBlocks with expanded version
   result.contentBlocks = expandedBlocks;
 
-  //  ALWAYS log if contentBlocks is empty (potential bug)
+  // ALWAYS log if contentBlocks is empty (potential bug)
   const isPartialTag = /^<[\/]?[a-zA-Z0-9_]*$/.test(content.trim());
   if (
     result.contentBlocks.length === 0 &&
@@ -773,6 +785,8 @@ export const parseAIResponse = (content: string): ParsedResponse => {
       contentLength: content.length,
       contentPreview: content.substring(0, 200),
       remainingAfterThinking: remainingContent.substring(0, 100),
+      fullContent: content,
+      thinkingBlocksCount: thinkingBlocks.length,
     });
   }
 

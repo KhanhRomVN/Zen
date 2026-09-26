@@ -31,6 +31,7 @@ import { PathService } from "../../services/PathService";
 
 // ── Managers ──
 import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistoryManager";
+import { CheckpointManager } from "../../managers/CheckpointManager";
 
 // ─── Class ──────────────────────────────────────────────────────────────
 export class PreviewHandler {
@@ -172,6 +173,131 @@ export class PreviewHandler {
     } catch (error) {
       console.error("[PreviewHandler] handleOpenViewReplaceHistoryVersion error:", error);
       vscode.window.showErrorMessage(`Failed to open version ${version}: ${error}`);
+    }
+  }
+
+  /**
+   * Open a preview for a file that will be affected by a revert operation.
+   *
+   * - restore (delete_file):   File was deleted after this point → will be restored.
+   *                            Show temp preview of the checkpoint content (what it will look like after restore).
+   * - remove  (create_file /   File was created after this point → will be removed.
+   *           write_to_file):  Show temp preview of the current file content (what will disappear).
+   * - undo    (replace_in_file File was edited after this point → diff view.
+   *           / rename_file    Left = checkpoint content (what it will revert TO).
+   *           / move_file):    Right = current file content.
+   */
+  public async handleOpenRevertFilePreview(message: any) {
+    const { filePath, actionType, conversationId } = message;
+
+    if (!filePath) {
+      vscode.window.showErrorMessage("openRevertFilePreview: missing filePath");
+      return;
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      vscode.window.showErrorMessage("No workspace folder found");
+      return;
+    }
+
+    const absPath = path.isAbsolute(filePath)
+      ? filePath
+      : path.join(workspaceFolder.uri.fsPath, filePath);
+
+    const basename = path.basename(absPath);
+    const ext = path.extname(basename);
+    const nameWithoutExt = path.basename(basename, ext);
+
+    // Helper: read current file content (null if not exist)
+    const readCurrentContent = async (): Promise<string | null> => {
+      try {
+        return await vscode.workspace.fs
+          .readFile(vscode.Uri.file(absPath))
+          .then((buf) => Buffer.from(buf).toString("utf-8"));
+      } catch {
+        return null;
+      }
+    };
+
+    // Helper: read checkpoint content for this file
+    const readCheckpointContent = async (): Promise<string | null> => {
+      if (!conversationId) return null;
+      const ckptManager = CheckpointManager.getInstance();
+      ckptManager.setActiveConversationId(conversationId);
+      const ckpt = await ckptManager.getLastCheckpointForFile(absPath);
+      return ckpt?.content ?? null;
+    };
+
+    try {
+      // ── restore (delete_file) ─────────────────────────────────────────
+      // The file was deleted; after revert it will exist again.
+      // Show a temp preview of what the restored content will be (from checkpoint).
+      if (actionType === "restore") {
+        const content = await readCheckpointContent();
+        if (content === null) {
+          vscode.window.showWarningMessage(
+            `No checkpoint found for ${basename}. Cannot preview restored content.`,
+          );
+          return;
+        }
+        const stableId = `revert_restore_${Buffer.from(absPath).toString("base64").replace(/[/+=]/g, "_").toLowerCase()}`;
+        const tempBasename = `${nameWithoutExt}_RESTORED${ext}`;
+        DiffProvider.instance.store(stableId, content);
+        const uri = DiffProvider.toUri(stableId, tempBasename);
+        await vscode.window.showTextDocument(uri, { preview: false, preserveFocus: false });
+        return;
+      }
+
+      // ── remove (create_file / write_to_file) ─────────────────────────
+      // The file was created after this point; after revert it will be removed.
+      // Show a temp preview of the current content (this is what will disappear).
+      if (actionType === "remove") {
+        const content = await readCurrentContent();
+        if (content === null) {
+          vscode.window.showWarningMessage(
+            `File ${basename} no longer exists. Cannot preview.`,
+          );
+          return;
+        }
+        const stableId = `revert_remove_${Buffer.from(absPath).toString("base64").replace(/[/+=]/g, "_").toLowerCase()}`;
+        const tempBasename = `${nameWithoutExt}_WILL_BE_REMOVED${ext}`;
+        DiffProvider.instance.store(stableId, content);
+        const uri = DiffProvider.toUri(stableId, tempBasename);
+        await vscode.window.showTextDocument(uri, { preview: false, preserveFocus: false });
+        return;
+      }
+
+      // ── undo (replace_in_file / rename_file / move_file / …) ─────────
+      // Show a diff: left = content it will revert TO (checkpoint), right = current content.
+      const [checkpointContent, currentContent] = await Promise.all([
+        readCheckpointContent(),
+        readCurrentContent(),
+      ]);
+
+      const leftContent  = currentContent   ?? "";    // current state (left)
+      const rightContent = checkpointContent ?? "";   // what it will look like after revert (right)
+
+      const tempBasename = `${nameWithoutExt}_TEMP${ext}`;
+      const baseId = `revert_undo_${Buffer.from(absPath).toString("base64").replace(/[/+=]/g, "_").toLowerCase()}`;
+      const leftKey  = `${baseId}_current`;
+      const rightKey = `${baseId}_reverted`;
+
+      DiffProvider.instance.store(leftKey,  leftContent);
+      DiffProvider.instance.store(rightKey, rightContent);
+
+      const leftUri  = DiffProvider.toUri(leftKey,  tempBasename);
+      const rightUri = DiffProvider.toUri(rightKey, tempBasename);
+
+      await vscode.commands.executeCommand(
+        "vscode.diff",
+        leftUri,
+        rightUri,
+        `${basename} (Current ↔ After revert)`,
+      );
+    } catch (error) {
+      console.error("[PreviewHandler] handleOpenRevertFilePreview error:", error);
+      vscode.window.showErrorMessage(`Failed to open revert preview: ${error}`);
     }
   }
 }

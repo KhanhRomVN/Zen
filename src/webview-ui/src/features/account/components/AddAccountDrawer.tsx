@@ -158,9 +158,8 @@ const MethodCard: React.FC<{
 const ProviderRow: React.FC<{
   provider: Provider;
   onSelect: () => void;
-  onContextMenu: (e: React.MouseEvent, provider: Provider) => void;
   loading: boolean;
-}> = ({ provider, onSelect, onContextMenu, loading }) => {
+}> = ({ provider, onSelect, loading }) => {
   // ── State ──
   const [imgError, setImgError] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -257,18 +256,10 @@ const ProviderRow: React.FC<{
     onSelect();
   };
 
-  const handleRightClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (disabled) return;
-    onContextMenu(e, provider);
-  };
-
   // ── Render ──
   return (
     <div
       onClick={handleClick}
-      onContextMenu={handleRightClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -796,13 +787,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [tempSessionId, setTempSessionId] = useState<string | null>(null);
 
-  // Context menu state for CDP/MITM selection
-  const [contextMenu, setContextMenu] = useState<{
-    provider: Provider;
-    x: number;
-    y: number;
-  } | null>(null);
-
   // Profile step state (hiển thị sau khi chọn auth method)
   const [profileStepProvider, setProfileStepProvider] =
     useState<Provider | null>(null);
@@ -951,7 +935,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     if (!provider || provider.is_enabled === false) return;
     setLoading(true);
     setError("");
-    setContextMenu(null);
     try {
       const response = await dbFetch(
         `/v1/accounts/login/${provider.provider_id}`,
@@ -1148,14 +1131,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     setSearchQuery("");
     fetchProviders();
   }, [open]);
-
-  // Close context menu when clicking outside
-  useEffect(() => {
-    if (!contextMenu) return;
-    const closeMenu = () => setContextMenu(null);
-    document.addEventListener("click", closeMenu);
-    return () => document.removeEventListener("click", closeMenu);
-  }, [contextMenu]);
 
   // Poll for device code completion (Kiro, grok-build-cli, etc.)
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -2475,11 +2450,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                     key={p.provider_id}
                     provider={p}
                     onSelect={() => setSelectedProvider(p)}
-                    onContextMenu={(e, provider) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setContextMenu({ provider, x: e.clientX, y: e.clientY });
-                    }}
                     loading={loading}
                   />
                 ))}
@@ -2497,90 +2467,6 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 )}
               </div>
             )}
-
-            {contextMenu &&
-              ReactDOM.createPortal(
-                <div
-                  style={{
-                    position: "fixed",
-                    top: contextMenu.y,
-                    left: contextMenu.x,
-                    backgroundColor: "var(--tertiary-bg)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "10px",
-                    boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-                    zIndex: 99999,
-                    minWidth: "200px",
-                    overflow: "hidden",
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    onClick={() => handleLogin(contextMenu.provider, "basic")}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      border: "none",
-                      backgroundColor: "transparent",
-                      color: "var(--primary-text)",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      borderBottom: "1px solid var(--border-color)",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.backgroundColor =
-                        "var(--hover-bg)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.backgroundColor = "transparent")
-                    }
-                  >
-                    <span style={{ fontSize: "14px" }}>🌐</span>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>MITM Login</div>
-                      <div style={{ fontSize: "10px", opacity: 0.6 }}>
-                        Dễ bị ban, nhanh hơn
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => handleLogin(contextMenu.provider, "cdp")}
-                    style={{
-                      width: "100%",
-                      padding: "10px 14px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      border: "none",
-                      backgroundColor: "transparent",
-                      color: "var(--primary-text)",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.backgroundColor =
-                        "var(--hover-bg)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.backgroundColor = "transparent")
-                    }
-                  >
-                    <span style={{ fontSize: "14px" }}>🛡️</span>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>CDP Login</div>
-                      <div style={{ fontSize: "10px", opacity: 0.6 }}>
-                        Khó bị ban, chậm hơn
-                      </div>
-                    </div>
-                  </button>
-                </div>,
-                document.body,
-              )}
 
             {error && (
               <div

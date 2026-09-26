@@ -202,7 +202,7 @@ const AccountCard: React.FC<AccountCardProps> = ({
 
   // ── Render ──
   return (
-    <Dropdown trigger="contextmenu" align="end" side="right">
+    <Dropdown trigger="contextmenu">
       <DropdownTrigger asChild>
         <div
           className="account-card"

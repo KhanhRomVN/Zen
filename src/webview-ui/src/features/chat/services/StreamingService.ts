@@ -9,8 +9,20 @@ export interface StreamConfig {
   messages: Array<{ role: string; content: string }>;
   conversationId?: string;
   parentMessageId?: string;
-  refFileIds?: Array<{ file_id: string; url: string; type?: string; name?: string; file_type?: string }>;
+  refFileIds?: Array<{
+    file_id: string;
+    url: string;
+    type?: string;
+    name?: string;
+    file_type?: string;
+  }>;
   abortSignal: AbortSignal;
+  /** For Qwen: pre-generated fid for the user message (ensures UI and server use same UUID). */
+  messageFid?: string;
+  /** For Qwen edit/regenerate: action type ("edit"). */
+  userAction?: string;
+  /** For Qwen edit/regenerate: fid of the user message to overwrite. */
+  editMessageId?: string;
 }
 
 export interface StreamCallbacks {
@@ -46,6 +58,15 @@ export class StreamingService {
         : {}),
       thinking: thinkingEnabled,
       search: searchEnabled,
+      ...(config.userAction ? { user_action: config.userAction } : {}),
+      ...(config.editMessageId
+        ? { edit_message_id: config.editMessageId }
+        : {}),
+      // For Qwen normal chat: pass pre-generated fid so server stores the exact UUID.
+      // edit flow already sets edit_message_id which doubles as the fid.
+      ...(config.messageFid && !config.editMessageId
+        ? { message_fid: config.messageFid }
+        : {}),
       ...(config.refFileIds && config.refFileIds.length > 0
         ? { ref_file_ids: config.refFileIds }
         : {}),

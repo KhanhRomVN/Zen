@@ -85,13 +85,19 @@ const SKIP_EXTENSIONS = new Set([
   ".sqlite",
   ".sqlite3",
   ".pyc",
-  ".vsix",   // VS Code extension packages — rất nặng, không cần thiết
-  ".blend",  // Blender files
-  ".psd",    // Photoshop
+  ".vsix", // VS Code extension packages — rất nặng, không cần thiết
+  ".blend", // Blender files
+  ".psd", // Photoshop
   ".sketch", // Sketch
-  ".fig",    // Figma
-  ".mp4", ".mkv", ".avi", ".mov", // Video
-  ".fbx", ".obj", ".glb", ".gltf", // 3D assets
+  ".fig", // Figma
+  ".mp4",
+  ".mkv",
+  ".avi",
+  ".mov", // Video
+  ".fbx",
+  ".obj",
+  ".glb",
+  ".gltf", // 3D assets
 ]);
 
 /** Tên file bỏ qua (exact match, case-insensitive) */
@@ -146,10 +152,6 @@ export class WorkspaceZipHandler {
       // Walk workspace recursively — truyền folderName để wrap files trong <folderName>/
       this._walkDir(rootPath, rootPath, folderName, zip, state);
 
-      console.log(
-        `[WorkspaceZipHandler] Zipping workspace: ${rootPath} | files=${state.fileCount} | skipped=${state.skippedCount} | rawBytes=${state.totalRawBytes}`,
-      );
-
       // Generate zip as base64
       const zipBuffer = await zip.generateAsync({
         type: "nodebuffer",
@@ -159,10 +161,6 @@ export class WorkspaceZipHandler {
 
       const base64 = zipBuffer.toString("base64");
       const mimeType = "application/zip";
-
-      console.log(
-        `[WorkspaceZipHandler] Zip complete | zipName=${zipName} | files=${state.fileCount} | size=${zipBuffer.length} bytes`,
-      );
 
       webviewView.webview.postMessage({
         command: "zipWorkspaceResult",

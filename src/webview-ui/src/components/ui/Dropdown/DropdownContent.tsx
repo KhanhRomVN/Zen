@@ -3,7 +3,7 @@ import { DropdownContentProps } from './type';
 export function DropdownContent({ children, className }: DropdownContentProps) {
   return (
     <div
-      style={{ display: 'flex', flexDirection: 'column' }}
+      style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}
       className={className}
       onClick={(e) => e.stopPropagation()}
     >
