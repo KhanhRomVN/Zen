@@ -24,6 +24,9 @@ import { FileLockManager } from "../../managers/FileLockManager";
 // ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ── Utils ──
+import { migrateConversationIfNeeded } from "../../utils/conversationMigration";
+
 // ─── Class ──────────────────────────────────────────────────────────────
 export class SetConversationTitleHandler {
   private pathService: PathService;
@@ -48,10 +51,16 @@ export class SetConversationTitleHandler {
       if (!conversationId) throw new Error("conversationId is required");
       if (!title || !title.trim()) throw new Error("title is required");
 
-      const projectContextDir = this.getProjectContextDir(
+      // Migrate lazy + đảm bảo folder tồn tại
+      const logPath = await migrateConversationIfNeeded(
         workspaceFolder.uri.fsPath,
+        conversationId,
       );
-      const logPath = path.join(projectContextDir, `${conversationId}.json`);
+      const convDir = this.pathService.getConversationDir(
+        workspaceFolder.uri.fsPath,
+        conversationId,
+      );
+      await fs.promises.mkdir(convDir, { recursive: true });
 
       let data: any = {};
       try {

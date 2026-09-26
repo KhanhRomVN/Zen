@@ -21,6 +21,7 @@ import { FolderOpen, Loader2, Search } from "lucide-react";
 
 // ── Components ──
 import HistoryCard from "./components/HistoryCard";
+import ConfirmClearHistoryDrawer from "./components/ConfirmClearHistoryDrawer";
 
 // ── Hooks ──
 import { useConversationHistory } from "./hooks/useConversationHistory";
@@ -282,93 +283,13 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
         </button>
       </div>
 
-      {/* Confirm modal */}
-      {showConfirm && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 100,
-            backgroundColor: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "var(--tertiary-bg)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "10px",
-              padding: "20px",
-              width: "calc(100% - 32px)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "12px",
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                fontSize: "15px",
-                fontWeight: 600,
-                color: "var(--primary-text)",
-              }}
-            >
-              Clear All History
-            </p>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "13px",
-                color: "var(--secondary-text)",
-                opacity: 0.8,
-              }}
-            >
-              This will permanently delete all saved conversations.
-            </p>
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                onClick={() => setShowConfirm(false)}
-                style={{
-                  padding: "5px 12px",
-                  fontSize: "13px",
-                  borderRadius: "6px",
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "transparent",
-                  color: "var(--secondary-text)",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  clearAllHistory();
-                  setShowConfirm(false);
-                }}
-                style={{
-                  padding: "5px 12px",
-                  fontSize: "13px",
-                  borderRadius: "6px",
-                  border: "1px solid rgba(239,68,68,0.4)",
-                  backgroundColor: "rgba(239,68,68,0.12)",
-                  color: "#f87171",
-                  cursor: "pointer",
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirm drawer */}
+      <ConfirmClearHistoryDrawer
+        open={showConfirm}
+        onOpenChange={setShowConfirm}
+        onConfirm={clearAllHistory}
+        totalCount={totalCount}
+      />
 
       {/* List */}
       <div style={{ flex: 1, overflowY: "auto", padding: "var(--spacing-md)" }}>

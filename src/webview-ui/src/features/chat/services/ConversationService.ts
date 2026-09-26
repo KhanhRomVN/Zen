@@ -176,6 +176,13 @@ export const saveConversation = async (
           }
         : existingSingleLineReviewActions || undefined;
 
+    const resolvedTitle = title || existingTitle || "New Conversation";
+    const resolvedDiagnosticEnabled =
+      conversationOverrides?.diagnosticEnabled ?? existingDiagnosticEnabled;
+    const resolvedUseSkillEnabled =
+      conversationOverrides?.useSkillEnabled ?? existingUseSkillEnabled;
+    // ─────────────────────────────────────────────────────────────────────
+
     const data = {
       messages: messagesToSave,
       conversationId: convId,
@@ -188,7 +195,7 @@ export const saveConversation = async (
         id: key,
         sessionId,
         folderPath,
-        title: title || existingTitle || "New Conversation",
+        title: resolvedTitle,
         lastModified: skipTimestampUpdate
           ? existingLastModified || Date.now()
           : Date.now(),
@@ -196,10 +203,8 @@ export const saveConversation = async (
         createdAt: existingCreatedAt || Date.now(),
         totalRequests,
         totalTokenUsage,
-        diagnosticEnabled:
-          conversationOverrides?.diagnosticEnabled ?? existingDiagnosticEnabled,
-        useSkillEnabled:
-          conversationOverrides?.useSkillEnabled ?? existingUseSkillEnabled,
+        diagnosticEnabled: resolvedDiagnosticEnabled,
+        useSkillEnabled: resolvedUseSkillEnabled,
       } as ChatMetadata,
     };
 

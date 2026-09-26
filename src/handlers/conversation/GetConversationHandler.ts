@@ -24,6 +24,9 @@ import { PathService } from "../../services/PathService";
 // ── Storage ──
 import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
 
+// ── Utils ──
+import { migrateConversationIfNeeded } from "../../utils/conversationMigration";
+
 // ─── Class ──────────────────────────────────────────────────────────────
 export class GetConversationHandler {
   private pathService: PathService;
@@ -51,10 +54,12 @@ export class GetConversationHandler {
         return;
       }
       const { conversationId } = message;
-      const projectContextDir = this.getProjectContextDir(
+
+      // Migrate lazy nếu cần, lấy đường dẫn hiện hành
+      const logPath = await migrateConversationIfNeeded(
         workspaceFolder.uri.fsPath,
+        conversationId,
       );
-      const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
       const exists = fs.existsSync(logPath);
 
@@ -64,9 +69,11 @@ export class GetConversationHandler {
         try {
           const projectDirs = await fs.promises.readdir(projectsDir);
           for (const dir of projectDirs) {
+            // Cấu trúc mới: {projectHash}/{conversationId}/{conversationId}.json
             const candidate = path.join(
               projectsDir,
               dir,
+              conversationId,
               `${conversationId}.json`,
             );
             if (fs.existsSync(candidate)) {
@@ -95,7 +102,7 @@ export class GetConversationHandler {
                 command: "conversationResult",
                 requestId: message.requestId,
                 data: {
-                  messages: messages,
+                  messages,
                   conversationId,
                   backendConversationId: isArray
                     ? undefined

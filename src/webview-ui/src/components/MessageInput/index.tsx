@@ -7,14 +7,11 @@ import { useDbFetch } from "../../services/useDbFetch";
 import { combinePromptsForMode } from "../../features/chat/prompts";
 import type { SystemInfo } from "../../features/chat/prompts";
 import ProviderModelDrawer from "./ProviderModelDrawer";
-import StyleCodeDropdown, {
-  StyleCodeTriggerIcon,
-  STYLE_CODE_MODE_META,
-} from "./StyleCodeDropdown";
 import PromptLengthDropdown, {
   PromptLengthTriggerIcon,
   PROMPT_LENGTH_MODE_META,
 } from "./PromptLengthDropdown";
+import PromptSettingsDropdown from "./PromptSettingsDropdown";
 import ActionDropdown from "./ActionDropdown";
 import { getFaviconUrl } from "../../utils/favicon";
 import { getClientId } from "../../utils/clientId";
@@ -156,12 +153,16 @@ const useModelCapabilities = (
   }, [currentModel]);
 
   const supportsUpload = React.useMemo(() => {
+    let result: boolean;
     if (currentModel?.is_image_upload !== undefined) {
-      return !!currentModel.is_image_upload;
+      result = !!currentModel.is_image_upload;
     } else if (currentModelConfig?.is_image_upload !== undefined) {
-      return !!currentModelConfig.is_image_upload;
+      result = !!currentModelConfig.is_image_upload;
+    } else {
+      result = false;
     }
-    return false;
+
+    return result;
   }, [currentModel, currentProviderConfig, currentModelConfig]);
 
   const supportsImageGenerator = React.useMemo(() => {
@@ -968,8 +969,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     }, [activeDatabaseManagerId, setCurrentModel, setCurrentAccount]);
     const [providers, setProviders] = React.useState<any[]>([]);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
-    const [isSystemPromptHovered, setIsSystemPromptHovered] =
-      React.useState(false);
     const [isPromptLengthHovered, setIsPromptLengthHovered] =
       React.useState(false);
 
@@ -2152,68 +2151,29 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   flexShrink: 0,
                 }}
               />
-              {/* System Prompt Mode Selector - Home only */}
-              {!isConversationStarted &&
-                (() => {
-                  const isAntiInjection = !!(currentProviderConfig as any)
-                    ?.anti_system_prompt_injection;
-                  const meta =
-                    STYLE_CODE_MODE_META.find(
-                      (m) => m.key === systemPromptMode,
-                    ) ??
-                    STYLE_CODE_MODE_META.find((m) => m.key === "balanced")!;
-
-                  return (
-                    <StyleCodeDropdown
-                      currentMode={systemPromptMode}
-                      onSelect={(mode) => {
-                        if (isAntiInjection && mode !== "none") return;
-                        setSystemPromptMode(mode);
-                      }}
-                      isAntiInjection={isAntiInjection}
-                      isPromptLengthNone={promptLengthMode === "none"}
-                      triggerButton={
-                        <SimpleTooltip
-                          content={
-                            <>
-                              <span>Style Code</span>
-                              <span
-                                style={{ fontWeight: 700, color: meta.color }}
-                              >
-                                {meta.label}
-                              </span>
-                            </>
-                          }
-                        >
-                          <button
-                            onMouseEnter={() => setIsSystemPromptHovered(true)}
-                            onMouseLeave={() => setIsSystemPromptHovered(false)}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              height: "24px",
-                              width: "24px",
-                              boxSizing: "border-box",
-                              borderRadius: "5px",
-                              cursor: "pointer",
-                              transition: "all 0.15s ease-in-out",
-                              border: "1px solid transparent",
-                              background: isSystemPromptHovered
-                                ? "rgba(128, 128, 128, 0.16)"
-                                : "transparent",
-                              color: meta.color,
-                              opacity: 1,
-                              padding: 0,
-                            }}
-                          >
-                            <StyleCodeTriggerIcon mode={systemPromptMode} />
-                          </button>
-                        </SimpleTooltip>
-                      }
-                    />
-                  );
-                })()}
+              {/* Prompt Settings (Style · Diagnostics · Skill) — Home only, ẩn khi promptLength=none */}
+              {!isConversationStarted && promptLengthMode !== "none" && (
+                <PromptSettingsDropdown
+                  systemPromptMode={systemPromptMode}
+                  onSelectSystemPromptMode={(mode) => {
+                    if (
+                      !!(currentProviderConfig as any)
+                        ?.anti_system_prompt_injection &&
+                      mode !== "none"
+                    )
+                      return;
+                    setSystemPromptMode(mode);
+                  }}
+                  isAntiInjection={
+                    !!(currentProviderConfig as any)
+                      ?.anti_system_prompt_injection
+                  }
+                  diagnosticEnabled={!!conversationDiagnosticEnabled}
+                  onDiagnosticToggle={onConversationDiagnosticToggle}
+                  skillEnabled={!!conversationUseSkillEnabled}
+                  onSkillToggle={onConversationUseSkillToggle}
+                />
+              )}
 
               {/* Prompt Length Selector - Home only */}
               {!isConversationStarted && (
@@ -2280,116 +2240,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 />
               )}
 
-              {/* Diagnostic Toggle - Home only */}
-              {!isConversationStarted && onConversationDiagnosticToggle && (
-                <SimpleTooltip
-                  content={
-                    <TooltipToggle
-                      label="Diagnostics"
-                      isOn={!!conversationDiagnosticEnabled}
-                      accentColor="#22c55e"
-                    />
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      console.log(
-                        "[MessageInput] Diagnostic toggle clicked — current:",
-                        conversationDiagnosticEnabled,
-                      );
-                      onConversationDiagnosticToggle();
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: "24px",
-                      width: "24px",
-                      boxSizing: "border-box",
-                      borderRadius: "5px",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease-in-out",
-                      border: "1px solid transparent",
-                      background: conversationDiagnosticEnabled
-                        ? "rgba(34, 197, 94, 0.16)"
-                        : "transparent",
-                      color: conversationDiagnosticEnabled
-                        ? "#22c55e"
-                        : "var(--vscode-descriptionForeground, #888)",
-                      opacity: 1,
-                      padding: 0,
-                    }}
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M12 2v4" />
-                      <path d="m16.2 7.8 2.9-2.9" />
-                      <path d="M18 12h4" />
-                      <path d="m16.2 16.2 2.9 2.9" />
-                      <path d="M12 18v4" />
-                      <path d="m4.9 19.1 2.9-2.9" />
-                      <path d="M2 12h4" />
-                      <path d="m4.9 4.9 2.9 2.9" />
-                    </svg>
-                  </button>
-                </SimpleTooltip>
-              )}
-
-              {/* Skill Toggle - Home only */}
-              {!isConversationStarted && onConversationUseSkillToggle && (
-                <SimpleTooltip
-                  content={
-                    <TooltipToggle
-                      label="Skill"
-                      isOn={!!conversationUseSkillEnabled}
-                      accentColor="#6366f1"
-                    />
-                  }
-                >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      console.log(
-                        "[MessageInput] Skill toggle clicked — current:",
-                        conversationUseSkillEnabled,
-                      );
-                      onConversationUseSkillToggle();
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: "24px",
-                      width: "24px",
-                      boxSizing: "border-box",
-                      borderRadius: "5px",
-                      cursor: "pointer",
-                      transition: "all 0.15s ease-in-out",
-                      border: "1px solid transparent",
-                      background: conversationUseSkillEnabled
-                        ? "rgba(99, 102, 241, 0.16)"
-                        : "transparent",
-                      color: conversationUseSkillEnabled
-                        ? "#6366f1"
-                        : "var(--vscode-descriptionForeground, #888)",
-                      opacity: 1,
-                      padding: 0,
-                    }}
-                  >
-                    <BrainCogIcon />
-                  </button>
-                </SimpleTooltip>
-              )}
+              {/* Diagnostic và Skill toggles đã được chuyển vào ActionDropdown */}
             </div>
 
             {/* Right Icons */}
@@ -2630,6 +2481,14 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
   const attachedItemsSame =
     prevProps.attachedItems?.length === nextProps.attachedItems?.length;
 
+  // 🔧 FIX: Check diagnostic/skill toggles so toolbar icons re-render immediately
+  const diagnosticSame =
+    prevProps.conversationDiagnosticEnabled ===
+    nextProps.conversationDiagnosticEnabled;
+  const useSkillSame =
+    prevProps.conversationUseSkillEnabled ===
+    nextProps.conversationUseSkillEnabled;
+
   // Only re-render if critical props changed
   const shouldSkip =
     messageSame &&
@@ -2640,7 +2499,9 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     messagesLengthSame &&
     responseRangesSame &&
     conversationFileStatsSame &&
-    attachedItemsSame;
+    attachedItemsSame &&
+    diagnosticSame &&
+    useSkillSame;
 
   return shouldSkip;
 });

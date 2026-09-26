@@ -78,6 +78,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       useSkillEnabled?: boolean;
     } | undefined>(undefined);
 
+  // Capture conversationOverrides from initialMessageData into a stable ref
+  // so it survives after onClearInitialData() nulls out initialMessageData.
+  const pendingConversationOverridesRef = useRef<{
+    diagnosticEnabled?: boolean;
+    useSkillEnabled?: boolean;
+  } | undefined>(initialMessageData?.conversationOverrides);
+  useEffect(() => {
+    if (initialMessageData?.conversationOverrides !== undefined) {
+      pendingConversationOverridesRef.current =
+        initialMessageData.conversationOverrides;
+    }
+  }, [initialMessageData]);
+
   // Track render count for performance monitoring
   const renderCountRef = useRef(0);
   renderCountRef.current++;
@@ -187,7 +200,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     apiUrl,
     selectedTab: currentChat,
     conversationOverrides:
-      initialMessageData?.conversationOverrides ?? restoredConversationOverrides,
+      pendingConversationOverridesRef.current ?? restoredConversationOverrides,
     onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
       handleToolRequest(
         actions,

@@ -27,9 +27,6 @@ import { extensionService } from "../../../services/ExtensionService";
 // ── Types ──
 import { ConversationItem } from "../types";
 
-// [DEBUG] conversation_title — remove after fix
-let loggedFirstHistoryCard = false;
-
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface HistoryCardProps {
   item: ConversationItem;
@@ -69,10 +66,6 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
       ? item.title.substring(0, 57) + "..."
       : item.title
     : "Untitled";
-
-  if (!loggedFirstHistoryCard) {
-    loggedFirstHistoryCard = true;
-  }
 
   // Token badge color based on amount
   const getTokenColor = (n: number) => {
@@ -546,7 +539,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
           {[
             {
               icon: <Trash2 size={13} />,
-              label: "Delete",
+              label: "Delete conversation",
               color: "var(--error-color)",
               hoverBg: "rgba(244,67,54,0.1)",
               action: (e: React.MouseEvent) => {

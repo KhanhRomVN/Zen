@@ -24,6 +24,9 @@ import { FileLockManager } from "../../managers/FileLockManager";
 // ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ── Utils ──
+import { migrateConversationIfNeeded } from "../../utils/conversationMigration";
+
 // ─── Class ──────────────────────────────────────────────────────────────
 export class SaveConversationStateHandler {
   private pathService: PathService;
@@ -101,9 +104,16 @@ export class SaveConversationStateHandler {
     }
 
     try {
-      const projectContextDir = this.getProjectContextDir(workspaceFsPath);
-      await fs.promises.mkdir(projectContextDir, { recursive: true });
-      const logPath = path.join(projectContextDir, `${conversationId}.json`);
+      // Đảm bảo folder conversation tồn tại + migrate file cũ nếu cần
+      const logPath = await migrateConversationIfNeeded(
+        workspaceFsPath,
+        conversationId,
+      );
+      const convDir = this.pathService.getConversationDir(
+        workspaceFsPath,
+        conversationId,
+      );
+      await fs.promises.mkdir(convDir, { recursive: true });
 
       let existingData: any = null;
       let existingFileExists = false;
@@ -144,6 +154,16 @@ export class SaveConversationStateHandler {
           // Verify write
           const verifyContent = await fs.promises.readFile(logPath, "utf-8");
           const verifyData = JSON.parse(verifyContent);
+          // ── DEBUG: confirm what actually landed in file ──────────────────
+          console.log(
+            `[SaveConversationStateHandler] ✅ wrote ${conversationId}:`,
+            {
+              title: verifyData.metadata?.title,
+              diagnosticEnabled: verifyData.metadata?.diagnosticEnabled,
+              useSkillEnabled: verifyData.metadata?.useSkillEnabled,
+            },
+          );
+          // ─────────────────────────────────────────────────────────────────
         } finally {
           release();
         }

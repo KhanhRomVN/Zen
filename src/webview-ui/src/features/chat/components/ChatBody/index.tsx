@@ -1,387 +1,22 @@
-import React, { useRef, useEffect, useMemo, useCallback } from "react";
-import {
-  parseAIResponse,
-  ParsedResponse,
-  ToolAction,
-} from "../../services/ResponseParser";
-import { Message } from "../../types/message";
-import {
-  EXECUTION_STATUS,
-  TOOL_ACTION_TYPES,
-  TERMINAL_STATUS,
-} from "../../constants/constants";
+import React, { useRef, useEffect, useMemo } from "react";
+import { parseAIResponse } from "../../services/ResponseParser";
 import { useSettings } from "@/context/SettingsContext";
 import { useCollapseSections } from "../../hooks/ui/useCollapseSections";
 import { useToolActions } from "../../hooks/tools/useToolActions";
 import { useScrollBehavior } from "../../hooks/ui/useScrollBehavior";
 import { useMessagePagination } from "../../hooks/ui/useMessagePagination";
 import { useMessageParsing } from "../../hooks/messages/useMessageParsing";
+import { useMessageActions } from "../../hooks/messages/useMessageActions";
 import ChatBodySkeleton from "./ChatBodySkeleton";
 import SearchBar from "./SearchBar";
 import ContinuingIndicator from "./ContinuingIndicatorBox";
 import ProcessingIndicator from "./ProcessingIndicator";
-import UserMessageBox from "./UserMessageBox";
-import AIMessageBox from "./AIMessageBox";
 import { LoadMoreButton } from "./LoadMoreButton";
+import MessageBoxWithErrorBoundary from "./MessageBox";
+import ContinueTaskButton from "./ContinueTaskButton";
+import { ExtendedChatBodyProps } from "./types";
 
-interface ChatBodyProps {
-  messages: Message[];
-  isProcessing: boolean;
-  onSendToolRequest?: (
-    action: ToolAction | ToolAction[],
-    message: Message,
-    isAutoTrigger?: boolean,
-    actionType?: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
-  ) => void;
-  onToolAction?: (
-    actionId: string,
-    actionType: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
-    toolName?: string,
-  ) => void;
-  onSendMessage?: (
-    content: string,
-    files?: any[],
-    model?: any,
-    account?: any,
-    skipFirstRequestLogic?: boolean,
-    actionIds?: string[],
-    uiHidden?: boolean,
-    extraOptions?: {
-      user_action?: string;
-      edit_message_id?: string;
-      parent_message_id?: string;
-    },
-  ) => void | Promise<void>;
-  onSelectOption?: (messageId: string, option: string) => void;
-  /** ID of the first user message — used to skip rendering it in some views. */
-  firstRequestMessageId?: string;
-  executionState?: {
-    total: number;
-    completed: number;
-    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
-  };
-  toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  terminalStatus?: Record<
-    string,
-    (typeof TERMINAL_STATUS)[keyof typeof TERMINAL_STATUS]
-  >;
-  onLoadConversation?: (
-    conversationId: string,
-    tabId: number,
-    folderPath: string | null,
-  ) => void;
-  onRevertConversation?: (messageId: string, timestamp: number) => void;
-  onRegenerateRequest?: (messageId: string) => void;
-  onAutoScrollPausedChange?: (paused: boolean) => void;
-  scrollToBottomRef?: React.MutableRefObject<(() => void) | null>;
-  isContinuing?: boolean;
-  onGitConfirm?: (items: any[]) => void;
-  onGitCancel?: () => void;
-  gitStatusItems?: any[];
-  gitStatusBranch?: string;
-  isGitProcessing?: boolean;
-  isGitStatusVisible?: boolean;
-  onBackToHome?: (summary: string) => void;
-  /** Loading state when restoring conversation from history */
-  isLoadingConversation?: boolean;
-}
-
-export interface ExtendedChatBodyProps extends ChatBodyProps {
-  onRegenerateRequest?: (messageId: string) => void;
-  executionState?: {
-    total: number;
-    completed: number;
-    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
-  };
-  toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  terminalStatus?: Record<
-    string,
-    (typeof TERMINAL_STATUS)[keyof typeof TERMINAL_STATUS]
-  >;
-  activeTerminalIds?: Set<string>;
-  attachedTerminalIds?: Set<string>;
-  conversationId?: string;
-  previousAssistantMessage?: Message;
-  isRestored?: boolean;
-  onContinue?: () => void;
-  hasInitialMessage?: boolean;
-  singleLineReviewActions?: Record<
-    string,
-    { action: any; actionId: string; messageId: string }
-  >;
-  onConfirmSingleLineAction?: (actionId: string) => void;
-  onRejectSingleLineAction?: (actionId: string) => void;
-  isSearchOpen?: boolean;
-  searchQuery?: string;
-  onSearchQueryChange?: (q: string) => void;
-  onCloseSearch?: () => void;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Error Boundary for Message Rendering
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: Error | null;
-}
-
-/**
- * Error boundary for MessageBox.
- * Catches render errors and shows a recoverable error UI instead of crashing.
- */
-class MessageBoxErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  ErrorBoundaryState
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[MessageBox] Render error caught:", error, info);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      const errorColor = "var(--vscode-errorForeground, #f44336)";
-
-      return (
-        <div
-          style={{
-            padding: "12px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              width: "100%",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-                flex: 1,
-                minWidth: 0,
-              }}
-            >
-              <div
-                style={{
-                  position: "relative",
-                  width: "16px",
-                  height: "16px",
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginTop: "2px",
-                }}
-                title="Error - Render failed"
-              >
-                <div
-                  style={{
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
-                    backgroundColor: errorColor,
-                  }}
-                />
-              </div>
-            </div>
-
-            <div
-              style={{
-                flexShrink: 0,
-                marginLeft: "8px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  color: errorColor,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                ERROR
-              </span>
-            </div>
-          </div>
-
-          {this.state.error && (
-            <div
-              style={{
-                padding: "12px 16px",
-                borderRadius: "6px",
-                border: `1px solid color-mix(in srgb, ${errorColor} 30%, transparent)`,
-                background: `color-mix(in srgb, ${errorColor} 5%, transparent)`,
-              }}
-            >
-              <pre
-                style={{
-                  fontSize: "11px",
-                  color: "var(--vscode-descriptionForeground)",
-                  margin: 0,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  maxHeight: "120px",
-                  overflowY: "auto",
-                  fontFamily: "var(--vscode-editor-font-family, monospace)",
-                }}
-              >
-                {this.state.error.message}
-              </pre>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return <>{this.props.children}</>;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MessageBox Props Interface
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface MessageBoxProps {
-  message: Message;
-  parsedContent: ParsedResponse;
-  isCollapsed: boolean;
-  onToggleCollapse: () => void;
-  clickedActions: Set<string>;
-  failedActions?: Set<string>;
-  rejectedActions?: Set<string>;
-  onToolClick: (
-    action: any,
-    message: Message,
-    index: number,
-    type: (typeof TOOL_ACTION_TYPES)[keyof typeof TOOL_ACTION_TYPES],
-  ) => void;
-  requestNumber?: number | null;
-  executionState?: {
-    total: number;
-    completed: number;
-    status: (typeof EXECUTION_STATUS)[keyof typeof EXECUTION_STATUS];
-  };
-  isLastMessage?: boolean;
-  hasNextAssistantMessage?: boolean;
-  isRestored?: boolean;
-  toolOutputs?: Record<string, { output: string; isError: boolean }>;
-  terminalStatus?: Record<string, "busy" | "free">;
-  nextUserMessage?: Message;
-  allMessages?: Message[];
-  activeTerminalIds?: Set<string>;
-  attachedTerminalIds?: Set<string>;
-  conversationId?: string;
-  previousAssistantMessage?: Message;
-  isGenerating?: boolean;
-  onSendMessage?: (
-    content: string,
-    files?: any[],
-    model?: any,
-    account?: any,
-    skipLogic?: boolean,
-    actionIds?: string[],
-    uiHidden?: boolean,
-    extraOptions?: {
-      user_action?: string;
-      edit_message_id?: string;
-      parent_message_id?: string;
-    },
-  ) => void;
-  onSelectOption?: (messageId: string, option: string) => void;
-  onRevertConversation?: (messageId: string, timestamp: number) => void;
-  onRegenerateRequest?: (messageId: string) => void;
-  singleLineReviewActions?: Record<
-    string,
-    { action: any; actionId: string; messageId: string }
-  >;
-  onConfirmSingleLineAction?: (actionId: string) => void;
-  onRejectSingleLineAction?: (actionId: string) => void;
-  onGitConfirm?: (items: any[]) => void;
-  onGitCancel?: () => void;
-  gitStatusItems?: any[];
-  gitStatusBranch?: string;
-  isGitProcessing?: boolean;
-  isGitStatusVisible?: boolean;
-  onBackToHome?: (summary: string) => void;
-  responseNumber?: number | null;
-  onRetryRequest?: (messageId: string) => void;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MessageBox Component (Inline - previously in MessageBox.tsx)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
-  const { message, onRevertConversation, onRegenerateRequest } = props;
-
-  if (message.role === "user") {
-    return (
-      <UserMessageBox
-        message={message}
-        conversationId={(props as any).conversationId}
-        onRevertConversation={onRevertConversation}
-        onRegenerateRequest={onRegenerateRequest}
-        onEditRequest={(props as any).onEditRequest}
-      />
-    );
-  }
-
-  return <AIMessageBox {...props} />;
-};
-
-// Memoize to prevent unnecessary re-renders
-const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
-  const isStreaming =
-    prevProps.isGenerating === true && nextProps.isGenerating === true;
-
-  // During streaming, only check props that actually change per chunk
-  if (isStreaming) {
-    const streamingPropsEqual =
-      prevProps.message.id === nextProps.message.id &&
-      prevProps.message.content === nextProps.message.content &&
-      prevProps.message.thinking === nextProps.message.thinking &&
-      prevProps.clickedActions === nextProps.clickedActions &&
-      prevProps.failedActions === nextProps.failedActions &&
-      prevProps.rejectedActions === nextProps.rejectedActions;
-    return streamingPropsEqual;
-  }
-
-  // Full comparison when not streaming
-  const propsAreEqual =
-    prevProps.message.id === nextProps.message.id &&
-    prevProps.message.content === nextProps.message.content &&
-    prevProps.message.thinking === nextProps.message.thinking &&
-    prevProps.clickedActions === nextProps.clickedActions &&
-    prevProps.failedActions === nextProps.failedActions &&
-    prevProps.rejectedActions === nextProps.rejectedActions &&
-    prevProps.isGenerating === nextProps.isGenerating &&
-    prevProps.toolOutputs === nextProps.toolOutputs;
-  return propsAreEqual; // true = skip re-render, false = do re-render
-});
-
-// Wrap with error boundary
-const MessageBoxWithErrorBoundary: React.FC<MessageBoxProps> = (props) => (
-  <MessageBoxErrorBoundary>
-    <MessageBox {...props} />
-  </MessageBoxErrorBoundary>
-);
+export type { ExtendedChatBodyProps };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ChatBody Component
@@ -437,13 +72,9 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     loadMore,
     loadAll,
     hasHiddenMessages,
-  } = useMessagePagination({
-    messages,
-    messagesPerPage: 10,
-  });
+  } = useMessagePagination({ messages, messagesPerPage: 10 });
 
   // Use shared parse cache from useMessageParsing hook
-  // Falls back to local parse only for messages not pre-parsed by useChatLLM
   const parsedMessagesFromHook = useMessageParsing(
     paginatedMessages,
     isProcessing || isContinuing,
@@ -474,165 +105,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     messages,
     isProcessing,
   );
-
-  // Regenerate a user message: revert to this message (removes it + everything
-  // after) then resend its own rawRequest content unchanged.
-  const handleRegenerateRequest = useCallback(
-    (messageId: string) => {
-      const msgIndex = messages.findIndex((m) => m.id === messageId);
-      if (msgIndex === -1) return;
-
-      const userMsg = messages[msgIndex];
-      if (userMsg.role !== "user") return;
-
-      if (!onSendMessage || !userMsg.rawRequest) return;
-
-      // Extract original content from formatted rawRequest
-      const userContentMatch = userMsg.rawRequest.match(
-        /<user-message>\n?([\s\S]*?)\n?<\/user-message>/,
-      );
-      let contentToSend: string;
-      let shouldSkipLogic: boolean;
-
-      if (userContentMatch) {
-        contentToSend = userContentMatch[1];
-        shouldSkipLogic = false;
-      } else {
-        contentToSend = userMsg.rawRequest;
-        shouldSkipLogic = true;
-      }
-
-      // Replace old permission mode with current mode
-      const permissionModePattern =
-        /<permission-mode>Active:\s*(approval|full-access|fullAccess)<\/permission-mode>/;
-      if (!shouldSkipLogic && permissionModePattern.test(contentToSend)) {
-        contentToSend = contentToSend.replace(
-          permissionModePattern,
-          `<permission-mode>Active: ${permissionMode}</permission-mode>`,
-        );
-      }
-
-      // If we have Qwen provider fid + parentId, use edit flow (no revert needed —
-      // Qwen will overwrite the message and delete children on the server side).
-      if (userMsg.providerFid) {
-        onSendMessage(
-          contentToSend,
-          userMsg.uploadedFiles,
-          undefined,
-          undefined,
-          shouldSkipLogic,
-          undefined,
-          undefined,
-          {
-            user_action: "edit",
-            edit_message_id: userMsg.providerFid,
-            parent_message_id: userMsg.providerParentId,
-          },
-        );
-        return;
-      }
-
-      // Fallback for providers without edit support: revert then resend
-      if (onRevertConversation) {
-        onRevertConversation(messageId, userMsg.timestamp);
-      }
-      setTimeout(() => {
-        onSendMessage(
-          contentToSend,
-          userMsg.uploadedFiles,
-          undefined,
-          undefined,
-          shouldSkipLogic,
-        );
-      }, 100);
-    },
-    [messages, onRevertConversation, onSendMessage, permissionMode],
-  );
-
-  // Edit a user message with new content (and optionally revert file changes).
-  const handleEditRequest = useCallback(
-    (messageId: string, newContent: string, revert: boolean) => {
-      const msgIndex = messages.findIndex((m) => m.id === messageId);
-      if (msgIndex === -1) return;
-
-      const userMsg = messages[msgIndex];
-      if (userMsg.role !== "user") return;
-      if (!onSendMessage) return;
-
-      // Replace permission mode in rawRequest template, then swap user-message content
-      let rawTemplate = userMsg.rawRequest || "";
-      const permissionModePattern =
-        /<permission-mode>Active:\s*(approval|full-access|fullAccess)<\/permission-mode>/;
-      if (permissionModePattern.test(rawTemplate)) {
-        rawTemplate = rawTemplate.replace(
-          permissionModePattern,
-          `<permission-mode>Active: ${permissionMode}</permission-mode>`,
-        );
-      }
-
-      // Determine skipLogic: if rawRequest has user-message wrapper, use full pipeline
-      const hasWrapper = /<user-message>/.test(rawTemplate);
-      const shouldSkipLogic = !hasWrapper;
-
-      // If revert requested, do it first, then send after a short delay
-      if (revert && onRevertConversation) {
-        onRevertConversation(messageId, userMsg.timestamp);
-        setTimeout(() => {
-          onSendMessage(
-            newContent,
-            userMsg.uploadedFiles,
-            undefined,
-            undefined,
-            shouldSkipLogic,
-            undefined,
-            undefined,
-            userMsg.providerFid
-              ? {
-                  user_action: "edit",
-                  edit_message_id: userMsg.providerFid,
-                  parent_message_id: userMsg.providerParentId,
-                }
-              : undefined,
-          );
-        }, 100);
-        return;
-      }
-
-      // No revert: use Qwen edit flow if available, otherwise just send
-      if (userMsg.providerFid) {
-        onSendMessage(
-          newContent,
-          userMsg.uploadedFiles,
-          undefined,
-          undefined,
-          shouldSkipLogic,
-          undefined,
-          undefined,
-          {
-            user_action: "edit",
-            edit_message_id: userMsg.providerFid,
-            parent_message_id: userMsg.providerParentId,
-          },
-        );
-        return;
-      }
-
-      // Fallback: revert anyway (no edit support without providerFid)
-      if (onRevertConversation) {
-        onRevertConversation(messageId, userMsg.timestamp);
-      }
-      setTimeout(() => {
-        onSendMessage(
-          newContent,
-          userMsg.uploadedFiles,
-          undefined,
-          undefined,
-          shouldSkipLogic,
-        );
-      }, 100);
-    },
-    [messages, onRevertConversation, onSendMessage, permissionMode],
-  );
+  const { handleRegenerateRequest, handleEditRequest, handleRetryRequest } =
+    useMessageActions({ messages, onSendMessage, onRevertConversation });
 
   const prevPausedRef = useRef(false);
   useEffect(() => {
@@ -655,9 +129,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     const firstPendingAction = parsed.actions.find(
       (_action: any, idx: number) => {
         const actionId = `${lastMessage.id}-action-${idx}`;
-        const hasOutput = toolOutputs && toolOutputs[actionId];
-        const isClicked = clickedActions.has(actionId);
-        return !hasOutput && !isClicked;
+        return !(toolOutputs && toolOutputs[actionId]) && !clickedActions.has(actionId);
       },
     );
     if (!firstPendingAction) return false;
@@ -665,13 +137,10 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     return false;
   }, [messages, isRestored, toolOutputs, permissionMode, clickedActions]);
 
-  const visibleMessages = useMemo(() => {
-    const filtered = paginatedMessages.filter(
-      (msg) => !msg.uiHidden && !msg.isCancelled,
-    );
-
-    return filtered;
-  }, [paginatedMessages, firstRequestMessageId]);
+  const visibleMessages = useMemo(
+    () => paginatedMessages.filter((msg) => !msg.uiHidden && !msg.isCancelled),
+    [paginatedMessages, firstRequestMessageId],
+  );
 
   const lastAssistantIndex = useMemo(() => {
     for (let i = visibleMessages.length - 1; i >= 0; i--) {
@@ -685,62 +154,28 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     const lastMessage = visibleMessages[visibleMessages.length - 1];
     if (lastMessage.role !== "assistant") return false;
     const parsedMessage = parsedMessages.find((pm) => pm.id === lastMessage.id);
-    if (!parsedMessage || !parsedMessage.parsed) return false;
+    if (!parsedMessage?.parsed) return false;
     const parsed = parsedMessage.parsed;
 
-    // Check message.thinking (SSE stream)
-    if (lastMessage.thinking && lastMessage.thinking.trim().length > 0) {
-      return false;
-    }
-
-    // Check thinking blocks in contentBlocks
-    const hasThinkingBlock =
-      parsed.contentBlocks &&
-      parsed.contentBlocks.some((b: any) => b.type === "thinking");
-    if (hasThinkingBlock) {
-      return false;
-    }
-
-    // Check text content
-    const hasText = parsed.displayText && parsed.displayText.trim().length > 0;
-    if (hasText) {
-      return false;
-    }
-
-    // Check actions
-    const hasActions = parsed.actions && parsed.actions.length > 0;
-    if (hasActions) {
-      return false;
-    }
-
-    // Check other blocks (code, file, markdown) - skip thinking
-    const hasOtherBlocks =
-      parsed.contentBlocks &&
-      parsed.contentBlocks.some((b: any) => {
-        // Skip thinking blocks - they're rendered separately
-        if (b.type === "thinking") {
-          return false;
-        }
+    if ((lastMessage.thinking?.trim().length ?? 0) > 0) return false;
+    if (parsed.contentBlocks?.some((b: any) => b.type === "thinking")) return false;
+    if (parsed.displayText?.trim().length > 0) return false;
+    if (parsed.actions?.length > 0) return false;
+    if (
+      parsed.contentBlocks?.some((b: any) => {
+        if (b.type === "thinking") return false;
         switch (b.type) {
-          case "tool":
-            return true; // Tools count as content
+          case "tool": return true;
           case "code":
           case "file":
-          case "markdown":
-            return (b as any).content?.trim().length > 0;
-          default:
-            return false;
+          case "markdown": return (b as any).content?.trim().length > 0;
+          default: return false;
         }
-      });
-
-    if (hasOtherBlocks) {
-      return false;
-    }
+      })
+    ) return false;
 
     return true;
   }, [isProcessing, visibleMessages, parsedMessages]);
-
-  // 🔧 Removed streamingContent useMemo - now using Zustand store for better performance
 
   return (
     <div
@@ -753,8 +188,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
         padding: "var(--spacing-lg)",
         paddingLeft: "24px",
         backgroundColor: "var(--secondary-bg)",
-        paddingBottom:
-          visibleMessages.length > 0 ? "200px" : "var(--spacing-lg)",
+        paddingBottom: visibleMessages.length > 0 ? "200px" : "var(--spacing-lg)",
         display: "flex",
         flexDirection: "column",
         gap: "var(--spacing-md)",
@@ -762,7 +196,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
         position: "relative",
       }}
     >
-      {/* Show skeleton when loading conversation */}
       {isLoadingConversation ? (
         <ChatBodySkeleton />
       ) : (
@@ -776,7 +209,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
             />
           )}
 
-          {/* Load More Button - show when there are hidden messages */}
           {hasHiddenMessages && (
             <LoadMoreButton
               hiddenCount={hiddenCount}
@@ -789,8 +221,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
             // Calculate global response count from ALL messages (not just visible)
             let globalResponseCount = 0;
             const messageToResponseNumber = new Map<string, number>();
-
-            // First pass: assign response numbers to ALL messages
             messages.forEach((msg) => {
               if (msg.role === "assistant") {
                 globalResponseCount++;
@@ -798,53 +228,41 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
               }
             });
 
-            // Second pass: render only visible messages with correct response numbers
             return visibleMessages.map((message, index) => {
-              const parsedMessage = parsedMessages.find(
-                (pm) => pm.id === message.id,
-              );
-              if (!parsedMessage || !parsedMessage.parsed) return null;
-              const parsedContent = parsedMessage.parsed;
+              const parsedMessage = parsedMessages.find((pm) => pm.id === message.id);
+              if (!parsedMessage?.parsed) return null;
 
-              // Get response number from the map (calculated from ALL messages)
               const currentResponseNumber =
                 message.role === "assistant"
                   ? messageToResponseNumber.get(message.id) || null
                   : null;
 
+              const msgIdx = messages.findIndex((m) => m.id === message.id);
               const nextUserMessage = messages
-                .slice(messages.findIndex((m) => m.id === message.id) + 1)
+                .slice(msgIdx + 1)
                 .find((m) => m.role === "user");
               const previousAssistantMessage = messages
-                .slice(
-                  0,
-                  messages.findIndex((m) => m.id === message.id),
-                )
+                .slice(0, msgIdx)
                 .reverse()
                 .find((m) => m.role === "assistant");
 
               const nextVisibleMessage = visibleMessages[index + 1];
-              const hasNextAssistantMessage =
-                nextVisibleMessage?.role === "assistant";
+              const hasNextAssistantMessage = nextVisibleMessage?.role === "assistant";
 
               return (
                 <MessageBoxWithErrorBoundary
                   key={message.id}
                   message={message}
-                  parsedContent={parsedContent}
+                  parsedContent={parsedMessage.parsed}
                   nextUserMessage={nextUserMessage}
                   responseNumber={currentResponseNumber}
-                  isGenerating={
-                    isProcessing && index === visibleMessages.length - 1
-                  }
+                  isGenerating={isProcessing && index === visibleMessages.length - 1}
                   isCollapsed={
                     message.role === "user"
                       ? collapsedSections.has(`prompt-${message.id}`)
                       : false
                   }
-                  onToggleCollapse={() =>
-                    toggleCollapse(`prompt-${message.id}`)
-                  }
+                  onToggleCollapse={() => toggleCollapse(`prompt-${message.id}`)}
                   clickedActions={clickedActions}
                   failedActions={failedActions}
                   rejectedActions={rejectedActions}
@@ -852,9 +270,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   executionState={executionState}
                   isLastMessage={
                     message.role === "assistant" &&
-                    (index === visibleMessages.length - 1 ||
-                      index === lastAssistantIndex) &&
-                    hasNextAssistantMessage === false
+                    (index === visibleMessages.length - 1 || index === lastAssistantIndex) &&
+                    !hasNextAssistantMessage
                   }
                   hasNextAssistantMessage={hasNextAssistantMessage}
                   toolOutputs={toolOutputs}
@@ -880,77 +297,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   isGitProcessing={isGitProcessing}
                   isGitStatusVisible={isGitStatusVisible}
                   onBackToHome={onBackToHome}
-                  onRetryRequest={(messageId: string) => {
-                    // Find the user message before this assistant message
-                    const msgIndex = messages.findIndex(
-                      (m) => m.id === messageId,
-                    );
-                    if (msgIndex <= 0) return;
-
-                    let prevUserMsg: Message | null = null;
-                    for (let i = msgIndex - 1; i >= 0; i--) {
-                      if (messages[i].role === "user") {
-                        prevUserMsg = messages[i];
-                        break;
-                      }
-                    }
-
-                    if (!prevUserMsg) return;
-
-                    // First revert to this message (removes all messages after)
-                    if (onRevertConversation) {
-                      onRevertConversation(messageId, message.timestamp);
-                    }
-
-                    // Then resend the user message
-                    if (onSendMessage && prevUserMsg.rawRequest) {
-                      // Small delay to let revert complete
-                      setTimeout(() => {
-                        let rawReq = prevUserMsg!.rawRequest || "";
-
-                        // 🔧 FIX: Replace old permission mode with current mode
-                        // Pattern: <permission-mode>Active: (approval|full-access|fullAccess)</permission-mode>
-                        const permissionModePattern =
-                          /<permission-mode>Active:\s*(approval|full-access|fullAccess)<\/permission-mode>/;
-                        const currentMode = permissionMode; // Use current mode directly (already in correct format: "fullAccess" | "approval")
-
-                        if (permissionModePattern.test(rawReq)) {
-                          // Replace existing permission mode with current one
-                          rawReq = rawReq.replace(
-                            permissionModePattern,
-                            `<permission-mode>Active: ${currentMode}</permission-mode>`,
-                          );
-                        }
-
-                        // Extract original content from formatted rawRequest
-                        // Pattern: <user-message>\n(.*)\n</user-message>
-                        const userContentMatch = rawReq.match(
-                          /<user-message>\n?([\s\S]*?)\n?<\/user-message>/,
-                        );
-
-                        let contentToSend: string;
-                        let shouldSkipLogic: boolean;
-
-                        if (userContentMatch) {
-                          // Found user-message wrapper - extract inner content
-                          contentToSend = userContentMatch[1];
-                          shouldSkipLogic = false; // Let it wrap again normally
-                        } else {
-                          // No user-message (hidden request) - send as is
-                          contentToSend = rawReq;
-                          shouldSkipLogic = true; // Skip wrapping to preserve format
-                        }
-
-                        onSendMessage(
-                          contentToSend,
-                          prevUserMsg!.uploadedFiles,
-                          undefined,
-                          undefined,
-                          shouldSkipLogic,
-                        );
-                      }, 100);
-                    }
-                  }}
+                  onRetryRequest={handleRetryRequest}
                 />
               );
             });
@@ -959,61 +306,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
           {/* PERF: Da bo streaming render ThinkingBlock — ProcessingIndicator thay the hoan toan */}
 
           {hasUnexecutedAutoActions && onContinue && (
-            <div
-              style={{
-                marginTop: "12px",
-                marginBottom: "12px",
-                display: "flex",
-              }}
-            >
-              <button
-                onClick={onContinue}
-                style={{
-                  backgroundColor:
-                    "color-mix(in srgb, var(--vscode-button-background, #007acc) 15%, transparent)",
-                  color: "var(--vscode-button-background, #007acc)",
-                  border:
-                    "1px solid color-mix(in srgb, var(--vscode-button-background, #007acc) 30%, transparent)",
-                  padding: "6px 16px",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                  height: "28px",
-                  boxSizing: "border-box",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-button-background, #007acc) 25%, transparent)";
-                  e.currentTarget.style.borderColor =
-                    "color-mix(in srgb, var(--vscode-button-background, #007acc) 50%, transparent)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "color-mix(in srgb, var(--vscode-button-background, #007acc) 15%, transparent)";
-                  e.currentTarget.style.borderColor =
-                    "color-mix(in srgb, var(--vscode-button-background, #007acc) 30%, transparent)";
-                }}
-              >
-                <span
-                  className="codicon codicon-play"
-                  style={{
-                    fontSize: "12px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                />
-                <span>Continue Task</span>
-              </button>
-            </div>
+            <ContinueTaskButton onContinue={onContinue} />
           )}
 
           {isContinuing && <ContinuingIndicator />}
@@ -1024,13 +317,8 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
 
           <div ref={messagesEndRef} />
           <style>{`
-        .chat-body-scroll::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-        .chat-body-scroll::-webkit-scrollbar-track {
-          background: transparent;
-        }
+        .chat-body-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+        .chat-body-scroll::-webkit-scrollbar-track { background: transparent; }
         .chat-body-scroll::-webkit-scrollbar-thumb {
           background: var(--vscode-scrollbarSlider-background, rgba(128, 128, 128, 0.4));
           border-radius: 4px;
@@ -1038,9 +326,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
         .chat-body-scroll::-webkit-scrollbar-thumb:hover {
           background: var(--vscode-scrollbarSlider-hoverBackground, rgba(128, 128, 128, 0.6));
         }
-        .chat-body-scroll {
-          scrollbar-width: thin;
-        }
+        .chat-body-scroll { scrollbar-width: thin; }
       `}</style>
         </>
       )}
@@ -1050,8 +336,6 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
 
 // PERF: React.memo with custom comparator to prevent re-renders when parent
 // (ChatPanel) re-renders due to unrelated state changes (e.g., useBrowserSession polling).
-// ChatBody has ~30 props; without memo it re-renders the entire message list
-// and triggers 150+ MessageBox memo checks on every parent render.
 const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
   return (
     prevProps.messages === nextProps.messages &&
@@ -1070,4 +354,5 @@ const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
     prevProps.singleLineReviewActions === nextProps.singleLineReviewActions
   );
 });
+
 export default ChatBody;

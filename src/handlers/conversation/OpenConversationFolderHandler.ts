@@ -38,8 +38,10 @@ export class OpenConversationFolderHandler {
       if (!workspaceFolder) return;
       const { conversationId } = message;
       if (!conversationId) return;
-      const folderPath = path.join(
-        this.getProjectContextDir(workspaceFolder.uri.fsPath),
+
+      // Đảm bảo folder tồn tại (tạo nếu chưa có)
+      const folderPath = this.pathService.getConversationDir(
+        workspaceFolder.uri.fsPath,
         conversationId,
       );
       await fs.promises.mkdir(folderPath, { recursive: true });

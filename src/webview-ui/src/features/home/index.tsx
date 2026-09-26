@@ -92,12 +92,14 @@ const DashboardStats = React.memo(
       );
       const today = sorted[0];
       const yesterday = sorted[1];
-      const tokenChange = yesterday?.tokens && today?.tokens
-        ? ((today.tokens - yesterday.tokens) / yesterday.tokens) * 100
-        : null;
-      const requestChange = yesterday?.requests && today?.requests
-        ? ((today.requests - yesterday.requests) / yesterday.requests) * 100
-        : null;
+      const tokenChange =
+        yesterday?.tokens && today?.tokens
+          ? ((today.tokens - yesterday.tokens) / yesterday.tokens) * 100
+          : null;
+      const requestChange =
+        yesterday?.requests && today?.requests
+          ? ((today.requests - yesterday.requests) / yesterday.requests) * 100
+          : null;
       return [tokenChange, requestChange, null, null];
     }, [dailyUsage, modelDistribution, favoriteModel]);
 
@@ -201,36 +203,30 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const [conversationUseSkillEnabled, setConversationUseSkillEnabled] =
     React.useState(globalUseSkillEnabled);
 
-  // DEBUG: log mỗi khi state thay đổi
-  React.useEffect(() => {
-    console.log("[Home] conversationDiagnosticEnabled changed →", conversationDiagnosticEnabled);
-  }, [conversationDiagnosticEnabled]);
-  React.useEffect(() => {
-    console.log("[Home] conversationUseSkillEnabled changed →", conversationUseSkillEnabled);
-  }, [conversationUseSkillEnabled]);
-
   // Chỉ sync 1 lần khi global settings load xong lần đầu (từ localStorage/storage async).
   // Không sync liên tục để tránh ghi đè giá trị user đã toggle.
   const didSyncDiagnosticRef = React.useRef(false);
   const didSyncSkillRef = React.useRef(false);
   React.useEffect(() => {
-    if (!didSyncDiagnosticRef.current && globalDiagnosticEnabled !== undefined) {
+    if (
+      !didSyncDiagnosticRef.current &&
+      globalDiagnosticEnabled !== undefined
+    ) {
       didSyncDiagnosticRef.current = true;
-      console.log("[Home] initial sync globalDiagnosticEnabled →", globalDiagnosticEnabled);
       setConversationDiagnosticEnabled(globalDiagnosticEnabled);
     }
   }, [globalDiagnosticEnabled]);
   React.useEffect(() => {
     if (!didSyncSkillRef.current && globalUseSkillEnabled !== undefined) {
       didSyncSkillRef.current = true;
-      console.log("[Home] initial sync globalUseSkillEnabled →", globalUseSkillEnabled);
       setConversationUseSkillEnabled(globalUseSkillEnabled);
     }
   }, [globalUseSkillEnabled]);
 
   const dbHeaders = () => {
     const h: Record<string, string> = {};
-    if (activeDatabaseManagerId) h["x-database-manager-id"] = activeDatabaseManagerId;
+    if (activeDatabaseManagerId)
+      h["x-database-manager-id"] = activeDatabaseManagerId;
     return h;
   };
 
@@ -290,7 +286,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
       const updated = [...prev, item];
       return updated;
     });
-      }, []);
+  }, []);
 
   const handleRemoveAttachedItem = React.useCallback((id: string) => {
     setAttachedItems((prev) => prev.filter((item) => item.id !== id));
@@ -357,6 +353,8 @@ const HomePanel: React.FC<HomePanelProps> = ({
       onSendMessage,
       clearDraft,
       clearFiles,
+      conversationDiagnosticEnabled,
+      conversationUseSkillEnabled,
     ],
   );
 
@@ -399,7 +397,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
       try {
         const [statsRes, accountsRes, providersRes] = await Promise.all([
           fetch(`${apiUrl}/v1/stats?period=day`, { headers: dbHeaders() }),
-          fetch(`${apiUrl}/v1/accounts?page=1&limit=1000`, { headers: dbHeaders() }),
+          fetch(`${apiUrl}/v1/accounts?page=1&limit=1000`, {
+            headers: dbHeaders(),
+          }),
           fetch(`${apiUrl}/v1/providers`, { headers: dbHeaders() }),
         ]);
         if (statsRes.ok) {
@@ -691,8 +691,12 @@ const HomePanel: React.FC<HomePanelProps> = ({
         isStreaming={false}
         conversationDiagnosticEnabled={conversationDiagnosticEnabled}
         conversationUseSkillEnabled={conversationUseSkillEnabled}
-        onConversationDiagnosticToggle={() => setConversationDiagnosticEnabled((v) => !v)}
-        onConversationUseSkillToggle={() => setConversationUseSkillEnabled((v) => !v)}
+        onConversationDiagnosticToggle={() =>
+          setConversationDiagnosticEnabled((v) => !v)
+        }
+        onConversationUseSkillToggle={() =>
+          setConversationUseSkillEnabled((v) => !v)
+        }
       />
     </div>
   );

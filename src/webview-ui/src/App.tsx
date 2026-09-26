@@ -160,6 +160,7 @@ const App: React.FC = () => {
         useSkillEnabled?: boolean;
       },
     ) => {
+      console.log("[App] handleHomeSendMessage conversationOverrides:", conversationOverrides);
       setInitialMessageData({
         content,
         files,

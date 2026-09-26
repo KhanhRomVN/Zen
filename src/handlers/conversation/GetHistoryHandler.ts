@@ -25,6 +25,9 @@ import { PathService } from "../../services/PathService";
 // ── Storage ──
 import { GlobalStorageManager } from "../../storage/GlobalStorageManager";
 
+// ── Utils ──
+import { migrateAllConversationsInDir } from "../../utils/conversationMigration";
+
 // ─── Class ──────────────────────────────────────────────────────────────
 export class GetHistoryHandler {
   private pathService: PathService;
@@ -45,7 +48,14 @@ export class GetHistoryHandler {
         workspaceFolder.uri.fsPath,
       );
       await fs.promises.mkdir(projectContextDir, { recursive: true });
+
+      // Migrate tất cả file .json cũ sang cấu trúc folder mới (lazy batch)
+      await migrateAllConversationsInDir(workspaceFolder.uri.fsPath);
+
       await this.enforceHistoryLimit(projectContextDir);
+
+      // Sau migrate, tất cả conversations nằm trong sub-folder
+      // Quét các folder con để tìm {conversationId}/{conversationId}.json
       const entries = await fs.promises.readdir(projectContextDir, {
         withFileTypes: true,
       });
@@ -69,18 +79,20 @@ export class GetHistoryHandler {
       };
 
       for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith(".json")) {
+        // Cấu trúc mới: sub-folder {conversationId}/{conversationId}.json
+        if (entry.isDirectory()) {
+          const conversationId = entry.name;
+          const jsonPath = path.join(
+            projectContextDir,
+            conversationId,
+            `${conversationId}.json`,
+          );
+          if (!fs.existsSync(jsonPath)) continue;
           try {
-            const content = await fs.promises.readFile(
-              path.join(projectContextDir, entry.name),
-              "utf-8",
-            );
+            const content = await fs.promises.readFile(jsonPath, "utf-8");
             const data = JSON.parse(content);
-            const conversationId = entry.name.replace(".json", "");
             if (!Array.isArray(data) && data.metadata) {
-              if (!loggedFirst) {
-                loggedFirst = true;
-              }
+              if (!loggedFirst) loggedFirst = true;
               const modelInfo = extractModelInfo(data.messages || []);
               history.push({
                 ...data.metadata,
@@ -103,11 +115,7 @@ export class GetHistoryHandler {
                   /## User Message\n<user-message>\n([\s\S]*?)\n<\/user-message>/,
                 ) || rawTitle.match(/## User Message\n```\n([\s\S]*?)\n```/);
               if (titleMatch) rawTitle = titleMatch[1];
-              const title = rawTitle
-                .replace(/\n/g, " ")
-                .trim()
-                .substring(0, 100);
-
+              const title = rawTitle.replace(/\n/g, " ").trim().substring(0, 100);
               const modelInfo = extractModelInfo(data);
               history.push({
                 id: conversationId,
@@ -149,30 +157,34 @@ export class GetHistoryHandler {
 
   public async enforceHistoryLimit(projectContextDir: string) {
     try {
-      const files = await fs.promises.readdir(projectContextDir);
-      const jsonFiles: { name: string; mtime: number }[] = [];
+      const entries = await fs.promises.readdir(projectContextDir, {
+        withFileTypes: true,
+      });
 
-      for (const file of files) {
-        if (file.endsWith(".json")) {
-          const filePath = path.join(projectContextDir, file);
+      // Chỉ đếm sub-folders (cấu trúc mới) — file .json cũ đã được migrate
+      const convFolders: { name: string; mtime: number }[] = [];
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const jsonPath = path.join(
+            projectContextDir,
+            entry.name,
+            `${entry.name}.json`,
+          );
+          if (!fs.existsSync(jsonPath)) continue;
           try {
-            const stats = await fs.promises.stat(filePath);
-            jsonFiles.push({ name: file, mtime: stats.mtimeMs });
+            const stats = await fs.promises.stat(jsonPath);
+            convFolders.push({ name: entry.name, mtime: stats.mtimeMs });
           } catch {}
         }
       }
 
-      if (jsonFiles.length <= 30) return;
+      if (convFolders.length <= 30) return;
 
-      jsonFiles.sort((a, b) => b.mtime - a.mtime);
+      convFolders.sort((a, b) => b.mtime - a.mtime);
 
-      const toDelete = jsonFiles.slice(30);
+      const toDelete = convFolders.slice(30);
       for (const item of toDelete) {
-        const logPath = path.join(projectContextDir, item.name);
-        const conversationId = item.name.replace(".json", "");
-        const folderPath = path.join(projectContextDir, conversationId);
-
-        await fs.promises.unlink(logPath).catch(() => {});
+        const folderPath = path.join(projectContextDir, item.name);
         await fs.promises
           .rm(folderPath, { recursive: true, force: true })
           .catch(() => {});

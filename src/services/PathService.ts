@@ -41,4 +41,47 @@ export class PathService {
       .digest("hex");
     return path.join(this.getContextRoot(), "projects", hash);
   }
+
+  /**
+   * Thư mục riêng của một conversation:
+   * ~/.khanhromvn-zen/projects/{hash}/{conversationId}/
+   */
+  public getConversationDir(
+    workspaceFolderPath: string,
+    conversationId: string,
+  ): string {
+    return path.join(
+      this.getProjectContextDir(workspaceFolderPath),
+      conversationId,
+    );
+  }
+
+  /**
+   * Đường dẫn file JSON chính của conversation (nằm TRONG folder):
+   * ~/.khanhromvn-zen/projects/{hash}/{conversationId}/{conversationId}.json
+   */
+  public getConversationJsonPath(
+    workspaceFolderPath: string,
+    conversationId: string,
+  ): string {
+    return path.join(
+      this.getConversationDir(workspaceFolderPath, conversationId),
+      `${conversationId}.json`,
+    );
+  }
+
+  /**
+   * Legacy path (cấu trúc cũ — file nằm thẳng trong projectContextDir):
+   * ~/.khanhromvn-zen/projects/{hash}/{conversationId}.json
+   * Dùng để detect và migrate file cũ.
+   */
+  public getLegacyConversationJsonPath(
+    workspaceFolderPath: string,
+    conversationId: string,
+  ): string {
+    return path.join(
+      this.getProjectContextDir(workspaceFolderPath),
+      `${conversationId}.json`,
+    );
+  }
 }

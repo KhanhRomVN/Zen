@@ -46,9 +46,8 @@ export class DeleteAllConversationsHandler {
         withFileTypes: true,
       });
       for (const entry of entries) {
-        if (entry.isFile() && entry.name.endsWith(".json")) {
-          await fs.promises.unlink(path.join(projectContextDir, entry.name));
-        } else if (entry.isDirectory()) {
+        // Xóa cả folder (cấu trúc mới) lẫn file .json lẻ (legacy còn sót)
+        if (entry.isDirectory() || (entry.isFile() && entry.name.endsWith(".json"))) {
           await fs.promises.rm(path.join(projectContextDir, entry.name), {
             recursive: true,
             force: true,

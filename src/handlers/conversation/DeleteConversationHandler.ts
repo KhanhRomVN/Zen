@@ -20,6 +20,9 @@ import * as vscode from "vscode";
 // ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ── Utils ──
+import { migrateConversationIfNeeded } from "../../utils/conversationMigration";
+
 // ─── Class ──────────────────────────────────────────────────────────────
 export class DeleteConversationHandler {
   private pathService: PathService;
@@ -39,19 +42,28 @@ export class DeleteConversationHandler {
     try {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
       if (!workspaceFolder) return;
-      const projectContextDir = this.getProjectContextDir(
-        workspaceFolder.uri.fsPath,
-      );
-      const logPath = path.join(
-        projectContextDir,
-        `${message.conversationId}.json`,
-      );
-      const backupPath = path.join(projectContextDir, message.conversationId);
 
-      await fs.promises.unlink(logPath).catch(() => {});
+      // Migrate lazy trước khi xóa để đảm bảo file cũ cũng được dọn
+      await migrateConversationIfNeeded(
+        workspaceFolder.uri.fsPath,
+        message.conversationId,
+      );
+
+      // Xóa toàn bộ folder conversation (chứa .json + checkpoints + replace_history)
+      const convDir = this.pathService.getConversationDir(
+        workspaceFolder.uri.fsPath,
+        message.conversationId,
+      );
       await fs.promises
-        .rm(backupPath, { recursive: true, force: true })
+        .rm(convDir, { recursive: true, force: true })
         .catch(() => {});
+
+      // Xóa file .json cũ nếu migrate thất bại và vẫn còn ở ngoài
+      const legacyPath = this.pathService.getLegacyConversationJsonPath(
+        workspaceFolder.uri.fsPath,
+        message.conversationId,
+      );
+      await fs.promises.unlink(legacyPath).catch(() => {});
 
       webviewView.webview.postMessage({
         command: "deleteConversationResult",

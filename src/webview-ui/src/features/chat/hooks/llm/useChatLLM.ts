@@ -110,13 +110,29 @@ export const useChatLLM = ({
   onToolRequest,
   onMalformedTool,
 }: UseChatLLMProps) => {
-  // Ref to hold per-conversation overrides (from Home panel or restored from metadata)
+  // Ref to hold per-conversation overrides (from Home panel or restored from metadata).
+  // Only update if the new value is not undefined — prevents initialMessageData clear
+  // from wiping out overrides that were already captured.
   const conversationOverridesRef = useRef<ConversationOverrides | undefined>(
     conversationOverrides,
   );
+  const prevSelectedTabIdRef = useRef<string | number | undefined>(
+    selectedTab?.sessionId,
+  );
   useEffect(() => {
-    conversationOverridesRef.current = conversationOverrides;
-  }, [conversationOverrides]);
+    const currentTabId = selectedTab?.sessionId;
+    const tabChanged = currentTabId !== prevSelectedTabIdRef.current;
+    prevSelectedTabIdRef.current = currentTabId;
+
+    if (tabChanged) {
+      // New conversation loaded — always sync (even if undefined = no overrides)
+      conversationOverridesRef.current = conversationOverrides;
+    } else if (conversationOverrides !== undefined) {
+      // Same conversation — only update if new value is not undefined,
+      // so clearing initialMessageData doesn't wipe out captured overrides.
+      conversationOverridesRef.current = conversationOverrides;
+    }
+  }, [conversationOverrides, selectedTab?.sessionId]);
   // Use extracted hooks
   const {
     streamingState,
@@ -482,6 +498,13 @@ export const useChatLLM = ({
       setMessages(updatedMessages);
       setIsProcessingSync(true);
 
+      // When promptLengthMode is "none", system prompt is not sent so
+      // diagnostic and skill are effectively disabled regardless of toggles.
+      const effectiveConversationOverrides: typeof conversationOverridesRef.current =
+        promptLengthMode === "none"
+          ? { diagnosticEnabled: false, useSkillEnabled: false }
+          : conversationOverridesRef.current;
+
       // Save conversation immediately when sending request (user message only)
       saveConversation(
         sessionId,
@@ -496,7 +519,7 @@ export const useChatLLM = ({
         undefined,
         undefined,
         false,
-        conversationOverridesRef.current,
+        effectiveConversationOverrides,
       );
 
       // Resolve model and account
@@ -901,6 +924,7 @@ export const useChatLLM = ({
         dispatchStreaming({ type: "RESET_STREAMING" });
         abortControllerRef.current = null;
 
+        // ─────────────────────────────────────────────────────────────────
         saveConversation(
           sessionId,
           folderPath,
@@ -914,7 +938,7 @@ export const useChatLLM = ({
           undefined,
           undefined,
           false, // skipSave = false → always save response immediately
-          conversationOverridesRef.current,
+          effectiveConversationOverrides,
         );
 
         // Parse response to extract tool sequence with error handling
@@ -1074,6 +1098,8 @@ export const useChatLLM = ({
         );
         const conversationTitle = conversationTitleBlock?.content;
 
+        // ─────────────────────────────────────────────────────────────────
+
         saveConversation(
           sessionId,
           folderPath,
@@ -1087,7 +1113,7 @@ export const useChatLLM = ({
           undefined,
           undefined,
           false, // skipSave = false → update with parsed data (or error state)
-          conversationOverridesRef.current,
+          effectiveConversationOverrides,
         );
 
         // 🚨 DETECT ONLY-THINKING RESPONSE
@@ -1239,6 +1265,10 @@ export const useChatLLM = ({
 
         const sessionId = selectedTab?.sessionId || -1;
         const folderPath = selectedTab?.folderPath || null;
+        const effectiveOverridesForSelect =
+          promptLengthMode === "none"
+            ? { diagnosticEnabled: false, useSkillEnabled: false }
+            : conversationOverridesRef.current;
 
         saveConversation(
           sessionId,
@@ -1253,7 +1283,7 @@ export const useChatLLM = ({
           undefined,
           undefined,
           false,
-          conversationOverridesRef.current,
+          effectiveOverridesForSelect,
         );
 
         if (parsedPayload && parsedPayload.answers) {

@@ -28,6 +28,9 @@ import { ReplaceInFileHistoryManager } from "../../managers/ReplaceInFileHistory
 // ── Services ──
 import { PathService } from "../../services/PathService";
 
+// ── Utils ──
+import { migrateConversationIfNeeded } from "../../utils/conversationMigration";
+
 // ─── Functions ──────────────────────────────────────────────────────────
 /**
  * Parse actions from message content (markdown format)
@@ -184,10 +187,10 @@ export class RevertConversationHandler {
         return;
       }
 
-      const projectContextDir = this.getProjectContextDir(
+      const logPath = await migrateConversationIfNeeded(
         workspaceFolder.uri.fsPath,
+        conversationId,
       );
-      const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
       if (!fs.existsSync(logPath)) {
         console.error("[REVERT-DEBUG] Log file not found:", logPath);
@@ -370,10 +373,10 @@ export class RevertConversationHandler {
         return;
       }
 
-      const projectContextDir = this.getProjectContextDir(
+      const logPath = await migrateConversationIfNeeded(
         workspaceFolder.uri.fsPath,
+        conversationId,
       );
-      const logPath = path.join(projectContextDir, `${conversationId}.json`);
 
       if (!fs.existsSync(logPath)) {
         webviewView.webview.postMessage({
