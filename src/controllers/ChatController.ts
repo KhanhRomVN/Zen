@@ -226,7 +226,13 @@ export class ChatController {
           await this.previewHandler.handleOpenTempImage(message);
           break;
         case "importAccounts":
-          await this.accountImportExportHandler.handleImportAccounts(
+          await this.accountImportExportHandler.handlePreviewImport(
+            message,
+            webviewView,
+          );
+          break;
+        case "confirmImport":
+          await this.accountImportExportHandler.handleConfirmImport(
             message,
             webviewView,
           );

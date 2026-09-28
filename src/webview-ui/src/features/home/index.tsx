@@ -195,7 +195,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
     apiUrl,
     activeDatabaseManagerId,
     diagnosticEnabled: globalDiagnosticEnabled,
+    setDiagnosticEnabled,
     useSkillEnabled: globalUseSkillEnabled,
+    setUseSkillEnabled,
   } = useSettings();
 
   const [conversationDiagnosticEnabled, setConversationDiagnosticEnabled] =
@@ -691,12 +693,16 @@ const HomePanel: React.FC<HomePanelProps> = ({
         isStreaming={false}
         conversationDiagnosticEnabled={conversationDiagnosticEnabled}
         conversationUseSkillEnabled={conversationUseSkillEnabled}
-        onConversationDiagnosticToggle={() =>
-          setConversationDiagnosticEnabled((v) => !v)
-        }
-        onConversationUseSkillToggle={() =>
-          setConversationUseSkillEnabled((v) => !v)
-        }
+        onConversationDiagnosticToggle={() => {
+          const next = !conversationDiagnosticEnabled;
+          setConversationDiagnosticEnabled(next);
+          setDiagnosticEnabled(next);
+        }}
+        onConversationUseSkillToggle={() => {
+          const next = !conversationUseSkillEnabled;
+          setConversationUseSkillEnabled(next);
+          setUseSkillEnabled(next);
+        }}
       />
     </div>
   );

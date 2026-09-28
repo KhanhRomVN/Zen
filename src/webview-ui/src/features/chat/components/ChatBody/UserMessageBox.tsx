@@ -9,6 +9,8 @@ interface UserMessageBoxProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   onRegenerateRequest?: (messageId: string) => void;
   onEditRequest?: (messageId: string, newContent: string, revert: boolean) => void;
+  /** Whether the current provider supports regenerate/revert mechanism */
+  canRegenerate?: boolean;
 }
 
 /**
@@ -102,6 +104,7 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   onRevertConversation,
   onRegenerateRequest,
   onEditRequest,
+  canRegenerate = true,
 }) => {
   const [isCopied, setIsCopied] = React.useState(false);
   const [isEditing, setIsEditing] = React.useState(false);
@@ -576,6 +579,7 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           </button>
 
           {/* Edit (replaces regenerate) */}
+          {canRegenerate && (
           <button
             onClick={handleOpenEdit}
             title="Edit message"
@@ -597,9 +601,10 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           >
             <EditIcon />
           </button>
+          )}
 
           {/* Revert conversation to this point */}
-          {onRevertConversation && (
+          {onRevertConversation && canRegenerate && (
             <button
               onClick={() => setShowRevertModal(true)}
               title="Revert conversation to this point"

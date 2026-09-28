@@ -225,6 +225,7 @@ export const useConversationRestore = ({
               accountToCache = {
                 id: lastAssistantMsgForMeta.accountId!,
                 email: lastAssistantMsgForMeta.email!,
+                provider_id: lastAssistantMsgForMeta.providerId!,
               };
               setCurrentModel(modelToCache);
               setCurrentAccount(accountToCache);

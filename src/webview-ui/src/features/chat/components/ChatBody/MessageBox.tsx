@@ -77,6 +77,8 @@ export interface MessageBoxProps {
   onBackToHome?: (summary: string) => void;
   responseNumber?: number | null;
   onRetryRequest?: (messageId: string) => void;
+  /** Whether the current provider supports regenerate/revert mechanism */
+  canRegenerate?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,6 +233,7 @@ const MessageBoxComponent: React.FC<MessageBoxProps> = (props) => {
         onRevertConversation={onRevertConversation}
         onRegenerateRequest={onRegenerateRequest}
         onEditRequest={(props as any).onEditRequest}
+        canRegenerate={props.canRegenerate}
       />
     );
   }
@@ -264,7 +267,8 @@ const MessageBox = React.memo(MessageBoxComponent, (prevProps, nextProps) => {
     prevProps.failedActions === nextProps.failedActions &&
     prevProps.rejectedActions === nextProps.rejectedActions &&
     prevProps.isGenerating === nextProps.isGenerating &&
-    prevProps.toolOutputs === nextProps.toolOutputs
+    prevProps.toolOutputs === nextProps.toolOutputs &&
+    prevProps.canRegenerate === nextProps.canRegenerate
   );
 });
 

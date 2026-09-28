@@ -47,7 +47,6 @@ export async function migrateConversationIfNeeded(
       );
       await fs.promises.mkdir(convDir, { recursive: true });
       await fs.promises.rename(legacyPath, newPath);
-      console.log(`[Migration] Moved legacy → new: ${conversationId}`);
       return newPath;
     } catch (err) {
       console.error(`[Migration] Failed to migrate ${conversationId}:`, err);

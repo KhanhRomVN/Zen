@@ -49,4 +49,5 @@ export interface FlatAccount extends Account {
   usage?: number;
   reset_usage_at?: string;
   is_active_cli?: boolean;
+  auth_method?: string | null;
 }

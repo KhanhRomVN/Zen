@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
-import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck, BarChart3, Clock, Zap, Feather, Gauge, Flame, Sparkles, Cpu } from "lucide-react";
+import { Search, ChevronRight, X, ChevronLeft, ChevronDown, Brain, Circle, Video, Image, Activity, Coins, Volume2, ImagePlus, Film, SearchCheck, BarChart3, Clock, Zap, Feather, Gauge, Flame, Sparkles, Cpu, Key } from "lucide-react";
 import { getFaviconUrl } from "@/utils/favicon";
 import { getClientId } from "@/utils/clientId";
 import { formatRelativeTime } from "@/utils/relativeTime";
@@ -93,6 +93,7 @@ interface Account {
   last_used_at?: number | null;
   /** Số cửa sổ VSCode KHÁC đang active account này */
   used_by_windows?: number;
+  auth_method?: string | null;
 }
 
 interface ProviderModelDrawerProps {
@@ -1651,6 +1652,38 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                           >
                             {acc.email || acc.name || acc.id}
                           </span>
+                          {acc.auth_method && (() => {
+                              const method = acc.auth_method;
+                              const baseUri = (window as any).__zenImagesUri as string | undefined;
+                              const knownIcons = ["google", "github", "x"];
+                              const hasIcon = knownIcons.includes(method) && baseUri;
+                              return (
+                                <span style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px",
+                                  fontSize: "11px",
+                                  fontWeight: 600,
+                                  padding: "2px 7px",
+                                  borderRadius: "4px",
+                                  backgroundColor: "rgba(128,128,128,0.1)",
+                                  color: "var(--secondary-text)",
+                                  letterSpacing: "0.02em",
+                                  flexShrink: 0,
+                                }}>
+                                  {hasIcon ? (
+                                    <img
+                                      src={`${baseUri}/auth_icons/${method}.svg`}
+                                      alt={method}
+                                      style={{ width: "12px", height: "12px", objectFit: "contain" }}
+                                    />
+                                  ) : (
+                                    <Key size={11} />
+                                  )}
+                                  {method}
+                                </span>
+                              );
+                            })()}
                           {(acc.used_by_windows ?? 0) > 0 && (
                             <span
                               title={`Đang được dùng bởi ${acc.used_by_windows} cửa sổ VSCode khác`}

@@ -1,124 +1,373 @@
-# Zen - Free AI Chat For ALL LLM
-
 <div align="center">
 
-![Zen Logo](https://raw.githubusercontent.com/KhanhRomVN/Zen/main/images/icon.png)
+<img src="https://raw.githubusercontent.com/KhanhRomVN/Zen/main/images/icon.png" width="120" alt="Zen Logo" />
 
-**AI chat directly in your VSCode — connect any LLM provider, free**
+# Zen — Free AI Chat For ALL LLM
 
-[![Version](https://img.shields.io/badge/version-2.2.2-blue.svg)](https://github.com/KhanhRomVN/Zen)
+**A powerful AI agent living inside VSCode. Free. No subscription. No lock-in.**
+
+[![Version](https://img.shields.io/badge/version-2.3.2-blue.svg)](https://github.com/KhanhRomVN/Zen)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![VSCode](https://img.shields.io/badge/VSCode-^1.84.0-007ACC.svg)](https://code.visualstudio.com/)
 
+> *For developers who need great AI but don't want to pay for it.*
+
 </div>
+
+---
 
 ## What is Zen?
 
-Zen brings AI chat into your VSCode sidebar. Connect to any LLM provider, chat about your code, let the AI read and edit files, run commands, and track every change — all without leaving your editor. No subscription, no lock-in.
+Zen is a VSCode extension that turns your editor into a full AI coding agent. Instead of paying monthly for Copilot or Cursor, Zen lets you connect directly to any AI provider — from a personal API key to a free web account — and use it as an agent that can read, write, and run commands across your entire codebase.
 
-## Features
+Zen has two AI connection layers:
 
-**Multi-LLM Support** — Connect DeepSeek, Claude, Gemini, Qwen, OpenAI, Ollama, GitHub Copilot, and more. Switch providers or accounts anytime from the Accounts panel.
+- **API Provider** — Connect via standard API keys (OpenAI-compatible). Use this when you have a key.
+- **Web Provider** — Connect to AI websites with generous free tiers (ChatGPT, Gemini, Claude, Qwen, GitHub Copilot…) by automating Chromium with your existing browser profile. No key required, no cost.
 
-**Agentic File Operations** — Ask the AI to read, create, edit, or delete files in your workspace. Every change is shown as an action you approve before it runs.
+Both layers are managed through a unified **Account Management** system that stores multiple accounts, tracks usage, rotates automatically, and supports account pool sharing.
 
-**Terminal Commands** — The AI can propose and run shell commands. You decide whether to allow them, based on the active permission mode.
+---
 
-**3-Mode Permission System** — Choose how much freedom to give the AI:
-- **Full Access** — all tools run automatically
-- **Approval** — reads run automatically, everything else asks first
-- **Read Only** — the AI can inspect your code but cannot modify anything
+## Core Features
 
-**Checkpoint & Revert** — Every file modification creates a checkpoint. View the diff or undo the change with one click.
+### 🤖 Multi-Provider AI
 
-**Conversation History** — All chats are saved. Browse, search, and resume any previous conversation.
+| Type | Supported Providers |
+|------|---------------------|
+| **API** | OpenAI, DeepSeek, Anthropic Claude, Google Gemini, Qwen/Alibaba Cloud, Ollama (local), any OpenAI-compatible endpoint |
+| **Web (free)** | ChatGPT, Claude.ai, Gemini, Qwen, GitHub Copilot, and more — via Chromium profile automation |
 
-**Skills Marketplace** — Browse and install community skills to extend what the AI can do, right inside Zen.
+Switch provider, model, or account at any time from the model selector in the chat UI.
 
-**Streaming Responses** — Real-time output with syntax-highlighted code blocks, copy buttons, and clickable file paths.
+---
+
+### 🧠 A Real AI Agent
+
+Zen doesn't just answer questions — it performs actual tasks on your codebase:
+
+**Reading files**
+- Read files by path, read specific line ranges
+- Find files by glob pattern, search content by regex (grep)
+- Read binary formats: PDF, Word (.docx), RTF — not just plain text
+
+**Writing & editing files**
+- Create new files, overwrite content
+- Surgically replace code snippets (replace_in_file) with byte-perfect matching
+- Delete files
+
+**Terminal**
+- Propose and run shell commands
+- Persistent terminal sessions across multiple commands
+- Parse stdout/stderr to handle errors automatically
+
+**Git**
+- View git status, git diff
+- Auto-generate commit messages and perform commits
+
+**Other tools**
+- Full-text search across the project (grep with regex)
+- View project structure (list files with configurable depth)
+- View file change history (replace history)
+- Preview files inside VSCode
+
+---
+
+### 🛡️ 3-Level Permission System
+
+Control exactly how much autonomy the agent has:
+
+| Mode | Behavior |
+|------|----------|
+| **Full Access** | All tools run automatically, no prompts |
+| **Approval** | Reads run automatically; writes, terminal, and git require confirmation |
+| **Read Only** | AI can only inspect code, cannot modify anything |
+
+Switch modes from the chat footer toolbar — takes effect immediately.
+
+---
+
+### 💾 Checkpoint & Revert
+
+Before every file modification or deletion, Zen automatically creates a snapshot (checkpoint). After the AI edits a file, a checkpoint bar appears in chat:
+
+```
+📍 CHECKPOINT  [🗎 View diff]  [↶ Revert]
+```
+
+- **View diff** — Compare before/after changes in the VSCode diff editor
+- **Revert** — Restore the file to its state before the AI touched it, with one click
+
+Revert supports cascade: reverting a message rolls back all file changes made by that message and everything after it.
+
+---
+
+### 📊 Smart Account Management
+
+This is what sets Zen apart from other AI extensions.
+
+**Multiple accounts, multiple providers**
+Store unlimited accounts (API keys or web session cookies) per provider. In any conversation, you choose exactly which account to use.
+
+**Usage tracking**
+Every account is tracked: request count, token count, successful vs. failed requests. View stats directly in the Accounts panel.
+
+**Smart limits**
+Set `max_req_conversation` and `max_token_conversation` per account to avoid exceeding quotas. The system warns you when an account approaches its limit.
+
+**Import / Export**
+Back up your entire account pool to a JSON file. Import from JSON or a SQLite database file. Easily share account pools between machines or with teammates.
+
+**Usage reset**
+Each account has a `reset_usage_at` timestamp — counters reset automatically on the configured cycle.
+
+---
+
+### 🌐 Web Provider (HTTPS Automation)
+
+Zen connects to free AI websites by running Chromium with your real user profile. Here's how it works:
+
+1. Log in to an AI website (ChatGPT, Gemini, Claude.ai…) using your normal Chrome browser, saving the session to a profile
+2. Set the `chromium_profile_dir` path in Zen Settings
+3. Zen uses that profile to communicate with the website — exactly as if you were chatting manually, but fully automated
+
+No API reverse engineering. No API key. Works with any AI website that has a web interface.
+
+---
+
+### 💬 Conversation History
+
+All conversations are saved automatically to `~/.khanhromvn-zen/projects/{hash}/`. Each project has its own history, up to 30 conversations.
+
+- Browse all history from the **History** panel
+- Resume any previous conversation
+- Rename conversations
+- Delete individual conversations or clear all
+- Open a conversation's storage folder in your file manager
+
+---
+
+### 🛒 Skills Marketplace
+
+Zen integrates with **mcp.directory** — a community marketplace for AI skills. Each skill is a prompt template that extends the AI's capabilities for a specific task (image generation, code analysis, database queries…).
+
+- Browse skills directly in the **Marketplace** panel
+- Install a skill with one click
+- When `useSkillEnabled = true`, the list of installed skills is attached to the system prompt so the AI knows to use them
+
+---
+
+### 🔧 LSP Diagnostics
+
+Zen integrates with VSCode's Language Server Protocol to catch type/syntax errors after the AI edits code:
+
+- When `diagnosticEnabled = true`: the AI receives error reports from the language server and auto-fixes them
+- When `diagnosticEnabled = false`: the `LSP-DIAGNOSTICS-FALLBACK` constraint is added to the system prompt, requiring the AI to proactively run a linter/type-checker after every code change
+
+Supports TypeScript, Python, Rust, Go, Java, Ruby, C/C++ via language servers automatically installed to `~/.khanhromvn-zen/lsp/`.
+
+---
+
+### ⚙️ System Prompt Engine
+
+Zen has a multi-layer, fully customizable system prompt:
+
+**Behavior modes** — control the AI's working style:
+- `fast` — minimal questions, minimal explanations, move fast
+- `balanced` — balance between speed and care (default)
+- `thorough` — careful, asks more questions, confirms before large changes
+- `autopilot` — maximum autonomy, never pauses to ask
+
+**Prompt length modes** — control system prompt size:
+- `short` — compact, token-efficient
+- `medium` — full behavior rules, no worked examples
+- `long` — complete prompt including worked examples
+- `none` — no system prompt sent (useful for fine-tuned models)
+
+**Response language** — the AI replies in the language you choose (English, Vietnamese, Japanese…)
+
+---
+
+### 📋 Rules (Custom Instructions)
+
+Create a `.zen/rules.md` file in your project to set project-specific rules for the AI — naming conventions, code style, framework preferences. Rules are automatically attached to every conversation's context.
+
+---
+
+### 🗄️ Database Integration
+
+Zen supports direct database connections so the AI can query real data:
+
+- **MySQL / MariaDB**
+- **PostgreSQL**
+- **MongoDB**
+
+Each workspace can have its own `activeDatabaseManagerId`. The AI can run queries, inspect schemas, and analyze data within a conversation.
+
+---
+
+### 🎨 UI
+
+- Streaming responses with real-time syntax-highlighted code blocks (powered by [Shiki](https://github.com/shikijs/shiki))
+- Copy button on every code block
+- Click file paths in responses to open them directly in the editor
+- Dark/Light theme follows your VSCode theme
+- Token usage bar below each response (can be hidden)
+- File attachment — attach files from your workspace to a message
+- Live write preview — watch the AI edit files in real time
+
+---
+
+## Installation
+
+### From the VSCode Marketplace
+
+Search **"Zen"** in the Extensions panel (`Ctrl+Shift+X`) and click Install.
+
+### From VSIX (offline)
+
+```bash
+code --install-extension khanhromvn-zen-2.3.2.vsix
+```
+
+---
 
 ## Getting Started
 
-### Install
+### 1. Open Zen
 
-**From Marketplace**: Search "Zen" in the VSCode Extensions panel and click Install.
+Click the **Zen** icon in the Activity Bar (left sidebar) or use the Command Palette:
 
-**From VSIX**:
-```bash
-code --install-extension khanhromvn-zen-2.2.2.vsix
+```
+Ctrl+Shift+P → Zen: Open Chat
 ```
 
-### Setup
+### 2. Connect an AI provider
 
-1. Click the **Zen icon** in the Activity Bar
-2. Open the **Accounts** panel to add your AI provider and credentials
-3. Start chatting
+Open the **Accounts** panel (organization icon in the toolbar):
+
+**Using an API key:**
+- Choose a provider (DeepSeek, OpenAI, Claude, Gemini, Qwen, Ollama…)
+- Enter your API key or endpoint URL
+- Select a model
+
+**Using a free web account:**
+- Go to **Settings** → enter your Chromium profile directory path
+- Log in to the AI website using Chrome with that profile
+- Select the web provider in Accounts
+
+### 3. Start chatting
+
+Type a request and press Enter. For example:
+
+```
+Read src/utils.ts and summarize the exported functions
+```
+```
+Fix the bug in handleSubmit — the `data` variable can be undefined
+```
+```
+Create a new React component called UserCard with props name, email, avatar
+```
+```
+Run npm test and fix any failing tests
+```
+
+---
 
 ## Usage
 
-### Chat Panel
+### Adding files to context
 
-Open via the Zen icon in the sidebar or `Ctrl+Shift+P` → **Zen: Open Chat**.
+Right-click any file in Explorer → **Add to Zen Context** to attach it to your next message without typing the path.
 
-The top toolbar has quick actions:
-- **New Chat** — start a fresh conversation
-- **Accounts** — manage providers and credentials
-- **History** — browse past conversations
-- **Marketplace** — browse community skills
-- **Settings** — configure Zen
+### Checkpoint & diff
 
-### File Operations
+After the AI edits a file, a checkpoint bar appears in chat. Click **🗎** to view the diff, click **↶** to revert.
 
-Just ask naturally:
+### Switching permission mode
 
-```
-"Read src/utils.ts and explain what it does"
-"Create a new file helpers.ts with a debounce function"
-"Fix the bug in the handleSubmit function"
-"Find every place that imports the old API client"
-```
+Use the selector in the chat footer. Changes take effect immediately.
 
-The AI shows action buttons for each operation. Approve to execute, ignore to skip — depending on the active permission mode.
+### Viewing history
 
-### Permissions
+Click the **History** icon in the toolbar → browse all past conversations, click any to resume.
 
-The permission mode selector lives in the chat footer. Pick the level of autonomy you are comfortable with before starting a task. If the AI needs more access than the current mode allows, it will stop and ask you to switch.
+### Marketplace
 
-### Checkpoints
+Click the **Extensions** icon in the toolbar → browse and install community skills.
 
-After any file edit, a checkpoint bar appears in the chat:
-
-`📍 CHECKPOINT [🗎] [↶]`
-
-- **🗎** — view the diff between the current file and the checkpoint
-- **↶** — revert the file to its state before this edit
-
-### Adding Files to Context
-
-Right-click any file in the Explorer and choose **Add to Zen Context** to include it in your next message without typing the path.
+---
 
 ## Configuration
 
-Most settings live in the **Settings** panel inside Zen:
+All settings are saved in Zen's Settings panel.
 
-| Setting | Description |
-|---------|-------------|
-| Provider | Choose your AI provider (DeepSeek, Claude, Gemini, Qwen, Ollama, ...) |
-| Model | Select the model to use |
-| Account | Manage credentials per provider |
-| Context Size | How much history to send per request |
-| Permission Mode | How much autonomy the AI has |
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `Provider / Model / Account` | Active AI selection | — |
+| `Permission Mode` | fullAccess / approval / readOnly | `fullAccess` |
+| `AI Response Language` | Language for AI responses | `English` |
+| `Behavior Mode` | fast / balanced / thorough / autopilot | `balanced` |
+| `Prompt Length` | short / medium / long / none | `none` |
+| `Checkpoint` | Create snapshot before editing files | `on` |
+| `Diagnostic` | Fetch LSP errors after code edits | `on` |
+| `Skill Integration` | Attach installed skills list to prompt | `on` |
+| `Show Token Usage` | Display token metadata bar | `on` |
+| `Live Write Preview` | Watch AI write files in real time | `on` |
+| `Chromium Profile Dir` | Path to Chrome profile for web providers | — |
+| `Backend API URL` | Backend server URL for self-hosted setup | `localhost:8888` |
+
+---
+
+## Data Storage
+
+All data is stored locally on your machine:
+
+```
+~/.khanhromvn-zen/
+├── projects/
+│   └── {projectHash}/
+│       └── {conversationId}/
+│           ├── {conversationId}.json     ← all messages + metadata
+│           ├── checkpoints/              ← file snapshots before edits
+│           └── replace_history/         ← per-edit replace history
+└── lsp/
+    ├── typescript-language-server/
+    ├── pyright/
+    ├── rust-analyzer/
+    └── ...
+```
+
+No data is sent to Zen's servers. AI requests go directly from your machine to the provider (OpenAI, Anthropic…).
+
+---
 
 ## Troubleshooting
 
-- **AI can't edit files** — check the permission mode in the chat footer. *Read Only* blocks all writes.
-- **Wrong model answering** — verify the active account and model in the Accounts panel before sending.
-- **UI shows stale content** — run `Developer: Reload Window` from the Command Palette.
-- **A command was blocked** — switch to *Full Access* or *Approval* mode if you trust the operation.
+| Problem | Solution |
+|---------|----------|
+| AI can't edit files | Check Permission Mode — `Read Only` blocks all writes |
+| Wrong model answering | Verify the active account and model in the Accounts panel |
+| UI shows stale content | `Ctrl+Shift+P` → `Developer: Reload Window` |
+| A command was blocked | Switch to `Full Access` or `Approval` mode |
+| Web provider won't connect | Check the Chromium profile dir; make sure you're logged in to the website |
+| LSP not catching errors | Open the file in the editor first to activate the language server |
+| Conversations not saving | Check write permissions on `~/.khanhromvn-zen/` |
+
+---
 
 ## Contributing
 
 See [for-developer.md](for-developer.md) for local development setup, build workflow, and debugging instructions.
+
+**Tech stack:**
+- Extension host: TypeScript + Node.js + VSCode API
+- Webview UI: React + TypeScript + TailwindCSS v4 + Zustand
+- Build: Webpack (extension) + Webpack (webview)
+- Syntax highlighting: Shiki
+
+---
 
 ## License
 
@@ -127,5 +376,9 @@ MIT — see [LICENSE](LICENSE)
 ---
 
 <div align="center">
-Made with ❤️ by <a href="https://github.com/KhanhRomVN">KhanhRomVN</a>
+
+Made with ❤️ by [KhanhRomVN](https://github.com/KhanhRomVN)
+
+**Free AI for everyone. No subscription. No lock-in.**
+
 </div>

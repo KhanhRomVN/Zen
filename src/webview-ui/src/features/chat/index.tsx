@@ -73,17 +73,23 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 }) => {
   // Per-conversation overrides restored from saved metadata
   const [restoredConversationOverrides, setRestoredConversationOverrides] =
-    useState<{
-      diagnosticEnabled?: boolean;
-      useSkillEnabled?: boolean;
-    } | undefined>(undefined);
+    useState<
+      | {
+          diagnosticEnabled?: boolean;
+          useSkillEnabled?: boolean;
+        }
+      | undefined
+    >(undefined);
 
   // Capture conversationOverrides from initialMessageData into a stable ref
   // so it survives after onClearInitialData() nulls out initialMessageData.
-  const pendingConversationOverridesRef = useRef<{
-    diagnosticEnabled?: boolean;
-    useSkillEnabled?: boolean;
-  } | undefined>(initialMessageData?.conversationOverrides);
+  const pendingConversationOverridesRef = useRef<
+    | {
+        diagnosticEnabled?: boolean;
+        useSkillEnabled?: boolean;
+      }
+    | undefined
+  >(initialMessageData?.conversationOverrides);
   useEffect(() => {
     if (initialMessageData?.conversationOverrides !== undefined) {
       pendingConversationOverridesRef.current =
@@ -128,6 +134,22 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const currentAccountRef = useRef<any>(null);
   currentModelRef.current = currentModel;
   currentAccountRef.current = currentAccount;
+
+  // --- Provider capability flags ---
+  // true khi provider hiện tại hỗ trợ regenerate (có server-side conversation thread)
+  const canRegenerate = React.useMemo(() => {
+    if (!currentAccount?.provider_id) {
+      return true; // default: hiện
+    }
+    const pc = providers.find(
+      (p: any) => p.provider_id === currentAccount.provider_id,
+    );
+    if (!pc) {
+      return true; // provider chưa load → không ẩn
+    }
+    const result = pc.can_regenerate === true;
+    return result;
+  }, [currentAccount?.provider_id, providers]);
 
   const { commitMessageLanguage } = useSettings();
 
@@ -264,8 +286,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       const updated = [...prev, item];
       return updated;
     });
-      }, []);
-  
+  }, []);
 
   // --- File Handling ---
   const {
@@ -293,7 +314,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       addAttachedItem(item);
     },
   });
-  
+
   // --- Browser Session ---
   const {
     isBrowserSessionReady,
@@ -333,7 +354,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       skipFirstRequestLogic?: boolean,
       actionIds?: string[],
       uiHidden?: boolean,
-      extraOptions?: { user_action?: string; edit_message_id?: string; parent_message_id?: string },
+      extraOptions?: {
+        user_action?: string;
+        edit_message_id?: string;
+        parent_message_id?: string;
+      },
     ) => {
       if (!skipFirstRequestLogic) {
         isStoppedRef.current = false;
@@ -568,7 +593,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       skip?: boolean,
       ids?: string[],
       hidden?: boolean,
-      extraOptions?: { user_action?: string; edit_message_id?: string; parent_message_id?: string },
+      extraOptions?: {
+        user_action?: string;
+        edit_message_id?: string;
+        parent_message_id?: string;
+      },
     ) => {
       wrappedSendMessage(c, f, m, a, skip, ids, hidden, extraOptions);
     },
@@ -638,7 +667,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         if (raw?.value) {
           const parsed = JSON.parse(raw.value);
           const meta = parsed?.metadata;
-          if (meta && (meta.diagnosticEnabled !== undefined || meta.useSkillEnabled !== undefined)) {
+          if (
+            meta &&
+            (meta.diagnosticEnabled !== undefined ||
+              meta.useSkillEnabled !== undefined)
+          ) {
             setRestoredConversationOverrides({
               diagnosticEnabled: meta.diagnosticEnabled,
               useSkillEnabled: meta.useSkillEnabled,
@@ -652,7 +685,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
     };
     loadOverrides();
-  }, [currentChat?.sessionId, currentChat?.folderPath, (currentChat as any)?.conversationId, initialMessageData]);
+  }, [
+    currentChat?.sessionId,
+    currentChat?.folderPath,
+    (currentChat as any)?.conversationId,
+    initialMessageData,
+  ]);
 
   // Process initial message
   useEffect(() => {
@@ -772,6 +810,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isGitStatusVisible={showGitStatusBlock}
         onBackToHome={handleBackToHome}
         isLoadingConversation={isLoadingConversation}
+        canRegenerate={canRegenerate}
       />
 
       {/* ─── ChatFooter ─── */}

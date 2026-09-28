@@ -66,6 +66,8 @@ export interface ChatBodyProps {
   onBackToHome?: (summary: string) => void;
   /** Loading state when restoring conversation from history */
   isLoadingConversation?: boolean;
+  /** Whether the current provider supports regenerate/revert mechanism */
+  canRegenerate?: boolean;
 }
 
 export interface ExtendedChatBodyProps extends ChatBodyProps {

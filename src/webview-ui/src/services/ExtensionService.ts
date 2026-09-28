@@ -13,7 +13,8 @@ declare global {
 }
 
 // Singleton message dispatcher — one window listener for all request/response pairs
-type MessageHandler = (data: any) => void;
+// Handler trả về true → giữ handler (còn chờ message tiếp), false/void → unregister
+type MessageHandler = (data: any) => boolean | void;
 class MessageDispatcher {
   private handlers = new Map<string, MessageHandler>();
   private started = false;
@@ -26,8 +27,11 @@ class MessageDispatcher {
       if (!msg?.requestId) return;
       const handler = this.handlers.get(msg.requestId);
       if (handler) {
-        this.handlers.delete(msg.requestId);
-        handler(msg);
+        // Gọi handler TRƯỚC, chỉ xóa nếu không keepAlive
+        const keepAlive = handler(msg);
+        if (!keepAlive) {
+          this.handlers.delete(msg.requestId);
+        }
       }
     });
   }
@@ -44,8 +48,11 @@ class MessageDispatcher {
       onTimeout();
     }, timeoutMs);
     this.handlers.set(requestId, (msg) => {
-      clearTimeout(timer);
-      handler(msg);
+      const keepAlive = handler(msg);
+      if (!keepAlive) {
+        clearTimeout(timer);
+      }
+      return keepAlive;
     });
   }
 }

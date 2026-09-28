@@ -154,15 +154,6 @@ export class SaveConversationStateHandler {
           // Verify write
           const verifyContent = await fs.promises.readFile(logPath, "utf-8");
           const verifyData = JSON.parse(verifyContent);
-          // ── DEBUG: confirm what actually landed in file ──────────────────
-          console.log(
-            `[SaveConversationStateHandler] ✅ wrote ${conversationId}:`,
-            {
-              title: verifyData.metadata?.title,
-              diagnosticEnabled: verifyData.metadata?.diagnosticEnabled,
-              useSkillEnabled: verifyData.metadata?.useSkillEnabled,
-            },
-          );
           // ─────────────────────────────────────────────────────────────────
         } finally {
           release();

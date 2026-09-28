@@ -87,7 +87,9 @@ export const useAccounts = (isOpen: boolean) => {
   const callBackend = useCallback(
     async (endpoint: string, method: string = "GET", body?: any) => {
       const url = `${apiUrl}${endpoint}`;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
       if (activeDatabaseManagerId) {
         headers["x-database-manager-id"] = activeDatabaseManagerId;
       }
@@ -172,6 +174,7 @@ export const useAccounts = (isOpen: boolean) => {
                   is_active_cli: acc.is_active_cli,
                   usage: acc.usage ?? null,
                   reset_usage_at: acc.reset_usage_at ?? null,
+                  auth_method: acc.auth_method ?? null,
                 };
               } catch (err) {
                 console.error(
@@ -192,6 +195,7 @@ export const useAccounts = (isOpen: boolean) => {
                   is_active_cli: acc.is_active_cli,
                   usage: acc.usage ?? null,
                   reset_usage_at: acc.reset_usage_at ?? null,
+                  auth_method: acc.auth_method ?? null,
                 };
               }
             }),
@@ -263,7 +267,12 @@ export const useAccounts = (isOpen: boolean) => {
     }
   };
 
-  const handleDelete = (id: string, email?: string, provider_name?: string, website_url?: string) => {
+  const handleDelete = (
+    id: string,
+    email?: string,
+    provider_name?: string,
+    website_url?: string,
+  ) => {
     setDeleteItem({ id, email, provider_name, website_url });
     setConfirmOpen(true);
   };
@@ -295,20 +304,29 @@ export const useAccounts = (isOpen: boolean) => {
     }
   };
 
-  const refreshAccountToken = async (id: string, providerId: string) => {
+  const refreshAccountToken = async (
+    id: string,
+    providerId: string,
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const result = await callBackend(
-        `/v1/accounts/${id}/refresh-token`,
-        "POST",
-        {
-          provider_id: providerId,
-        },
-      );
+      const url = `/v1/accounts/${id}/refresh-token`;
+      const result = await callBackend(url, "POST", {
+        provider_id: providerId,
+      });
       if (result.success) {
         fetchAccounts(pagination.page, pagination.limit, true);
+        return { success: true };
       }
-    } catch (err) {
-      console.error("Failed to refresh token:", err);
+      const errMsg = result.message || result.error || "Refresh failed";
+      console.warn(
+        "[useAccounts][refreshAccountToken] Failed:",
+        errMsg,
+        result,
+      );
+      return { success: false, error: errMsg };
+    } catch (err: any) {
+      console.error("[useAccounts][refreshAccountToken] Exception:", err);
+      return { success: false, error: err?.message || "Network error" };
     }
   };
 

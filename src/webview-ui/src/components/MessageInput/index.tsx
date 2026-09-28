@@ -3,6 +3,7 @@ import { Plus, Send, X } from "lucide-react";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/general/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
+import { useModelPromptSettings } from "../../hooks/useModelPromptSettings";
 import { useDbFetch } from "../../services/useDbFetch";
 import { combinePromptsForMode } from "../../features/chat/prompts";
 import type { SystemInfo } from "../../features/chat/prompts";
@@ -952,12 +953,16 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
     const {
       aiLanguage: preferredLanguage,
+      activeDatabaseManagerId,
+    } = useSettings();
+
+    // systemPromptMode + promptLengthMode: per provider+model, fallback về global
+    const {
       systemPromptMode,
       setSystemPromptMode,
       promptLengthMode,
       setPromptLengthMode,
-      activeDatabaseManagerId,
-    } = useSettings();
+    } = useModelPromptSettings(currentModel?.providerId, currentModel?.id);
 
     const dbFetch = useDbFetch();
     const prevDbManagerIdRef = React.useRef(activeDatabaseManagerId);

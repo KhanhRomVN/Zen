@@ -23,16 +23,17 @@ import { useTruncatedText } from "./truncateText";
 interface CopyableTextProps {
   value: string;
   monospace?: boolean;
+  fontSize?: string;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
-export const CopyableText: React.FC<CopyableTextProps> = ({ value, monospace }) => {
+export const CopyableText: React.FC<CopyableTextProps> = ({ value, monospace, fontSize: fontSizeProp }) => {
   // ── State ──
   const [copied, setCopied] = useState(false);
   const [hovered, setHovered] = useState(false);
 
   // ── Derived ──
-  const fontSize = "11px";
+  const fontSize = fontSizeProp ?? "11px";
   const fontFamily = monospace ? "monospace" : "sans-serif";
   const { containerRef, displayText } = useTruncatedText(value || "", `${fontSize} ${fontFamily}`);
 

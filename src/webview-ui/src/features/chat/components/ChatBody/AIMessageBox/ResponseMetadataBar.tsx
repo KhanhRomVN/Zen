@@ -22,6 +22,8 @@ interface ResponseMetadataBarProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   isStreaming?: boolean; // 🔧 NEW: flag to indicate if this response is currently streaming
   conversationId?: string;
+  /** Whether the current provider supports regenerate/revert mechanism */
+  canRegenerate?: boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
   onRevertConversation,
   isStreaming = false,
   conversationId,
+  canRegenerate = true,
 }) => {
   const [requestChecked, setRequestChecked] = React.useState(false);
   const [responseChecked, setResponseChecked] = React.useState(false);
@@ -216,7 +219,7 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
           </div>
 
           {/* Revert Icon - Only show when request is active (checked) */}
-          {onRevertConversation && requestChecked && (
+          {onRevertConversation && requestChecked && canRegenerate && (
             <div
               onClick={handleRevertClick}
               onMouseEnter={() => setIsRevertHovered(true)}

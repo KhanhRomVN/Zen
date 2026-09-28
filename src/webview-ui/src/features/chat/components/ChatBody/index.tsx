@@ -60,6 +60,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   isGitStatusVisible = true,
   onBackToHome,
   isLoadingConversation = false,
+  canRegenerate = true,
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -298,6 +299,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
                   isGitStatusVisible={isGitStatusVisible}
                   onBackToHome={onBackToHome}
                   onRetryRequest={handleRetryRequest}
+                  canRegenerate={canRegenerate}
                 />
               );
             });
@@ -351,7 +353,8 @@ const ChatBody = React.memo(ChatBodyInternal, (prevProps, nextProps) => {
     prevProps.isLoadingConversation === nextProps.isLoadingConversation &&
     prevProps.isGitProcessing === nextProps.isGitProcessing &&
     prevProps.isGitStatusVisible === nextProps.isGitStatusVisible &&
-    prevProps.singleLineReviewActions === nextProps.singleLineReviewActions
+    prevProps.singleLineReviewActions === nextProps.singleLineReviewActions &&
+    prevProps.canRegenerate === nextProps.canRegenerate
   );
 });
 

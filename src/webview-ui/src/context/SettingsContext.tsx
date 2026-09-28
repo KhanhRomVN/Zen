@@ -108,12 +108,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   // Key lưu per-workspace: dùng workspace path để phân biệt
-  const workspaceKey = () => {
+  const workspaceKey = (base: string = "zen_active_db_manager") => {
     try {
       const wp = (window as any).__zenWorkspaceFolderPath as string | null;
-      return wp ? `zen_active_db_manager__${wp}` : "zen_active_db_manager__global";
+      return wp ? `${base}__${wp}` : `${base}__global`;
     } catch {
-      return "zen_active_db_manager__global";
+      return `${base}__global`;
     }
   };
 
@@ -126,23 +126,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (e) {}
     return fallback;
   };
+
   const [checkpointEnabled, setCheckpointEnabledState] = useState<boolean>(() =>
     loadBool("zen_checkpoint_enabled", true),
   );
   const [diagnosticEnabled, setDiagnosticEnabledState] = useState<boolean>(() =>
-    loadBool("zen_diagnostic_enabled", true),
+    loadBool(workspaceKey("zen_diagnostic_enabled"), true),
   );
   const [showMetadataBar, setShowMetadataBarState] = useState<boolean>(() =>
     loadBool("zen_show_metadata_bar", true),
   );
   const [useSkillEnabled, setUseSkillEnabledState] = useState<boolean>(() =>
-    loadBool("zen_use_skill_enabled", true),
+    loadBool(workspaceKey("zen_use_skill_enabled"), true),
   );
 
   const [activeDatabaseManagerId, setActiveDatabaseManagerIdState] = useState<string | null>(
     () => {
       try {
-        return localStorage.getItem(workspaceKey());
+        return localStorage.getItem(workspaceKey("zen_active_db_manager"));
       } catch {
         return null;
       }
@@ -294,7 +295,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setDiagnosticEnabled = (value: boolean) => {
     setDiagnosticEnabledState(value);
-    persistBool("zen_diagnostic_enabled", value);
+    persistBool(workspaceKey("zen_diagnostic_enabled"), value);
   };
 
   const setShowMetadataBar = (value: boolean) => {
@@ -304,14 +305,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const setUseSkillEnabled = (value: boolean) => {
     setUseSkillEnabledState(value);
-    persistBool("zen_use_skill_enabled", value);
+    persistBool(workspaceKey("zen_use_skill_enabled"), value);
   };
 
   const setActiveDatabaseManagerId = (id: string | null) => {
     const previousId = activeDatabaseManagerId;
     setActiveDatabaseManagerIdState(id);
     try {
-      const key = workspaceKey();
+      const key = workspaceKey("zen_active_db_manager");
       if (id) {
         localStorage.setItem(key, id);
       } else {

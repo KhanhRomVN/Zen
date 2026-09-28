@@ -4,13 +4,12 @@
  * ------------------------------------------------------------------
  * Tab Feature trong Settings Panel. Được chia thành các GroupSection:
  * - Agent Permission: quyền của agent (approval / fullAccess)
- * - Agent Behavior: checkpoint, VSCode diagnostics, SKILL
- * - Conversation: lưu lịch sử hội thoại, hiển thị MetadataBar
+ * - Conversation: hiển thị MetadataBar
  * ------------------------------------------------------------------
  */
 
 import React from "react";
-import { ShieldCheck, Wrench, MessageSquare } from "lucide-react";
+import { ShieldCheck, MessageSquare } from "lucide-react";
 import { useSettings } from "../../../../context/SettingsContext";
 import type { PermissionMode } from "../../../chat/types/tag-types";
 import GroupSection from "../database/GroupSection";
@@ -116,12 +115,8 @@ const FeatureSettings: React.FC = () => {
   const {
     permissionMode,
     setPermissionMode,
-    diagnosticEnabled,
-    setDiagnosticEnabled,
     showMetadataBar,
     setShowMetadataBar,
-    useSkillEnabled,
-    setUseSkillEnabled,
   } = useSettings();
 
   return (
@@ -186,27 +181,6 @@ const FeatureSettings: React.FC = () => {
             );
           })}
         </div>
-      </GroupSection>
-
-      {/* Agent Behavior */}
-      <GroupSection
-        icon={<Wrench size={16} />}
-        color="#ef6c00"
-        title="Agent Behavior"
-        description="Safety net and extra context for the agent."
-      >
-        <ToggleRow
-          title="Use VSCode diagnostics"
-          description="Fetch errors and warnings from the language server after the agent edits a file."
-          checked={diagnosticEnabled}
-          onChange={setDiagnosticEnabled}
-        />
-        <ToggleRow
-          title="Use SKILL"
-          description="Attach the list of installed skills (name and description) to the system prompt."
-          checked={useSkillEnabled}
-          onChange={setUseSkillEnabled}
-        />
       </GroupSection>
 
       {/* Conversation */}

@@ -78,6 +78,8 @@ interface AIMessageBoxProps {
   responseNumber?: number | null;
   onRetryRequest?: (messageId: string) => void;
   onRevertConversation?: (messageId: string, timestamp: number) => void;
+  /** Whether the current provider supports regenerate/revert mechanism */
+  canRegenerate?: boolean;
 }
 
 const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
@@ -113,6 +115,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   responseNumber,
   onRetryRequest,
   onRevertConversation,
+  canRegenerate = true,
 }) => {
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
@@ -420,6 +423,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                   onRevertConversation={onRevertConversation}
                   isStreaming={isGenerating}
                   conversationId={conversationId}
+                  canRegenerate={canRegenerate}
                 />
               </React.Fragment>
             );

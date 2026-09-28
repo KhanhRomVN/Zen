@@ -27,7 +27,6 @@ import {
   Search,
   Globe,
   Key,
-  KeyRound,
   ExternalLink,
   ChevronLeft,
   UserX,
@@ -773,6 +772,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     poll_interval: number;
     provider: Provider;
   } | null>(null);
+  const [urlCopied, setUrlCopied] = useState(false);
 
   // Confirmation state
   const [showConfirm, setShowConfirm] = useState(false);
@@ -790,6 +790,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   // Profile step state (hiển thị sau khi chọn auth method)
   const [profileStepProvider, setProfileStepProvider] =
     useState<Provider | null>(null);
+  const [profileStepMethod, setProfileStepMethod] = useState<string>("google");
   const [profileFolders, setProfileFolders] = useState<string[]>([]);
   const [existingEmails, setExistingEmails] = useState<Set<string>>(new Set());
   const [profilesLoading, setProfilesLoading] = useState(false);
@@ -857,10 +858,11 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
   };
 
   // Chọn auth method → chưa login ngay, chuyển sang bước chọn Chromium profile
-  const handlePickMethod = (provider: Provider) => {
+  const handlePickMethod = (provider: Provider, method: string) => {
     const reqToken = ++profileReqRef.current;
     setSelectedProvider(null);
     setProfileStepProvider(provider);
+    setProfileStepMethod(method);
     setProfileFolders([]);
     setProfilesError("");
 
@@ -929,22 +931,23 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
 
   const handleLogin = async (
     provider: Provider,
-    loginMethod: "basic" | "cdp" = "basic",
+    loginMethod: string = "google",
     profileFolder?: string,
   ) => {
     if (!provider || provider.is_enabled === false) return;
     setLoading(true);
     setError("");
     try {
+      const body = JSON.stringify({
+        method: loginMethod,
+        ...(profileFolder ? { profile_folder: profileFolder } : {}),
+      });
       const response = await dbFetch(
         `/v1/accounts/login/${provider.provider_id}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            method: loginMethod,
-            ...(profileFolder ? { profile_folder: profileFolder } : {}),
-          }),
+          body,
         },
       );
       const data = await response.json();
@@ -995,7 +998,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
           }
         } else {
           // HTTPS provider: show confirm drawer for email/credential editing
-          setPendingAccount(data.account);
+          setPendingAccount({ ...data.account, auth_method: loginMethod });
           setShowConfirm(true);
         }
       } else {
@@ -1039,6 +1042,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
           provider_id: pendingAccount.provider_id,
           email: pendingAccount.email,
           credential: pendingAccount.credential,
+          auth_method: pendingAccount.auth_method || null,
         }),
       });
       const data = await response.json();
@@ -1125,6 +1129,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       setSearchQuery("");
       setSelectedProvider(null);
       setProfileStepProvider(null);
+      setProfileStepMethod("google");
       setDeviceCodeInfo(null);
       return;
     }
@@ -1169,11 +1174,21 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
           pollTimerRef.current = null;
           setDeviceCodeInfo(null);
           // Show confirm drawer so user can review before saving
+          const ctx = (() => {
+            try {
+              return JSON.parse(deviceCodeInfo.pollContext);
+            } catch {
+              return null;
+            }
+          })();
+          const resolvedAuthMethod =
+            data.account.auth_method || ctx?.auth_method || null;
           setPendingAccount({
             id: crypto.randomUUID(),
             provider_id: data.account.provider_id,
             email: data.account.email || "",
             credential: data.account.credential,
+            auth_method: resolvedAuthMethod,
           });
           setShowConfirm(true);
         }
@@ -1372,11 +1387,13 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   }}
                 />
                 <button
-                  onClick={() =>
+                  onClick={() => {
                     navigator.clipboard.writeText(
                       deviceCodeInfo.verification_url,
-                    )
-                  }
+                    );
+                    setUrlCopied(true);
+                    setTimeout(() => setUrlCopied(false), 1500);
+                  }}
                   title="Copy URL"
                   style={{
                     position: "absolute",
@@ -1387,25 +1404,44 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                     borderRadius: "4px",
                     border: "none",
                     background: "transparent",
-                    color: "var(--secondary-text)",
+                    color: urlCopied
+                      ? "var(--vscode-testing-iconPassed, #22c55e)"
+                      : "var(--secondary-text)",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
+                    transition: "color 0.2s ease",
                   }}
                 >
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                  </svg>
+                  {urlCopied ? (
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ animation: "aaFadeIn 0.15s ease" }}
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
                 </button>
               </div>
 
@@ -1471,8 +1507,9 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     };
     const startLogin = (folder?: string) => {
       const provider = profileStepProvider;
+      const method = profileStepMethod;
       setProfileStepProvider(null);
-      handleLogin(provider, "basic", folder);
+      handleLogin(provider, method as any, folder);
     };
 
     return (
@@ -1742,7 +1779,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                     icon={meta.icon}
                     label={meta.label}
                     desc={meta.desc}
-                    onClick={() => handlePickMethod(selectedProvider)}
+                    onClick={() => handlePickMethod(selectedProvider, method)}
                     disabled={loading}
                   />
                 );
@@ -2088,7 +2125,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 <div>
                   <label
                     style={{
-                      fontSize: "11px",
+                      fontSize: "12px",
                       fontWeight: 500,
                       color: "var(--secondary-text)",
                       display: "block",
@@ -2111,7 +2148,11 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                       padding: "8px 12px",
                       borderRadius: "8px",
                       backgroundColor: "var(--input-bg)",
-                      border: "none",
+                      border:
+                        !pendingAccount.email ||
+                        hasInvalidEmailChar(pendingAccount.email)
+                          ? "1.5px dashed var(--vscode-inputValidation-errorBorder, rgba(239,68,68,0.6))"
+                          : "1.5px dashed transparent",
                       color: "var(--primary-text)",
                       fontSize: "13px",
                       outline: "none",
@@ -2121,22 +2162,72 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   />
                 </div>
 
-                {/* Credential — expand section style, no padding/border on wrapper */}
-                {credValue && (
+                {/* Auth Method */}
+                {pendingAccount.auth_method && (
                   <div>
                     <label
                       style={{
-                        fontSize: "11px",
+                        fontSize: "12px",
                         fontWeight: 500,
                         color: "var(--secondary-text)",
                         display: "block",
                         marginBottom: "5px",
                       }}
                     >
-                      {pendingAccount.user_data_dir
-                        ? "User Data Dir"
-                        : "Credential / Token"}
+                      Auth Method
                     </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}
+                    >
+                      {(() => {
+                        const baseUri = (window as any).__zenImagesUri as
+                          | string
+                          | undefined;
+                        const method = pendingAccount.auth_method as string;
+                        const knownIcons = ["google", "github", "x"];
+                        const hasIcon = knownIcons.includes(method) && baseUri;
+                        return (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              fontSize: "12px",
+                              fontWeight: 500,
+                              padding: "3px 8px",
+                              borderRadius: "6px",
+                              backgroundColor: "rgba(128,128,128,0.1)",
+                              color: "var(--primary-text)",
+                            }}
+                          >
+                            {hasIcon ? (
+                              <img
+                                src={`${baseUri}/auth_icons/${method}.svg`}
+                                alt={method}
+                                style={{
+                                  width: "13px",
+                                  height: "13px",
+                                  objectFit: "contain",
+                                }}
+                              />
+                            ) : (
+                              <Key size={12} />
+                            )}
+                            {method}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Credential — expand section style, no padding/border on wrapper */}
+                {credValue && (
+                  <div>
                     <div style={{ fontSize: "12px" }}>
                       <div
                         style={{
@@ -2150,20 +2241,17 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                             <div key={key} style={{ minWidth: 0 }}>
                               <div
                                 style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "4px",
-                                  fontSize: "10px",
+                                  fontSize: "12px",
                                   color: "var(--secondary-text)",
                                   marginBottom: "2px",
                                 }}
                               >
-                                <KeyRound size={10} />
                                 {key}
                               </div>
                               <CopyableText
                                 value={String(val ?? "")}
                                 monospace
+                                fontSize="13px"
                               />
                             </div>
                           ))
@@ -2171,18 +2259,18 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                           <div style={{ minWidth: 0 }}>
                             <div
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "4px",
-                                fontSize: "10px",
+                                fontSize: "12px",
                                 color: "var(--secondary-text)",
                                 marginBottom: "2px",
                               }}
                             >
-                              <KeyRound size={10} />
                               {pendingAccount.user_data_dir ? "Path" : "Token"}
                             </div>
-                            <CopyableText value={credValue} monospace />
+                            <CopyableText
+                              value={credValue}
+                              monospace
+                              fontSize="13px"
+                            />
                           </div>
                         )}
                       </div>
@@ -2248,10 +2336,14 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   padding: "8px 14px",
                   borderRadius: "9px",
                   backgroundColor:
-                    "var(--vscode-button-secondaryBackground, rgba(var(--vscode-button-background-rgb, 0,120,212), 0.12))",
+                    confirmLoading || !pendingAccount.email
+                      ? "rgba(128,128,128,0.1)"
+                      : "rgba(var(--primary-rgb, 0,120,212), 0.12)",
                   border: "none",
                   color:
-                    "var(--vscode-button-background, var(--vscode-textLink-foreground))",
+                    confirmLoading || !pendingAccount.email
+                      ? "var(--secondary-text)"
+                      : "var(--vscode-textLink-foreground, var(--vscode-button-background))",
                   fontSize: "12px",
                   fontWeight: 600,
                   cursor:
@@ -2261,8 +2353,8 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  opacity: !pendingAccount.email ? 0.5 : 1,
                   whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
                 }}
               >
                 {confirmLoading && (

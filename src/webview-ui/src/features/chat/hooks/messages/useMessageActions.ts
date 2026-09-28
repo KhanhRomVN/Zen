@@ -156,20 +156,26 @@ export function useMessageActions({
 
       // No revert: use Qwen edit flow if available, otherwise just send
       if (userMsg.providerFid) {
-        onSendMessage(
-          newContent,
-          userMsg.uploadedFiles,
-          undefined,
-          undefined,
-          shouldSkipLogic,
-          undefined,
-          undefined,
-          {
-            user_action: "edit",
-            edit_message_id: userMsg.providerFid,
-            parent_message_id: userMsg.providerParentId,
-          },
-        );
+        // Dù Qwen tự xóa phía server, UI local vẫn cần revert để tránh duplicate message
+        if (onRevertConversation) {
+          onRevertConversation(messageId, userMsg.timestamp);
+        }
+        setTimeout(() => {
+          onSendMessage(
+            newContent,
+            userMsg.uploadedFiles,
+            undefined,
+            undefined,
+            shouldSkipLogic,
+            undefined,
+            undefined,
+            {
+              user_action: "edit",
+              edit_message_id: userMsg.providerFid,
+              parent_message_id: userMsg.providerParentId,
+            },
+          );
+        }, 100);
         return;
       }
 

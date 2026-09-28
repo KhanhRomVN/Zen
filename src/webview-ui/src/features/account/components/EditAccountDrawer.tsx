@@ -16,7 +16,7 @@
 
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ──
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 // ── UI ──
 import { Loader2, X, AlertCircle } from "lucide-react";
@@ -45,15 +45,32 @@ const SINGLE_LINE_CHAR_THRESHOLD = 60;
 // ─── AutoField ──────────────────────────────────────────────────────────
 /**
  * Field input tự động chuyển giữa input 1 dòng và textarea nhiều dòng.
- * Textarea giới hạn max-height ~5 dòng (khoảng 5 * 18px + padding).
+ * Textarea giới hạn max-height ~5 dòng (khoảng 5 * 20px line-height + padding).
  */
 const AutoField: React.FC<{
   label: string;
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
-}> = ({ label, value, onChange, disabled }) => {
-  const useTextarea = value.length > SINGLE_LINE_CHAR_THRESHOLD || value.includes("\n");
+  readOnly?: boolean;
+}> = ({ label, value, onChange, disabled, readOnly }) => {
+  const useTextarea =
+    value.length > SINGLE_LINE_CHAR_THRESHOLD || value.includes("\n");
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea: fit content up to 5 lines, then scroll
+  useEffect(() => {
+    if (!useTextarea) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const lineHeight = 20; // matches lineHeight below
+    const paddingV = 16;   // paddingTop + paddingBottom (8px each)
+    const maxH = lineHeight * 5 + paddingV;
+    el.style.height = `${Math.min(el.scrollHeight, maxH)}px`;
+    el.style.overflowY = el.scrollHeight > maxH ? "auto" : "hidden";
+  }, [value, useTextarea]);
 
   const baseStyle: React.CSSProperties = {
     width: "100%",
@@ -61,39 +78,40 @@ const AutoField: React.FC<{
     borderRadius: "8px",
     backgroundColor: "var(--input-bg)",
     border: "none",
-    color: "var(--primary-text)",
+    color: readOnly ? "var(--secondary-text)" : "var(--primary-text)",
     fontSize: "13px",
-    fontFamily: useTextarea ? "monospace" : "inherit",
     outline: "none",
     boxSizing: "border-box",
     resize: "none",
-    lineHeight: "18px",
+    lineHeight: "20px",
+    cursor: readOnly ? "default" : "text",
+    opacity: readOnly ? 0.85 : 1,
   };
 
   return (
     <div style={{ minWidth: 0 }}>
       <label
         style={{
-          fontSize: "11px",
+          fontSize: "12px",
           fontWeight: 500,
           color: "var(--secondary-text)",
           display: "block",
           marginBottom: "5px",
-          fontFamily: "monospace",
         }}
       >
         {label}
       </label>
       {useTextarea ? (
         <textarea
+          ref={textareaRef}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
+          readOnly={readOnly}
           style={{
             ...baseStyle,
-            minHeight: "34px",
-            maxHeight: "108px", // ~5 dòng * 18px + padding
-            overflowY: "auto",
+            minHeight: "36px",
+            overflowY: "hidden",
             paddingTop: "8px",
             paddingBottom: "8px",
           }}
@@ -104,6 +122,7 @@ const AutoField: React.FC<{
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
+          readOnly={readOnly}
           style={{ ...baseStyle, height: "34px" }}
         />
       )}
@@ -122,7 +141,9 @@ const EditAccountDrawer: React.FC<EditAccountDrawerProps> = ({
   // ── State ──
   const [email, setEmail] = useState("");
   // Map key → value của các field credential
-  const [credFields, setCredFields] = useState<Array<{ key: string; value: string }>>([]);
+  const [credFields, setCredFields] = useState<
+    Array<{ key: string; value: string }>
+  >([]);
   // Ghi nhớ credential ban đầu có phải JSON không (để rebuild khi save)
   const [credIsJson, setCredIsJson] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -134,7 +155,11 @@ const EditAccountDrawer: React.FC<EditAccountDrawerProps> = ({
   // ── Derived ──
   // Parse credential thành các field khi account thay đổi
   const parsedInitial = useMemo(() => {
-    if (!account) return { isJson: false, fields: [] as Array<{ key: string; value: string }> };
+    if (!account)
+      return {
+        isJson: false,
+        fields: [] as Array<{ key: string; value: string }>,
+      };
     const raw = (account.credential || "").trim();
     if (raw.startsWith("{")) {
       try {
@@ -154,7 +179,9 @@ const EditAccountDrawer: React.FC<EditAccountDrawerProps> = ({
     }
     return {
       isJson: false,
-      fields: raw ? [{ key: "credential", value: account.credential || "" }] : [],
+      fields: raw
+        ? [{ key: "credential", value: account.credential || "" }]
+        : [],
     };
   }, [account]);
 
@@ -250,7 +277,14 @@ const EditAccountDrawer: React.FC<EditAccountDrawerProps> = ({
             flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              minWidth: 0,
+            }}
+          >
             <div>
               <div
                 style={{
@@ -279,10 +313,19 @@ const EditAccountDrawer: React.FC<EditAccountDrawerProps> = ({
                     width={12}
                     height={12}
                     style={{ borderRadius: "2px", flexShrink: 0 }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display =
+                        "none";
+                    }}
                   />
                 )}
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {providerConfig?.provider_name || account.provider_id}
                 </span>
               </div>
@@ -330,6 +373,7 @@ const EditAccountDrawer: React.FC<EditAccountDrawerProps> = ({
             value={email}
             onChange={setEmail}
             disabled={saving}
+            readOnly
           />
 
           {credFields.map((f) => (

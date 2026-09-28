@@ -80,7 +80,7 @@ export function buildPromptForMode(
     buildExample(mode),
     buildIdentityPrompt(language, mode),
     buildWorkflow(mode),
-    buildConstraints(mode, language),
+    buildConstraints(mode, language, diagnosticEnabled),
     buildSystemContext(systemInfo, mode),
   ];
   return sections.join("\n\n---\n\n");

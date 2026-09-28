@@ -39,7 +39,9 @@ export const useApiConfiguration = () => {
       .then((r) => r.json())
       .then((res: any) => {
         const data = Array.isArray(res) ? res : res?.data;
-        if (Array.isArray(data)) setProviders(data);
+        if (Array.isArray(data)) {
+          setProviders(data);
+        }
       })
       .catch(() => {});
   }, [apiUrl]);
