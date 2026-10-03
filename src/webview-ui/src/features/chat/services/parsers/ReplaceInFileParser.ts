@@ -48,51 +48,74 @@ export const parseReplaceInFile = (
   const originalToolName = extractParamValue(innerContent, "original_tool_name") || undefined;
   const originalPath = extractParamValue(innerContent, "original_path") || undefined;
 
-  // Fallback: Try alternative tag names if standard ones don't work
-  if (!filePath) {
+  // Fallback: Try alternative tag names if standard ones don't work.
+  // Use === null (not falsy check) so that an intentionally empty value like
+  // <new_content></new_content> is NOT overwritten by a failed lookup of the
+  // alternative tag name — "" is a valid result here.
+  if (filePath === null) {
     filePath = extractParamValue(innerContent, "path");
   }
 
-  if (!oldContent) {
+  if (oldContent === null) {
     oldContent = extractParamValue(innerContent, "old");
   }
 
-  if (!newContent) {
+  if (newContent === null) {
     newContent = extractParamValue(innerContent, "new");
   }
 
   // Additional fallback: Try to extract from plain text format
   // Format: file_path: <path>\nold_content: <content>\nnew_content: <content>
-  if (!filePath || !oldContent || !newContent) {
+  // Only fires when a tag is genuinely absent (=== null), not when it's empty.
+  if (filePath === null || oldContent === null || newContent === null) {
     const plainTextMatch = innerContent.match(/file_path:\s*([^\n]+)/i);
-    if (plainTextMatch && !filePath) {
+    if (plainTextMatch && filePath === null) {
       filePath = plainTextMatch[1].trim();
     }
   }
 
-  // Check for missing closing tags with specific error messages
+  // [DEBUG] Log raw extracted values to trace why empty <new_content> is rejected
+  console.log("[DEBUG][ReplaceInFileParser] extracted values:", {
+    filePathType: typeof filePath,
+    filePathValue: JSON.stringify(filePath),
+    oldContentType: typeof oldContent,
+    oldContentValue: JSON.stringify(oldContent),
+    newContentType: typeof newContent,
+    newContentValue: JSON.stringify(newContent),
+    isNewContentNull: newContent === null,
+    isNewContentEmptyString: newContent === "",
+    innerContentSnippet: innerContent.substring(0, 300),
+  });
+
+  // Check for missing closing tags with specific error messages.
+  // Only probe when the tag is genuinely absent (=== null). An empty-but-present
+  // value like "" must NOT trigger this branch — otherwise we'd misreport a
+  // valid deletion as a malformed tag.
   const missingClosingTags: string[] = [];
 
-  if (!filePath) {
+  if (filePath === null) {
     const missingTag = detectMissingClosingTag(innerContent, "file_path", ["path"]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
 
-  if (!oldContent) {
+  if (oldContent === null) {
     const missingTag = detectMissingClosingTag(innerContent, "old_content", ["old"]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
 
-  if (!newContent) {
+  if (newContent === null) {
     const missingTag = detectMissingClosingTag(innerContent, "new_content", ["new"]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
+
+  // [DEBUG] Log whether any closing-tag detection fired
+  console.log("[DEBUG][ReplaceInFileParser] missingClosingTags:", missingClosingTags);
 
   // If missing closing tags detected, provide specific error
   if (missingClosingTags.length > 0) {
@@ -114,14 +137,19 @@ export const parseReplaceInFile = (
   }
 
   // Validate required parameters (for cases where tags don't exist at all)
+  // Note: distinguish null (tag absent) from "" (tag present but empty).
+  // An empty <new_content></new_content> is a legitimate "delete this snippet"
+  // operation, so it must NOT be treated as missing. Same reasoning for
+  // <old_content> in theory, though replacing an empty string is rarely useful —
+  // we still allow it to keep the parser consistent with extractParamValue's contract.
   const missingParams: string[] = [];
   if (!filePath || filePath.trim() === "") {
     missingParams.push("file_path");
   }
-  if (!oldContent || oldContent.trim() === "") {
+  if (oldContent === null) {
     missingParams.push("old_content");
   }
-  if (!newContent || newContent.trim() === "") {
+  if (newContent === null) {
     missingParams.push("new_content");
   }
 

@@ -121,8 +121,12 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
     const stats = parseDiff(action.params.diff).stats;
     diffStats = { added: stats.added, removed: stats.removed };
   } else {
-    const oldContent = action.params.old_content || action.params.old_str;
-    const newContent = action.params.new_content || action.params.new_str;
+    // Use ?? instead of || so that an intentionally-empty string ("") is
+    // preserved rather than being coerced to the alternate key's value or
+    // undefined. An empty <new_content></new_content> is a valid deletion
+    // and must still produce diff stats (+0 -N).
+    const oldContent = action.params.old_content ?? action.params.old_str;
+    const newContent = action.params.new_content ?? action.params.new_str;
 
     if (oldContent !== undefined && newContent !== undefined) {
       const oldLines = String(oldContent).split("\n");
@@ -322,11 +326,12 @@ export const ReplaceInFileRenderer: React.FC<MergedRendererProps> = ({
   const approvalDiffData = React.useMemo(() => {
     if (permissionDecision !== "confirm") return null;
 
-    // Calculate line highlights based on old/new content
-    const oldContent = action.params.old_content || action.params.old_str;
-    const newContent = action.params.new_content || action.params.new_str;
+    // Calculate line highlights based on old/new content.
+    // Use ?? so an intentional empty string ("") is preserved (deletion case).
+    const oldContent = action.params.old_content ?? action.params.old_str;
+    const newContent = action.params.new_content ?? action.params.new_str;
 
-    if (!oldContent || !newContent) return null;
+    if (oldContent === undefined || newContent === undefined) return null;
 
     // If we have full file content, show it with highlights
     if (fullFileContent) {

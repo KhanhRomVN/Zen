@@ -436,19 +436,30 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   const toolType = firstAction.type;
   const isLastItemInList = isLastGroup;
 
-  // Claude provider: các tool này đã được claude tự chạy trên sandbox.
-  // Zen chỉ hiển thị (display-only) — dot green, không execute, không show Accept/Reject.
-  const CLAUDE_DISPLAY_ONLY_TOOLS = new Set([
+  // Claude provider: phân loại tool thành Sandbox (display-only) vs Local (execute).
+  // - read_file, list_files, find_files, grep, delete_file, view_replace_history: Luôn display-only cho Claude.
+  // - run_command: Chỉ display-only nếu action.params._is_sandbox === true (từ ClaudeContentProcessor).
+  //   Nếu false (hoặc undefined), nó là lệnh local -> Cho phép execute bình thường.
+
+  const ALWAYS_DISPLAY_ONLY_TOOLS = new Set([
     "read_file",
-    "run_command",
     "list_files",
     "find_files",
     "grep",
     "delete_file",
     "view_replace_history",
   ]);
-  const isDisplayOnly =
-    isClaudeProvider && CLAUDE_DISPLAY_ONLY_TOOLS.has(toolType);
+
+  let isDisplayOnly = false;
+  if (isClaudeProvider) {
+    if (ALWAYS_DISPLAY_ONLY_TOOLS.has(toolType)) {
+      isDisplayOnly = true;
+    } else if (toolType === "run_command") {
+      // Kiểm tra flag _is_sandbox từ parser
+      const isSandboxFlag = firstAction.params?._is_sandbox === true;
+      isDisplayOnly = isSandboxFlag;
+    }
+  }
 
   // Handle malformed/error tool actions - show custom header + ErrorBlock
   if (firstAction.isError) {
@@ -793,26 +804,36 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
 
   if (toolType === "run_command") {
     return (
-      <RunCommandRenderer
-        action={firstAction}
-        actionIndex={toolGroup[0].index}
-        messageId={messageId}
-        isActionClicked={
-          isDisplayOnly ||
-          clickedActions.has(`${messageId}-action-${toolGroup[0].index}`)
-        }
-        isRejected={rejectedActions?.has(
-          `${messageId}-action-${toolGroup[0].index}`,
-        )}
-        isActiveGroup={isActiveGroup}
-        isLastMessage={isLastMessage}
-        toolOutputs={toolOutputs}
-        terminalStatus={terminalStatus}
-        nextUserMessage={nextUserMessage}
-        rootPath={rootPath}
-        onToolClick={onToolClick}
-        storedOutput={storedOutput}
-      />
+      <>
+        {toolGroup.map(({ action, index }) => {
+          const actionId = `${messageId}-action-${index}`;
+          const isClicked = clickedActions.has(actionId);
+
+          // Determine display-only status per action (based on _is_sandbox param)
+          const isSandboxFlag = action.params?._is_sandbox === true;
+          const currentIsDisplayOnly = isClaudeProvider && isSandboxFlag;
+
+          return (
+            <RunCommandRenderer
+              key={index}
+              action={action}
+              actionIndex={index}
+              messageId={messageId}
+              isActionClicked={currentIsDisplayOnly || isClicked}
+              isRejected={rejectedActions?.has(actionId)}
+              isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+              isLastMessage={isLastMessage}
+              toolOutputs={toolOutputs}
+              terminalStatus={terminalStatus}
+              nextUserMessage={nextUserMessage}
+              rootPath={rootPath}
+              onToolClick={onToolClick}
+              storedOutput={null} // Remove global storedOutput to avoid cross-contamination
+              isDisplayOnly={currentIsDisplayOnly}
+            />
+          );
+        })}
+      </>
     );
   }
 

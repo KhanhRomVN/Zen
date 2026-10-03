@@ -180,12 +180,12 @@ function convertCreateFile(input: Record<string, unknown>, ws: string): string {
 /**
  * Convert bash_tool → Zen <run_command>
  *
- * Claude input: { command: string, restart?: boolean }
- * Zen XML: <run_command><command>...</command></run_command>
- *
- * Validation: Command MUST start with "cd /home/claude/<projectName> &&".
- * If not → return null (skip tool call completely).
- * If yes → strip prefix, return command to run from workspace.
+ * Logic:
+ * - If command starts with "cd /home/claude/<ProjectName> &&":
+ *   It targets the mounted workspace. Strip prefix and execute locally.
+ * - Otherwise (e.g., pure sandbox operations like unzip in /mnt or /home/claude root):
+ *   Keep original command but mark it as _sandbox_mode="true" so UI displays it
+ *   without attempting local execution.
  */
 function convertBashTool(
   input: Record<string, unknown>,
@@ -195,20 +195,29 @@ function convertBashTool(
   const restartTag = input.restart === true ? "\n<restart>true</restart>" : "";
 
   // Regex: cd /home/claude/<projectName> && <rest>
-  // Capture group 1: projectName
-  // Capture group 2: actual command
   const cdPrefixRegex = /^cd\s+\/home\/claude\/([^/\s]+)\s+&&\s+(.+)$/s;
   const match = command.match(cdPrefixRegex);
 
-  if (!match) {
-    return null;
+  if (match) {
+    // LOCAL EXECUTION MODE
+    const actualCommand = match[2];
+    return `<run_command><command>${actualCommand}</command>${restartTag}</run_command>`;
+  } else {
+    // SANDBOX DISPLAY-ONLY MODE
+    // We preserve the raw command for display purposes but tag it internally.
+    // Note: ResponseParser currently ignores unknown tags, so we rely on 
+    // TagRouter detecting this pattern or passing a flag via params if possible.
+    // For now, let's output standard XML but we will handle the distinction in TagRouter
+    // by checking if the command still contains "/home/claude/" which implies sandbox context
+    // OR we can inject a hidden param. Let's try injecting a custom param that Parser might miss 
+    // but Renderer can read from rawXml or params if we update parser.
+    
+    // Simpler approach for current architecture:
+    // Output normal run_command. TagRouter will decide based on content analysis later?
+    // No, better to modify RunCommandParser to accept _is_sandbox.
+    
+    return `<run_command><command>${command}</command><_is_sandbox>true</_is_sandbox>${restartTag}</run_command>`;
   }
-
-  const projectName = match[1];
-  const actualCommand = match[2];
-
-  // Return Zen XML with stripped command (to be run from workspace root)
-  return `<run_command><command>${actualCommand}</command>${restartTag}</run_command>`;
 }
 
 /**

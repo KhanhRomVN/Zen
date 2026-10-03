@@ -1,11 +1,16 @@
 import React from "react";
 import { Plus, Send, X } from "lucide-react";
+import { useProject } from "@/context/ProjectContext";
+import { useWorkspaceZipSize } from "./hooks/useWorkspaceZipSize";
+import { ClaudeZipBadge } from "./ClaudeZipBadge";
+import { ZenCliHintBar } from "./ZenCliHintBar";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/general/LanguageSelector";
 import { useSettings } from "../../context/SettingsContext";
 import { useModelPromptSettings } from "../../hooks/useModelPromptSettings";
 import { useDbFetch } from "../../services/useDbFetch";
 import { combinePromptsForMode } from "../../features/chat/prompts";
+import { buildClaudePrompt } from "../../features/chat/prompts/claude-system-prompt";
 import type { SystemInfo } from "../../features/chat/prompts";
 import ProviderModelDrawer from "./ProviderModelDrawer";
 import PromptLengthDropdown, {
@@ -951,10 +956,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     };
 
     const { isConnected, isElaraMismatch, apiUrl } = useBackendConnection();
-    const {
-      aiLanguage: preferredLanguage,
-      activeDatabaseManagerId,
-    } = useSettings();
+    const { aiLanguage: preferredLanguage, activeDatabaseManagerId } =
+      useSettings();
 
     // systemPromptMode + promptLengthMode: per provider+model, fallback về global
     const {
@@ -1033,6 +1036,19 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       currentModel,
       providers,
     );
+
+    // ─── Claude workspace zip-size badge ─────────────────────────────
+    // Khi provider = claude, workspace sẽ được zip + upload kèm message đầu tiên.
+    // Trigger zip trước để user thấy size ước lượng ngay trên toolbar.
+    const { rootPath } = useProject();
+    const isClaudeProvider =
+      currentModel?.providerId?.toLowerCase() === "claude";
+    // triggerKey: đổi khi rootPath hoặc model đổi → invalidate cache, chạy lại
+    const zipTriggerKey = React.useMemo(() => {
+      if (!isClaudeProvider || !rootPath) return null;
+      return `${rootPath}::${currentModel?.id ?? ""}`;
+    }, [isClaudeProvider, rootPath, currentModel?.id]);
+    const zipSizeState = useWorkspaceZipSize(isClaudeProvider, zipTriggerKey);
 
     // ─── View-only mode detection ────────────────────────────────────
     // Provider không cần auth (auth_method rỗng) CHỈ disable input
@@ -1132,22 +1148,30 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       // Add system prompt tokens (only for first message in conversation)
       if (!isConversationStarted) {
         try {
-          // Build system prompt with current settings
-          const systemPrompt = combinePromptsForMode(
-            {
-              language: preferredLanguage,
-              systemInfo: {
-                os: "Unknown OS",
-                ide: "Zen IDE",
-                shell: "unknown",
-                homeDir: "~",
-                cwd: folderPath || ".",
+          let systemPrompt: string;
+
+          if (currentModel?.providerId?.toLowerCase() === "claude") {
+            // Claude dùng prompt riêng — không phụ thuộc promptLengthMode/systemPromptMode
+            systemPrompt = buildClaudePrompt({ language: preferredLanguage });
+          } else {
+            // Generic providers: build theo mode + length
+            systemPrompt = combinePromptsForMode(
+              {
                 language: preferredLanguage,
-              } as SystemInfo,
-              promptLengthMode,
-            },
-            systemPromptMode,
-          );
+                systemInfo: {
+                  os: "Unknown OS",
+                  ide: "Zen IDE",
+                  shell: "unknown",
+                  homeDir: "~",
+                  cwd: folderPath || ".",
+                  language: preferredLanguage,
+                } as SystemInfo,
+                promptLengthMode,
+              },
+              systemPromptMode,
+            );
+          }
+
           const systemPromptTokens = countTokens(systemPrompt);
           totalTokens += systemPromptTokens;
         } catch (e) {
@@ -1166,6 +1190,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       promptLengthMode,
       systemPromptMode,
       folderPath,
+      currentModel?.providerId,
       JSON.stringify(
         attachedItems?.map((item: any) => ({
           id: item.id,
@@ -1451,15 +1476,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             display: "flex",
             flexDirection: "column",
             position: "relative",
-            borderRadius: "var(--border-radius)",
-            border: !isConnected
-              ? "1px dashed var(--vscode-errorForeground, #f44336)"
-              : isTokenLimitExceeded
-                ? "2px dashed var(--vscode-errorForeground, #f44336)"
-                : isViewOnlyProvider
-                  ? "1px dashed #f44336"
-                  : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
-            transition: "border 0.3s ease",
             marginTop:
               !isConversationStarted ||
               (isConnected && isElaraMismatch) ||
@@ -1468,6 +1484,23 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 : "0px", // Space for badges/DiffSummaryBar sticking up
           }}
         >
+          {/* ─── Wrapper có border: chỉ bao quanh textarea + toolbar ─── */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              position: "relative",
+              borderRadius: "var(--border-radius)",
+              border: !isConnected
+                ? "1px dashed var(--vscode-errorForeground, #f44336)"
+                : isTokenLimitExceeded
+                  ? "2px dashed var(--vscode-errorForeground, #f44336)"
+                  : isViewOnlyProvider
+                    ? "1px dashed #f44336"
+                    : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+              transition: "border 0.3s ease",
+            }}
+          >
           {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
           {!isConversationStarted && (
             <div
@@ -2004,12 +2037,12 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 }
               }}
               onPaste={(e) => {
-                if (!supportsUpload && e.clipboardData.files.length > 0) {
-                  console.warn(
-                    "[Zen Log] MessageInput onPaste: Upload is not supported, preventing paste.",
-                  );
+                // Kiểm tra clipboard có chứa file/ảnh không (dùng items vì files=0 với screenshot)
+                const hasFileInClipboard = Array.from(
+                  e.clipboardData.items,
+                ).some((it) => it.kind === "file");
+                if (!supportsUpload && hasFileInClipboard) {
                   e.preventDefault();
-                  // Optional: Show toast "Upload not supported by this provider"
                   return;
                 }
                 handlePaste(e);
@@ -2073,19 +2106,16 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
             >
               <ActionDropdown
                 onSelectAttach={() => {
-                  // Use the file input ref from parent
+                  const acceptStr = buildAcceptString(
+                    currentModelConfig ?? currentModel,
+                  );
                   if (fileInputRef?.current) {
-                    // Set accept dynamically based on model capabilities (prefer modelConfig over cached model)
-                    fileInputRef.current.accept = buildAcceptString(
-                      currentModelConfig ?? currentModel,
-                    );
-                    // Store textOnly flag on the input element for the change handler to use
+                    fileInputRef.current.accept = acceptStr;
                     (fileInputRef.current as any).dataset.textOnly =
                       String(!supportsUpload);
                     fileInputRef.current.click();
                   } else {
-                    // Fallback: use handleFileSelect
-                    handleFileSelect();
+                    handleFileSelect(acceptStr, !supportsUpload);
                   }
                 }}
                 onSelectImageGenerator={() => {}}
@@ -2180,70 +2210,71 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 />
               )}
 
-              {/* Prompt Length Selector - Home only */}
-              {!isConversationStarted && (
-                <PromptLengthDropdown
-                  currentMode={promptLengthMode}
-                  onSelect={(mode) => {
-                    if (
+              {/* Prompt Length Selector - Home only, hidden for Claude */}
+              {!isConversationStarted &&
+                currentModel?.providerId?.toLowerCase() !== "claude" && (
+                  <PromptLengthDropdown
+                    currentMode={promptLengthMode}
+                    onSelect={(mode) => {
+                      if (
+                        !!(currentProviderConfig as any)
+                          ?.anti_system_prompt_injection &&
+                        mode !== "none"
+                      )
+                        return;
+                      setPromptLengthMode(mode);
+                    }}
+                    isNoneOnly={
                       !!(currentProviderConfig as any)
-                        ?.anti_system_prompt_injection &&
-                      mode !== "none"
-                    )
-                      return;
-                    setPromptLengthMode(mode);
-                  }}
-                  isNoneOnly={
-                    !!(currentProviderConfig as any)
-                      ?.anti_system_prompt_injection
-                  }
-                  triggerButton={(() => {
-                    const meta =
-                      PROMPT_LENGTH_MODE_META.find(
-                        (m) => m.key === promptLengthMode,
-                      ) ?? PROMPT_LENGTH_MODE_META[3];
-                    return (
-                      <SimpleTooltip
-                        content={
-                          <>
-                            <span>Prompt Length</span>
-                            <span
-                              style={{ fontWeight: 700, color: meta.color }}
-                            >
-                              {meta.label}
-                            </span>
-                          </>
-                        }
-                      >
-                        <button
-                          onMouseEnter={() => setIsPromptLengthHovered(true)}
-                          onMouseLeave={() => setIsPromptLengthHovered(false)}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            height: "24px",
-                            width: "24px",
-                            boxSizing: "border-box",
-                            borderRadius: "5px",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease-in-out",
-                            border: "1px solid transparent",
-                            background: isPromptLengthHovered
-                              ? "rgba(128, 128, 128, 0.16)"
-                              : "transparent",
-                            color: meta.color,
-                            opacity: 1,
-                            padding: 0,
-                          }}
+                        ?.anti_system_prompt_injection
+                    }
+                    triggerButton={(() => {
+                      const meta =
+                        PROMPT_LENGTH_MODE_META.find(
+                          (m) => m.key === promptLengthMode,
+                        ) ?? PROMPT_LENGTH_MODE_META[3];
+                      return (
+                        <SimpleTooltip
+                          content={
+                            <>
+                              <span>Prompt Length</span>
+                              <span
+                                style={{ fontWeight: 700, color: meta.color }}
+                              >
+                                {meta.label}
+                              </span>
+                            </>
+                          }
                         >
-                          <PromptLengthTriggerIcon mode={promptLengthMode} />
-                        </button>
-                      </SimpleTooltip>
-                    );
-                  })()}
-                />
-              )}
+                          <button
+                            onMouseEnter={() => setIsPromptLengthHovered(true)}
+                            onMouseLeave={() => setIsPromptLengthHovered(false)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              height: "24px",
+                              width: "24px",
+                              boxSizing: "border-box",
+                              borderRadius: "5px",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease-in-out",
+                              border: "1px solid transparent",
+                              background: isPromptLengthHovered
+                                ? "rgba(128, 128, 128, 0.16)"
+                                : "transparent",
+                              color: meta.color,
+                              opacity: 1,
+                              padding: 0,
+                            }}
+                          >
+                            <PromptLengthTriggerIcon mode={promptLengthMode} />
+                          </button>
+                        </SimpleTooltip>
+                      );
+                    })()}
+                  />
+                )}
 
               {/* Diagnostic và Skill toggles đã được chuyển vào ActionDropdown */}
             </div>
@@ -2306,6 +2337,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   </div>
                 );
               })()}
+
+              {/* Claude workspace zip-size badge — chỉ hiện khi provider = claude */}
+              {isClaudeProvider && <ClaudeZipBadge state={zipSizeState} />}
 
               {/* Token Count Badge / Stop Button */}
               {isConnected && (
@@ -2453,11 +2487,17 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               >
                 <span>
                   {LANGUAGES.find((l: any) => l.code === preferredLanguage)
-                    ?.flag || "🇺🇸"}{" "}
+                    ?.flag || "🇺"}{" "}
                   {preferredLanguage.toUpperCase()}
                 </span>
               </div>
             )}
+          </div>{/* end bordered wrapper (textarea + toolbar) */}
+
+          {/* ─── Bậc 3: ZenCLI hint bar (ngoài border, chỉ HomePanel) ─── */}
+          {!isConversationStarted && (
+            <ZenCliHintBar isClaudeProvider={isClaudeProvider} />
+          )}
         </div>
       </div>
     );

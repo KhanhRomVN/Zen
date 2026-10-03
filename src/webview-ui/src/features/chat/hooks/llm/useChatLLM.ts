@@ -24,6 +24,7 @@ import { useMessageHandlers } from "./useMessageHandlers";
 import { PromptBuilder } from "../../services/PromptBuilder";
 import { StreamingService } from "../../services/StreamingService";
 import { processClaudeContent } from "../../services/ClaudeContentProcessor";
+import { ClaudeRawLogger } from "../../services/ClaudeRawLogger";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
 
 interface ConversationOverrides {
@@ -820,7 +821,10 @@ export const useChatLLM = ({
               onContinuing: (isContinuing) => {
                 setIsContinuingSync(isContinuing);
               },
-              onRawContent: (_content) => {
+              onRawContent: (content) => {
+                // [DEBUG] Log raw response từ server (trước ClaudeContentProcessor)
+                console.log("[DEBUG RAW RESPONSE]", content);
+
                 // PERF: Khong goi setMessages trong streaming nua
                 // Thay vao do chi tich luy vao ref, ProcessingIndicator tu hien thi timer
                 // Tranh 130+ lan re-render toan bo UI moi khi stream
@@ -1135,29 +1139,55 @@ export const useChatLLM = ({
           onToolRequest &&
           parsed.actions?.length > 0
         ) {
-          // Claude provider: chỉ execute write_to_file và replace_in_file.
-          // Các tool khác (read_file, run_command, ...) chỉ hiển thị UI, không thực thi —
-          // vì claude đã tự chạy chúng trên sandbox riêng, kết quả đã có trong nội dung response.
+          // Claude provider logic for tool execution filtering:
+          // 1. Always allow: write_to_file, replace_in_file (for applying changes locally).
+          // 2. Conditional allow: run_command ONLY IF it's NOT a sandbox command (_is_sandbox !== true).
+          //    - Sandbox commands are display-only (handled by TagRouter/Renderer).
+          //    - Local commands (mapped from workspace paths) should execute to perform actual work.
+          // 3. Block others: read_file, list_files, etc. (usually redundant or handled differently).
+
           const isClaudeConversation =
             assistantMessage.providerId === "claude" ||
             lastUsedModelRef.current?.providerId === "claude";
 
-          const CLAUDE_EXECUTABLE_TOOLS = new Set([
-            "write_to_file",
-            "replace_in_file",
-          ]);
+          // Ensure each action carries its ORIGINAL index from parsed.actions
+          // so that useToolExecution generates correct actionIds matching the UI renderer keys.
+          const indexedActions = parsed.actions.map(
+            (a: ToolAction, idx: number) => ({
+              ...a,
+              _index: idx,
+            }),
+          );
 
           const executableActions = isClaudeConversation
-            ? parsed.actions.filter((a: ToolAction) =>
-                CLAUDE_EXECUTABLE_TOOLS.has(a.type),
-              )
-            : parsed.actions;
+            ? indexedActions.filter((a: ToolAction & { _index: number }) => {
+                if (
+                  a.type === "write_to_file" ||
+                  a.type === "replace_in_file"
+                ) {
+                  return true;
+                }
+
+                if (a.type === "run_command") {
+                  // Execute only if it's marked as local (not sandbox)
+                  const isSandbox = a.params?._is_sandbox === true;
+                  return !isSandbox;
+                }
+
+                return false;
+              })
+            : indexedActions;
 
           if (executableActions.length > 0) {
+            // Force execution for all providers including Claude.
+            // Suppression of "auto-send result back to AI" will be handled
+            // inside useToolExecution or downstream handlers based on provider ID.
+            const isAutoTrigger = true;
+
             onToolRequest(
               executableActions,
               assistantMessage,
-              true,
+              isAutoTrigger,
               TOOL_ACTION_TYPES.ACCEPT,
             );
           }

@@ -83,11 +83,14 @@ export const parseWriteToFile = (
   }
 
   // Validate required parameters (for cases where tags don't exist at all)
+  // Distinguish null (tag absent) from "" (tag present but empty). Writing an
+  // empty file is a legitimate operation, so <content></content> must not be
+  // treated as missing.
   const missingParams: string[] = [];
   if (!filePath || filePath.trim() === "") {
     missingParams.push("file_path");
   }
-  if (!content || content.trim() === "") {
+  if (content === null) {
     missingParams.push("content");
   }
 

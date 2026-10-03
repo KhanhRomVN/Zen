@@ -24,7 +24,7 @@ export interface MessageInputProps {
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   handleDragOver: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent) => void;
-  handleFileSelect: () => void;
+  handleFileSelect: (accept?: string, textOnly?: boolean) => void;
   fileInputRef?: React.RefObject<HTMLInputElement>;
   onOpenProjectStructure: () => void;
   showChangesDropdown: boolean;

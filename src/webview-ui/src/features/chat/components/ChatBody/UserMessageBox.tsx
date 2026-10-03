@@ -114,6 +114,8 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
   const [showRevertModal_forEdit, setShowRevertModal_forEdit] = React.useState(false);
   // true khi đang query revert preview để hiện loading trên nút Send
   const [checkingRevert, setCheckingRevert] = React.useState(false);
+  // true khi đang query revert preview cho revert icon
+  const [checkingRevertIcon, setCheckingRevertIcon] = React.useState(false);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const userMsgRegex =
@@ -241,6 +243,42 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
     }
     setPendingSendEdit(null);
     setIsEditing(false);
+  };
+
+  const handleRevertIconClick = () => {
+    const vscodeApi = (window as any).vscodeApi;
+    if (!vscodeApi || !message.id) {
+      // Không query được → mở drawer để an toàn
+      setShowRevertModal(true);
+      return;
+    }
+
+    setCheckingRevertIcon(true);
+
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (data?.command === "revertPreviewResult" && data?.messageId === message.id) {
+        window.removeEventListener("message", handler);
+        clearTimeout(timeoutId);
+        setCheckingRevertIcon(false);
+        const hasFiles = Array.isArray(data.files) && data.files.length > 0;
+        if (hasFiles) {
+          setShowRevertModal(true);
+        } else {
+          // Không có file changes → revert thẳng không cần confirm
+          onRevertConversation!(message.id, message.timestamp);
+        }
+      }
+    };
+
+    window.addEventListener("message", handler);
+    vscodeApi.postMessage({ command: "getRevertPreview", conversationId, messageId: message.id });
+
+    const timeoutId = setTimeout(() => {
+      window.removeEventListener("message", handler);
+      setCheckingRevertIcon(false);
+      setShowRevertModal(true);
+    }, 3000);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -606,38 +644,49 @@ const UserMessageBox: React.FC<UserMessageBoxProps> = ({
           {/* Revert conversation to this point */}
           {onRevertConversation && canRegenerate && (
             <button
-              onClick={() => setShowRevertModal(true)}
+              onClick={handleRevertIconClick}
+              disabled={checkingRevertIcon}
               title="Revert conversation to this point"
               style={{
                 background: "transparent",
                 border: "none",
-                cursor: "pointer",
+                cursor: checkingRevertIcon ? "not-allowed" : "pointer",
                 padding: "4px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "var(--vscode-descriptionForeground)",
                 borderRadius: "4px",
-                opacity: 0.7,
+                opacity: checkingRevertIcon ? 0.4 : 0.7,
                 transition: "opacity 0.2s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+              onMouseEnter={(e) => { if (!checkingRevertIcon) e.currentTarget.style.opacity = "1"; }}
+              onMouseLeave={(e) => { if (!checkingRevertIcon) e.currentTarget.style.opacity = "0.7"; }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M9 14 4 9l5-5" />
-                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
-              </svg>
+              {checkingRevertIcon ? (
+                <svg
+                  width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                  style={{ animation: "umEditSpin 0.7s linear infinite" }}
+                >
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 14 4 9l5-5" />
+                  <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+                </svg>
+              )}
             </button>
           )}
         </div>

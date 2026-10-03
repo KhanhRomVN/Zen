@@ -29,11 +29,8 @@ import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import StatsGrid from "./components/StatsGrid";
 import RecentActivity from "./components/RecentActivity";
 import ModelDistributionCard from "./components/ModelDistributionCard";
-import DailyUsageChart from "./components/DailyUsageChart";
-import InstallationBanner from "./components/InstallationBanner";
-
-// ── Hooks ──
-import { useSettings } from "../../context/SettingsContext";
+// ── Contexts ──
+import { useSettings } from "@/context/SettingsContext";
 import { useFileHandling } from "../../hooks/useFileHandling";
 import { useHomeDraftManagement } from "./hooks/useHomeDraftManagement";
 import { useModelAccount } from "../../hooks/useModelAccount";
@@ -43,6 +40,8 @@ import { extensionService } from "../../services/ExtensionService";
 
 // ── Types ──
 import { ConversationItem } from "../history/types";
+import DailyUsageChart from "./components/DailyUsageChart";
+import InstallationBanner from "./components/InstallationBanner";
 
 // ─── Constants ──────────────────────────────────────────────────────────
 const SLOGANS = [
@@ -243,6 +242,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
 
   const { currentModel, setCurrentModel, currentAccount, setCurrentAccount } =
     useModelAccount(folderPath);
+
+  // ── Claude detection (for ZenCLI hint bar color) ──
+  const isClaudeProvider = currentModel?.providerId?.toLowerCase() === "claude";
 
   // ── Refs ──
   // 🔍 PERFORMANCE DEBUG LOGS

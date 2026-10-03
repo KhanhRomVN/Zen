@@ -895,7 +895,8 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       });
     });
 
-    // Email của các account đã có cùng provider → ẩn profile trùng tên
+    // Email của các account đã có cùng provider VÀ cùng auth_method → ẩn profile trùng tên
+    // Nếu account dùng auth_method khác (vd: google vs github) thì vẫn hiện để cho phép add thêm
     const emailsPromise = dbFetch(
       `/v1/accounts?page=1&limit=1000&provider_id=${encodeURIComponent(provider.provider_id)}`,
     )
@@ -904,11 +905,12 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
         (data) =>
           new Set<string>(
             (data?.data?.accounts ?? [])
-              .map((a: any) =>
-                String(a.email || "")
-                  .trim()
-                  .toLowerCase(),
-              )
+              .filter((a: any) => {
+                const accountMethod = String(a.auth_method || "").trim().toLowerCase();
+                const currentMethod = method.trim().toLowerCase();
+                return !accountMethod || accountMethod === currentMethod;
+              })
+              .map((a: any) => String(a.email || "").trim().toLowerCase())
               .filter(Boolean),
           ),
       )

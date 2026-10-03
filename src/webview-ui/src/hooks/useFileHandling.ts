@@ -228,11 +228,6 @@ export const useFileHandling = ({
     const items = e.clipboardData.items;
     let hasImage = false;
 
-    // Log all clipboard items
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-    }
-
     // 🚀 Check for large text paste - use token count instead of character count
     const pastedText = e.clipboardData.getData("text/plain");
     
@@ -262,7 +257,7 @@ export const useFileHandling = ({
     // Original image handling    
     for (let i = 0; i < items.length; i++) {
       const item = items[i];      
-      if (item.kind === "file" && item.type.startsWith("image/")) {        
+      if (item.kind === "file" && item.type.startsWith("image/")) {
         const file = item.getAsFile();        
         if (file) {
           hasImage = true;          
@@ -298,10 +293,12 @@ export const useFileHandling = ({
     if (hasImage) {
       e.preventDefault();
     }
-      };
+  };
 
-  const handleFileSelect = async () => {
+  const handleFileSelect = async (accept?: string, textOnly?: boolean) => {
     if (fileInputRef.current) {
+      if (accept !== undefined) fileInputRef.current.accept = accept;
+      if (textOnly !== undefined) (fileInputRef.current as any).dataset.textOnly = String(textOnly);
       fileInputRef.current.click();
     }
   };

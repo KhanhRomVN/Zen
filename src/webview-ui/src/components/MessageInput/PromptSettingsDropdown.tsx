@@ -20,7 +20,7 @@ import {
   DropdownTrigger,
   DropdownContent,
 } from "../ui/Dropdown";
-import { STYLE_CODE_MODE_META, StyleCodeTriggerIcon } from "./StyleCodeDropdown";
+import { STYLE_CODE_MODE_META, StyleCodeTriggerIcon } from "./ProviderModelDrawer";
 
 // ─── SimpleTooltip (local copy — SimpleTooltip chưa được export từ index.tsx) ──
 const SimpleTooltip: React.FC<{

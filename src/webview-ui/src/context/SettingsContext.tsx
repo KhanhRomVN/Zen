@@ -24,6 +24,9 @@ interface SettingsContextType {
   /** System path tới thư mục chứa các profile Chromium */
   chromiumProfileDir: string;
   setChromiumProfileDir: (path: string) => void;
+  /** Relative path từ [profile_email]/ tới folder chứa Default/. Rỗng = cấu trúc mặc định. */
+  chromiumProfileSubpath: string;
+  setChromiumProfileSubpath: (subpath: string) => void;
   /** ID của database manager đang được chọn cho workspace hiện tại */
   activeDatabaseManagerId: string | null;
   setActiveDatabaseManagerId: (id: string | null) => void;
@@ -101,6 +104,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   // Backend (SQLite) là nguồn chân lý duy nhất → không cache ở localStorage.
   const [chromiumProfileDir, setChromiumProfileDirState] =
+    useState<string>("");
+  const [chromiumProfileSubpath, setChromiumProfileSubpathState] =
     useState<string>("");
   // Timer debounce cho việc PUT chromium_profile_dir lên backend.
   const chromiumSaveTimer = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -183,9 +188,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
       .then((r) => r.json())
       .then((res) => {
         if (cancelled || !res?.success || !res.data) return;
-        const { chromium_profile_dir } = res.data;
+        const { chromium_profile_dir, chromium_profile_subpath } = res.data;
         // Luôn áp giá trị từ backend; null nghĩa là chưa cấu hình → input rỗng.
         setChromiumProfileDirState(chromium_profile_dir ?? "");
+        setChromiumProfileSubpathState(chromium_profile_subpath ?? "");
         // Dọn key cache cũ còn sót từ phiên bản trước.
         try {
           localStorage.removeItem("zen_chromium_profile_dir");
@@ -279,6 +285,27 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     }, 500);
   };
 
+  const setChromiumProfileSubpath = (subpath: string) => {
+    setChromiumProfileSubpathState(subpath);
+    if (!apiUrl) return;
+    fetch(`${apiUrl}/v1/config`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chromium_profile_subpath: subpath }),
+    })
+      .then((r) => {
+        if (!r.ok) {
+          console.warn(
+            "[Settings] save chromium_profile_subpath rejected",
+            r.status,
+          );
+        }
+      })
+      .catch((e) =>
+        console.warn("[Settings] save chromium_profile_subpath failed", e),
+      );
+  };
+
   // Lưu boolean vào localStorage + extension storage (cùng pattern với setSystemPromptMode)
   const persistBool = (key: string, value: boolean) => {
     try {
@@ -353,6 +380,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setPromptLengthMode,
         chromiumProfileDir,
         setChromiumProfileDir,
+        chromiumProfileSubpath,
+        setChromiumProfileSubpath,
         activeDatabaseManagerId,
         setActiveDatabaseManagerId,
         checkpointEnabled,

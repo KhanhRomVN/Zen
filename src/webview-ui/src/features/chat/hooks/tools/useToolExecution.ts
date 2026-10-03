@@ -373,8 +373,16 @@ export const useToolExecution = ({
         const isConversationAuto =
           conversationToolOverrides[action.type] === "auto";
 
-        const shouldPauseForManual =
+        // [CLAUDE OVERRIDE] For Claude provider, we bypass manual confirmation pauses
+        // for auto-triggered executions. The tools are expected to run silently in background.
+        const isClaudeMsg = message.providerId === "claude";
+
+        let shouldPauseForManual =
           decision === "confirm" && !isConversationAuto;
+
+        if (isClaudeMsg && isAutoTrigger) {
+          shouldPauseForManual = false;
+        }
 
         if (shouldPauseForManual && !isAlreadyClicked && isAutoTrigger) {
           wasInterruptedByManual = true;
@@ -562,49 +570,63 @@ export const useToolExecution = ({
             } else {
               flushedMessageIdsRef.current.add(message.id);
 
-              const hasAnyError = buffer.some(
-                (r: string) =>
-                  r.includes("Result: Error") ||
-                  r.includes("Tool execution blocked") ||
-                  r.includes("Tool execution rejected"),
-              );
+              // [CLAUDE GUARD] Suppress auto-send result for Claude provider.
+              // Tools still execute and outputs appear in UI, but no new chat turn is triggered automatically.
+              const isClaudeProvider = message.providerId === "claude";
 
-              // 🔧 Check if any error is from malformed tool (MISSING_PARAMS, INVALID_XML, etc.)
-              const hasMalformedToolError = buffer.some((r: string) => {
-                const errorMatch = r.match(
-                  /Result: Error - (MISSING_PARAMS|INVALID_XML|MALFORMED_TOOL|PARSE_ERROR):/,
+              if (isClaudeProvider) {
+                // Still clear buffer so memory doesn't leak, but don't trigger sendMessage
+                setAvailableToolResultsBuffer((prev) => {
+                  const next = { ...prev };
+                  delete next[message.id];
+                  availableToolResultsBufferRef.current = next;
+                  return next;
+                });
+              } else {
+                const hasAnyError = buffer.some(
+                  (r: string) =>
+                    r.includes("Result: Error") ||
+                    r.includes("Tool execution blocked") ||
+                    r.includes("Tool execution rejected"),
                 );
-                return !!errorMatch;
-              });
 
-              // Build final content with tool results
-              let finalContent = buffer.join("\n\n");
+                // 🔧 Check if any error is from malformed tool (MISSING_PARAMS, INVALID_XML, etc.)
+                const hasMalformedToolError = buffer.some((r: string) => {
+                  const errorMatch = r.match(
+                    /Result: Error - (MISSING_PARAMS|INVALID_XML|MALFORMED_TOOL|PARSE_ERROR):/,
+                  );
+                  return !!errorMatch;
+                });
 
-              if (selectedOption) {
-                const questionTitle =
-                  parsed.question?.type === "question"
-                    ? (parsed.question as any).title
-                    : "Question";
-                finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
+                // Build final content with tool results
+                let finalContent = buffer.join("\n\n");
+
+                if (selectedOption) {
+                  const questionTitle =
+                    parsed.question?.type === "question"
+                      ? (parsed.question as any).title
+                      : "Question";
+                  finalContent = `[question: "${questionTitle || "Question"}"] Answer: ${selectedOption}\n\n${finalContent}`;
+                }
+
+                handleSendMessageRef.current(
+                  finalContent,
+                  undefined,
+                  undefined,
+                  undefined,
+                  !hasAnyError || hasMalformedToolError, // 🔧 Skip wrapping for ANY error (including malformed)
+                  allActionIds,
+                  !hasAnyError,
+                );
+
+                // Clear buffer
+                setAvailableToolResultsBuffer((prev) => {
+                  const next = { ...prev };
+                  delete next[message.id];
+                  availableToolResultsBufferRef.current = next;
+                  return next;
+                });
               }
-
-              handleSendMessageRef.current(
-                finalContent,
-                undefined,
-                undefined,
-                undefined,
-                !hasAnyError || hasMalformedToolError, // 🔧 Skip wrapping for ANY error (including malformed)
-                allActionIds,
-                !hasAnyError,
-              );
-
-              // Clear buffer
-              setAvailableToolResultsBuffer((prev) => {
-                const next = { ...prev };
-                delete next[message.id];
-                availableToolResultsBufferRef.current = next;
-                return next;
-              });
             }
           }
         }

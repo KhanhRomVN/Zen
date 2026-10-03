@@ -127,10 +127,7 @@ export class PromptBuilder {
 
     const effectiveLang = aiLanguage;
 
-    // promptLengthMode === "none" → không gắn system prompt, trả về chuỗi rỗng ngay
-    if (promptLengthMode === "none") return "";
-
-    // Provider claude → dùng claude-system-prompt riêng
+    // Provider claude → dùng claude-system-prompt riêng (không phụ thuộc promptLengthMode)
     if (providerId === "claude") {
       const claudePrompt = buildClaudePrompt({
         language: effectiveLang,

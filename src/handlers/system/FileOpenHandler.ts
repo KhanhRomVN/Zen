@@ -121,6 +121,32 @@ export class FileOpenHandler {
   }
 
   /**
+   * Mở một URL http/https trong browser mặc định của hệ điều hành.
+   * Dùng cho các link quảng cáo/tài liệu hiển thị trong webview
+   * (webview VSCode chặn `<a target="_blank">`, buộc phải đi qua extension host).
+   */
+  public async handleOpenExternalUrl(message: any) {
+    const url = message.url;
+    if (!url || typeof url !== "string") return;
+
+    // Chỉ chấp nhận http/https để tránh abuse (vd: mở file://, command scheme...)
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return;
+      }
+    } catch {
+      return;
+    }
+
+    try {
+      await vscode.env.openExternal(vscode.Uri.parse(url));
+    } catch (error) {
+      console.error("[FileOpenHandler] handleOpenExternalUrl error:", error);
+    }
+  }
+
+  /**
    * Mở dialog chọn file/folder của OS và trả kết quả về webview.
    * mode='pickFile' → chọn file; mode='pickFolder' → chọn thư mục.
    */

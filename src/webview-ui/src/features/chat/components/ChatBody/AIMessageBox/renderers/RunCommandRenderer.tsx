@@ -128,18 +128,19 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
   const terminalId =
     (outputData as any)?.terminalId || action.params.terminal_id;
   const hasOutput = !!outputData || !!extractedOutput || !!storedOutput;
-  const isTerminalBusy =
-    isDisplayOnly
-      ? false // display-only: không có terminal thật, không busy
-      : !isRejected &&
-        (hasOutput
-          ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY
-          : terminalId
-            ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY ||
-              (isActionClicked && terminalStatus?.[terminalId] === undefined)
-            : isActionClicked);
+
+  const isTerminalBusy = isDisplayOnly
+    ? false // display-only: không có terminal thật, không busy
+    : !isRejected &&
+      (hasOutput
+        ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY
+        : terminalId
+          ? terminalStatus?.[terminalId] === TERMINAL_STATUS.BUSY ||
+            (isActionClicked && terminalStatus?.[terminalId] === undefined)
+          : isActionClicked);
+
   const isLoading = isActionClicked && (!hasOutput || isTerminalBusy);
-  const isCompleted = isDisplayOnly ? true : (hasOutput && !isTerminalBusy);
+  const isCompleted = isDisplayOnly ? true : hasOutput && !isTerminalBusy;
 
   // Calculate execution time (if completed)
   const [executionTime, setExecutionTime] = React.useState<string>("");
@@ -214,7 +215,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
         statusColor={
           isRejected
             ? "var(--vscode-errorForeground)"
-            : (isDisplayOnly || isCompleted)
+            : isDisplayOnly || isCompleted
               ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
               : isTerminalBusy || (isActionClicked && !outputData)
                 ? "var(--vscode-editorWarning-foreground, #e3b341)"
@@ -223,7 +224,9 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                   : "var(--vscode-descriptionForeground)"
         }
         isError={isRejected}
-        isWaitingApproval={!isDisplayOnly && !!isActiveGroup && !isCompleted && !isTerminalBusy}
+        isWaitingApproval={
+          !isDisplayOnly && !!isActiveGroup && !isCompleted && !isTerminalBusy
+        }
         toolType="run_command"
         isPartial={isTerminalBusy}
         path={displayFolderPath}
@@ -275,7 +278,11 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
       ) : (
         <>
           <TerminalBlock
-            logs={outputData?.output || extractedOutput || storedOutput || ""}
+            logs={
+              isDisplayOnly
+                ? "This command was executed by the AI agent in its sandboxed environment and is not run locally."
+                : outputData?.output || extractedOutput || storedOutput || ""
+            }
             initialCommand={action.params.command}
             cwd={action.params.cwd || rootPath}
             onInput={
@@ -311,6 +318,7 @@ export const RunCommandRenderer: React.FC<RunCommandRendererProps> = ({
                 style={{
                   background:
                     "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 10%, transparent)",
+                  border: "none",
                   cursor: "pointer",
                   color: "var(--vscode-errorForeground, #f44336)",
                   padding: "4px 8px",

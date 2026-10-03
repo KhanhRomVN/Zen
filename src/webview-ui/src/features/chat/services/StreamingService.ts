@@ -257,7 +257,6 @@ export class StreamingService {
 
     clearTimeout(firstChunkTimer);
 
-    // Flush remaining batch - parse everything once at the end
     // Send all accumulated content for parsing NOW
     if (assistantMessage.content) {
       callbacks.onContent?.(assistantMessage.content);

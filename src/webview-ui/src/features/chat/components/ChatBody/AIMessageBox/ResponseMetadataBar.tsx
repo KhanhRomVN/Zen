@@ -45,6 +45,7 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
   const [parseDebugChecked, setParseDebugChecked] = React.useState(false);
   const [showRevertModal, setShowRevertModal] = React.useState(false);
   const [isRevertHovered, setIsRevertHovered] = React.useState(false);
+  const [checkingRevert, setCheckingRevert] = React.useState(false);
 
   // 🔧 Subscribe to streaming content for real-time token counting
   const streamingContent = useStreamingPreviewStore(
@@ -151,12 +152,53 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
 
   const handleRevertClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowRevertModal(true);
+
+    const targetId = previousUserMessage?.id ?? message.id;
+    const vscodeApi = (window as any).vscodeApi;
+
+    if (!vscodeApi || !targetId) {
+      setShowRevertModal(true);
+      return;
+    }
+
+    setCheckingRevert(true);
+
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (data?.command === "revertPreviewResult" && data?.messageId === targetId) {
+        window.removeEventListener("message", handler);
+        clearTimeout(timeoutId);
+        setCheckingRevert(false);
+        const hasFiles = Array.isArray(data.files) && data.files.length > 0;
+        if (hasFiles) {
+          setShowRevertModal(true);
+        } else {
+          // Không có file changes → revert thẳng không cần confirm
+          if (onRevertConversation) {
+            const targetTimestamp = previousUserMessage?.timestamp ?? message.timestamp;
+            onRevertConversation(targetId, targetTimestamp);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("message", handler);
+    vscodeApi.postMessage({ command: "getRevertPreview", conversationId, messageId: targetId });
+
+    const timeoutId = setTimeout(() => {
+      window.removeEventListener("message", handler);
+      setCheckingRevert(false);
+      setShowRevertModal(true);
+    }, 3000);
   };
 
   const handleConfirmRevert = () => {
     if (onRevertConversation) {
-      onRevertConversation(message.id, message.timestamp);
+      // Truyền id của previousUserMessage (request), không phải message (response)
+      // để handleRevertConversation cắt tại đúng điểm và fill lại đúng user content vào input
+      const targetId = previousUserMessage?.id ?? message.id;
+      const targetTimestamp = previousUserMessage?.timestamp ?? message.timestamp;
+      onRevertConversation(targetId, targetTimestamp);
     }
   };
 
@@ -218,25 +260,33 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
             </span>
           </div>
 
-          {/* Revert Icon - Only show when request is active (checked) */}
-          {onRevertConversation && requestChecked && canRegenerate && (
+          {/* Revert Icon - Always show when canRegenerate, no need to activate request badge */}
+          {onRevertConversation && canRegenerate && (
             <div
-              onClick={handleRevertClick}
-              onMouseEnter={() => setIsRevertHovered(true)}
+              onClick={checkingRevert ? undefined : handleRevertClick}
+              onMouseEnter={() => { if (!checkingRevert) setIsRevertHovered(true); }}
               onMouseLeave={() => setIsRevertHovered(false)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                cursor: "pointer",
+                cursor: checkingRevert ? "not-allowed" : "pointer",
                 color: "var(--vscode-charts-orange, #d18616)",
                 textDecoration: isRevertHovered ? "underline" : "none",
                 textUnderlineOffset: "3px",
                 transition: "opacity 0.2s ease",
-                opacity: isRevertHovered ? 1 : 0.7,
+                opacity: checkingRevert ? 0.4 : isRevertHovered ? 1 : 0.7,
               }}
               title="Revert conversation to this point"
             >
-              {RevertIcon}
+              {checkingRevert ? (
+                <svg
+                  width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                  style={{ animation: "rmbSpin 0.7s linear infinite" }}
+                >
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              ) : RevertIcon}
             </div>
           )}
         </div>
@@ -613,9 +663,10 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
         onConfirm={handleConfirmRevert}
         title="Revert conversation to this point?"
         description="This will remove all messages after this response and revert any file changes from those messages."
-        messageId={message.id}
+        messageId={previousUserMessage?.id ?? message.id}
         conversationId={conversationId}
       />
+      <style>{`@keyframes rmbSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };
