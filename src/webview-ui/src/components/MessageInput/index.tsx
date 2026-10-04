@@ -849,109 +849,12 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const renderCountRef = React.useRef(0);
     renderCountRef.current++;
 
-    // Prompt History Navigation State (ArrowUp / ArrowDown)
-    const historyIndexRef = React.useRef<number>(-1);
-    const tempDraftRef = React.useRef<string>("");
-
-    const getCombinedPromptHistory = React.useCallback((): string[] => {
-      const currentChatUserPrompts = (messages || [])
-        .filter(
-          (m: any) =>
-            m &&
-            (m.sender === "user" || m.role === "user") &&
-            m.content &&
-            typeof m.content === "string" &&
-            m.content.trim(),
-        )
-        .map((m: any) => m.content.trim());
-
-      const stored = getStoredPromptHistory();
-      const combined = [...stored];
-      for (const p of currentChatUserPrompts) {
-        if (!combined.includes(p)) {
-          combined.push(p);
-        }
-      }
-      return combined.filter(Boolean);
-    }, [messages]);
-
-    const handlePromptHistoryKeyDown = (
-      e: React.KeyboardEvent<HTMLTextAreaElement>,
-    ) => {
-      if (e.key === "ArrowUp") {
-        const target = e.currentTarget;
-        const textBeforeCursor = target.value.substring(
-          0,
-          target.selectionStart,
-        );
-        const isAtFirstLine = !textBeforeCursor.includes("\n");
-        const isNavigating = historyIndexRef.current >= 0;
-
-        if (isAtFirstLine || isNavigating) {
-          const history = getCombinedPromptHistory();
-          if (history.length === 0) return;
-
-          if (!isNavigating) {
-            tempDraftRef.current = message;
-          }
-
-          const nextIndex = historyIndexRef.current + 1;
-          if (nextIndex < history.length) {
-            e.preventDefault();
-            historyIndexRef.current = nextIndex;
-            const promptText = history[history.length - 1 - nextIndex];
-            setMessage(promptText);
-            setTimeout(() => {
-              if (textareaRef.current) {
-                textareaRef.current.selectionStart = promptText.length;
-                textareaRef.current.selectionEnd = promptText.length;
-              }
-            }, 0);
-          }
-        }
-      } else if (e.key === "ArrowDown") {
-        if (historyIndexRef.current >= 0) {
-          const target = e.currentTarget;
-          const textAfterCursor = target.value.substring(target.selectionEnd);
-          const isAtLastLine = !textAfterCursor.includes("\n");
-
-          if (isAtLastLine) {
-            const history = getCombinedPromptHistory();
-            const prevIndex = historyIndexRef.current - 1;
-
-            e.preventDefault();
-            if (prevIndex >= 0) {
-              historyIndexRef.current = prevIndex;
-              const promptText = history[history.length - 1 - prevIndex];
-              setMessage(promptText);
-              setTimeout(() => {
-                if (textareaRef.current) {
-                  textareaRef.current.selectionStart = promptText.length;
-                  textareaRef.current.selectionEnd = promptText.length;
-                }
-              }, 0);
-            } else {
-              historyIndexRef.current = -1;
-              const draft = tempDraftRef.current;
-              setMessage(draft);
-              setTimeout(() => {
-                if (textareaRef.current) {
-                  textareaRef.current.selectionStart = draft.length;
-                  textareaRef.current.selectionEnd = draft.length;
-                }
-              }, 0);
-            }
-          }
-        }
-      }
-    };
+    // Removed Prompt History Navigation to restore default ArrowUp/ArrowDown behavior
 
     const onSendMessage = () => {
       if (message.trim()) {
         savePromptToHistory(message);
       }
-      historyIndexRef.current = -1;
-      tempDraftRef.current = "";
       handleSend(currentModel, currentAccount);
     };
 
@@ -2015,7 +1918,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               ref={textareaRef}
               value={message}
               onChange={(e) => {
-                historyIndexRef.current = -1;
                 handleTextareaChange(e);
               }}
               onKeyDown={(e) => {
@@ -2032,7 +1934,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     onSendMessage();
                   }
                 } else {
-                  handlePromptHistoryKeyDown(e);
                   handleKeyDown(e);
                 }
               }}

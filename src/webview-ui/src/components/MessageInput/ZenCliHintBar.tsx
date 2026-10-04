@@ -44,7 +44,7 @@ export const ZenCliHintBar: React.FC<{ isClaudeProvider: boolean }> = ({
       style={{
         width: "100%",
         boxSizing: "border-box",
-        padding: "4px 12px",
+        padding: "4px 12px 0 12px",
         fontSize: "10px",
         lineHeight: 1.4,
         textAlign: "right",

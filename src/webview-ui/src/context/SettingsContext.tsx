@@ -136,13 +136,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     loadBool("zen_checkpoint_enabled", true),
   );
   const [diagnosticEnabled, setDiagnosticEnabledState] = useState<boolean>(() =>
-    loadBool(workspaceKey("zen_diagnostic_enabled"), true),
+    loadBool(workspaceKey("zen_diagnostic_enabled"), false),
   );
   const [showMetadataBar, setShowMetadataBarState] = useState<boolean>(() =>
     loadBool("zen_show_metadata_bar", true),
   );
   const [useSkillEnabled, setUseSkillEnabledState] = useState<boolean>(() =>
-    loadBool(workspaceKey("zen_use_skill_enabled"), true),
+    loadBool(workspaceKey("zen_use_skill_enabled"), false),
   );
 
   const [activeDatabaseManagerId, setActiveDatabaseManagerIdState] = useState<string | null>(

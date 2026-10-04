@@ -822,9 +822,6 @@ export const useChatLLM = ({
                 setIsContinuingSync(isContinuing);
               },
               onRawContent: (content) => {
-                // [DEBUG] Log raw response từ server (trước ClaudeContentProcessor)
-                console.log("[DEBUG RAW RESPONSE]", content);
-
                 // PERF: Khong goi setMessages trong streaming nua
                 // Thay vao do chi tich luy vao ref, ProcessingIndicator tu hien thi timer
                 // Tranh 130+ lan re-render toan bo UI moi khi stream

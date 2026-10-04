@@ -205,17 +205,17 @@ function convertBashTool(
   } else {
     // SANDBOX DISPLAY-ONLY MODE
     // We preserve the raw command for display purposes but tag it internally.
-    // Note: ResponseParser currently ignores unknown tags, so we rely on 
+    // Note: ResponseParser currently ignores unknown tags, so we rely on
     // TagRouter detecting this pattern or passing a flag via params if possible.
     // For now, let's output standard XML but we will handle the distinction in TagRouter
     // by checking if the command still contains "/home/claude/" which implies sandbox context
-    // OR we can inject a hidden param. Let's try injecting a custom param that Parser might miss 
+    // OR we can inject a hidden param. Let's try injecting a custom param that Parser might miss
     // but Renderer can read from rawXml or params if we update parser.
-    
+
     // Simpler approach for current architecture:
     // Output normal run_command. TagRouter will decide based on content analysis later?
     // No, better to modify RunCommandParser to accept _is_sandbox.
-    
+
     return `<run_command><command>${command}</command><_is_sandbox>true</_is_sandbox>${restartTag}</run_command>`;
   }
 }
@@ -282,6 +282,7 @@ export function processClaudeContent(
 ): ProcessClaudeContentResult {
   const DEBUG_PREFIX = "[ClaudeContentProcessor]";
   const disablePathMapping = options.disablePathMapping ?? false;
+  // console.log("[DEBUG] Raw Content before processing:", rawContent);
 
   // ── Step 1: Keep <conversation_title> intact ─────────────────────────
   // Previously stripped here, but ResponseParser needs the tag present to

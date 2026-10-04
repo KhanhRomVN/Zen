@@ -2,34 +2,42 @@
  * ------------------------------------------------------------------
  * DailyUsageChart
  * ------------------------------------------------------------------
- * Biểu đồ đường hiển thị số requests theo giờ trong ngày.
- * Dùng đường cong mượt (Catmull-Rom → cubic bezier) thay vì polyline gấp khúc.
-
+ * Biểu đồ đường hiển thị usage theo period đang chọn.
+ * Tự động adapt x-axis label theo period:
+ *   day   → "HH:00"       (hourly, 00:00–23:00)
+ *   week  → "dd/mm"       (7 ngày)
+ *   month → "dd"          (ngày trong tháng)
+ *   year  → "MMM"         (tháng viết tắt)
+ *   all   → same as year
+ *
  * Main features:
- * - Vẽ line chart 24 giờ với area fill
- * - Tooltip hiển thị chi tiết requests/tokens khi hover
- * - Responsive theo container width (ResizeObserver)
+ * - Line chart + area fill với Catmull-Rom smooth curve
+ * - Tooltip chi tiết requests/tokens khi hover
+ * - X-axis label density tự động theo container width
+ * - Responsive (ResizeObserver)
  * ------------------------------------------------------------------
  */
 
 // ─── Imports ────────────────────────────────────────────────────────────
-// ── React ──
 import React, { useRef, useState, useEffect } from "react";
+import { StatsPeriod } from "../hooks/useStatsPeriod";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
-interface HourEntry { date: string; requests: number; tokens: number; }
-interface Props { usage: HourEntry[]; title: string; }
+interface UsageEntry { date: string; requests: number; tokens: number; }
+interface Props {
+  usage: UsageEntry[];
+  title: string;
+  period?: StatsPeriod;
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────
 const LINE_COLOR = "var(--vscode-textLink-foreground, #3b82f6)";
 const CHART_H = 120;
-const CHART_W = 600; // viewBox width, scales with container
-const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const CHART_W = 600;
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 interface Point { x: number; y: number; }
 
-// Catmull-Rom → cubic bezier path
 function buildSmoothPath(points: Point[]): string {
   if (points.length < 2) return "";
   let d = `M ${points[0].x},${points[0].y}`;
@@ -47,10 +55,64 @@ function buildSmoothPath(points: Point[]): string {
   return d;
 }
 
+/** Format x-axis tick label depending on period and raw date string from API. */
+function formatTick(dateStr: string, period: StatsPeriod): string {
+  switch (period) {
+    case "day": {
+      // API returns "HH:00" already (e.g. "09:00")
+      return dateStr.length >= 5 ? dateStr.slice(0, 5) : dateStr;
+    }
+    case "week":
+    case "month": {
+      // API returns "YYYY-MM-DD"
+      const parts = dateStr.split("-");
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+      return dateStr;
+    }
+    case "year":
+    case "all": {
+      // API returns "YYYY-MM"
+      const parts = dateStr.split("-");
+      if (parts.length >= 2) {
+        const month = parseInt(parts[1], 10);
+        const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        return MONTHS[month - 1] ?? parts[1];
+      }
+      return dateStr;
+    }
+    default: return dateStr;
+  }
+}
+
+/** Tooltip header line for a given entry. */
+function formatTooltipHeader(dateStr: string, period: StatsPeriod): string {
+  switch (period) {
+    case "day":
+      return `${dateStr.slice(0, 5)} – ${String(parseInt(dateStr, 10) + 1).padStart(2,"0")}:00`;
+    case "week":
+    case "month": {
+      const parts = dateStr.split("-");
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+    }
+    case "year":
+    case "all": {
+      const parts = dateStr.split("-");
+      if (parts.length >= 2) {
+        const month = parseInt(parts[1], 10);
+        const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        return `${MONTHS[month - 1] ?? parts[1]} ${parts[0]}`;
+      }
+      return dateStr;
+    }
+    default: return dateStr;
+  }
+}
+
 // ─── Component ──────────────────────────────────────────────────────────
-const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
+const DailyUsageChart: React.FC<Props> = ({ usage, title, period = "day" }) => {
   // ── State ──
-  const [tooltip, setTooltip] = useState<{ hour: number; svgX: number; svgY: number } | null>(null);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [containerWidth, setContainerWidth] = useState(200);
 
   // ── Refs ──
@@ -58,34 +120,19 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // ── Derived ──
-  const dataMap = new Map<number, HourEntry>();
-  usage.forEach((u) => {
-    const h = parseInt(u.date.split(":")[0], 10);
-    if (!isNaN(h)) dataMap.set(h, u);
-  });
+  // Use usage array as-is — backend already fills all labels
+  const n = usage.length;
+  const maxReq = Math.max(...usage.map(u => u.requests), 1);
 
-  const currentHour = new Date().getHours();
-  const maxReq = Math.max(...HOURS.map((h) => dataMap.get(h)?.requests ?? 0), 1);
+  const xOf = (i: number) => n <= 1 ? CHART_W / 2 : (i / (n - 1)) * CHART_W;
+  const yOf = (i: number) => CHART_H - (usage[i].requests / maxReq) * CHART_H;
 
-  const xOf = (h: number) => (h / 23) * CHART_W;
-  const yOf = (h: number) => {
-    const req = dataMap.get(h)?.requests ?? 0;
-    return CHART_H - (req / maxReq) * CHART_H;
-  };
+  const points: Point[] = usage.map((_, i) => ({ x: xOf(i), y: yOf(i) }));
+  const smoothPath = buildSmoothPath(points);
 
-  // Build smooth path for past/present hours only
-  const pastPointsData = HOURS.filter((h) => h <= currentHour).map((h) => ({
-    x: xOf(h),
-    y: yOf(h),
-  }));
-  const pastPath = buildSmoothPath(pastPointsData);
-
-  // Area fill under past line
-  const areaPoints = [
-    `${xOf(0)},${CHART_H}`,
-    ...HOURS.filter((h) => h <= currentHour).map((h) => `${xOf(h)},${yOf(h)}`),
-    `${xOf(currentHour)},${CHART_H}`,
-  ].join(" ");
+  const areaPath = n > 1
+    ? `M ${xOf(0)},${CHART_H} ` + points.map(p => `L ${p.x},${p.y}`).join(" ") + ` L ${xOf(n - 1)},${CHART_H} Z`
+    : "";
 
   // ── Effects ──
   useEffect(() => {
@@ -99,16 +146,33 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
   // ── Handlers ──
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || n === 0) return;
     const rect = svg.getBoundingClientRect();
     const relX = (e.clientX - rect.left) / rect.width;
-    const hour = Math.round(relX * 23);
-    const clampedH = Math.max(0, Math.min(23, hour));
-    // compute dot position in client coords
-    const dotX = rect.left + (xOf(clampedH) / CHART_W) * rect.width;
-    const dotY = rect.top + (yOf(clampedH) / CHART_H) * rect.height;
-    setTooltip({ hour: clampedH, svgX: dotX, svgY: dotY });
+    const idx = Math.round(relX * (n - 1));
+    const clamped = Math.max(0, Math.min(n - 1, idx));
+    const dotX = rect.left + (xOf(clamped) / CHART_W) * rect.width;
+    const dotY = rect.top + (yOf(clamped) / CHART_H) * rect.height;
+    setHoveredIdx(clamped);
+    setTooltipPos({ x: dotX, y: dotY });
   };
+
+  const handleMouseLeave = () => {
+    setHoveredIdx(null);
+    setTooltipPos(null);
+  };
+
+  // ── X-axis labels ──
+  const xLabels: number[] = (() => {
+    const minPxPerLabel = 36;
+    const maxLabels = Math.max(2, Math.floor(containerWidth / minPxPerLabel));
+    if (n <= maxLabels) return usage.map((_, i) => i);
+    const step = Math.ceil((n - 1) / (maxLabels - 1));
+    const out: number[] = [];
+    for (let i = 0; i < n - 1; i += step) out.push(i);
+    if (out[out.length - 1] !== n - 1) out.push(n - 1);
+    return out;
+  })();
 
   // ── Render ──
   return (
@@ -118,7 +182,12 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
       padding: "14px",
       boxSizing: "border-box",
     }}>
-      <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--vscode-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px", opacity: 0.8 }}>
+      <div style={{
+        fontSize: "11px", fontWeight: 600,
+        color: "var(--vscode-foreground)",
+        textTransform: "uppercase", letterSpacing: "0.05em",
+        marginBottom: "10px", opacity: 0.8,
+      }}>
         {title}
       </div>
 
@@ -128,72 +197,74 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
           viewBox={`0 0 ${CHART_W} ${CHART_H}`}
           style={{ width: "100%", height: `${CHART_H}px`, display: "block", overflow: "visible" }}
           onMouseMove={handleMouseMove}
-          onMouseLeave={() => setTooltip(null)}
+          onMouseLeave={handleMouseLeave}
         >
           <defs>
-            <linearGradient id="lineAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id="duc-area-grad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={LINE_COLOR} stopOpacity="0.25" />
               <stop offset="100%" stopColor={LINE_COLOR} stopOpacity="0.02" />
             </linearGradient>
           </defs>
 
           {/* Area fill */}
-          {pastPointsData.length > 1 && (
-            <polygon points={areaPoints} fill="url(#lineAreaGrad)" />
+          {areaPath && (
+            <path d={areaPath} fill="url(#duc-area-grad)" />
           )}
 
-          {/* Past line — smooth curve */}
-          {pastPath && (
-            <path d={pastPath} fill="none" stroke={LINE_COLOR} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+          {/* Smooth line */}
+          {smoothPath && (
+            <path
+              d={smoothPath}
+              fill="none"
+              stroke={LINE_COLOR}
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
           )}
 
           {/* Hover dot */}
-          {tooltip !== null && (
+          {hoveredIdx !== null && (
             <circle
-              cx={xOf(tooltip.hour)}
-              cy={yOf(tooltip.hour)}
+              cx={xOf(hoveredIdx)}
+              cy={yOf(hoveredIdx)}
               r={3}
-              fill={tooltip.hour <= currentHour ? LINE_COLOR : "rgba(128,128,128,0.5)"}
+              fill={LINE_COLOR}
               stroke="var(--vscode-editor-background, #1e1e1e)"
               strokeWidth="1.5"
             />
           )}
         </svg>
 
-        {/* X-axis labels — density based on container width */}
-        <div ref={containerRef} style={{ display: "flex", marginTop: "4px", position: "relative", height: "12px" }}>
-          {(() => {
-            // ~28px per label minimum
-            const maxLabels = Math.max(2, Math.floor(containerWidth / 28));
-            const step = Math.ceil(23 / (maxLabels - 1));
-            const labelHours: number[] = [];
-            for (let h = 0; h <= 23; h += step) labelHours.push(h);
-            if (labelHours[labelHours.length - 1] !== 23) labelHours.push(23);
-            return labelHours.map((h) => (
-              <span key={h} style={{
-                position: "absolute",
-                left: `${(h / 23) * 100}%`,
-                transform: "translateX(-50%)",
-                fontSize: "9px",
-                color: "var(--vscode-descriptionForeground)",
-                opacity: 0.6,
-                whiteSpace: "nowrap",
-              }}>
-                {String(h).padStart(2, "0")}h
-              </span>
-            ));
-          })()}
+        {/* X-axis labels */}
+        <div
+          ref={containerRef}
+          style={{ display: "flex", marginTop: "4px", position: "relative", height: "12px" }}
+        >
+          {xLabels.map((i) => (
+            <span key={i} style={{
+              position: "absolute",
+              left: `${(xOf(i) / CHART_W) * 100}%`,
+              transform: "translateX(-50%)",
+              fontSize: "9px",
+              color: "var(--vscode-descriptionForeground)",
+              opacity: 0.6,
+              whiteSpace: "nowrap",
+            }}>
+              {formatTick(usage[i].date, period)}
+            </span>
+          ))}
         </div>
       </div>
 
       {/* Tooltip */}
-      {tooltip !== null && (() => {
-        const entry = dataMap.get(tooltip.hour);
+      {hoveredIdx !== null && tooltipPos && (() => {
+        const entry = usage[hoveredIdx];
         return (
           <div style={{
             position: "fixed",
-            left: tooltip.svgX,
-            top: tooltip.svgY - 8,
+            left: tooltipPos.x,
+            top: tooltipPos.y - 8,
             transform: "translate(-50%, -100%)",
             backgroundColor: "var(--vscode-editorHoverWidget-background, #1e1e1e)",
             border: "1px solid var(--vscode-editorHoverWidget-border, rgba(128,128,128,0.3))",
@@ -207,11 +278,11 @@ const DailyUsageChart: React.FC<Props> = ({ usage, title }) => {
             boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
           }}>
             <div style={{ fontWeight: 600, marginBottom: "3px" }}>
-              {String(tooltip.hour).padStart(2, "0")}:00 – {String(tooltip.hour + 1).padStart(2, "0")}:00
+              {formatTooltipHeader(entry.date, period)}
             </div>
             <div style={{ opacity: 0.75, lineHeight: 1.6 }}>
-              <div>{entry?.requests ?? 0} requests</div>
-              <div>{(entry?.tokens ?? 0).toLocaleString()} tokens</div>
+              <div>{entry.requests} requests</div>
+              <div>{entry.tokens.toLocaleString()} tokens</div>
             </div>
           </div>
         );

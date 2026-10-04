@@ -45,8 +45,10 @@ export const parseReplaceInFile = (
   let filePath = extractParamValue(innerContent, "file_path");
   let oldContent = extractParamValue(innerContent, "old_content");
   let newContent = extractParamValue(innerContent, "new_content");
-  const originalToolName = extractParamValue(innerContent, "original_tool_name") || undefined;
-  const originalPath = extractParamValue(innerContent, "original_path") || undefined;
+  const originalToolName =
+    extractParamValue(innerContent, "original_tool_name") || undefined;
+  const originalPath =
+    extractParamValue(innerContent, "original_path") || undefined;
 
   // Fallback: Try alternative tag names if standard ones don't work.
   // Use === null (not falsy check) so that an intentionally empty value like
@@ -74,19 +76,6 @@ export const parseReplaceInFile = (
     }
   }
 
-  // [DEBUG] Log raw extracted values to trace why empty <new_content> is rejected
-  console.log("[DEBUG][ReplaceInFileParser] extracted values:", {
-    filePathType: typeof filePath,
-    filePathValue: JSON.stringify(filePath),
-    oldContentType: typeof oldContent,
-    oldContentValue: JSON.stringify(oldContent),
-    newContentType: typeof newContent,
-    newContentValue: JSON.stringify(newContent),
-    isNewContentNull: newContent === null,
-    isNewContentEmptyString: newContent === "",
-    innerContentSnippet: innerContent.substring(0, 300),
-  });
-
   // Check for missing closing tags with specific error messages.
   // Only probe when the tag is genuinely absent (=== null). An empty-but-present
   // value like "" must NOT trigger this branch — otherwise we'd misreport a
@@ -94,32 +83,35 @@ export const parseReplaceInFile = (
   const missingClosingTags: string[] = [];
 
   if (filePath === null) {
-    const missingTag = detectMissingClosingTag(innerContent, "file_path", ["path"]);
+    const missingTag = detectMissingClosingTag(innerContent, "file_path", [
+      "path",
+    ]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
 
   if (oldContent === null) {
-    const missingTag = detectMissingClosingTag(innerContent, "old_content", ["old"]);
+    const missingTag = detectMissingClosingTag(innerContent, "old_content", [
+      "old",
+    ]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
 
   if (newContent === null) {
-    const missingTag = detectMissingClosingTag(innerContent, "new_content", ["new"]);
+    const missingTag = detectMissingClosingTag(innerContent, "new_content", [
+      "new",
+    ]);
     if (missingTag) {
       missingClosingTags.push(missingTag);
     }
   }
 
-  // [DEBUG] Log whether any closing-tag detection fired
-  console.log("[DEBUG][ReplaceInFileParser] missingClosingTags:", missingClosingTags);
-
   // If missing closing tags detected, provide specific error
   if (missingClosingTags.length > 0) {
-    const tagList = missingClosingTags.map(tag => `</${tag}>`).join(", ");
+    const tagList = missingClosingTags.map((tag) => `</${tag}>`).join(", ");
     const errorMsg = `Missing closing tag(s): ${tagList}`;
 
     console.error("[Zen][ReplaceInFileParser] Validation error:", {

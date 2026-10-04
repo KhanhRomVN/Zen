@@ -31,6 +31,7 @@ import RecentActivity from "./components/RecentActivity";
 import ModelDistributionCard from "./components/ModelDistributionCard";
 // ── Contexts ──
 import { useSettings } from "@/context/SettingsContext";
+import { useBackendConnection } from "@/context/BackendConnectionContext";
 import { useFileHandling } from "../../hooks/useFileHandling";
 import { useHomeDraftManagement } from "./hooks/useHomeDraftManagement";
 import { useModelAccount } from "../../hooks/useModelAccount";
@@ -42,6 +43,9 @@ import { extensionService } from "../../services/ExtensionService";
 import { ConversationItem } from "../history/types";
 import DailyUsageChart from "./components/DailyUsageChart";
 import InstallationBanner from "./components/InstallationBanner";
+import UpdateBanner from "./components/UpdateBanner";
+import StatsPeriodPicker from "./components/StatsPeriodPicker";
+import { useStatsPeriod } from "./hooks/useStatsPeriod";
 
 // ─── Constants ──────────────────────────────────────────────────────────
 const SLOGANS = [
@@ -66,6 +70,7 @@ const DashboardStats = React.memo(
     sortedConversations,
     isLoading,
     onLoadConversation,
+    statsPeriod,
   }: {
     todayTokens: number;
     todayRequests: number;
@@ -81,6 +86,7 @@ const DashboardStats = React.memo(
       tabId: number,
       folderPath: string | null,
     ) => void;
+    statsPeriod: import("./hooks/useStatsPeriod").StatsPeriod;
   }) => {
     const renderCountRef = React.useRef(0);
     renderCountRef.current++;
@@ -126,7 +132,7 @@ const DashboardStats = React.memo(
           emptyText="Loading history..."
         />
 
-        <DailyUsageChart usage={dailyUsage} title="Daily Usage" />
+        <DailyUsageChart usage={dailyUsage} title="Usage" period={statsPeriod} />
 
         <RecentActivity
           conversations={sortedConversations}
@@ -198,6 +204,15 @@ const HomePanel: React.FC<HomePanelProps> = ({
     useSkillEnabled: globalUseSkillEnabled,
     setUseSkillEnabled,
   } = useSettings();
+  const { isConnected, updateInfo } = useBackendConnection();
+
+  // ── Stats period picker ──
+  const {
+    period: statsPeriod,
+    offset: statsOffset,
+    setPeriod: setStatsPeriod,
+    setOffset: setStatsOffset,
+  } = useStatsPeriod();
 
   const [conversationDiagnosticEnabled, setConversationDiagnosticEnabled] =
     React.useState(globalDiagnosticEnabled);
@@ -395,12 +410,24 @@ const HomePanel: React.FC<HomePanelProps> = ({
     });
   }, []);
 
-  // Fetch stats from API
+  // Fetch stats from API — re-run when period/offset changes
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        // period=all maps to a very large offset span; backend uses period=year offset=0
+        // but covers all time via the "all" pseudo-period we handle client-side by
+        // omitting period so backend defaults aggregate all records.
+        const periodParam =
+          statsPeriod === "all" ? "year" : statsPeriod;
+        const offsetParam = statsPeriod === "all" ? 0 : statsOffset;
+
+        const statsUrl =
+          statsPeriod === "all"
+            ? `${apiUrl}/v1/stats?period=year&offset=0`
+            : `${apiUrl}/v1/stats?period=${periodParam}&offset=${offsetParam}`;
+
         const [statsRes, accountsRes, providersRes] = await Promise.all([
-          fetch(`${apiUrl}/v1/stats?period=day`, { headers: dbHeaders() }),
+          fetch(statsUrl, { headers: dbHeaders() }),
           fetch(`${apiUrl}/v1/accounts?page=1&limit=1000`, {
             headers: dbHeaders(),
           }),
@@ -448,7 +475,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
       } catch {}
     };
     fetchStats();
-  }, [apiUrl]);
+  }, [apiUrl, statsPeriod, statsOffset]);
 
   // Rotate slogans
   useEffect(() => {
@@ -593,8 +620,17 @@ const HomePanel: React.FC<HomePanelProps> = ({
               </div>
             </div>
 
-            <InstallationBanner />
+            <InstallationBanner isConnected={isConnected} />
+            <UpdateBanner updateInfo={updateInfo} />
           </div>
+
+          {/* ─── Period picker ─── */}
+          <StatsPeriodPicker
+            period={statsPeriod}
+            offset={statsOffset}
+            onPeriodChange={setStatsPeriod}
+            onOffsetChange={setStatsOffset}
+          />
 
           {/* Dashboard content */}
           <DashboardStats
@@ -608,6 +644,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
             sortedConversations={sortedConversations}
             isLoading={isLoading}
             onLoadConversation={stableOnLoadConversation}
+            statsPeriod={statsPeriod}
           />
 
           <style>{`
