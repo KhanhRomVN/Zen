@@ -90,6 +90,8 @@ export interface MessageInputProps {
   autoScrollPaused?: boolean;
   scrollToBottom?: () => void;
   enableViewOnlyMode?: boolean;
+  /** External flag: conversation đang ở chế độ chỉ xem — hiển thị badge View Only trên toolbar. */
+  isViewOnly?: boolean;
   /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
   onSelectRule?: (item: AttachedItem) => void;
   /** Gỡ 1 attached item theo id — dùng để gỡ badge Rule khỏi toolbar. */

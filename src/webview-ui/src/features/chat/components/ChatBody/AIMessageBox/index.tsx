@@ -80,6 +80,8 @@ interface AIMessageBoxProps {
   onRevertConversation?: (messageId: string, timestamp: number) => void;
   /** Whether the current provider supports regenerate/revert mechanism */
   canRegenerate?: boolean;
+  /** View-only mode — ẩn revert icon trong ResponseMetadataBar */
+  isViewOnly?: boolean;
 }
 
 const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
@@ -116,6 +118,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
   onRetryRequest,
   onRevertConversation,
   canRegenerate = true,
+  isViewOnly = false,
 }) => {
   // Track render count for this specific message
   const renderCountRef = React.useRef(0);
@@ -420,7 +423,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
                       ? () => onRetryRequest(message.id)
                       : undefined
                   }
-                  onRevertConversation={onRevertConversation}
+                  onRevertConversation={isViewOnly ? undefined : onRevertConversation}
                   isStreaming={isGenerating}
                   conversationId={conversationId}
                   canRegenerate={canRegenerate}
@@ -479,6 +482,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               onSendMessage={onSendMessage}
               firstUnclickedActionIndex={firstUnclickedActionIndex}
               isClaudeProvider={message.providerId === "claude"}
+              isViewOnly={isViewOnly}
             />
           );
 
@@ -573,6 +577,8 @@ const AIMessageBox = React.memo(
     const sameToolOutputs = prevProps.toolOutputs === nextProps.toolOutputs;
     const sameTerminalStatus =
       prevProps.terminalStatus === nextProps.terminalStatus;
+    const sameCanRegenerate = prevProps.canRegenerate === nextProps.canRegenerate;
+    const sameIsViewOnly = prevProps.isViewOnly === nextProps.isViewOnly;
 
     const shouldSkipRender =
       sameContent &&
@@ -583,7 +589,9 @@ const AIMessageBox = React.memo(
       sameSelectedOption &&
       sameClickedActions &&
       sameToolOutputs &&
-      sameTerminalStatus;
+      sameTerminalStatus &&
+      sameCanRegenerate &&
+      sameIsViewOnly;
 
     const checkDuration = performance.now() - startTime;
 
@@ -598,6 +606,8 @@ const AIMessageBox = React.memo(
       if (!sameClickedActions) changedProps.push("clickedActions");
       if (!sameToolOutputs) changedProps.push("toolOutputs");
       if (!sameTerminalStatus) changedProps.push("terminalStatus");
+      if (!sameCanRegenerate) changedProps.push("canRegenerate");
+      if (!sameIsViewOnly) changedProps.push("isViewOnly");
     }
 
     return shouldSkipRender; // true = skip re-render

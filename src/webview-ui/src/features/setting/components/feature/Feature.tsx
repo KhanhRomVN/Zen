@@ -8,7 +8,7 @@
  * ------------------------------------------------------------------
  */
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { ShieldCheck, MessageSquare, Brain, RefreshCw } from "lucide-react";
 import { useSettings } from "../../../../context/SettingsContext";
 import type { PermissionMode } from "../../../chat/types/tag-types";
@@ -116,6 +116,12 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Debounce state for auto-save
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDirtyRef = useRef<boolean>(false);
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -124,6 +130,9 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
     try {
       const snapshot = await extensionService.getMemorySnapshot();
       setContent(snapshot || "");
+      isDirtyRef.current = false;
+      setStatus('idle');
+      setValidationError(null);
     } catch (e: any) {
       setError(e?.message || "Failed to load memory file.");
     } finally {
@@ -135,6 +144,65 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
     load();
   }, [load]);
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, []);
+
+  const handleChange = (newValue: string) => {
+    setContent(newValue);
+    isDirtyRef.current = true;
+    setStatus('idle'); // Reset status khi đang gõ
+    
+    // Validate JSON ngay lập tức để feedback visual
+    if (!newValue.trim()) {
+      setValidationError(null);
+    } else {
+      try {
+        JSON.parse(newValue);
+        setValidationError(null);
+      } catch (e: any) {
+        setValidationError("Invalid JSON syntax");
+      }
+    }
+
+    // Debounce save: Chờ 1s sau khi user dừng gõ mới gửi request
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    
+    debounceTimerRef.current = setTimeout(async () => {
+      if (!isDirtyRef.current) return;
+      
+      // Final validation trước khi save
+      if (newValue.trim()) {
+        try { 
+          JSON.parse(newValue); 
+        } catch { 
+          setStatus('error'); 
+          return; 
+        }
+      }
+
+      setStatus('saving');
+      try {
+        const result = await extensionService.saveMemory(newValue);
+        if (!result.success) {
+          throw new Error(result.error || "Failed to save memory file.");
+        }
+        isDirtyRef.current = false;
+        setStatus('saved');
+        // Ẩn thông báo "Saved" sau 2s
+        setTimeout(() => {
+          setStatus((prev) => prev === 'saved' ? 'idle' : prev);
+        }, 2000);
+      } catch (e: any) {
+        setStatus('error');
+        console.error("[MemoryViewer] Save failed:", e);
+      }
+    }, 1000);
+  };
+
   if (!enabled) {
     return (
       <div
@@ -145,15 +213,28 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
           padding: "8px 0",
         }}
       >
-        Bật Memory để xem nội dung file memory.json.
+        Bật Memory để xem và chỉnh sửa nội dung file memory.json.
       </div>
     );
   }
 
-  // Không có nội dung và không đang load → ẩn hoàn toàn viewer
-  if (!loading && !content && !error) {
-    return null;
-  }
+  const getStatusColor = () => {
+    if (validationError) return "#f87171"; // Red
+    if (status === 'saving') return "#fbbf24"; // Amber/Yellow
+    if (status === 'saved') return "#4ade80"; // Green
+    if (status === 'error') return "#f87171"; // Red
+    return "var(--secondary-text)"; // Gray idle
+  };
+
+  const getStatusText = () => {
+    if (validationError) return "Invalid JSON";
+    if (status === 'saving') return "Saving...";
+    if (status === 'saved') return "Saved";
+    if (status === 'error') return "Save Error";
+    return "";
+  };
+
+  const placeholderText = "// Type valid JSON here...\n// Example:\n// {\n//   \"preferences\": {}\n// }";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -161,54 +242,74 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
         <span style={{ fontSize: "11px", color: "var(--secondary-text)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
           memory.json
         </span>
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          title="Reload"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "4px",
-            background: "transparent",
-            border: "none",
-            cursor: loading ? "wait" : "pointer",
-            color: "var(--secondary-text)",
-            fontSize: "11px",
-            padding: "2px 6px",
-            borderRadius: "4px",
-          }}
-        >
-          <RefreshCw size={11} style={{ animation: loading ? "spin 1s linear infinite" : undefined }} />
-          Reload
-        </button>
+        
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {/* Status Indicator */}
+          <span 
+            style={{ 
+              fontSize: "10px", 
+              fontWeight: 600, 
+              color: getStatusColor(),
+              opacity: status !== 'idle' || validationError ? 1 : 0,
+              transition: "opacity 0.2s"
+            }}
+          >
+            {getStatusText()}
+          </span>
+          
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading || status === 'saving'}
+            title="Reload from disk"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              background: "transparent",
+              border: "none",
+              cursor: (loading || status === 'saving') ? "wait" : "pointer",
+              color: "var(--secondary-text)",
+              fontSize: "11px",
+              padding: "2px 6px",
+              borderRadius: "4px",
+            }}
+          >
+            <RefreshCw size={11} style={{ animation: loading ? "spin 1s linear infinite" : undefined }} />
+          </button>
+        </div>
       </div>
+
       {error && (
         <div style={{ fontSize: "11.5px", color: "var(--vscode-errorForeground, #f87171)" }}>
           {error}
         </div>
       )}
-      {(loading || content) && (
-        <pre
-          style={{
-            margin: 0,
-            padding: "10px 12px",
-            maxHeight: "260px",
-            overflow: "auto",
-            fontSize: "11.5px",
-            lineHeight: 1.5,
-            fontFamily: "var(--vscode-editor-font-family, monospace)",
-            color: "var(--primary-text)",
-            backgroundColor: "var(--input-bg, rgba(128,128,128,0.06))",
-            border: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
-            borderRadius: "6px",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-          }}
-        >
-          {loading && !content ? "Đang tải..." : content}
-        </pre>
-      )}
+      
+      {/* Single Editable Textarea - Always visible when enabled */}
+      <textarea
+        value={content}
+        onChange={(e) => handleChange(e.target.value)}
+        spellCheck={false}
+        placeholder={placeholderText}
+        style={{
+          width: "100%",
+          minHeight: "150px",
+          maxHeight: "300px",
+          resize: "vertical",
+          padding: "10px 12px",
+          fontSize: "11.5px",
+          lineHeight: 1.5,
+          fontFamily: "var(--vscode-editor-font-family, monospace)",
+          color: "var(--primary-text)",
+          backgroundColor: "var(--input-bg, rgba(128,128,128,0.06))",
+          border: `1px solid ${validationError ? "#f87171" : "var(--vscode-widget-border, rgba(128,128,128,0.15))"}`,
+          borderRadius: "6px",
+          outline: "none",
+          boxSizing: "border-box",
+          transition: "border-color 0.2s",
+        }}
+      />
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );

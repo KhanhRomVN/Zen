@@ -27,10 +27,10 @@ import { processClaudeContent } from "../../services/ClaudeContentProcessor";
 import { ClaudeRawLogger } from "../../services/ClaudeRawLogger";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
 import {
-  isDeepSeekBlockedNow,
+  isBlockedNow,
   isDeepSeekProvider,
-  getCurrentBlockedRangeLabel,
-  getBlockedHourDescription,
+  getBlockedRangeLabel,
+  getBlockedHoursDescription,
 } from "../../../../utils/timeBlock";
 
 interface ConversationOverrides {
@@ -44,6 +44,8 @@ interface UseChatLLMProps {
   selectedTab: ChatSession | null;
   /** Per-conversation feature overrides from Home panel */
   conversationOverrides?: ConversationOverrides;
+  /** Blocked time ranges từ provider config — sync với deepseek.constant.ts qua API */
+  providerBlockedRanges?: Array<{ startTime: number; endTime: number }> | null;
   onConversationIdChange?: (id: string) => void;
   onToolRequest?: (
     actions: ToolAction[],
@@ -114,6 +116,7 @@ export const useChatLLM = ({
   apiUrl,
   selectedTab,
   conversationOverrides,
+  providerBlockedRanges,
   onConversationIdChange,
   onToolRequest,
   onMalformedTool,
@@ -337,12 +340,12 @@ export const useChatLLM = ({
       if (
         !skipFirstRequestLogic &&
         isDeepSeekProvider(currentProviderId) &&
-        isDeepSeekBlockedNow()
+        isBlockedNow(providerBlockedRanges)
       ) {
-        const rangeLabel = getCurrentBlockedRangeLabel();
-        const allRanges = getBlockedHourDescription();
+        const rangeLabel = getBlockedRangeLabel(providerBlockedRanges);
+        const allRanges = getBlockedHoursDescription(providerBlockedRanges);
         const errorMsg =
-          `DeepSeek bị chặn trong khung giờ ${allRanges} (giờ VN). ` +
+          `DeepSeek bị chặn trong khung giờ ${allRanges}. ` +
           `Hiện tại đang trong khung ${rangeLabel}. Vui lòng thử lại sau.`;
 
         // Xóa conversation hiện tại nếu đây là session mới (chưa có messages)

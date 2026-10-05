@@ -2,7 +2,6 @@ import React from "react";
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import { FileMutationTool } from "@/features/chat/constants/constants";
-import { DailyTokenUsageUI } from "@/components/DailyTokenUsageUI";
 
 interface ChatFooterProps {
   message: string;
@@ -73,6 +72,8 @@ interface ChatFooterProps {
   scrollToBottom?: () => void;
   /** Gọi khi người dùng chọn (hoặc vừa tạo) 1 rule để gắn vào input. */
   onSelectRule?: (item: any) => void;
+  /** View-only: conversation không thể tiếp tục (provider supports_session_cleanup hoặc no-auth) */
+  isViewOnly?: boolean;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -126,8 +127,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   autoScrollPaused = false,
   scrollToBottom,
   onSelectRule,
+  isViewOnly = false,
 }) => {
-  // 🔍 PERFORMANCE DEBUG
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
 
@@ -575,23 +576,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       />
 
       <div style={{ position: "relative" }}>
-        {/* ─── Daily token usage banner (chỉ hiện khi có data) ─── */}
-        {currentAccount?.daily_token_usage != null && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              padding: "2px 16px 0",
-            }}
-          >
-            <DailyTokenUsageUI
-              dailyTokenUsage={currentAccount.daily_token_usage}
-              daily_token_reset_date={currentAccount.daily_token_reset_date}
-            />
-          </div>
-        )}
         <MessageInput
+          isViewOnly={isViewOnly}
           message={message}
           setMessage={setMessage}
           isHistoryMode={isHistoryMode}
@@ -650,9 +636,6 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           onSelectRule={onSelectRule}
           onRemoveAttachedItem={removeAttachedItem}
         />
-        {(() => {
-          return null;
-        })()}
       </div>
     </div>
   );

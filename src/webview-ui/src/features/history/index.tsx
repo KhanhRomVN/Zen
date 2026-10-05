@@ -25,6 +25,7 @@ import ConfirmClearHistoryDrawer from "./components/ConfirmClearHistoryDrawer";
 
 // ── Hooks ──
 import { useConversationHistory } from "./hooks/useConversationHistory";
+import { useDbFetch } from "../../services/useDbFetch";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface HistoryPanelProps {
@@ -47,6 +48,34 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
   const [closeHover, setCloseHover] = useState(false);
   const [trashHover, setTrashHover] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // ── Fetch providers để xác định view-only ──
+  const dbFetch = useDbFetch();
+  const [viewOnlyProviderIds, setViewOnlyProviderIds] = React.useState<
+    string[]
+  >([]);
+  React.useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    dbFetch("/v1/providers")
+      .then((r) => r.json())
+      .then((result) => {
+        if (cancelled || !result.success) return;
+        const ids: string[] = result.data
+          .filter(
+            (p: any) =>
+              p.is_enabled &&
+              (p.supports_session_cleanup === true ||
+                (Array.isArray(p.auth_method) && p.auth_method.length === 0)),
+          )
+          .map((p: any) => p.provider_id as string);
+        setViewOnlyProviderIds(ids);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, dbFetch]);
 
   // ── Store ──
   const {
@@ -399,6 +428,13 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     }}
                     onDelete={handleDeleteConversation}
                     formatDate={formatDate}
+                    isViewOnly={
+                      !!item.providerId &&
+                      viewOnlyProviderIds.some(
+                        (id) =>
+                          id.toLowerCase() === item.providerId!.toLowerCase(),
+                      )
+                    }
                   />
                 </React.Fragment>
               );

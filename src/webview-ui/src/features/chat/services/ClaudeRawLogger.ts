@@ -64,10 +64,6 @@ export class ClaudeRawLogger {
     const body = this.buffer.join("\n");
     const fullLog = header + body;
 
-    // Log ra console để copy hoặc inspect
-    console.group(`[ClaudeRawLogger] ${this.buffer.length} entries flushed`);
-    console.groupEnd();
-
     // Tạo downloadable blob URL
     const blob = new Blob([fullLog], { type: "text/plain" });
     const url = URL.createObjectURL(blob);

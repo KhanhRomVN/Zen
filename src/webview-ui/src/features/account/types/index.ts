@@ -50,6 +50,4 @@ export interface FlatAccount extends Account {
   reset_usage_at?: string;
   is_active_cli?: boolean;
   auth_method?: string | null;
-  daily_token_usage?: number | null;
-  daily_token_reset_date?: string | null;
 }

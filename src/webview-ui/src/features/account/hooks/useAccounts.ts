@@ -58,7 +58,7 @@ export const useAccounts = (isOpen: boolean) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<AccountStatus | "">("");
-  const [statsPeriod, setStatsPeriod] = useState<"day" | "week" | "month">(
+  const [statsPeriod, setStatsPeriod] = useState<"day" | "week" | "month" | "year" | "all">(
     "day",
   );
   const [emailFilter, setEmailFilter] = useState<string[]>([]);
@@ -138,26 +138,43 @@ export const useAccounts = (isOpen: boolean) => {
         if (result.success && result.data) {
           const accountsList = result.data.accounts || [];
 
-          // Fetch daily stats for each account
+          // Fetch stats for each account (period + all-time totals)
           const accountsWithDailyStats = await Promise.all(
             accountsList.map(async (acc: any) => {
               try {
                 const statsResult = await callBackend(
                   `/v1/stats?period=${statsPeriod}&account_id=${acc.id}`,
                 );
-                let dailyTokens = 0;
-                let dailyRequests = 0;
+                let periodTokens = 0;
+                let periodRequests = 0;
+                let totalRequests = acc.total_requests || 0;
+                let successfulRequests = acc.successful_requests || 0;
+                let totalTokens = acc.total_tokens || 0;
 
-                if (statsResult.success && statsResult.data?.usage) {
-                  // Sum all tokens and requests from hourly usage
-                  dailyTokens = statsResult.data.usage.reduce(
-                    (sum: number, hour: any) => sum + (hour.tokens || 0),
-                    0,
-                  );
-                  dailyRequests = statsResult.data.usage.reduce(
-                    (sum: number, hour: any) => sum + (hour.requests || 0),
-                    0,
-                  );
+                if (statsResult.success && statsResult.data) {
+                  // period_requests / period_tokens: tổng từ usage history
+                  if (statsResult.data.usage) {
+                    periodTokens = statsResult.data.usage.reduce(
+                      (sum: number, entry: any) => sum + (entry.tokens || 0),
+                      0,
+                    );
+                    periodRequests = statsResult.data.usage.reduce(
+                      (sum: number, entry: any) => sum + (entry.requests || 0),
+                      0,
+                    );
+                  }
+
+                  // total_requests / successful_requests / total_tokens: từ accounts stats
+                  if (statsResult.data.accounts?.length) {
+                    const accountStat = statsResult.data.accounts.find(
+                      (s: any) => s.id === acc.id,
+                    );
+                    if (accountStat) {
+                      totalRequests = accountStat.total_requests ?? totalRequests;
+                      successfulRequests = accountStat.successful_requests ?? successfulRequests;
+                      totalTokens = accountStat.total_tokens ?? totalTokens;
+                    }
+                  }
                 }
 
                 return {
@@ -165,11 +182,11 @@ export const useAccounts = (isOpen: boolean) => {
                   provider_id: acc.provider_id,
                   email: acc.email,
                   credential: acc.credential,
-                  total_requests: acc.total_requests || 0,
-                  successful_requests: acc.successful_requests || 0,
-                  total_tokens: acc.total_tokens || 0,
-                  period_requests: dailyRequests,
-                  period_tokens: dailyTokens,
+                  total_requests: totalRequests,
+                  successful_requests: successfulRequests,
+                  total_tokens: totalTokens,
+                  period_requests: periodRequests,
+                  period_tokens: periodTokens,
                   user_data_dir: acc.user_data_dir,
                   is_active_cli: acc.is_active_cli,
                   usage: acc.usage ?? null,

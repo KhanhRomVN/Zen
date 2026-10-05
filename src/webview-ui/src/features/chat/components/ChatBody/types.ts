@@ -68,6 +68,11 @@ export interface ChatBodyProps {
   isLoadingConversation?: boolean;
   /** Whether the current provider supports regenerate/revert mechanism */
   canRegenerate?: boolean;
+  /**
+   * View-only mode: true khi load history conv của provider có supports_session_cleanup,
+   * hoặc khi đang trong time-block. Ẩn revert/edit icon, disable input.
+   */
+  isViewOnly?: boolean;
 }
 
 export interface ExtendedChatBodyProps extends ChatBodyProps {

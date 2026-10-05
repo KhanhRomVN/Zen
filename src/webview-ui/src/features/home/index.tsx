@@ -39,10 +39,10 @@ import { useModelAccount } from "../../hooks/useModelAccount";
 // ── Services ──
 import { extensionService } from "../../services/ExtensionService";
 import {
-  isDeepSeekBlockedNow,
+  isBlockedNow,
   isDeepSeekProvider,
-  getCurrentBlockedRangeLabel,
-  getBlockedHourDescription,
+  getBlockedRangeLabel,
+  getBlockedHoursDescription,
 } from "../../utils/timeBlock";
 
 // ── Types ──
@@ -200,6 +200,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const [providerFavicons, setProviderFavicons] = useState<
     Record<string, string>
   >({});
+  const [providers, setProviders] = useState<any[]>([]);
   const [attachedItems, setAttachedItems] = React.useState<any[]>([]);
 
   // ── Per-conversation feature toggles (default from global settings) ──
@@ -367,18 +368,24 @@ const HomePanel: React.FC<HomePanelProps> = ({
         attachedItems.length > 0
       ) {
         // ── Time-Block Check: Chặn DeepSeek trong giờ cấm ───────────────
-        if (isDeepSeekProvider(model?.providerId) && isDeepSeekBlockedNow()) {
-          const rangeLabel = getCurrentBlockedRangeLabel();
-          const allRanges = getBlockedHourDescription();
-          // Tạo fake chat session để hiển thị error message
-          onSendMessage(
-            `⛔ DeepSeek bị chặn trong khung giờ ${allRanges} (giờ VN). Hiện tại đang trong khung ${rangeLabel}. Vui lòng thử lại sau.`,
-            [],
-            model,
-            account,
-            {},
+        if (isDeepSeekProvider(model?.providerId)) {
+          const providerConfig = providers.find(
+            (p: any) => p.provider_id?.toLowerCase() === model?.providerId?.toLowerCase(),
           );
-          return;
+          const ranges = providerConfig?.blocked_time_ranges ?? null;
+          if (isBlockedNow(ranges)) {
+            const rangeLabel = getBlockedRangeLabel(ranges);
+            const allRanges = getBlockedHoursDescription(ranges);
+            // Tạo fake chat session để hiển thị error message
+            onSendMessage(
+              `⛔ DeepSeek bị chặn trong khung giờ ${allRanges}. Hiện tại đang trong khung ${rangeLabel}. Vui lòng thử lại sau.`,
+              [],
+              model,
+              account,
+              {},
+            );
+            return;
+          }
         }
         // ────────────────────────────────────────────────────────────────
 
@@ -404,6 +411,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
       message,
       uploadedFiles,
       attachedItems,
+      providers,
       onSendMessage,
       clearDraft,
       clearFiles,
@@ -499,6 +507,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
         if (providersRes.ok) {
           const prov = await providersRes.json();
           if (prov.success && prov.data) {
+            setProviders(prov.data);
             const favicons: Record<string, string> = {};
             prov.data.forEach((p: any) => {
               if (p.provider_id && p.website) {

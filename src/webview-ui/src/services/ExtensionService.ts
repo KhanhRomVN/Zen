@@ -142,6 +142,25 @@ class ExtensionService {
   }
 
   /**
+   * Lấy đường dẫn tuyệt đối của file memory.json cho project hiện tại.
+   * Trả về "" nếu chưa mở workspace hoặc lỗi IPC timeout.
+   */
+  public getMemoryFilePath(): Promise<string> {
+    return new Promise((resolve) => {
+      const requestId = `memory-path-${Date.now()}-${Math.random()}`;
+      messageDispatcher.register(
+        requestId,
+        (msg: any) => {
+          resolve(typeof msg.path === "string" ? msg.path : "");
+        },
+        3000,
+        () => resolve(""),
+      );
+      this.postMessage({ command: "getMemoryFilePath", requestId });
+    });
+  }
+
+  /**
    * Ghi toàn bộ nội dung memory.json của project hiện tại.
    * Dùng bởi Settings → Feature → Memory editor (autosave).
    */

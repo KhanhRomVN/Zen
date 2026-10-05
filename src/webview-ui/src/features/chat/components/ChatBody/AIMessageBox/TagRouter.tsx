@@ -115,6 +115,8 @@ interface TagRouterProps {
   firstUnclickedActionIndex?: number;
   /** True khi message được tạo bởi claude provider — các tool read/run chỉ display-only */
   isClaudeProvider?: boolean;
+  /** View-only: disable question/option buttons */
+  isViewOnly?: boolean;
 }
 
 const TagRouterInternal: React.FC<TagRouterProps> = ({
@@ -152,6 +154,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   isBlockedByPrecedingInteraction = false,
   firstUnclickedActionIndex,
   isClaudeProvider = false,
+  isViewOnly = false,
 }) => {
   const { rootPath } = useProject();
   // Handle UI blocks (markdown, code, question, error, warning)
@@ -192,7 +195,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
         optional={group.optional}
         selectedOption={group.selectedOption}
         questionAnswers={group.questionAnswers}
-        disabled={!!nextUserMessage || isGenerating}
+        disabled={!!nextUserMessage || isGenerating || isViewOnly}
         onAnswer={(questionId, value) => {
           if (!hasQuestions) return;
           if (onSelectOption) {

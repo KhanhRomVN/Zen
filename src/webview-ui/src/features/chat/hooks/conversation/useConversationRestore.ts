@@ -80,6 +80,15 @@ export const useConversationRestore = ({
           // Restore messages from cache
           const messagesToRestore = cached.messages;
           setMessages(messagesToRestore);
+          if (cached.conversationFileStats) {
+            setLoadedConversationFileStats(cached.conversationFileStats);
+          } else {
+            setLoadedConversationFileStats({
+              totalFiles: 0,
+              totalAdditions: 0,
+              totalDeletions: 0,
+            });
+          }
           if (
             cached.toolOutputs &&
             Object.keys(cached.toolOutputs).length > 0
@@ -245,6 +254,14 @@ export const useConversationRestore = ({
             // Set loaded conversation file stats
             if (data.data.conversationFileStats) {
               setLoadedConversationFileStats(data.data.conversationFileStats);
+            } else {
+              // Không có conversationFileStats — set object rỗng để isViewOnly vẫn có thể evaluate
+              // (loadedConversationFileStats cần != null để trigger isViewOnly check)
+              setLoadedConversationFileStats({
+                totalFiles: 0,
+                totalAdditions: 0,
+                totalDeletions: 0,
+              });
             }
           }
         }

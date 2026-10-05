@@ -14,7 +14,8 @@
  */
 
 // ─── Imports ────────────────────────────────────────────────────────────
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 import {
   Trash2,
   RefreshCw,
@@ -48,6 +49,13 @@ import {
 } from "@/utils/jwt";
 import { extensionService } from "../../../services/ExtensionService";
 import { FlatAccount } from "../types";
+import {
+  formatInUserTimezone,
+  parseIsoSafe,
+  getUserTimezone,
+  computeNextResetVN,
+} from "@/utils/timezone";
+import AccountTooltip from "./AccountTooltip";
 
 // ─── Interfaces ─────────────────────────────────────────────────────────
 interface AccountCardProps {
@@ -60,6 +68,7 @@ interface AccountCardProps {
   onRefreshToken?: () => Promise<{ success: boolean; error?: string }>;
   onEdit?: () => void;
   providerConfig?: any;
+  statsPeriod?: "day" | "week" | "month" | "year" | "all";
 }
 
 // ─── Icons ──────────────────────────────────────────────────────────────
@@ -101,6 +110,7 @@ const AccountCard: React.FC<AccountCardProps> = ({
   onRefreshToken,
   onEdit,
   providerConfig,
+  statsPeriod = "day",
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -112,6 +122,26 @@ const AccountCard: React.FC<AccountCardProps> = ({
     null,
   );
 
+  // ── Hover tooltip ─────────────────────────────────────────────────────
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    setTooltipPos({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleMouseEnter = useCallback((e: React.MouseEvent) => {
+    setTooltipPos({ x: e.clientX, y: e.clientY });
+    setTooltipVisible(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setTooltipVisible(false);
+  }, []);
+
   useEffect(() => {
     if (anySelected) setExpanded(false);
   }, [anySelected]);
@@ -120,15 +150,10 @@ const AccountCard: React.FC<AccountCardProps> = ({
     ? getFaviconUrl(providerConfig.website)
     : null;
 
+  /** Format ISO/SQLite date string theo timezone của người dùng */
   const formatIsoDate = (iso: string) => {
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return iso;
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const min = String(d.getMinutes()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+    const d = parseIsoSafe(iso);
+    return formatInUserTimezone(d, iso);
   };
 
   const isBrowserConnection = providerConfig?.connection_type === "browser";
@@ -246,7 +271,23 @@ const AccountCard: React.FC<AccountCardProps> = ({
           className="account-card"
           style={cardStyle}
           onClick={handleCardClick}
+          onMouseEnter={handleMouseEnter}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
         >
+          {/* Hover tooltip — render qua portal để tránh bị clip */}
+          {tooltipVisible &&
+            ReactDOM.createPortal(
+              <AccountTooltip
+                account={account}
+                providerConfig={providerConfig}
+                x={tooltipPos.x}
+                y={tooltipPos.y}
+                visible={tooltipVisible}
+                statsPeriod={statsPeriod}
+              />,
+              document.body,
+            )}
           {/* Main Card Content */}
           <div style={{ padding: "10px 12px" }}>
             {/* Checkmark indicator when selected (top-right corner, subtle) */}
@@ -459,66 +500,87 @@ const AccountCard: React.FC<AccountCardProps> = ({
                         : (account.period_tokens ?? 0)}{" "}
                     tokens
                   </span>
-                  {/* Usage % — ghi trực tiếp bởi backend sau mỗi request */}
-                  {account.usage != null && (() => {
-                    const usageNum = Number(account.usage);
-                    const usageColor = usageNum >= 90
-                      ? "var(--vscode-editorError-foreground, #ef4444)"
-                      : usageNum >= 70
-                        ? "var(--vscode-editorWarning-foreground, #f97316)"
-                        : "var(--vscode-charts-purple, #a855f7)";
-                    const resetTitle = account.reset_usage_at
-                      ? `Usage resets at: ${formatIsoDate(account.reset_usage_at)}`
-                      : undefined;
-                    return (
-                      <span
-                        title={resetTitle}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          fontSize: "10px",
-                          color: usageNum >= 90
-                            ? "var(--vscode-editorError-foreground, #ef4444)"
-                            : usageNum >= 70
-                              ? "var(--vscode-editorWarning-foreground, #f97316)"
-                              : "var(--secondary-text)",
-                          flexShrink: 0,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          maxWidth: "80px",
-                        }}
-                      >
-                        <BarChart3 size={11} style={{ flexShrink: 0, color: usageColor }} />
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {usageNum.toFixed(1)}%
-                        </span>
-                      </span>
-                    );
-                  })()}
-                  {/* Reset countdown */}
-                  {account.usage != null && account.reset_usage_at != null &&
+                  {account.usage != null &&
                     (() => {
-                      const resetDate = new Date(account.reset_usage_at);
-                      if (isNaN(resetDate.getTime())) return null;
+                      const usageNum = Number(account.usage);
+                      const usageColor =
+                        usageNum >= 90
+                          ? "var(--vscode-editorError-foreground, #ef4444)"
+                          : usageNum >= 70
+                            ? "var(--vscode-editorWarning-foreground, #f97316)"
+                            : "var(--vscode-charts-purple, #a855f7)";
+                      const resetTitle = account.reset_usage_at
+                        ? `Usage resets at: ${formatIsoDate(account.reset_usage_at)} (${getUserTimezone()})`
+                        : undefined;
+                      return (
+                        <span
+                          title={resetTitle}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "10px",
+                            color:
+                              usageNum >= 90
+                                ? "var(--vscode-editorError-foreground, #ef4444)"
+                                : usageNum >= 70
+                                  ? "var(--vscode-editorWarning-foreground, #f97316)"
+                                  : "var(--secondary-text)",
+                            flexShrink: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            maxWidth: "80px",
+                          }}
+                        >
+                          <BarChart3
+                            size={11}
+                            style={{ flexShrink: 0, color: usageColor }}
+                          />
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {usageNum.toFixed(1)}%
+                          </span>
+                        </span>
+                      );
+                    })()}
+                  {/* Reset countdown — hiển thị kể cả khi reset_usage_at cũ/expired */}
+                  {account.usage != null &&
+                    account.reset_usage_at != null &&
+                    (() => {
+                      // Parse reset_usage_at từ DB
+                      const storedReset = parseIsoSafe(account.reset_usage_at);
+                      // Nếu reset đã qua (data cũ hoặc UTC midnight), tính lại theo GMT+7
+                      const resetDate =
+                        !isNaN(storedReset.getTime()) &&
+                        storedReset.getTime() > Date.now()
+                          ? storedReset
+                          : computeNextResetVN("day");
                       const diffMs = resetDate.getTime() - Date.now();
                       if (diffMs <= 0) return null;
                       const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-                      const label = diffHours < 1
-                        ? "Resets <1h"
-                        : diffHours < 24
-                          ? `Resets ${diffHours}h`
-                          : `Resets ${Math.ceil(diffHours / 24)}d`;
+                      const label =
+                        diffHours < 1
+                          ? "Resets <1h"
+                          : diffHours < 24
+                            ? `Resets ${diffHours}h`
+                            : `Resets ${Math.ceil(diffHours / 24)}d`;
+                      const resetLabel = formatInUserTimezone(resetDate);
                       return (
                         <span
-                          title={`Usage resets at: ${formatIsoDate(account.reset_usage_at)}`}
+                          title={`Usage resets at: ${resetLabel} (${getUserTimezone()})`}
                           style={{
                             display: "flex",
                             alignItems: "center",
                             gap: "3px",
                             fontSize: "10px",
-                            color: "var(--vscode-editorWarning-foreground, #f97316)",
+                            color:
+                              "var(--vscode-editorWarning-foreground, #f97316)",
                             flexShrink: 0,
                           }}
                         >
@@ -782,7 +844,7 @@ const AccountCard: React.FC<AccountCardProps> = ({
                         marginBottom: "2px",
                       }}
                     >
-                      <Clock size={10} /> Reset At
+                      <Clock size={10} /> Reset At ({getUserTimezone()})
                     </div>
                     <div
                       style={{
@@ -791,7 +853,15 @@ const AccountCard: React.FC<AccountCardProps> = ({
                         color: "var(--primary-text)",
                       }}
                     >
-                      {formatIsoDate(account.reset_usage_at)}
+                      {(() => {
+                        const stored = parseIsoSafe(account.reset_usage_at);
+                        const effectiveReset =
+                          !isNaN(stored.getTime()) &&
+                          stored.getTime() > Date.now()
+                            ? stored
+                            : computeNextResetVN("day");
+                        return formatInUserTimezone(effectiveReset);
+                      })()}
                     </div>
                   </div>
                 )}

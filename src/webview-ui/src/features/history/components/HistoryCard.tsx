@@ -34,6 +34,8 @@ interface HistoryCardProps {
   onDelete: (id: string, e: React.MouseEvent) => void;
   formatDate: (timestamp: number) => string;
   providerFavicons?: Record<string, string>;
+  /** Conversation này thuộc provider view-only (session_cleanup / no-auth) */
+  isViewOnly?: boolean;
 }
 
 // ─── Component ──────────────────────────────────────────────────────────
@@ -43,6 +45,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   onDelete,
   formatDate,
   providerFavicons,
+  isViewOnly = false,
 }) => {
   // ── State ──
   const [menuVisible, setMenuVisible] = React.useState(false);
@@ -192,11 +195,75 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
   };
 
   const userContent = getUserContent();
+
   const messagesModelInfo = getModelInfo();
   const providerId =
     item.providerId || item.provider || messagesModelInfo.providerId;
   const modelId = item.modelId || messagesModelInfo.modelId;
-  const favicon = providerId ? providerFavicons?.[providerId] : null;
+
+  // Optimize: Generate favicon URL synchronously using helper to avoid delay from async props
+  const getFaviconUrlSync = (pid: string): string => {
+    if (!pid) return "";
+    const lowerPid = pid.toLowerCase();
+    let domain = `${lowerPid}.com`;
+
+    if (
+      lowerPid.includes("openai") ||
+      lowerPid.includes("chatgpt") ||
+      lowerPid.includes("gpt")
+    )
+      domain = "openai.com";
+    else if (lowerPid.includes("anthropic") || lowerPid.includes("claude"))
+      domain = "anthropic.com";
+    else if (lowerPid.includes("google") || lowerPid.includes("gemini"))
+      domain = "google.com";
+    else if (lowerPid.includes("openrouter")) domain = "openrouter.ai";
+    else if (lowerPid.includes("deepseek")) domain = "deepseek.com";
+    else if (
+      lowerPid.includes("grok") ||
+      lowerPid.includes("xai") ||
+      lowerPid.includes("x.ai")
+    )
+      domain = "x.ai";
+    else if (lowerPid.includes("zenmux")) domain = "zenmux.ai";
+    else if (lowerPid.includes("moonshot") || lowerPid.includes("kimi"))
+      domain = "moonshot.cn";
+    else if (
+      lowerPid.includes("qwen") ||
+      lowerPid.includes("alibaba") ||
+      lowerPid.includes("aliyun") ||
+      lowerPid.includes("dashscope")
+    )
+      domain = "qwen.ai";
+    else if (lowerPid.includes("groq")) domain = "groq.com";
+    else if (lowerPid.includes("mistral")) domain = "mistral.ai";
+    else if (
+      lowerPid.includes("glm") ||
+      lowerPid.includes("zai") ||
+      lowerPid.includes("z-ai") ||
+      lowerPid.includes("zhipu") ||
+      lowerPid.includes("bigmodel")
+    )
+      domain = "bigmodel.cn";
+    else if (lowerPid.includes("cohere")) domain = "cohere.com";
+    else if (lowerPid.includes("perplexity")) domain = "perplexity.ai";
+    else if (lowerPid.includes("together")) domain = "together.ai";
+    else if (lowerPid.includes("fireworks")) domain = "fireworks.ai";
+    else if (lowerPid.includes("meta") || lowerPid.includes("llama"))
+      domain = "meta.com";
+    else if (lowerPid.includes("siliconflow")) domain = "siliconflow.cn";
+    else if (lowerPid.includes("baichuan")) domain = "baichuan-ai.com";
+    else if (lowerPid.includes("minimax")) domain = "minimaxi.com";
+    else if (lowerPid.includes("01wanwu") || lowerPid.includes("yi-"))
+      domain = "01.ai";
+
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+  };
+
+  // Prioritize sync generated URL over async prop to ensure immediate render alongside text
+  const favicon = providerId
+    ? providerFavicons?.[providerId] || getFaviconUrlSync(providerId)
+    : null;
   const { requests, responses } = getRequestResponseCounts();
   const timestamp = item.lastModified || item.timestamp || item.createdAt || 0;
   const timeText = formatTimeText(timestamp);
@@ -493,30 +560,76 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
             </div>
           </div>
 
-          {/* Right: Token badge - now on the right, no border/outline */}
-          {(item.totalTokenUsage ?? 0) > 0 &&
-            (() => {
-              const c = getTokenColor(item.totalTokenUsage ?? 0);
-              return (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "3px",
-                    flexShrink: 0,
-                    padding: "1px 6px",
-                    borderRadius: "4px",
-                    backgroundColor: c.bg,
-                    color: c.text,
-                    fontSize: "10px",
-                    fontWeight: 700,
-                  }}
+          {/* Right: View Only badge + Token badge */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "5px",
+              flexShrink: 0,
+            }}
+          >
+            {/* View Only badge */}
+            {isViewOnly && (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "3px",
+                  padding: "1px 6px",
+                  borderRadius: "4px",
+                  backgroundColor:
+                    "color-mix(in srgb, #eab308 14%, transparent)",
+                  border:
+                    "1px solid color-mix(in srgb, #eab308 35%, transparent)",
+                  color: "#ca8a04",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  letterSpacing: "0.03em",
+                }}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="9"
+                  height="9"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <Zap size={9} />
-                  <span>{formatTokens(item.totalTokenUsage ?? 0)}</span>
-                </div>
-              );
-            })()}
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                View Only
+              </div>
+            )}
+
+            {/* Token badge */}
+            {(item.totalTokenUsage ?? 0) > 0 &&
+              (() => {
+                const c = getTokenColor(item.totalTokenUsage ?? 0);
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "3px",
+                      padding: "1px 6px",
+                      borderRadius: "4px",
+                      backgroundColor: c.bg,
+                      color: c.text,
+                      fontSize: "10px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    <Zap size={9} />
+                    <span>{formatTokens(item.totalTokenUsage ?? 0)}</span>
+                  </div>
+                );
+              })()}
+          </div>
         </div>
       </div>
 

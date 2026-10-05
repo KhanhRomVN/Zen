@@ -2,28 +2,31 @@
  * ------------------------------------------------------------------
  * Time Block Utility (Zen Webview)
  * ------------------------------------------------------------------
- * Kiểm tra giờ hiện tại (UTC chuẩn) có nằm trong khung giờ bị cấm
- * dùng DeepSeek không.
+ * Kiểm tra giờ UTC có nằm trong khung giờ bị cấm DeepSeek không.
  *
- * Khung giờ bị cấm (UTC):
- *   - 03:00–04:00 UTC  (= 10:00–11:00 GMT+7)
- *   - 19:00–21:00 UTC  (= 02:00–04:00 GMT+7 ngày hôm sau)
+ * Ranges KHÔNG hardcode nữa — lấy từ provider config trả về qua
+ * `/v1/providers` (field `blocked_time_ranges`). Khi đổi
+ * deepseek.constant.ts phía AIWeb2API, Zen tự sync không cần sửa thêm.
+ *
+ * Fallback: nếu chưa load được provider, dùng DEFAULT_BLOCKED_RANGES
+ * để tránh bỏ sót chặn khi app vừa khởi động.
  *
  * NOTE: File này dùng cho Webview context (browser JS), không phải Node.js.
  * ------------------------------------------------------------------
  */
 
+export type BlockedTimeRange = { startTime: number; endTime: number };
+
 /**
- * Khung giờ bị chặn DeepSeek theo UTC chuẩn ([start, end) exclusive).
+ * Fallback khi chưa fetch được provider config.
+ * Khớp với deepseek.constant.ts — CHỈ dùng khi provider chưa load.
  */
-const BLOCKED_RANGES: Array<{
-  startUTC: number;
-  endUTC: number;
-  labelVN: string;
-}> = [
-  { startUTC: 3,  endUTC: 4,  labelVN: "10:00–11:00 (GMT+7)" },
-  { startUTC: 19, endUTC: 21, labelVN: "02:00–04:00 (GMT+7)" },
+const DEFAULT_BLOCKED_RANGES: BlockedTimeRange[] = [
+  { startTime: 3, endTime: 4 },
+  { startTime: 19, endTime: 21 },
 ];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
 
 /**
  * Lấy giờ UTC hiện tại (0–23).
@@ -33,27 +36,138 @@ export function getCurrentUTCHour(): number {
 }
 
 /**
- * Kiểm tra giờ UTC hiện tại có bị chặn DeepSeek không.
+ * Đổi giờ UTC (0–24) sang Date local, dựa trên ngày hôm nay UTC.
+ * utcHour=24 được chuẩn hoá thành 0:00 ngày hôm sau UTC.
+ */
+function utcHourToLocalDate(utcHour: number): Date {
+  const now = new Date();
+  // Lấy ngày hôm nay UTC (bỏ phần giờ/phút/giây)
+  const base = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+  );
+  return new Date(base + utcHour * 3_600_000);
+}
+
+/** Format Date → "HH:MM" theo local timezone */
+function fmtTime(d: Date): string {
+  return d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/** Format Date → "dd/mm" theo local timezone */
+function fmtDate(d: Date): string {
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  return `${day}/${month}`;
+}
+
+/**
+ * Tạo label local cho 1 range, xử lý trường hợp wrap qua nửa đêm.
+ *
+ * Same-day  (08:00–11:00):            "08:00–11:00"
+ * Next-day  (02:00–04:00 ngày sau):   "02:00–04:00 (next day)"
+ * Cross-month / khác ngày rõ ràng:    "HH:MM dd/mm – HH:MM dd/mm"
+ */
+function buildRangeLabel(range: BlockedTimeRange): string {
+  const startDate = utcHourToLocalDate(range.startTime);
+  const endDate = utcHourToLocalDate(range.endTime);
+
+  const startTime = fmtTime(startDate);
+  const endTime = fmtTime(endDate);
+
+  // So sánh ngày local (year+month+day)
+  const startDay =
+    startDate.getFullYear() * 10000 +
+    startDate.getMonth() * 100 +
+    startDate.getDate();
+  const endDay =
+    endDate.getFullYear() * 10000 +
+    endDate.getMonth() * 100 +
+    endDate.getDate();
+
+  if (startDay === endDay) {
+    // Same local day — chỉ hiện giờ
+    return `${startTime}–${endTime}`;
+  }
+
+  // endDate là ngày hôm sau startDate (chênh đúng 1 ngày) → "next day"
+  const diffDays = Math.round(
+    (endDate.getTime() - startDate.getTime()) / 86_400_000,
+  );
+  if (diffDays === 1) {
+    return `${startTime}–${endTime} (next day)`;
+  }
+
+  // Khoảng cách > 1 ngày → hiện đầy đủ ngày/giờ
+  return `${startTime} ${fmtDate(startDate)}–${endTime} ${fmtDate(endDate)}`;
+}
+
+// ─── Core API (nhận ranges từ ngoài) ─────────────────────────────────────
+
+/**
+ * Kiểm tra giờ UTC hiện tại có nằm trong bất kỳ range nào không.
+ * @param ranges - lấy từ `provider.blocked_time_ranges`, fallback về DEFAULT nếu null/undefined
+ */
+export function isBlockedNow(
+  ranges: BlockedTimeRange[] | null | undefined,
+): boolean {
+  const r = ranges ?? DEFAULT_BLOCKED_RANGES;
+  const hour = getCurrentUTCHour();
+  const blocked = r.some(
+    (range) => hour >= range.startTime && hour < range.endTime,
+  );
+  return blocked;
+}
+
+/**
+ * Label local của range đang bị chặn, hoặc null nếu không bị chặn.
+ */
+export function getBlockedRangeLabel(
+  ranges: BlockedTimeRange[] | null | undefined,
+): string | null {
+  const r = ranges ?? DEFAULT_BLOCKED_RANGES;
+  const hour = getCurrentUTCHour();
+  const range = r.find(
+    (range) => hour >= range.startTime && hour < range.endTime,
+  );
+  const label = range ? buildRangeLabel(range) : null;
+  return label;
+}
+
+/**
+ * Mô tả tất cả ranges bị chặn (local timezone).
+ */
+export function getBlockedHoursDescription(
+  ranges: BlockedTimeRange[] | null | undefined,
+): string {
+  const r = ranges ?? DEFAULT_BLOCKED_RANGES;
+  const desc = r.map(buildRangeLabel).join(" and ");
+  return desc;
+}
+
+// ─── Compat wrappers (dùng DEFAULT — chỉ cho code chưa có provider) ──────
+
+/**
+ * @deprecated Dùng `isBlockedNow(provider.blocked_time_ranges)` thay thế.
+ * Giữ lại để không break code cũ trong lúc migration.
  */
 export function isDeepSeekBlockedNow(): boolean {
-  const hour = getCurrentUTCHour();
-  return BLOCKED_RANGES.some((r) => hour >= r.startUTC && hour < r.endUTC);
+  return isBlockedNow(DEFAULT_BLOCKED_RANGES);
 }
 
-/**
- * Tên khung giờ (GMT+7) đang bị chặn, hoặc null nếu không bị chặn.
- */
+/** @deprecated Dùng `getBlockedRangeLabel(provider.blocked_time_ranges)` */
 export function getCurrentBlockedRangeLabel(): string | null {
-  const hour = getCurrentUTCHour();
-  const range = BLOCKED_RANGES.find((r) => hour >= r.startUTC && hour < r.endUTC);
-  return range ? range.labelVN : null;
+  return getBlockedRangeLabel(DEFAULT_BLOCKED_RANGES);
 }
 
-/**
- * Mô tả tất cả các khung giờ bị chặn (hiển thị GMT+7 cho user VN).
- */
+/** @deprecated Dùng `getBlockedHoursDescription(provider.blocked_time_ranges)` */
 export function getBlockedHourDescription(): string {
-  return BLOCKED_RANGES.map((r) => r.labelVN).join(" và ");
+  return getBlockedHoursDescription(DEFAULT_BLOCKED_RANGES);
 }
 
 /**

@@ -12,10 +12,10 @@ import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { getConversationKey } from "./services/ConversationService";
 import { extensionService } from "../../services/ExtensionService";
 import {
-  isDeepSeekBlockedNow,
+  isBlockedNow,
   isDeepSeekProvider,
-  getCurrentBlockedRangeLabel,
-  getBlockedHourDescription,
+  getBlockedRangeLabel,
+  getBlockedHoursDescription,
 } from "../../utils/timeBlock";
 
 // Core chat hooks
@@ -29,6 +29,7 @@ import { useFileHandling } from "../../hooks/useFileHandling";
 import { useBrowserSession } from "./hooks/llm/useBrowserSession";
 import { useDraftManagement } from "./hooks/conversation/useDraftManagement";
 import { useModelAccount } from "../../hooks/useModelAccount";
+import { useSessionCleanup } from "./hooks/llm/useSessionCleanup";
 
 // New modular hooks
 import { useApiConfiguration } from "./hooks/api/useApiConfiguration";
@@ -145,36 +146,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   currentModelRef.current = currentModel;
   currentAccountRef.current = currentAccount;
 
-  // Enrich currentAccount với usage từ API (fire-and-forget, không block render).
-  // Chạy mỗi khi account.id đổi hoặc apiUrl ready — để ChatHeader luôn có usage mới nhất.
-  useEffect(() => {
-    if (!currentAccount?.id || !apiUrl) return;
-    let cancelled = false;
-    fetch(`${apiUrl}/v1/accounts`)
-      .then((r) => r.json())
-      .then((result) => {
-        if (cancelled || !result?.success || !result.data?.accounts) return;
-        const fetched = result.data.accounts.find((a: any) => a.id === currentAccountRef.current?.id);
-        if (!fetched) return;
-        const newUsage = fetched.usage ?? null;
-        const newResetUsageAt = fetched.reset_usage_at ?? null;
-        if (
-          newUsage !== (currentAccountRef.current?.usage ?? null) ||
-          newResetUsageAt !== (currentAccountRef.current?.reset_usage_at ?? null)
-        ) {
-          setCurrentAccount((prev: any) => ({
-            ...prev,
-            usage: newUsage,
-            reset_usage_at: newResetUsageAt,
-            daily_token_usage: fetched.daily_token_usage ?? prev?.daily_token_usage ?? null,
-            daily_token_reset_date: fetched.daily_token_reset_date ?? prev?.daily_token_reset_date ?? null,
-          }));
-        }
-      })
-      .catch(() => {/* silent */});
-    return () => { cancelled = true; };
-  }, [currentAccount?.id, apiUrl]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // --- Provider capability flags ---
   // true khi provider hiện tại hỗ trợ regenerate (có server-side conversation thread)
   const canRegenerate = React.useMemo(() => {
@@ -190,6 +161,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     const result = pc.can_regenerate === true;
     return result;
   }, [currentAccount?.provider_id, providers]);
+
+  // blocked_time_ranges từ provider config hiện tại — sync với deepseek.constant.ts qua API
+  const currentProviderBlockedRanges = React.useMemo(() => {
+    const providerId = currentModel?.providerId;
+    if (!providerId) return null;
+    const pc = providers.find(
+      (p: any) => p.provider_id?.toLowerCase() === providerId.toLowerCase(),
+    );
+    return pc?.blocked_time_ranges ?? null;
+  }, [currentModel?.providerId, providers]);
 
   const { commitMessageLanguage } = useSettings();
 
@@ -220,6 +201,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const isStoppedRef = useRef(false);
 
   const { apiUrl: backendApiUrl } = useBackendConnection();
+  // Ref để fetchAccountStats luôn đọc được backendApiUrl mới nhất, tránh stale closure
+  const backendApiUrlRef = useRef(backendApiUrl);
+  backendApiUrlRef.current = backendApiUrl;
 
   // Revert state
   const [revertInput, setRevertInput] = useState<{
@@ -228,6 +212,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   } | null>(null);
   const revertParentMessageIdRef = useRef<string | null>(null);
 
+  // ── Conversation title (set by AI via conversation_title tool or restored from storage) ──
+  const [conversationTitle, setConversationTitle] = useState<string>("");
+
   // Loaded conversation file stats from history
   const [loadedConversationFileStats, setLoadedConversationFileStats] =
     useState<{
@@ -235,6 +222,39 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       totalAdditions: number;
       totalDeletions: number;
     } | null>(null);
+
+  // ── View-only state ──────────────────────────────────────────────────
+  // true khi provider bị blocked_time_ranges (non-DeepSeek) → lock input, không xóa conv
+  const [isTimeBlockViewOnly, setIsTimeBlockViewOnly] = React.useState(false);
+
+  // true khi conversation load từ history + provider supports_session_cleanup / no-auth
+  // hoặc khi đang trong khung giờ blocked của non-DeepSeek provider
+  const isViewOnly = React.useMemo(() => {
+    if (isTimeBlockViewOnly) return true;
+    if (!loadedConversationFileStats) {
+      return false;
+    }
+    const providerId = currentModel?.providerId;
+    if (!providerId) {
+      return false;
+    }
+    const pc = providers.find(
+      (p: any) => p.provider_id?.toLowerCase() === providerId.toLowerCase(),
+    );
+    if (!pc) {
+      return false;
+    }
+    const isSessionCleanup = pc.supports_session_cleanup === true;
+    const authMethod = pc.auth_method;
+    const isNoAuth = Array.isArray(authMethod) && authMethod.length === 0;
+    const result = isSessionCleanup || isNoAuth;
+    return result;
+  }, [
+    currentModel?.providerId,
+    providers,
+    loadedConversationFileStats,
+    isTimeBlockViewOnly,
+  ]);
 
   // Ref to setToolOutputs (will be set after useToolExecution)
   const setToolOutputsRef = useRef<any>(null);
@@ -263,6 +283,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     selectedTab: currentChat,
     conversationOverrides:
       pendingConversationOverridesRef.current ?? restoredConversationOverrides,
+    providerBlockedRanges: currentProviderBlockedRanges,
     onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
       handleToolRequest(
         actions,
@@ -295,6 +316,104 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Track messages and streaming state - kept for potential future use, but removed heavy logging
   // (Previously had debug useEffect here - removed for performance)
+
+  // Enrich currentAccount với usage + period stats sau mỗi lần stream xong
+  // và khi account.id đổi. Dùng isStreaming làm trigger — mỗi khi stream
+  // kết thúc (true → false) sẽ refetch để lấy usage/stats mới nhất.
+  // NOTE: dùng backendApiUrlRef để tránh stale closure — luôn đọc URL mới nhất
+  const isStreamingRef = React.useRef(isStreaming);
+  const fetchAccountStats = React.useCallback(() => {
+    const url = backendApiUrlRef.current;
+    if (!currentAccountRef.current?.id || !url) return;
+    const accountId = currentAccountRef.current.id;
+    let cancelled = false;
+
+    Promise.all([
+      fetch(`${url}/v1/accounts?limit=1&page=1`).then((r) => r.json()),
+      fetch(`${url}/v1/stats?period=day&account_id=${accountId}`).then((r) =>
+        r.json(),
+      ),
+    ])
+      .then(([accountsResult, statsResult]) => {
+        if (cancelled) return;
+        const updates: Record<string, any> = {};
+
+        // usage + reset_usage_at
+        if (accountsResult?.success && accountsResult.data?.accounts) {
+          const fetched = accountsResult.data.accounts.find(
+            (a: any) => a.id === accountId,
+          );
+          if (fetched) {
+            updates.usage = fetched.usage ?? null;
+            updates.reset_usage_at = fetched.reset_usage_at ?? null;
+          }
+        }
+
+        // period_requests + period_tokens (day)
+        if (statsResult?.success && statsResult.data) {
+          const usageArr = statsResult.data.usage ?? [];
+          const dayRequests = usageArr.reduce(
+            (s: number, e: any) => s + (e.requests || 0),
+            0,
+          );
+          const dayTokens = usageArr.reduce(
+            (s: number, e: any) => s + (e.tokens || 0),
+            0,
+          );
+          updates.period_requests = dayRequests;
+          updates.period_tokens = dayTokens;
+
+          if (statsResult.data.accounts?.length) {
+            const stat = statsResult.data.accounts.find(
+              (s: any) => s.id === accountId,
+            );
+            if (stat) {
+              updates.total_requests = stat.total_requests ?? null;
+              updates.successful_requests = stat.successful_requests ?? null;
+              updates.total_tokens = stat.total_tokens ?? null;
+            }
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          setCurrentAccount((prev: any) => ({ ...prev, ...updates }));
+        }
+      })
+      .catch(() => {
+        /* silent */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — dùng refs thay closure
+
+  // Chạy khi account.id đổi
+  React.useEffect(() => {
+    if (!currentAccount?.id || !backendApiUrlRef.current) return;
+    return fetchAccountStats();
+  }, [currentAccount?.id, fetchAccountStats]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Chạy sau mỗi lần stream kết thúc (isStreaming: true → false)
+  React.useEffect(() => {
+    const prev = isStreamingRef.current;
+    isStreamingRef.current = isStreaming;
+    if (prev === true && isStreaming === false) {
+      fetchAccountStats();
+    }
+  }, [isStreaming, fetchAccountStats]);
+
+  // --- Session Cleanup ---
+  // Khi user rời chat view hoặc đổi account, dọn sạch conversation phía provider
+  // (chỉ với provider hỗ trợ: supports_session_cleanup = true, hiện tại: DeepSeek)
+  useSessionCleanup({
+    apiUrl,
+    accountId: currentAccount?.id ?? null,
+    providerId: currentAccount?.provider_id ?? null,
+    providers,
+    isInChatView: true, // component này render = đang ở chat view
+    isStreaming,
+  });
 
   // --- Workspace Data ---
   useWorkspaceData();
@@ -600,48 +719,70 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     addAttachedItem,
   });
 
-  // --- Time-Block Monitoring: Chặn DeepSeek trong giờ cấm khi đang chat ─
-  // Kiểm tra mỗi 30 giây. Nếu phát hiện đang dùng DeepSeek trong giờ cấm
-  // thì tự động xóa conversation và hiển thị thông báo.
+  // --- Time-Block Monitoring: Chặn provider trong giờ cấm khi đang chat ─
+  // DeepSeek (AIWeb2API): xóa conversation + hiển thị lỗi khi blocked.
+  // Provider khác có blocked_time_ranges: lock view-only, không xóa.
+  // Kiểm tra mỗi 30 giây. Ranges lấy từ provider config.
   useEffect(() => {
     const checkTimeBlock = () => {
       const providerId = currentModelRef.current?.providerId;
-      if (!isDeepSeekProvider(providerId)) return;
-      if (!isDeepSeekBlockedNow()) return;
+      if (!providerId) return;
 
-      // Đang trong giờ cấm với DeepSeek → dừng nếu đang stream, xóa conversation
-      const rangeLabel = getCurrentBlockedRangeLabel();
-      const allRanges = getBlockedHourDescription();
-      const errorMsg =
-        `⛔ DeepSeek bị chặn trong khung giờ ${allRanges} (giờ VN). ` +
-        `Hiện tại đang trong khung ${rangeLabel}. Conversation đã bị xóa. Vui lòng thử lại sau.`;
-
-      // Dừng generation nếu đang chạy
-      if (isProcessing || isStreaming) {
-        stopGeneration();
+      // Lấy ranges từ provider config đã fetch
+      const providerConfig = providers.find(
+        (p: any) => p.provider_id?.toLowerCase() === providerId?.toLowerCase(),
+      );
+      const ranges = providerConfig?.blocked_time_ranges ?? null;
+      if (!ranges || ranges.length === 0) {
+        setIsTimeBlockViewOnly(false);
+        return;
       }
 
-      // Xóa conversation hiện tại
-      if (currentConversationId) {
-        extensionService.postMessage({
-          command: "deleteConversation",
-          conversationId: currentConversationId,
-          requestId: `time-block-monitor-${Date.now()}`,
-        });
+      if (!isBlockedNow(ranges)) {
+        setIsTimeBlockViewOnly(false);
+        return;
       }
 
-      // Reset session
-      resetSession();
+      if (isDeepSeekProvider(providerId)) {
+        // DeepSeek (AIWeb2API): xóa conversation
+        const rangeLabel = getBlockedRangeLabel(ranges);
+        const allRanges = getBlockedHoursDescription(ranges);
+        const errorMsg =
+          `⛔ DeepSeek bị chặn trong khung giờ ${allRanges}. ` +
+          `Hiện tại đang trong khung ${rangeLabel}. Conversation đã bị xóa. Vui lòng thử lại sau.`;
 
-      // Hiển thị thông báo lỗi
-      const blockErrorMessage = {
-        id: `msg-${Date.now()}-time-block-monitor`,
-        role: "assistant" as const,
-        content: errorMsg,
-        timestamp: Date.now(),
-        isError: true,
-      };
-      setMessages([blockErrorMessage]);
+        if (isProcessing || isStreaming) {
+          stopGeneration();
+        }
+
+        if (currentConversationId) {
+          extensionService.postMessage({
+            command: "deleteConversation",
+            conversationId: currentConversationId,
+            requestId: `time-block-monitor-${Date.now()}`,
+          });
+        }
+
+        resetSession();
+
+        const blockErrorMessage = {
+          id: `msg-${Date.now()}-time-block-monitor`,
+          role: "assistant" as const,
+          content: errorMsg,
+          timestamp: Date.now(),
+          isError: true,
+        };
+        setMessages([blockErrorMessage]);
+        setIsTimeBlockViewOnly(false);
+      } else {
+        // Provider khác (Zen): lock view-only, không xóa conversation
+        const rangeLabel = getBlockedRangeLabel(ranges);
+        const allRanges = getBlockedHoursDescription(ranges);
+        if (isProcessing || isStreaming) {
+          stopGeneration();
+        }
+        setIsTimeBlockViewOnly(true);
+      }
     };
 
     // Kiểm tra ngay khi mount (phòng trường hợp load lại trong giờ cấm)
@@ -650,7 +791,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     // Kiểm tra mỗi 30 giây
     const interval = setInterval(checkTimeBlock, 30_000);
     return () => clearInterval(interval);
-  }, [currentConversationId, isProcessing, isStreaming, stopGeneration, resetSession, setMessages]);
+  }, [
+    providers,
+    currentConversationId,
+    isProcessing,
+    isStreaming,
+    stopGeneration,
+    resetSession,
+    setMessages,
+  ]);
   // ─────────────────────────────────────────────────────────────────────
 
   const memoizedMessages = useMemo(
@@ -774,6 +923,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           } else {
             setRestoredConversationOverrides(undefined);
           }
+          // Restore conversation title from metadata
+          if (meta?.title) {
+            setConversationTitle(meta.title);
+          } else {
+            setConversationTitle("");
+          }
         }
       } catch {
         // ignore
@@ -829,6 +984,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     handleGitCommitMessageDetected(messages);
   }, [messages, handleGitCommitMessageDetected]);
 
+  // Listen for setConversationTitleResult — cập nhật header title khi AI set title mới
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (data.command === "setConversationTitleResult" && !data.error) {
+        if (data.title) setConversationTitle(data.title);
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
   // --- Computed Values ---
   const isHistoryMode = useMemo(() => {
     return !!(currentChat as any)?.conversationId && !currentChat?.canAccept;
@@ -841,6 +1008,114 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     showBrowserWarning && currentModel?.providerId === "zai-browser"
       ? "20px"
       : "8px";
+
+  // ── Active conversation overrides (diagnostic / skill / memory) ──────
+  const activeOverrides =
+    pendingConversationOverridesRef.current ?? restoredConversationOverrides;
+  const headerDiagnosticEnabled = activeOverrides?.diagnosticEnabled ?? false;
+  const headerSkillEnabled = activeOverrides?.useSkillEnabled ?? false;
+  const headerMemoryEnabled = activeOverrides?.memoryEnabled ?? false;
+
+  // ── Chat-level token & request stats from messages ──────────────────
+  const chatStats = useMemo(() => {
+    let tokens = 0;
+    let requests = 0;
+    for (const msg of messages) {
+      if (msg.role === "assistant") {
+        requests++;
+        if (msg.usage) {
+          tokens += msg.usage.total_tokens ?? 0;
+        } else if (msg.token_usage) {
+          tokens += msg.token_usage;
+        }
+      }
+    }
+    return {
+      tokens: tokens > 0 ? tokens : undefined,
+      requests: requests > 0 ? requests : undefined,
+    };
+  }, [messages]);
+
+  // ── 3-dot menu handlers ──────────────────────────────────────────────
+  const handleRenameConversation = useCallback(() => {
+    const newTitle = window.prompt(
+      "Rename conversation:",
+      conversationTitle || "",
+    );
+    if (newTitle === null) return; // user cancelled
+    const title = newTitle.trim();
+    if (!title || !currentConversationId) return;
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      vscodeApi.postMessage({
+        command: "setConversationTitle",
+        conversationId: currentConversationId,
+        title,
+        requestId: `rename-${Date.now()}`,
+      });
+    }
+    setConversationTitle(title);
+  }, [conversationTitle, currentConversationId]);
+
+  const handleCopyAsMarkdown = useCallback(() => {
+    const lines: string[] = [];
+    for (const msg of messages) {
+      if (msg.uiHidden || msg.isCancelled) continue;
+      const role = msg.role === "user" ? "**You**" : "**Assistant**";
+      lines.push(`${role}\n\n${msg.content}\n`);
+    }
+    navigator.clipboard.writeText(lines.join("\n---\n\n")).catch(() => {});
+  }, [messages]);
+
+  const handleCopyAsJson = useCallback(() => {
+    const data = messages
+      .filter((m) => !m.uiHidden && !m.isCancelled)
+      .map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+      }));
+    navigator.clipboard
+      .writeText(JSON.stringify(data, null, 2))
+      .catch(() => {});
+  }, [messages]);
+
+  const handleExportAsJson = useCallback(() => {
+    const data = {
+      conversationId: currentConversationId,
+      title: conversationTitle,
+      exportedAt: new Date().toISOString(),
+      messages: messages
+        .filter((m) => !m.uiHidden && !m.isCancelled)
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+        })),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `conversation-${conversationTitle || currentConversationId || "export"}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [messages, currentConversationId, conversationTitle]);
+
+  const handleDeleteConversation = useCallback(() => {
+    if (!currentConversationId) return;
+    const vscodeApi = (window as any).vscodeApi;
+    if (vscodeApi) {
+      vscodeApi.postMessage({
+        command: "deleteConversation",
+        conversationId: currentConversationId,
+        requestId: `delete-conv-${Date.now()}`,
+      });
+    }
+    onBack();
+  }, [currentConversationId, onBack]);
 
   // --- Render ---
   return (
@@ -858,12 +1133,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       <ChatHeader
         displayedModel={displayedModel}
         currentAccount={currentAccount}
+        setCurrentAccount={setCurrentAccount}
+        messages={messages}
+        conversationTitle={conversationTitle}
+        currentConversationId={currentConversationId}
         currentTaskName={currentTaskName}
+        diagnosticEnabled={headerDiagnosticEnabled}
+        skillEnabled={headerSkillEnabled}
+        memoryEnabled={headerMemoryEnabled}
         contextUsage={contextUsage}
+        chatTokens={chatStats.tokens}
+        chatRequests={chatStats.requests}
         isSearchOpen={isSearchOpen}
         setIsSearchOpen={setIsSearchOpen}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        onRenameConversation={handleRenameConversation}
+        onCopyAsMarkdown={handleCopyAsMarkdown}
+        onCopyAsJson={handleCopyAsJson}
+        onDeleteConversation={handleDeleteConversation}
+        onExportAsJson={handleExportAsJson}
       />
 
       {/* ─── ChatBody ─── */}
@@ -905,13 +1194,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isGitStatusVisible={showGitStatusBlock}
         onBackToHome={handleBackToHome}
         isLoadingConversation={isLoadingConversation}
-        canRegenerate={canRegenerate}
+        canRegenerate={canRegenerate && !isViewOnly}
+        isViewOnly={isViewOnly}
       />
 
       {/* ─── ChatFooter ─── */}
-      {(() => {
-        return null;
-      })()}
       <ChatFooter
         message={message}
         setMessage={setMessage}
@@ -962,6 +1249,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         autoScrollPaused={autoScrollPaused}
         scrollToBottom={scrollToBottomRef.current || undefined}
         onSelectRule={handleSelectRule}
+        isViewOnly={isViewOnly}
       />
     </div>
   );

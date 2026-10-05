@@ -1,4 +1,10 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import ReactDOM from "react-dom";
 import {
   Search,
@@ -42,6 +48,8 @@ import {
   DropdownContent,
   DropdownItem,
 } from "../ui/Dropdown";
+import AccountTooltip from "@/features/account/components/AccountTooltip";
+import type { FlatAccount } from "@/features/account/types";
 
 // ─── Effort helpers ───────────────────────────────────────────────────────────
 
@@ -153,6 +161,8 @@ interface ProviderModelDrawerProps {
     email?: string;
     accountProviderId?: string;
     usage?: number | null;
+    period_requests?: number | null;
+    period_tokens?: number | null;
   }) => void;
 }
 
@@ -465,7 +475,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   >({});
   const [isLoadingAccountMap, setIsLoadingAccountMap] = useState(false);
 
-  // tooltip state — follow mouse cursor directly
+  // tooltip state — follow mouse cursor directly (model tooltip)
   const [tooltipModel, setTooltipModel] = useState<{
     model: any;
     x: number;
@@ -474,6 +484,14 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   const tooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const activeRowRect = useRef<DOMRect | null>(null);
+
+  // account tooltip state
+  const [tooltipAccount, setTooltipAccount] = useState<{
+    account: FlatAccount;
+    providerConfig: any;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Track global mouse position — hide tooltip when cursor leaves the active row bounds
   useEffect(() => {
@@ -492,12 +510,16 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
           setTooltipModel(null);
           activeRowRect.current = null;
         } else {
-          // Update tooltip follow position
           setTooltipModel((prev) =>
             prev ? { ...prev, x: e.clientX, y: e.clientY } : null,
           );
         }
       }
+
+      // Update account tooltip position
+      setTooltipAccount((prev) =>
+        prev ? { ...prev, x: e.clientX, y: e.clientY } : null,
+      );
     };
     window.addEventListener("mousemove", onMouseMove);
     return () => window.removeEventListener("mousemove", onMouseMove);
@@ -1026,21 +1048,41 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                           userSelect: "none",
                         }}
                       >
-                        {getFaviconUrl(provider.website) && (
-                          <img
-                            src={getFaviconUrl(provider.website)}
-                            alt="favicon"
-                            style={{
-                              width: "16px",
-                              height: "16px",
-                              borderRadius: "3px",
-                            }}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display =
-                                "none";
-                            }}
-                          />
-                        )}
+                        {(() => {
+                          const favUrl = getFaviconUrl(provider.website);
+                          if (!favUrl || favUrl === "/favicon-fallback.png") return null;
+                          
+                          return (
+                            <div
+                              style={{
+                                width: "16px",
+                                height: "16px",
+                                borderRadius: "3px",
+                                backgroundColor: "rgba(128,128,128,0.1)", // Placeholder bg
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                overflow: "hidden",
+                                flexShrink: 0,
+                              }}
+                            >
+                              <img
+                                src={favUrl}
+                                alt=""
+                                loading="eager"
+                                decoding="async"
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "contain",
+                                }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.opacity = "0";
+                                }}
+                              />
+                            </div>
+                          );
+                        })()}
                         {provider.provider_name || provider.provider_id}
                         {/* Models error badge — getModels() thất bại */}
                         {provider.models_error &&
@@ -1729,285 +1771,321 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                       </div>
                     );
                   }
-                  return filtered.map((acc) => (
-                    <div
-                      key={acc.id}
-                      onClick={() => {
-                        onSelect({
-                          providerId: selectedModel.provider_id,
-                          modelId: selectedModel.id,
-                          accountId: acc.id,
-                          email: acc.email,
-                          accountProviderId: acc.provider_id,
-                          usage: acc.usage ?? null,
-                        });
-                        onClose();
-                      }}
-                      style={{
-                        padding: "8px 12px",
-                        cursor: "pointer",
-                        borderRadius: "8px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        transition: "background-color 0.2s",
-                      }}
-                      onMouseEnter={(e) =>
-                        (e.currentTarget.style.backgroundColor =
-                          "var(--hover-bg)")
-                      }
-                      onMouseLeave={(e) =>
-                        (e.currentTarget.style.backgroundColor = "transparent")
-                      }
-                    >
+                  return filtered.map((acc) => {
+                    // Tìm providerConfig cho account tooltip
+                    const accProviderConfig = providers.find(
+                      (p: any) => p.provider_id === acc.provider_id,
+                    );
+                    // Cast acc thành FlatAccount cho AccountTooltip
+                    const flatAcc: FlatAccount = {
+                      id: acc.id,
+                      provider_id: acc.provider_id,
+                      email: acc.email ?? "",
+                      credential: "",
+                      usage: acc.usage ?? undefined,
+                      reset_usage_at: acc.reset_usage_at ?? undefined,
+                      period_requests: acc.period_requests ?? undefined,
+                      period_tokens: acc.period_tokens ?? undefined,
+                      auth_method: acc.auth_method ?? undefined,
+                    };
+                    return (
                       <div
+                        key={acc.id}
+                        onClick={() => {
+                          onSelect({
+                            providerId: selectedModel.provider_id,
+                            modelId: selectedModel.id,
+                            accountId: acc.id,
+                            email: acc.email,
+                            accountProviderId: acc.provider_id,
+                            usage: acc.usage ?? null,
+                            period_requests: acc.period_requests ?? null,
+                            period_tokens: acc.period_tokens ?? null,
+                          });
+                          onClose();
+                        }}
                         style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "7px",
-                          backgroundColor: "rgba(128,128,128,0.1)",
-                          color: "var(--secondary-text)",
+                          padding: "8px 12px",
+                          cursor: "pointer",
+                          borderRadius: "8px",
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          flexShrink: 0,
+                          gap: "10px",
+                          transition: "background-color 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor =
+                            "var(--hover-bg)";
+                          setTooltipAccount({
+                            account: flatAcc,
+                            providerConfig: accProviderConfig,
+                            x: e.clientX,
+                            y: e.clientY,
+                          });
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                          setTooltipAccount(null);
                         }}
                       >
-                        {(acc.email?.[0] || acc.name?.[0] || "?").toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: 500,
-                            color: "var(--primary-text)",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "6px",
-                            minWidth: 0,
-                          }}
-                        >
-                          <span
-                            style={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {acc.email || acc.name || acc.id}
-                          </span>
-                          {acc.auth_method &&
-                            (() => {
-                              const method = acc.auth_method;
-                              const baseUri = (window as any).__zenImagesUri as
-                                | string
-                                | undefined;
-                              const knownIcons = ["google", "github", "x"];
-                              const hasIcon =
-                                knownIcons.includes(method) && baseUri;
-                              return (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "4px",
-                                    fontSize: "11px",
-                                    fontWeight: 600,
-                                    padding: "2px 7px",
-                                    borderRadius: "4px",
-                                    backgroundColor: "rgba(128,128,128,0.1)",
-                                    color: "var(--secondary-text)",
-                                    letterSpacing: "0.02em",
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  {hasIcon ? (
-                                    <img
-                                      src={`${baseUri}/auth_icons/${method}.svg`}
-                                      alt={method}
-                                      style={{
-                                        width: "12px",
-                                        height: "12px",
-                                        objectFit: "contain",
-                                      }}
-                                    />
-                                  ) : (
-                                    <Key size={11} />
-                                  )}
-                                  {method}
-                                </span>
-                              );
-                            })()}
-                          {(acc.used_by_windows ?? 0) > 0 && (
-                            <span
-                              title={`Đang được dùng bởi ${acc.used_by_windows} cửa sổ VSCode khác`}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                fontSize: "9px",
-                                fontWeight: 600,
-                                padding: "1px 6px",
-                                borderRadius: "4px",
-                                backgroundColor: "rgba(234, 179, 8, 0.16)",
-                                color: "#eab308",
-                                flexShrink: 0,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.02em",
-                              }}
-                            >
-                              In use
-                            </span>
-                          )}
-                        </span>
                         <div
                           style={{
+                            width: "28px",
+                            height: "28px",
+                            borderRadius: "7px",
+                            backgroundColor: "rgba(128,128,128,0.1)",
+                            color: "var(--secondary-text)",
                             display: "flex",
                             alignItems: "center",
-                            gap: "10px",
-                            marginTop: "2px",
-                            overflow: "hidden",
-                            minWidth: 0,
+                            justifyContent: "center",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            flexShrink: 0,
                           }}
                         >
+                          {(
+                            acc.email?.[0] ||
+                            acc.name?.[0] ||
+                            "?"
+                          ).toUpperCase()}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <span
                             style={{
+                              fontSize: "13px",
+                              fontWeight: 500,
+                              color: "var(--primary-text)",
                               display: "flex",
                               alignItems: "center",
-                              gap: "4px",
-                              fontSize: "10px",
-                              color: "var(--secondary-text)",
-                              flexShrink: 0,
+                              gap: "6px",
+                              minWidth: 0,
                             }}
                           >
-                            <Activity size={11} style={{ color: "#22c55e" }} />
-                            {(acc.period_requests ?? 0).toLocaleString()} req
-                          </span>
-                          <span
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              fontSize: "10px",
-                              color: "var(--secondary-text)",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <Coins size={11} style={{ color: "#f97316" }} />
-                            {formatTokens(acc.period_tokens ?? 0)} tokens
-                          </span>
-                          {/* Usage % — ghi trực tiếp bởi backend */}
-                          {acc.usage != null &&
-                            (() => {
-                              const usageNum = Number(acc.usage);
-                              const usageColor =
-                                usageNum >= 90
-                                  ? "var(--vscode-editorError-foreground, #ef4444)"
-                                  : usageNum >= 70
-                                    ? "var(--vscode-editorWarning-foreground, #f97316)"
-                                    : "var(--vscode-charts-purple, #a855f7)";
-                              return (
-                                <span
-                                  title={
-                                    acc.reset_usage_at
-                                      ? `Resets at: ${new Date(acc.reset_usage_at).toLocaleString()}`
-                                      : undefined
-                                  }
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "3px",
-                                    fontSize: "10px",
-                                    color:
-                                      usageNum >= 90
-                                        ? "var(--vscode-editorError-foreground, #ef4444)"
-                                        : usageNum >= 70
-                                          ? "var(--vscode-editorWarning-foreground, #f97316)"
-                                          : "var(--secondary-text)",
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <BarChart3
-                                    size={10}
-                                    style={{ color: usageColor }}
-                                  />
-                                  {usageNum.toFixed(1)}%
-                                </span>
-                              );
-                            })()}
-                          {/* Reset countdown */}
-                          {acc.usage != null &&
-                            acc.reset_usage_at != null &&
-                            (() => {
-                              const resetDate = new Date(acc.reset_usage_at);
-                              if (isNaN(resetDate.getTime())) return null;
-                              const diffMs = resetDate.getTime() - Date.now();
-                              if (diffMs <= 0) return null;
-                              const diffHours = Math.ceil(
-                                diffMs / (1000 * 60 * 60),
-                              );
-                              const label =
-                                diffHours < 1
-                                  ? "Resets <1h"
-                                  : diffHours < 24
-                                    ? `Resets ${diffHours}h`
-                                    : `Resets ${Math.ceil(diffHours / 24)}d`;
-                              return (
-                                <span
-                                  title={`Usage resets at: ${resetDate.toLocaleString()}`}
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "3px",
-                                    fontSize: "10px",
-                                    color: "#f97316",
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <Clock size={10} style={{ flexShrink: 0 }} />
-                                  {label}
-                                </span>
-                              );
-                            })()}
-                          {(() => {
-                            const rel = formatRelativeTime(
-                              acc.last_used_at ?? null,
-                            );
-                            if (!rel) return null;
-                            return (
+                            <span
+                              style={{
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {acc.email || acc.name || acc.id}
+                            </span>
+                            {acc.auth_method &&
+                              (() => {
+                                const method = acc.auth_method;
+                                const baseUri = (window as any)
+                                  .__zenImagesUri as string | undefined;
+                                const knownIcons = ["google", "github", "x"];
+                                const hasIcon =
+                                  knownIcons.includes(method) && baseUri;
+                                return (
+                                  <span
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "4px",
+                                      fontSize: "11px",
+                                      fontWeight: 600,
+                                      padding: "2px 7px",
+                                      borderRadius: "4px",
+                                      backgroundColor: "rgba(128,128,128,0.1)",
+                                      color: "var(--secondary-text)",
+                                      letterSpacing: "0.02em",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {hasIcon ? (
+                                      <img
+                                        src={`${baseUri}/auth_icons/${method}.svg`}
+                                        alt={method}
+                                        style={{
+                                          width: "12px",
+                                          height: "12px",
+                                          objectFit: "contain",
+                                        }}
+                                      />
+                                    ) : (
+                                      <Key size={11} />
+                                    )}
+                                    {method}
+                                  </span>
+                                );
+                              })()}
+                            {(acc.used_by_windows ?? 0) > 0 && (
                               <span
+                                title={`Đang được dùng bởi ${acc.used_by_windows} cửa sổ VSCode khác`}
                                 style={{
-                                  display: "flex",
+                                  display: "inline-flex",
                                   alignItems: "center",
-                                  gap: "4px",
-                                  fontSize: "10px",
-                                  color: "var(--secondary-text)",
-                                  flexShrink: 1,
-                                  overflow: "hidden",
-                                  minWidth: 0,
+                                  fontSize: "9px",
+                                  fontWeight: 600,
+                                  padding: "1px 6px",
+                                  borderRadius: "4px",
+                                  backgroundColor: "rgba(234, 179, 8, 0.16)",
+                                  color: "#eab308",
+                                  flexShrink: 0,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.02em",
                                 }}
                               >
-                                <Clock
-                                  size={11}
-                                  style={{ flexShrink: 0, color: "#3b82f6" }}
-                                />
+                                In use
+                              </span>
+                            )}
+                          </span>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "10px",
+                              marginTop: "2px",
+                              overflow: "hidden",
+                              minWidth: 0,
+                            }}
+                          >
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontSize: "10px",
+                                color: "var(--secondary-text)",
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Activity
+                                size={11}
+                                style={{ color: "#22c55e" }}
+                              />
+                              {(acc.period_requests ?? 0).toLocaleString()} req
+                            </span>
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                fontSize: "10px",
+                                color: "var(--secondary-text)",
+                                flexShrink: 0,
+                              }}
+                            >
+                              <Coins size={11} style={{ color: "#f97316" }} />
+                              {formatTokens(acc.period_tokens ?? 0)} tokens
+                            </span>
+                            {/* Usage % — ghi trực tiếp bởi backend */}
+                            {acc.usage != null &&
+                              (() => {
+                                const usageNum = Number(acc.usage);
+                                const usageColor =
+                                  usageNum >= 90
+                                    ? "var(--vscode-editorError-foreground, #ef4444)"
+                                    : usageNum >= 70
+                                      ? "var(--vscode-editorWarning-foreground, #f97316)"
+                                      : "var(--vscode-charts-purple, #a855f7)";
+                                return (
+                                  <span
+                                    title={
+                                      acc.reset_usage_at
+                                        ? `Resets at: ${new Date(acc.reset_usage_at).toLocaleString()}`
+                                        : undefined
+                                    }
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "3px",
+                                      fontSize: "10px",
+                                      color:
+                                        usageNum >= 90
+                                          ? "var(--vscode-editorError-foreground, #ef4444)"
+                                          : usageNum >= 70
+                                            ? "var(--vscode-editorWarning-foreground, #f97316)"
+                                            : "var(--secondary-text)",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <BarChart3
+                                      size={10}
+                                      style={{ color: usageColor }}
+                                    />
+                                    {usageNum.toFixed(1)}%
+                                  </span>
+                                );
+                              })()}
+                            {/* Reset countdown */}
+                            {acc.usage != null &&
+                              acc.reset_usage_at != null &&
+                              (() => {
+                                const resetDate = new Date(acc.reset_usage_at);
+                                if (isNaN(resetDate.getTime())) return null;
+                                const diffMs = resetDate.getTime() - Date.now();
+                                if (diffMs <= 0) return null;
+                                const diffHours = Math.ceil(
+                                  diffMs / (1000 * 60 * 60),
+                                );
+                                const label =
+                                  diffHours < 1
+                                    ? "Resets <1h"
+                                    : diffHours < 24
+                                      ? `Resets ${diffHours}h`
+                                      : `Resets ${Math.ceil(diffHours / 24)}d`;
+                                return (
+                                  <span
+                                    title={`Usage resets at: ${resetDate.toLocaleString()}`}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "3px",
+                                      fontSize: "10px",
+                                      color: "#f97316",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Clock
+                                      size={10}
+                                      style={{ flexShrink: 0 }}
+                                    />
+                                    {label}
+                                  </span>
+                                );
+                              })()}
+                            {(() => {
+                              const rel = formatRelativeTime(
+                                acc.last_used_at ?? null,
+                              );
+                              if (!rel) return null;
+                              return (
                                 <span
                                   style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    fontSize: "10px",
+                                    color: "var(--secondary-text)",
+                                    flexShrink: 1,
                                     overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
+                                    minWidth: 0,
                                   }}
                                 >
-                                  {rel}
+                                  <Clock
+                                    size={11}
+                                    style={{ flexShrink: 0, color: "#3b82f6" }}
+                                  />
+                                  <span
+                                    style={{
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {rel}
+                                  </span>
                                 </span>
-                              </span>
-                            );
-                          })()}
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ));
+                    );
+                  });
                 })()
               ) : (
                 <div
@@ -2040,6 +2118,18 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
             model={tooltipModel.model}
             x={tooltipModel.x}
             y={tooltipModel.y}
+          />,
+          document.body,
+        )}
+      {tooltipAccount &&
+        ReactDOM.createPortal(
+          <AccountTooltip
+            account={tooltipAccount.account}
+            providerConfig={tooltipAccount.providerConfig}
+            x={tooltipAccount.x}
+            y={tooltipAccount.y}
+            visible={true}
+            statsPeriod="day"
           />,
           document.body,
         )}

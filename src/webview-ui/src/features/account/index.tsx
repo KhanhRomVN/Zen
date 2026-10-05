@@ -853,7 +853,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
             borderRadius: "8px",
           }}
         >
-          {(["day", "week", "month"] as const).map((p) => (
+          {(["day", "week", "month", "year", "all"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setStatsPeriod(p)}
@@ -872,10 +872,9 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
                 fontSize: "11px",
                 fontWeight: 500,
                 cursor: "pointer",
-                textTransform: "capitalize",
               }}
             >
-              {p}
+              {p === "day" ? "Day" : p === "week" ? "Week" : p === "month" ? "Month" : p === "year" ? "Year" : "All"}
             </button>
           ))}
         </div>
@@ -941,6 +940,7 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
               providerConfig={providerConfigs.find(
                 (p) => p.provider_id === account.provider_id,
               )}
+              statsPeriod={statsPeriod}
             />
           ))
         )}

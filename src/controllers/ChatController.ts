@@ -17,7 +17,10 @@ import * as vscode from "vscode";
 import * as os from "os";
 import * as path from "path";
 
-// ── Handlers ──
+// ── Services ──
+import { PathService } from "../services/PathService";
+
+// ── Handlers ─
 import { ProjectContextHandler } from "../handlers/system/ProjectContextHandler";
 import { StorageHandler } from "../handlers/storage/StorageHandler";
 import { ThemeHandler } from "../handlers/system/ThemeHandler";
@@ -367,6 +370,18 @@ export class ChatController {
             command: "memorySnapshotResult",
             requestId: message.requestId,
             content: snapshot,
+          });
+          break;
+        }
+        case "getMemoryFilePath": {
+          const workspaceFolderPath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+          const filePath = workspaceFolderPath
+            ? PathService.getInstance().getMemoryFilePath(workspaceFolderPath)
+            : "";
+          webviewView.webview.postMessage({
+            command: "memoryFilePathResult",
+            requestId: message.requestId,
+            path: filePath,
           });
           break;
         }
