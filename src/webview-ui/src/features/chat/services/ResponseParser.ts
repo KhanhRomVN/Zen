@@ -22,6 +22,8 @@ import { parseSearchSkill } from "./parsers/SearchSkillParser";
 import { parseListSkill } from "./parsers/ListSkillParser";
 import { parseReadSkill } from "./parsers/ReadSkillParser";
 import { parseInstallSkill } from "./parsers/InstallSkillParser";
+import { parseReadMemory } from "./parsers/ReadMemoryParser";
+import { parseUpdateMemory } from "./parsers/UpdateMemoryParser";
 import { findClosingTagPosition } from "../utils/TagClosingFinder";
 import { TagType } from "../types/tag-types";
 
@@ -695,6 +697,16 @@ export const parseAIResponse = (content: string): ParsedResponse => {
               action = { type: "install_skill" as const, params, rawXml };
               break;
             }
+            case "read_memory": {
+              const params = parseReadMemory(innerContent || "");
+              action = { type: "read_memory" as const, params, rawXml };
+              break;
+            }
+            case "update_memory": {
+              const params = parseUpdateMemory(innerContent || "");
+              action = { type: "update_memory" as const, params, rawXml };
+              break;
+            }
             default:
               // Fallback to ToolParser for any unhandled tools
               action = parseToolAction(toolName, innerContent || "", rawXml);
@@ -859,6 +871,12 @@ export const formatActionForDisplay = (action: ToolAction): string => {
 
     case "install_skill":
       return `install_skill: ${action.params.slug || ""}`;
+
+    case "read_memory":
+      return `read_memory`;
+
+    case "update_memory":
+      return `update_memory`;
 
     default:
       return ``;

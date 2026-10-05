@@ -42,6 +42,9 @@ interface SettingsContextType {
   /** Đính kèm danh sách SKILL (tên + mô tả) vào system-prompt */
   useSkillEnabled: boolean;
   setUseSkillEnabled: (value: boolean) => void;
+  /** Bật/tắt tính năng Memory (đọc/ghi memory.json dự án) */
+  memoryEnabled: boolean;
+  setMemoryEnabled: (value: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(
@@ -143,6 +146,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
   );
   const [useSkillEnabled, setUseSkillEnabledState] = useState<boolean>(() =>
     loadBool(workspaceKey("zen_use_skill_enabled"), false),
+  );
+  const [memoryEnabled, setMemoryEnabledState] = useState<boolean>(() =>
+    loadBool(workspaceKey("zen_memory_enabled"), false),
   );
 
   const [activeDatabaseManagerId, setActiveDatabaseManagerIdState] = useState<string | null>(
@@ -335,6 +341,11 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
     persistBool(workspaceKey("zen_use_skill_enabled"), value);
   };
 
+  const setMemoryEnabled = (value: boolean) => {
+    setMemoryEnabledState(value);
+    persistBool(workspaceKey("zen_memory_enabled"), value);
+  };
+
   const setActiveDatabaseManagerId = (id: string | null) => {
     const previousId = activeDatabaseManagerId;
     setActiveDatabaseManagerIdState(id);
@@ -392,6 +403,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
         setShowMetadataBar,
         useSkillEnabled,
         setUseSkillEnabled,
+        memoryEnabled,
+        setMemoryEnabled,
       }}
     >
       {children}

@@ -66,5 +66,12 @@ ${pass2Section}
    - Before running destructive commands → stop and get explicit user confirmation.
    - Before running a new dev server/watch command → check if an equivalent process is already active.
    - After EXECUTE: report results clearly. Do not self-declare "fixed" for runtime bugs.
-${verifySection}`;
+${verifySection}
+
+# MEMORY (when enabled)
+When Memory is turned on for this conversation, the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.json\`) is automatically appended to every system prompt under a "# Memory" heading — you already see it, so do NOT call read_memory just to re-read what is already in context. Use it to carry durable facts across conversations: user preferences, project conventions, recurring decisions. Rules:
+- Record something ONLY when it is genuinely cross-session and stable (not transient task state, not secrets/credentials).
+- Append/update via \`<update_memory>\` with exact-match semantics (identical to replace_in_file, but always targets memory.json — no file_path). First write into an empty/non-existent file uses \`<old_content></old_content>\`.
+- Call \`<read_memory />\` only when you need the verbatim current content mid-task (e.g. after another tool may have changed it).
+`;
 };

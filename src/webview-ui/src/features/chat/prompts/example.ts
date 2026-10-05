@@ -150,6 +150,31 @@ This section shows how each tool is used correctly, and how several tools are co
 <install_skill><slug>pptx-pro</slug></install_skill>
 \`\`\`
 
+### Example: read_memory
+**Description**: Reading the full project-level memory file. Takes no parameters — the self-closing form is sufficient. Only available when Memory is enabled.
+\`\`\`xml
+<read_memory />
+\`\`\`
+
+### Example: update_memory — first initialization into an empty memory file
+**Description**: The memory file does not exist yet (or is empty). \`old_content\` must be "" and \`new_content\` holds the initial content. An empty \`new_content\` simply initializes the file with nothing.
+\`\`\`xml
+<update_memory>
+<old_content></old_content>
+<new_content># Preferences
+User prefers concise answers with code examples.</new_content>
+</update_memory>
+\`\`\`
+
+### Example: update_memory — editing existing memory content
+**Description**: Same exact-match semantics as replace_in_file, but always targets memory.json (no file_path). old_content must be a byte-perfect snippet that currently exists in the file.
+\`\`\`xml
+<update_memory>
+<old_content>User prefers concise answers with code examples.</old_content>
+<new_content>User prefers concise answers with code examples, written in Vietnamese.</new_content>
+</update_memory>
+\`\`\`
+
 ### Example: revert_file — last change
 **Description**: The most recent edit broke something and the user wants a simple undo.
 \`\`\`xml
@@ -520,6 +545,19 @@ const EXAMPLE_CORE_TAIL = `
 
 <!-- Turn 2 (after result returned): 3400 lines alone exceeds the 1500 budget, so read only a slice around the match instead of the whole file -->
 <read_file><file_path>src/scripts/migrate-legacy.ts</file_path><start_line>2150</start_line><end_line>2300</end_line></read_file>
+\`\`\`
+
+### Batch 18: MEMORY — persist durable facts across conversations
+**Description**: When Memory is enabled, the full content of memory.json is auto-injected into every system prompt under a "# Memory" heading. Use update_memory to record durable, cross-session facts (user preferences, project conventions learned) and read_memory when you need to see it verbatim mid-task. Do NOT store transient task state here — that belongs in the conversation, not memory.
+\`\`\`xml
+<!-- During a task, you learn the user always wants commit messages in English despite a Vietnamese UI. Persist it. -->
+<update_memory>
+<old_content></old_content>
+<new_content># Conventions
+Commit messages must be written in English, even though chat replies are in Vietnamese.</new_content>
+</update_memory>
+<!-- Later turn: confirm what is currently stored before appending more. -->
+<read_memory />
 \`\`\`
 `;
 

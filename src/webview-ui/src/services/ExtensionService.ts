@@ -122,6 +122,48 @@ class ExtensionService {
     return this.storageRequest("getSystemInfo", "systemInfo", {});
   }
 
+  /**
+   * Lấy snapshot nội dung memory.json của project hiện tại (không qua queue).
+   * Trả về "" nếu chưa có file hoặc không mở workspace.
+   */
+  public getMemorySnapshot(): Promise<string> {
+    return new Promise((resolve) => {
+      const requestId = `memory-snapshot-${Date.now()}-${Math.random()}`;
+      messageDispatcher.register(
+        requestId,
+        (msg: any) => {
+          resolve(typeof msg.content === "string" ? msg.content : "");
+        },
+        3000,
+        () => resolve(""),
+      );
+      this.postMessage({ command: "getMemorySnapshot", requestId });
+    });
+  }
+
+  /**
+   * Ghi toàn bộ nội dung memory.json của project hiện tại.
+   * Dùng bởi Settings → Feature → Memory editor (autosave).
+   */
+  public saveMemory(content: string): Promise<{ success: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      const requestId = `memory-save-${Date.now()}-${Math.random()}`;
+      messageDispatcher.register(
+        requestId,
+        (msg: any) => {
+          if (msg.error) {
+            resolve({ success: false, error: msg.error });
+          } else {
+            resolve({ success: true });
+          }
+        },
+        5000,
+        () => resolve({ success: false, error: "saveMemory timeout" }),
+      );
+      this.postMessage({ command: "saveMemory", requestId, content });
+    });
+  }
+
   private storageRequest(
     command: string,
     responseCommand: string,

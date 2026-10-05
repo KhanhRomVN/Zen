@@ -26,10 +26,17 @@ import { StreamingService } from "../../services/StreamingService";
 import { processClaudeContent } from "../../services/ClaudeContentProcessor";
 import { ClaudeRawLogger } from "../../services/ClaudeRawLogger";
 import { TOOL_ACTION_TYPES } from "../../constants/constants";
+import {
+  isDeepSeekBlockedNow,
+  isDeepSeekProvider,
+  getCurrentBlockedRangeLabel,
+  getBlockedHourDescription,
+} from "../../../../utils/timeBlock";
 
 interface ConversationOverrides {
   diagnosticEnabled?: boolean;
   useSkillEnabled?: boolean;
+  memoryEnabled?: boolean;
 }
 
 interface UseChatLLMProps {
@@ -168,6 +175,7 @@ export const useChatLLM = ({
     systemPromptMode,
     promptLengthMode,
     useSkillEnabled,
+    memoryEnabled,
   } = useSettings();
   const { treeView, rootPath } = useProject();
   const { uploadFiles } = useFileUpload(apiUrl);
@@ -322,6 +330,54 @@ export const useChatLLM = ({
         return;
       }
 
+      // ── Time-Block Check: Chặn DeepSeek trong giờ cấm ───────────────────
+      // Chỉ kiểm tra cho request đầu tiên của người dùng (không phải tool result).
+      const currentProviderId =
+        model?.providerId ?? lastUsedModelRef.current?.providerId;
+      if (
+        !skipFirstRequestLogic &&
+        isDeepSeekProvider(currentProviderId) &&
+        isDeepSeekBlockedNow()
+      ) {
+        const rangeLabel = getCurrentBlockedRangeLabel();
+        const allRanges = getBlockedHourDescription();
+        const errorMsg =
+          `DeepSeek bị chặn trong khung giờ ${allRanges} (giờ VN). ` +
+          `Hiện tại đang trong khung ${rangeLabel}. Vui lòng thử lại sau.`;
+
+        // Xóa conversation hiện tại nếu đây là session mới (chưa có messages)
+        // hoặc xóa conversation đang mở để ngăn tiếp tục dùng DeepSeek.
+        const convIdToDelete = currentConversationIdRef.current;
+        if (convIdToDelete) {
+          deleteConversation(convIdToDelete);
+          // Yêu cầu extension host xóa file conversation
+          extensionService.postMessage({
+            command: "deleteConversation",
+            conversationId: convIdToDelete,
+            requestId: `time-block-${Date.now()}`,
+          });
+          // Reset state local
+          currentConversationIdRef.current = "";
+          backendConversationIdRef.current = "";
+          messagesRef.current = [];
+          setCurrentConversationId("");
+          setMessages([]);
+        }
+
+        // Hiển thị error message
+        const blockErrorMessage: Message = {
+          id: `msg-${Date.now()}-time-block-error`,
+          role: "assistant",
+          content: errorMsg,
+          timestamp: Date.now(),
+          isError: true,
+        };
+        setMessages([blockErrorMessage]);
+        messagesRef.current = [blockErrorMessage];
+        return;
+      }
+      // ────────────────────────────────────────────────────────────────────
+
       const sessionId = selectedTab?.sessionId || -1;
       const folderPath = selectedTab?.folderPath || null;
 
@@ -417,6 +473,10 @@ export const useChatLLM = ({
         conversationOverridesRef.current?.diagnosticEnabled !== undefined
           ? conversationOverridesRef.current.diagnosticEnabled
           : undefined; // undefined = use default (true) in PromptBuilder
+      const effectiveMemory =
+        conversationOverridesRef.current?.memoryEnabled !== undefined
+          ? conversationOverridesRef.current.memoryEnabled
+          : memoryEnabled;
 
       const promptPayload = await PromptBuilder.buildPrompt({
         content,
@@ -431,6 +491,7 @@ export const useChatLLM = ({
         promptLengthMode,
         useSkillEnabled: isClaudeProvider ? false : effectiveUseSkill,
         diagnosticEnabled: effectiveDiagnostic,
+        memoryEnabled: isClaudeProvider ? false : effectiveMemory,
         providerId: model?.providerId ?? lastUsedModelRef.current?.providerId,
       });
 
@@ -503,7 +564,7 @@ export const useChatLLM = ({
       // diagnostic and skill are effectively disabled regardless of toggles.
       const effectiveConversationOverrides: typeof conversationOverridesRef.current =
         promptLengthMode === "none"
-          ? { diagnosticEnabled: false, useSkillEnabled: false }
+          ? { diagnosticEnabled: false, useSkillEnabled: false, memoryEnabled: false }
           : conversationOverridesRef.current;
 
       // Save conversation immediately when sending request (user message only)
@@ -1294,7 +1355,7 @@ export const useChatLLM = ({
         const folderPath = selectedTab?.folderPath || null;
         const effectiveOverridesForSelect =
           promptLengthMode === "none"
-            ? { diagnosticEnabled: false, useSkillEnabled: false }
+            ? { diagnosticEnabled: false, useSkillEnabled: false, memoryEnabled: false }
             : conversationOverridesRef.current;
 
         saveConversation(

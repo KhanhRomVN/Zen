@@ -77,6 +77,7 @@ const App: React.FC = () => {
     conversationOverrides?: {
       diagnosticEnabled?: boolean;
       useSkillEnabled?: boolean;
+      memoryEnabled?: boolean;
     };
   } | null>(null);
 
@@ -158,6 +159,7 @@ const App: React.FC = () => {
       conversationOverrides?: {
         diagnosticEnabled?: boolean;
         useSkillEnabled?: boolean;
+        memoryEnabled?: boolean;
       },
     ) => {
       setInitialMessageData({

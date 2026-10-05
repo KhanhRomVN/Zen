@@ -16,6 +16,8 @@ export { RunCommandRenderer } from "./RunCommandRenderer";
 export { GitStatusRenderer } from "./GitStatusRenderer";
 export { CommitMessageRenderer } from "./CommitMessageRenderer";
 export { SkillToolRenderer } from "./SkillToolRenderer";
+export { ReadMemoryRenderer } from "./ReadMemoryRenderer";
+export { UpdateMemoryRenderer } from "./UpdateMemoryRenderer";
 export { MarkdownRenderer } from "./MarkdownRenderer";
 export { QuestionRenderer } from "./QuestionRenderer";
 export { ErrorRenderer } from "./ErrorRenderer";

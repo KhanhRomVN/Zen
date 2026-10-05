@@ -84,4 +84,12 @@ export class PathService {
       `${conversationId}.json`,
     );
   }
+
+  /**
+   * Đường dẫn file memory.json của project (per-project, không per-conversation):
+   * ~/.khanhromvn-zen/projects/{projectHash}/memory.json
+   */
+  public getMemoryFilePath(workspaceFolderPath: string): string {
+    return path.join(this.getProjectContextDir(workspaceFolderPath), "memory.json");
+  }
 }

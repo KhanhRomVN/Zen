@@ -302,6 +302,28 @@ export const TAG_REGISTRY: Record<string, TagDefinition> = {
     },
   },
 
+  read_memory: {
+    id: "read_memory",
+    title: "READ MEMORY",
+    category: "tool",
+    timeout: 30000,
+    permissions: {
+      approval: "allow",
+      fullAccess: "allow",
+    },
+  },
+
+  update_memory: {
+    id: "update_memory",
+    title: "UPDATE MEMORY",
+    category: "tool",
+    timeout: 30000,
+    permissions: {
+      approval: "allow",
+      fullAccess: "allow",
+    },
+  },
+
   conversation_title: {
     id: "conversation_title",
     title: "TITLE",

@@ -98,10 +98,14 @@ export interface MessageInputProps {
   conversationDiagnosticEnabled?: boolean;
   /** Per-conversation override: skill enabled (chỉ hiển thị ở Home panel) */
   conversationUseSkillEnabled?: boolean;
+  /** Per-conversation override: memory enabled (chỉ hiển thị ở Home panel) */
+  conversationMemoryEnabled?: boolean;
   /** Callback khi toggle diagnostic thay đổi */
   onConversationDiagnosticToggle?: () => void;
   /** Callback khi toggle skill thay đổi */
   onConversationUseSkillToggle?: () => void;
+  /** Callback khi toggle memory thay đổi */
+  onConversationMemoryToggle?: () => void;
 }
 
 export interface ToggleButtonProps {

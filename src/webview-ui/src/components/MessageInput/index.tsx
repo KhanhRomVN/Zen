@@ -29,6 +29,12 @@ import type {
   ToggleButtonProps,
 } from "./types";
 import { PERMISSION_MODE } from "../../features/chat/constants/constants";
+import {
+  isDeepSeekProvider,
+  isDeepSeekBlockedNow,
+  getCurrentBlockedRangeLabel,
+  getBlockedHourDescription,
+} from "../../utils/timeBlock";
 
 export type { UploadedFile };
 
@@ -86,25 +92,6 @@ const GlobeIcon = () => (
   </svg>
 );
 
-const MemoryIcon = () => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="lucide lucide-database-icon lucide-database"
-  >
-    <ellipse cx="12" cy="5" rx="9" ry="3" />
-    <path d="M3 12a9 3 0 0 0 18 0" />
-    <path d="M3 5v14a9 3 0 0 0 18 0V5" />
-  </svg>
-);
-
 // ============================================================================
 // CUSTOM HOOKS
 // ============================================================================
@@ -154,10 +141,6 @@ const useModelCapabilities = (
     return result;
   }, [currentModel, currentModelConfig, currentProviderConfig]);
 
-  const showMemoryButton = React.useMemo(() => {
-    return currentModel?.is_memory === true;
-  }, [currentModel]);
-
   const supportsUpload = React.useMemo(() => {
     let result: boolean;
     if (currentModel?.is_image_upload !== undefined) {
@@ -186,7 +169,6 @@ const useModelCapabilities = (
   return {
     showThinkingButton,
     showSearchButton,
-    showMemoryButton,
     supportsUpload,
     supportsImageGenerator,
     supportsVideoGenerator,
@@ -545,24 +527,6 @@ const SearchButton: React.FC<ToggleButtonProps> = ({
   </IconToggleButton>
 );
 
-const MemoryButton: React.FC<ToggleButtonProps> = ({
-  isOn,
-  onClick,
-  title,
-}) => (
-  <IconToggleButton
-    isOn={isOn}
-    onClick={onClick}
-    title={title}
-    accentColor="#8b5cf6"
-    tooltipContent={
-      <TooltipToggle label="Memory" isOn={isOn} accentColor="#8b5cf6" />
-    }
-  >
-    <MemoryIcon />
-  </IconToggleButton>
-);
-
 // ============================================================================
 // GLOBAL PERMISSION BUTTON
 // ============================================================================
@@ -842,8 +806,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onRemoveAttachedItem,
     conversationDiagnosticEnabled,
     conversationUseSkillEnabled,
+    conversationMemoryEnabled,
     onConversationDiagnosticToggle,
     onConversationUseSkillToggle,
+    onConversationMemoryToggle,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -896,7 +862,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     );
     const [isSearch, toggleSearch, setIsSearch] =
       useToggleState("zen-search-enabled");
-    const [isMemory, , setIsMemory] = useToggleState("zen-memory-enabled");
 
     const { isLoadingCache, pendingAccountIdRef } = useModelSelection(
       folderPath,
@@ -969,10 +934,30 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       return Array.isArray(authMethod) && authMethod.length === 0;
     }, [enableViewOnlyMode, currentProviderConfig, conversationFileStats]);
 
+    // ─── Time-block detection ────────────────────────────────────────
+    // Kiểm tra live mỗi khi render — provider DeepSeek bị cấm theo khung giờ UTC.
+    // Dùng state để re-check mỗi 30s (tránh user bị kẹt nếu vào đúng lúc chuyển giờ).
+    const [timeBlockTick, setTimeBlockTick] = React.useState(0);
+    React.useEffect(() => {
+      const id = setInterval(() => setTimeBlockTick((n) => n + 1), 30_000);
+      return () => clearInterval(id);
+    }, []);
+    const isTimeBlocked = React.useMemo(() => {
+      void timeBlockTick; // trigger re-eval khi tick đổi
+      return isDeepSeekProvider(currentModel?.providerId) && isDeepSeekBlockedNow();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentModel?.providerId, timeBlockTick]);
+    const timeBlockLabel = React.useMemo(() => {
+      if (!isTimeBlocked) return null;
+      return {
+        current: getCurrentBlockedRangeLabel(),
+        all: getBlockedHourDescription(),
+      };
+    }, [isTimeBlocked]);
+
     const {
       showThinkingButton,
       showSearchButton,
-      showMemoryButton,
       supportsUpload,
       supportsImageGenerator,
       supportsVideoGenerator,
@@ -1010,6 +995,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       if (isViewOnlyProvider) {
         return "This provider does not require authentication";
       }
+      if (isTimeBlocked && timeBlockLabel) {
+        return `⛔ DeepSeek bị chặn ${timeBlockLabel.all} (giờ VN)`;
+      }
       if (!currentModel) {
         return "Select a model to start";
       }
@@ -1025,12 +1013,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       isLoadingCache,
       isProcessing,
       isViewOnlyProvider,
+      isTimeBlocked,
+      timeBlockLabel,
       currentModel,
       currentAccount,
       supportsUpload,
       showThinkingButton,
       showSearchButton,
-      showMemoryButton,
     ]);
 
     // Calculate token count for message input (including system prompt + text snippets)
@@ -1118,41 +1107,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const isTokenLimitExceeded = React.useMemo(() => {
       return maxInputTokens !== null && messageTokenCount > maxInputTokens;
     }, [messageTokenCount, maxInputTokens]);
-
-    const toggleMemory = async () => {
-      if (!currentAccount?.id) {
-        console.warn("No account selected, cannot toggle memory");
-        return;
-      }
-
-      const newState = !isMemory;
-      setIsMemory(newState);
-      localStorage.setItem("zen-memory-enabled", String(newState));
-
-      try {
-        const response = await dbFetch(
-          `/v1/accounts/${currentAccount.id}/memory`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ is_memory_enabled: newState }),
-          },
-        );
-        const result = await response.json();
-        if (!result.success) {
-          setIsMemory(!newState);
-          localStorage.setItem("zen-memory-enabled", String(!newState));
-          console.error(
-            "Failed to update memory state on server:",
-            result.message,
-          );
-        }
-      } catch (error) {
-        setIsMemory(!newState);
-        localStorage.setItem("zen-memory-enabled", String(!newState));
-        console.error("Failed to sync memory state with server:", error);
-      }
-    };
 
     const fetchProviders = React.useCallback(async () => {
       try {
@@ -1396,11 +1350,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               borderRadius: "var(--border-radius)",
               border: !isConnected
                 ? "1px dashed var(--vscode-errorForeground, #f44336)"
-                : isTokenLimitExceeded
-                  ? "2px dashed var(--vscode-errorForeground, #f44336)"
-                  : isViewOnlyProvider
-                    ? "1px dashed #f44336"
-                    : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
+                : isTimeBlocked
+                  ? "1px dashed var(--vscode-editorWarning-foreground, #f97316)"
+                  : isTokenLimitExceeded
+                    ? "2px dashed var(--vscode-errorForeground, #f44336)"
+                    : isViewOnlyProvider
+                      ? "1px dashed #f44336"
+                      : "1px solid var(--vscode-widget-border, rgba(255,255,255,0.08))",
               transition: "border 0.3s ease",
             }}
           >
@@ -1601,13 +1557,16 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   is_video_upload: modelObj?.is_video_upload ?? false,
                   is_audio_upload: modelObj?.is_audio_upload ?? false,
                   is_file_upload: modelObj?.is_file_upload ?? false,
-                  is_memory: modelObj?.is_memory ?? prov?.is_memory ?? false,
+        
                 };
 
                 const newAccount = {
                   id: selected.accountId,
                   email: selected.email,
                   provider_id: selected.accountProviderId,
+                  daily_token_usage: selected.dailyTokenUsage ?? null,
+                  daily_token_reset_date: selected.dailyTokenResetDate ?? null,
+                  usage: selected.usage ?? null,
                 };
 
                 if (isModelSwitchMode) {
@@ -1622,27 +1581,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   // Normal mode: apply immediately
                   setCurrentModel(newModel);
                   setCurrentAccount(newAccount);
-
-                  // Fetch memory state from server
-                  const fetchMemoryState = async () => {
-                    try {
-                      const response = await dbFetch(
-                        `/v1/accounts/${selected.accountId}/memory`,
-                      );
-                      const result = await response.json();
-                      if (result.success && result.data) {
-                        setIsMemory(result.data.is_memory_enabled);
-                        // Sync to localStorage
-                        localStorage.setItem(
-                          "zen-memory-enabled",
-                          String(result.data.is_memory_enabled),
-                        );
-                      }
-                    } catch (error) {
-                      console.error("Failed to fetch memory state:", error);
-                    }
-                  };
-                  fetchMemoryState();
                   setShowModelDrawer(false);
                 }
               }}
@@ -1923,13 +1861,14 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  // Only send if not history mode, connected, not loading, not processing, and not exceeded token limit
+                  // Only send if not history mode, connected, not loading, not processing, not exceeded token limit, not time-blocked
                   if (
                     !isHistoryMode &&
                     isConnected &&
                     !isLoadingCache &&
                     !isProcessing &&
-                    !isTokenLimitExceeded
+                    !isTokenLimitExceeded &&
+                    !isTimeBlocked
                   ) {
                     onSendMessage();
                   }
@@ -2023,8 +1962,6 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 onSelectVideoGenerator={() => {}}
                 onSelectDeepResearch={() => {}}
                 onSelectPullRequest={onGitPullRequest}
-                onToggleMemory={showMemoryButton ? toggleMemory : undefined}
-                isMemoryOn={isMemory}
                 showImageGenerator={supportsImageGenerator}
                 showVideoGenerator={supportsVideoGenerator}
                 showDeepResearch={supportsDeepResearch}
@@ -2108,6 +2045,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   onDiagnosticToggle={onConversationDiagnosticToggle}
                   skillEnabled={!!conversationUseSkillEnabled}
                   onSkillToggle={onConversationUseSkillToggle}
+                  memoryEnabled={!!conversationMemoryEnabled}
+                  onMemoryToggle={onConversationMemoryToggle}
                 />
               )}
 
@@ -2251,7 +2190,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         ? "not-allowed"
                         : isStreaming || isProcessing
                           ? "pointer"
-                          : isTokenLimitExceeded
+                          : isTokenLimitExceeded || isTimeBlocked
                             ? "not-allowed"
                             : message.trim() || uploadedFiles.length > 0
                               ? "pointer"
@@ -2270,20 +2209,20 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         ? "var(--secondary-text)"
                         : isStreaming || isProcessing
                           ? "var(--vscode-errorForeground, #f44336)"
-                          : isTokenLimitExceeded
+                          : isTokenLimitExceeded || isTimeBlocked
                             ? "var(--vscode-errorForeground, #f44336)"
                             : "var(--vscode-descriptionForeground, #888)",
                     pointerEvents:
                       isHistoryMode ||
                       isLoadingCache ||
-                      (isTokenLimitExceeded && !isStreaming && !isProcessing)
+                      ((isTokenLimitExceeded || isTimeBlocked) && !isStreaming && !isProcessing)
                         ? "none"
                         : "auto",
                     // Soft-style background for token badge
                     backgroundColor:
                       isStreaming || isProcessing
                         ? "transparent"
-                        : isTokenLimitExceeded
+                        : isTokenLimitExceeded || isTimeBlocked
                           ? "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)"
                           : "color-mix(in srgb, var(--vscode-descriptionForeground, #888) 8%, transparent)",
                     fontSize: "11px",
@@ -2298,8 +2237,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                       return;
                     }
 
-                    if (isTokenLimitExceeded) {
-                      // Don't send when limit exceeded
+                    if (isTokenLimitExceeded || isTimeBlocked) {
+                      // Don't send when limit exceeded or time-blocked
                       return;
                     }
 
@@ -2314,7 +2253,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   onMouseEnter={(e) => {
                     if (isStreaming || isProcessing) {
                       e.currentTarget.style.backgroundColor = "var(--hover-bg)";
-                    } else if (isTokenLimitExceeded) {
+                    } else if (isTokenLimitExceeded || isTimeBlocked) {
                       e.currentTarget.style.backgroundColor =
                         "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 18%, transparent)";
                     } else if (message.trim() || uploadedFiles.length > 0) {
@@ -2324,7 +2263,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   onMouseLeave={(e) => {
                     if (isStreaming || isProcessing) {
                       e.currentTarget.style.backgroundColor = "transparent";
-                    } else if (isTokenLimitExceeded) {
+                    } else if (isTokenLimitExceeded || isTimeBlocked) {
                       e.currentTarget.style.backgroundColor =
                         "color-mix(in srgb, var(--vscode-errorForeground, #f44336) 12%, transparent)";
                     } else {
@@ -2335,11 +2274,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   title={
                     isStreaming || isProcessing
                       ? "Stop Generation"
-                      : isTokenLimitExceeded
-                        ? `Token limit exceeded (${messageTokenCount.toLocaleString()}/${maxInputTokens?.toLocaleString()})`
-                        : maxInputTokens
-                          ? `${messageTokenCount.toLocaleString()}/${maxInputTokens.toLocaleString()} tokens`
-                          : `${messageTokenCount.toLocaleString()} tokens`
+                      : isTimeBlocked && timeBlockLabel
+                        ? `⛔ DeepSeek bị chặn ${timeBlockLabel.all} (giờ VN)`
+                        : isTokenLimitExceeded
+                          ? `Token limit exceeded (${messageTokenCount.toLocaleString()}/${maxInputTokens?.toLocaleString()})`
+                          : maxInputTokens
+                            ? `${messageTokenCount.toLocaleString()}/${maxInputTokens.toLocaleString()} tokens`
+                            : `${messageTokenCount.toLocaleString()} tokens`
                   }
                 >
                   {isStreaming || isProcessing ? (
@@ -2434,6 +2375,8 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
   const useSkillSame =
     prevProps.conversationUseSkillEnabled ===
     nextProps.conversationUseSkillEnabled;
+  const memorySame =
+    prevProps.conversationMemoryEnabled === nextProps.conversationMemoryEnabled;
 
   // Only re-render if critical props changed
   const shouldSkip =
@@ -2447,7 +2390,8 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     conversationFileStatsSame &&
     attachedItemsSame &&
     diagnosticSame &&
-    useSkillSame;
+    useSkillSame &&
+    memorySame;
 
   return shouldSkip;
 });

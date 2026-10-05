@@ -19,6 +19,8 @@ export interface PromptBuilderOptions {
   useSkillEnabled?: boolean;
   /** Per-conversation override: bật/tắt VSCode diagnostics trong system prompt */
   diagnosticEnabled?: boolean;
+  /** Bật/tắt Memory — chèn memory.json nội dung vào system prompt */
+  memoryEnabled?: boolean;
   /** Provider ID của model đang dùng — nếu "claude" thì dùng claude-system-prompt */
   providerId?: string;
 }
@@ -38,6 +40,7 @@ export class PromptBuilder {
       promptLengthMode,
       useSkillEnabled,
       diagnosticEnabled,
+      memoryEnabled,
       providerId,
     } = options;
 
@@ -56,6 +59,14 @@ export class PromptBuilder {
         diagnosticEnabled,
         providerId,
       );
+    }
+
+    // Khi Memory bật: nhúng toàn bộ nội dung memory.json vào cuối system prompt
+    // dưới heading "# Memory". Chỉ inject ở lượt đầu (isReq1) — các lượt sau
+    // conversation history đã mang theo system prompt ban đầu.
+    if (isReq1 && memoryEnabled && providerId !== "claude") {
+      const memorySection = await this.buildMemorySection();
+      systemPrompt = `${systemPrompt}${memorySection}`;
     }
 
     // Build attached context
@@ -177,6 +188,23 @@ export class PromptBuilder {
       return `\n\n## Available Skills\nInstalled skills you can use. When a task matches a skill's description, read its file for the full instructions before acting.\n${lines.join("\n")}`;
     } catch (e) {
       console.warn("[PromptBuilder] Failed to load installed skills:", e);
+      return "";
+    }
+  }
+
+  /**
+   * Đọc snapshot memory.json từ extension side và đóng gói thành section "# Memory"
+   * để nhúng vào system prompt khi Memory được bật.
+   * Trả về "" nếu file rỗng/không tồn tại — AI vẫn thấy heading "# MEMORY (when enabled)"
+   * trong workflow.ts nhưng không có nội dung cụ thể để tham chiếu.
+   */
+  private static async buildMemorySection(): Promise<string> {
+    try {
+      const content = await extensionService.getMemorySnapshot();
+      if (!content || content.trim().length === 0) return "";
+      return `\n\n# Memory\n${content}`;
+    } catch (e) {
+      console.warn("[PromptBuilder] Failed to load memory snapshot:", e);
       return "";
     }
   }

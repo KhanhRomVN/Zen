@@ -2,7 +2,7 @@ export const TOOL_VALIDATION = `# TOOL VALIDATION & ERROR PREVENTION
 
 ## Valid Tool Tags (CRITICAL — MUST MATCH EXACTLY)
 Only these tags are valid. Full parameters and usage syntax for each are documented in the TOOLS section above — this list exists purely to catch invented tool names, not to re-document usage:
-\`read_file\`, \`write_to_file\`, \`replace_in_file\`, \`list_files\`, \`find_files\`, \`grep\`, \`delete_file\`, \`run_command\`, \`git_status\`, \`git_diff\`, \`commit_message\`, \`revert_file\`, \`view_replace_history\`, \`search_skill\`, \`list_skill\`, \`read_skill\`, \`install_skill\`.
+\`read_file\`, \`write_to_file\`, \`replace_in_file\`, \`list_files\`, \`find_files\`, \`grep\`, \`delete_file\`, \`run_command\`, \`git_status\`, \`git_diff\`, \`commit_message\`, \`revert_file\`, \`view_replace_history\`, \`search_skill\`, \`list_skill\`, \`read_skill\`, \`install_skill\`, \`read_memory\`, \`update_memory\`.
 Response-only tags (not tools): \`conversation_title\`, \`markdown\`, \`code\`, \`question\`.
 
 ## Common Invented-Tool Mistakes to AVOID

@@ -286,17 +286,7 @@ const StatsPeriodPicker: React.FC<StatsPeriodPickerProps> = ({
     onOffsetChange(0);
   };
 
-  // Keyboard: ← older, → newer, Esc close
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "ArrowLeft")  { go(1);  e.preventDefault(); }
-      if (e.key === "ArrowRight") { go(-1); e.preventDefault(); }
-      if (e.key === "Escape")     { setOpen(false); }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [go]);
+
 
   return (
     <>

@@ -8,11 +8,12 @@
  * ------------------------------------------------------------------
  */
 
-import React from "react";
-import { ShieldCheck, MessageSquare } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { ShieldCheck, MessageSquare, Brain, RefreshCw } from "lucide-react";
 import { useSettings } from "../../../../context/SettingsContext";
 import type { PermissionMode } from "../../../chat/types/tag-types";
 import GroupSection from "../database/GroupSection";
+import { extensionService } from "@/services/ExtensionService";
 
 const ACCENT = "#1565c0";
 
@@ -111,12 +112,116 @@ const ToggleRow: React.FC<ToggleRowProps> = ({
   </div>
 );
 
+const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
+  const [content, setContent] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const snapshot = await extensionService.getMemorySnapshot();
+      setContent(snapshot || "");
+    } catch (e: any) {
+      setError(e?.message || "Failed to load memory file.");
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (!enabled) {
+    return (
+      <div
+        style={{
+          fontSize: "11.5px",
+          color: "var(--secondary-text)",
+          fontStyle: "italic",
+          padding: "8px 0",
+        }}
+      >
+        Bật Memory để xem nội dung file memory.json.
+      </div>
+    );
+  }
+
+  // Không có nội dung và không đang load → ẩn hoàn toàn viewer
+  if (!loading && !content && !error) {
+    return null;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontSize: "11px", color: "var(--secondary-text)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          memory.json
+        </span>
+        <button
+          type="button"
+          onClick={load}
+          disabled={loading}
+          title="Reload"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px",
+            background: "transparent",
+            border: "none",
+            cursor: loading ? "wait" : "pointer",
+            color: "var(--secondary-text)",
+            fontSize: "11px",
+            padding: "2px 6px",
+            borderRadius: "4px",
+          }}
+        >
+          <RefreshCw size={11} style={{ animation: loading ? "spin 1s linear infinite" : undefined }} />
+          Reload
+        </button>
+      </div>
+      {error && (
+        <div style={{ fontSize: "11.5px", color: "var(--vscode-errorForeground, #f87171)" }}>
+          {error}
+        </div>
+      )}
+      {(loading || content) && (
+        <pre
+          style={{
+            margin: 0,
+            padding: "10px 12px",
+            maxHeight: "260px",
+            overflow: "auto",
+            fontSize: "11.5px",
+            lineHeight: 1.5,
+            fontFamily: "var(--vscode-editor-font-family, monospace)",
+            color: "var(--primary-text)",
+            backgroundColor: "var(--input-bg, rgba(128,128,128,0.06))",
+            border: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
+            borderRadius: "6px",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {loading && !content ? "Đang tải..." : content}
+        </pre>
+      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+};
+
 const FeatureSettings: React.FC = () => {
   const {
     permissionMode,
     setPermissionMode,
     showMetadataBar,
     setShowMetadataBar,
+    memoryEnabled,
+    setMemoryEnabled,
   } = useSettings();
 
   return (
@@ -196,6 +301,22 @@ const FeatureSettings: React.FC = () => {
           checked={showMetadataBar}
           onChange={setShowMetadataBar}
         />
+      </GroupSection>
+
+      {/* Memory */}
+      <GroupSection
+        icon={<Brain size={16} />}
+        color="#a855f7"
+        title="Memory"
+        description="Persist durable facts (preferences, conventions) across conversations within this project."
+      >
+        <ToggleRow
+          title="Enable project memory"
+          description="When on, the full content of memory.json is injected into every system prompt. The agent can read/update it via read_memory / update_memory tools."
+          checked={memoryEnabled}
+          onChange={setMemoryEnabled}
+        />
+        <MemoryViewer enabled={memoryEnabled} />
       </GroupSection>
     </div>
   );

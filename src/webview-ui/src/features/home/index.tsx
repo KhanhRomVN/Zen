@@ -38,6 +38,12 @@ import { useModelAccount } from "../../hooks/useModelAccount";
 
 // ── Services ──
 import { extensionService } from "../../services/ExtensionService";
+import {
+  isDeepSeekBlockedNow,
+  isDeepSeekProvider,
+  getCurrentBlockedRangeLabel,
+  getBlockedHourDescription,
+} from "../../utils/timeBlock";
 
 // ── Types ──
 import { ConversationItem } from "../history/types";
@@ -155,6 +161,7 @@ interface HomePanelProps {
     conversationOverrides?: {
       diagnosticEnabled?: boolean;
       useSkillEnabled?: boolean;
+      memoryEnabled?: boolean;
     },
   ) => void;
   onLoadConversation: (
@@ -203,6 +210,8 @@ const HomePanel: React.FC<HomePanelProps> = ({
     setDiagnosticEnabled,
     useSkillEnabled: globalUseSkillEnabled,
     setUseSkillEnabled,
+    memoryEnabled: globalMemoryEnabled,
+    setMemoryEnabled,
   } = useSettings();
   const { isConnected, updateInfo } = useBackendConnection();
 
@@ -218,11 +227,14 @@ const HomePanel: React.FC<HomePanelProps> = ({
     React.useState(globalDiagnosticEnabled);
   const [conversationUseSkillEnabled, setConversationUseSkillEnabled] =
     React.useState(globalUseSkillEnabled);
+  const [conversationMemoryEnabled, setConversationMemoryEnabled] =
+    React.useState(globalMemoryEnabled);
 
   // Chỉ sync 1 lần khi global settings load xong lần đầu (từ localStorage/storage async).
   // Không sync liên tục để tránh ghi đè giá trị user đã toggle.
   const didSyncDiagnosticRef = React.useRef(false);
   const didSyncSkillRef = React.useRef(false);
+  const didSyncMemoryRef = React.useRef(false);
   React.useEffect(() => {
     if (
       !didSyncDiagnosticRef.current &&
@@ -238,6 +250,12 @@ const HomePanel: React.FC<HomePanelProps> = ({
       setConversationUseSkillEnabled(globalUseSkillEnabled);
     }
   }, [globalUseSkillEnabled]);
+  React.useEffect(() => {
+    if (!didSyncMemoryRef.current && globalMemoryEnabled !== undefined) {
+      didSyncMemoryRef.current = true;
+      setConversationMemoryEnabled(globalMemoryEnabled);
+    }
+  }, [globalMemoryEnabled]);
 
   const dbHeaders = () => {
     const h: Record<string, string> = {};
@@ -348,6 +366,22 @@ const HomePanel: React.FC<HomePanelProps> = ({
         uploadedFiles.length > 0 ||
         attachedItems.length > 0
       ) {
+        // ── Time-Block Check: Chặn DeepSeek trong giờ cấm ───────────────
+        if (isDeepSeekProvider(model?.providerId) && isDeepSeekBlockedNow()) {
+          const rangeLabel = getCurrentBlockedRangeLabel();
+          const allRanges = getBlockedHourDescription();
+          // Tạo fake chat session để hiển thị error message
+          onSendMessage(
+            `⛔ DeepSeek bị chặn trong khung giờ ${allRanges} (giờ VN). Hiện tại đang trong khung ${rangeLabel}. Vui lòng thử lại sau.`,
+            [],
+            model,
+            account,
+            {},
+          );
+          return;
+        }
+        // ────────────────────────────────────────────────────────────────
+
         // 🚀 FIX: Merge uploadedFiles and attachedItems like in chat panel
         onSendMessage(
           message,
@@ -357,6 +391,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
           {
             diagnosticEnabled: conversationDiagnosticEnabled,
             useSkillEnabled: conversationUseSkillEnabled,
+            memoryEnabled: conversationMemoryEnabled,
           },
         );
         setMessage("");
@@ -374,6 +409,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
       clearFiles,
       conversationDiagnosticEnabled,
       conversationUseSkillEnabled,
+      conversationMemoryEnabled,
     ],
   );
 
@@ -732,6 +768,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
         isStreaming={false}
         conversationDiagnosticEnabled={conversationDiagnosticEnabled}
         conversationUseSkillEnabled={conversationUseSkillEnabled}
+        conversationMemoryEnabled={conversationMemoryEnabled}
         onConversationDiagnosticToggle={() => {
           const next = !conversationDiagnosticEnabled;
           setConversationDiagnosticEnabled(next);
@@ -741,6 +778,11 @@ const HomePanel: React.FC<HomePanelProps> = ({
           const next = !conversationUseSkillEnabled;
           setConversationUseSkillEnabled(next);
           setUseSkillEnabled(next);
+        }}
+        onConversationMemoryToggle={() => {
+          const next = !conversationMemoryEnabled;
+          setConversationMemoryEnabled(next);
+          setMemoryEnabled(next);
         }}
       />
     </div>

@@ -459,63 +459,57 @@ const AccountCard: React.FC<AccountCardProps> = ({
                         : (account.period_tokens ?? 0)}{" "}
                     tokens
                   </span>
-                  {account.usage != null && (
-                    <span
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        fontSize: "10px",
-                        color:
-                          Number(account.usage) >= 90
+                  {/* Usage % — ghi trực tiếp bởi backend sau mỗi request */}
+                  {account.usage != null && (() => {
+                    const usageNum = Number(account.usage);
+                    const usageColor = usageNum >= 90
+                      ? "var(--vscode-editorError-foreground, #ef4444)"
+                      : usageNum >= 70
+                        ? "var(--vscode-editorWarning-foreground, #f97316)"
+                        : "var(--vscode-charts-purple, #a855f7)";
+                    const resetTitle = account.reset_usage_at
+                      ? `Usage resets at: ${formatIsoDate(account.reset_usage_at)}`
+                      : undefined;
+                    return (
+                      <span
+                        title={resetTitle}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          fontSize: "10px",
+                          color: usageNum >= 90
                             ? "var(--vscode-editorError-foreground, #ef4444)"
-                            : Number(account.usage) >= 70
+                            : usageNum >= 70
                               ? "var(--vscode-editorWarning-foreground, #f97316)"
                               : "var(--secondary-text)",
-                        flexShrink: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        maxWidth: "60px",
-                      }}
-                    >
-                      <BarChart3
-                        size={11}
-                        style={{
                           flexShrink: 0,
-                          color:
-                            Number(account.usage) >= 90
-                              ? "var(--vscode-editorError-foreground, #ef4444)"
-                              : Number(account.usage) >= 70
-                                ? "var(--vscode-editorWarning-foreground, #f97316)"
-                                : "var(--vscode-charts-purple, #a855f7)",
-                        }}
-                      />
-                      <span
-                        style={{
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
+                          maxWidth: "80px",
                         }}
                       >
-                        {Number(account.usage).toFixed(1)}%
+                        <BarChart3 size={11} style={{ flexShrink: 0, color: usageColor }} />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {usageNum.toFixed(1)}%
+                        </span>
                       </span>
-                    </span>
-                  )}
-                  {account.reset_usage_at != null &&
+                    );
+                  })()}
+                  {/* Reset countdown */}
+                  {account.usage != null && account.reset_usage_at != null &&
                     (() => {
                       const resetDate = new Date(account.reset_usage_at);
                       if (isNaN(resetDate.getTime())) return null;
                       const diffMs = resetDate.getTime() - Date.now();
-                      const isPast = diffMs <= 0;
+                      if (diffMs <= 0) return null;
                       const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-                      const label = isPast
-                        ? "Reset done"
-                        : diffHours < 1
-                          ? "Resets <1h"
-                          : diffHours < 24
-                            ? `Resets ${diffHours}h`
-                            : `Resets ${Math.ceil(diffHours / 24)}d`;
+                      const label = diffHours < 1
+                        ? "Resets <1h"
+                        : diffHours < 24
+                          ? `Resets ${diffHours}h`
+                          : `Resets ${Math.ceil(diffHours / 24)}d`;
                       return (
                         <span
                           title={`Usage resets at: ${formatIsoDate(account.reset_usage_at)}`}
@@ -524,33 +518,12 @@ const AccountCard: React.FC<AccountCardProps> = ({
                             alignItems: "center",
                             gap: "3px",
                             fontSize: "10px",
-                            color: isPast
-                              ? "var(--vscode-testing-iconPassed, #22c55e)"
-                              : "var(--vscode-editorWarning-foreground, #f97316)",
+                            color: "var(--vscode-editorWarning-foreground, #f97316)",
                             flexShrink: 0,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
                           }}
                         >
-                          <Clock
-                            size={10}
-                            style={{
-                              flexShrink: 0,
-                              color: isPast
-                                ? "var(--vscode-testing-iconPassed, #22c55e)"
-                                : "var(--vscode-editorWarning-foreground, #f97316)",
-                            }}
-                          />
-                          <span
-                            style={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {label}
-                          </span>
+                          <Clock size={10} style={{ flexShrink: 0 }} />
+                          <span>{label}</span>
                         </span>
                       );
                     })()}

@@ -13,7 +13,7 @@
  */
 
 import React, { useState } from "react";
-import { Ban, Stethoscope, Sparkles } from "lucide-react";
+import { Ban, Stethoscope, Sparkles, Brain } from "lucide-react";
 import type { SystemPromptMode } from "../../features/chat/prompts";
 import {
   Dropdown,
@@ -87,6 +87,7 @@ const SimpleTooltip: React.FC<{
 // ─── Aliases ────────────────────────────────────────────────────────────
 const DiagnosticsIcon = Stethoscope;
 const SkillIcon = Sparkles;
+const MemoryIcon = Brain;
 
 // ─── Toggle Switch ──────────────────────────────────────────────────────
 const ToggleSwitch: React.FC<{
@@ -142,6 +143,10 @@ interface PromptSettingsDropdownProps {
   // Skill
   skillEnabled?: boolean;
   onSkillToggle?: () => void;
+
+  // Memory
+  memoryEnabled?: boolean;
+  onMemoryToggle?: () => void;
 }
 
 // ─── Divider ────────────────────────────────────────────────────────────
@@ -180,6 +185,8 @@ const PromptSettingsDropdown: React.FC<PromptSettingsDropdownProps> = ({
   onDiagnosticToggle,
   skillEnabled = false,
   onSkillToggle,
+  memoryEnabled = false,
+  onMemoryToggle,
 }) => {
   const [hovered, setHovered] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -270,6 +277,30 @@ const PromptSettingsDropdown: React.FC<PromptSettingsDropdownProps> = ({
       >
         <SkillIcon size={13} />
       </span>
+
+      {/* Micro-divider */}
+      <span
+        style={{
+          width: "1px",
+          height: "12px",
+          background: "var(--vscode-widget-border, rgba(128,128,128,0.25))",
+          flexShrink: 0,
+        }}
+      />
+
+      {/* Icon 4: Memory */}
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          color: memoryEnabled
+            ? "#a855f7"
+            : "var(--vscode-descriptionForeground, #888)",
+          opacity: memoryEnabled ? 1 : 0.6,
+        }}
+      >
+        <MemoryIcon size={13} />
+      </span>
     </button>
   );
 
@@ -297,6 +328,14 @@ const PromptSettingsDropdown: React.FC<PromptSettingsDropdownProps> = ({
         </span>
         <span style={{ fontWeight: 600, color: skillEnabled ? "#6366f1" : "var(--vscode-descriptionForeground, #888)" }}>
           Skill {skillEnabled ? "ON" : "OFF"}
+        </span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+        <span style={{ color: memoryEnabled ? "#a855f7" : "var(--vscode-descriptionForeground, #888)", opacity: memoryEnabled ? 1 : 0.6 }}>
+          <MemoryIcon size={11} />
+        </span>
+        <span style={{ fontWeight: 600, color: memoryEnabled ? "#a855f7" : "var(--vscode-descriptionForeground, #888)" }}>
+          Memory {memoryEnabled ? "ON" : "OFF"}
         </span>
       </div>
     </div>
@@ -493,6 +532,54 @@ const PromptSettingsDropdown: React.FC<PromptSettingsDropdownProps> = ({
                 </div>
               </div>
               <ToggleSwitch isOn={skillEnabled} onToggle={() => onSkillToggle?.()} color="#6366f1" />
+            </button>
+
+            <Divider />
+
+            {/* ── Section 4: Memory ── */}
+            <SectionLabel label="Memory" />
+            <button
+              onClick={() => onMemoryToggle?.()}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                marginBottom: "4px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "background 0.12s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-bg, rgba(128,128,128,0.08))")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "7px",
+                  backgroundColor: memoryEnabled ? "rgba(168,85,247,0.15)" : "rgba(168,85,247,0.07)",
+                  color: memoryEnabled ? "#a855f7" : "rgba(168,85,247,0.5)",
+                  flexShrink: 0,
+                }}
+              >
+                <MemoryIcon size={14} />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--primary-text)", marginBottom: "1px" }}>
+                  Project memory
+                </div>
+                <div style={{ fontSize: "10.5px", color: "var(--secondary-text)", lineHeight: 1.35 }}>
+                  Persist durable facts across conversations
+                </div>
+              </div>
+              <ToggleSwitch isOn={memoryEnabled} onToggle={() => onMemoryToggle?.()} color="#a855f7" />
             </button>
           </DropdownContent>
         </Dropdown>

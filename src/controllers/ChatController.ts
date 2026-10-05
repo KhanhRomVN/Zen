@@ -54,6 +54,7 @@ import { SkillAPIHandler } from "../handlers/tool/SkillAPIHandler";
 import { SkillInstallHandler } from "../handlers/tool/SkillInstallHandler";
 import { SkillWorkspaceStateHandler } from "../handlers/tool/SkillWorkspaceStateHandler";
 import { RuleHandler } from "../handlers/tool/RuleHandler";
+import { MemoryHandler } from "../handlers/tool/MemoryHandler";
 import { WorkspaceZipHandler } from "../handlers/system/WorkspaceZipHandler";
 
 // ── Managers ──
@@ -105,6 +106,7 @@ export class ChatController {
   private skillInstallHandler: SkillInstallHandler;
   private skillWorkspaceStateHandler: SkillWorkspaceStateHandler;
   private ruleHandler: RuleHandler;
+  private memoryHandler: MemoryHandler;
   private workspaceZipHandler: WorkspaceZipHandler;
 
   constructor(
@@ -160,6 +162,7 @@ export class ChatController {
       this.extContext,
     );
     this.ruleHandler = new RuleHandler();
+    this.memoryHandler = new MemoryHandler();
     this.workspaceZipHandler = new WorkspaceZipHandler();
   }
 
@@ -351,6 +354,24 @@ export class ChatController {
           break;
         case "deleteFile":
           await this.deleteFileHandler.handleDeleteFile(message, webviewView);
+          break;
+        case "readMemory":
+          await this.memoryHandler.handleReadMemory(message, webviewView);
+          break;
+        case "updateMemory":
+          await this.memoryHandler.handleUpdateMemory(message, webviewView);
+          break;
+        case "getMemorySnapshot": {
+          const snapshot = MemoryHandler.getMemorySnapshot();
+          webviewView.webview.postMessage({
+            command: "memorySnapshotResult",
+            requestId: message.requestId,
+            content: snapshot,
+          });
+          break;
+        }
+        case "saveMemory":
+          await this.memoryHandler.handleSaveMemory(message, webviewView);
           break;
         case "openFileDiff":
           await this.diffViewHandler.handleFileDiff(message);

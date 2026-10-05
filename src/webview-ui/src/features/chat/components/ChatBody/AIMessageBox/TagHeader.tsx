@@ -324,6 +324,12 @@ export const TagHeader: React.FC<TagHeaderProps> = ({
         case "commit_message":
           return "✓ Commit created successfully";
 
+        case "read_memory":
+          return "✓ Memory read successfully";
+
+        case "update_memory":
+          return "✓ Memory updated successfully";
+
         default:
           return "✓ Completed successfully";
       }

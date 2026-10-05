@@ -78,7 +78,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     >
       <div
         style={{
-          padding: "12px 12px 8px 12px",
+          padding: "8px 12px 8px 12px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -124,26 +124,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               {currentAccount.email}
             </span>
           )}
-          {currentAccount?.usage != null && (() => {
-            const usageNum = Number(currentAccount.usage);
-            return (
-              <span
-                style={{
-                  fontWeight: "normal",
-                  fontSize: "11px",
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                  color: usageNum >= 90
-                    ? "var(--vscode-editorError-foreground, #ef4444)"
-                    : usageNum >= 70
-                      ? "var(--vscode-editorWarning-foreground, #f97316)"
-                      : "var(--secondary-text)",
-                }}
-              >
-                {usageNum.toFixed(1)}%
-              </span>
-            );
-          })()}
           {currentTaskName && (
             <>
               <span style={{ opacity: 0.3 }}>|</span>
@@ -181,23 +161,70 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           )}
         </div>
 
+        {/* ── Right side: token count + usage + search ── */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "8px",
+            gap: "6px",
             flexShrink: 0,
+            marginLeft: "auto",
           }}
         >
+          {/* Token count with icon */}
           <span
             style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "3px",
               fontSize: "11px",
               color: "var(--secondary-text)",
               opacity: 0.8,
             }}
           >
+            {/* Coins / token icon — amber */}
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--vscode-editorWarning-foreground, #f59e0b)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="8" cy="8" r="6" />
+              <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+              <path d="M7 6h1v4" />
+              <path d="m16.71 13.88.7.71-2.82 2.82" />
+            </svg>
             {contextUsage ? formatTokens(contextUsage.total) : "0"}
           </span>
+
+          {/* Usage % with icon — only when available */}
+          {currentAccount?.usage != null && (() => {
+            const usageNum = Number(currentAccount.usage);
+            const usageColor = usageNum >= 90
+              ? "var(--vscode-editorError-foreground, #ef4444)"
+              : usageNum >= 70
+                ? "var(--vscode-editorWarning-foreground, #f97316)"
+                : "var(--vscode-charts-purple, #a855f7)";
+            return (
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "3px",
+                  fontWeight: "normal",
+                  fontSize: "11px",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  color: usageColor,
+                }}
+              >
+                {/* Bar chart icon — purple / warning / error */}
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={usageColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <line x1="18" y1="20" x2="18" y2="10" />
+                  <line x1="12" y1="20" x2="12" y2="4" />
+                  <line x1="6"  y1="20" x2="6"  y2="14" />
+                </svg>
+                {usageNum.toFixed(1)}%
+              </span>
+            );
+          })()}
+
+          {/* Search button */}
           <button
             onClick={() => {
               setIsSearchOpen((v) => !v);
@@ -207,10 +234,9 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             style={{
               background: isSearchOpen
                 ? "color-mix(in srgb, var(--vscode-button-background) 15%, transparent)"
-                : "transparent",
-              border: isSearchOpen
-                ? "1px solid color-mix(in srgb, var(--vscode-button-background) 40%, transparent)"
-                : "1px solid transparent",
+                : "color-mix(in srgb, var(--vscode-icon-foreground, var(--secondary-text)) 10%, transparent)",
+              border: "1px solid transparent",
+              outline: "none",
               cursor: "pointer",
               padding: "3px 4px",
               display: "flex",
@@ -219,7 +245,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               color: isSearchOpen
                 ? "var(--vscode-button-background, var(--vscode-textLink-foreground))"
                 : "var(--vscode-icon-foreground, var(--secondary-text))",
-              opacity: isSearchOpen ? 1 : 0.65,
+              opacity: isSearchOpen ? 1 : 0.75,
               borderRadius: "4px",
               transition: "all 0.15s ease",
             }}
@@ -227,7 +253,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               if (!isSearchOpen) e.currentTarget.style.opacity = "1";
             }}
             onMouseLeave={(e) => {
-              if (!isSearchOpen) e.currentTarget.style.opacity = "0.65";
+              if (!isSearchOpen) e.currentTarget.style.opacity = "0.75";
             }}
           >
             <svg

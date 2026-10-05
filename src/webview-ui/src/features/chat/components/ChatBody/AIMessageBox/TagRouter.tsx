@@ -48,6 +48,8 @@ import {
   QuestionRenderer, // question
   WarningRenderer, // warning (not tag)
   SkillToolRenderer, // search_skill, list_skill, read_skill, install_skill
+  ReadMemoryRenderer, // read_memory
+  UpdateMemoryRenderer, // update_memory
 } from "./renderers";
 import { GitDiffBlock } from "./blocks/git_diff/GitDiffBlock";
 import { CodeBlock } from "./blocks/code/CodeBlock";
@@ -1213,6 +1215,50 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
             fileStatsMap={fileStatsMap}
             onToolClick={onToolClick}
             conversationId={conversationId}
+          />
+        ))}
+      </>
+    );
+  }
+
+  if (toolType === "read_memory") {
+    return (
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <ReadMemoryRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
+            toolOutputs={toolOutputs}
+          />
+        ))}
+      </>
+    );
+  }
+
+  if (toolType === "update_memory") {
+    return (
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <UpdateMemoryRenderer
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            isActionClicked={clickedActions.has(`${messageId}-action-${index}`)}
+            isActiveGroup={isActiveGroup && index === toolGroup[0].index}
+            isLastItemInList={
+              isLastItemInList &&
+              index === toolGroup[toolGroup.length - 1].index
+            }
+            toolOutputs={toolOutputs}
           />
         ))}
       </>

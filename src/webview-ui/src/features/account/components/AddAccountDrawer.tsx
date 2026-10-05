@@ -902,19 +902,48 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     )
       .then((res) => res.json())
       .then(
-        (data) =>
-          new Set<string>(
-            (data?.data?.accounts ?? [])
-              .filter((a: any) => {
-                const accountMethod = String(a.auth_method || "").trim().toLowerCase();
-                const currentMethod = method.trim().toLowerCase();
-                return !accountMethod || accountMethod === currentMethod;
-              })
+        (data) => {
+          const allAccounts = data?.data?.accounts ?? [];
+          console.group(
+            `[AddAccountDrawer] existingEmails build — provider="${provider.provider_id}" method="${method}"`,
+          );
+          console.log(
+            `[AddAccountDrawer] API trả về ${allAccounts.length} account(s) cho provider "${provider.provider_id}":`,
+            allAccounts.map((a: any) => ({
+              email: a.email,
+              auth_method: a.auth_method,
+            })),
+          );
+
+          const filtered = allAccounts.filter((a: any) => {
+            const accountMethod = String(a.auth_method || "").trim().toLowerCase();
+            const currentMethod = method.trim().toLowerCase();
+            const keep = !accountMethod || accountMethod === currentMethod;
+            if (!keep) {
+              console.log(
+                `[AddAccountDrawer]   → Loại bỏ account email="${a.email}" vì auth_method="${a.auth_method}" !== currentMethod="${method}"`,
+              );
+            }
+            return keep;
+          });
+
+          const emailSet = new Set<string>(
+            filtered
               .map((a: any) => String(a.email || "").trim().toLowerCase())
               .filter(Boolean),
-          ),
+          );
+          console.log(
+            "[AddAccountDrawer] existingEmails set (sau filter method):",
+            [...emailSet],
+          );
+          console.groupEnd();
+          return emailSet;
+        },
       )
-      .catch(() => new Set<string>());
+      .catch((err: any) => {
+        console.error("[AddAccountDrawer] Lỗi fetch existingEmails:", err);
+        return new Set<string>();
+      });
 
     Promise.all([foldersPromise, emailsPromise])
       .then(([folders, emails]) => {
@@ -1503,6 +1532,41 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     const visibleFolders = profileFolders.filter(
       (name) => !existingEmails.has(name.trim().toLowerCase()),
     );
+
+    // ── DEBUG LOG ────────────────────────────────────────────────────────
+    console.group(
+      `[AddAccountDrawer] ProfilePicker debug — provider="${profileStepProvider.provider_id}" method="${profileStepMethod}"`,
+    );
+    console.log(
+      "[AddAccountDrawer] profileFolders (raw từ extension host):",
+      profileFolders,
+    );
+    console.log(
+      "[AddAccountDrawer] existingEmails (accounts đã có cùng provider+method):",
+      [...existingEmails],
+    );
+    console.log(
+      "[AddAccountDrawer] visibleFolders (sau khi lọc trùng):",
+      visibleFolders,
+    );
+    const hiddenFolders = profileFolders.filter((name) =>
+      existingEmails.has(name.trim().toLowerCase()),
+    );
+    if (hiddenFolders.length > 0) {
+      console.warn(
+        "[AddAccountDrawer] Folders bị ẩn (trùng với existingEmails):",
+        hiddenFolders,
+      );
+      hiddenFolders.forEach((name) => {
+        console.warn(
+          `  → "${name}" bị ẩn vì existingEmails chứa "${name.trim().toLowerCase()}"`,
+        );
+      });
+    } else {
+      console.log("[AddAccountDrawer] Không có folder nào bị ẩn.");
+    }
+    console.groupEnd();
+    // ─────────────────────────────────────────────────────────────────────
     const backToMethods = () => {
       setSelectedProvider(profileStepProvider);
       setProfileStepProvider(null);

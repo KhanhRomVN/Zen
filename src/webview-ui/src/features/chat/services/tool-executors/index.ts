@@ -37,6 +37,8 @@ import { SearchSkillExecutor } from "./SearchSkillExecutor";
 import { ListSkillExecutor } from "./ListSkillExecutor";
 import { ReadSkillExecutor } from "./ReadSkillExecutor";
 import { InstallSkillExecutor } from "./InstallSkillExecutor";
+import { ReadMemoryExecutor } from "./ReadMemoryExecutor";
+import { UpdateMemoryExecutor } from "./UpdateMemoryExecutor";
 
 /**
  * Factory function to get the appropriate executor for a given action type
@@ -88,6 +90,10 @@ export function getExecutor(
       return new ReadSkillExecutor();
     case "install_skill":
       return new InstallSkillExecutor();
+    case "read_memory":
+      return new ReadMemoryExecutor();
+    case "update_memory":
+      return new UpdateMemoryExecutor();
     case "git_status":
       // git_status is display-only, no executor needed
       return null;

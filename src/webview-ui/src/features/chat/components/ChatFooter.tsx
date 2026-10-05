@@ -2,6 +2,7 @@ import React from "react";
 import MessageInput from "@/components/MessageInput";
 import FilesPreviews from "@/components/MessageInput/FilesPreviews";
 import { FileMutationTool } from "@/features/chat/constants/constants";
+import { DailyTokenUsageUI } from "@/components/DailyTokenUsageUI";
 
 interface ChatFooterProps {
   message: string;
@@ -574,6 +575,22 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
       />
 
       <div style={{ position: "relative" }}>
+        {/* ─── Daily token usage banner (chỉ hiện khi có data) ─── */}
+        {currentAccount?.daily_token_usage != null && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              padding: "2px 16px 0",
+            }}
+          >
+            <DailyTokenUsageUI
+              dailyTokenUsage={currentAccount.daily_token_usage}
+              daily_token_reset_date={currentAccount.daily_token_reset_date}
+            />
+          </div>
+        )}
         <MessageInput
           message={message}
           setMessage={setMessage}
