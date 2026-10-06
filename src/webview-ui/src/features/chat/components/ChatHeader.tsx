@@ -3,12 +3,11 @@
  * ChatHeader
  * ------------------------------------------------------------------
  * Row 1: conversation_title  [Search] [3-dot vert]
- * Row 2: favicon · provider/model · email · FeatureBadge  [StatsBadge▸tooltip]
+ * Row 2: favicon · provider/model · email  [StatsBadge▸tooltip]
  * ------------------------------------------------------------------
  */
 
 import React from "react";
-import { Stethoscope, Sparkles, Brain } from "lucide-react";
 import { useAccountStats } from "../../../hooks/useAccountStats";
 
 // ─── Props ───────────────────────────────────────────────────────────────
@@ -22,9 +21,6 @@ interface ChatHeaderProps {
   currentConversationId?: string | null;
   currentTaskName: string | null;
 
-  diagnosticEnabled?: boolean;
-  skillEnabled?: boolean;
-  memoryEnabled?: boolean;
   promptLengthMode?: "none" | "short" | "medium" | "long";
   systemPromptMode?: string;
 
@@ -458,48 +454,7 @@ const ConversationMenu: React.FC<ConversationMenuProps> = ({
   );
 };
 
-// ─── Feature badge (diagnostic / skill / memory icons) ───────────────────
-const FeatureBadge: React.FC<{
-  diagnosticEnabled: boolean;
-  skillEnabled: boolean;
-  memoryEnabled: boolean;
-}> = ({ diagnosticEnabled, skillEnabled, memoryEnabled }) => {
-  if (!diagnosticEnabled && !skillEnabled && !memoryEnabled) return null;
-  return (
-    <div
-      title={[
-        diagnosticEnabled && "Diagnostics ON",
-        skillEnabled && "Skill ON",
-        memoryEnabled && "Memory ON",
-      ]
-        .filter(Boolean)
-        .join(" · ")}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "3px",
-        padding: "1px 5px",
-        borderRadius: "4px",
-        height: "18px",
-        boxSizing: "border-box",
-        backgroundColor:
-          "color-mix(in srgb, var(--vscode-icon-foreground, var(--secondary-text)) 8%, transparent)",
-        border:
-          "1px solid color-mix(in srgb, var(--vscode-icon-foreground, var(--secondary-text)) 15%, transparent)",
-      }}
-    >
-      {diagnosticEnabled && (
-        <Stethoscope size={12} style={{ color: "#22c55e", flexShrink: 0 }} />
-      )}
-      {skillEnabled && (
-        <Sparkles size={12} style={{ color: "#6366f1", flexShrink: 0 }} />
-      )}
-      {memoryEnabled && (
-        <Brain size={12} style={{ color: "#a855f7", flexShrink: 0 }} />
-      )}
-    </div>
-  );
-};
+
 
 // ─── Progress circle for usage% ─────────────────────────────────────────
 const UsageCircle: React.FC<{ pct: number; color: string }> = ({
@@ -545,9 +500,6 @@ interface StatsBadgeProps {
   usageColor?: string;
   promptLengthMode?: string;
   systemPromptMode?: string;
-  diagnosticEnabled?: boolean;
-  skillEnabled?: boolean;
-  memoryEnabled?: boolean;
 }
 
 const StatsBadge: React.FC<StatsBadgeProps> = ({
@@ -559,9 +511,6 @@ const StatsBadge: React.FC<StatsBadgeProps> = ({
   usageColor = "var(--vscode-charts-purple, #a855f7)",
   promptLengthMode,
   systemPromptMode,
-  diagnosticEnabled,
-  skillEnabled,
-  memoryEnabled,
 }) => {
   const [tooltipPos, setTooltipPos] = React.useState<{
     x: number;
@@ -752,24 +701,6 @@ const StatsBadge: React.FC<StatsBadgeProps> = ({
           {systemPromptMode && (
             <TooltipRow icon="cs" label="Code Style" value={systemPromptMode} />
           )}
-          <TooltipRow
-            icon="diag"
-            label="Diagnostic"
-            value={diagnosticEnabled ? "ON" : "OFF"}
-            valueColor={diagnosticEnabled ? "#22c55e" : undefined}
-          />
-          <TooltipRow
-            icon="skill"
-            label="Skill"
-            value={skillEnabled ? "ON" : "OFF"}
-            valueColor={skillEnabled ? "#6366f1" : undefined}
-          />
-          <TooltipRow
-            icon="mem"
-            label="Memory"
-            value={memoryEnabled ? "ON" : "OFF"}
-            valueColor={memoryEnabled ? "#a855f7" : undefined}
-          />
         </div>
       )}
     </>
@@ -868,11 +799,6 @@ const TooltipRow: React.FC<{
           />
         </svg>
       );
-    if (icon === "diag")
-      return <Stethoscope size={11} style={{ color: "#22c55e" }} />;
-    if (icon === "skill")
-      return <Sparkles size={11} style={{ color: "#6366f1" }} />;
-    if (icon === "mem") return <Brain size={11} style={{ color: "#a855f7" }} />;
     // cs, fallback
     return (
       <svg
@@ -932,9 +858,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   conversationTitle,
   currentConversationId,
   currentTaskName,
-  diagnosticEnabled = false,
-  skillEnabled = false,
-  memoryEnabled = false,
   promptLengthMode,
   systemPromptMode,
   contextUsage,
@@ -980,10 +903,11 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
     if (conversationTitle) return conversationTitle;
     if (currentTaskName) return currentTaskName;
-    return firstMsgTitle;
+    // Fallback for req1 when no title is set yet
+    return firstMsgTitle || "Untitled";
   }, [conversationTitle, currentTaskName, messages]);
 
-  const displayTitle = derivedTitle || "New Conversation";
+  const displayTitle = derivedTitle;
 
   return (
     <div
@@ -1066,7 +990,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           />
         </div>
 
-        {/* ── Row 2: favicon · provider/model · email · FeatureBadge · [StatsBadge] ── */}
+        {/* ── Row 2: favicon · provider/model · email · [StatsBadge] ── */}
         <div
           style={{
             display: "flex",
@@ -1123,13 +1047,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             </span>
           )}
 
-          {/* Feature badge */}
-          <FeatureBadge
-            diagnosticEnabled={diagnosticEnabled}
-            skillEnabled={skillEnabled}
-            memoryEnabled={memoryEnabled}
-          />
-
           {/* push stats badge to right */}
           <div style={{ flex: 1 }} />
 
@@ -1143,9 +1060,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
             usageColor={usageColor}
             promptLengthMode={promptLengthMode}
             systemPromptMode={systemPromptMode}
-            diagnosticEnabled={diagnosticEnabled}
-            skillEnabled={skillEnabled}
-            memoryEnabled={memoryEnabled}
           />
         </div>
         {/* end row 2 */}

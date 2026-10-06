@@ -9,6 +9,9 @@ import { getToolLabel } from "@/features/chat/constants/constants";
 // TYPES
 import type { ToolAction } from "@/features/chat/services/ResponseParser";
 
+// UTILS
+import { getNextUserMessage } from "../../../../utils/renderer-utils";
+
 // ICONS
 import { getFileIconPath } from "@/utils/fileIconMapper";
 
@@ -25,6 +28,8 @@ interface UpdateMemoryRendererProps {
   isActiveGroup?: boolean;
   isLastItemInList?: boolean;
   toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  allMessages?: any[]; // Added for restored check
+  isRestored?: boolean; // Added for restored check
 }
 
 export const UpdateMemoryRenderer: React.FC<UpdateMemoryRendererProps> = ({
@@ -35,11 +40,18 @@ export const UpdateMemoryRenderer: React.FC<UpdateMemoryRendererProps> = ({
   isActiveGroup,
   isLastItemInList,
   toolOutputs,
+  allMessages,
+  isRestored,
 }) => {
   const actionId = `${messageId}-action-${actionIndex}`;
   const output = toolOutputs?.[actionId];
+  
+  const nextUserMessage = getNextUserMessage(allMessages || [], messageId);
   const isError = !!output?.isError || !!action.isError;
-  const isCompleted = isActionClicked || !!output;
+  const hasOutput = output && output.output && output.output.trim().length > 0;
+  
+  // Match ReadFileRenderer logic: Completed if clicked, error, has output, OR followed by user message
+  const isCompleted = Boolean(isActionClicked || isError || hasOutput || !!nextUserMessage);
   const errorMessage = isError
     ? output?.output || action.errorMessage || "Unknown error"
     : "";
@@ -50,7 +62,7 @@ export const UpdateMemoryRenderer: React.FC<UpdateMemoryRendererProps> = ({
   const oldLines = String(oldContent).split("\n").filter(Boolean).length;
   const newLines = String(newContent).split("\n").filter(Boolean).length;
 
-  // ─── Resolve absolute path of memory.json (per-project) ──────────────
+  // ─── Resolve absolute path of memory.md (per-project) ──────────────
   const [memoryPath, setMemoryPath] = React.useState<string>("");
 
   React.useEffect(() => {
@@ -65,7 +77,7 @@ export const UpdateMemoryRenderer: React.FC<UpdateMemoryRendererProps> = ({
 
   const displayName = memoryPath
     ? memoryPath.split(/[\\/]/).pop() || memoryPath
-    : "memory.json";
+    : "memory.md";
 
   const handleOpenFile = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -181,15 +193,6 @@ export const UpdateMemoryRenderer: React.FC<UpdateMemoryRendererProps> = ({
           });
         }}
       />
-
-      {!isCompleted && (oldContent || newContent) && (
-        <CodeBlock
-          code={`<<<<<<< OLD\n${oldContent}\n=======\n${newContent}\n>>>>>>> NEW`}
-          language="diff"
-          maxHeight="300px"
-          hideHeader={true}
-        />
-      )}
 
       {isError && !isCompleted && (
         <ErrorBlock content={errorMessage} compact={true} maxHeight="300px" />

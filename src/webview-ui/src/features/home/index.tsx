@@ -454,8 +454,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
     });
   }, []);
 
-  // Fetch stats from API — re-run when period/offset changes
+  // Fetch stats from API — re-run when period/offset changes, or khi backend kết nối lại
   useEffect(() => {
+    if (!isConnected) return; // chờ kết nối trước khi fetch
     const fetchStats = async () => {
       try {
         // period=all maps to a very large offset span; backend uses period=year offset=0
@@ -520,7 +521,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
       } catch {}
     };
     fetchStats();
-  }, [apiUrl, statsPeriod, statsOffset]);
+  }, [apiUrl, statsPeriod, statsOffset, isConnected]);
 
   // Rotate slogans
   useEffect(() => {

@@ -172,7 +172,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return pc?.blocked_time_ranges ?? null;
   }, [currentModel?.providerId, providers]);
 
-  const { commitMessageLanguage } = useSettings();
+  const { commitMessageLanguage, promptLengthMode, systemPromptMode } = useSettings();
 
   // --- UI State Management ---
   const {
@@ -229,8 +229,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // true khi conversation load từ history + provider supports_session_cleanup / no-auth
   // hoặc khi đang trong khung giờ blocked của non-DeepSeek provider
+  // hoặc khi account đạt usage >= 100%
   const isViewOnly = React.useMemo(() => {
     if (isTimeBlockViewOnly) return true;
+
+    // Bug fix: usage >= 100% → chuyển sang only-view để tránh gửi thêm request
+    const usageNum =
+      currentAccount?.usage != null ? Number(currentAccount.usage) : null;
+    if (usageNum !== null && usageNum >= 100) {
+      return true;
+    }
+
     if (!loadedConversationFileStats) {
       return false;
     }
@@ -254,6 +263,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     providers,
     loadedConversationFileStats,
     isTimeBlockViewOnly,
+    currentAccount?.usage,
+    currentAccount?.id,
   ]);
 
   // Ref to setToolOutputs (will be set after useToolExecution)
@@ -311,6 +322,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           "[Zen][onMalformedTool] ⚠️ setToolOutputsRef.current is null!",
         );
       }
+    },
+    onConversationTitleChange: (title) => {
+      setConversationTitle(title);
     },
   });
 
@@ -1138,9 +1152,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         conversationTitle={conversationTitle}
         currentConversationId={currentConversationId}
         currentTaskName={currentTaskName}
-        diagnosticEnabled={headerDiagnosticEnabled}
-        skillEnabled={headerSkillEnabled}
-        memoryEnabled={headerMemoryEnabled}
+        promptLengthMode={promptLengthMode}
+        systemPromptMode={systemPromptMode}
         contextUsage={contextUsage}
         chatTokens={chatStats.tokens}
         chatRequests={chatStats.requests}

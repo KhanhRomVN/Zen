@@ -94,9 +94,11 @@ Examples:
 **install_skill**: Install a skill locally by its slug (fetches full detail then saves it, same as clicking Install in the Marketplace UI).
 - \`slug\`: The skill's slug (required)
 - Example: \`<install_skill><slug>pptx-pro</slug></install_skill>\`
-**read_memory**: Read the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.json\`). Takes no parameters — the self-closing form is sufficient. Only available when Memory is enabled for the conversation.
+**read_memory**: Read the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.md\`). Takes no parameters — the self-closing form is sufficient. Only available when Memory is enabled for the conversation.
 - Example: \`<read_memory />\`
-**update_memory**: Replace text inside the project-level memory file using exact-match semantics, identical to \`replace_in_file\` but always targeting \`memory.json\` (no \`file_path\` needed). On the very first write into an empty/non-existent memory file, \`old_content\` must be \`""\` and \`new_content\` holds the initial content (may also be empty to just initialize the file). Once the file has content, \`old_content\` must be a non-empty exact snippet that currently exists in it. Only available when Memory is enabled for the conversation.
+**update_memory**: Replace text inside the project-level memory file using exact-match semantics, identical to \`replace_in_file\` but always targeting \`memory.md\` (no \`file_path\` needed). Content should be written in Markdown format (headings, lists, bold, etc.). 
+⚠️ **IMPORTANT**: You MUST call \`read_memory\` immediately before \`update_memory\` to ensure your \`old_content\` matches the current file exactly. Stale guesses will fail.
+On the very first write into an empty/non-existent memory file, \`old_content\` must be \`""\` and \`new_content\` holds the initial content (may also be empty to just initialize the file). Once the file has content, \`old_content\` must be a non-empty exact snippet that currently exists in it. Only available when Memory is enabled for the conversation.
 - \`old_content\`: Exact original snippet to replace (must match byte-for-byte; use "" only for the very first initialization write)
 - \`new_content\`: Replacement text (may be empty to delete the matched snippet)
 - ⚠ TAG-CLOSE-VERIFY: closing tag must be 

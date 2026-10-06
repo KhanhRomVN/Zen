@@ -2,12 +2,12 @@
  * ------------------------------------------------------------------
  * Memory Handler
  * ------------------------------------------------------------------
- * Quản lý file memory.json per-project tại:
- *   ~/.khanhromvn-zen/projects/{projectHash}/memory.json
+ * Quản lý file memory.md per-project tại:
+ *   ~/.khanhromvn-zen/projects/{projectHash}/memory.md
  *
  * Hai thao tác:
- * - handleReadMemory()    : Đọc toàn bộ nội dung memory.json (trả "" nếu chưa có)
- * - handleUpdateMemory()  : Replace old_content → new_content trong memory.json.
+ * - handleReadMemory()    : Đọc toàn bộ nội dung memory.md (trả "" nếu chưa có)
+ * - handleUpdateMemory()  : Replace old_content → new_content trong memory.md.
  *                           Nếu file chưa tồn tại, tự động tạo rỗng rồi áp dụng replace.
  *                           Lần đầu tiên (file trống) cho phép new_content rỗng để khởi tạo.
  * ------------------------------------------------------------------
@@ -223,7 +223,7 @@ export class MemoryHandler {
   }
 
   /**
-   * Đọc trực tiếp nội dung memory.json (không qua IPC) — dùng cho PromptBuilder
+   * Đọc trực tiếp nội dung memory.md (không qua IPC) — dùng cho PromptBuilder
    * khi cần nhúng "# Memory" vào system prompt mỗi lượt gửi.
    */
   public static getMemorySnapshot(): string {

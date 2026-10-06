@@ -42,7 +42,7 @@ interface SettingsContextType {
   /** Đính kèm danh sách SKILL (tên + mô tả) vào system-prompt */
   useSkillEnabled: boolean;
   setUseSkillEnabled: (value: boolean) => void;
-  /** Bật/tắt tính năng Memory (đọc/ghi memory.json dự án) */
+  /** Bật/tắt tính năng Memory (đọc/ghi memory.md dự án) */
   memoryEnabled: boolean;
   setMemoryEnabled: (value: boolean) => void;
 }

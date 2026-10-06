@@ -167,7 +167,7 @@ User prefers concise answers with code examples.</new_content>
 \`\`\`
 
 ### Example: update_memory — editing existing memory content
-**Description**: Same exact-match semantics as replace_in_file, but always targets memory.json (no file_path). old_content must be a byte-perfect snippet that currently exists in the file.
+**Description**: Same exact-match semantics as replace_in_file, but always targets memory.md (no file_path). old_co...
 \`\`\`xml
 <update_memory>
 <old_content>User prefers concise answers with code examples.</old_content>
@@ -548,7 +548,7 @@ const EXAMPLE_CORE_TAIL = `
 \`\`\`
 
 ### Batch 18: MEMORY — persist durable facts across conversations
-**Description**: When Memory is enabled, the full content of memory.json is auto-injected into every system prompt under a "# Memory" heading. Use update_memory to record durable, cross-session facts (user preferences, project conventions learned) and read_memory when you need to see it verbatim mid-task. Do NOT store transient task state here — that belongs in the conversation, not memory.
+**Description**: When Memory is enabled, the full content of memory.md is auto-injected into every system prompt under a "# Memory" heading. Use update_memory to record durable, cross-session facts (user preferences, project conventions learned) and read_memory when you need to see it verbatim mid-task. Do NOT store transient task state here — that belongs in the conversation, not memory.
 \`\`\`xml
 <!-- During a task, you learn the user always wants commit messages in English despite a Vietnamese UI. Persist it. -->
 <update_memory>

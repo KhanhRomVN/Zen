@@ -19,7 +19,7 @@ export interface PromptBuilderOptions {
   useSkillEnabled?: boolean;
   /** Per-conversation override: bật/tắt VSCode diagnostics trong system prompt */
   diagnosticEnabled?: boolean;
-  /** Bật/tắt Memory — chèn memory.json nội dung vào system prompt */
+  /** Bật/tắt Memory — chèn memory.md nội dung vào system prompt */
   memoryEnabled?: boolean;
   /** Provider ID của model đang dùng — nếu "claude" thì dùng claude-system-prompt */
   providerId?: string;
@@ -61,7 +61,7 @@ export class PromptBuilder {
       );
     }
 
-    // Khi Memory bật: nhúng toàn bộ nội dung memory.json vào cuối system prompt
+    // Khi Memory bật: nhúng toàn bộ nội dung memory.md vào cuối system prompt
     // dưới heading "# Memory". Chỉ inject ở lượt đầu (isReq1) — các lượt sau
     // conversation history đã mang theo system prompt ban đầu.
     if (isReq1 && memoryEnabled && providerId !== "claude") {
@@ -193,7 +193,7 @@ export class PromptBuilder {
   }
 
   /**
-   * Đọc snapshot memory.json từ extension side và đóng gói thành section "# Memory"
+   * Đọc snapshot memory.md từ extension side và đóng gói thành section "# Memory"
    * để nhúng vào system prompt khi Memory được bật.
    * Trả về "" nếu file rỗng/không tồn tại — AI vẫn thấy heading "# MEMORY (when enabled)"
    * trong workflow.ts nhưng không có nội dung cụ thể để tham chiếu.

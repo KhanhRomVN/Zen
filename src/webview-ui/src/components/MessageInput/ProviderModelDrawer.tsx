@@ -153,6 +153,7 @@ interface ProviderModelDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   providers: Provider[];
+  isLoadingProviders?: boolean;
   apiUrl: string;
   onSelect: (model: {
     providerId: string;
@@ -440,6 +441,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   isOpen,
   onClose,
   providers,
+  isLoadingProviders = false,
   apiUrl,
   onSelect,
 }) => {
@@ -456,24 +458,6 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
     new Set(),
   );
-
-  // accounts count per provider_id
-  const [accountCountMap, setAccountCountMap] = useState<
-    Record<string, number>
-  >({});
-  /** Số account đang được dùng (used_by_windows > 0) theo provider_id */
-  const [inUseCountMap, setInUseCountMap] = useState<Record<string, number>>(
-    {},
-  );
-  /** Tổng period_requests của tất cả account theo provider_id (tiêu chí sort #1) */
-  const [providerUsageMap, setProviderUsageMap] = useState<
-    Record<string, number>
-  >({});
-  /** last_used_at lớn nhất trong các account theo provider_id (tiêu chí sort #2) */
-  const [providerLastUsedMap, setProviderLastUsedMap] = useState<
-    Record<string, number>
-  >({});
-  const [isLoadingAccountMap, setIsLoadingAccountMap] = useState(false);
 
   // tooltip state — follow mouse cursor directly (model tooltip)
   const [tooltipModel, setTooltipModel] = useState<{
@@ -525,7 +509,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
     return () => window.removeEventListener("mousemove", onMouseMove);
   }, [tooltipModel]);
 
-  // Reset state when drawer opens + fetch account counts
+  // Reset state when drawer opens
   useEffect(() => {
     if (isOpen) {
       setStep("model");
@@ -535,67 +519,8 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
       setEffortOptions([]);
       setProviderAccounts([]);
       setTooltipModel(null);
-
-      // Fetch all accounts (paginated) to build count map.
-      // Không dùng limit cứng vì có thể có >200 accounts → bỏ sót provider.
-      setIsLoadingAccountMap(true);
-      const PAGE_SIZE = 200;
-      const clientId = encodeURIComponent(getClientId());
-
-      const fetchAllAccounts = async (): Promise<any[]> => {
-        const all: any[] = [];
-        let page = 1;
-        // hard cap 50 trang (10k accounts) để tránh vòng lặp vô hạn nếu API lỗi.
-        while (page <= 50) {
-          const res = await dbFetch(
-            `/v1/accounts?page=${page}&limit=${PAGE_SIZE}&clientId=${clientId}`,
-          );
-          const result = await res.json();
-          if (!result?.success || !result.data?.accounts?.length) break;
-          all.push(...result.data.accounts);
-          const totalPages = result.data.pagination?.total_pages ?? 1;
-          if (page >= totalPages) break;
-          page++;
-        }
-        return all;
-      };
-
-      fetchAllAccounts()
-        .then((accounts) => {
-          if (accounts.length === 0) {
-            console.warn("[QuickSwitchDrawer] Accounts fetch returned empty");
-            return;
-          }
-          const map: Record<string, number> = {};
-          const inUseMap: Record<string, number> = {};
-          const usageMap: Record<string, number> = {};
-          const lastUsedMap: Record<string, number> = {};
-          for (const acc of accounts) {
-            map[acc.provider_id] = (map[acc.provider_id] || 0) + 1;
-            if ((acc.used_by_windows ?? 0) > 0) {
-              inUseMap[acc.provider_id] = (inUseMap[acc.provider_id] || 0) + 1;
-            }
-            usageMap[acc.provider_id] =
-              (usageMap[acc.provider_id] || 0) +
-              (Number(acc.period_requests) || 0);
-            const lastUsed = Number(acc.last_used_at) || 0;
-            if (lastUsed > (lastUsedMap[acc.provider_id] || 0)) {
-              lastUsedMap[acc.provider_id] = lastUsed;
-            }
-          }
-          setAccountCountMap(map);
-          setInUseCountMap(inUseMap);
-          setProviderUsageMap(usageMap);
-          setProviderLastUsedMap(lastUsedMap);
-        })
-        .catch((err) =>
-          console.error("[QuickSwitchDrawer] Accounts fetch error:", err),
-        )
-        .finally(() => setIsLoadingAccountMap(false));
     }
-    // dbFetch tự đổi identity khi apiUrl hoặc activeDatabaseManagerId đổi →
-    // đảm bảo refetch đúng database khi user chuyển database.
-  }, [isOpen, dbFetch]);
+  }, [isOpen]);
 
   // Fetch accounts when moving to account step (poll mỗi 15s để cập nhật badge)
   useEffect(() => {
@@ -691,46 +616,13 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
       })
       .filter((p) => p.models.length > 0 || !!(p as any).models_error);
 
-    // Sort priority:
-    //   0 = has models + (has accounts OR no auth needed)  (top)
-    //   1 = has models, needs auth but no accounts
-    //   2 = has accounts, no models
-    //   3 = neither                                         (bottom)
-    const priority = (p: (typeof mapped)[0]) => {
-      const hasModels = p.models.length > 0;
-      const hasAccounts = (accountCountMap[p.provider_id] ?? 0) > 0;
-      const noAuthNeeded = !providerNeedsAuth(p as any);
-      if (hasModels && (hasAccounts || noAuthNeeded)) return 0;
-      if (hasModels && !hasAccounts) return 1;
-      if (!hasModels && hasAccounts) return 2;
-      return 3;
-    };
-
-    // Sort 2 tầng:
-    //   Tầng 1: provider dùng nhiều nhất (tổng period_requests) giảm dần
-    //   Tầng 2: provider dùng gần nhất (last_used_at lớn nhất) giảm dần
-    //   Tie-break: priority cũ (đẩy provider chết/không model xuống dưới)
-    const sorted = [...mapped].sort((a, b) => {
-      const usageDiff =
-        (providerUsageMap[b.provider_id] ?? 0) -
-        (providerUsageMap[a.provider_id] ?? 0);
-      if (usageDiff !== 0) return usageDiff;
-
-      const lastUsedDiff =
-        (providerLastUsedMap[b.provider_id] ?? 0) -
-        (providerLastUsedMap[a.provider_id] ?? 0);
-      if (lastUsedDiff !== 0) return lastUsedDiff;
-
-      return priority(a) - priority(b);
+    // Sort: provider có models lên trước, không có models (error/empty) xuống dưới
+    return [...mapped].sort((a, b) => {
+      const aHasModels = a.models.length > 0 ? 0 : 1;
+      const bHasModels = b.models.length > 0 ? 0 : 1;
+      return aHasModels - bHasModels;
     });
-    return sorted;
-  }, [
-    providers,
-    searchQuery,
-    accountCountMap,
-    providerUsageMap,
-    providerLastUsedMap,
-  ]);
+  }, [providers, searchQuery]);
 
   const handleModelMouseEnter = (
     model: any,
@@ -1014,14 +906,11 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
               className="custom-scrollbar"
               style={{ flex: 1, overflowY: "auto", padding: "12px" }}
             >
-              {isLoadingAccountMap && providers.length === 0 ? (
+              {isLoadingProviders ? (
                 <ModelListSkeleton />
               ) : (
                 filteredProviders.map((provider) => {
-                  const accountCount =
-                    accountCountMap[provider.provider_id] ?? 0;
                   const hasModels = provider.models.length > 0;
-                  const hasAccounts = accountCount > 0;
                   const needsAuth = providerNeedsAuth(provider);
                   const isCollapsed = collapsedProviders.has(
                     provider.provider_id,
@@ -1032,7 +921,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                       key={provider.provider_id}
                       style={{ marginBottom: "16px" }}
                     >
-                      {/* Provider header — now larger & primary text */}
+                      {/* Provider header */}
                       <div
                         onClick={() => toggleProvider(provider.provider_id)}
                         style={{
@@ -1050,15 +939,16 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                       >
                         {(() => {
                           const favUrl = getFaviconUrl(provider.website);
-                          if (!favUrl || favUrl === "/favicon-fallback.png") return null;
-                          
+                          if (!favUrl || favUrl === "/favicon-fallback.png")
+                            return null;
+
                           return (
                             <div
                               style={{
                                 width: "16px",
                                 height: "16px",
                                 borderRadius: "3px",
-                                backgroundColor: "rgba(128,128,128,0.1)", // Placeholder bg
+                                backgroundColor: "rgba(128,128,128,0.1)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -1077,14 +967,15 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                   objectFit: "contain",
                                 }}
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.opacity = "0";
+                                  (e.target as HTMLImageElement).style.opacity =
+                                    "0";
                                 }}
                               />
                             </div>
                           );
                         })()}
                         {provider.provider_name || provider.provider_id}
-                        {/* Models error badge — getModels() thất bại */}
+                        {/* Models error badge */}
                         {provider.models_error &&
                           (() => {
                             const isNoAccountError =
@@ -1125,7 +1016,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                               </span>
                             );
                           })()}
-                        {/* No models badge — provider enabled nhưng không có model nào (và không có lỗi) */}
+                        {/* No models badge */}
                         {!hasModels && !provider.models_error && (
                           <span
                             style={{
@@ -1144,58 +1035,15 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                             No models
                           </span>
                         )}
-                        {/* No accounts badge — only for providers that require auth */}
-                        {needsAuth &&
-                          !isLoadingAccountMap &&
-                          !hasAccounts &&
-                          !provider.models_error && (
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "3px",
-                                fontSize: "10px",
-                                fontWeight: 500,
-                                padding: "1px 6px",
-                                borderRadius: "4px",
-                                backgroundColor: "rgba(234, 179, 8, 0.1)",
-                                color: "#eab308",
-                              }}
-                            >
-                              <span style={{ fontSize: "10px" }}>⚠</span>
-                              No accounts
-                            </span>
-                          )}
-                        {needsAuth && !isLoadingAccountMap && (
+                        {/* Collapse toggle for providers with auth */}
+                        {needsAuth && (
                           <span
                             style={{
                               marginLeft: "auto",
-                              fontSize: "13px",
-                              fontWeight: 400,
                               display: "flex",
                               alignItems: "center",
-                              gap: "4px",
                             }}
                           >
-                            {(() => {
-                              const inUseAcc =
-                                inUseCountMap[provider.provider_id] ?? 0;
-                              if (inUseAcc > 0) {
-                                return (
-                                  <span
-                                    style={{ color: "var(--primary-text)" }}
-                                  >
-                                    {inUseAcc}/{accountCount} accounts in use
-                                  </span>
-                                );
-                              }
-                              return (
-                                <span style={{ opacity: 0.55 }}>
-                                  {accountCount} account
-                                  {accountCount !== 1 ? "s" : ""}
-                                </span>
-                              );
-                            })()}
                             {isCollapsed ? (
                               <ChevronRight size={15} />
                             ) : (
@@ -1243,7 +1091,6 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                           {hasModels &&
                             (() => {
                               // Dedup: gom các entry cùng base model (khác effort) thành 1 row.
-                              // Giữ entry đầu tiên tìm thấy cho mỗi base id.
                               const seen = new Set<string>();
                               const dedupedModels = provider.models.filter(
                                 (m: any) => {
@@ -1254,8 +1101,6 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                 },
                               );
                               return dedupedModels.map((model: any) => {
-                                // Provider không cần auth → luôn enabled; có auth → cần có account
-                                const isDisabled = needsAuth && !hasAccounts;
                                 const successColor =
                                   model.success_rate >= 80
                                     ? "#4ade80"
@@ -1266,10 +1111,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                   <div
                                     key={model.id}
                                     onClick={() => {
-                                      if (isDisabled) return;
                                       // Tách base model id và các effort options từ provider models
-                                      // Provider trả về nhiều entry dạng <base>-<effort> cho mỗi effort level.
-                                      // Ta gom lại các effort option của cùng base model.
                                       const { base: baseId } =
                                         splitModelAndEffort(model.id);
                                       const allEfforts = (
@@ -1287,13 +1129,11 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                           (parsed) =>
                                             parsed.effort as EffortLevel,
                                         );
-                                      // Unique + preserve order theo EFFORT_LEVELS
                                       const uniqueEfforts =
                                         EFFORT_LEVELS.filter((lvl) =>
                                           allEfforts.includes(lvl),
                                         );
 
-                                      // Model base (không có effort suffix)
                                       const baseModel = {
                                         ...model,
                                         id: baseId,
@@ -1301,13 +1141,10 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                       };
 
                                       if (uniqueEfforts.length > 1) {
-                                        // Model có nhiều effort → đi qua step chọn effort
                                         setSelectedModel(baseModel);
                                         setEffortOptions(uniqueEfforts);
                                         setStep("effort");
                                       } else if (uniqueEfforts.length === 1) {
-                                        // Model chỉ có 1 effort duy nhất → auto-apply effort,
-                                        // bỏ qua effortCard (không cần user chọn khi chỉ có 1 option).
                                         const autoEffort = uniqueEfforts[0];
                                         const autoModelId = `${baseId}-${autoEffort}`;
                                         if (needsAuth) {
@@ -1326,7 +1163,6 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                           onClose();
                                         }
                                       } else if (needsAuth) {
-                                        // Không có effort, cần auth → chọn account
                                         setSelectedModel({
                                           ...model,
                                           provider_id: provider.provider_id,
@@ -1334,7 +1170,6 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                         setEffortOptions([]);
                                         setStep("account");
                                       } else {
-                                        // Không có effort, không cần auth → select ngay
                                         onSelect({
                                           providerId: provider.provider_id,
                                           modelId: model.id,
@@ -1343,9 +1178,8 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                       }
                                     }}
                                     onMouseEnter={(e) => {
-                                      if (!isDisabled)
-                                        e.currentTarget.style.backgroundColor =
-                                          "var(--hover-bg)";
+                                      e.currentTarget.style.backgroundColor =
+                                        "var(--hover-bg)";
                                       handleModelMouseEnter(model, e);
                                     }}
                                     onMouseLeave={(e) => {
@@ -1355,17 +1189,14 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                     }}
                                     style={{
                                       padding: "8px 12px",
-                                      cursor: isDisabled
-                                        ? "not-allowed"
-                                        : "pointer",
+                                      cursor: "pointer",
                                       borderRadius: "6px",
                                       display: "flex",
                                       flexDirection: "column",
                                       gap: "4px",
-                                      opacity: isDisabled ? 0.45 : 1,
                                     }}
                                   >
-                                    {/* Dòng 1: model.name + Thinking badge + capabilities + success rate */}
+                                    {/* Dòng 1: model.name + badges + capabilities */}
                                     <div
                                       style={{
                                         display: "flex",
@@ -1385,8 +1216,6 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                                         model.id
                                           ? model.name
                                           : (() => {
-                                              // Model name có thể chứa " Medium", " High",... suffix từ getModels()
-                                              // Lấy base name (bỏ effort suffix trong tên nếu có)
                                               const effortSuffixes = [
                                                 "Low",
                                                 "Medium",
@@ -1536,7 +1365,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                 })
               )}
 
-              {!isLoadingAccountMap && filteredProviders.length === 0 && (
+              {!isLoadingProviders && filteredProviders.length === 0 && (
                 <div
                   style={{
                     textAlign: "center",

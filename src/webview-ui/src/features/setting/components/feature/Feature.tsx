@@ -121,7 +121,6 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isDirtyRef = useRef<boolean>(false);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!enabled) return;
@@ -132,7 +131,6 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
       setContent(snapshot || "");
       isDirtyRef.current = false;
       setStatus('idle');
-      setValidationError(null);
     } catch (e: any) {
       setError(e?.message || "Failed to load memory file.");
     } finally {
@@ -155,18 +153,6 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
     setContent(newValue);
     isDirtyRef.current = true;
     setStatus('idle'); // Reset status khi đang gõ
-    
-    // Validate JSON ngay lập tức để feedback visual
-    if (!newValue.trim()) {
-      setValidationError(null);
-    } else {
-      try {
-        JSON.parse(newValue);
-        setValidationError(null);
-      } catch (e: any) {
-        setValidationError("Invalid JSON syntax");
-      }
-    }
 
     // Debounce save: Chờ 1s sau khi user dừng gõ mới gửi request
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -174,16 +160,6 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
     debounceTimerRef.current = setTimeout(async () => {
       if (!isDirtyRef.current) return;
       
-      // Final validation trước khi save
-      if (newValue.trim()) {
-        try { 
-          JSON.parse(newValue); 
-        } catch { 
-          setStatus('error'); 
-          return; 
-        }
-      }
-
       setStatus('saving');
       try {
         const result = await extensionService.saveMemory(newValue);
@@ -213,13 +189,12 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
           padding: "8px 0",
         }}
       >
-        Bật Memory để xem và chỉnh sửa nội dung file memory.json.
+        Bật Memory để xem và chỉnh sửa nội dung file memory.md.
       </div>
     );
   }
 
   const getStatusColor = () => {
-    if (validationError) return "#f87171"; // Red
     if (status === 'saving') return "#fbbf24"; // Amber/Yellow
     if (status === 'saved') return "#4ade80"; // Green
     if (status === 'error') return "#f87171"; // Red
@@ -227,20 +202,19 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
   };
 
   const getStatusText = () => {
-    if (validationError) return "Invalid JSON";
     if (status === 'saving') return "Saving...";
     if (status === 'saved') return "Saved";
     if (status === 'error') return "Save Error";
     return "";
   };
 
-  const placeholderText = "// Type valid JSON here...\n// Example:\n// {\n//   \"preferences\": {}\n// }";
+  const placeholderText = "# Project Memory\n\n- User prefers dark mode.\n- Use TypeScript for new components.";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: "11px", color: "var(--secondary-text)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-          memory.json
+          memory.md
         </span>
         
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -250,7 +224,7 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
               fontSize: "10px", 
               fontWeight: 600, 
               color: getStatusColor(),
-              opacity: status !== 'idle' || validationError ? 1 : 0,
+              opacity: status !== 'idle' ? 1 : 0,
               transition: "opacity 0.2s"
             }}
           >
@@ -303,7 +277,7 @@ const MemoryViewer: React.FC<{ enabled: boolean }> = ({ enabled }) => {
           fontFamily: "var(--vscode-editor-font-family, monospace)",
           color: "var(--primary-text)",
           backgroundColor: "var(--input-bg, rgba(128,128,128,0.06))",
-          border: `1px solid ${validationError ? "#f87171" : "var(--vscode-widget-border, rgba(128,128,128,0.15))"}`,
+          border: "1px solid var(--vscode-widget-border, rgba(128,128,128,0.15))",
           borderRadius: "6px",
           outline: "none",
           boxSizing: "border-box",
@@ -413,7 +387,7 @@ const FeatureSettings: React.FC = () => {
       >
         <ToggleRow
           title="Enable project memory"
-          description="When on, the full content of memory.json is injected into every system prompt. The agent can read/update it via read_memory / update_memory tools."
+          description="When on, the full content of memory.md is injected into every system prompt. The agent can read/update it via read_memory / update_memory tools."
           checked={memoryEnabled}
           onChange={setMemoryEnabled}
         />

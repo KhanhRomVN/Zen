@@ -59,6 +59,8 @@ interface UseChatLLMProps {
     errorMessage: string,
     errorCode: string,
   ) => void;
+  /** Callback khi AI trả về <conversation_title> — cập nhật header ngay lập tức */
+  onConversationTitleChange?: (title: string) => void;
 }
 
 export const parseQuestionAnswerTag = (
@@ -120,6 +122,7 @@ export const useChatLLM = ({
   onConversationIdChange,
   onToolRequest,
   onMalformedTool,
+  onConversationTitleChange,
 }: UseChatLLMProps) => {
   // Ref to hold per-conversation overrides (from Home panel or restored from metadata).
   // Only update if the new value is not undefined — prevents initialMessageData clear
@@ -567,7 +570,11 @@ export const useChatLLM = ({
       // diagnostic and skill are effectively disabled regardless of toggles.
       const effectiveConversationOverrides: typeof conversationOverridesRef.current =
         promptLengthMode === "none"
-          ? { diagnosticEnabled: false, useSkillEnabled: false, memoryEnabled: false }
+          ? {
+              diagnosticEnabled: false,
+              useSkillEnabled: false,
+              memoryEnabled: false,
+            }
           : conversationOverridesRef.current;
 
       // Save conversation immediately when sending request (user message only)
@@ -1163,6 +1170,11 @@ export const useChatLLM = ({
         );
         const conversationTitle = conversationTitleBlock?.content;
 
+        // Cập nhật header title ngay lập tức khi AI trả về <conversation_title>
+        if (conversationTitle && onConversationTitleChange) {
+          onConversationTitleChange(conversationTitle);
+        }
+
         // ─────────────────────────────────────────────────────────────────
 
         saveConversation(
@@ -1358,7 +1370,11 @@ export const useChatLLM = ({
         const folderPath = selectedTab?.folderPath || null;
         const effectiveOverridesForSelect =
           promptLengthMode === "none"
-            ? { diagnosticEnabled: false, useSkillEnabled: false, memoryEnabled: false }
+            ? {
+                diagnosticEnabled: false,
+                useSkillEnabled: false,
+                memoryEnabled: false,
+              }
             : conversationOverridesRef.current;
 
         saveConversation(

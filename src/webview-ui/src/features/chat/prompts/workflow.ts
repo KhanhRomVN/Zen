@@ -69,9 +69,9 @@ ${pass2Section}
 ${verifySection}
 
 # MEMORY (when enabled)
-When Memory is turned on for this conversation, the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.json\`) is automatically appended to every system prompt under a "# Memory" heading — you already see it, so do NOT call read_memory just to re-read what is already in context. Use it to carry durable facts across conversations: user preferences, project conventions, recurring decisions. Rules:
-- Record something ONLY when it is genuinely cross-session and stable (not transient task state, not secrets/credentials).
-- Append/update via \`<update_memory>\` with exact-match semantics (identical to replace_in_file, but always targets memory.json — no file_path). First write into an empty/non-existent file uses \`<old_content></old_content>\`.
-- Call \`<read_memory />\` only when you need the verbatim current content mid-task (e.g. after another tool may have changed it).
+When Memory is turned on for this conversation, the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.md\`) is automatically appended to every system prompt under a "# Memory" heading — you already see it, so do NOT call read_memory just to re-read what is already in context. Use it to carry durable facts across conversations: user preferences, project conventions, recurring decisions. Rules:
+- Record something ONLY when it is genuinely cross-session and stable (not transient task state, not secrets/credentials). Write in Markdown format (headings, lists, bold, etc.) for readability.
+- **CRITICAL**: Always call \`<read_memory />\` FIRST to verify the current content before attempting \`<update_memory>\`. Since \`<update_memory>\` relies on exact string matching (\`old_content\`), guessing or using stale snippets will cause failures. Read -> Verify snippet exists -> Update.
+- Append/update via \`<update_memory>\` with exact-match semantics (identical to replace_in_file, but always targets memory.md — no file_path). First write into an empty/non-existent file uses \`<old_content></old_content>\`.
 `;
 };

@@ -1,7 +1,7 @@
 /**
  * UpdateMemoryParser — parse <update_memory> tag.
  * Schema: <update_memory><old_content>...</old_content><new_content>...</new_content></update_memory>
- * Tương tự ReplaceInFileParser nhưng không có file_path (luôn trỏ memory.json).
+ * Tương tự ReplaceInFileParser nhưng không có file_path (luôn trỏ memory.md).
  * new_content được phép rỗng khi lần đầu khởi tạo file.
  */
 

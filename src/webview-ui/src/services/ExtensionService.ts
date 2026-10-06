@@ -123,7 +123,7 @@ class ExtensionService {
   }
 
   /**
-   * Lấy snapshot nội dung memory.json của project hiện tại (không qua queue).
+   * Lấy snapshot nội dung memory.md của project hiện tại (không qua queue).
    * Trả về "" nếu chưa có file hoặc không mở workspace.
    */
   public getMemorySnapshot(): Promise<string> {
@@ -142,7 +142,7 @@ class ExtensionService {
   }
 
   /**
-   * Lấy đường dẫn tuyệt đối của file memory.json cho project hiện tại.
+   * Lấy đường dẫn tuyệt đối của file memory.md cho project hiện tại.
    * Trả về "" nếu chưa mở workspace hoặc lỗi IPC timeout.
    */
   public getMemoryFilePath(): Promise<string> {
@@ -161,7 +161,7 @@ class ExtensionService {
   }
 
   /**
-   * Ghi toàn bộ nội dung memory.json của project hiện tại.
+   * Ghi toàn bộ nội dung memory.md của project hiện tại.
    * Dùng bởi Settings → Feature → Memory editor (autosave).
    */
   public saveMemory(content: string): Promise<{ success: boolean; error?: string }> {

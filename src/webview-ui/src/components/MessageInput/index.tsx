@@ -851,6 +851,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       setCurrentAccount(null);
     }, [activeDatabaseManagerId, setCurrentModel, setCurrentAccount]);
     const [providers, setProviders] = React.useState<any[]>([]);
+    const [isLoadingProviders, setIsLoadingProviders] = React.useState(false);
     const [showModelDrawer, setShowModelDrawer] = React.useState(false);
     const [isPromptLengthHovered, setIsPromptLengthHovered] =
       React.useState(false);
@@ -997,11 +998,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     }, [currentAccount]);
 
     // Fetch live stats từ /v1/accounts/:id để triggerUI luôn có usage mới nhất
+    // refreshInterval=30000: cập nhật mỗi 30s khi drawer mở (bug fix: triggerUI dùng data cũ)
     useAccountStats({
       accountId: currentAccount?.id,
       onStats: (freshAccount) => {
         setCurrentAccount((prev: any) => ({ ...prev, ...freshAccount }));
       },
+      refreshInterval: 30_000,
     });
 
     // Dynamic placeholder text
@@ -1136,6 +1139,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
     const fetchProviders = React.useCallback(async () => {
       try {
+        setIsLoadingProviders(true);
         const response = await dbFetch(`/v1/providers`);
         const result = await response.json();
         if (result.success) {
@@ -1143,6 +1147,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
         }
       } catch (error) {
         // console.error("Failed to fetch providers:", error);
+      } finally {
+        setIsLoadingProviders(false);
       }
     }, [dbFetch]);
 
@@ -1652,6 +1658,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 isOpen={showModelDrawer}
                 onClose={() => setShowModelDrawer(false)}
                 providers={providers}
+                isLoadingProviders={isLoadingProviders}
                 apiUrl={apiUrl}
                 onSelect={(selected) => {
                   const prov = providers.find(

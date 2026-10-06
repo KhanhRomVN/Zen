@@ -14,6 +14,25 @@ import { countTokens } from "@/utils/tokenizer";
 import CodeBlock from "./blocks/code/CodeBlock";
 import RevertConfirmDrawer from "../RevertConfirmDrawer";
 
+/**
+ * Formats a number into human-readable string with K (thousand) and M (million) suffixes.
+ * 0-999: plain number
+ * 1,000-999,999: divided by 1000, suffixed with 'K' (e.g., 989.9K)
+ * >= 1,000,000: divided by 1,000,000, suffixed with 'M' (e.g., 1.2M)
+ */
+const formatTokenCount = (num: number): string => {
+  if (num < 1000) return num.toString();
+  
+  if (num < 1_000_000) {
+    const kValue = num / 1000;
+    // Remove trailing .0 if integer, otherwise keep 1 decimal place
+    return `${kValue % 1 === 0 ? kValue.toFixed(0) : kValue.toFixed(1)}K`;
+  }
+  
+  const mValue = num / 1_000_000;
+  return `${mValue % 1 === 0 ? mValue.toFixed(0) : mValue.toFixed(1)}M`;
+};
+
 interface ResponseMetadataBarProps {
   responseNumber: number;
   message: Message;
@@ -256,7 +275,7 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
                 fontWeight: 600,
               }}
             >
-              {reqTokens.toLocaleString()}
+              {formatTokenCount(reqTokens)}
             </span>
           </div>
 
@@ -327,7 +346,7 @@ export const ResponseMetadataBar: React.FC<ResponseMetadataBarProps> = ({
                 fontWeight: 600,
               }}
             >
-              {resTokens.toLocaleString()}
+              {formatTokenCount(resTokens)}
             </span>
           </div>
         </div>

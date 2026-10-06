@@ -15,7 +15,10 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { SystemPromptMode, PromptLengthMode } from "@/features/chat/prompts";
+import type {
+  SystemPromptMode,
+  PromptLengthMode,
+} from "@/features/chat/prompts";
 import { useSettings } from "../context/SettingsContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -30,14 +33,29 @@ interface ModelPromptPreset {
 const storageKey = (providerId: string, modelId: string) =>
   `zen_prompt_settings__${providerId}__${modelId}`;
 
-const loadPreset = (providerId: string, modelId: string): ModelPromptPreset | null => {
+const loadPreset = (
+  providerId: string,
+  modelId: string,
+): ModelPromptPreset | null => {
   try {
     const raw = localStorage.getItem(storageKey(providerId, modelId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ModelPromptPreset>;
     // Validate cả 2 field trước khi trả về
-    const validSystemModes: SystemPromptMode[] = ["fast", "balanced", "thorough", "autopilot", "short", "none"];
-    const validLengthModes: PromptLengthMode[] = ["short", "medium", "long", "none"];
+    const validSystemModes: SystemPromptMode[] = [
+      "fast",
+      "balanced",
+      "thorough",
+      "autopilot",
+      "short",
+      "none",
+    ];
+    const validLengthModes: PromptLengthMode[] = [
+      "short",
+      "medium",
+      "long",
+      "none",
+    ];
     if (
       parsed.systemPromptMode &&
       validSystemModes.includes(parsed.systemPromptMode) &&
@@ -50,9 +68,16 @@ const loadPreset = (providerId: string, modelId: string): ModelPromptPreset | nu
   return null;
 };
 
-const savePreset = (providerId: string, modelId: string, preset: ModelPromptPreset) => {
+const savePreset = (
+  providerId: string,
+  modelId: string,
+  preset: ModelPromptPreset,
+) => {
   try {
-    localStorage.setItem(storageKey(providerId, modelId), JSON.stringify(preset));
+    localStorage.setItem(
+      storageKey(providerId, modelId),
+      JSON.stringify(preset),
+    );
   } catch (e) {}
 };
 
@@ -70,28 +95,31 @@ export function useModelPromptSettings(
   } = useSettings();
 
   // Khởi tạo từ preset của model (nếu có) hoặc global fallback
-  const [systemPromptMode, setSystemPromptModeState] = useState<SystemPromptMode>(() => {
-    if (providerId && modelId) {
-      const preset = loadPreset(providerId, modelId);
-      if (preset) return preset.systemPromptMode;
-    }
-    return globalSystemPromptMode;
-  });
+  const [systemPromptMode, setSystemPromptModeState] =
+    useState<SystemPromptMode>(() => {
+      if (providerId && modelId) {
+        const preset = loadPreset(providerId, modelId);
+        if (preset) return preset.systemPromptMode;
+      }
+      return globalSystemPromptMode;
+    });
 
-  const [promptLengthMode, setPromptLengthModeState] = useState<PromptLengthMode>(() => {
-    if (providerId && modelId) {
-      const preset = loadPreset(providerId, modelId);
-      if (preset) return preset.promptLengthMode;
-    }
-    return globalPromptLengthMode;
-  });
+  const [promptLengthMode, setPromptLengthModeState] =
+    useState<PromptLengthMode>(() => {
+      if (providerId && modelId) {
+        const preset = loadPreset(providerId, modelId);
+        if (preset) return preset.promptLengthMode;
+      }
+      return globalPromptLengthMode;
+    });
 
   // Track model key để detect khi model thực sự thay đổi
   const prevModelKeyRef = useRef<string | null>(
     providerId && modelId ? `${providerId}__${modelId}` : null,
   );
 
-  // Khi model thay đổi → load preset của model mới
+  // Khi model thay đổi → load preset của model mới và sync vào global context
+  // (useChatLLM đọc từ useSettings/global, nên phải sync để UI và data khớp nhau)
   useEffect(() => {
     const modelKey = providerId && modelId ? `${providerId}__${modelId}` : null;
     if (modelKey === prevModelKeyRef.current) return;
@@ -102,6 +130,9 @@ export function useModelPromptSettings(
       if (preset) {
         setSystemPromptModeState(preset.systemPromptMode);
         setPromptLengthModeState(preset.promptLengthMode);
+        // BUG FIX: sync vào global context để useChatLLM nhận đúng giá trị
+        setGlobalSystemPromptMode(preset.systemPromptMode);
+        setGlobalPromptLengthMode(preset.promptLengthMode);
       } else {
         // Chưa có preset → dùng global default
         setSystemPromptModeState(globalSystemPromptMode);
