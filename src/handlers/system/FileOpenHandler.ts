@@ -14,6 +14,8 @@
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── Node ──
 import * as path from "path";
+import * as fs from "fs";
+import { spawn } from "child_process";
 
 // ── VSCode ──
 import * as vscode from "vscode";
@@ -144,6 +146,123 @@ export class FileOpenHandler {
     } catch (error) {
       console.error("[FileOpenHandler] handleOpenExternalUrl error:", error);
     }
+  }
+
+  /**
+   * Mở Chromium với profile cụ thể nhưng KHÔNG có CDP (không --remote-debugging-port).
+   * Dùng cho device code flow: mở browser để user đăng nhập, không cần capture traffic.
+   *
+   * message.url             : URL cần mở (http/https bắt buộc)
+   * message.userDataDir     : Đường dẫn tuyệt đối tới profile folder (optional)
+   */
+  public async handleOpenBrowserWithProfile(message: any) {
+    const url = message.url as string | undefined;
+    const userDataDir = message.userDataDir as string | undefined;
+
+    if (!url || typeof url !== "string") return;
+
+    // Chỉ chấp nhận http/https
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+    } catch {
+      return;
+    }
+
+    // Tìm executable Chromium (cùng logic với CDPService.findBrowserExecutable)
+    const executable = this.findChromiumExecutable();
+
+    if (!executable) {
+      // Fallback: mở bằng OS default browser (không có profile)
+      console.warn(
+        "[FileOpenHandler] No Chromium found, falling back to openExternal"
+      );
+      try {
+        await vscode.env.openExternal(vscode.Uri.parse(url));
+      } catch {}
+      return;
+    }
+
+    const args: string[] = [
+      "--no-first-run",
+      "--no-default-browser-check",
+    ];
+
+    if (userDataDir) {
+      try {
+        if (!fs.existsSync(userDataDir)) {
+          fs.mkdirSync(userDataDir, { recursive: true });
+        }
+      } catch {}
+      args.push(`--user-data-dir=${userDataDir}`);
+    }
+
+    args.push(url);
+
+    try {
+      const child = spawn(executable, args, {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+    } catch (error) {
+      console.error("[FileOpenHandler] handleOpenBrowserWithProfile error:", error);
+      // Fallback
+      try {
+        await vscode.env.openExternal(vscode.Uri.parse(url));
+      } catch {}
+    }
+  }
+
+  /** Tìm executable Chromium/Chrome/Edge trên hệ thống — clone từ CDPService. */
+  private findChromiumExecutable(): string {
+    const nodePath = require("path") as typeof path;
+    const nodeFs = require("fs") as typeof fs;
+
+    if (process.platform === "win32") {
+      const progFiles = process.env["ProgramFiles"] || "C:\\Program Files";
+      const progFilesX86 =
+        process.env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
+      const localAppData =
+        process.env["LocalAppData"] ||
+        (process.env["USERPROFILE"]
+          ? nodePath.join(process.env["USERPROFILE"], "AppData", "Local")
+          : "");
+      const candidates = [
+        nodePath.join(progFiles, "Google", "Chrome", "Application", "chrome.exe"),
+        nodePath.join(progFilesX86, "Google", "Chrome", "Application", "chrome.exe"),
+        nodePath.join(localAppData, "Google", "Chrome", "Application", "chrome.exe"),
+        nodePath.join(progFiles, "Microsoft", "Edge", "Application", "msedge.exe"),
+        nodePath.join(progFilesX86, "Microsoft", "Edge", "Application", "msedge.exe"),
+        nodePath.join(localAppData, "Microsoft", "Edge", "Application", "msedge.exe"),
+        nodePath.join(progFiles, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+        nodePath.join(progFilesX86, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+        nodePath.join(localAppData, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+      ];
+      for (const c of candidates) {
+        if (c && nodeFs.existsSync(c)) return c;
+      }
+    } else if (process.platform === "darwin") {
+      const candidates = [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+      ];
+      for (const c of candidates) {
+        if (nodeFs.existsSync(c)) return c;
+      }
+    }
+
+    // Linux / fallback: which
+    const { execSync } = require("child_process") as typeof import("child_process");
+    for (const b of ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "brave-browser"]) {
+      try {
+        execSync(`which ${b}`, { stdio: "ignore" });
+        return b;
+      } catch {}
+    }
+    return "";
   }
 
   /**

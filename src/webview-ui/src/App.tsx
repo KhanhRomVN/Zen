@@ -78,6 +78,7 @@ const App: React.FC = () => {
       diagnosticEnabled?: boolean;
       useSkillEnabled?: boolean;
       memoryEnabled?: boolean;
+      toolFormat?: 'xml' | 'json';
     };
   } | null>(null);
 
@@ -160,6 +161,7 @@ const App: React.FC = () => {
         diagnosticEnabled?: boolean;
         useSkillEnabled?: boolean;
         memoryEnabled?: boolean;
+        toolFormat?: 'xml' | 'json';
       },
     ) => {
       setInitialMessageData({

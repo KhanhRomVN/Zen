@@ -74,6 +74,9 @@ interface ChatFooterProps {
   onSelectRule?: (item: any) => void;
   /** View-only: conversation không thể tiếp tục (provider supports_session_cleanup hoặc no-auth) */
   isViewOnly?: boolean;
+  /** Tool format cho conversation này */
+  conversationToolFormat?: 'xml' | 'json';
+  onConversationToolFormatToggle?: () => void;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -128,6 +131,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   scrollToBottom,
   onSelectRule,
   isViewOnly = false,
+  conversationToolFormat,
+  onConversationToolFormatToggle,
 }) => {
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
@@ -635,6 +640,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           enableViewOnlyMode={true}
           onSelectRule={onSelectRule}
           onRemoveAttachedItem={removeAttachedItem}
+          conversationToolFormat={conversationToolFormat}
+          onConversationToolFormatToggle={onConversationToolFormatToggle}
         />
       </div>
     </div>

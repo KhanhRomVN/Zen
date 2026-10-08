@@ -198,6 +198,9 @@ export class ChatController {
         case "openExternalUrl":
           await this.fileOpenHandler.handleOpenExternalUrl(message);
           break;
+        case "openBrowserWithProfile":
+          await this.fileOpenHandler.handleOpenBrowserWithProfile(message);
+          break;
         case "pickPath":
           await this.fileOpenHandler.handlePickPath(message, webviewView);
           break;

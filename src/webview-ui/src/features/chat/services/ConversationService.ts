@@ -20,6 +20,8 @@ export interface ChatMetadata {
   diagnosticEnabled?: boolean;
   /** Per-conversation override: bật/tắt SKILL trong system prompt */
   useSkillEnabled?: boolean;
+  /** Per-conversation override: format tool calls — 'xml' (default) hoặc 'json' */
+  toolFormat?: 'xml' | 'json';
 }
 
 export const logChatToWorkspace = (chatUuid: string, message: any) => {
@@ -87,6 +89,7 @@ export const saveConversation = async (
   conversationOverrides?: {
     diagnosticEnabled?: boolean;
     useSkillEnabled?: boolean;
+    toolFormat?: 'xml' | 'json';
   },
 ): Promise<string> => {
   try {
@@ -123,6 +126,7 @@ export const saveConversation = async (
       | undefined;
     let existingDiagnosticEnabled: boolean | undefined;
     let existingUseSkillEnabled: boolean | undefined;
+    let existingToolFormat: 'xml' | 'json' | undefined;
 
     const cached = ConversationCache.get(convId);
     if (cached) {
@@ -141,6 +145,7 @@ export const saveConversation = async (
         existingTitle = parsed.metadata?.title;
         existingDiagnosticEnabled = parsed.metadata?.diagnosticEnabled;
         existingUseSkillEnabled = parsed.metadata?.useSkillEnabled;
+        existingToolFormat = parsed.metadata?.toolFormat;
         if (!existingBackendConversationId) {
           existingBackendConversationId = parsed.backendConversationId;
         }
@@ -181,6 +186,8 @@ export const saveConversation = async (
       conversationOverrides?.diagnosticEnabled ?? existingDiagnosticEnabled;
     const resolvedUseSkillEnabled =
       conversationOverrides?.useSkillEnabled ?? existingUseSkillEnabled;
+    const resolvedToolFormat =
+      conversationOverrides?.toolFormat ?? existingToolFormat;
     // ─────────────────────────────────────────────────────────────────────
 
     const data = {
@@ -205,6 +212,7 @@ export const saveConversation = async (
         totalTokenUsage,
         diagnosticEnabled: resolvedDiagnosticEnabled,
         useSkillEnabled: resolvedUseSkillEnabled,
+        toolFormat: resolvedToolFormat,
       } as ChatMetadata,
     };
 

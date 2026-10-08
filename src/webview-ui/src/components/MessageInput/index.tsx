@@ -813,9 +813,11 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     conversationDiagnosticEnabled,
     conversationUseSkillEnabled,
     conversationMemoryEnabled,
+    conversationToolFormat,
     onConversationDiagnosticToggle,
     onConversationUseSkillToggle,
     onConversationMemoryToggle,
+    onConversationToolFormatToggle,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -1151,6 +1153,16 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
         setIsLoadingProviders(false);
       }
     }, [dbFetch]);
+
+    const refreshProviders = React.useCallback(async () => {
+      try {
+        // Invalidate cache trước để force re-fetch models từ upstream
+        await dbFetch(`/v1/providers/cache/clear`, { method: "POST" });
+      } catch {
+        // non-fatal
+      }
+      await fetchProviders();
+    }, [dbFetch, fetchProviders]);
 
     // Initial fetch
     React.useEffect(() => {
@@ -1660,6 +1672,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 providers={providers}
                 isLoadingProviders={isLoadingProviders}
                 apiUrl={apiUrl}
+                onRefresh={refreshProviders}
                 onSelect={(selected) => {
                   const prov = providers.find(
                     (p: any) => p.provider_id === selected.providerId,
@@ -2184,6 +2197,10 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     onSkillToggle={onConversationUseSkillToggle}
                     memoryEnabled={!!conversationMemoryEnabled}
                     onMemoryToggle={onConversationMemoryToggle}
+                    toolFormat={conversationToolFormat ?? "xml"}
+                    onToolFormatToggle={() => {
+                      onConversationToolFormatToggle?.();
+                    }}
                   />
                 )}
 
@@ -2553,6 +2570,8 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     nextProps.conversationUseSkillEnabled;
   const memorySame =
     prevProps.conversationMemoryEnabled === nextProps.conversationMemoryEnabled;
+  const toolFormatSame =
+    prevProps.conversationToolFormat === nextProps.conversationToolFormat;
 
   // Only re-render if critical props changed
   const shouldSkip =
@@ -2567,7 +2586,8 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     attachedItemsSame &&
     diagnosticSame &&
     useSkillSame &&
-    memorySame;
+    memorySame &&
+    toolFormatSame;
 
   return shouldSkip;
 });

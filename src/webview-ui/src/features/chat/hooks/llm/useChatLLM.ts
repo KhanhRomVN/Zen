@@ -37,6 +37,7 @@ interface ConversationOverrides {
   diagnosticEnabled?: boolean;
   useSkillEnabled?: boolean;
   memoryEnabled?: boolean;
+  toolFormat?: 'xml' | 'json';
 }
 
 interface UseChatLLMProps {
@@ -483,6 +484,8 @@ export const useChatLLM = ({
         conversationOverridesRef.current?.memoryEnabled !== undefined
           ? conversationOverridesRef.current.memoryEnabled
           : memoryEnabled;
+      const effectiveToolFormat =
+        conversationOverridesRef.current?.toolFormat ?? 'xml';
 
       const promptPayload = await PromptBuilder.buildPrompt({
         content,
@@ -499,6 +502,7 @@ export const useChatLLM = ({
         diagnosticEnabled: effectiveDiagnostic,
         memoryEnabled: isClaudeProvider ? false : effectiveMemory,
         providerId: model?.providerId ?? lastUsedModelRef.current?.providerId,
+        toolFormat: isClaudeProvider ? 'xml' : effectiveToolFormat,
       });
 
       const userMessage: Message = {
@@ -545,7 +549,7 @@ export const useChatLLM = ({
         for (let i = updatedMessages.length - 2; i >= 0; i--) {
           const msg = updatedMessages[i];
           if (msg.role === "assistant") {
-            const parsed = parseAIResponse(msg.content);
+            const parsed = parseAIResponse(msg.content, effectiveToolFormat);
             if (
               parsed.question &&
               parsed.question.type === "question" &&
@@ -574,6 +578,7 @@ export const useChatLLM = ({
               diagnosticEnabled: false,
               useSkillEnabled: false,
               memoryEnabled: false,
+              toolFormat: conversationOverridesRef.current?.toolFormat,
             }
           : conversationOverridesRef.current;
 
@@ -1024,8 +1029,9 @@ export const useChatLLM = ({
           // 🔧 FIX: Parse rawResponse (includes thinking) instead of content
           const contentToParse =
             assistantMessage.rawResponse || assistantMessage.content;
+          const currentToolFormat = conversationOverridesRef.current?.toolFormat ?? 'xml';
 
-          parsed = parseAIResponse(contentToParse);
+          parsed = parseAIResponse(contentToParse, currentToolFormat);
           toolSequence = parsed.contentBlocks
             .map((block: any, idx: number) => {
               if (block.type === "tool") {

@@ -62,6 +62,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   isLoadingConversation = false,
   canRegenerate = true,
   isViewOnly = false,
+  toolFormat = 'xml',
 }: ExtendedChatBodyProps) => {
   const { permissionMode } = useSettings();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -80,6 +81,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
   const parsedMessagesFromHook = useMessageParsing(
     paginatedMessages,
     isProcessing || isContinuing,
+    toolFormat,
   );
 
   const parsedMessages = useMemo(() => {
@@ -126,7 +128,7 @@ const ChatBodyInternal: React.FC<ExtendedChatBodyProps> = ({
     if (!isRestored || messages.length === 0) return false;
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role !== "assistant") return false;
-    const parsed = parseAIResponse(lastMessage.content);
+    const parsed = parseAIResponse(lastMessage.content, toolFormat);
     if (!parsed.actions || parsed.actions.length === 0) return false;
     const firstPendingAction = parsed.actions.find(
       (_action: any, idx: number) => {

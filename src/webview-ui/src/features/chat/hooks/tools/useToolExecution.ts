@@ -42,6 +42,8 @@ interface UseToolExecutionProps {
   messagesRef?: React.MutableRefObject<Message[]>;
   /** When true, all pending auto-flush sends are suppressed (set by stop button) */
   isStoppedRef?: React.MutableRefObject<boolean>;
+  /** Tool call format for this conversation */
+  toolFormat?: 'xml' | 'json';
 }
 
 export const useToolExecution = ({
@@ -49,6 +51,7 @@ export const useToolExecution = ({
   conversationIdRef,
   messagesRef,
   isStoppedRef,
+  toolFormat = 'xml',
 }: UseToolExecutionProps) => {
   const { permissionMode } = useSettings();
   const permissionModeRef = useRef<PermissionMode>(permissionMode);
@@ -547,7 +550,7 @@ export const useToolExecution = ({
 
         if (!hasBuffer || alreadyFlushed) {
         } else {
-          const parsed = parseAIResponse(message.content);
+          const parsed = parseAIResponse(message.content, toolFormat);
           const allActionIds = parsed.actions.map(
             (_: any, idx: number) => `${message.id}-action-${idx}`,
           );
@@ -742,7 +745,7 @@ export const useToolExecution = ({
         const msg = messagesRef?.current.find((m) => m.id === messageId);
         if (!msg) return;
 
-        const parsed = parseAIResponse(msg.content);
+        const parsed = parseAIResponse(msg.content, toolFormat);
         const hasQuestion = !!parsed.question;
         const isQuestionAnswered = hasQuestion ? !!msg.selectedOption : true;
 

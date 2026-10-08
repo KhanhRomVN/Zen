@@ -25,6 +25,7 @@ import { useWorkspaceData } from "./hooks/workspace/useWorkspaceData";
 import { useGitOperations } from "./hooks/workspace/useGitOperations";
 import { useConversationRestore } from "./hooks/conversation/useConversationRestore";
 import { useFileHandling } from "../../hooks/useFileHandling";
+import { useToolFormatSettings } from "../../hooks/useToolFormatSettings";
 
 import { useBrowserSession } from "./hooks/llm/useBrowserSession";
 import { useDraftManagement } from "./hooks/conversation/useDraftManagement";
@@ -68,6 +69,7 @@ interface ChatPanelProps {
       diagnosticEnabled?: boolean;
       useSkillEnabled?: boolean;
       memoryEnabled?: boolean;
+      toolFormat?: "xml" | "json";
     };
   } | null;
   onClearInitialData?: () => void;
@@ -87,6 +89,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           diagnosticEnabled?: boolean;
           useSkillEnabled?: boolean;
           memoryEnabled?: boolean;
+          toolFormat?: "xml" | "json";
         }
       | undefined
     >(undefined);
@@ -98,6 +101,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         diagnosticEnabled?: boolean;
         useSkillEnabled?: boolean;
         memoryEnabled?: boolean;
+        toolFormat?: "xml" | "json";
       }
     | undefined
   >(initialMessageData?.conversationOverrides);
@@ -172,7 +176,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return pc?.blocked_time_ranges ?? null;
   }, [currentModel?.providerId, providers]);
 
-  const { commitMessageLanguage, promptLengthMode, systemPromptMode } = useSettings();
+  const { commitMessageLanguage, promptLengthMode, systemPromptMode } =
+    useSettings();
 
   // --- UI State Management ---
   const {
@@ -573,7 +578,34 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     [sendMessage, currentConversationId],
   );
 
+  // --- Tool Format State (per provider+model) ---
+  const {
+    toolFormat: conversationToolFormat,
+    setToolFormat: setConversationToolFormat,
+    toggleToolFormat: handleToolFormatToggle,
+  } = useToolFormatSettings(currentModel?.providerId, currentModel?.id);
+
+  // Sync từ restoredConversationOverrides khi load conversation từ storage
+  // (override lưu trong conversation metadata có độ ưu tiên cao hơn per-model default)
+  useEffect(() => {
+    if (restoredConversationOverrides?.toolFormat !== undefined) {
+      setConversationToolFormat(restoredConversationOverrides.toolFormat);
+    }
+  }, [restoredConversationOverrides?.toolFormat]);
+
+  // Sync từ initialMessageData khi mở conversation mới từ Home
+  useEffect(() => {
+    if (pendingConversationOverridesRef.current?.toolFormat !== undefined) {
+      setConversationToolFormat(
+        pendingConversationOverridesRef.current.toolFormat,
+      );
+    }
+  }, [initialMessageData]);
+
   // --- Tool Execution ---
+  // currentToolFormat cần được khai báo trước useToolExecution vì nó dùng trong hook
+  const currentToolFormat = conversationToolFormat;
+
   const {
     executionState,
     toolOutputs,
@@ -587,6 +619,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     conversationIdRef: currentConversationIdRef,
     messagesRef: messagesRef,
     isStoppedRef: isStoppedRef,
+    toolFormat: currentToolFormat,
     sendMessage: (
       content: string,
       files: any[] | undefined,
@@ -660,7 +693,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   });
 
   // --- Message Parsing (with caching) ---
-  const parsedMessages = useMessageParsing(messages, isStreaming);
+  const parsedMessages = useMessageParsing(
+    messages,
+    isStreaming,
+    currentToolFormat,
+  );
 
   // --- Context Usage ---
   const contextUsage = useContextUsage(messages);
@@ -927,12 +964,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             meta &&
             (meta.diagnosticEnabled !== undefined ||
               meta.useSkillEnabled !== undefined ||
-              meta.memoryEnabled !== undefined)
+              meta.memoryEnabled !== undefined ||
+              meta.toolFormat !== undefined)
           ) {
             setRestoredConversationOverrides({
               diagnosticEnabled: meta.diagnosticEnabled,
               useSkillEnabled: meta.useSkillEnabled,
               memoryEnabled: meta.memoryEnabled,
+              toolFormat: meta.toolFormat,
             });
           } else {
             setRestoredConversationOverrides(undefined);
@@ -1026,51 +1065,34 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // ── Active conversation overrides (diagnostic / skill / memory) ──────
   const activeOverrides =
     pendingConversationOverridesRef.current ?? restoredConversationOverrides;
-  const headerDiagnosticEnabled = activeOverrides?.diagnosticEnabled ?? false;
-  const headerSkillEnabled = activeOverrides?.useSkillEnabled ?? false;
-  const headerMemoryEnabled = activeOverrides?.memoryEnabled ?? false;
-
-  // ── Chat-level token & request stats from messages ──────────────────
+  // ── Chat-level token & message stats from messages ───────────────────
+  // 1 msg = 1 user request + 1 assistant response.
+  // Token count = prompt_tokens (req) + completion_tokens (res), summed across all msgs.
   const chatStats = useMemo(() => {
     let tokens = 0;
-    let requests = 0;
+    let msgs = 0;
+    // Duyệt tuần tự: đếm mỗi assistant là 1 msg, cộng token của cả user trước đó và assistant.
+    // prompt_tokens nằm trên message USER (không phải assistant), nên phải gom riêng.
+    let pendingReqTokens = 0;
     for (const msg of messages) {
-      if (msg.role === "assistant") {
-        requests++;
-        if (msg.usage) {
-          tokens += msg.usage.total_tokens ?? 0;
-        } else if (msg.token_usage) {
-          tokens += msg.token_usage;
-        }
+      if (msg.uiHidden || msg.isCancelled) continue;
+      if (msg.role === "user") {
+        const uTok = msg.token_usage ?? msg.usage?.prompt_tokens ?? 0;
+        pendingReqTokens += uTok;
+      } else if (msg.role === "assistant") {
+        msgs++;
+        const aResTok = msg.usage?.completion_tokens ?? msg.token_usage ?? 0;
+        tokens += pendingReqTokens + aResTok;
+        pendingReqTokens = 0;
       }
     }
+
     return {
       tokens: tokens > 0 ? tokens : undefined,
-      requests: requests > 0 ? requests : undefined,
+      requests: msgs > 0 ? msgs : undefined,
     };
   }, [messages]);
-
   // ── 3-dot menu handlers ──────────────────────────────────────────────
-  const handleRenameConversation = useCallback(() => {
-    const newTitle = window.prompt(
-      "Rename conversation:",
-      conversationTitle || "",
-    );
-    if (newTitle === null) return; // user cancelled
-    const title = newTitle.trim();
-    if (!title || !currentConversationId) return;
-    const vscodeApi = (window as any).vscodeApi;
-    if (vscodeApi) {
-      vscodeApi.postMessage({
-        command: "setConversationTitle",
-        conversationId: currentConversationId,
-        title,
-        requestId: `rename-${Date.now()}`,
-      });
-    }
-    setConversationTitle(title);
-  }, [conversationTitle, currentConversationId]);
-
   const handleCopyAsMarkdown = useCallback(() => {
     const lines: string[] = [];
     for (const msg of messages) {
@@ -1121,14 +1143,41 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const handleDeleteConversation = useCallback(() => {
     if (!currentConversationId) return;
     const vscodeApi = (window as any).vscodeApi;
-    if (vscodeApi) {
-      vscodeApi.postMessage({
-        command: "deleteConversation",
-        conversationId: currentConversationId,
-        requestId: `delete-conv-${Date.now()}`,
-      });
+    if (!vscodeApi) {
+      onBack();
+      return;
     }
-    onBack();
+
+    const requestId = `delete-conv-${Date.now()}`;
+    const targetConvId = currentConversationId;
+
+    const handler = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        data?.command === "deleteConversationResult" &&
+        data?.requestId === requestId
+      ) {
+        window.removeEventListener("message", handler);
+        clearTimeout(timeoutId);
+        // Chỉ quay về home khi xóa thành công (hoặc ENOENT được backend trả success:true)
+        if (data?.success) {
+          onBack();
+        }
+      }
+    };
+
+    window.addEventListener("message", handler);
+    vscodeApi.postMessage({
+      command: "deleteConversation",
+      conversationId: targetConvId,
+      requestId,
+    });
+
+    // Fallback: nếu backend không phản hồi trong 3s thì vẫn quay về home
+    const timeoutId = setTimeout(() => {
+      window.removeEventListener("message", handler);
+      onBack();
+    }, 3000);
   }, [currentConversationId, onBack]);
 
   // --- Render ---
@@ -1161,7 +1210,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setIsSearchOpen={setIsSearchOpen}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onRenameConversation={handleRenameConversation}
         onCopyAsMarkdown={handleCopyAsMarkdown}
         onCopyAsJson={handleCopyAsJson}
         onDeleteConversation={handleDeleteConversation}
@@ -1209,6 +1257,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isLoadingConversation={isLoadingConversation}
         canRegenerate={canRegenerate && !isViewOnly}
         isViewOnly={isViewOnly}
+        toolFormat={currentToolFormat}
       />
 
       {/* ─── ChatFooter ─── */}
@@ -1263,6 +1312,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         scrollToBottom={scrollToBottomRef.current || undefined}
         onSelectRule={handleSelectRule}
         isViewOnly={isViewOnly}
+        conversationToolFormat={conversationToolFormat}
+        onConversationToolFormatToggle={handleToolFormatToggle}
       />
     </div>
   );

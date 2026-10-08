@@ -8,6 +8,7 @@ import { parseAIResponse } from "../../services/ResponseParser";
 export const useMessageParsing = (
   messages: Message[],
   isStreaming: boolean,
+  toolFormat: 'xml' | 'json' = 'xml',
 ) => {
   // Parse cache — reuse results across renders, avoiding redundant re-parses
   // when only unrelated state changes (same messages array, same content).
@@ -116,7 +117,7 @@ export const useMessageParsing = (
     lastMessagesRef.current = messages; // Store current messages array for next comparison
 
     return result;
-  }, [messages, isStreaming]);
+  }, [messages, isStreaming, toolFormat]);
 
   // Helper function to parse a single message with caching
   function parseMessageWithCache(
@@ -151,7 +152,7 @@ export const useMessageParsing = (
     // Use rawResponse if available (contains thinking tags), fallback to content
     const contentToParse = msg.rawResponse || msg.content;
 
-    const parsed = parseAIResponse(contentToParse);
+    const parsed = parseAIResponse(contentToParse, toolFormat);
 
     // Cache the parse result (but always create new object for streaming)
     if (!isAssistantStreaming) {

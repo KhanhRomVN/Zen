@@ -102,12 +102,16 @@ export interface MessageInputProps {
   conversationUseSkillEnabled?: boolean;
   /** Per-conversation override: memory enabled (chỉ hiển thị ở Home panel) */
   conversationMemoryEnabled?: boolean;
+  /** Per-conversation override: tool format 'xml' | 'json' */
+  conversationToolFormat?: 'xml' | 'json';
   /** Callback khi toggle diagnostic thay đổi */
   onConversationDiagnosticToggle?: () => void;
   /** Callback khi toggle skill thay đổi */
   onConversationUseSkillToggle?: () => void;
   /** Callback khi toggle memory thay đổi */
   onConversationMemoryToggle?: () => void;
+  /** Callback khi toggle tool format thay đổi */
+  onConversationToolFormatToggle?: () => void;
 }
 
 export interface ToggleButtonProps {

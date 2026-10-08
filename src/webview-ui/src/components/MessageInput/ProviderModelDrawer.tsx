@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   Plane,
   Ban,
+  RefreshCw,
 } from "lucide-react";
 import { getFaviconUrl } from "@/utils/favicon";
 import { getClientId } from "@/utils/clientId";
@@ -155,6 +156,7 @@ interface ProviderModelDrawerProps {
   providers: Provider[];
   isLoadingProviders?: boolean;
   apiUrl: string;
+  onRefresh?: () => void;
   onSelect: (model: {
     providerId: string;
     modelId: string;
@@ -443,6 +445,7 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
   providers,
   isLoadingProviders = false,
   apiUrl,
+  onRefresh,
   onSelect,
 }) => {
   const activeDbName = useActiveDatabaseManagerName();
@@ -860,46 +863,90 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
                 position: "relative",
                 padding: "12px 12px 0 12px",
                 flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
               }}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  left: "22px",
-                  top: "12px",
-                  height: "34px",
-                  display: "flex",
-                  alignItems: "center",
-                  pointerEvents: "none",
-                }}
-              >
-                <Search
-                  size={14}
+              <div style={{ position: "relative", flex: 1 }}>
+                <div
                   style={{
-                    color:
-                      "var(--vscode-input-placeholderForeground, var(--secondary-text))",
+                    position: "absolute",
+                    left: "10px",
+                    top: 0,
+                    height: "34px",
+                    display: "flex",
+                    alignItems: "center",
+                    pointerEvents: "none",
+                  }}
+                >
+                  <Search
+                    size={14}
+                    style={{
+                      color:
+                        "var(--vscode-input-placeholderForeground, var(--secondary-text))",
+                    }}
+                  />
+                </div>
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Search models..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px 8px 32px",
+                    fontSize: "13px",
+                    backgroundColor: "var(--input-bg)",
+                    border: "none",
+                    borderRadius: "8px",
+                    color: "var(--primary-text)",
+                    outline: "none",
+                    boxSizing: "border-box",
+                    height: "34px",
                   }}
                 />
               </div>
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search models..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px 8px 32px",
-                  fontSize: "13px",
-                  backgroundColor: "var(--input-bg)",
-                  border: "none",
-                  borderRadius: "8px",
-                  color: "var(--primary-text)",
-                  outline: "none",
-                  boxSizing: "border-box",
-                  height: "34px",
-                }}
-              />
+              {onRefresh && (
+                <button
+                  onClick={onRefresh}
+                  disabled={isLoadingProviders}
+                  title="Refresh models"
+                  style={{
+                    flexShrink: 0,
+                    width: "34px",
+                    height: "34px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "var(--input-bg)",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: isLoadingProviders ? "not-allowed" : "pointer",
+                    color: "var(--secondary-text)",
+                    transition: "all 0.2s ease",
+                    opacity: isLoadingProviders ? 0.5 : 1,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isLoadingProviders) {
+                      e.currentTarget.style.backgroundColor = "var(--hover-bg)";
+                      e.currentTarget.style.color = "var(--primary-text)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "var(--input-bg)";
+                    e.currentTarget.style.color = "var(--secondary-text)";
+                  }}
+                >
+                  <RefreshCw
+                    size={14}
+                    style={{
+                      animation: isLoadingProviders ? "spin 1s linear infinite" : "none",
+                    }}
+                  />
+                </button>
+              )}
             </div>
 
             <div
@@ -1936,6 +1983,10 @@ const ProviderModelDrawer: React.FC<ProviderModelDrawerProps> = ({
           @keyframes slideUpDrawer {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
+          }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
           }
         `}</style>
       </div>

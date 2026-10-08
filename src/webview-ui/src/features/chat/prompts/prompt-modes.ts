@@ -1,9 +1,10 @@
+// src/webview-ui/src/features/chat/prompts/prompt-modes.ts
 import { buildIdentityPrompt } from "./identity";
 import { buildSystemContext, type SystemInfo } from "./system-context";
 import { buildWorkflow } from "./workflow";
 import { buildConstraints } from "./constraints";
-import { TOOL_VALIDATION } from "./tool-validation";
-import { TOOLS_REFERENCE } from "./tools-reference";
+import { TOOL_VALIDATION, TOOL_VALIDATION_JSON } from "./tool-validation";
+import { TOOLS_REFERENCE, TOOLS_REFERENCE_JSON } from "./tools-reference";
 import { buildExample } from "./example";
 import type { SystemPromptMode, PromptLengthMode } from "./mode-config";
 
@@ -15,6 +16,8 @@ export interface PromptModeConfig {
   promptLengthMode?: PromptLengthMode;
   /** Khi false, thêm constraint LSP-DIAGNOSTICS-FALLBACK vào system prompt */
   diagnosticEnabled?: boolean;
+  /** Định dạng tool calls: 'xml' (mặc định) hoặc 'json' */
+  toolFormat?: "xml" | "json";
 }
 
 /**
@@ -38,7 +41,13 @@ export function buildPromptForMode(
     systemInfo,
     promptLengthMode = "long",
     diagnosticEnabled = true,
+    toolFormat = "xml",
   } = config;
+
+  const toolsRef =
+    toolFormat === "json" ? TOOLS_REFERENCE_JSON : TOOLS_REFERENCE;
+  const toolValidation =
+    toolFormat === "json" ? TOOL_VALIDATION_JSON : TOOL_VALIDATION;
 
   // None — không gửi system prompt nào cả
   if (promptLengthMode === "none") {
@@ -48,25 +57,21 @@ export function buildPromptForMode(
   if (promptLengthMode === "short") {
     // Short — Ultra compact: static tool reference + minimal identity/workflow + system context.
     const sections = [
-      TOOLS_REFERENCE,
-      buildIdentityPrompt(language, mode),
-      buildWorkflow(mode),
+      toolsRef,
+      buildIdentityPrompt(language, mode, toolFormat),
+      buildWorkflow(mode, toolFormat),
       buildSystemContext(systemInfo, mode),
     ];
     return sections.join("\n\n---\n\n");
   }
 
   if (promptLengthMode === "medium") {
-    // Medium — full behavior rules and tool docs, but WITHOUT the large
-    // worked-EXAMPLES block. This used to be byte-for-byte identical to
-    // "long" (dead branching); it is now genuinely lighter, which is the
-    // whole point of having a separate "medium" level.
     const sections = [
-      TOOL_VALIDATION,
-      TOOLS_REFERENCE,
-      buildIdentityPrompt(language, mode),
-      buildWorkflow(mode),
-      buildConstraints(mode, language, diagnosticEnabled),
+      toolValidation,
+      toolsRef,
+      buildIdentityPrompt(language, mode, toolFormat),
+      buildWorkflow(mode, toolFormat),
+      buildConstraints(mode, language, diagnosticEnabled, toolFormat),
       buildSystemContext(systemInfo, mode),
     ];
     return sections.join("\n\n---\n\n");
@@ -75,12 +80,12 @@ export function buildPromptForMode(
   // Long — full prompt, including EXAMPLES (itself now trimmed per-mode,
   // see buildExample in example.ts).
   const sections = [
-    TOOL_VALIDATION,
-    TOOLS_REFERENCE,
-    buildExample(mode),
-    buildIdentityPrompt(language, mode),
-    buildWorkflow(mode),
-    buildConstraints(mode, language, diagnosticEnabled),
+    toolValidation,
+    toolsRef,
+    buildExample(mode, toolFormat),
+    buildIdentityPrompt(language, mode, toolFormat),
+    buildWorkflow(mode, toolFormat),
+    buildConstraints(mode, language, diagnosticEnabled, toolFormat),
     buildSystemContext(systemInfo, mode),
   ];
   return sections.join("\n\n---\n\n");

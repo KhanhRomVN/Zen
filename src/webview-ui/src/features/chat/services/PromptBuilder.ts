@@ -23,6 +23,8 @@ export interface PromptBuilderOptions {
   memoryEnabled?: boolean;
   /** Provider ID của model đang dùng — nếu "claude" thì dùng claude-system-prompt */
   providerId?: string;
+  /** Tool call format: 'xml' (default) hoặc 'json' */
+  toolFormat?: 'xml' | 'json';
 }
 
 export class PromptBuilder {
@@ -35,13 +37,13 @@ export class PromptBuilder {
       permissionMode,
       treeView,
       files,
-      userRequestCount,
       systemPromptMode,
       promptLengthMode,
       useSkillEnabled,
       diagnosticEnabled,
       memoryEnabled,
       providerId,
+      toolFormat,
     } = options;
 
     let systemPrompt = "";
@@ -58,6 +60,7 @@ export class PromptBuilder {
         useSkillEnabled,
         diagnosticEnabled,
         providerId,
+        toolFormat,
       );
     }
 
@@ -111,6 +114,7 @@ export class PromptBuilder {
     useSkillEnabled?: boolean,
     diagnosticEnabled?: boolean,
     providerId?: string,
+    toolFormat?: 'xml' | 'json',
   ): Promise<string> {
     let systemInfo = {
       os: "Unknown OS",
@@ -158,6 +162,7 @@ export class PromptBuilder {
         systemInfo: systemInfo as any,
         promptLengthMode: promptLengthMode || "long",
         diagnosticEnabled: diagnosticEnabled ?? true,
+        toolFormat: toolFormat ?? 'xml',
       },
       mode,
     );

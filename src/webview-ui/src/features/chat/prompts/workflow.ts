@@ -1,7 +1,11 @@
+// src/webview-ui/src/features/chat/prompts/workflow.ts
 import type { SystemPromptMode } from "./mode-config";
 import { MODE_BEHAVIORS, MAX_READ_LINES_PER_TURN } from "./mode-config";
 
-export const buildWorkflow = (mode: SystemPromptMode = "balanced"): string => {
+export const buildWorkflow = (
+  mode: SystemPromptMode = "balanced",
+  toolFormat: "xml" | "json" = "xml",
+): string => {
   const behavior = MODE_BEHAVIORS[mode];
 
   const askSection = (() => {
@@ -37,6 +41,26 @@ export const buildWorkflow = (mode: SystemPromptMode = "balanced"): string => {
     return `5. **VERIFY** — Tool error → diagnose root cause, fix or ask. Never silently retry.`;
   })();
 
+  // MEMORY section tool-call syntax differs between formats. In JSON mode,
+  // read_memory/update_memory are ordinary JSON tool calls (they are tools,
+  // not UI tags), so they must be shown in JSON form here. In XML mode they
+  // keep the XML tag form as before.
+  const memorySection = (() => {
+    if (toolFormat === "json") {
+      return `# MEMORY (when enabled)
+When Memory is turned on for this conversation, the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.md\`) is automatically appended to every system prompt under a "# Memory" heading — you already see it, so do NOT call \`read_memory\` just to re-read what is already in context. Use it to carry durable facts across conversations: user preferences, project conventions, recurring decisions. Rules:
+- Record something ONLY when it is genuinely cross-session and stable (not transient task state, not secrets/credentials). Write in Markdown format (headings, lists, bold, etc.) for readability.
+- **CRITICAL**: Always call \`read_memory\` FIRST (emit \`{"tool":"read_memory","params":{}}\`) to verify the current content before attempting \`update_memory\`. Since \`update_memory\` relies on exact string matching (\`old_content\`), guessing or using stale snippets will cause failures. Read -> Verify snippet exists -> Update.
+- Append/update via \`{"tool":"update_memory","params":{"old_content":"...","new_content":"..."}}\` with exact-match semantics (identical to replace_in_file, but always targets memory.md — no file_path). First write into an empty/non-existent file uses \`"old_content": ""\`.
+- ⚠ JSON-STRINGS: Both \`old_content\` and \`new_content\` are multi-line strings — every newline must be escaped as \\n and every double-quote as \\" for the block to remain valid JSON.`;
+    }
+    return `# MEMORY (when enabled)
+When Memory is turned on for this conversation, the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.md\`) is automatically appended to every system prompt under a "# Memory" heading — you already see it, so do NOT call read_memory just to re-read what is already in context. Use it to carry durable facts across conversations: user preferences, project conventions, recurring decisions. Rules:
+- Record something ONLY when it is genuinely cross-session and stable (not transient task state, not secrets/credentials). Write in Markdown format (headings, lists, bold, etc.) for readability.
+- **CRITICAL**: Always call \`<read_memory />\` FIRST to verify the current content before attempting \`<update_memory>\`. Since \`<update_memory>\` relies on exact string matching (\`old_content\`), guessing or using stale snippets will cause failures. Read -> Verify snippet exists -> Update.
+- Append/update via \`<update_memory>\` with exact-match semantics (identical to replace_in_file, but always targets memory.md — no file_path). First write into an empty/non-existent file uses \`<old_content></old_content>\`.`;
+  })();
+
   return `# WORKFLOW
 ## Planning Process:
 1. **Pass 1 (Plan)**:
@@ -68,10 +92,6 @@ ${pass2Section}
    - After EXECUTE: report results clearly. Do not self-declare "fixed" for runtime bugs.
 ${verifySection}
 
-# MEMORY (when enabled)
-When Memory is turned on for this conversation, the full content of the project-level memory file (\`~/.khanhromvn-zen/projects/{projectHash}/memory.md\`) is automatically appended to every system prompt under a "# Memory" heading — you already see it, so do NOT call read_memory just to re-read what is already in context. Use it to carry durable facts across conversations: user preferences, project conventions, recurring decisions. Rules:
-- Record something ONLY when it is genuinely cross-session and stable (not transient task state, not secrets/credentials). Write in Markdown format (headings, lists, bold, etc.) for readability.
-- **CRITICAL**: Always call \`<read_memory />\` FIRST to verify the current content before attempting \`<update_memory>\`. Since \`<update_memory>\` relies on exact string matching (\`old_content\`), guessing or using stale snippets will cause failures. Read -> Verify snippet exists -> Update.
-- Append/update via \`<update_memory>\` with exact-match semantics (identical to replace_in_file, but always targets memory.md — no file_path). First write into an empty/non-existent file uses \`<old_content></old_content>\`.
+${memorySection}
 `;
 };

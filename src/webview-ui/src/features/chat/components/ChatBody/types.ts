@@ -104,4 +104,6 @@ export interface ExtendedChatBodyProps extends ChatBodyProps {
   searchQuery?: string;
   onSearchQueryChange?: (q: string) => void;
   onCloseSearch?: () => void;
+  /** Tool call format for this conversation */
+  toolFormat?: 'xml' | 'json';
 }

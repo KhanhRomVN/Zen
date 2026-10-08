@@ -60,6 +60,8 @@ interface Provider {
   platform?: string;
   connection_type?: string;
   auth_method?: string;
+  /** "device_code" → không cần CDP/profile browser, dùng verification_url + user_code */
+  login_flow?: string;
 }
 
 interface AddAccountDrawerProps {
@@ -771,6 +773,7 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
     pollContext: string;
     poll_interval: number;
     provider: Provider;
+    profileUserDataDir?: string;
   } | null>(null);
   const [urlCopied, setUrlCopied] = useState(false);
 
@@ -969,13 +972,24 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
       if (data.success && data.account) {
         // ── Device code flow (Kiro, grok-build-cli, etc.) ──
         if (data.account.pending && data.account.user_code) {
+          const profileUserDataDir: string | undefined =
+            data.account.profile_user_data_dir || undefined;
           setDeviceCodeInfo({
             user_code: data.account.user_code,
             verification_url: data.account.verification_url,
             pollContext: data.account.tempSessionId,
             poll_interval: data.account.poll_interval || 5,
             provider,
+            profileUserDataDir,
           });
+          // Tự động mở Chromium plain (không CDP) với profile đã chọn
+          if (data.account.verification_url) {
+            extensionService.postMessage({
+              command: "openBrowserWithProfile",
+              url: data.account.verification_url,
+              ...(profileUserDataDir ? { userDataDir: profileUserDataDir } : {}),
+            });
+          }
           setLoading(false);
           return;
         }
@@ -1356,10 +1370,16 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                 >
                   {deviceCodeInfo.user_code}
                 </div>
-                <a
-                  href={deviceCodeInfo.verification_url}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  onClick={() => {
+                    extensionService.postMessage({
+                      command: "openBrowserWithProfile",
+                      url: deviceCodeInfo.verification_url,
+                      ...(deviceCodeInfo.profileUserDataDir
+                        ? { userDataDir: deviceCodeInfo.profileUserDataDir }
+                        : {}),
+                    });
+                  }}
                   title="Open Browser"
                   style={{
                     display: "flex",
@@ -1372,11 +1392,17 @@ const AddAccountDrawer: React.FC<AddAccountDrawerProps> = ({
                     border: "none",
                     color: "var(--secondary-text)",
                     flexShrink: 0,
-                    textDecoration: "none",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "var(--primary-text)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "var(--secondary-text)";
                   }}
                 >
                   <ExternalLink size={15} />
-                </a>
+                </button>
               </div>
 
               {/* Verification URL inputbar */}

@@ -33,7 +33,6 @@ interface ChatHeaderProps {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
 
-  onRenameConversation?: () => void;
   onCopyAsMarkdown?: () => void;
   onCopyAsJson?: () => void;
   onDeleteConversation?: () => void;
@@ -185,7 +184,6 @@ const SqButton: React.FC<{
 
 // ─── 3-dot menu ───────────────────────────────────────────────────────────
 interface ConversationMenuProps {
-  onRename?: () => void;
   onCopyAsMarkdown?: () => void;
   onCopyAsJson?: () => void;
   onDelete?: () => void;
@@ -193,7 +191,6 @@ interface ConversationMenuProps {
 }
 
 const ConversationMenu: React.FC<ConversationMenuProps> = ({
-  onRename,
   onCopyAsMarkdown,
   onCopyAsJson,
   onDelete,
@@ -220,26 +217,6 @@ const ConversationMenu: React.FC<ConversationMenuProps> = ({
     danger?: boolean;
     sep?: boolean;
   }[] = [
-    {
-      label: "Rename",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-          <path d="m15 5 4 4" />
-        </svg>
-      ),
-      action: onRename,
-    },
     {
       label: "Copy as Markdown",
       icon: (
@@ -572,13 +549,13 @@ const StatsBadge: React.FC<StatsBadgeProps> = ({
             tok
           </span>
         )}
-        {/* requests */}
+        {/* messages */}
         {chatRequests != null && (
           <span>
             <span style={{ color: "var(--primary-text)" }}>
               {fmt(chatRequests)}
             </span>{" "}
-            req
+            msg
           </span>
         )}
         {/* usage circle + percent */}
@@ -631,7 +608,7 @@ const StatsBadge: React.FC<StatsBadgeProps> = ({
           />
           <TooltipRow
             icon="req"
-            label="Requests"
+            label="Messages"
             value={chatRequests != null ? String(chatRequests) : "—"}
           />
 
@@ -662,7 +639,7 @@ const StatsBadge: React.FC<StatsBadgeProps> = ({
           />
           <TooltipRow
             icon="req"
-            label="Requests"
+            label="Messages"
             value={dayRequests != null ? String(dayRequests) : "—"}
           />
           <TooltipRow
@@ -867,7 +844,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   setIsSearchOpen,
   searchQuery,
   setSearchQuery,
-  onRenameConversation,
   onCopyAsMarkdown,
   onCopyAsJson,
   onDeleteConversation,
@@ -982,7 +958,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
           {/* 3-dot */}
           <ConversationMenu
-            onRename={onRenameConversation}
             onCopyAsMarkdown={onCopyAsMarkdown}
             onCopyAsJson={onCopyAsJson}
             onDelete={onDeleteConversation}

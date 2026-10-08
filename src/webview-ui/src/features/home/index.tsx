@@ -52,6 +52,7 @@ import InstallationBanner from "./components/InstallationBanner";
 import UpdateBanner from "./components/UpdateBanner";
 import StatsPeriodPicker from "./components/StatsPeriodPicker";
 import { useStatsPeriod } from "./hooks/useStatsPeriod";
+import { useToolFormatSettings } from "../../hooks/useToolFormatSettings";
 
 // ─── Constants ──────────────────────────────────────────────────────────
 const SLOGANS = [
@@ -138,7 +139,11 @@ const DashboardStats = React.memo(
           emptyText="Loading history..."
         />
 
-        <DailyUsageChart usage={dailyUsage} title="Usage" period={statsPeriod} />
+        <DailyUsageChart
+          usage={dailyUsage}
+          title="Usage"
+          period={statsPeriod}
+        />
 
         <RecentActivity
           conversations={sortedConversations}
@@ -162,6 +167,7 @@ interface HomePanelProps {
       diagnosticEnabled?: boolean;
       useSkillEnabled?: boolean;
       memoryEnabled?: boolean;
+      toolFormat?: "xml" | "json";
     },
   ) => void;
   onLoadConversation: (
@@ -277,6 +283,12 @@ const HomePanel: React.FC<HomePanelProps> = ({
   const { currentModel, setCurrentModel, currentAccount, setCurrentAccount } =
     useModelAccount(folderPath);
 
+  // ── Tool Format: per-model, persisted to localStorage ──
+  const {
+    toolFormat: conversationToolFormat,
+    toggleToolFormat: toggleConversationToolFormat,
+  } = useToolFormatSettings(currentModel?.providerId, currentModel?.id);
+
   // ── Claude detection (for ZenCLI hint bar color) ──
   const isClaudeProvider = currentModel?.providerId?.toLowerCase() === "claude";
 
@@ -370,7 +382,8 @@ const HomePanel: React.FC<HomePanelProps> = ({
         // ── Time-Block Check: Chặn DeepSeek trong giờ cấm ───────────────
         if (isDeepSeekProvider(model?.providerId)) {
           const providerConfig = providers.find(
-            (p: any) => p.provider_id?.toLowerCase() === model?.providerId?.toLowerCase(),
+            (p: any) =>
+              p.provider_id?.toLowerCase() === model?.providerId?.toLowerCase(),
           );
           const ranges = providerConfig?.blocked_time_ranges ?? null;
           if (isBlockedNow(ranges)) {
@@ -399,6 +412,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
             diagnosticEnabled: conversationDiagnosticEnabled,
             useSkillEnabled: conversationUseSkillEnabled,
             memoryEnabled: conversationMemoryEnabled,
+            toolFormat: conversationToolFormat,
           },
         );
         setMessage("");
@@ -418,6 +432,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
       conversationDiagnosticEnabled,
       conversationUseSkillEnabled,
       conversationMemoryEnabled,
+      conversationToolFormat,
     ],
   );
 
@@ -462,8 +477,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
         // period=all maps to a very large offset span; backend uses period=year offset=0
         // but covers all time via the "all" pseudo-period we handle client-side by
         // omitting period so backend defaults aggregate all records.
-        const periodParam =
-          statsPeriod === "all" ? "year" : statsPeriod;
+        const periodParam = statsPeriod === "all" ? "year" : statsPeriod;
         const offsetParam = statsPeriod === "all" ? 0 : statsOffset;
 
         const statsUrl =
@@ -779,6 +793,7 @@ const HomePanel: React.FC<HomePanelProps> = ({
         conversationDiagnosticEnabled={conversationDiagnosticEnabled}
         conversationUseSkillEnabled={conversationUseSkillEnabled}
         conversationMemoryEnabled={conversationMemoryEnabled}
+        conversationToolFormat={conversationToolFormat}
         onConversationDiagnosticToggle={() => {
           const next = !conversationDiagnosticEnabled;
           setConversationDiagnosticEnabled(next);
@@ -793,6 +808,9 @@ const HomePanel: React.FC<HomePanelProps> = ({
           const next = !conversationMemoryEnabled;
           setConversationMemoryEnabled(next);
           setMemoryEnabled(next);
+        }}
+        onConversationToolFormatToggle={() => {
+          toggleConversationToolFormat();
         }}
       />
     </div>

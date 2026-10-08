@@ -66,7 +66,6 @@ const analyzer = new ProjectAnalyzer({
 });
 
 const unusedExports = analyzer.findUnusedExports();
-console.log('Unused exports:', unusedExports);
 ```
 
 ### VS Code Extension

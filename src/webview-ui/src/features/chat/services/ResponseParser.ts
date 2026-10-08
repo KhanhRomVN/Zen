@@ -52,13 +52,237 @@ import type { ContentBlock } from "../types/renderer-types";
 /**
  * Parse AI response to extract tool actions
  * Supports interleaved text and tool calls
+ * @param content - raw AI response string
+ * @param toolFormat - 'xml' (default) or 'json'
  */
 // Enable debug logs via localStorage
 const DEBUG_PARSER =
   typeof window !== "undefined" &&
   window.localStorage?.getItem("zen_debug_parser") === "true";
 
-export const parseAIResponse = (content: string): ParsedResponse => {
+// ─── JSON parsing helpers ────────────────────────────────────────────────────
+
+/**
+ * Parse a raw inner-content string from JSON params into the same shape
+ * that XML parsers expect by converting the params object to pseudo-XML.
+ * e.g. { file_path: "foo.ts", start_line: 1 } → "<file_path>foo.ts</file_path><start_line>1</start_line>"
+ */
+const paramsToXmlInner = (params: Record<string, any>): string => {
+  return Object.entries(params)
+    .map(([key, val]) => {
+      if (val === null || val === undefined) return '';
+      return `<${key}>${String(val)}</${key}>`;
+    })
+    .join('');
+};
+
+/**
+ * Convert a JSON tool object to a ToolAction using the existing XML parsers.
+ */
+const jsonToolToAction = (
+  toolName: string,
+  params: Record<string, any>,
+  rawJson: string,
+): ToolAction | null => {
+  const inner = paramsToXmlInner(params);
+  // Reuse the same switch as the XML path
+  switch (toolName) {
+    case 'read_file': return { type: 'read_file', params: parseReadFile(inner), rawXml: rawJson };
+    case 'write_to_file': return { type: 'write_to_file', params: parseWriteToFile(inner), rawXml: rawJson };
+    case 'replace_in_file': return { type: 'replace_in_file', params: parseReplaceInFile(inner), rawXml: rawJson };
+    case 'list_files': return { type: 'list_files', params: parseListFiles(inner), rawXml: rawJson };
+    case 'find_files': return { type: 'find_files', params: parseFindFiles(inner), rawXml: rawJson };
+    case 'grep': return { type: 'grep', params: parseGrep(inner), rawXml: rawJson };
+    case 'delete_file': return { type: 'delete_file', params: parseDeleteFile(inner), rawXml: rawJson };
+    case 'revert_file': return { type: 'revert_file', params: parseRevertFile(inner), rawXml: rawJson };
+    case 'view_replace_history': return { type: 'view_replace_history', params: parseViewReplaceHistory(inner), rawXml: rawJson };
+    case 'run_command': return { type: 'run_command', params: parseRunCommand(inner), rawXml: rawJson };
+    case 'git_status': return { type: 'git_status', params: parseGitStatus(inner), rawXml: rawJson };
+    case 'git_diff': return { type: 'git_diff', params: parseGitDiff(inner), rawXml: rawJson };
+    case 'commit_message': return { type: 'commit_message', params: parseCommitMessage(inner), rawXml: rawJson };
+    case 'search_skill': return { type: 'search_skill', params: parseSearchSkill(inner), rawXml: rawJson };
+    case 'list_skill': return { type: 'list_skill', params: parseListSkill(inner), rawXml: rawJson };
+    case 'read_skill': return { type: 'read_skill', params: parseReadSkill(inner), rawXml: rawJson };
+    case 'install_skill': return { type: 'install_skill', params: parseInstallSkill(inner), rawXml: rawJson };
+    case 'read_memory': return { type: 'read_memory', params: parseReadMemory(inner), rawXml: rawJson };
+    case 'update_memory': return { type: 'update_memory', params: parseUpdateMemory(inner), rawXml: rawJson };
+    default: return null;
+  }
+};
+
+/**
+ * JSON format parser: scans response for ```json {...} ``` fenced blocks
+ * that match the tool call schema { "tool": "...", "params": {...} }.
+ * Text between blocks is treated as markdown.
+ */
+const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedResponse => {
+  // Pre-extract <thinking> blocks (AI may still emit them in JSON mode)
+  const { remainingContent: contentAfterThinking, thinkingBlocks } =
+    parseThinking(content);
+
+  const scanStr = contentAfterThinking;
+
+  // Regex: match ```json ... ``` fenced blocks (non-greedy)
+  const fenceRegex = /```json\s*\n?([\s\S]*?)```/g;
+
+  let lastIndex = 0;
+
+  const pushMarkdown = (text: string) => {
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return;
+    result.contentBlocks.push({ type: 'markdown', content: trimmed });
+  };
+
+  let match: RegExpExecArray | null;
+  while ((match = fenceRegex.exec(scanStr)) !== null) {
+    // Text before this block → markdown
+    const before = scanStr.slice(lastIndex, match.index);
+    pushMarkdown(before);
+
+    const rawJson = match[0];
+    const jsonBody = match[1].trim();
+
+    // Try to parse as tool call
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(jsonBody);
+    } catch {
+      // Not valid JSON — treat the whole fence as a code block
+      result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
+      lastIndex = match.index + rawJson.length;
+      continue;
+    }
+
+    // Check for conversation_title pseudo-tool
+    if (parsed?.tool === 'conversation_title' && parsed?.params?.title) {
+      result.contentBlocks.push({
+        type: 'conversation_title',
+        content: parsed.params.title,
+      });
+      lastIndex = match.index + rawJson.length;
+      continue;
+    }
+
+    // ── JSON UI objects: { "type": "markdown" | "code" | "question", ... } ──
+    if (typeof parsed?.type === 'string' && typeof parsed?.tool === 'undefined') {
+      const uiType = parsed.type as string;
+
+      if (uiType === 'markdown' && typeof parsed.content === 'string') {
+        const content = parsed.content.trim();
+        if (content.length > 0) {
+          pushMarkdown(content);
+        }
+        lastIndex = match.index + rawJson.length;
+        continue;
+      }
+
+      if (uiType === 'code' && typeof parsed.content === 'string') {
+        const codeContent = parsed.content.trim();
+        const language = typeof parsed.language === 'string' ? parsed.language : 'text';
+        if (codeContent.length > 0) {
+          result.contentBlocks.push({ type: 'code', content: codeContent, language });
+        }
+        lastIndex = match.index + rawJson.length;
+        continue;
+      }
+
+      if (uiType === 'question' && Array.isArray(parsed.questions)) {
+        const questions: import('../types/message').Question[] = [];
+        for (const q of parsed.questions) {
+          if (!q || typeof q.id !== 'string' || typeof q.type !== 'string' || typeof q.label !== 'string') continue;
+          const qType = q.type as import('../types/message').QuestionType;
+          const options: string[] = Array.isArray(q.options) ? q.options.filter((o: any) => typeof o === 'string') : [];
+          // Validate: single/multi must have at least 2 options
+          if ((qType === 'single' || qType === 'multi') && options.length < 2) continue;
+          questions.push({
+            id: q.id,
+            type: qType,
+            label: q.label,
+            options: options.length > 0 ? options : undefined,
+          });
+        }
+        if (questions.length > 0) {
+          const qBlock: ContentBlock = {
+            type: 'question',
+            options: [],
+            questions,
+          };
+          result.contentBlocks.push(qBlock);
+          result.question = qBlock;
+        }
+        lastIndex = match.index + rawJson.length;
+        continue;
+      }
+
+      // Unknown type key — show as generic code block
+      result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
+      lastIndex = match.index + rawJson.length;
+      continue;
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Must have { tool: string, params: object }
+    if (
+      typeof parsed?.tool !== 'string' ||
+      typeof parsed?.params !== 'object' ||
+      parsed.params === null
+    ) {
+      // Generic JSON code block
+      result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
+      lastIndex = match.index + rawJson.length;
+      continue;
+    }
+
+    const action = jsonToolToAction(parsed.tool, parsed.params, rawJson);
+    if (!action) {
+      // Unknown tool — show as code block
+      result.contentBlocks.push({ type: 'code', content: jsonBody, language: 'json' });
+      lastIndex = match.index + rawJson.length;
+      continue;
+    }
+
+    const actionIndex = result.actions.length;
+    result.contentBlocks.push({ type: 'tool', action, actionIndex });
+    result.actions.push(action);
+
+    lastIndex = match.index + rawJson.length;
+  }
+
+  // Remaining text after last block
+  const tail = scanStr.slice(lastIndex);
+  pushMarkdown(tail);
+
+  // Restore thinking blocks (same logic as XML path)
+  const placeholderRegex = /__THINKING_(\d+)__/g;
+  const expandedBlocks: ContentBlock[] = [];
+  for (const block of result.contentBlocks) {
+    if (block.type === 'markdown' && placeholderRegex.test(block.content)) {
+      placeholderRegex.lastIndex = 0;
+      const parts = block.content.split(/__THINKING_(\d+)__/);
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0) {
+          if (parts[i].trim()) expandedBlocks.push({ type: 'markdown', content: parts[i] });
+        } else {
+          const idx = parseInt(parts[i], 10);
+          expandedBlocks.push({ type: 'thinking', content: thinkingBlocks[idx] ?? '' });
+        }
+      }
+    } else {
+      expandedBlocks.push(block);
+    }
+  }
+  result.contentBlocks = expandedBlocks;
+
+  result.displayText = result.contentBlocks
+    .filter((b: any) => b.type === 'markdown')
+    .map((b: any) => b.content)
+    .join('\n\n');
+
+  return result;
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
+export const parseAIResponse = (content: string, toolFormat: 'xml' | 'json' = 'xml'): ParsedResponse => {
   // Track parsing sequence for debugging
   const parsingSequence: { index: number; tag: string; subTags?: string[] }[] =
     [];
@@ -73,6 +297,12 @@ export const parseAIResponse = (content: string): ParsedResponse => {
     displayText: "",
     question: null,
   };
+
+  // ─── JSON format path ────────────────────────────────────────────────────
+  if (toolFormat === 'json') {
+    return parseAIResponseJson(content, result);
+  }
+  // ────────────────────────────────────────────────────────────────────────
 
   let remainingContent = content;
 
