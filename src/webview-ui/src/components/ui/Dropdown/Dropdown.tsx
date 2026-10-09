@@ -57,7 +57,6 @@ export function Dropdown({
     top: 0,
     left: 0,
   });
-  const [isPositioned, setIsPositioned] = useState(false);
   const [contextMenuPosition, setContextMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
   // Calculate position for fixed strategy
@@ -175,7 +174,6 @@ export function Dropdown({
       // Use manual position if provided (e.g., for context menus)
       if (manualPosition) {
         setPosition(manualPosition);
-        setIsPositioned(true);
         return;
       }
       // Use captured context menu mouse position when available
@@ -196,17 +194,12 @@ export function Dropdown({
         if (top < margin) top = margin;
 
         setPosition({ top, left });
-        setIsPositioned(true);
         return;
       }
       const pos = calculateFixedPosition();
       if (pos) {
         setPosition(pos);
-        setIsPositioned(true);
       }
-    } else {
-      // Relative strategy doesn't need position calculation
-      setIsPositioned(true);
     }
   };
   // Handle click outside
@@ -238,8 +231,6 @@ export function Dropdown({
           updatePosition();
         });
       });
-    } else {
-      setIsPositioned(false);
     }
   }, [open, side, align, sideOffset, strategy, manualPosition]);
 
@@ -330,50 +321,6 @@ export function Dropdown({
       React.isValidElement(child) &&
       (child.type as any)?.displayName === "DropdownContent",
   );
-
-  // Get CSS classes for relative positioning
-  const getRelativePositionClasses = () => {
-    const classes = ["absolute", "z-[9999]"];
-
-    switch (side) {
-      case "top":
-        classes.push("bottom-full", `mb-[${sideOffset}px]`);
-        break;
-      case "bottom":
-        classes.push("top-full", `mt-[${sideOffset}px]`);
-        break;
-      case "left":
-        classes.push("right-full", `mr-[${sideOffset}px]`);
-        break;
-      case "right":
-        classes.push("left-full", `ml-[${sideOffset}px]`);
-        break;
-    }
-
-    // Alignment for top/bottom
-    if (side === "top" || side === "bottom") {
-      if (align === "start") {
-        classes.push("left-0");
-      } else if (align === "center") {
-        classes.push("left-1/2", "-translate-x-1/2");
-      } else if (align === "end") {
-        classes.push("right-0");
-      }
-    }
-
-    // Alignment for left/right
-    if (side === "left" || side === "right") {
-      if (align === "start") {
-        classes.push("top-0");
-      } else if (align === "center") {
-        classes.push("top-1/2", "-translate-y-1/2");
-      } else if (align === "end") {
-        classes.push("bottom-0");
-      }
-    }
-
-    return classes.join(" ");
-  };
 
   return (
     <DropdownContext.Provider

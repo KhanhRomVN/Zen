@@ -39,7 +39,6 @@ export interface DropdownItemProps extends React.HTMLAttributes<HTMLDivElement> 
   closeOnSelect?: boolean;
   variant?: 'default' | 'error';
   noPadding?: boolean;
-  items?: DropdownItemProps[]; // Nested submenu items
 }
 
 export interface DropdownSeparatorProps {

@@ -674,8 +674,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
 
         <ErrorBlock
           content={firstAction.errorMessage || "Unknown error occurred"}
-          errorCode={firstAction.errorCode}
-          showHeader={false}
+          compact={true}
           maxHeight="300px"
         />
 

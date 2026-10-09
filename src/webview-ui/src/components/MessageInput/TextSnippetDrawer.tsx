@@ -5,14 +5,12 @@ import { X } from "lucide-react";
 interface TextSnippetDrawerProps {
   isOpen: boolean;
   content: string;
-  title: string;
   onClose: () => void;
 }
 
 const TextSnippetDrawer: React.FC<TextSnippetDrawerProps> = ({
   isOpen,
   content,
-  title,
   onClose,
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);

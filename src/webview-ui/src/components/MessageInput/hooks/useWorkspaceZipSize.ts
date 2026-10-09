@@ -25,11 +25,7 @@ const ZIP_TIMEOUT_MS = 30_000;
 const DEBOUNCE_MS = 800;
 
 interface RequestWorkspaceZipResult {
-  base64: string;
-  mimeType: string;
-  fileName: string;
   fileCount: number;
-  skippedCount: number;
   sizeBytes: number;
 }
 

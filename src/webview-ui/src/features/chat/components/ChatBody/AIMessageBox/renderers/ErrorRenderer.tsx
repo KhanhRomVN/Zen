@@ -86,11 +86,8 @@ export const ErrorRenderer: React.FC<ErrorRendererProps> = ({
       />
       <ErrorBlock
         content={translatedMessage}
-        errorCode={errorCode}
-        isLast={isLast}
-        isLastMessage={isLastMessage}
+        compact={true}
         maxHeight={maxHeight}
-        showHeader={false}
       />
     </div>
   );

@@ -725,7 +725,7 @@ export const RevertFileRenderer: React.FC<BaseRendererProps> = ({
       {isError && (
         <ErrorBlock
           content={errorMessage}
-          showHeader={false}
+          compact={true}
           maxHeight="300px"
         />
       )}

@@ -45,9 +45,6 @@ const App: React.FC = () => {
   const [showAccounts, setShowAccounts] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
   const [currentChat, setCurrentChat] = useState<ChatSession | null>(null);
-  const [previousPanel, setPreviousPanel] = useState<"tab" | "chat" | null>(
-    null,
-  );
   const [homeInitialValue, setHomeInitialValue] = useState("");
 
   const handleLoadConversation = useCallback(
@@ -63,7 +60,6 @@ const App: React.FC = () => {
       setCurrentChat(newSession);
       setShowHistory(false);
       setShowSettings(false);
-      setPreviousPanel(null);
     },
     [],
   );
@@ -78,7 +74,7 @@ const App: React.FC = () => {
       diagnosticEnabled?: boolean;
       useSkillEnabled?: boolean;
       memoryEnabled?: boolean;
-      toolFormat?: 'xml' | 'json';
+      toolFormat?: "xml" | "json";
     };
   } | null>(null);
 
@@ -87,12 +83,6 @@ const App: React.FC = () => {
       const message = event.data;
       switch (message.command) {
         case "showHistory":
-          // Save current panel before switching
-          if (currentChat) {
-            setPreviousPanel("chat");
-          } else {
-            setPreviousPanel("tab");
-          }
           setShowHistory(true);
           setShowSettings(false);
           setShowAccounts(false);
@@ -100,11 +90,6 @@ const App: React.FC = () => {
           window.dispatchEvent(new CustomEvent("zen:panel-change"));
           break;
         case "showSettings":
-          if (currentChat) {
-            setPreviousPanel("chat");
-          } else {
-            setPreviousPanel("tab");
-          }
           setShowSettings(true);
           setShowHistory(false);
           setShowAccounts(false);
@@ -112,11 +97,6 @@ const App: React.FC = () => {
           window.dispatchEvent(new CustomEvent("zen:panel-change"));
           break;
         case "showAccounts":
-          if (currentChat) {
-            setPreviousPanel("chat");
-          } else {
-            setPreviousPanel("tab");
-          }
           setShowAccounts(true);
           setShowHistory(false);
           setShowSettings(false);
@@ -124,11 +104,6 @@ const App: React.FC = () => {
           window.dispatchEvent(new CustomEvent("zen:panel-change"));
           break;
         case "showMarketplace":
-          if (currentChat) {
-            setPreviousPanel("chat");
-          } else {
-            setPreviousPanel("tab");
-          }
           setShowMarketplace(true);
           setShowHistory(false);
           setShowSettings(false);
@@ -141,7 +116,6 @@ const App: React.FC = () => {
           setShowAccounts(false);
           setShowMarketplace(false);
           setCurrentChat(null);
-          setPreviousPanel(null);
           setInitialMessageData(null); // Clear initial data on new chat
           break;
       }
@@ -161,7 +135,7 @@ const App: React.FC = () => {
         diagnosticEnabled?: boolean;
         useSkillEnabled?: boolean;
         memoryEnabled?: boolean;
-        toolFormat?: 'xml' | 'json';
+        toolFormat?: "xml" | "json";
       },
     ) => {
       setInitialMessageData({
@@ -220,32 +194,20 @@ const App: React.FC = () => {
               )}
               <HistoryPanel
                 isOpen={showHistory}
-                onClose={() => {
-                  setShowHistory(false);
-                  setPreviousPanel(null);
-                }}
+                onClose={() => setShowHistory(false)}
                 onLoadConversation={handleLoadConversation}
               />
               <SettingsPanel
                 isOpen={showSettings}
-                onClose={() => {
-                  setShowSettings(false);
-                  setPreviousPanel(null);
-                }}
+                onClose={() => setShowSettings(false)}
               />
               <AccountPanel
                 isOpen={showAccounts}
-                onClose={() => {
-                  setShowAccounts(false);
-                  setPreviousPanel(null);
-                }}
+                onClose={() => setShowAccounts(false)}
               />
               <MarketplacePanel
                 isOpen={showMarketplace}
-                onClose={() => {
-                  setShowMarketplace(false);
-                  setPreviousPanel(null);
-                }}
+                onClose={() => setShowMarketplace(false)}
               />
             </div>
           </ProjectProvider>

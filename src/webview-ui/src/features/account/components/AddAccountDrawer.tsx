@@ -17,9 +17,8 @@
 // ── Imports ────────────────────────────────────────────────────────────
 // ── React ──
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import ReactDOM from "react-dom";
 
-// ── UI ──
+// ── UI ─
 import {
   Loader2,
   X,
@@ -51,17 +50,12 @@ interface Provider {
   provider_id: string;
   provider_name: string;
   description?: string;
-  color?: string;
   website: string;
   website_url?: string;
-  icon?: string;
   is_enabled?: boolean;
   auth_methods?: string[];
-  platform?: string;
   connection_type?: string;
   auth_method?: string;
-  /** "device_code" → không cần CDP/profile browser, dùng verification_url + user_code */
-  login_flow?: string;
 }
 
 interface AddAccountDrawerProps {

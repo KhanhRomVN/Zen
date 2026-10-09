@@ -18,10 +18,7 @@ import React, { useState } from "react";
 import { Ban, Stethoscope, Sparkles, Brain, Code2 } from "lucide-react";
 import type { SystemPromptMode } from "../../features/chat/prompts";
 import { Dropdown, DropdownTrigger, DropdownContent } from "../ui/Dropdown";
-import {
-  STYLE_CODE_MODE_META,
-  StyleCodeTriggerIcon,
-} from "./ProviderModelDrawer";
+
 
 // ─── SimpleTooltip (local copy — SimpleTooltip chưa được export từ index.tsx) ──
 const SimpleTooltip: React.FC<{
@@ -83,6 +80,58 @@ const SimpleTooltip: React.FC<{
         </div>
       )}
     </>
+  );
+};
+
+// ─── Local Definitions for STYLE_CODE_MODE_META & StyleCodeTriggerIcon ──
+// These were previously imported from ProviderModelDrawer but are not exported there.
+// Defining them locally to fix the TypeScript error.
+
+interface StyleCodeModeMeta {
+  key: SystemPromptMode;
+  label: string;
+  desc: string;
+  color: string;
+  icon: React.ReactNode;
+}
+
+export const STYLE_CODE_MODE_META: StyleCodeModeMeta[] = [
+  {
+    key: "fast",
+    label: "Fast",
+    desc: "Minimal confirmations, quick edits",
+    color: "#ef4444",
+    icon: <Ban size={14} />,
+  },
+  {
+    key: "balanced",
+    label: "Balanced",
+    desc: "Moderate confirmations, standard flow",
+    color: "#3b82f6",
+    icon: <Stethoscope size={14} />,
+  },
+  {
+    key: "thorough",
+    label: "Thorough",
+    desc: "Extensive checks, detailed explanations",
+    color: "#a855f7",
+    icon: <Sparkles size={14} />,
+  },
+  {
+    key: "autopilot",
+    label: "Autopilot",
+    desc: "Almost no confirmations, autonomous execution",
+    color: "#22c55e",
+    icon: <Brain size={14} />,
+  },
+];
+
+const StyleCodeTriggerIcon: React.FC<{ mode: SystemPromptMode }> = ({ mode }) => {
+  const meta = STYLE_CODE_MODE_META.find(m => m.key === mode);
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center" }}>
+      {meta?.icon || <Code2 size={14} />}
+    </span>
   );
 };
 

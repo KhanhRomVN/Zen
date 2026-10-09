@@ -148,7 +148,6 @@ interface CodeBlockProps {
   diffStats?: { added: number; removed: number };
   isDiffBlock?: boolean;
   prefix?: string;
-  statusColor?: string;
   enableWordWrap?: boolean;
   maxHeight?: string;
   /** Optional: highlight specific lines as added/removed (1-based line numbers) */
@@ -165,17 +164,15 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   diffStats,
   isDiffBlock = false,
   prefix,
-  statusColor,
   enableWordWrap = true,
   maxHeight,
   lineHighlights,
   autoScrollToDiff = false,
   hideHeader = false,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const firstDiffRef = useRef<HTMLDivElement>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code);
@@ -352,7 +349,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         !hideHeader &&
         language && <CodeBlockHeader language={language} onCopy={handleCopy} />
       )}
-      {!isCollapsed && renderBody()}
+      {renderBody()}
     </div>
   );
 };

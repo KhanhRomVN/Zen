@@ -1,10 +1,9 @@
-import React, { createContext, useContext, ReactNode } from "react";
+import React, { createContext, ReactNode } from "react";
 import { useVSCodeTheme } from "../hooks/useVSCodeTheme";
 
 interface ThemeContextType {
-  themeKind: number;
-  themeId?: string;
-  themeVersion?: number;
+  // Fields reserved for future use or consumed by external consumers via context
+  // Currently unused in this module's rendering logic
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);

@@ -1,4 +1,3 @@
-import React from 'react';
 import { DropdownTriggerProps } from './type';
 
 export function DropdownTrigger({ children, asChild }: DropdownTriggerProps) {

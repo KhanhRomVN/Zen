@@ -56,7 +56,7 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
   // Determine color based on status
   const historyColor = isError
     ? "var(--vscode-errorForeground, #ff4d4d)"
-    : (isDisplayOnly || isCompleted)
+    : isDisplayOnly || isCompleted
       ? "var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
       : "var(--vscode-textLink-foreground, #9370db)";
 
@@ -82,7 +82,15 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
         marginBottom: isLastItemInList ? "0" : "8px",
       }}
     >
-      <div onClick={handleTagClick} style={{ cursor: isCompleted && !isError && histories.length > 0 ? "pointer" : "default" }}>
+      <div
+        onClick={handleTagClick}
+        style={{
+          cursor:
+            isCompleted && !isError && histories.length > 0
+              ? "pointer"
+              : "default",
+        }}
+      >
         <TagHeader
           title={
             <div
@@ -94,7 +102,9 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
                 color: "var(--vscode-editor-foreground)",
               }}
             >
-              <span style={{ fontWeight: 600, opacity: 0.8 }}>{getToolLabel("view_replace_history")}</span>
+              <span style={{ fontWeight: 600, opacity: 0.8 }}>
+                {getToolLabel("view_replace_history")}
+              </span>
               <span style={{ display: "flex", alignItems: "center" }}>
                 <img
                   src={getFileIconPath(filePath)}
@@ -138,7 +148,7 @@ export const ViewReplaceHistoryRenderer: React.FC<BaseRendererProps> = ({
       {isError && (
         <ErrorBlock
           content={outputData?.output || "Failed to load history"}
-          showHeader={false}
+          compact={true}
           maxHeight="300px"
         />
       )}

@@ -4,14 +4,8 @@ import "./ErrorBlock.css";
 export interface ErrorBlockProps {
   content: string;
   errorCode?: string;
-  isPartial?: boolean;
-  isLast?: boolean;
-  isLastMessage?: boolean;
-  showHeader?: boolean;
-  contentPaddingLeft?: string;
   compact?: boolean;
   maxHeight?: string;
-  label?: string;
 }
 
 // Parse error message to extract meaningful information
@@ -64,17 +58,9 @@ const parseErrorMessage = (msg: string): string => {
 
 const ErrorBlock: React.FC<ErrorBlockProps> = ({
   content,
-  errorCode,
-  isPartial = false,
-  isLast = false,
-  isLastMessage = false,
-  showHeader = true,
-  contentPaddingLeft = "36px",
   compact = false,
   maxHeight,
-  label = "ERROR",
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const errorColor = "var(--vscode-errorForeground, #f44336)";
 
   // Extract the actual error message (remove "Error:" prefix if present)
@@ -82,7 +68,6 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
 
   // Parse error code from "[CODE] message" format
   const codeMatch = cleanContent.match(/^\[([^\]]+)\]\s*(.*)/s);
-  const displayErrorCode = errorCode || (codeMatch ? codeMatch[1] : null);
   let displayMessage = codeMatch ? codeMatch[2] : cleanContent;
 
   // Parse and simplify error message
@@ -154,55 +139,53 @@ const ErrorBlock: React.FC<ErrorBlockProps> = ({
           overflow: "visible",
         }}
       >
-        {!isCollapsed && (
+        <div
+          style={{
+            marginTop: "4px",
+            maxHeight: maxHeight,
+            overflowY: maxHeight ? "auto" : "visible",
+            // @ts-ignore - CSS custom scrollbar properties
+            scrollbarColor: `${errorColor} transparent`,
+            scrollbarWidth: "thin",
+          }}
+          className="error-scrollbar"
+        >
           <div
             style={{
-              marginTop: "4px",
-              maxHeight: maxHeight,
-              overflowY: maxHeight ? "auto" : "visible",
-              // @ts-ignore - CSS custom scrollbar properties
-              scrollbarColor: `${errorColor} transparent`,
-              scrollbarWidth: "thin",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "6px",
+              padding: "5px 8px",
+              backgroundColor:
+                "color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)",
+              border:
+                "1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)",
+              borderRadius: "4px",
             }}
-            className="error-scrollbar"
           >
-            <div
+            <span
+              className="codicon codicon-error"
               style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "6px",
-                padding: "5px 8px",
-                backgroundColor:
-                  "color-mix(in srgb, var(--vscode-errorForeground) 4%, transparent)",
-                border:
-                  "1px solid color-mix(in srgb, var(--vscode-errorForeground) 20%, transparent)",
-                borderRadius: "4px",
+                fontSize: "11px",
+                color: "var(--vscode-errorForeground)",
+                opacity: 0.7,
+                marginTop: "1px",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontSize: "11px",
+                color: "var(--vscode-errorForeground)",
+                opacity: 0.85,
+                fontFamily: "var(--vscode-editor-font-family, monospace)",
+                wordBreak: "break-word",
               }}
             >
-              <span
-                className="codicon codicon-error"
-                style={{
-                  fontSize: "11px",
-                  color: "var(--vscode-errorForeground)",
-                  opacity: 0.7,
-                  marginTop: "1px",
-                  flexShrink: 0,
-                }}
-              />
-              <span
-                style={{
-                  fontSize: "11px",
-                  color: "var(--vscode-errorForeground)",
-                  opacity: 0.85,
-                  fontFamily: "var(--vscode-editor-font-family, monospace)",
-                  wordBreak: "break-word",
-                }}
-              >
-                {displayMessage}
-              </span>
-            </div>
+              {displayMessage}
+            </span>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

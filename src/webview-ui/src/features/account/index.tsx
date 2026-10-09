@@ -15,7 +15,7 @@
 
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── React ──
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 // ── UI ──
 import {
@@ -232,7 +232,6 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
   const [editAccount, setEditAccount] = useState<FlatAccount | null>(null);
   const [closeHover, setCloseHover] = useState(false);
   const [importDuplicates, setImportDuplicates] = useState<DuplicateEntry[]>([]);
-  const [importRawAccounts, setImportRawAccounts] = useState<any[]>([]);
   const [importLoading, setImportLoading] = useState(false);
   const [importLoadingMsg, setImportLoadingMsg] = useState("");
   const [importDuplicatesOpen, setImportDuplicatesOpen] = useState(false);
@@ -318,7 +317,6 @@ const AccountPanel: React.FC<AccountPanelProps> = ({ isOpen, onClose }) => {
           return;
         }
 
-        setImportRawAccounts(msg.rawAccounts ?? []);
         setImportDuplicates(previewAccounts);
         setImportDuplicatesOpen(true);
       },
