@@ -43,7 +43,7 @@ interface UseToolExecutionProps {
   /** When true, all pending auto-flush sends are suppressed (set by stop button) */
   isStoppedRef?: React.MutableRefObject<boolean>;
   /** Tool call format for this conversation */
-  toolFormat?: 'xml' | 'json';
+  toolFormat?: "xml" | "json";
 }
 
 export const useToolExecution = ({
@@ -51,7 +51,7 @@ export const useToolExecution = ({
   conversationIdRef,
   messagesRef,
   isStoppedRef,
-  toolFormat = 'xml',
+  toolFormat = "xml",
 }: UseToolExecutionProps) => {
   const { permissionMode } = useSettings();
   const permissionModeRef = useRef<PermissionMode>(permissionMode);

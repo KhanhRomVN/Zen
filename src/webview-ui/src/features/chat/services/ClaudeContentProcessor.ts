@@ -282,7 +282,6 @@ export function processClaudeContent(
 ): ProcessClaudeContentResult {
   const DEBUG_PREFIX = "[ClaudeContentProcessor]";
   const disablePathMapping = options.disablePathMapping ?? false;
-  // console.log("[DEBUG] Raw Content before processing:", rawContent);
 
   // ── Step 1: Keep <conversation_title> intact ─────────────────────────
   // Previously stripped here, but ResponseParser needs the tag present to

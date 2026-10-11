@@ -8,6 +8,7 @@ interface UseGitOperationsProps {
   currentAccount: any;
   providers: any[];
   commitMessageLanguage: string;
+  toolFormat?: "xml" | "json";
   currentConversationId: string;
   wrappedSendMessage: (
     content: string,
@@ -31,6 +32,7 @@ export const useGitOperations = ({
   currentAccount,
   providers,
   commitMessageLanguage,
+  toolFormat = "xml",
   currentConversationId,
   wrappedSendMessage,
   setMessages,
@@ -264,7 +266,12 @@ ${statusMessage}
       }
 
       const commitLang = commitMessageLanguage || "vi";
-      const formattedPrompt = getCommitMessagePrompt(commitLang, gitStatusText);
+      const formattedPrompt = getCommitMessagePrompt(
+        commitLang,
+        gitStatusText,
+        undefined,
+        toolFormat,
+      );
       const prompt = `[COMMIT_MESSAGE_REQUEST]\n${formattedPrompt}`;
 
       try {
@@ -295,6 +302,7 @@ ${statusMessage}
       currentModel,
       currentAccount,
       commitMessageLanguage,
+      toolFormat,
       currentConversationId,
       wrappedSendMessage,
     ],

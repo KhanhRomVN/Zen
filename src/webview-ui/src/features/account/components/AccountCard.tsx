@@ -472,7 +472,7 @@ const AccountCard: React.FC<AccountCardProps> = ({
                         color: "var(--vscode-testing-iconPassed, #22c55e)",
                       }}
                     />
-                    {(account.period_requests ?? 0).toLocaleString()} req
+                    {(account.period_requests ?? 0).toLocaleString()} msg
                   </span>
                   <span
                     style={{

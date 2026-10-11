@@ -3,6 +3,7 @@ import { Plus, Send, X } from "lucide-react";
 import { useProject } from "@/context/ProjectContext";
 import { useWorkspaceZipSize } from "./hooks/useWorkspaceZipSize";
 import { ClaudeZipBadge } from "./ClaudeZipBadge";
+import { SimpleTooltip, TooltipRow, TooltipCard } from "./SimpleTooltip";
 import { ZenCliHintBar } from "./ZenCliHintBar";
 import { useBackendConnection } from "../../context/BackendConnectionContext";
 import { LANGUAGES } from "../../features/setting/components/general/LanguageSelector";
@@ -14,6 +15,8 @@ import { combinePromptsForMode } from "../../features/chat/prompts";
 import { buildClaudePrompt } from "../../features/chat/prompts/claude-system-prompt";
 import type { SystemInfo } from "../../features/chat/prompts";
 import ProviderModelDrawer from "./ProviderModelDrawer";
+import EffortDropdown, { getModelEffortInfo } from "./EffortDropdown";
+import type { EffortLevel } from "./EffortDropdown";
 import PromptLengthDropdown, {
   PromptLengthTriggerIcon,
   PROMPT_LENGTH_MODE_META,
@@ -405,69 +408,7 @@ const useModelSelection = (
 // TOGGLE BUTTONS
 // ============================================================================
 
-// ─── SimpleTooltip ────────────────────────────────────────────────────────────
-/**
- * Custom tooltip dùng position:fixed để hiển thị đúng trong VSCode webview.
- * Native browser `title` attribute không hoạt động trong webview VSCode.
- * Nhận `content` là ReactNode để hỗ trợ text có màu.
- */
-const SimpleTooltip: React.FC<{
-  content: React.ReactNode;
-  children: React.ReactElement;
-}> = ({ content, children }) => {
-  const [pos, setPos] = React.useState<{ x: number; y: number } | null>(null);
-
-  const show = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setPos({ x: rect.left + rect.width / 2, y: rect.top - 6 });
-  };
-
-  const hide = () => setPos(null);
-
-  return (
-    <>
-      {React.cloneElement(children, {
-        onMouseEnter: (e: React.MouseEvent) => {
-          children.props.onMouseEnter?.(e);
-          show(e);
-        },
-        onMouseLeave: (e: React.MouseEvent) => {
-          children.props.onMouseLeave?.(e);
-          hide();
-        },
-      })}
-      {pos && (
-        <div
-          style={{
-            position: "fixed",
-            left: pos.x,
-            top: pos.y,
-            transform: "translate(-50%, -100%)",
-            zIndex: 99999,
-            backgroundColor:
-              "var(--vscode-editorHoverWidget-background, #252526)",
-            border: "1px solid var(--vscode-editorHoverWidget-border, #454545)",
-            borderRadius: "5px",
-            padding: "4px 8px",
-            fontSize: "11px",
-            color: "var(--vscode-foreground)",
-            whiteSpace: "nowrap",
-            pointerEvents: "none",
-            boxShadow: "0 3px 10px rgba(0,0,0,0.35)",
-            marginBottom: "4px",
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-          }}
-        >
-          {content}
-        </div>
-      )}
-    </>
-  );
-};
-
-/** Helper render "Label <ON|OFF>" với màu accent khi ON, mờ khi OFF */
+/** Render "Label ... [ON|OFF]" dạng pill với màu accent khi ON, mờ khi OFF */
 const TooltipToggle = ({
   label,
   isOn,
@@ -477,18 +418,14 @@ const TooltipToggle = ({
   isOn: boolean;
   accentColor: string;
 }) => (
-  <>
-    <span>{label}</span>
-    <span
-      style={{
-        fontWeight: 700,
-        color: isOn ? accentColor : "var(--vscode-descriptionForeground, #888)",
-        opacity: isOn ? 1 : 0.6,
-      }}
-    >
-      {isOn ? "ON" : "OFF"}
-    </span>
-  </>
+  <TooltipCard>
+    <TooltipRow
+      label={label}
+      value={isOn ? "ON" : "OFF"}
+      color={accentColor}
+      active={isOn}
+    />
+  </TooltipCard>
 );
 
 /**
@@ -1059,6 +996,43 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     const displayAccount = React.useMemo(() => {
       return currentAccount || null;
     }, [currentAccount]);
+
+    const effortInfo = React.useMemo(
+      () =>
+        getModelEffortInfo(
+          providers,
+          currentModel?.providerId,
+          currentModel?.id,
+        ),
+      [providers, currentModel?.providerId, currentModel?.id],
+    );
+
+    const handleEffortChange = React.useCallback(
+      (lvl: EffortLevel) => {
+        if (!currentModel || !effortInfo) return;
+        const nextId = `${effortInfo.base}-${lvl}`;
+        const prov = providers.find(
+          (p: any) =>
+            p.provider_id?.toLowerCase() ===
+            currentModel.providerId?.toLowerCase(),
+        );
+        const modelObj = prov?.models?.find((m: any) => m.id === nextId);
+        if (!modelObj) return;
+        setCurrentModel({
+          ...currentModel,
+          id: nextId,
+          modelId: nextId,
+          name: modelObj.name || nextId,
+          is_thinking: modelObj.is_thinking ?? false,
+          is_search: modelObj.is_search ?? false,
+          is_image_upload: modelObj.is_image_upload ?? false,
+          is_video_upload: modelObj.is_video_upload ?? false,
+          is_audio_upload: modelObj.is_audio_upload ?? false,
+          is_file_upload: modelObj.is_file_upload ?? false,
+        });
+      },
+      [currentModel, effortInfo, providers, setCurrentModel],
+    );
 
     // Fetch live stats từ /v1/accounts/:id để triggerUI luôn có usage mới nhất
     // refreshInterval=30000: cập nhật mỗi 30s khi drawer mở (bug fix: triggerUI dùng data cũ)
@@ -2270,6 +2244,15 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     flexShrink: 0,
                   }}
                 />
+                {!isConversationStarted &&
+                  effortInfo &&
+                  effortInfo.options.length > 1 && (
+                    <EffortDropdown
+                      effort={effortInfo.effort}
+                      options={effortInfo.options}
+                      onChange={handleEffortChange}
+                    />
+                  )}
                 {/* Prompt Settings (Style · Diagnostics · Skill) — Home only, ẩn khi anti-injection bật hoặc promptLength=none */}
                 {!isConversationStarted &&
                   !isAntiInjectionProvider &&
@@ -2294,6 +2277,20 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     />
                   )}
 
+                {!isConversationStarted &&
+                  !isAntiInjectionProvider &&
+                  promptLengthMode === "none" && (
+                    <PromptSettingsDropdown
+                      formatOnly
+                      systemPromptMode={systemPromptMode}
+                      onSelectSystemPromptMode={() => {}}
+                      toolFormat={conversationToolFormat ?? "xml"}
+                      onToolFormatToggle={() => {
+                        onConversationToolFormatToggle?.();
+                      }}
+                    />
+                  )}
+
                 {/* Prompt Length Selector - Home only, hidden when anti-injection is active */}
                 {!isConversationStarted && !isAntiInjectionProvider && (
                   <PromptLengthDropdown
@@ -2311,14 +2308,13 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         return (
                           <SimpleTooltip
                             content={
-                              <>
-                                <span>Prompt Length</span>
-                                <span
-                                  style={{ fontWeight: 700, color: meta.color }}
-                                >
-                                  {meta.label}
-                                </span>
-                              </>
+                              <TooltipCard>
+                                <TooltipRow
+                                  label="Prompt Length"
+                                  value={meta.label}
+                                  color={meta.color}
+                                />
+                              </TooltipCard>
                             }
                           >
                             <button

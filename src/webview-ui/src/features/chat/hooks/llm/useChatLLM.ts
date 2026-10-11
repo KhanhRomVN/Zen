@@ -37,7 +37,7 @@ interface ConversationOverrides {
   diagnosticEnabled?: boolean;
   useSkillEnabled?: boolean;
   memoryEnabled?: boolean;
-  toolFormat?: 'xml' | 'json';
+  toolFormat?: "xml" | "json";
 }
 
 interface UseChatLLMProps {
@@ -487,7 +487,7 @@ export const useChatLLM = ({
           ? conversationOverridesRef.current.memoryEnabled
           : memoryEnabled;
       const effectiveToolFormat =
-        conversationOverridesRef.current?.toolFormat ?? 'xml';
+        conversationOverridesRef.current?.toolFormat ?? "xml";
 
       const promptPayload = await PromptBuilder.buildPrompt({
         content,
@@ -505,7 +505,7 @@ export const useChatLLM = ({
         memoryEnabled: isAntiInjection ? false : effectiveMemory,
         providerId: model?.providerId ?? lastUsedModelRef.current?.providerId,
         antiSystemPromptInjection: isAntiInjection,
-        toolFormat: isAntiInjection ? 'xml' : effectiveToolFormat,
+        toolFormat: isAntiInjection ? "xml" : effectiveToolFormat,
       });
 
       const userMessage: Message = {
@@ -1034,7 +1034,8 @@ export const useChatLLM = ({
           // 🔧 FIX: Parse rawResponse (includes thinking) instead of content
           const contentToParse =
             assistantMessage.rawResponse || assistantMessage.content;
-          const currentToolFormat = conversationOverridesRef.current?.toolFormat ?? 'xml';
+          const currentToolFormat =
+            conversationOverridesRef.current?.toolFormat ?? "xml";
 
           parsed = parseAIResponse(contentToParse, currentToolFormat);
           toolSequence = parsed.contentBlocks
@@ -1133,9 +1134,6 @@ export const useChatLLM = ({
           );
         } catch (parseError) {
           hasParsingError = true;
-          // Parsing failed - convert assistant message to error
-          console.error("[Zen] Response parsing failed:", parseError);
-
           const errorDetails =
             parseError instanceof Error
               ? parseError.message

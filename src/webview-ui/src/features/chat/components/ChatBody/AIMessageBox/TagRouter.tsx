@@ -120,6 +120,85 @@ interface TagRouterProps {
   isViewOnly?: boolean;
 }
 
+interface GitDiffItemProps {
+  action: any;
+  actionIndex: number;
+  messageId: string;
+  toolOutputs?: Record<string, { output: string; isError: boolean }>;
+  isActiveGroup?: boolean;
+  isLastMessage?: boolean;
+  onToolClick: (...args: any[]) => void;
+  branch?: string;
+}
+
+/** Renders a single git_diff action; hooks live here so a group can map over it. */
+const GitDiffItem: React.FC<GitDiffItemProps> = ({
+  action,
+  actionIndex,
+  messageId,
+  toolOutputs,
+  isActiveGroup = false,
+  isLastMessage = false,
+  onToolClick,
+  branch,
+}) => {
+  const filePath = action.params.file_path || "";
+  const actionId = `${messageId}-action-${actionIndex}`;
+
+  const outputData = toolOutputs?.[actionId];
+  const diffContent = outputData?.output || action.params.diff || "";
+  const hasOutput = !!outputData && !outputData.isError;
+
+  const hasTriggeredExecution = React.useRef(false);
+  React.useEffect(() => {
+    if (
+      !hasTriggeredExecution.current &&
+      !hasOutput &&
+      isActiveGroup &&
+      !isLastMessage
+    ) {
+      hasTriggeredExecution.current = true;
+      onToolClick(action, messageId, actionIndex, "accept");
+    }
+  }, [hasOutput, isActiveGroup, isLastMessage, actionId]);
+
+  let added = 0;
+  let deleted = 0;
+  for (const line of (diffContent as string).split("\n")) {
+    if (line.startsWith("+") && !line.startsWith("+++")) added++;
+    if (line.startsWith("-") && !line.startsWith("---")) deleted++;
+  }
+
+  const showSkeleton = !hasOutput && !isActiveGroup;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+      }}
+    >
+      <GitDiffBlock
+        filePath={filePath}
+        diffContent={showSkeleton ? "" : diffContent}
+        added={showSkeleton ? 0 : added}
+        deleted={showSkeleton ? 0 : deleted}
+        statusColor="var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
+        isPartial={showSkeleton || (!hasOutput && isActiveGroup)}
+        branch={branch}
+        onFileClick={(path: any) => {
+          const vscodeApi = (window as any).vscodeApi;
+          if (vscodeApi) {
+            vscodeApi.postMessage({ command: "openFile", path });
+          }
+        }}
+      />
+    </div>
+  );
+};
+
 const TagRouterInternal: React.FC<TagRouterProps> = ({
   group,
   messageId,
@@ -900,105 +979,22 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   }
 
   if (toolType === "git_diff") {
-    const filePath = firstAction.params.file_path || "";
-    const actionIndex = toolGroup[0].index;
-    const actionId = `${messageId}-action-${actionIndex}`;
-
-    // Check if we already have the diff result in toolOutputs
-    const outputData = toolOutputs?.[actionId];
-    const diffContent = outputData?.output || firstAction.params.diff || "";
-    const hasOutput = !!outputData && !outputData.isError;
-
-    // Auto-execute the tool if not yet executed and it's the active group
-    const hasTriggeredExecution = React.useRef(false);
-    React.useEffect(() => {
-      if (
-        !hasTriggeredExecution.current &&
-        !hasOutput &&
-        isActiveGroup &&
-        !isLastMessage
-      ) {
-        hasTriggeredExecution.current = true;
-        onToolClick(firstAction, messageId, actionIndex, "accept");
-      }
-    }, [hasOutput, isActiveGroup, isLastMessage, actionId]);
-
-    // Parse diff stats from the diff content
-    const parseDiffStats = (content: string) => {
-      let added = 0;
-      let deleted = 0;
-      if (!content) return { added: 0, deleted: 0 };
-      const lines = content.split("\n");
-      for (const line of lines) {
-        if (line.startsWith("+") && !line.startsWith("+++")) added++;
-        if (line.startsWith("-") && !line.startsWith("---")) deleted++;
-      }
-      return { added, deleted };
-    };
-
-    const stats = parseDiffStats(diffContent);
-
-    // If no output yet and we're not the active group, show a loading/skeleton state
-    if (!hasOutput && !isActiveGroup) {
-      return (
-        <div
-          style={{
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-          }}
-        >
-          <GitDiffBlock
-            filePath={filePath}
-            diffContent=""
-            added={0}
-            deleted={0}
-            statusColor="var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-            isPartial={true}
-            branch={gitStatusBranch}
-            onFileClick={(path: any) => {
-              const vscodeApi = (window as any).vscodeApi;
-              if (vscodeApi) {
-                vscodeApi.postMessage({
-                  command: "openFile",
-                  path,
-                });
-              }
-            }}
-          />
-        </div>
-      );
-    }
-
     return (
-      <div
-        style={{
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          gap: "6px",
-        }}
-      >
-        <GitDiffBlock
-          filePath={filePath}
-          diffContent={diffContent}
-          added={stats.added}
-          deleted={stats.deleted}
-          statusColor="var(--vscode-gitDecoration-addedResourceForeground, #3fb950)"
-          isPartial={!hasOutput && isActiveGroup}
-          branch={gitStatusBranch}
-          onFileClick={(path: any) => {
-            const vscodeApi = (window as any).vscodeApi;
-            if (vscodeApi) {
-              vscodeApi.postMessage({
-                command: "openFile",
-                path,
-              });
-            }
-          }}
-        />
-      </div>
+      <>
+        {toolGroup.map(({ action, index }) => (
+          <GitDiffItem
+            key={index}
+            action={action}
+            actionIndex={index}
+            messageId={messageId}
+            toolOutputs={toolOutputs}
+            isActiveGroup={isActiveGroup}
+            isLastMessage={isLastMessage}
+            onToolClick={onToolClick}
+            branch={gitStatusBranch}
+          />
+        ))}
+      </>
     );
   }
 

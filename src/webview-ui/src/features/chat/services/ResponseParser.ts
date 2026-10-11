@@ -123,7 +123,7 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
   const scanStr = contentAfterThinking;
 
   // Regex: match ```json ... ``` fenced blocks (non-greedy)
-  const fenceRegex = /```json\s*\n?([\s\S]*?)```/g;
+  const fenceRegex = /```json\s*\n?([\s\S]*?)```|<git_status>([\s\S]*?)<\/git_status>/g;
 
   let lastIndex = 0;
 
@@ -140,6 +140,21 @@ const parseAIResponseJson = (content: string, result: ParsedResponse): ParsedRes
     pushMarkdown(before);
 
     const rawJson = match[0];
+
+    // App-generated <git_status> block (not from the AI) → render as git_status tool
+    if (match[2] !== undefined) {
+      const gitAction = {
+        type: 'git_status' as const,
+        params: parseGitStatus(match[2]),
+        rawXml: rawJson,
+      };
+      const gitActionIndex = result.actions.length;
+      result.contentBlocks.push({ type: 'tool', action: gitAction, actionIndex: gitActionIndex });
+      result.actions.push(gitAction);
+      lastIndex = match.index + rawJson.length;
+      continue;
+    }
+
     const jsonBody = match[1].trim();
 
     // Try to parse as tool call

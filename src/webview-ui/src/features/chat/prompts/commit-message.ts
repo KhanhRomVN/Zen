@@ -4,9 +4,62 @@ export function getCommitMessagePrompt(
   language: string,
   gitStatus: string,
   fileContents?: Record<string, string>,
+  toolFormat: "xml" | "json" = "xml",
 ): string {
   const languageName =
     LANGUAGES.find((l) => l.code === language)?.name || language;
+
+  const isJson = toolFormat === "json";
+
+  const diffRef = isJson ? "`git_diff`" : "`<git_diff>`";
+
+  const toolUsageSection = isJson
+    ? `**Tool usage:**
+\`\`\`json
+{"tool":"git_diff","params":{"file_path":"path/to/file"}}
+\`\`\`
+- Call one ${diffRef} per file you need to inspect.
+- Batch all ${diffRef} calls in a single message (one message, one fenced \`\`\`json block per call, exactly one object per block).
+- STOP after calling the tools. Wait for the diff results before generating the commit message.
+- After receiving results, proceed to STEP 2.`
+    : `**Tool usage:**
+\`\`\`xml
+<git_diff><file_path>path/to/file</file_path></git_diff>
+\`\`\`
+- Call one ${diffRef} per file you need to inspect.
+- Batch all ${diffRef} calls in a single message (one message, multiple tags).
+- STOP after calling the tools. Wait for the diff results before generating the commit message.
+- After receiving results, proceed to STEP 2.`;
+
+  const structureSection = isJson
+    ? `\`\`\`json
+{"tool":"commit_message","params":{"message":"<emoji> <type>(<scope>): <subject>\\n- <change 1>\\n- <change 2>\\n- <change n>"}}
+\`\`\``
+    : `\`\`\`
+<commit_message>
+<emoji> <type>(<scope>): <subject>
+- <change 1>
+- <change 2>
+- <change n>
+</commit_message>
+\`\`\``;
+
+  const exampleOutput = isJson
+    ? `\`\`\`json
+{"tool":"commit_message","params":{"message":"✨ feat(auth): add login and registration flow\\n\\n- Implement JWT-based authentication for login endpoint\\n- Add user registration with email validation\\n- Hash passwords using bcrypt before storing\\n- Update auth documentation to reflect new flow"}}
+\`\`\``
+    : `<commit_message>
+✨ feat(auth): add login and registration flow
+
+- Implement JWT-based authentication for login endpoint
+- Add user registration with email validation
+- Hash passwords using bcrypt before storing
+- Update auth documentation to reflect new flow
+</commit_message>`;
+
+  const outputFormatRule = isJson
+    ? `- **CRITICAL — Output format**: The commit message must be emitted as a single \`commit_message\` JSON object inside its own fenced \`\`\`json block. The \`message\` value must be a valid JSON string (newlines written as \\n). Do NOT emit any XML tag. Output that block directly, with nothing before or after it except the \`git_diff\` requests (if needed in STEP 1).`
+    : `- **CRITICAL — Output format**: The \`<commit_message>\` tag must be the outermost wrapper. Do NOT wrap it inside markdown code blocks (\`\`\`), \`\`\`markdown, or any other tag. Output the \`<commit_message>...</commit_message>\` block directly, with nothing before or after it except the request for file contents (if needed in STEP 1).`;
 
   const fileContentsSection =
     fileContents && Object.keys(fileContents).length > 0
@@ -31,23 +84,16 @@ You are a Git commit message generator. Your job is to analyze changes and produ
 
 Before generating a commit message, evaluate whether the git status alone provides enough context.
 
-**Use \`<git_diff>\` to get file-level diff if ANY of these conditions are true:**
+**Use ${diffRef} to get file-level diff if ANY of these conditions are true:**
 - File names are ambiguous (e.g., utils.ts, helpers.py, index.ts, common.js)
 - There are deleted or renamed files whose impact is unclear
 - The change appears to touch critical areas (auth, payment, security, database migrations)
 - Mixed change types that are hard to group without seeing the actual code changes
 - There are more than 5 changed files and their purposes are not obvious from filenames alone
 
-**Tool usage:**
-\`\`\`xml
-<git_diff><file_path>path/to/file</file_path></git_diff>
-\`\`\`
-- Call one \`<git_diff>\` per file you need to inspect.
-- Batch all \`<git_diff>\` calls in a single message (one message, multiple tags).
-- STOP after calling the tools. Wait for the diff results before generating the commit message.
-- After receiving results, proceed to STEP 2.
+${toolUsageSection}
 
-**Proceed directly to STEP 2 WITHOUT calling \`<git_diff>\` ONLY if:**
+**Proceed directly to STEP 2 WITHOUT calling ${diffRef} ONLY if:**
 - File names clearly indicate the purpose of changes (e.g., fix-login-bug.ts, add-user-avatar.tsx)
 - There are 5 or fewer changed files with clear, related purposes
 - File contents have already been provided below
@@ -58,14 +104,7 @@ Before generating a commit message, evaluate whether the git status alone provid
 
 ### Required commit message structure:
 
-\`\`\`
-<commit_message>
-<emoji> <type>(<scope>): <subject>
-- <change 1>
-- <change 2>
-- <change n>
-</commit_message>
-\`\`\`
+${structureSection}
 
 ### Rules:
 
@@ -113,14 +152,7 @@ M  docs/auth.md
 \`\`\`
 
 Output:
-<commit_message>
-✨ feat(auth): add login and registration flow
-
-- Implement JWT-based authentication for login endpoint
-- Add user registration with email validation
-- Hash passwords using bcrypt before storing
-- Update auth documentation to reflect new flow
-</commit_message>
+${exampleOutput}
 
 ---
 
@@ -131,7 +163,7 @@ Output:
 - **Write the entire commit message in ${languageName}**
 - Be specific — avoid generic descriptions that could apply to any commit
 - If a file is deleted, explicitly mention what was removed and why (if inferrable)
-- **CRITICAL — Output format**: The \`<commit_message>\` tag must be the outermost wrapper. Do NOT wrap it inside markdown code blocks (\`\`\`), \`\`\`markdown, or any other tag. Output the \`<commit_message>...</commit_message>\` block directly, with nothing before or after it except the request for file contents (if needed in STEP 1).
+${outputFormatRule}
 
 ---
 

@@ -302,6 +302,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const setToolOutputsRef = useRef<any>(null);
 
   const {
+    toolFormat: conversationToolFormat,
+    setToolFormat: setConversationToolFormat,
+    toggleToolFormat: handleToolFormatToggle,
+  } = useToolFormatSettings(currentModel?.providerId, currentModel?.id);
+
+  const {
     messages,
     setMessages,
     messagesRef,
@@ -323,8 +329,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   } = useChatLLM({
     apiUrl,
     selectedTab: currentChat,
-    conversationOverrides:
-      pendingConversationOverridesRef.current ?? restoredConversationOverrides,
+    conversationOverrides: {
+      ...(pendingConversationOverridesRef.current ??
+        restoredConversationOverrides),
+      toolFormat: conversationToolFormat,
+    },
     providerBlockedRanges: currentProviderBlockedRanges,
     antiSystemPromptInjection: currentAntiSystemPromptInjection,
     onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
@@ -366,7 +375,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   // ── Request Cooldown tracking ────────────────────────────────────────
   // Track thời điểm nhận xong response cuối (isStreaming: true → false).
   // Dùng để tính cooldown timer trong MessageInput toolbar.
-  const [lastResponseEndTime, setLastResponseEndTime] = React.useState<number | null>(null);
+  const [lastResponseEndTime, setLastResponseEndTime] = React.useState<
+    number | null
+  >(null);
   const prevIsStreamingRef = React.useRef(false);
   React.useEffect(() => {
     const wasStreaming = prevIsStreamingRef.current;
@@ -625,13 +636,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     [sendMessage, currentConversationId],
   );
 
-  // --- Tool Format State (per provider+model) ---
-  const {
-    toolFormat: conversationToolFormat,
-    setToolFormat: setConversationToolFormat,
-    toggleToolFormat: handleToolFormatToggle,
-  } = useToolFormatSettings(currentModel?.providerId, currentModel?.id);
-
   // Sync từ restoredConversationOverrides khi load conversation từ storage
   // (override lưu trong conversation metadata có độ ưu tiên cao hơn per-model default)
   useEffect(() => {
@@ -707,6 +711,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     currentAccount,
     providers,
     commitMessageLanguage,
+    toolFormat: conversationToolFormat,
     currentConversationId,
     wrappedSendMessage,
     setMessages,
@@ -1121,6 +1126,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     // Duyệt tuần tự: đếm mỗi assistant là 1 msg, cộng token của cả user trước đó và assistant.
     // prompt_tokens nằm trên message USER (không phải assistant), nên phải gom riêng.
     let pendingReqTokens = 0;
+    let historyTokens = 0;
+    const tokenCountMode =
+      providers.find(
+        (p: any) =>
+          p.provider_id?.toLowerCase() ===
+          currentModel?.providerId?.toLowerCase(),
+      )?.token_count_mode ?? "incremental";
     for (const msg of messages) {
       if (msg.uiHidden || msg.isCancelled) continue;
       if (msg.role === "user") {
@@ -1129,7 +1141,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       } else if (msg.role === "assistant") {
         msgs++;
         const aResTok = msg.usage?.completion_tokens ?? msg.token_usage ?? 0;
-        tokens += pendingReqTokens + aResTok;
+        const reqTok =
+          tokenCountMode === "cumulative"
+            ? (msg.usage?.prompt_tokens ?? historyTokens + pendingReqTokens)
+            : pendingReqTokens;
+        tokens += reqTok + aResTok;
+        historyTokens += pendingReqTokens + aResTok;
         pendingReqTokens = 0;
       }
     }
@@ -1138,7 +1155,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       tokens: tokens > 0 ? tokens : undefined,
       requests: msgs > 0 ? msgs : undefined,
     };
-  }, [messages]);
+  }, [messages, providers, currentModel?.providerId]);
   // ── 3-dot menu handlers ──────────────────────────────────────────────
   const handleCopyAsMarkdown = useCallback(() => {
     const lines: string[] = [];
