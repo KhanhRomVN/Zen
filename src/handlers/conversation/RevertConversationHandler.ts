@@ -151,10 +151,6 @@ export class RevertConversationHandler {
     this.pathService = PathService.getInstance();
   }
 
-  private getProjectContextDir(workspaceFolderPath: string): string {
-    return this.pathService.getProjectContextDir(workspaceFolderPath);
-  }
-
   /**
    * Resolve a file path (possibly relative) to an absolute path using the workspace folder.
    */

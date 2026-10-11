@@ -176,6 +176,32 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     return pc?.blocked_time_ranges ?? null;
   }, [currentModel?.providerId, providers]);
 
+  // request_cooldown_ms từ provider config — thời gian chờ (ms) giữa các request.
+  // '0' hoặc không có = tắt. Giá trị có thể là string hoặc number từ backend.
+  const currentProviderCooldownMs = React.useMemo(() => {
+    const providerId = currentModel?.providerId;
+    if (!providerId) return 0;
+    const pc = providers.find(
+      (p: any) => p.provider_id?.toLowerCase() === providerId.toLowerCase(),
+    );
+    const raw = (pc as any)?.request_cooldown_ms;
+    if (raw === undefined || raw === null) return 0;
+    const n = Number(raw);
+    return isNaN(n) ? 0 : n;
+  }, [currentModel?.providerId, providers]);
+
+  // anti_system_prompt_injection từ provider config — sync với claude.constant.ts qua API.
+  // Khi true: dùng claude-system-prompt riêng, zip workspace, parse ClaudeContentProcessor.
+  // Khi false (constant bị comment out): toàn bộ cơ chế đặc thù tắt theo.
+  const currentAntiSystemPromptInjection = React.useMemo(() => {
+    const providerId = currentModel?.providerId;
+    if (!providerId) return false;
+    const pc = providers.find(
+      (p: any) => p.provider_id?.toLowerCase() === providerId.toLowerCase(),
+    );
+    return !!(pc as any)?.anti_system_prompt_injection;
+  }, [currentModel?.providerId, providers]);
+
   const { commitMessageLanguage, promptLengthMode, systemPromptMode } =
     useSettings();
 
@@ -300,6 +326,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     conversationOverrides:
       pendingConversationOverridesRef.current ?? restoredConversationOverrides,
     providerBlockedRanges: currentProviderBlockedRanges,
+    antiSystemPromptInjection: currentAntiSystemPromptInjection,
     onToolRequest: (actions, assistantMessage, isAutoTrigger, actionType) =>
       handleToolRequest(
         actions,
@@ -335,6 +362,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Track messages and streaming state - kept for potential future use, but removed heavy logging
   // (Previously had debug useEffect here - removed for performance)
+
+  // ── Request Cooldown tracking ────────────────────────────────────────
+  // Track thời điểm nhận xong response cuối (isStreaming: true → false).
+  // Dùng để tính cooldown timer trong MessageInput toolbar.
+  const [lastResponseEndTime, setLastResponseEndTime] = React.useState<number | null>(null);
+  const prevIsStreamingRef = React.useRef(false);
+  React.useEffect(() => {
+    const wasStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = isStreaming;
+    if (wasStreaming && !isStreaming) {
+      // Stream vừa kết thúc → ghi lại timestamp
+      setLastResponseEndTime(Date.now());
+    }
+  }, [isStreaming]);
+
+  // Reset lastResponseEndTime khi bắt đầu một conversation mới
+  React.useEffect(() => {
+    setLastResponseEndTime(null);
+  }, [currentChat?.sessionId]);
+  // ─────────────────────────────────────────────────────────────────────
 
   // Enrich currentAccount với usage + period stats sau mỗi lần stream xong
   // và khi account.id đổi. Dùng isStreaming làm trigger — mỗi khi stream
@@ -1314,6 +1361,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         isViewOnly={isViewOnly}
         conversationToolFormat={conversationToolFormat}
         onConversationToolFormatToggle={handleToolFormatToggle}
+        lastResponseEndTime={lastResponseEndTime}
+        requestCooldownMs={currentProviderCooldownMs}
       />
     </div>
   );

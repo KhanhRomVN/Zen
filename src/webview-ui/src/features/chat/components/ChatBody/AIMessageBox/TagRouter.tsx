@@ -114,7 +114,8 @@ interface TagRouterProps {
   isBlockedByPrecedingInteraction?: boolean;
   firstUnclickedActionIndex?: number;
   /** True khi message được tạo bởi claude provider — các tool read/run chỉ display-only */
-  isClaudeProvider?: boolean;
+  /** Cờ anti-injection (persist theo message) — thay cho hardcode providerId === "claude" */
+  isAntiInjectionProvider?: boolean;
   /** View-only: disable question/option buttons */
   isViewOnly?: boolean;
 }
@@ -153,7 +154,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   onSendMessage,
   isBlockedByPrecedingInteraction = false,
   firstUnclickedActionIndex,
-  isClaudeProvider = false,
+  isAntiInjectionProvider = false,
   isViewOnly = false,
 }) => {
   const { rootPath } = useProject();
@@ -456,7 +457,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
   ]);
 
   let isDisplayOnly = false;
-  if (isClaudeProvider) {
+  if (isAntiInjectionProvider) {
     if (ALWAYS_DISPLAY_ONLY_TOOLS.has(toolType)) {
       isDisplayOnly = true;
     } else if (toolType === "run_command") {
@@ -815,7 +816,7 @@ const TagRouterInternal: React.FC<TagRouterProps> = ({
 
           // Determine display-only status per action (based on _is_sandbox param)
           const isSandboxFlag = action.params?._is_sandbox === true;
-          const currentIsDisplayOnly = isClaudeProvider && isSandboxFlag;
+          const currentIsDisplayOnly = isAntiInjectionProvider && isSandboxFlag;
 
           return (
             <RunCommandRenderer

@@ -289,8 +289,8 @@ const HomePanel: React.FC<HomePanelProps> = ({
     toggleToolFormat: toggleConversationToolFormat,
   } = useToolFormatSettings(currentModel?.providerId, currentModel?.id);
 
-  // ── Claude detection (for ZenCLI hint bar color) ──
-  const isClaudeProvider = currentModel?.providerId?.toLowerCase() === "claude";
+  // NOTE: Claude/anti-injection detection được xử lý nội bộ trong MessageInput
+  // (tự đọc providers config + currentModel). Home panel không cần biết.
 
   // ── Refs ──
   // 🔍 PERFORMANCE DEBUG LOGS

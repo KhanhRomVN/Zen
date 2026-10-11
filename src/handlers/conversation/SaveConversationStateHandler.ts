@@ -13,7 +13,6 @@
 // ─── Imports ────────────────────────────────────────────────────────────
 // ── Node ──
 import * as fs from "fs";
-import * as path from "path";
 
 // ── VSCode ──
 import * as vscode from "vscode";
@@ -48,10 +47,6 @@ export class SaveConversationStateHandler {
     this._saveDebounceTimers = new Map();
     this._pendingSaveData = new Map();
     this.pathService = PathService.getInstance();
-  }
-
-  private getProjectContextDir(workspaceFolderPath: string): string {
-    return this.pathService.getProjectContextDir(workspaceFolderPath);
   }
 
   public async handleSaveConversationState(message: any) {
@@ -151,10 +146,6 @@ export class SaveConversationStateHandler {
         const release = await this.fileLockManager.acquire(logPath);
         try {
           await fs.promises.writeFile(logPath, newJson);
-          // Verify write
-          const verifyContent = await fs.promises.readFile(logPath, "utf-8");
-          const verifyData = JSON.parse(verifyContent);
-          // ─────────────────────────────────────────────────────────────────
         } finally {
           release();
         }

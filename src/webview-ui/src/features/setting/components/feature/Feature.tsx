@@ -297,6 +297,8 @@ const FeatureSettings: React.FC = () => {
     setShowMetadataBar,
     memoryEnabled,
     setMemoryEnabled,
+    requestCooldownEnabled,
+    setRequestCooldownEnabled,
   } = useSettings();
 
   return (
@@ -375,6 +377,12 @@ const FeatureSettings: React.FC = () => {
           description="Show token usage and response number below each AI response in the chat."
           checked={showMetadataBar}
           onChange={setShowMetadataBar}
+        />
+        <ToggleRow
+          title="Request Cooldown"
+          description="Wait a short delay after receiving a response before allowing the next request. Helps avoid rate-limiting from providers that flag rapid consecutive messages."
+          checked={requestCooldownEnabled}
+          onChange={setRequestCooldownEnabled}
         />
       </GroupSection>
 

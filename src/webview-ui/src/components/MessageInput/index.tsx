@@ -119,6 +119,49 @@ const useToggleState = (key: string, defaultValue: boolean = false) => {
   return [state, toggle, setState] as const;
 };
 
+/**
+ * Hook tính thời gian còn lại (ms) cho cooldown request.
+ * Trả về `remaining` (ms) > 0 khi đang trong giai đoạn cooldown, 0 khi đã hết.
+ * Cập nhật mỗi 100ms để UI đếm ngược mượt.
+ */
+const useCooldownTimer = (
+  lastResponseEndTime: number | null | undefined,
+  cooldownMs: number,
+): number => {
+  const [remaining, setRemaining] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!lastResponseEndTime || cooldownMs <= 0) {
+      setRemaining(0);
+      return;
+    }
+
+    let rafId: number;
+    
+    const tick = () => {
+      const elapsed = Date.now() - lastResponseEndTime;
+      const left = Math.max(0, cooldownMs - elapsed);
+      
+      // Chỉ update state nếu giá trị thay đổi đáng kể hoặc về 0 để tránh re-render vô ích
+      setRemaining(prev => {
+        if (prev === left) return prev;
+        return left;
+      });
+
+      if (left > 0) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    // Bắt đầu loop ngay lập tức
+    tick();
+
+    return () => cancelAnimationFrame(rafId);
+  }, [lastResponseEndTime, cooldownMs]);
+
+  return remaining;
+};
+
 const useModelCapabilities = (
   currentModel: any,
   currentModelConfig: any,
@@ -818,6 +861,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
     onConversationUseSkillToggle,
     onConversationMemoryToggle,
     onConversationToolFormatToggle,
+    lastResponseEndTime,
+    requestCooldownMs = 0,
   }) => {
     // 🔍 PERFORMANCE DEBUG LOGS
     const renderCountRef = React.useRef(0);
@@ -914,18 +959,21 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       providers,
     );
 
-    // ─── Claude workspace zip-size badge ─────────────────────────────
-    // Khi provider = claude, workspace sẽ được zip + upload kèm message đầu tiên.
-    // Trigger zip trước để user thấy size ước lượng ngay trên toolbar.
+    // ─── Anti-System-Prompt-Injection detection ──────────────────────
+    // Cờ này lấy từ backend constant (claude.constant.ts). Nếu false (comment out),
+    // toàn bộ cơ chế đặc thù (zip badge, ẩn dropdown, prompt riêng) sẽ tắt theo.
+    const isAntiInjectionProvider =
+      !!(currentProviderConfig as any)?.anti_system_prompt_injection;
+
+    // ─── Workspace zip-size badge ────────────────────────────────────
+    // Chỉ kích hoạt khi provider có anti-injection flag = true.
     const { rootPath } = useProject();
-    const isClaudeProvider =
-      currentModel?.providerId?.toLowerCase() === "claude";
     // triggerKey: đổi khi rootPath hoặc model đổi → invalidate cache, chạy lại
     const zipTriggerKey = React.useMemo(() => {
-      if (!isClaudeProvider || !rootPath) return null;
+      if (!isAntiInjectionProvider || !rootPath) return null;
       return `${rootPath}::${currentModel?.id ?? ""}`;
-    }, [isClaudeProvider, rootPath, currentModel?.id]);
-    const zipSizeState = useWorkspaceZipSize(isClaudeProvider, zipTriggerKey);
+    }, [isAntiInjectionProvider, rootPath, currentModel?.id]);
+    const zipSizeState = useWorkspaceZipSize(isAntiInjectionProvider, zipTriggerKey);
 
     // ─── View-only mode detection ────────────────────────────────────
     // Hai trường hợp view-only:
@@ -991,6 +1039,19 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
     useTextareaAutoResize(textareaRef, message);
 
+    // ─── Cooldown timer ──────────────────────────────────────────────
+    // Đếm ngược từ lúc nhận xong response đến khi hết cooldown.
+    // Đọc setting từ SettingsContext để biết người dùng có bật không.
+    const { requestCooldownEnabled } = useSettings();
+    const effectiveCooldownMs =
+      requestCooldownEnabled && requestCooldownMs > 0 ? requestCooldownMs : 0;
+    const cooldownRemaining = useCooldownTimer(
+      lastResponseEndTime,
+      effectiveCooldownMs,
+    );
+    // isCoolingDown = true khi đang trong giai đoạn chờ
+    const isCoolingDown = cooldownRemaining > 0;
+
     const displayModel = React.useMemo(() => {
       return currentModel || null;
     }, [currentModel]);
@@ -1029,6 +1090,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       if (isTimeBlocked && timeBlockLabel) {
         return `DeepSeek is blocked during ${timeBlockLabel.all}`;
       }
+      if (isCoolingDown) {
+        return `Please wait ${(cooldownRemaining / 1000).toFixed(1)}s before sending next message...`;
+      }
       if (!currentModel) {
         return "Select a model to start";
       }
@@ -1046,6 +1110,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       isViewOnlyProvider,
       isTimeBlocked,
       timeBlockLabel,
+      isCoolingDown,
+      cooldownRemaining,
       currentModel,
       currentAccount,
       supportsUpload,
@@ -1073,8 +1139,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
         try {
           let systemPrompt: string;
 
-          if (currentModel?.providerId?.toLowerCase() === "claude") {
-            // Claude dùng prompt riêng — không phụ thuộc promptLengthMode/systemPromptMode
+          if (isAntiInjectionProvider) {
+            // Anti-injection provider dùng prompt riêng — không phụ thuộc promptLengthMode/systemPromptMode
             systemPrompt = buildClaudePrompt({ language: preferredLanguage });
           } else {
             // Generic providers: build theo mode + length
@@ -1312,10 +1378,9 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
       setIsSearch,
     ]);
 
-    // Auto-fix promptLengthMode & systemPromptMode khi provider có anti_system_prompt_injection
+    // Auto-fix promptLengthMode & systemPromptMode khi provider có anti-injection flag = true
     React.useEffect(() => {
-      if (!currentProviderConfig) return;
-      if (!(currentProviderConfig as any).anti_system_prompt_injection) return;
+      if (!isAntiInjectionProvider) return;
       // Fix cứng về "none" — không cho user chọn option khác
       if (promptLengthMode !== "none") {
         setPromptLengthMode("none");
@@ -1324,7 +1389,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
         setSystemPromptMode("none");
       }
     }, [
-      currentProviderConfig,
+      isAntiInjectionProvider,
       promptLengthMode,
       systemPromptMode,
       setPromptLengthMode,
@@ -1404,6 +1469,36 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
               transition: "border 0.3s ease",
             }}
           >
+            {/* Border Depletion Progress — conic-gradient driven by cooldown timer */}
+            {isCoolingDown && !isViewOnly && !isStreaming && !isProcessing && isConnected && !isTimeBlocked && !isTokenLimitExceeded && (() => {
+              // remainingRatio: 1 at start → 0 when finished
+              const remainingRatio = effectiveCooldownMs > 0
+                ? Math.max(0, Math.min(1, cooldownRemaining / effectiveCooldownMs))
+                : 0;
+              // Angle of the visible arc (clockwise from top-left)
+              const deg = remainingRatio * 360;
+              // Muted primary color (~50% opacity)
+              const borderColor = "color-mix(in srgb, var(--vscode-textLink-foreground, #007acc) 50%, transparent)";
+
+              return (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "var(--border-radius)",
+                    padding: "1px",
+                    // Arc drawn clockwise starting from top-left (-90deg origin in conic space)
+                    background: `conic-gradient(from -90deg at 50% 50%, ${borderColor} 0deg, ${borderColor} ${deg}deg, transparent ${deg}deg, transparent 360deg)`,
+                    WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+                    WebkitMaskComposite: "xor",
+                    maskComposite: "exclude",
+                    pointerEvents: "none",
+                    zIndex: 5,
+                  }}
+                />
+              );
+            })()}
             {/* 🆕 HOME PANEL BADGE (Stuck to Border) - Only when !isConversationStarted */}
             {!isConversationStarted && (
               <div
@@ -2005,14 +2100,15 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    // Only send if not history mode, connected, not loading, not processing, not exceeded token limit, not time-blocked
+                    // Only send if not history mode, connected, not loading, not processing, not exceeded token limit, not time-blocked, not cooling down
                     if (
                       !isHistoryMode &&
                       isConnected &&
                       !isLoadingCache &&
                       !isProcessing &&
                       !isTokenLimitExceeded &&
-                      !isTimeBlocked
+                      !isTimeBlocked &&
+                      !isCoolingDown
                     ) {
                       onSendMessage();
                     }
@@ -2079,7 +2175,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                 justifyContent: "space-between",
                 alignItems: "center",
                 pointerEvents:
-                  !isConnected || isTimeBlocked || isViewOnlyProvider
+                  !isConnected || isTimeBlocked || isViewOnlyProvider || isCoolingDown
                     ? "none"
                     : undefined,
               }}
@@ -2174,54 +2270,39 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     flexShrink: 0,
                   }}
                 />
-                {/* Prompt Settings (Style · Diagnostics · Skill) — Home only, ẩn khi promptLength=none */}
-                {!isConversationStarted && promptLengthMode !== "none" && (
-                  <PromptSettingsDropdown
-                    systemPromptMode={systemPromptMode}
-                    onSelectSystemPromptMode={(mode) => {
-                      if (
-                        !!(currentProviderConfig as any)
-                          ?.anti_system_prompt_injection &&
-                        mode !== "none"
-                      )
-                        return;
-                      setSystemPromptMode(mode);
-                    }}
-                    isAntiInjection={
-                      !!(currentProviderConfig as any)
-                        ?.anti_system_prompt_injection
-                    }
-                    diagnosticEnabled={!!conversationDiagnosticEnabled}
-                    onDiagnosticToggle={onConversationDiagnosticToggle}
-                    skillEnabled={!!conversationUseSkillEnabled}
-                    onSkillToggle={onConversationUseSkillToggle}
-                    memoryEnabled={!!conversationMemoryEnabled}
-                    onMemoryToggle={onConversationMemoryToggle}
-                    toolFormat={conversationToolFormat ?? "xml"}
-                    onToolFormatToggle={() => {
-                      onConversationToolFormatToggle?.();
-                    }}
-                  />
-                )}
-
-                {/* Prompt Length Selector - Home only, hidden for Claude */}
+                {/* Prompt Settings (Style · Diagnostics · Skill) — Home only, ẩn khi anti-injection bật hoặc promptLength=none */}
                 {!isConversationStarted &&
-                  currentModel?.providerId?.toLowerCase() !== "claude" && (
-                    <PromptLengthDropdown
-                      currentMode={promptLengthMode}
-                      onSelect={(mode) => {
-                        if (
-                          !!(currentProviderConfig as any)
-                            ?.anti_system_prompt_injection &&
-                          mode !== "none"
-                        )
-                          return;
-                        setPromptLengthMode(mode);
+                  !isAntiInjectionProvider &&
+                  promptLengthMode !== "none" && (
+                    <PromptSettingsDropdown
+                      systemPromptMode={systemPromptMode}
+                      onSelectSystemPromptMode={(mode) => {
+                        if (isAntiInjectionProvider && mode !== "none") return;
+                        setSystemPromptMode(mode);
                       }}
-                      isNoneOnly={
-                        !!(currentProviderConfig as any)
-                          ?.anti_system_prompt_injection
-                      }
+                      isAntiInjection={isAntiInjectionProvider}
+                      diagnosticEnabled={!!conversationDiagnosticEnabled}
+                      onDiagnosticToggle={onConversationDiagnosticToggle}
+                      skillEnabled={!!conversationUseSkillEnabled}
+                      onSkillToggle={onConversationUseSkillToggle}
+                      memoryEnabled={!!conversationMemoryEnabled}
+                      onMemoryToggle={onConversationMemoryToggle}
+                      toolFormat={conversationToolFormat ?? "xml"}
+                      onToolFormatToggle={() => {
+                        onConversationToolFormatToggle?.();
+                      }}
+                    />
+                  )}
+
+                {/* Prompt Length Selector - Home only, hidden when anti-injection is active */}
+                {!isConversationStarted && !isAntiInjectionProvider && (
+                  <PromptLengthDropdown
+                    currentMode={promptLengthMode}
+                    onSelect={(mode) => {
+                      if (isAntiInjectionProvider && mode !== "none") return;
+                      setPromptLengthMode(mode);
+                    }}
+                    isNoneOnly={isAntiInjectionProvider}
                       triggerButton={(() => {
                         const meta =
                           PROMPT_LENGTH_MODE_META.find(
@@ -2338,8 +2419,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                   );
                 })()}
 
-                {/* Claude workspace zip-size badge — chỉ hiện khi provider = claude */}
-                {isClaudeProvider && <ClaudeZipBadge state={zipSizeState} />}
+                {/* Workspace zip-size badge — chỉ hiện khi provider có anti-injection flag = true */}
+                {isAntiInjectionProvider && <ClaudeZipBadge state={zipSizeState} />}
 
                 {/* View Only badge — chiếm chỗ token counter khi isViewOnly */}
                 {isViewOnly && (
@@ -2368,6 +2449,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                     View Only
                   </div>
                 )}
+
+
 
                 {/* Token Count Badge / Stop Button — ẩn khi isViewOnly */}
                 {isConnected && !isViewOnly && (
@@ -2427,8 +2510,8 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
                         return;
                       }
 
-                      if (isTokenLimitExceeded || isTimeBlocked) {
-                        // Don't send when limit exceeded or time-blocked
+                      if (isTokenLimitExceeded || isTimeBlocked || isCoolingDown) {
+                        // Don't send when limit exceeded, time-blocked, or cooling down
                         return;
                       }
 
@@ -2531,7 +2614,7 @@ const MessageInput: React.FC<MessageInputProps> = React.memo(
 
           {/* ─── Bậc 3: ZenCLI hint bar (ngoài border, chỉ HomePanel) ─── */}
           {!isConversationStarted && (
-            <ZenCliHintBar isClaudeProvider={isClaudeProvider} />
+            <ZenCliHintBar isClaudeProvider={isAntiInjectionProvider} />
           )}
         </div>
       </div>
@@ -2573,6 +2656,11 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
   const toolFormatSame =
     prevProps.conversationToolFormat === nextProps.conversationToolFormat;
 
+  const lastResponseEndTimeSame =
+    prevProps.lastResponseEndTime === nextProps.lastResponseEndTime;
+  const requestCooldownMsSame =
+    prevProps.requestCooldownMs === nextProps.requestCooldownMs;
+
   // Only re-render if critical props changed
   const shouldSkip =
     messageSame &&
@@ -2587,7 +2675,9 @@ export default React.memo(MessageInput, (prevProps, nextProps) => {
     diagnosticSame &&
     useSkillSame &&
     memorySame &&
-    toolFormatSame;
+    toolFormatSame &&
+    lastResponseEndTimeSame &&
+    requestCooldownMsSame;
 
   return shouldSkip;
 });

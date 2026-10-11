@@ -376,14 +376,15 @@ export const useToolExecution = ({
         const isConversationAuto =
           conversationToolOverrides[action.type] === "auto";
 
-        // [CLAUDE OVERRIDE] For Claude provider, we bypass manual confirmation pauses
-        // for auto-triggered executions. The tools are expected to run silently in background.
-        const isClaudeMsg = message.providerId === "claude";
+        // [ANTI-INJECTION OVERRIDE] Bypass manual confirmation pauses for
+        // auto-triggered executions on anti-injection providers (e.g. Claude).
+        // Tools run silently in background — flag persisted per-message at send time.
+        const isAntiInjectionMsg = !!message.antiSystemPromptInjection;
 
         let shouldPauseForManual =
           decision === "confirm" && !isConversationAuto;
 
-        if (isClaudeMsg && isAutoTrigger) {
+        if (isAntiInjectionMsg && isAutoTrigger) {
           shouldPauseForManual = false;
         }
 
@@ -573,11 +574,11 @@ export const useToolExecution = ({
             } else {
               flushedMessageIdsRef.current.add(message.id);
 
-              // [CLAUDE GUARD] Suppress auto-send result for Claude provider.
+              // [ANTI-INJECTION GUARD] Suppress auto-send result for anti-injection providers.
               // Tools still execute and outputs appear in UI, but no new chat turn is triggered automatically.
-              const isClaudeProvider = message.providerId === "claude";
+              const isAntiInjectionMsg = !!message.antiSystemPromptInjection;
 
-              if (isClaudeProvider) {
+              if (isAntiInjectionMsg) {
                 // Still clear buffer so memory doesn't leak, but don't trigger sendMessage
                 setAvailableToolResultsBuffer((prev) => {
                   const next = { ...prev };

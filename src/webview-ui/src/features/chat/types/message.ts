@@ -33,6 +33,9 @@ export interface Message {
   /** Real backend conversation ID for this message. */
   conversationId?: string;
   providerId?: string;
+  /** Cờ anti_system_prompt_injection tại thời điểm gửi request — persist theo message
+   *  để useToolExecution/AIMessageBox không cần tra providers runtime. */
+  antiSystemPromptInjection?: boolean;
   modelId?: string;
   accountId?: string;
   websiteUrl?: string;

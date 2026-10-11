@@ -47,6 +47,8 @@ interface UseChatLLMProps {
   conversationOverrides?: ConversationOverrides;
   /** Blocked time ranges từ provider config — sync với deepseek.constant.ts qua API */
   providerBlockedRanges?: Array<{ startTime: number; endTime: number }> | null;
+  /** Cờ anti_system_prompt_injection từ provider config — thay cho hardcode providerId === "claude" */
+  antiSystemPromptInjection?: boolean;
   onConversationIdChange?: (id: string) => void;
   onToolRequest?: (
     actions: ToolAction[],
@@ -120,6 +122,7 @@ export const useChatLLM = ({
   selectedTab,
   conversationOverrides,
   providerBlockedRanges,
+  antiSystemPromptInjection = false,
   onConversationIdChange,
   onToolRequest,
   onMalformedTool,
@@ -466,10 +469,9 @@ export const useChatLLM = ({
       }
 
       // Build prompt using PromptBuilder
-      // Khi provider là claude: tắt SKILL feature (skill prompt không phù hợp với claude.ai web)
-      const isClaudeProvider =
-        (model?.providerId ?? lastUsedModelRef.current?.providerId) ===
-        "claude";
+      // Cờ anti-injection lấy từ provider config (backend constant), thay cho hardcode providerId === "claude".
+      // Khi true: dùng claude-system-prompt riêng, tắt SKILL/Memory, ép toolFormat='xml'.
+      const isAntiInjection = antiSystemPromptInjection;
 
       // Per-conversation overrides take priority over global settings
       const effectiveUseSkill =
@@ -498,11 +500,12 @@ export const useChatLLM = ({
         userRequestCount: userRequestCountRef.current,
         systemPromptMode,
         promptLengthMode,
-        useSkillEnabled: isClaudeProvider ? false : effectiveUseSkill,
+        useSkillEnabled: isAntiInjection ? false : effectiveUseSkill,
         diagnosticEnabled: effectiveDiagnostic,
-        memoryEnabled: isClaudeProvider ? false : effectiveMemory,
+        memoryEnabled: isAntiInjection ? false : effectiveMemory,
         providerId: model?.providerId ?? lastUsedModelRef.current?.providerId,
-        toolFormat: isClaudeProvider ? 'xml' : effectiveToolFormat,
+        antiSystemPromptInjection: isAntiInjection,
+        toolFormat: isAntiInjection ? 'xml' : effectiveToolFormat,
       });
 
       const userMessage: Message = {
@@ -681,7 +684,7 @@ export const useChatLLM = ({
         // thấy file. Giải pháp: sinh UUID ở đây, dùng cho cả upload lẫn
         // streamChat. Nếu đã có backendConversationId (conversation cũ) thì
         // dùng lại nó.
-        const claudeUploadConversationId: string | undefined = isClaudeProvider
+        const antiInjectionConvId: string | undefined = isAntiInjection
           ? backendConversationIdRef.current ||
             (effectiveChatUuid
               ? sessionStorage.getItem(
@@ -691,10 +694,10 @@ export const useChatLLM = ({
             crypto.randomUUID()
           : undefined;
 
-        // ── Claude provider: zip workspace và gửi kèm message đầu tiên ──
+        // ── Anti-injection provider: zip workspace và gửi kèm message đầu tiên ──
         // isReq1 = true nghĩa là đây là message đầu tiên của conversation mới.
         // Chỉ zip khi không phải tool result (skipFirstRequestLogic = false).
-        if (isClaudeProvider && isReq1 && !skipFirstRequestLogic) {
+        if (isAntiInjection && isReq1 && !skipFirstRequestLogic) {
           try {
             const zipResult = await requestWorkspaceZip();
             if (zipResult) {
@@ -712,12 +715,12 @@ export const useChatLLM = ({
                   const zipUploaded = await uploadFiles(
                     [zipFile],
                     finalAccount.id,
-                    claudeUploadConversationId,
+                    antiInjectionConvId,
                   );
                   ref_file_ids.push(...zipUploaded);
                 } catch (zipUploadErr) {
                   console.warn(
-                    "[Zen][Claude] Workspace zip upload failed (non-fatal, sending message without zip):",
+                    "[Zen][AntiInjection] Workspace zip upload failed (non-fatal, sending message without zip):",
                     zipUploadErr,
                   );
                 }
@@ -725,7 +728,7 @@ export const useChatLLM = ({
             }
           } catch (zipErr) {
             console.warn(
-              "[Zen][Claude] Failed to zip workspace (non-fatal):",
+              "[Zen][AntiInjection] Failed to zip workspace (non-fatal):",
               zipErr,
             );
           }
@@ -743,7 +746,7 @@ export const useChatLLM = ({
             const uploadedObjects = await uploadFiles(
               localFiles,
               finalAccount.id,
-              claudeUploadConversationId,
+              antiInjectionConvId,
             );
             ref_file_ids.push(...uploadedObjects);
           } catch (uploadErr) {
@@ -769,10 +772,10 @@ export const useChatLLM = ({
           qwenParentIdRef.current ?? parentMessageId;
 
         // Conversation ID to send
-        // Claude: dùng claudeUploadConversationId (đã sinh trước upload)
+        // Anti-injection provider: dùng antiInjectionConvId (đã sinh trước upload)
         // để đảm bảo file và message dùng cùng 1 conversationId.
         const convIdToSend =
-          (isClaudeProvider && claudeUploadConversationId) ||
+          (isAntiInjection && antiInjectionConvId) ||
           backendConversationIdRef.current ||
           (effectiveChatUuid
             ? sessionStorage.getItem(`zen-backend-conv:${effectiveChatUuid}`) ||
@@ -903,11 +906,11 @@ export const useChatLLM = ({
                 // Tranh 130+ lan re-render toan bo UI moi khi stream
               },
               onContent: (content) => {
-                // Nếu provider là claude → strip conversation_title + parse tool markers.
-                // Path mapping luôn bật (không dùng disablePathMapping) vì claude.ai
-                // web vẫn dùng sandbox path /home/claude/work/... cần convert về workspace.
+                // Anti-injection provider → strip conversation_title + parse tool markers.
+                // Path mapping luôn bật vì claude.ai web dùng sandbox path
+                // /home/claude/work/... cần convert về workspace.
                 let finalContent = content;
-                if (finalModel?.providerId === "claude") {
+                if (antiSystemPromptInjection) {
                   const processed = processClaudeContent(content, rootPath);
                   finalContent = processed.content;
                 }
@@ -978,6 +981,8 @@ export const useChatLLM = ({
             userMsgToLog.email = assistantMessage.email;
 
           assistantMessage.providerId = userMsgToLog.providerId;
+          assistantMessage.antiSystemPromptInjection = isAntiInjection;
+          userMsgToLog.antiSystemPromptInjection = isAntiInjection;
           assistantMessage.modelId = userMsgToLog.modelId;
           assistantMessage.accountId = userMsgToLog.accountId;
           if (userMsgToLog.websiteUrl)
@@ -1225,9 +1230,9 @@ export const useChatLLM = ({
           //    - Local commands (mapped from workspace paths) should execute to perform actual work.
           // 3. Block others: read_file, list_files, etc. (usually redundant or handled differently).
 
-          const isClaudeConversation =
-            assistantMessage.providerId === "claude" ||
-            lastUsedModelRef.current?.providerId === "claude";
+          // Lọc tool execution riêng cho anti-injection provider (sandbox path mapping).
+          // Dùng cờ từ provider config thay vì hardcode providerId === "claude".
+          const isAntiInjectionConversation = antiSystemPromptInjection;
 
           // Ensure each action carries its ORIGINAL index from parsed.actions
           // so that useToolExecution generates correct actionIds matching the UI renderer keys.
@@ -1238,7 +1243,7 @@ export const useChatLLM = ({
             }),
           );
 
-          const executableActions = isClaudeConversation
+          const executableActions = isAntiInjectionConversation
             ? indexedActions.filter((a: ToolAction & { _index: number }) => {
                 if (
                   a.type === "write_to_file" ||

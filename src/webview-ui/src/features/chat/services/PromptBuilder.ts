@@ -21,8 +21,10 @@ export interface PromptBuilderOptions {
   diagnosticEnabled?: boolean;
   /** Bật/tắt Memory — chèn memory.md nội dung vào system prompt */
   memoryEnabled?: boolean;
-  /** Provider ID của model đang dùng — nếu "claude" thì dùng claude-system-prompt */
+  /** Provider ID của model đang dùng */
   providerId?: string;
+  /** Cờ anti_system_prompt_injection từ provider config — khi true, dùng claude-system-prompt riêng */
+  antiSystemPromptInjection?: boolean;
   /** Tool call format: 'xml' (default) hoặc 'json' */
   toolFormat?: 'xml' | 'json';
 }
@@ -43,6 +45,7 @@ export class PromptBuilder {
       diagnosticEnabled,
       memoryEnabled,
       providerId,
+      antiSystemPromptInjection,
       toolFormat,
     } = options;
 
@@ -59,7 +62,7 @@ export class PromptBuilder {
         promptLengthMode,
         useSkillEnabled,
         diagnosticEnabled,
-        providerId,
+        antiSystemPromptInjection,
         toolFormat,
       );
     }
@@ -67,7 +70,8 @@ export class PromptBuilder {
     // Khi Memory bật: nhúng toàn bộ nội dung memory.md vào cuối system prompt
     // dưới heading "# Memory". Chỉ inject ở lượt đầu (isReq1) — các lượt sau
     // conversation history đã mang theo system prompt ban đầu.
-    if (isReq1 && memoryEnabled && providerId !== "claude") {
+    // Bỏ qua khi provider có anti-injection flag (dùng claude-system-prompt riêng).
+    if (isReq1 && memoryEnabled && !antiSystemPromptInjection) {
       const memorySection = await this.buildMemorySection();
       systemPrompt = `${systemPrompt}${memorySection}`;
     }
@@ -113,7 +117,7 @@ export class PromptBuilder {
     promptLengthMode?: PromptLengthMode,
     useSkillEnabled?: boolean,
     diagnosticEnabled?: boolean,
-    providerId?: string,
+    antiSystemPromptInjection?: boolean,
     toolFormat?: 'xml' | 'json',
   ): Promise<string> {
     let systemInfo = {
@@ -142,8 +146,9 @@ export class PromptBuilder {
 
     const effectiveLang = aiLanguage;
 
-    // Provider claude → dùng claude-system-prompt riêng (không phụ thuộc promptLengthMode)
-    if (providerId === "claude") {
+    // Anti-injection provider → dùng claude-system-prompt riêng (không phụ thuộc promptLengthMode).
+    // Cờ lấy từ backend constant ANTI_SYSTEM_PROMPT_INJECTION qua provider config.
+    if (antiSystemPromptInjection) {
       const claudePrompt = buildClaudePrompt({
         language: effectiveLang,
       });

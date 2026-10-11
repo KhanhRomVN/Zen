@@ -77,6 +77,10 @@ interface ChatFooterProps {
   /** Tool format cho conversation này */
   conversationToolFormat?: 'xml' | 'json';
   onConversationToolFormatToggle?: () => void;
+  /** Timestamp (ms) lúc nhận xong response cuối — dùng để tính cooldown timer */
+  lastResponseEndTime?: number | null;
+  /** Thời gian cooldown (ms) lấy từ provider config. 0 = không dùng */
+  requestCooldownMs?: number;
 }
 
 const ChatFooter: React.FC<ChatFooterProps> = ({
@@ -133,6 +137,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
   isViewOnly = false,
   conversationToolFormat,
   onConversationToolFormatToggle,
+  lastResponseEndTime,
+  requestCooldownMs = 0,
 }) => {
   const renderCountRef = React.useRef(0);
   renderCountRef.current++;
@@ -642,6 +648,8 @@ const ChatFooter: React.FC<ChatFooterProps> = ({
           onRemoveAttachedItem={removeAttachedItem}
           conversationToolFormat={conversationToolFormat}
           onConversationToolFormatToggle={onConversationToolFormatToggle}
+          lastResponseEndTime={lastResponseEndTime}
+          requestCooldownMs={requestCooldownMs}
         />
       </div>
     </div>

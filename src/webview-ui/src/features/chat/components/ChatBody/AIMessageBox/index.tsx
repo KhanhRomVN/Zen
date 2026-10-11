@@ -481,7 +481,7 @@ const AIMessageBoxInternal: React.FC<AIMessageBoxProps> = ({
               onSelectOption={onSelectOption}
               onSendMessage={onSendMessage}
               firstUnclickedActionIndex={firstUnclickedActionIndex}
-              isClaudeProvider={message.providerId === "claude"}
+              isAntiInjectionProvider={!!message.antiSystemPromptInjection}
               isViewOnly={isViewOnly}
             />
           );

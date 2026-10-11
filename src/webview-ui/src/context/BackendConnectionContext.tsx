@@ -31,6 +31,16 @@ const HEALTH_ENDPOINT = "/v1/health";
 const GITHUB_LATEST_API =
   "https://api.github.com/repos/KhanhRomVN/AIWeb2API/releases/latest";
 
+// ─── Debug logger (errors only) ─────────────────────────────────────────
+function logConnectionEvent(msg: string, data?: Record<string, unknown>) {
+  const ts = new Date().toISOString();
+  if (data) {
+    console.warn(`[BackendConnection][${ts}] ${msg}`, data);
+  } else {
+    console.warn(`[BackendConnection][${ts}] ${msg}`);
+  }
+}
+
 // ─── Semver helpers ──────────────────────────────────────────────────────
 function parseSemver(v: string): [number, number, number] | null {
   const m = v.replace(/^v/, "").match(/^(\d+)\.(\d+)\.(\d+)$/);
@@ -80,6 +90,11 @@ export const BackendConnectionProvider = ({
     return latestVersionRef.current;
   };
 
+  // Track previous connection state to detect transitions (only for logging)
+  const prevConnectedRef = React.useRef<boolean | null>(null);
+  // Track timestamp of last "still-disconnected" log to avoid spam
+  const lastAbortLogMsRef = React.useRef<number>(0);
+
   const checkConnection = async (showCheckingUI = false) => {
     // PERF: Only set isChecking when user manually triggers a connection check
     // (e.g., clicking "Retry Connection"). During automated 5s polling, skip
@@ -89,6 +104,7 @@ export const BackendConnectionProvider = ({
       setIsChecking(true);
     }
     try {
+      const fetchStartMs = Date.now();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2000);
 
@@ -97,11 +113,22 @@ export const BackendConnectionProvider = ({
         method: "GET",
       });
       clearTimeout(timeoutId);
+      const fetchElapsedMs = Date.now() - fetchStartMs;
 
       if (res.ok) {
         const data = await res.json();
         const connected = data.status === "ok";
         const mismatch = connected && data.elara !== "khanhromvn/elara";
+
+        // Log recovery: disconnected → connected
+        if (connected && prevConnectedRef.current === false) {
+          logConnectionEvent("✅ Connection RECOVERED", {
+            url: `${apiUrl}${HEALTH_ENDPOINT}`,
+            fetchElapsedMs,
+            version: data.version,
+          });
+        }
+        prevConnectedRef.current = connected;
 
         // Only update state if values actually changed
         setIsConnected((prev) => (prev === connected ? prev : connected));
@@ -128,10 +155,41 @@ export const BackendConnectionProvider = ({
           }
         }
       } else {
+        // Log transition: connected → disconnected (non-ok HTTP status)
+        if (prevConnectedRef.current !== false) {
+          logConnectionEvent("❌ Connection LOST (non-ok HTTP status)", {
+            url: `${apiUrl}${HEALTH_ENDPOINT}`,
+            status: res.status,
+            fetchElapsedMs,
+          });
+        }
+        prevConnectedRef.current = false;
         setIsConnected((prev) => (prev === false ? prev : false));
         setIsElaraMismatch((prev) => (prev === false ? prev : false));
       }
     } catch (e) {
+      const isAbort = e instanceof Error && e.name === "AbortError";
+      // Log transition: connected → disconnected (fetch error/timeout)
+      if (prevConnectedRef.current !== false) {
+        logConnectionEvent("❌ Connection LOST (fetch error)", {
+          url: `${apiUrl}${HEALTH_ENDPOINT}`,
+          error: e instanceof Error ? e.message : String(e),
+          isAbortTimeout: isAbort,
+        });
+      } else {
+        // Still disconnected — log a "still disconnected" at most once per 60s
+        // to avoid flooding the console while server is down.
+        const now = Date.now();
+        if (now - lastAbortLogMsRef.current >= 60_000) {
+          lastAbortLogMsRef.current = now;
+          logConnectionEvent("⏳ Still disconnected (fetch error)", {
+            url: `${apiUrl}${HEALTH_ENDPOINT}`,
+            error: e instanceof Error ? e.message : String(e),
+            isAbortTimeout: isAbort,
+          });
+        }
+      }
+      prevConnectedRef.current = false;
       setIsConnected((prev) => (prev === false ? prev : false));
       setIsElaraMismatch((prev) => (prev === false ? prev : false));
     } finally {
